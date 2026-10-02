@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -45,6 +46,10 @@ namespace FolderRewind.ViewModels
         }
 
         private bool _isActive;
+        private bool _isDisposed;
+        private BackupConfig? _subscribedConfig;
+        private readonly CollectionChangedSubscription _configSubscription = new();
+        private readonly CollectionChangedSubscription _folderSubscription = new();
         private BackupConfig? _currentConfig;
         private ManagedFolder? _selectedFolder;
         private string _backupComment = string.Empty;
@@ -79,9 +84,8 @@ namespace FolderRewind.ViewModels
                 }
 
                 _commands.Cancel();
-                var old = _currentConfig;
                 // 切配置前先解绑旧集合监听，避免旧配置变更继续污染当前页面。
-                UnhookCurrentFoldersChanged(old);
+                UnhookCurrentFoldersChanged();
 
                 _currentConfig = value;
 
@@ -118,7 +122,7 @@ namespace FolderRewind.ViewModels
 
         public void Activate()
         {
-            if (_isActive)
+            if (_isActive || _isDisposed)
             {
                 return;
             }
@@ -128,6 +132,7 @@ namespace FolderRewind.ViewModels
 
 
             _commands.Activate();
+            ConfigService.Saved += OnConfigurationSaved;
             HookCurrentFoldersChanged(_currentConfig);
             HookConfigsChanged();
             RefreshConfigsView();
@@ -143,17 +148,20 @@ namespace FolderRewind.ViewModels
             // 与 Activate 成对解绑，防止重复回调与内存滞留。
             _isActive = false;
 
+            ConfigService.Saved -= OnConfigurationSaved;
             _commands.Deactivate();
             UnhookConfigsChanged();
-            UnhookCurrentFoldersChanged(_currentConfig);
+            UnhookCurrentFoldersChanged();
         }
 
         public void Dispose()
         {
-
+            if (_isDisposed) return;
+            Deactivate();
+            _isDisposed = true;
             _commands.Dispose();
             UnhookConfigsChanged();
-            UnhookCurrentFoldersChanged(_currentConfig);
+            UnhookCurrentFoldersChanged();
         }
 
         public void EnsureCurrentConfigSelectedFromSettings()
@@ -559,34 +567,10 @@ namespace FolderRewind.ViewModels
             return folder;
         }
 
-        private void HookConfigsChanged()
-        {
-            try
-            {
-                if (ConfigService.CurrentConfig?.BackupConfigs != null)
-                {
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged -= OnConfigsChanged;
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged += OnConfigsChanged;
-                }
-            }
-            catch
-            {
-            }
-        }
+        private bool HookConfigsChanged() =>
+            _configSubscription.SetSource(_isActive ? ConfigService.CurrentConfig.BackupConfigs : null, OnConfigsChanged);
 
-        private void UnhookConfigsChanged()
-        {
-            try
-            {
-                if (ConfigService.CurrentConfig?.BackupConfigs != null)
-                {
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged -= OnConfigsChanged;
-                }
-            }
-            catch
-            {
-            }
-        }
+        private void UnhookConfigsChanged() => _configSubscription.Dispose();
 
         private void OnConfigsChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
@@ -618,35 +602,35 @@ namespace FolderRewind.ViewModels
 
         private void HookCurrentFoldersChanged(BackupConfig? config)
         {
-            if (config?.SourceFolders == null)
+            var activeConfig = _isActive ? config : null;
+            if (!ReferenceEquals(_subscribedConfig, activeConfig))
             {
-                return;
+                if (_subscribedConfig is not null) _subscribedConfig.PropertyChanged -= OnCurrentConfigPropertyChanged;
+                _subscribedConfig = activeConfig;
+                if (_subscribedConfig is not null) _subscribedConfig.PropertyChanged += OnCurrentConfigPropertyChanged;
             }
-
-            try
-            {
-                config.SourceFolders.CollectionChanged -= OnCurrentFoldersChanged;
-                config.SourceFolders.CollectionChanged += OnCurrentFoldersChanged;
-            }
-            catch
-            {
-            }
+            _folderSubscription.SetSource(activeConfig?.SourceFolders, OnCurrentFoldersChanged);
         }
 
-        private void UnhookCurrentFoldersChanged(BackupConfig? config)
+        private void UnhookCurrentFoldersChanged()
         {
-            if (config?.SourceFolders == null)
-            {
-                return;
-            }
+            if (_subscribedConfig is not null) _subscribedConfig.PropertyChanged -= OnCurrentConfigPropertyChanged;
+            _subscribedConfig = null;
+            _folderSubscription.Dispose();
+        }
 
-            try
-            {
-                config.SourceFolders.CollectionChanged -= OnCurrentFoldersChanged;
-            }
-            catch
-            {
-            }
+        private void OnCurrentConfigPropertyChanged(object? sender, PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName != nameof(BackupConfig.SourceFolders)) return;
+            HookCurrentFoldersChanged(_currentConfig);
+            OnCurrentFoldersChanged(sender, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+
+        private void OnConfigurationSaved()
+        {
+            if (!_isActive) return;
+            if (HookConfigsChanged())
+                OnConfigsChanged(null, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 
         private void OnCurrentFoldersChanged(object? sender, NotifyCollectionChangedEventArgs e)

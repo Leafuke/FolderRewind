@@ -47,51 +47,64 @@ public sealed class LauncherInstallationDiscoveryService : ILauncherInstallation
     {
         cancellationToken.ThrowIfCancellationRequested();
         var defaults = GameLibraryRootDetector.DetectDefaults();
-        var disabled = new HashSet<string>(
-            (disabledAutoRoots ?? Array.Empty<string>()).Select(NormalizePath),
-            StringComparer.OrdinalIgnoreCase);
-        var installations = new List<DetectedGameInstallation>();
         var diagnostics = new List<DiscoveryDiagnostic>();
+        var disabled = new HashSet<string>(ValidRoots(disabledAutoRoots ?? Array.Empty<string>()), StringComparer.OrdinalIgnoreCase);
+        var installations = new List<DetectedGameInstallation>();
+
+        IEnumerable<string> ValidRoots(IEnumerable<string> paths)
+        {
+            foreach (var path in paths)
+            {
+                if (DiscoveryPathPolicy.TryNormalizeAbsolutePath(path, out var normalized)) yield return normalized;
+                else diagnostics.Add(new DiscoveryDiagnostic
+                {
+                    Severity = DiscoveryDiagnosticSeverity.Warning,
+                    Code = "invalid_discovery_path",
+                    Message = "Skipped an invalid absolute discovery path.",
+                    RootPath = path
+                });
+            }
+        }
         foreach (var scanner in _scanners)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (defaults.TryGetValue(scanner.Store, out var defaultRoots))
             {
-                roots.UnionWith(defaultRoots.Where(root =>
-                    Directory.Exists(root) && !disabled.Contains(NormalizePath(root))));
+                roots.UnionWith(ValidRoots(defaultRoots).Where(root =>
+                    Directory.Exists(root) && !disabled.Contains(root)));
             }
             if (configuredRoots.TryGetValue(scanner.Store, out var customRoots))
             {
-                roots.UnionWith(customRoots.Where(Directory.Exists));
+                roots.UnionWith(ValidRoots(customRoots).Where(Directory.Exists));
             }
 
             var scan = scanner.Scan(roots, cancellationToken);
-            installations.AddRange(scan.Installations);
+            foreach (var item in scan.Installations)
+            {
+                if (DiscoveryPathPolicy.TryNormalizeAbsolutePath(item.BasePath, out _)) installations.Add(item);
+                else diagnostics.Add(new DiscoveryDiagnostic
+                {
+                    Severity = DiscoveryDiagnosticSeverity.Warning,
+                    Code = "invalid_discovery_path",
+                    Message = "Skipped an installation with an invalid absolute path.",
+                    RootPath = item.BasePath
+                });
+            }
             diagnostics.AddRange(scan.Diagnostics);
         }
 
         return new LauncherInstallationScanResult
         {
             Installations = installations
-                .GroupBy(item => $"{item.Store}|{item.StoreGameId}|{NormalizePath(item.BasePath)}", StringComparer.OrdinalIgnoreCase)
+                .GroupBy(item => $"{item.Store}|{item.StoreGameId}|{DiscoveryResourcePlanner.NormalizePath(item.BasePath)}", StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
                 .ToList(),
             Diagnostics = diagnostics
         };
     }
 
-    private static string NormalizePath(string path)
-    {
-        try
-        {
-            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch
-        {
-            return path.Trim();
-        }
-    }
+
 }
 
 public sealed class SteamInstallationScanner : ILauncherInstallationScanner

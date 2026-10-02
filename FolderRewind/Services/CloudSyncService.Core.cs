@@ -184,27 +184,7 @@ namespace FolderRewind.Services
             return $"copyto {Quote(sourcePath)} {Quote(destinationPath)}";
         }
 
-        private static string BuildRcloneCopyArguments(string sourcePath, string destinationPath, params string[] excludePatterns)
-        {
-            var builder = new StringBuilder();
-            builder.Append("copy ");
-            builder.Append(Quote(sourcePath));
-            builder.Append(' ');
-            builder.Append(Quote(destinationPath));
 
-            foreach (var pattern in excludePatterns ?? Array.Empty<string>())
-            {
-                if (string.IsNullOrWhiteSpace(pattern))
-                {
-                    continue;
-                }
-
-                builder.Append(" --exclude ");
-                builder.Append(Quote(pattern.Trim()));
-            }
-
-            return builder.ToString();
-        }
 
         private static string BuildRcloneListFileArguments(string remotePath)
         {

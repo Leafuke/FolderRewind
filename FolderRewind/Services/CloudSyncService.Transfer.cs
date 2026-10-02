@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -259,29 +259,7 @@ namespace FolderRewind.Services
             return ValidateExecutableAndWorkingDirectory(executablePath, workingDirectory, out errorMessage);
         }
 
-        private static async Task<List<string>> ListRemoteFilesAsync(
-            string executablePath,
-            string workingDirectory,
-            CloudSettings settings,
-            string remoteFolderRoot)
-        {
-            var command = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneListFileArguments(remoteFolderRoot));
-            var result = await RunSilentCommandAsync(command, Math.Clamp(settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
-            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
-            {
-                return new List<string>();
-            }
 
-            var outputSpan = result.Output.AsSpan();
-            var lines = new List<string>();
-            foreach (var line in outputSpan.EnumerateLines())
-            {
-                var trimmed = line.Trim();
-                if (!trimmed.IsEmpty)
-                    lines.Add(trimmed.ToString());
-            }
-            return lines;
-        }
 
         private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds, CancellationToken cancellationToken = default)
         {

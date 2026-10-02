@@ -516,6 +516,7 @@ P FolderRewind.Plugin.Abstractions.RestoreMaterializationResult.Outcome:FolderRe
 P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.Mode:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.PreservePlayerData:System.Boolean { public get; public init; }
 P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.PreservePlayerDataOverride:System.Nullable<System.Boolean> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.RestorePreservePaths:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.RestoreWhitelist:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal.Content:System.ReadOnlyMemory<System.Byte> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal.RelativePath:System.String { public get; public init; }

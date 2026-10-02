@@ -299,11 +299,6 @@ public sealed class HistoryBranchService
 
     private static bool WorkspaceEquals(HistoryWorkspace left, HistoryWorkspace right) => HistoryWorkspace.StateEquals(left, right);
 
-    private static bool CheckpointMatches(
-        SourceCheckpoint checkpoint,
-        IReadOnlyDictionary<SourceId, VersionId?> vector)
-        => checkpoint.Sources.Length == vector.Count
-            && checkpoint.Sources.All(source => vector.TryGetValue(source.SourceId, out var versionId)
-                                                && source.VersionId == versionId);
+
 
 }

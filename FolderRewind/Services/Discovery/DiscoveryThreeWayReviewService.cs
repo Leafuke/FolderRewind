@@ -22,6 +22,7 @@ public static class DiscoveryThreeWayReviewService
         var current = Index(currentSources);
         var discovered = Index(discoveredBaseline?.Sources);
         var overrides = (previousBaseline?.UserOverrides ?? new ObservableCollection<ReviewedDiscoveryOverride>())
+            .Where(item => IsValidReviewedRoot(item.NormalizedRootPath))
             .GroupBy(item => Normalize(item.NormalizedRootPath), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
         var keys = previous.Keys.Concat(discovered.Keys)
@@ -109,6 +110,7 @@ public static class DiscoveryThreeWayReviewService
         var current = Index(currentSources);
         var tracked = previouslyTrackedRoots
             .Concat(completed.Sources.Select(source => source.NormalizedRootPath))
+            .Where(IsValidReviewedRoot)
             .Select(Normalize)
             .Distinct(StringComparer.OrdinalIgnoreCase);
         var upstream = Index(completed.Sources);
@@ -190,7 +192,7 @@ public static class DiscoveryThreeWayReviewService
     private static Dictionary<string, ReviewedDiscoverySource> Index(
         IEnumerable<ReviewedDiscoverySource>? sources) =>
         (sources ?? Array.Empty<ReviewedDiscoverySource>())
-        .Where(source => !string.IsNullOrWhiteSpace(source.NormalizedRootPath))
+        .Where(source => IsValidReviewedRoot(source.NormalizedRootPath))
         .GroupBy(source => Normalize(source.NormalizedRootPath), StringComparer.OrdinalIgnoreCase)
         .ToDictionary(group => group.Key, group => CloneSource(group.Last()), StringComparer.OrdinalIgnoreCase);
 
@@ -208,7 +210,11 @@ public static class DiscoveryThreeWayReviewService
             newSource.IncludePatterns.Contains(pattern, StringComparer.OrdinalIgnoreCase));
     }
 
-    private static string Normalize(string path) => DiscoveryResourcePlanner.NormalizePath(path);
+    // Older reviewed baselines trimmed a volume root C:\ to C:. Decode only this persisted field.
+    private static string DecodeReviewedRoot(string path) => path.Length == 2
+        && char.IsAsciiLetter(path[0]) && path[1] == ':' ? path + "\\" : path;
+    private static bool IsValidReviewedRoot(string path) => DiscoveryPathPolicy.IsValidOrReport(DecodeReviewedRoot(path));
+    private static string Normalize(string path) => DiscoveryResourcePlanner.NormalizePath(DecodeReviewedRoot(path));
     private static string NormalizePattern(string pattern) =>
         (pattern ?? string.Empty).Trim().Replace('\\', '/');
 }

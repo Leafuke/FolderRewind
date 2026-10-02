@@ -84,39 +84,7 @@ internal sealed class ShellStartupService : IDisposable
         private System.Threading.Tasks.Task<ContentDialogResult> ShowDialogAsync(AppDialogRequest dialog) =>
             AppDialogService.Default.ShowRequestAsync(dialog, _root(), _lifetime.Token);
 
-        /// <summary>
-        /// 首次启动引导：中文界面提示视频，其他语言提示官网文档。
-        /// </summary>
-        private async System.Threading.Tasks.Task ShowFirstLaunchGuideAsync()
-        {
-            try
-            {
-                var settings = ConfigService.CurrentConfig?.GlobalSettings;
-                if (settings == null || settings.HasShownFirstLaunchGuide) return;
 
-                var dialog = new AppDialogRequest
-                {
-                    Title = I18n.GetString("FirstLaunch_Title"),
-                    Content = I18n.GetString("FirstLaunch_Content"),
-                    PrimaryButtonText = I18n.GetString("FirstLaunch_OpenVideo"),
-                    CloseButtonText = I18n.GetString("FirstLaunch_Skip"),
-                    DefaultButton = ContentDialogButton.Primary,
-                };
-
-                var result = await ShowDialogAsync(dialog);
-                _lifetime.Token.ThrowIfCancellationRequested();
-                await ConfigEditTransaction.ApplyAsync(() => settings.HasShownFirstLaunchGuide = true,
-                    () => settings.HasShownFirstLaunchGuide = false, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
-                if (result == ContentDialogResult.Primary)
-                {
-                    await Windows.System.Launcher.LaunchUriAsync(new Uri(OfficialLinksService.GetFirstLaunchGuideUrl()));
-                }
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError($"[FirstLaunchGuide] {ex.Message}");
-            }
-        }
 
         /// <summary>
         /// 每次启动检测本机 KnotLink 服务端。低于最低支持版本或版本未知时，

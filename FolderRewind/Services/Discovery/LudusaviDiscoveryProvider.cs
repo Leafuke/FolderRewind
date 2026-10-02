@@ -660,14 +660,14 @@ public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
     };
 
     private static string InstallationKey(DetectedGameInstallation installation) =>
-        $"{ProviderId}:{installation.Store}:{installation.StoreGameId}:{NormalizePath(installation.BasePath)}";
+        $"{ProviderId}:{installation.Store}:{installation.StoreGameId}:{DiscoveryIdentityPathV1.Encode(installation.BasePath)}";
 
     private static string CreateResolvedResourceId(
         string resourceId,
         string root,
         IReadOnlyList<string> patterns)
     {
-        var payload = $"{resourceId}|{NormalizePath(root)}|{string.Join("|", patterns.OrderBy(item => item, StringComparer.OrdinalIgnoreCase))}";
+        var payload = $"{resourceId}|{DiscoveryIdentityPathV1.Encode(root)}|{string.Join("|", patterns.OrderBy(item => item, StringComparer.OrdinalIgnoreCase))}";
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
     }
 
@@ -709,17 +709,7 @@ public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
     private static string NormalizeName(string value) =>
         new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
-    private static string NormalizePath(string value)
-    {
-        try
-        {
-            return Path.GetFullPath(value).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch
-        {
-            return value.Trim();
-        }
-    }
+
 
     private static DiscoveryDiagnostic Diagnostic(
         DiscoveryDiagnosticSeverity severity,

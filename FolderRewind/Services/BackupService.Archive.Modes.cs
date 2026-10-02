@@ -549,10 +549,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool IsSafeArchiveFileName(string? fileName)
-            => !string.IsNullOrWhiteSpace(fileName)
-                && string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal)
-                && fileName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
 
         private static string CreateUniqueRollingFileName(string destinationDirectory, string baseName, string format, string comment)
         {

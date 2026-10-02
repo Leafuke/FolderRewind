@@ -590,7 +590,7 @@ public static class DiscoveryDraftService
     }
 
     private static IReadOnlyList<ReviewedDiscoverySource> BuildCurrentSources(BackupConfig config) =>
-        config.SourceFolders.Select(folder => new ReviewedDiscoverySource
+        config.SourceFolders.Where(folder => DiscoveryPathPolicy.IsValidOrReport(folder.Path)).Select(folder => new ReviewedDiscoverySource
         {
             NormalizedRootPath = DiscoveryResourcePlanner.NormalizePath(folder.Path),
             Mode = folder.SourceScope?.Mode ?? BackupSourceScopeMode.All,
@@ -627,10 +627,7 @@ public static class DiscoveryDraftService
         return candidate;
     }
 
-    private static bool PathsEqual(string left, string right) => string.Equals(
-        DiscoveryResourcePlanner.NormalizePath(left),
-        DiscoveryResourcePlanner.NormalizePath(right),
-        StringComparison.OrdinalIgnoreCase);
+    private static bool PathsEqual(string left, string right) => DiscoveryPathPolicy.Equals(left, right);
 
     private static BackupSourceScope CloneSourceScope(BackupSourceScope source) => new()
     {

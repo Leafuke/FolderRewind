@@ -231,19 +231,12 @@ public sealed class LudusaviPathExpressionResolver
         string fixedRoot,
         DetectedGameInstallation? installation)
     {
-        string normalized;
-        try
-        {
-            normalized = NormalizePath(fixedRoot);
-        }
-        catch
-        {
+        if (!DiscoveryPathPolicy.TryNormalizeAbsolutePath(fixedRoot, out var normalized))
             return (LudusaviPathSafety.Blocked, "The manifest resolved to an invalid path.");
-        }
 
         var volumeRoot = Path.GetPathRoot(normalized);
         if (string.IsNullOrWhiteSpace(volumeRoot)
-            || string.Equals(normalized, NormalizePath(volumeRoot), StringComparison.OrdinalIgnoreCase))
+            || DiscoveryPathPolicy.Equals(normalized, volumeRoot))
         {
             return (LudusaviPathSafety.Blocked, "The manifest resolved to a volume root.");
         }
@@ -275,25 +268,7 @@ public sealed class LudusaviPathExpressionResolver
         string.Equals(pattern, "**", StringComparison.Ordinal)
         || pattern.EndsWith("/**", StringComparison.Ordinal);
 
-    private static bool PathsEqual(string left, string right)
-    {
-        try
-        {
-            return string.Equals(NormalizePath(left), NormalizePath(right), StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string NormalizePath(string value)
-    {
-        var full = Path.GetFullPath(value);
-        var root = Path.GetPathRoot(full) ?? string.Empty;
-        var trimmed = full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return trimmed.Length < root.Length ? root : trimmed;
-    }
+    private static bool PathsEqual(string left, string right) => DiscoveryPathPolicy.Equals(left, right);
 
     private Dictionary<string, string> CreateReplacements(
         DetectedGameInstallation? installation,

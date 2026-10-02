@@ -98,7 +98,7 @@ public static class DiscoveryCandidateMerger
         {
             StableKey = source.StableKey,
             Definition = source.Definition,
-            Installations = source.Installations.ToList(),
+            Installations = source.Installations.Where(item => DiscoveryPathPolicy.IsValidOrReport(item.BasePath)).ToList(),
             BackupSets = source.BackupSets.Select(CloneBackupSet).ToList()
         };
     }
@@ -112,7 +112,7 @@ public static class DiscoveryCandidateMerger
             DisplayName = source.DisplayName,
             DiscoveryRevision = source.DiscoveryRevision,
             PluginDraftContext = source.PluginDraftContext,
-            Resources = source.Resources.ToList()
+            Resources = source.Resources.Where(HasValidResourcePath).ToList()
         };
     }
 
@@ -120,7 +120,7 @@ public static class DiscoveryCandidateMerger
         DiscoveredGameCandidate target,
         DiscoveredGameCandidate incoming)
     {
-        foreach (var installation in incoming.Installations)
+        foreach (var installation in incoming.Installations.Where(item => DiscoveryPathPolicy.IsValidOrReport(item.BasePath)))
         {
             if (target.Installations.Any(existing =>
                     string.Equals(existing.InstallationId, installation.InstallationId, StringComparison.OrdinalIgnoreCase)
@@ -149,7 +149,7 @@ public static class DiscoveryCandidateMerger
                 continue;
             }
 
-            foreach (var resource in backupSet.Resources)
+            foreach (var resource in backupSet.Resources.Where(HasValidResourcePath))
             {
                 if (!existing.Resources.Any(item =>
                         string.Equals(item.ResourceId, resource.ResourceId, StringComparison.OrdinalIgnoreCase)))
@@ -223,8 +223,8 @@ public static class DiscoveryCandidateMerger
             return false;
         }
 
-        var leftRoot = NormalizePath(left.FixedRoot);
-        var rightRoot = NormalizePath(right.FixedRoot);
+        if (!DiscoveryPathPolicy.TryNormalizeAbsolutePath(left.FixedRoot, out var leftRoot)
+            || !DiscoveryPathPolicy.TryNormalizeAbsolutePath(right.FixedRoot, out var rightRoot)) return false;
         if (PathEquals(leftRoot, rightRoot))
         {
             return left.IncludePatterns.Count == 0
@@ -241,26 +241,8 @@ public static class DiscoveryCandidateMerger
         && (parent.EndsWith(Path.DirectorySeparatorChar)
             || candidate[parent.Length] is '\\' or '/');
 
-    private static bool PathEquals(string left, string right)
-    {
-        return string.Equals(NormalizePath(left), NormalizePath(right), StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool PathEquals(string left, string right) => DiscoveryPathPolicy.Equals(left, right);
 
-    private static string NormalizePath(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            return Path.GetFullPath(value)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch
-        {
-            return value.Trim().TrimEnd('\\', '/');
-        }
-    }
+    private static bool HasValidResourcePath(BackupResourceCandidate resource) =>
+        resource.Kind == BackupResourceKind.Registry || DiscoveryPathPolicy.IsValidOrReport(resource.FixedRoot);
 }

@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
@@ -140,39 +140,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void BroadcastRestoreEvent(
-            int configIndex,
-            BackupConfig config,
-            ManagedFolder folder,
-            string eventName,
-            IReadOnlyDictionary<string, string?>? fields = null)
-        {
-            var context = KnotLinkService.CurrentCommandContext;
-            var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["config"] = config.Id,
-                ["folder"] = folder.DisplayName
-            };
-            if (fields != null)
-            {
-                foreach (var pair in fields)
-                {
-                    merged[pair.Key] = pair.Value;
-                }
-            }
 
-            KnotLinkService.BroadcastEvent(context, eventName, merged);
-        }
-
-        private static void BroadcastRestoreLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
-        {
-            var context = KnotLinkService.CurrentCommandContext;
-            if (context?.Metadata.HasConversation == true
-                && string.Equals(context.Command, "RESTORE", StringComparison.OrdinalIgnoreCase))
-            {
-                KnotLinkService.BroadcastCommandLifecycle(context, lifecycleEvent, fields);
-            }
-        }
 
         /// <summary>
         /// 备份配置下的所有文件夹
@@ -799,12 +767,7 @@ namespace FolderRewind.Services
             _ => BackupInvocationKind.Manual
         };
 
-        private static OperationOutcome CombineSuccessfulBackupOutcomes(
-            OperationOutcome current,
-            OperationOutcome next)
-            => current == OperationOutcome.SuccessWithWarnings || next == OperationOutcome.SuccessWithWarnings
-                ? OperationOutcome.SuccessWithWarnings
-                : next;
+
 
         private static async Task PruneRetainedSourceArchivesAsync(BackupConfig config)
         {

@@ -24,9 +24,9 @@ public static class DiscoveryResourcePlanner
         return (resources ?? Array.Empty<BackupResourceCandidate>())
             .Where(resource => resource.SupportState == BackupResourceSupportState.Supported
                                && !resource.IsSuppressed
-                               && !string.IsNullOrWhiteSpace(resource.FixedRoot)
                                && (selectedResourceIds?.Contains(resource.ResourceId)
                                    ?? resource.IsSelectedByDefault))
+            .Where(resource => DiscoveryPathPolicy.IsValidOrReport(resource.FixedRoot))
             .GroupBy(resource => NormalizePath(resource.FixedRoot), StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
@@ -67,7 +67,7 @@ public static class DiscoveryResourcePlanner
         // ManagedFolder 的默认名称应描述实际备份目录；游戏名、标签等语义信息仍保留在发现候选中。
         // 根目录没有可用末级名称（例如卷根）时，才退回 Provider 提供的资源名称。
         var leafName = Path.GetFileName(
-            fixedRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            Path.TrimEndingDirectorySeparator(fixedRoot));
         return !string.IsNullOrWhiteSpace(leafName)
             ? leafName
             : resources.Select(resource => resource.DisplayName)
@@ -75,15 +75,7 @@ public static class DiscoveryResourcePlanner
               ?? "Game data";
     }
 
-    public static string NormalizePath(string path)
-    {
-        try
-        {
-            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch
-        {
-            return (path ?? string.Empty).Trim().TrimEnd('\\', '/');
-        }
-    }
+    public static string NormalizePath(string path) =>
+        DiscoveryPathPolicy.TryNormalizeAbsolutePath(path, out var normalized)
+            ? normalized : throw new ArgumentException("Discovery requires a valid absolute path.", nameof(path));
 }

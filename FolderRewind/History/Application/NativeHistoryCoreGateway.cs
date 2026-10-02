@@ -365,11 +365,7 @@ public static class NativeHistoryCoreGateway
             ? new SourceId(id)
             : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
 
-    private static string SafeLegacyCloudLocator(LegacyHistoryRecord item)
-    {
-        var value = (item.CloudArchiveRemotePath ?? string.Empty).Replace('\\', '/').Trim('/');
-        return HistoryRepositoryPaths.IsSafeRepositoryRelativePath(value) ? value : string.Empty;
-    }
+
 
     private static Task PersistBinding(BackupConfig config, int version)
     {
