@@ -78,13 +78,19 @@ namespace FolderRewind.Services
                 var targetDir = Path.Combine(ConfigService.ConfigDirectory, SoundDirectoryName);
                 Directory.CreateDirectory(targetDir);
 
-                var targetPath = Path.Combine(targetDir, $"completion{extension.ToLowerInvariant()}");
+                var targetPath = Path.Combine(targetDir, $"completion-{Guid.NewGuid():N}{extension.ToLowerInvariant()}");
                 await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true)).ConfigureAwait(false);
 
-                var settings = ConfigService.CurrentConfig.GlobalSettings;
-                settings.CompletionSoundCustomPath = targetPath;
-                settings.CompletionSoundIndex = 1;
-                ConfigService.Save();
+                await UiDispatcherService.RunOnUiAsync(async () =>
+                {
+                    var settings = ConfigService.CurrentConfig.GlobalSettings;
+                    var previousPath = settings.CompletionSoundCustomPath;
+                    var previousIndex = settings.CompletionSoundIndex;
+                    await ConfigEditTransaction.ApplyAsync(
+                        () => { settings.CompletionSoundCustomPath = targetPath; settings.CompletionSoundIndex = 1; },
+                        () => { settings.CompletionSoundCustomPath = previousPath; settings.CompletionSoundIndex = previousIndex; },
+                        () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+                });
 
                 NotificationService.ShowSuccess(I18n.GetString("CompletionSound_CustomApplied"), I18n.GetString("Sponsor_Title"));
                 return true;
@@ -97,7 +103,7 @@ namespace FolderRewind.Services
             }
         }
 
-        public static bool ClearCustomSound()
+        public static async Task<bool> ClearCustomSoundAsync()
         {
             if (!SponsorService.IsUnlocked)
             {
@@ -106,8 +112,12 @@ namespace FolderRewind.Services
 
             try
             {
-                ConfigService.CurrentConfig.GlobalSettings.CompletionSoundCustomPath = string.Empty;
-                ConfigService.Save();
+                var settings = ConfigService.CurrentConfig.GlobalSettings;
+                var previous = settings.CompletionSoundCustomPath;
+                await ConfigEditTransaction.ApplyAsync(
+                    () => settings.CompletionSoundCustomPath = string.Empty,
+                    () => settings.CompletionSoundCustomPath = previous,
+                    () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
                 NotificationService.ShowSuccess(I18n.GetString("CompletionSound_CustomCleared"), I18n.GetString("Sponsor_Title"));
                 return true;
             }

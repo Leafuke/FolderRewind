@@ -114,11 +114,11 @@ namespace FolderRewind.Services
 
                 if (probe.IsUnlocked)
                 {
-                    PersistEntitlementCache(true);
+                    await PersistEntitlementCacheAsync(true);
                 }
                 else if (allowDowngrade && !probe.HadProbeError)
                 {
-                    PersistEntitlementCache(false);
+                    await PersistEntitlementCacheAsync(false);
                 }
 
                 ApplyState(unlocked, message);
@@ -176,7 +176,7 @@ namespace FolderRewind.Services
                 if (existingLicense.IsUnlocked)
                 {
                     var alreadyOwnedMessage = I18n.GetString("Sponsor_Purchase_AlreadyPurchased");
-                    PersistEntitlementCache(true);
+                    await PersistEntitlementCacheAsync(true);
                     ApplyState(true, I18n.GetString("Sponsor_Status_Unlocked"));
                     NotificationService.ShowSuccess(alreadyOwnedMessage, I18n.GetString("Sponsor_Title"));
                     MainWindowService.ApplySponsorVisuals();
@@ -312,7 +312,7 @@ namespace FolderRewind.Services
             return RefreshLicenseAsync(showNotification: true);
         }
 
-        private static void PersistEntitlementCache(bool unlocked)
+        private static async Task PersistEntitlementCacheAsync(bool unlocked)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             if (settings == null)
@@ -325,9 +325,12 @@ namespace FolderRewind.Services
                 return;
             }
 
-            settings.SponsorEntitlementCached = unlocked;
-            settings.SponsorEntitlementLastVerifiedUtc = unlocked ? DateTime.UtcNow : DateTime.MinValue;
-            ConfigService.Save();
+            var saved = await ConfigService.UpdateAndSaveAsync(config =>
+            {
+                config.GlobalSettings.SponsorEntitlementCached = unlocked;
+                config.GlobalSettings.SponsorEntitlementLastVerifiedUtc = unlocked ? DateTime.UtcNow : DateTime.MinValue;
+            });
+            if (!saved.Success) LogService.LogWarning(I18n.Format("Config_SaveFailed", saved.ErrorMessage), nameof(SponsorService));
         }
 
         public static Task OpenContributorGuideAsync()

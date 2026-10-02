@@ -312,26 +312,28 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         });
     }
 
-    public bool SaveSettings(out string errorMessage)
+    public async Task<ConfigSaveResult> SaveSettingsAsync()
     {
-        if (IsBusy)
+        if (IsBusy) return new() { ErrorMessage = I18n.GetString("GameDiscovery_OperationRunning") };
+        IsBusy = true;
+        try
         {
-            errorMessage = I18n.GetString("GameDiscovery_OperationRunning");
-            return false;
+            var previous = ConfigService.CurrentConfig.GlobalSettings.GameDiscovery;
+            var updated = CloneSettings(Settings);
+            updated.PluginRoots = previous.PluginRoots.ToDictionary(pair => pair.Key,
+                pair => new List<string>(pair.Value ?? new List<string>()), StringComparer.OrdinalIgnoreCase);
+            await ConfigEditTransaction.ApplyAsync(
+                () => ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = updated,
+                () => ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = previous,
+                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+            return new() { Success = true };
         }
-        var previous = ConfigService.CurrentConfig.GlobalSettings.GameDiscovery;
-        var updated = CloneSettings(Settings);
-        // Scan workers may have remembered roots after this page took its settings snapshot.
-        updated.PluginRoots = previous.PluginRoots.ToDictionary(pair => pair.Key,
-            pair => new List<string>(pair.Value ?? new List<string>()), StringComparer.OrdinalIgnoreCase);
-        ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = updated;
-        var result = ConfigService.SaveWithResult();
-        if (!result.Success)
+        catch (Exception ex)
         {
-            ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = previous;
+            return new() { ErrorMessage = ex is ConfigEditRollbackException
+                ? I18n.Format("Config_CompensationFailed", ex.Message) : ex.Message, Exception = ex };
         }
-        errorMessage = result.ErrorMessage;
-        return result.Success;
+        finally { IsBusy = false; }
     }
 
     public void BuildDrafts()

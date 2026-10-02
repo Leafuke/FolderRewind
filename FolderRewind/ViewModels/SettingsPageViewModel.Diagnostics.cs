@@ -76,15 +76,17 @@ namespace FolderRewind.ViewModels
             return HotkeyManager.GetDefinitionsSnapshot().FirstOrDefault(d => string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
         }
 
-        public void SetHotkeyOverride(string hotkeyId, string gesture)
+        public async Task SetHotkeyOverrideAsync(string hotkeyId, string gesture)
         {
-            HotkeyManager.SetGestureOverride(hotkeyId, gesture);
+            try { await HotkeyManager.SetGestureOverrideAsync(hotkeyId, gesture); }
+            catch (Exception ex) { NotificationService.ShowError(ex.Message); }
             RefreshHotkeyBindingsView();
         }
 
-        public void ResetHotkeyOverride(string hotkeyId)
+        public async Task ResetHotkeyOverrideAsync(string hotkeyId)
         {
-            HotkeyManager.ResetGestureOverride(hotkeyId);
+            try { await HotkeyManager.ResetGestureOverrideAsync(hotkeyId); }
+            catch (Exception ex) { NotificationService.ShowError(ex.Message); }
             RefreshHotkeyBindingsView();
         }
 

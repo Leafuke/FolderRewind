@@ -184,6 +184,49 @@ public sealed class ConfigEditTransactionTests
         Assert.AreEqual("write 2 failed", aggregate.InnerExceptions[1].Message);
     }
 
+    [TestMethod]
+    public async Task FailedCollectionEditsRestoreExactInstancesAndOrder()
+    {
+        foreach (var mode in new[] { "delete", "replace", "create" })
+        {
+            var original = new object();
+            var draft = new object();
+            var first = new object();
+            var last = new object();
+            var items = new List<object> { first, original, last };
+            await Assert.ThrowsExactlyAsync<IOException>(() => ConfigEditTransaction.ReplaceItemAsync(
+                items, mode == "create" ? null : original, mode == "delete" ? null : draft,
+                FailOnce(new() { ErrorMessage = "disk full" }), "failed"));
+            CollectionAssert.AreEqual(new[] { first, original, last }, items);
+            Assert.AreSame(original, items[1]);
+        }
+    }
+
+    [TestMethod]
+    public async Task CollectionReplacementDoesNotCompleteBeforeDurableSave()
+    {
+        var original = new object();
+        var replacement = new object();
+        var items = new List<object> { original };
+        var completion = new TaskCompletionSource<ConfigSaveResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var operation = ConfigEditTransaction.ReplaceItemAsync(items, original, replacement, () => completion.Task, "failed");
+        Assert.IsFalse(operation.IsCompleted);
+        completion.SetResult(new() { Success = true });
+        await operation;
+        Assert.AreSame(replacement, items[0]);
+    }
+
+    [TestMethod]
+    public async Task ReadOnlyCollectionRejectsDeletionWithoutDuplicatingOriginal()
+    {
+        var original = new object();
+        var items = Array.AsReadOnly(new[] { original });
+        await Assert.ThrowsExactlyAsync<NotSupportedException>(() => ConfigEditTransaction.ReplaceItemAsync(
+            items, original, null, () => Task.FromResult(new ConfigSaveResult { Success = true }), "failed"));
+        Assert.HasCount(1, items);
+        Assert.AreSame(original, items[0]);
+    }
+
     private static Func<Task<ConfigSaveResult>> FailOnce(ConfigSaveResult failure)
     {
         var count = 0;

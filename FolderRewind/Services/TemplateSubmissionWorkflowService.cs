@@ -44,16 +44,24 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void ApplySubmissionMetadata(BackupPreset template, string gameName, bool clearSteamAppId)
+        private static async Task<bool> ApplySubmissionMetadataAsync(BackupPreset template, string gameName, bool clearSteamAppId)
         {
-            // 元数据先落地，后面的导出/提交都基于这份一致状态运行。
-            template.GameName = gameName?.Trim() ?? string.Empty;
-            if (clearSteamAppId)
+            var previousName = template.GameName;
+            var previousAppId = template.SteamAppId;
+            try
             {
-                template.SteamAppId = null;
+                await ConfigEditTransaction.ApplyAsync(
+                    () => { template.GameName = gameName?.Trim() ?? string.Empty; if (clearSteamAppId) template.SteamAppId = null; },
+                    () => { template.GameName = previousName; template.SteamAppId = previousAppId; },
+                    () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+                return true;
             }
-
-            ConfigService.Save();
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(ex is ConfigEditRollbackException
+                    ? I18n.Format("Config_CompensationFailed", ex.Message) : ex.Message);
+                return false;
+            }
         }
 
         private static async Task ExportTemplateSubmissionPackageAsync(
@@ -62,7 +70,7 @@ namespace FolderRewind.Services
             XamlRoot? xamlRoot,
             CancellationToken ct)
         {
-            ApplySubmissionMetadata(selected, gameName, clearSteamAppId: true);
+            if (!await ApplySubmissionMetadataAsync(selected, gameName, clearSteamAppId: true)) return;
 
             var validation = BackupPresetService.ValidateTemplateForOfficialSharing(selected);
             if (!validation.Success)
@@ -131,7 +139,7 @@ namespace FolderRewind.Services
             XamlRoot? xamlRoot,
             CancellationToken ct)
         {
-            ApplySubmissionMetadata(selected, gameName, clearSteamAppId: false);
+            if (!await ApplySubmissionMetadataAsync(selected, gameName, clearSteamAppId: false)) return;
 
             var authState = await GitHubOAuthService.GetAuthenticationStateAsync(true, ct);
             if (!authState.IsAuthenticated)

@@ -79,12 +79,12 @@ namespace FolderRewind.Services
             }
 
             // 设置页和主页都走同一条导入链路，后续修正冲突逻辑时才不会出现行为漂移。
-            var ok = BackupPresetService.ImportTemplate(downloadResult.LocalPath, strategy, out var message, out var importedTemplate);
+            var imported = await BackupPresetService.ImportTemplateAsync(downloadResult.LocalPath, strategy);
             return new ImportOfficialTemplateResult
             {
-                Success = ok,
-                Message = message,
-                ImportedTemplate = importedTemplate,
+                Success = imported.Success,
+                Message = imported.Message,
+                ImportedTemplate = imported.Template,
                 IndexItem = item
             };
         }

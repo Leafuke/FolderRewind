@@ -186,27 +186,28 @@ namespace FolderRewind.Services.Hotkeys
             return string.Empty;
         }
 
-        public static void SetGestureOverride(string hotkeyId, string? gestureString)
+        public static async Task SetGestureOverrideAsync(string hotkeyId, string? gestureString)
         {
-            var global = ConfigService.CurrentConfig?.GlobalSettings;
-            if (global == null) return;
-            if (global.Hotkeys == null) global.Hotkeys = new HotkeySettings();
+            var global = ConfigService.CurrentConfig.GlobalSettings;
+            global.Hotkeys ??= new HotkeySettings();
             global.Hotkeys.Bindings ??= new Dictionary<string, string>();
-
-            global.Hotkeys.Bindings[hotkeyId] = gestureString ?? string.Empty;
-            ConfigService.Save();
+            var bindings = global.Hotkeys.Bindings;
+            var existed = bindings.TryGetValue(hotkeyId, out var previous);
+            await ConfigEditTransaction.ApplyAsync(
+                () => bindings[hotkeyId] = gestureString ?? string.Empty,
+                () => { if (existed) bindings[hotkeyId] = previous!; else bindings.Remove(hotkeyId); },
+                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
             ApplyBindingsToUiAndNative();
         }
 
-        public static void ResetGestureOverride(string hotkeyId)
+        public static async Task ResetGestureOverrideAsync(string hotkeyId)
         {
-            var settings = ConfigService.CurrentConfig?.GlobalSettings?.Hotkeys;
-            if (settings?.Bindings == null) return;
-            if (settings.Bindings.Remove(hotkeyId))
-            {
-                ConfigService.Save();
-                ApplyBindingsToUiAndNative();
-            }
+            var bindings = ConfigService.CurrentConfig.GlobalSettings.Hotkeys?.Bindings;
+            if (bindings is null || !bindings.TryGetValue(hotkeyId, out var previous)) return;
+            await ConfigEditTransaction.ApplyAsync(
+                () => bindings.Remove(hotkeyId), () => bindings[hotkeyId] = previous,
+                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+            ApplyBindingsToUiAndNative();
         }
 
         public static void ApplyBindingsToUiAndNative()

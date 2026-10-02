@@ -306,9 +306,9 @@ namespace FolderRewind.ViewModels
                 async () => { await RunSponsorOperationAsync(() => SponsorService.RefreshLicenseAsync(true)); },
                 () => IsSponsorOperationIdle);
 
-            ClearSponsorBackgroundCommand = new RelayCommand(ClearSponsorBackground, () => SponsorService.IsUnlocked);
+            ClearSponsorBackgroundCommand = new AsyncRelayCommand(ClearSponsorBackgroundAsync, () => SponsorService.IsUnlocked);
             PreviewCompletionSoundCommand = new RelayCommand(PreviewCompletionSound);
-            ClearCustomCompletionSoundCommand = new RelayCommand(ClearCustomCompletionSound, () => SponsorService.IsUnlocked);
+            ClearCustomCompletionSoundCommand = new AsyncRelayCommand(ClearCustomCompletionSoundAsync, () => SponsorService.IsUnlocked);
 
             RefreshCloudPresetOptions();
             RefreshSponsorOptionLists();

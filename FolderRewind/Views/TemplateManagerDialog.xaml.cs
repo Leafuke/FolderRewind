@@ -3,6 +3,7 @@ using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
@@ -20,14 +21,28 @@ namespace FolderRewind.Views
             ThemeService.ApplyThemeToDialog(this);
         }
 
-        private void OnSaveTemplateClick(object sender, RoutedEventArgs e)
+        private async void OnSaveTemplateClick(object sender, RoutedEventArgs e)
         {
-            ViewModel.SaveTemplate();
+            await RunEditAsync(ViewModel.SaveTemplateAsync);
         }
 
-        private void OnSaveRulesClick(object sender, RoutedEventArgs e)
+        private async void OnSaveRulesClick(object sender, RoutedEventArgs e)
         {
-            ViewModel.SaveRules();
+            await RunEditAsync(ViewModel.SaveRulesAsync);
+        }
+
+        private bool _isEditing;
+        private async Task RunEditAsync(Func<Task<bool>> edit)
+        {
+            if (_isEditing) return;
+            _isEditing = true;
+            IsEnabled = false;
+            try { await edit(); }
+            finally
+            {
+                IsEnabled = true;
+                _isEditing = false;
+            }
         }
 
         private void OnAddRuleClick(object sender, RoutedEventArgs e)
@@ -43,9 +58,9 @@ namespace FolderRewind.Views
             }
         }
 
-        private void OnDuplicateTemplateClick(object sender, RoutedEventArgs e)
+        private async void OnDuplicateTemplateClick(object sender, RoutedEventArgs e)
         {
-            ViewModel.DuplicateTemplate();
+            await RunEditAsync(ViewModel.DuplicateTemplateAsync);
         }
 
         private void OnDeleteTemplateClick(object sender, RoutedEventArgs e)
@@ -53,9 +68,9 @@ namespace FolderRewind.Views
             ViewModel.ShowDeleteConfirm();
         }
 
-        private void OnConfirmDeleteTemplateClick(object sender, RoutedEventArgs e)
+        private async void OnConfirmDeleteTemplateClick(object sender, RoutedEventArgs e)
         {
-            ViewModel.ConfirmDeleteTemplate();
+            await RunEditAsync(ViewModel.ConfirmDeleteTemplateAsync);
         }
 
         private void OnCancelDeleteTemplateClick(object sender, RoutedEventArgs e)

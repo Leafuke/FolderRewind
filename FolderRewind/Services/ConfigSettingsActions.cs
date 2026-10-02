@@ -92,7 +92,7 @@ internal sealed class ConfigSettingsActions(ConfigSettingsDialogViewModel viewMo
     }
     private async Task OpenConfigFileAsync()
     {
-        ConfigService.OpenConfigFile();
+        await ConfigService.OpenConfigFileAsync();
         await Task.CompletedTask;
     }
     private async Task SaveAsTemplateAsync()
@@ -146,7 +146,7 @@ internal sealed class ConfigSettingsActions(ConfigSettingsDialogViewModel viewMo
         var result = await AppDialogService.Default.ShowRequestAsync(dialog, XamlRoot, _token);
         if (result == ContentDialogResult.Primary)
         {
-            var createResult = BackupPresetService.UpsertTemplateFromConfig(
+            var createResult = await BackupPresetService.UpsertTemplateFromConfigAsync(
                 Config,
                 templateNameBox.Text,
                 authorBox.Text,

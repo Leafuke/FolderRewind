@@ -219,7 +219,10 @@ namespace FolderRewind.Services
                 }
 
                 template.ShareCode = shareCode;
-                ConfigService.Save();
+                var saved = await ConfigService.SaveAsync();
+                // The pull request already exists: retain its URL and report local persistence separately.
+                if (!saved.Success)
+                    NotificationService.ShowWarning(I18n.Format("Config_SaveFailed", saved.ErrorMessage));
 
                 return new SubmissionResult
                 {

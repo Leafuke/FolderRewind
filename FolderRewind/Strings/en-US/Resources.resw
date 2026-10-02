@@ -5934,4 +5934,6 @@ Branch at backup: {2}
 <data name="LegacyMigration_Status_RestrictedReady" xml:space="preserve"><value>Verified; restricted recovery</value></data>
 <data name="LegacyMigration_Browse" xml:space="preserve"><value>Choose archive file</value></data>
 <data name="LegacyMigration_BoundaryUnknown" xml:space="preserve"><value>Historical boundary unknown</value></data>
+  <data name="Config_MutationDisabledInRecovery" xml:space="preserve"><value>Configuration changes are disabled while Recovery Center is active.</value></data>
+  <data name="Config_CompensationFailed" xml:space="preserve"><value>Saving and compensation both failed; persisted state is uncertain: {0}</value></data>
 </root>

@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins;
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -220,108 +221,45 @@ namespace FolderRewind.Services
                 .FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
         }
 
-        public static bool UpdateTemplateMetadata(
-            string templateId,
-            string templateName,
-            string? author,
-            string? description,
-            out string message)
+        public static async Task<TemplateMutationResult> UpdateTemplateMetadataAsync(
+            string templateId, string templateName, string? author, string? description,
+            IEnumerable<TemplateRuleEditItem>? rules = null)
         {
-            message = string.Empty;
-            var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.BackupPresets == null)
-            {
-                message = I18n.GetString("Template_Create_ConfigUnavailable");
-                return false;
-            }
-
             if (string.IsNullOrWhiteSpace(templateName))
-            {
-                message = I18n.GetString("Template_Update_NameRequired");
-                return false;
-            }
-
-            var template = appConfig.BackupPresets.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
-            if (template == null)
-            {
-                message = I18n.GetString("Template_Update_TemplateNotFound");
-                return false;
-            }
-
+                return new(false, I18n.GetString("Template_Update_NameRequired"));
+            var original = GetTemplateById(templateId);
+            if (original is null) return new(false, I18n.GetString("Template_Update_TemplateNotFound"));
             var finalName = templateName.Trim();
-            var hasConflict = appConfig.BackupPresets.Any(t =>
-                !string.Equals(t.Id, template.Id, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(t.Name, finalName, StringComparison.OrdinalIgnoreCase));
-
-            if (hasConflict)
-            {
-                message = I18n.Format("Template_Update_NameConflict", finalName);
-                return false;
-            }
-
-            template.Name = finalName;
-            template.Author = author?.Trim() ?? string.Empty;
-            template.Description = description?.Trim() ?? string.Empty;
-            template.UpdatedUtc = DateTime.UtcNow;
-
-            ConfigService.Save();
-            message = I18n.Format("Template_Update_Success", template.Name);
-            return true;
+            if (ConfigService.CurrentConfig.BackupPresets.Any(t => t.Id != original.Id
+                && string.Equals(t.Name, finalName, StringComparison.OrdinalIgnoreCase)))
+                return new(false, I18n.Format("Template_Update_NameConflict", finalName));
+            var draft = CloneTemplate(original);
+            draft.Name = finalName;
+            draft.Author = author?.Trim() ?? string.Empty;
+            draft.Description = description?.Trim() ?? string.Empty;
+            draft.UpdatedUtc = DateTime.UtcNow;
+            if (rules is not null && !TryApplyTemplatePathRules(draft, rules, out var error))
+                return new(false, error);
+            return await PersistTemplateAsync(original, draft, I18n.Format("Template_Update_Success", draft.Name));
         }
 
-        public static (bool Success, string Message, BackupPreset? Template) DuplicateTemplate(string templateId)
+        public static async Task<TemplateMutationResult> DuplicateTemplateAsync(string templateId)
         {
-            var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.BackupPresets == null)
-            {
-                return (false, I18n.GetString("Template_Create_ConfigUnavailable"), null);
-            }
-
-            var source = appConfig.BackupPresets.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
-            if (source == null)
-            {
-                return (false, I18n.GetString("Template_Duplicate_TemplateNotFound"), null);
-            }
-
+            var source = GetTemplateById(templateId);
+            if (source is null) return new(false, I18n.GetString("Template_Duplicate_TemplateNotFound"));
             var clone = CloneTemplate(source);
             clone.Id = Guid.NewGuid().ToString("N");
             clone.ShareId = Guid.NewGuid().ToString("N");
-            clone.CreatedUtc = DateTime.UtcNow;
-            clone.UpdatedUtc = DateTime.UtcNow;
-            clone.Name = BuildCopyTemplateName(source.Name, appConfig.BackupPresets);
-
-            appConfig.BackupPresets.Add(clone);
-            ConfigService.Save();
-
-            return (true, I18n.Format("Template_Duplicate_Success", clone.Name), clone);
+            clone.CreatedUtc = clone.UpdatedUtc = DateTime.UtcNow;
+            clone.Name = BuildCopyTemplateName(source.Name, ConfigService.CurrentConfig.BackupPresets);
+            return await PersistTemplateAsync(null, clone, I18n.Format("Template_Duplicate_Success", clone.Name));
         }
 
-        public static bool DeleteTemplate(string templateId, out string message)
+        public static async Task<TemplateMutationResult> DeleteTemplateAsync(string templateId)
         {
-            message = string.Empty;
-            var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.BackupPresets == null)
-            {
-                message = I18n.GetString("Template_Create_ConfigUnavailable");
-                return false;
-            }
-
-            var template = appConfig.BackupPresets.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
-            if (template == null)
-            {
-                message = I18n.GetString("Template_Delete_TemplateNotFound");
-                return false;
-            }
-
-            if (!appConfig.BackupPresets.Remove(template))
-            {
-                message = I18n.GetString("Template_Delete_Failed");
-                return false;
-            }
-
-            ConfigService.Save();
-            message = I18n.Format("Template_Delete_Success", template.Name);
-            return true;
+            var original = GetTemplateById(templateId);
+            if (original is null) return new(false, I18n.GetString("Template_Delete_TemplateNotFound"));
+            return await PersistTemplateAsync(original, null, I18n.Format("Template_Delete_Success", original.Name));
         }
 
         public static TemplatePreviewResult PreviewTemplateRules(string templateId)
@@ -389,7 +327,7 @@ namespace FolderRewind.Services
             };
         }
 
-        public static (bool Success, string Message, BackupPreset? Template) UpsertTemplateFromConfig(
+        public static async Task<TemplateMutationResult> UpsertTemplateFromConfigAsync(
             BackupConfig sourceConfig,
             string templateName,
             string? author,
@@ -397,25 +335,25 @@ namespace FolderRewind.Services
         {
             if (sourceConfig == null)
             {
-                return (false, I18n.GetString("Template_Create_SourceConfigNull"), null);
+                return new(false, I18n.GetString("Template_Create_SourceConfigNull"), null);
             }
 
             if (string.IsNullOrWhiteSpace(templateName))
             {
-                return (false, I18n.GetString("Template_Create_NameRequired"), null);
+                return new(false, I18n.GetString("Template_Create_NameRequired"), null);
             }
 
             var appConfig = ConfigService.CurrentConfig;
             if (appConfig?.BackupPresets == null)
             {
-                return (false, I18n.GetString("Template_Create_ConfigUnavailable"), null);
+                return new(false, I18n.GetString("Template_Create_ConfigUnavailable"), null);
             }
 
             var now = DateTime.UtcNow;
             var existing = appConfig.BackupPresets
                 .FirstOrDefault(t => string.Equals(t.Name, templateName.Trim(), StringComparison.OrdinalIgnoreCase));
 
-            var template = existing ?? new BackupPreset
+            var template = existing is not null ? CloneTemplate(existing) : new BackupPreset
             {
                 CreatedUtc = now
             };
@@ -462,15 +400,8 @@ namespace FolderRewind.Services
                 LogService.Log(I18n.GetString("Template_Create_NoPathRules"), LogLevel.Warning);
             }
 
-            if (existing == null)
-            {
-                appConfig.BackupPresets.Add(template);
-            }
-
-            ConfigService.Save();
-
             var messageKey = existing == null ? "Template_Create_Success" : "Template_Create_OverwriteSuccess";
-            return (true, I18n.Format(messageKey, template.Name), template);
+            return await PersistTemplateAsync(existing, template, I18n.Format(messageKey, template.Name));
         }
 
     }

@@ -102,9 +102,10 @@ public sealed partial class GameDiscoveryPage : Page
 
     private async void OnSaveSettingsClick(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.SaveSettings(out var error))
+        var result = await ViewModel.SaveSettingsAsync();
+        if (!result.Success)
         {
-            await ShowMessageAsync(I18n.GetString("GameDiscoveryPage_SaveFailed"), error);
+            await ShowMessageAsync(I18n.GetString("GameDiscoveryPage_SaveFailed"), result.ErrorMessage);
         }
     }
 

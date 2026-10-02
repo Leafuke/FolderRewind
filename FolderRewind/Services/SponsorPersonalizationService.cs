@@ -43,7 +43,7 @@ namespace FolderRewind.Services
             try
             {
                 var targetDir = Path.Combine(ConfigService.ConfigDirectory, BackgroundDirectoryName);
-                var targetPath = Path.Combine(targetDir, $"background{extension.ToLowerInvariant()}");
+                var targetPath = Path.Combine(targetDir, $"background-{Guid.NewGuid():N}{extension.ToLowerInvariant()}");
 
                 // 文件 IO 可以放到线程池，但 GlobalSettings 会被 XAML x:Bind 监听，
                 // 其属性变更必须在 UI 线程触发，否则绑定会跨线程更新 ToggleSwitch。
@@ -53,12 +53,15 @@ namespace FolderRewind.Services
                     File.Copy(sourcePath, targetPath, overwrite: true);
                 }).ConfigureAwait(false);
 
-                await UiDispatcherService.RunOnUiAsync(() =>
+                await UiDispatcherService.RunOnUiAsync(async () =>
                 {
                     var settings = ConfigService.CurrentConfig.GlobalSettings;
-                    settings.SponsorBackgroundImagePath = targetPath;
-                    settings.SponsorBackgroundEnabled = true;
-                    ConfigService.Save();
+                    var previousPath = settings.SponsorBackgroundImagePath;
+                    var previousEnabled = settings.SponsorBackgroundEnabled;
+                    await ConfigEditTransaction.ApplyAsync(
+                        () => { settings.SponsorBackgroundImagePath = targetPath; settings.SponsorBackgroundEnabled = true; },
+                        () => { settings.SponsorBackgroundImagePath = previousPath; settings.SponsorBackgroundEnabled = previousEnabled; },
+                        () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
 
                     // 同一扩展名会覆盖同一个目标路径，显式要求 Shell 重新解码。
                     MainWindowService.ApplySponsorVisuals(forceBackgroundImageReload: true);
@@ -77,7 +80,7 @@ namespace FolderRewind.Services
             }
         }
 
-        public static bool ClearBackgroundImage()
+        public static async Task<bool> ClearBackgroundImageAsync()
         {
             if (!SponsorService.IsUnlocked)
             {
@@ -86,22 +89,23 @@ namespace FolderRewind.Services
 
             try
             {
-                var cleared = false;
-                UiDispatcherService.RunOnUiAsync(() =>
+                await UiDispatcherService.RunOnUiAsync(async () =>
                 {
                     var settings = ConfigService.CurrentConfig.GlobalSettings;
-                    settings.SponsorBackgroundEnabled = false;
-                    settings.SponsorBackgroundImagePath = string.Empty;
-                    ConfigService.Save();
+                    var previousPath = settings.SponsorBackgroundImagePath;
+                    var previousEnabled = settings.SponsorBackgroundEnabled;
+                    await ConfigEditTransaction.ApplyAsync(
+                        () => { settings.SponsorBackgroundEnabled = false; settings.SponsorBackgroundImagePath = string.Empty; },
+                        () => { settings.SponsorBackgroundEnabled = previousEnabled; settings.SponsorBackgroundImagePath = previousPath; },
+                        () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
 
                     MainWindowService.ApplySponsorVisuals();
                     NotificationService.ShowSuccess(
                         I18n.GetString("Sponsor_BackgroundCleared"),
                         I18n.GetString("Sponsor_Title"));
-                    cleared = true;
-                }).GetAwaiter().GetResult();
+                });
 
-                return cleared;
+                return true;
             }
             catch (Exception ex)
             {

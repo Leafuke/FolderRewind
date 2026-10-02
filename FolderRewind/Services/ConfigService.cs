@@ -476,18 +476,8 @@ namespace FolderRewind.Services
 
         #region 持久化与重载
 
-        public static void Save()
-        {
-            var result = SaveWithResult();
-            if (!result.Success)
-            {
-                System.Diagnostics.Debug.WriteLine($"Config save error: {result.ErrorMessage}");
-                LogService.Log(I18n.Format("Config_SaveFailed", result.ErrorMessage));
-            }
-        }
-
         /// <summary>
-        /// 保存配置：先规范化再原子写入；恢复模式下直接返回失败。可选发布 Saved 事件。
+        /// 同步兼容入口，仅供启动及尚未迁移的插件事务使用；交互调用应使用 SaveAsync。
         /// </summary>
         public static ConfigSaveResult SaveWithResult(bool publishSavedEvent = true)
         {
@@ -529,7 +519,7 @@ namespace FolderRewind.Services
             try
             {
                 var snapshot = await UiDispatcherService.RunOnUiAsync(
-                    () => Task.FromResult(CaptureSnapshot())).ConfigureAwait(false);
+                    () => CaptureSnapshot()).ConfigureAwait(false);
                 return await ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent, cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -556,11 +546,11 @@ namespace FolderRewind.Services
 
             try
             {
-                var snapshot = await UiDispatcherService.RunOnUiAsync(async () =>
+                var snapshot = await UiDispatcherService.RunOnUiAsync(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     mutation(CurrentConfig);
-                    return await Task.FromResult(CaptureSnapshot());
+                    return CaptureSnapshot();
                 }).ConfigureAwait(false);
                 return await ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent, cancellationToken)
                     .ConfigureAwait(false);
@@ -654,14 +644,19 @@ namespace FolderRewind.Services
             }
         }
 
-        public static void OpenConfigFile()
+        public static async Task OpenConfigFileAsync()
         {
             try
             {
                 if (!File.Exists(ConfigPath))
                 {
                     if (IsRecoveryMode) return;
-                    Save();
+                    var saved = await SaveAsync();
+                    if (!saved.Success)
+                    {
+                        LogService.Log(I18n.Format("Config_SaveFailed", saved.ErrorMessage));
+                        return;
+                    }
                 }
                 if (!ShellPathService.TryOpenPath(ConfigPath, out var openError))
                 {

@@ -5934,4 +5934,6 @@ Pull Request：{1}</value>
 <data name="LegacyMigration_Status_RestrictedReady" xml:space="preserve"><value>已验证，可受限恢复</value></data>
 <data name="LegacyMigration_Browse" xml:space="preserve"><value>选择归档文件</value></data>
 <data name="LegacyMigration_BoundaryUnknown" xml:space="preserve"><value>历史范围未知</value></data>
+  <data name="Config_MutationDisabledInRecovery" xml:space="preserve"><value>恢复中心启用期间不能修改配置。</value></data>
+  <data name="Config_CompensationFailed" xml:space="preserve"><value>配置保存及补偿均失败，磁盘状态尚未确认：{0}</value></data>
 </root>

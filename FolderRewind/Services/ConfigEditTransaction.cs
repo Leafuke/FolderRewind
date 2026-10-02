@@ -13,6 +13,30 @@ namespace FolderRewind.Services;
 /// </summary>
 internal static class ConfigEditTransaction
 {
+    internal static Task ReplaceItemAsync<T>(
+        System.Collections.Generic.IList<T> items, T? original, T? replacement,
+        Func<Task<ConfigSaveResult>> save, string failureMessage) where T : class
+    {
+        var index = original is null ? items.Count : items.IndexOf(original);
+        if (index < 0) throw new InvalidOperationException("The edited item is no longer in the configuration.");
+        return ApplyAsync(
+            () =>
+            {
+                if (original is null) items.Add(replacement!);
+                else if (replacement is null) items.RemoveAt(index);
+                else items[index] = replacement;
+            },
+            () =>
+            {
+                if (original is null) items.Remove(replacement!);
+                else if (replacement is null)
+                {
+                    if (!items.Contains(original)) items.Insert(index, original);
+                }
+                else if (!ReferenceEquals(items[index], original)) items[index] = original;
+            }, save, failureMessage);
+    }
+
     public static async Task ApplyAsync(
         Action apply,
         Action rollback,

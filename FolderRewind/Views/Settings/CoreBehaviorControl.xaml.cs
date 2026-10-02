@@ -213,21 +213,21 @@ namespace FolderRewind.Views.Settings
                     }
                 }
 
-                ViewModel.SetHotkeyOverride(hotkeyId, candidate);
+                await ViewModel.SetHotkeyOverrideAsync(hotkeyId, candidate);
             }
             else if (result == ContentDialogResult.Secondary)
             {
-                ViewModel.SetHotkeyOverride(hotkeyId, string.Empty);
+                await ViewModel.SetHotkeyOverrideAsync(hotkeyId, string.Empty);
             }
         }
 
-        private void OnResetHotkeyClick(object sender, RoutedEventArgs e)
+        private async void OnResetHotkeyClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn) return;
             var hotkeyId = btn.Tag as string;
             if (string.IsNullOrWhiteSpace(hotkeyId)) return;
 
-            ViewModel.ResetHotkeyOverride(hotkeyId);
+            await ViewModel.ResetHotkeyOverrideAsync(hotkeyId);
         }
 
         private HotkeyDefinition? FindHotkeyDefinition(string id)

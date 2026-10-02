@@ -104,7 +104,7 @@ public static class CoreFeatureValidationService
         {
             var report = await RunValidationInternalAsync(automatic).ConfigureAwait(false);
             LastReport = report;
-            PersistReport(report, automatic);
+            await PersistReportAsync(report, automatic);
             UpdateStatus(report.Success
                 ? I18n.GetString("CoreValidation_Status_Succeeded")
                 : I18n.GetString("CoreValidation_Status_Failed"));
@@ -178,15 +178,17 @@ public static class CoreFeatureValidationService
         };
     }
 
-    private static void PersistReport(CoreFeatureValidationReport report, bool automatic)
+    private static async Task PersistReportAsync(CoreFeatureValidationReport report, bool automatic)
     {
-        var settings = ConfigService.CurrentConfig?.GlobalSettings;
-        if (settings is null) return;
-        if (automatic) settings.HasTriggeredInitialCoreValidation = true;
-        settings.LastCoreValidationPassed = report.Success;
-        settings.LastCoreValidationUtc = report.FinishedAtUtc;
-        settings.LastCoreValidationSummary = report.Summary;
-        ConfigService.Save();
+        var saved = await ConfigService.UpdateAndSaveAsync(config =>
+        {
+            var settings = config.GlobalSettings;
+            if (automatic) settings.HasTriggeredInitialCoreValidation = true;
+            settings.LastCoreValidationPassed = report.Success;
+            settings.LastCoreValidationUtc = report.FinishedAtUtc;
+            settings.LastCoreValidationSummary = report.Summary;
+        });
+        if (!saved.Success) LogService.LogWarning(I18n.Format("Config_SaveFailed", saved.ErrorMessage), nameof(CoreFeatureValidationService));
     }
 
     private static void NotifyAutomaticResult(CoreFeatureValidationReport report)

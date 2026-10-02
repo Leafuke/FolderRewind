@@ -203,8 +203,11 @@ namespace FolderRewind.Views.Settings
             }
         }
 
+        private bool _isImportingTemplate;
         private async void OnImportTemplateClick(object sender, RoutedEventArgs e)
         {
+            if (_isImportingTemplate) return;
+            _isImportingTemplate = true;
             try
             {
                 var filePath = await MainWindowService.PickFilePathAsync(
@@ -257,14 +260,15 @@ namespace FolderRewind.Views.Settings
                         : BackupPresetService.TemplateImportConflictStrategy.KeepBoth;
                 }
 
-                var ok = BackupPresetService.ImportTemplate(filePath, strategy, out var message);
-                ShowInfoBar(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                var imported = await BackupPresetService.ImportTemplateAsync(filePath, strategy);
+                ShowInfoBar(imported.Message, imported.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             }
             catch (Exception ex)
             {
                 LogService.LogError($"[DataManagementControl] Import template failed: {ex.Message}", nameof(DataManagementControl), ex);
                 ShowInfoBar(I18n.Format("Template_Import_Failed", ex.Message), InfoBarSeverity.Error);
             }
+            finally { _isImportingTemplate = false; }
         }
 
         private async void OnManageTemplatesClick(object sender, RoutedEventArgs e)

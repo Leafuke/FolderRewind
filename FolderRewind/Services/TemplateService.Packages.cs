@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins;
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -187,89 +188,31 @@ namespace FolderRewind.Services
             }
         }
 
-        public static bool ImportTemplate(string sourcePath, out string message)
+        public static async Task<TemplateMutationResult> ImportTemplateAsync(
+            string sourcePath, TemplateImportConflictStrategy strategy = TemplateImportConflictStrategy.KeepBoth)
         {
-            return ImportTemplate(sourcePath, TemplateImportConflictStrategy.KeepBoth, out message, out _);
-        }
-
-        public static bool ImportTemplate(string sourcePath, TemplateImportConflictStrategy strategy, out string message)
-        {
-            return ImportTemplate(sourcePath, strategy, out message, out _);
-        }
-
-        public static bool ImportTemplate(
-            string sourcePath,
-            TemplateImportConflictStrategy strategy,
-            out string message,
-            out BackupPreset? importedTemplate)
-        {
-            message = string.Empty;
-            importedTemplate = null;
-
             var inspection = InspectImportTemplate(sourcePath);
-            if (!inspection.Success || inspection.Template == null)
+            if (!inspection.Success || inspection.Template is null) return new(false, inspection.Message);
+            var presets = ConfigService.CurrentConfig.BackupPresets;
+            var template = CloneTemplate(inspection.Template);
+            var existing = presets.FirstOrDefault(t => string.Equals(t.Id, inspection.ConflictTemplateId, StringComparison.OrdinalIgnoreCase));
+            if (inspection.HasConflict && strategy == TemplateImportConflictStrategy.ReplaceExisting && existing is not null)
             {
-                message = inspection.Message;
-                return false;
+                template.Id = existing.Id;
+                return await PersistTemplateAsync(existing, template, I18n.Format("Template_Import_Overwrite", template.Name));
             }
-
-            var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.BackupPresets == null)
+            var originalName = template.Name;
+            if (inspection.HasConflict)
             {
-                message = I18n.GetString("Template_Import_ConfigUnavailable");
-                return false;
+                template.Id = Guid.NewGuid().ToString("N");
+                template.Name = BuildCopyTemplateName(template.Name, presets);
+                if (inspection.ConflictMatchedByShareId) template.ShareId = Guid.NewGuid().ToString("N");
             }
-
-            try
-            {
-                // 导入时先克隆一份，后面无论是覆盖还是保留两份，都不要回写 inspection 里的对象。
-                var template = CloneTemplate(inspection.Template);
-
-
-                var existingIndex = appConfig.BackupPresets
-                    .ToList()
-                    .FindIndex(t => string.Equals(t.Id, inspection.ConflictTemplateId, StringComparison.OrdinalIgnoreCase));
-                if (inspection.HasConflict && strategy == TemplateImportConflictStrategy.ReplaceExisting && existingIndex >= 0)
-                {
-                    // 用户已确认同名模板直接覆盖。
-                    template.Id = appConfig.BackupPresets[existingIndex].Id;
-                    appConfig.BackupPresets[existingIndex] = template;
-                    importedTemplate = appConfig.BackupPresets[existingIndex];
-                    message = I18n.Format("Template_Import_Overwrite", template.Name);
-                }
-                else
-                {
-                    var originalName = template.Name;
-                    if (inspection.HasConflict)
-                    {
-                        template.Id = Guid.NewGuid().ToString("N");
-                        // “保留两份”时主动改名，避免用户导入完还分不清哪份是新来的。
-                        template.Name = BuildCopyTemplateName(template.Name, appConfig.BackupPresets);
-                        if (inspection.ConflictMatchedByShareId)
-                        {
-                            template.ShareId = Guid.NewGuid().ToString("N");
-                        }
-                    }
-
-                    appConfig.BackupPresets.Add(template);
-                    importedTemplate = template;
-                    message = !string.Equals(originalName, template.Name, StringComparison.Ordinal)
-                        ? I18n.Format("Template_Import_KeepBothRenamed", originalName, template.Name)
-                        : I18n.Format("Template_Import_Success", template.Name);
-                }
-
-                ConfigService.Save();
-                LogService.Log(message);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                message = I18n.Format("Template_Import_Failed", ex.Message);
-                LogService.Log(message, LogLevel.Error);
-                return false;
-            }
+            var message = originalName != template.Name
+                ? I18n.Format("Template_Import_KeepBothRenamed", originalName, template.Name)
+                : I18n.Format("Template_Import_Success", template.Name);
+            return await PersistTemplateAsync(null, template, message);
         }
-
 
         private static (bool Success, string Message, BackupPreset? Template) ReadTemplateFromFile(string sourcePath)
         {

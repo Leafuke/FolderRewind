@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins;
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -203,19 +204,20 @@ namespace FolderRewind.Services
             return true;
         }
 
-        public static bool UpdateTemplatePathRules(
-            string templateId,
-            IEnumerable<TemplateRuleEditItem>? items,
-            out string message)
+        public static async Task<TemplateMutationResult> UpdateTemplatePathRulesAsync(
+            string templateId, IEnumerable<TemplateRuleEditItem>? items)
+        {
+            var original = GetTemplateById(templateId);
+            if (original is null) return new(false, I18n.GetString("Template_Update_TemplateNotFound"));
+            var draft = CloneTemplate(original);
+            if (!TryApplyTemplatePathRules(draft, items, out var message)) return new(false, message);
+            return await PersistTemplateAsync(original, draft, message);
+        }
+
+        private static bool TryApplyTemplatePathRules(
+            BackupPreset template, IEnumerable<TemplateRuleEditItem>? items, out string message)
         {
             message = string.Empty;
-            var template = GetTemplateById(templateId);
-            if (template == null)
-            {
-                message = I18n.GetString("Template_Update_TemplateNotFound");
-                return false;
-            }
-
             var rules = new ObservableCollection<TemplatePathRule>();
             foreach (var item in items ?? Array.Empty<TemplateRuleEditItem>())
             {
@@ -267,7 +269,6 @@ namespace FolderRewind.Services
 
             template.PathRules = rules;
             template.UpdatedUtc = DateTime.UtcNow;
-            ConfigService.Save();
             message = I18n.GetString("Template_Manager_PathRulesUpdated");
             return true;
         }
