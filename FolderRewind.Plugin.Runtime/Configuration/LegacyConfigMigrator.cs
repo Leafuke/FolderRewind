@@ -31,12 +31,15 @@ public sealed class LegacyConfigMigrator
 
         var root = (JsonObject)legacy.DeepClone();
         root[ConfigSchema.VersionPropertyName] = ConfigSchema.CurrentVersion;
+        root["Legacy182UpgradePending"] = true;
         var warnings = new List<string>();
         var usedConfigIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var usedFolderIds = new HashSet<Guid>();
 
         var globalSettings = EnsureObject(root, "GlobalSettings");
         MigratePluginSettings(globalSettings, warnings);
+        globalSettings["DefaultCloudRemoteBasePath"] = "remote:FolderRewind";
+        warnings.Add("1.9 不迁移旧云存档及云配置。原远端数据保持不变，请自行创建新的云配置。旧 Smart 备份如需取回，请同时保留所需依赖归档和元数据。");
 
         var configs = EnsureArray(root, "BackupConfigs");
         for (var configIndex = 0; configIndex < configs.Count; configIndex++)
@@ -49,6 +52,7 @@ public sealed class LegacyConfigMigrator
 
             var configId = EnsureConfigId(config, configIndex, usedConfigIds);
             MigrateConfig(config, configId, configIndex, usedFolderIds, warnings);
+            config["Cloud"] = new JsonObject { ["Enabled"] = false };
         }
 
         MigratePresets(root, warnings);
@@ -58,7 +62,7 @@ public sealed class LegacyConfigMigrator
 
     private static void MigratePresets(JsonObject root, List<string> warnings)
     {
-        if (ConfigDocumentValidator.Get(root, "Templates") is not JsonArray presets)
+        if ((ConfigDocumentValidator.Get(root, "BackupPresets") ?? ConfigDocumentValidator.Get(root, "Templates")) is not JsonArray presets)
         {
             return;
         }
@@ -72,6 +76,7 @@ public sealed class LegacyConfigMigrator
             }
 
             preset["SchemaVersion"] = ConfigSchema.CurrentVersion;
+            preset["Cloud"] = new JsonObject { ["Enabled"] = false };
             var configType = ConfigDocumentValidator.GetString(preset, "BaseConfigType")?.Trim();
             var isMinecraft = string.Equals(configType, "Minecraft Saves", StringComparison.OrdinalIgnoreCase);
             preset["Kind"] = isMinecraft
@@ -210,9 +215,14 @@ public sealed class LegacyConfigMigrator
     private static void MigratePluginSettings(JsonObject globalSettings, List<string> warnings)
     {
         var plugins = EnsureObject(globalSettings, "Plugins");
+        var globalEnabled = ConfigDocumentValidator.Get(plugins, "Enabled") is JsonValue globalValue
+            && globalValue.TryGetValue<bool>(out var wasEnabled) && wasEnabled;
         if (ConfigDocumentValidator.Get(plugins, "PluginEnabled") is JsonObject enabled)
         {
             plugins["EnabledIntent"] = enabled.DeepClone();
+            foreach (var (id, value) in enabled)
+                ((JsonObject)plugins["EnabledIntent"]!)[id] = globalEnabled
+                    && value is JsonValue flag && flag.TryGetValue<bool>(out var pluginEnabled) && pluginEnabled;
         }
         else
         {

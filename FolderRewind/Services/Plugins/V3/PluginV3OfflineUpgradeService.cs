@@ -56,8 +56,11 @@ internal static class PluginV3OfflineUpgradeService
             var hasLegacyData = settings.EnabledIntent.ContainsKey(MineRewindId)
                 || settings.TypedSettings.ContainsKey(MineRewindId)
                 || ConfigService.CurrentConfig.BackupConfigs.Any(config =>
-                    config.ProviderStates.ContainsKey(MineRewindId)
-                    || config.SourceFolders.Any(folder => folder.ProviderStates.ContainsKey(MineRewindId)));
+                    config.Kind.OwnerId == MineRewindId || config.RequiredPluginId == MineRewindId
+                    || config.ProviderStates.ContainsKey(MineRewindId)
+                    || config.SourceFolders.Any(folder => folder.ProviderStates.ContainsKey(MineRewindId)))
+                || ConfigService.CurrentConfig.BackupPresets.Any(template =>
+                    template.Kind.OwnerId == MineRewindId || template.RequiredPluginIds.Contains(MineRewindId));
 
             if (!hasFlatPayload
                 && priorState?.Status is PluginMigrationStatus.Completed or PluginMigrationStatus.Suppressed)
