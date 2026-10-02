@@ -51,6 +51,10 @@ public sealed class HistoryCloudBackupTests
     }
 
     [TestMethod]
+    // This five-second liveness check must not benchmark the runner's disk while other
+    // repository tests concurrently flush hundreds of immutable packs. Concurrency
+    // within the operation is still controlled explicitly by the barriers below.
+    [DoNotParallelize]
     [DataRow(1)]
     [DataRow(2)]
     [DataRow(3)]
