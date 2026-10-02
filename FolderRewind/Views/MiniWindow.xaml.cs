@@ -128,6 +128,7 @@ namespace FolderRewind.Views
         {
             ViewModel = new(context ?? throw new ArgumentNullException(nameof(context)));
             this.InitializeComponent();
+            WindowIconHelper.ApplyBeforeShow(this);
 
             RootGrid.Loaded += RootGrid_Loaded;
             ViewModel.PropertyChanged += ViewModel_PropertyChanged;

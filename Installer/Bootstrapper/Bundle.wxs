@@ -1,0 +1,32 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Bundle Name="$(var.BundleDisplayName)" Manufacturer="Leafuke" Version="$(var.ProductVersion)" UpgradeCode="$(var.BundleUpgradeCode)" IconSourceFile="..\..\FolderRewind\Assets\MsiApp.ico" AboutUrl="https://folderrewind.top/" HelpUrl="https://github.com/Leafuke/FolderRewind/issues">
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication Theme="hyperlinkLicense" ThemeFile="Theme.xml" LicenseUrl="LICENSE.txt" LocalizationFile="Localization\en-US.wxl" LogoFile="..\Assets\Logo.png" />
+      <Payload SourceFile="$(var.NativeOutputDirectory)\FolderRewind.BAFunctions.dll" bal:BAFunctions="yes" />
+      <Payload Id="ChineseNumericLocalization" SourceFile="Localization\zh-CN.wxl" Name="2052\thm.wxl" />
+      <Payload Id="EnglishNumericLocalization" SourceFile="Localization\en-US.wxl" Name="1033\thm.wxl" />
+      <Payload Id="ChineseNamedLocalization" SourceFile="Localization\zh-CN.wxl" Name="zh-CN\thm.wxl" />
+      <Payload Id="EnglishNamedLocalization" SourceFile="Localization\en-US.wxl" Name="en-US\thm.wxl" />
+      <Payload SourceFile="..\..\LICENSE.txt" Name="LICENSE.txt" />
+    </BootstrapperApplication>
+    <Variable Name="FolderRewindSelectedLanguage" Type="numeric" Value="1033" />
+    <Variable Name="FolderRewindMaintenance" Type="numeric" Value="0" />
+    <Variable Name="FolderRewindArchitecture" Type="string" Value="$(var.PayloadArchitecture)" />
+    <Variable Name="FolderRewindProductCode" Type="string" Value="$(var.ProductCode)" />
+    <Variable Name="FolderRewindMsiUpgradeCode" Type="string" Value="$(var.MsiUpgradeCode)" />
+    <Variable Name="FolderRewindRegistryKey" Type="string" Value="$(var.MsiRegistryKey)" />
+    <Variable Name="FolderRewindMsiTransform" Type="string" Value="" />
+    <Variable Name="FolderRewindUserFolder" Type="string" Value="[LocalAppDataFolder]Programs\FolderRewind" />
+    <Variable Name="FolderRewindMachineFolder" Type="string" Value="[ProgramFiles64Folder]FolderRewind" />
+    <Variable Name="DesktopShortcutChosen" Type="numeric" Value="1" Persisted="yes" bal:Overridable="yes" />
+    <Variable Name="LaunchAfterInstallChosen" Type="numeric" Value="1" />
+    <Variable Name="LaunchTarget" Type="string" Value="[InstallFolder]\FolderRewind.exe" />
+    <Variable Name="InstallFolder" Type="string" Value="[LocalAppDataFolder]Programs\FolderRewind" Persisted="yes" bal:Overridable="yes" />
+    <Chain>
+      <MsiPackage Id="FolderRewindMsi" SourceFile="$(var.MsiPath)" Compressed="yes" Vital="yes" Visible="no" EnableFeatureSelection="yes">
+        <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
+        <MsiProperty Name="TRANSFORMS" Value="[FolderRewindMsiTransform]" Condition="NOT FolderRewindMaintenance" />
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>

@@ -4,6 +4,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>FolderRewind</RootNamespace>
+    <Version>1.9.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -24,6 +25,7 @@
     <EnabledXamlOptionalChanges Condition="'$(EnabledXamlOptionalChanges)'=='' and '$(FolderRewindEnableXaml231Optimizations)'=='true' and $([MSBuild]::VersionGreaterThanOrEquals('$(FolderRewindWindowsAppSdkVersion)', '2.3.1'))">$(FolderRewindXaml231OptionalChanges)</EnabledXamlOptionalChanges>
     <!-- 普通开发和 Store/侧载构建仍为打包应用；MSI 发布在工作流中显式传入 Msi。 -->
     <FolderRewindDistributionChannel Condition="'$(FolderRewindDistributionChannel)'==''">Packaged</FolderRewindDistributionChannel>
+    <SevenZipExecutable Condition="'$(SevenZipExecutable)'==''">$(MSBuildThisFileDirectory)..\7za.exe</SevenZipExecutable>
   </PropertyGroup>
 
   <!--
@@ -31,6 +33,9 @@
     .NET 或 Windows App SDK Runtime；EnableMsixTooling 保留以免影响既有 MSIX 流程。
   -->
   <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
+    <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI;DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <StartupObject>FolderRewind.Program</StartupObject>
+    <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>
     <WindowsPackageType>None</WindowsPackageType>
     <AppxPackage>false</AppxPackage>
     <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
@@ -76,6 +81,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content Include="..\LICENSE.txt" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
@@ -100,7 +106,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="..\7za.exe" Link="7za.exe">
+    <Content Include="$(SevenZipExecutable)" Link="7za.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
@@ -108,6 +114,12 @@
 
   <ItemGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
     <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />
+    <Content Include="Assets\MsiApp.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\Installer\THIRD-PARTY-NOTICES.md" Link="Licenses\INSTALLER-NOTICES.md" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\Installer\LICENSE.WiX.txt" Link="Licenses\WiX.txt" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\Installer\LICENSE.7-Zip.txt" Link="Licenses\7-Zip.txt" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\*.jpg;Assets\*.jpeg" Exclude="@(Content)" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="Assets\*.png;Assets\*.jpg;Assets\*.jpeg;Assets\*.ico" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--
@@ -143,7 +155,7 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
+    <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />

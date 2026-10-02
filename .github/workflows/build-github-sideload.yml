@@ -6,8 +6,13 @@ on:
       package_version:
         description: Package version from Package.appxmanifest
         required: true
-        default: 1.9.0.0
+        default: 1.9.1.0
         type: string
+      publish_release:
+        description: Explicitly publish the verified artifacts to GitHub Release
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -35,45 +40,30 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Install 7-Zip-zstd And Stage 7za
+      - name: Stage Pinned Architecture-Specific 7-Zip-zstd
         shell: pwsh
         run: |
-          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest'
-          $asset = $release.assets |
-            Where-Object { $_.name -match '^7z.*-zstd-x64\.exe$' -and $_.name -notmatch '-ndm\.exe$' } |
-            Select-Object -First 1
+          $payload = .\.github\scripts\Stage-SevenZip.ps1 -Platform '${{ matrix.platform }}' | Select-Object -Last 1
+          $hostTool = .\.github\scripts\Stage-SevenZip.ps1 -Platform 'x64' | Select-Object -Last 1
+          "SEVENZIP_PAYLOAD=$payload" >> $env:GITHUB_ENV
+          "SEVENZIP_HOST=$hostTool" >> $env:GITHUB_ENV
+          .\.github\scripts\Generate-InstallerArtwork.ps1
 
-          if ($null -eq $asset) {
-            throw 'Could not find a Windows x64 7-Zip-zstd installer asset in the latest GitHub release.'
+      - name: Ensure WinApp CLI For UI Evidence
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command winapp -ErrorAction SilentlyContinue)) {
+            winget install --id Microsoft.WinAppCli --exact --version 0.7.0 --silent --accept-package-agreements --accept-source-agreements
+            if ($LASTEXITCODE -ne 0) { throw 'WinApp CLI setup failed.' }
           }
-
-          $installerPath = Join-Path $env:RUNNER_TEMP $asset.name
-          $installDirectory = Join-Path $env:RUNNER_TEMP '7zip-zstd'
-
-          if (Test-Path -LiteralPath $installDirectory) {
-            Remove-Item -LiteralPath $installDirectory -Recurse -Force
-          }
-
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath
-
-          # NSIS silent install. /D must be the final argument.
-          $process = Start-Process -FilePath $installerPath -ArgumentList @('/S', "/D=$installDirectory") -Wait -PassThru
-          if ($process.ExitCode -ne 0) {
-            throw "7-Zip-zstd installer failed with exit code $($process.ExitCode)."
-          }
-
-          $sevenZip = Get-ChildItem -Path $installDirectory -Filter '7za.exe' -Recurse | Select-Object -First 1
-          if ($null -eq $sevenZip) {
-            throw "7za.exe was not found in the installed 7-Zip-zstd directory: $installDirectory"
-          }
-
-          Copy-Item -LiteralPath $sevenZip.FullName -Destination "$env:GITHUB_WORKSPACE\7za.exe" -Force
+          "$env:LOCALAPPDATA\Microsoft\WindowsApps" >> $env:GITHUB_PATH
 
       - name: Validate Version Input
         shell: pwsh
         run: |
-          if ('${{ inputs.package_version }}' -notmatch '^\d+\.\d+\.\d+\.\d+$') {
-            throw "package_version must use a four-part version such as 1.6.1.0."
+          if ('${{ inputs.package_version }}' -notmatch '^\d+\.\d+\.\d+\.0$') {
+            throw "package_version must use major.minor.build.0; MSI revision must be zero."
           }
 
       - name: Read Package Version
@@ -125,6 +115,7 @@ jobs:
             -c Release `
             -p:Platform=${{ matrix.platform }} `
             -p:CETCompat=false `
+            -p:SevenZipExecutable="$env:SEVENZIP_PAYLOAD" `
             -p:UapAppxPackageBuildMode=SideloadOnly `
             -p:AppxBundle=Never `
             -p:GenerateAppxPackageOnBuild=true `
@@ -148,7 +139,7 @@ jobs:
             -PackageRoot "$env:GITHUB_WORKSPACE\artifacts\appx\${{ matrix.platform }}" `
             -Version "${{ steps.version.outputs.manifest_version }}" `
             -Platform "${{ matrix.platform }}" `
-            -SevenZipPath "$env:GITHUB_WORKSPACE\7za.exe" `
+            -SevenZipPath "$env:SEVENZIP_HOST" `
             -OutputDirectory "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}"
 
       - name: Publish Self-Contained MSI Payload
@@ -167,6 +158,7 @@ jobs:
             -p:Platform=${{ matrix.platform }} `
             -p:FolderRewindDistributionChannel=Msi `
             -p:CETCompat=false `
+            -p:SevenZipExecutable="$env:SEVENZIP_PAYLOAD" `
             -p:DebugType=None `
             -p:DebugSymbols=false `
             -p:Version=${{ steps.version.outputs.manifest_version }} `
@@ -187,122 +179,37 @@ jobs:
             -Platform "${{ matrix.platform }}" `
             -OutputDirectory "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}"
 
-      - name: Smoke Test x64 MSI Install And Uninstall
+      - name: Verify Missing Resources Block Packaging
+        shell: pwsh
+        run: |
+          .\.github\scripts\Test-MsiPayloadFailures.ps1 `
+            -Directory "$env:GITHUB_WORKSPACE\artifacts\msi-publish\${{ matrix.platform }}" `
+            -ResultPath "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}\resource-negative-tests.json"
+
+      - name: Validate x64 MSI Lifecycle In An Empty Installation Context
         if: matrix.platform == 'x64'
         shell: pwsh
         run: |
-          $msi = Get-ChildItem "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}" -Filter '*.msi' | Select-Object -First 1
-          if ($null -eq $msi) {
-            throw 'MSI release asset was not found.'
-          }
+          .\.github\scripts\Test-MsiInstallation.ps1 `
+            -MsiPath "$env:GITHUB_WORKSPACE\artifacts\release\x64\FolderRewind_${{ steps.version.outputs.manifest_version }}_x64.msi" `
+            -PublishDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-publish\x64" `
+            -ResultDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-validation"
 
-          $installDirectory = Join-Path $env:RUNNER_TEMP 'FolderRewind-msi-smoke'
-          $install = Start-Process msiexec.exe `
-            -ArgumentList @('/i', $msi.FullName, '/qn', '/norestart', "INSTALLFOLDER=`"$installDirectory`"") `
-            -Wait -PassThru
-          if ($install.ExitCode -ne 0) {
-            throw "MSI install smoke test failed with exit code $($install.ExitCode)."
-          }
+          .\.github\scripts\Test-MsiBoundaries.ps1 `
+            -BaseMsi "$env:GITHUB_WORKSPACE\artifacts\msi-validation\base-fixture\FolderRewind_${{ steps.version.outputs.manifest_version }}_x64.msi" `
+            -UpgradeMsi "$env:GITHUB_WORKSPACE\artifacts\msi-validation\upgrade-fixture\FolderRewind_99.99.99.0_x64.msi" `
+            -ResultDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-validation\boundaries"
 
-          foreach ($requiredPath in @(
-            'FolderRewind.exe',
-            'FolderRewind.dll',
-            'FolderRewind.deps.json',
-            'FolderRewind.runtimeconfig.json',
-            'FolderRewind.pri',
-            'Microsoft.UI.Xaml.dll',
-            'Microsoft.UI.Xaml.Controls.pri',
-            'Microsoft.WindowsAppRuntime.dll',
-            '7za.exe',
-            'Assets\logo.ico'
-          )) {
-            if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $requiredPath))) {
-              throw "MSI install is missing required payload: $requiredPath"
-            }
-          }
+          .\.github\scripts\Test-MsiBundleInstallation.ps1 `
+            -FixtureMsi "$env:GITHUB_WORKSPACE\artifacts\msi-validation\base-fixture\FolderRewind_${{ steps.version.outputs.manifest_version }}_x64.msi" `
+            -ResultDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-validation\bundle"
 
-          $installedSymbols = Get-ChildItem -LiteralPath $installDirectory -Filter '*.pdb' -File -Recurse -ErrorAction SilentlyContinue
-          if ($installedSymbols) {
-            throw "MSI installed development debug symbols: $($installedSymbols.FullName -join ', ')"
-          }
-
-          # Reproduce the 1.8.0 startup regression with a legacy language value.
-          # The application must open and atomically rewrite the setting.
-          $smokeConfigDirectory = Join-Path $env:LOCALAPPDATA 'FolderRewind'
-          $smokeConfigPath = Join-Path $smokeConfigDirectory 'config.json'
-          New-Item -ItemType Directory -Path $smokeConfigDirectory -Force | Out-Null
-          Set-Content -LiteralPath $smokeConfigPath -Encoding utf8 -Value '{"GlobalSettings":{"Language":"zh_CN"}}'
-
-          # Installation alone did not catch the original broken PRI regression. Launch
-          # the installed executable and require a real top-level window to appear.
-          $executable = Join-Path $installDirectory 'FolderRewind.exe'
-          $appProcess = Start-Process -FilePath $executable -WorkingDirectory $installDirectory -PassThru
-          try {
-            $launchDeadline = [DateTime]::UtcNow.AddSeconds(30)
-            do {
-              Start-Sleep -Seconds 1
-              $appProcess.Refresh()
-              if ($appProcess.HasExited) {
-                throw "Installed FolderRewind exited before opening a window (exit code $($appProcess.ExitCode))."
-              }
-            } while ($appProcess.MainWindowHandle -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $launchDeadline)
-
-            if ($appProcess.MainWindowHandle -eq [IntPtr]::Zero) {
-              throw 'Installed FolderRewind stayed headless and did not open a window within 30 seconds.'
-            }
-          }
-          finally {
-            if (-not $appProcess.HasExited) {
-              Stop-Process -Id $appProcess.Id -Force
-              $appProcess.WaitForExit()
-            }
-          }
-
-          $migratedConfig = Get-Content -LiteralPath $smokeConfigPath -Raw | ConvertFrom-Json
-          if ($migratedConfig.GlobalSettings.Language -ne 'zh-CN') {
-            throw "Legacy language setting was not migrated to zh-CN: $($migratedConfig.GlobalSettings.Language)"
-          }
-
-          $smokeLogPath = Join-Path $smokeConfigDirectory "logs\app-$([DateTime]::Now.ToString('yyyy-MM-dd')).log"
-          if (Test-Path -LiteralPath $smokeLogPath) {
-            $smokeLog = Get-Content -LiteralPath $smokeLogPath -Raw
-            if ($smokeLog.Contains('[App Fatal]')) {
-              throw 'Legacy language smoke test logged an App Fatal startup failure.'
-            }
-          }
-
-          # Build a higher-versioned test MSI and install it without INSTALLFOLDER.
-          # Registry search in Package.wxs must retain the first install's custom path.
-          $upgradeDirectory = Join-Path $env:RUNNER_TEMP 'FolderRewind-msi-upgrade'
-          .\.github\scripts\Prepare-MsiPackage.ps1 `
-            -ProjectPath "$env:GITHUB_WORKSPACE\Installer\FolderRewind.Installer.wixproj" `
-            -PublishDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-publish\${{ matrix.platform }}" `
-            -Version '99.99.99.0' `
-            -Platform '${{ matrix.platform }}' `
-            -OutputDirectory $upgradeDirectory
-
-          $upgradeMsi = Get-ChildItem $upgradeDirectory -Filter '*.msi' | Select-Object -First 1
-          if ($null -eq $upgradeMsi) {
-            throw 'MSI upgrade test asset was not found.'
-          }
-
-          $upgrade = Start-Process msiexec.exe -ArgumentList @('/i', $upgradeMsi.FullName, '/qn', '/norestart') -Wait -PassThru
-          if ($upgrade.ExitCode -ne 0) {
-            throw "MSI upgrade smoke test failed with exit code $($upgrade.ExitCode)."
-          }
-
-          if (-not (Test-Path -LiteralPath (Join-Path $installDirectory 'FolderRewind.exe'))) {
-            throw 'MSI upgrade did not retain the original custom install directory.'
-          }
-
-          $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $upgradeMsi.FullName, '/qn', '/norestart') -Wait -PassThru
-          if ($uninstall.ExitCode -ne 0) {
-            throw "MSI uninstall smoke test failed with exit code $($uninstall.ExitCode)."
-          }
-
-          if (Test-Path -LiteralPath $installDirectory) {
-            throw "MSI uninstall left application files at $installDirectory"
-          }
+      - name: Upload Installer Validation Evidence
+        if: always() && matrix.platform == 'x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: msi-validation-x64
+          path: artifacts/msi-validation/**
 
       - name: Upload Intermediate Assets
         uses: actions/upload-artifact@v4
@@ -319,6 +226,7 @@ jobs:
             -Thumbprint "${{ steps.certificate.outputs.certificate_thumbprint }}"
 
   publish-release:
+    if: inputs.publish_release
     name: Publish GitHub Release Assets
     runs-on: windows-latest
     needs: build

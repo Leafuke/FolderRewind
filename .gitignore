@@ -363,6 +363,8 @@ MigrationBackup/
 FodyWeavers.xsd
 
 *.txt
+!/Installer/LICENSE.WiX.txt
+!/Installer/LICENSE.7-Zip.txt
 /.vs
 /.vscode
 /.claude
@@ -379,6 +381,7 @@ FodyWeavers.xsd
 !/FolderRewind/Assets/StoreLogo.png
 !/FolderRewind/Assets/Wide310x150Logo.scale-200.png
 !/FolderRewind/Assets/logo.ico
+!/FolderRewind/Assets/MsiApp.ico
 !/FolderRewind/Assets/qq_group_light.jpg
 !/FolderRewind/Assets/Plugins/
 !/FolderRewind/Assets/Plugins/*

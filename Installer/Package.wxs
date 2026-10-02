@@ -1,75 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package
-      Id="Leafuke.FolderRewind.Msi"
-      Name="FolderRewind"
-      Manufacturer="Leafuke"
-      Version="$(var.ProductVersion)"
-      Language="1033"
-      Scope="perUser"
-      Compressed="yes">
-    <MajorUpgrade
-        DowngradeErrorMessage="A newer version of FolderRewind is already installed."
-        Schedule="afterInstallInitialize" />
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Id="$(var.PackageIdentifier)" Name="$(var.PackageDisplayName)" Manufacturer="Leafuke"
+    ProductCode="$(var.ProductCode)" UpgradeCode="$(var.UpgradeCode)"
+    Version="$(var.ProductVersion)" Language="$(var.PackageLanguage)" Scope="perUserOrMachine" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="!(loc.NewerVersion)" Schedule="afterInstallInitialize" IgnoreLanguage="yes" />
     <MediaTemplate EmbedCab="yes" />
-
-    <!-- Preserve the user's selected path during major upgrades. The value is
-         searched before the old package is removed and written again by the
-         Start Menu component in the new package. -->
-    <Property Id="INSTALLFOLDER">
-      <RegistrySearch
-          Id="RememberedInstallFolder"
-          Root="HKCU"
-          Key="Software\Leafuke\FolderRewind"
-          Name="InstallFolder"
-          Type="raw" />
-    </Property>
-
-    <StandardDirectory Id="LocalAppDataFolder">
-      <Directory Id="ProgramsFolder" Name="Programs">
-        <Directory Id="INSTALLFOLDER" Name="FolderRewind" />
-      </Directory>
-    </StandardDirectory>
-
+    <Property Id="PAYLOADARCH" Value="$(var.InstallerPlatform)" />
+    <Property Id="ARPPRODUCTICON" Value="FolderRewindIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://folderrewind.top/" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Leafuke/FolderRewind/issues" />
+    <Icon Id="FolderRewindIcon" SourceFile="..\FolderRewind\Assets\MsiApp.ico" />
+    <Binary Id="InstallerNative" SourceFile="$(var.NativeOutputDirectory)\FolderRewind.BAFunctions.dll" />
+    <CustomAction Id="InstallerPreflight" BinaryRef="InstallerNative" DllEntry="InstallerPreflight" Execute="immediate" Return="check" />
+    <CustomAction Id="PrepareStartupCleanup" BinaryRef="InstallerNative" DllEntry="PrepareStartupCleanup" Execute="immediate" Return="check" />
+    <CustomAction Id="RollbackStartupUser" BinaryRef="InstallerNative" DllEntry="RollbackStartup" Execute="rollback" Impersonate="yes" Return="check" />
+    <CustomAction Id="CleanupStartupUser" BinaryRef="InstallerNative" DllEntry="CleanupStartup" Execute="deferred" Impersonate="yes" Return="check" />
+    <CustomAction Id="CommitStartupUser" BinaryRef="InstallerNative" DllEntry="CommitStartup" Execute="commit" Impersonate="yes" Return="check" />
+    <CustomAction Id="RollbackStartupMachine" BinaryRef="InstallerNative" DllEntry="RollbackStartup" Execute="rollback" Impersonate="no" Return="check" />
+    <CustomAction Id="CleanupStartupMachine" BinaryRef="InstallerNative" DllEntry="CleanupStartup" Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="CommitStartupMachine" BinaryRef="InstallerNative" DllEntry="CommitStartup" Execute="commit" Impersonate="no" Return="check" />
+    <?if $(var.EnableFaultInjection) = 1 ?>
+    <CustomAction Id="InjectUninstallFailure" BinaryRef="InstallerNative" DllEntry="FailForTesting" Execute="deferred" Impersonate="yes" Return="check" />
+    <CustomAction Id="InjectUpgradeFailure" BinaryRef="InstallerNative" DllEntry="FailForTesting" Execute="deferred" Impersonate="yes" Return="check" />
+    <?endif?>
+    <InstallUISequence><Custom Action="InstallerPreflight" Before="CostFinalize" /></InstallUISequence>
+    <InstallExecuteSequence>
+      <Custom Action="InstallerPreflight" Before="CostFinalize" />
+      <Custom Action="PrepareStartupCleanup" After="InstallInitialize" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RollbackStartupUser" After="PrepareStartupCleanup" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
+      <Custom Action="CleanupStartupUser" After="RollbackStartupUser" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
+      <Custom Action="CommitStartupUser" After="CleanupStartupUser" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
+      <Custom Action="RollbackStartupMachine" After="CommitStartupUser" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
+      <Custom Action="CleanupStartupMachine" After="RollbackStartupMachine" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
+      <Custom Action="CommitStartupMachine" After="CleanupStartupMachine" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
+      <?if $(var.EnableFaultInjection) = 1 ?>
+      <Custom Action="InjectUninstallFailure" After="RemoveFiles" Condition="REMOVE = &quot;ALL&quot; AND FOLDERREWIND_TEST_FAIL = 1" />
+      <Custom Action="InjectUpgradeFailure" After="InstallFiles" Condition="WIX_UPGRADE_DETECTED AND FOLDERREWIND_TEST_FAIL = 1" />
+      <?endif?>
+    </InstallExecuteSequence>
+    <Property Id="INSTALLFOLDER" Secure="yes" />
+    <Property Id="REMEMBEREDUSERPATH"><RegistrySearch Id="RememberedUserPath" Root="HKCU" Key="$(var.InstallerRegistryKey)" Name="InstallFolder" Type="raw" /></Property>
+    <Property Id="REMEMBEREDMACHINEPATH"><RegistrySearch Id="RememberedMachinePath" Root="HKLM" Key="$(var.InstallerRegistryKey)" Name="InstallFolder" Type="raw" Bitness="always64" /></Property>
+    <StandardDirectory Id="ProgramFiles64Folder"><Directory Id="INSTALLFOLDER" Name="$(var.PackageDisplayName)" /></StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="FolderRewindProgramsFolder" Name="FolderRewind">
-        <Component Id="StartMenuShortcutComponent">
-          <Shortcut
-              Id="StartMenuShortcut"
-              Name="FolderRewind"
-              Description="FolderRewind"
-              Target="[INSTALLFOLDER]FolderRewind.exe"
-              WorkingDirectory="INSTALLFOLDER" />
+      <Directory Id="FolderRewindProgramsFolder" Name="$(var.PackageDisplayName)">
+        <Component Id="StartMenuShortcutComponent" Guid="*">
+          <Shortcut Id="StartMenuShortcut" Name="$(var.PackageDisplayName)" Target="[INSTALLFOLDER]FolderRewind.exe" WorkingDirectory="INSTALLFOLDER" Icon="FolderRewindIcon">
+            <ShortcutProperty Key="System.AppUserModel.ID" Value="Leafuke.FolderRewind.Msi" />
+          </Shortcut>
           <RemoveFolder Id="RemoveFolderRewindProgramsFolder" On="uninstall" />
-          <RegistryValue
-              Root="HKCU"
-              Key="Software\Leafuke\FolderRewind"
-              Name="StartMenuShortcut"
-              Type="integer"
-              Value="1"
-              KeyPath="yes" />
-          <RegistryValue
-              Root="HKCU"
-              Key="Software\Leafuke\FolderRewind"
-              Name="InstallFolder"
-              Type="string"
-              Value="[INSTALLFOLDER]" />
+          <RegistryValue Root="HKMU" Key="$(var.InstallerRegistryKey)" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+          <RegistryValue Root="HKMU" Key="$(var.InstallerRegistryKey)" Name="InstallFolder" Type="string" Value="[INSTALLFOLDER]" />
         </Component>
       </Directory>
     </StandardDirectory>
-
-    <Feature Id="MainFeature" Title="FolderRewind" Level="1">
-      <ComponentGroupRef Id="ApplicationFiles" />
-      <ComponentRef Id="StartMenuShortcutComponent" />
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="DesktopShortcut" Name="$(var.PackageDisplayName)" Target="[INSTALLFOLDER]FolderRewind.exe" WorkingDirectory="INSTALLFOLDER" Icon="FolderRewindIcon">
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="Leafuke.FolderRewind.Msi" />
+        </Shortcut>
+        <RegistryValue Root="HKMU" Key="$(var.InstallerRegistryKey)" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <Feature Id="MainFeature" Title="!(loc.MainFeature)" Level="1" AllowAbsent="no" AllowAdvertise="no">
+      <ComponentGroupRef Id="ApplicationFiles" /><ComponentRef Id="StartMenuShortcutComponent" />
     </Feature>
-
-    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <Feature Id="DesktopShortcutFeature" Title="!(loc.DesktopFeature)" Level="1" AllowAdvertise="no"><ComponentRef Id="DesktopShortcutComponent" /></Feature>
+    <WixVariable Id="WixUILicenseRtf" Value="Assets\License.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="Assets\Banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="Assets\Dialog.bmp" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <UIRef Id="WixUI_ErrorProgressText" />
   </Package>
-
-  <Fragment>
-    <ComponentGroup Id="ApplicationFiles">
-      <Files Include="$(var.PublishDir)\**" />
-    </ComponentGroup>
-  </Fragment>
 </Wix>

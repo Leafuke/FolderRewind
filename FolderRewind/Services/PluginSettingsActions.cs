@@ -156,15 +156,17 @@ internal sealed class PluginSettingsActions(SettingsPageViewModel viewModel, Fun
                 XamlRoot,
                 isDestructive: true, cancellationToken: _token)) return;
 
-        if (PluginRuntimeModeService.TryStartSafeModeInstance(out var error))
+        try
         {
-            Application.Current.Exit();
+            if (AppRuntimeInfo.IsMsiDistribution) await PluginRuntimeModeService.RestartSafeModeAsync();
+            else if (PluginRuntimeModeService.TryStartSafeModeInstance(out var launchError)) await App.ExitApplicationAsync();
+            else throw new InvalidOperationException(launchError);
             return;
         }
-
-        await ShowMessageAsync(
-            rl.GetString("Common_Failed"),
-            string.Format(rl.GetString("Plugins_RestartSafeModeFailed"), error));
+        catch (Exception error)
+        {
+            await ShowMessageAsync(rl.GetString("Common_Failed"), string.Format(rl.GetString("Plugins_RestartSafeModeFailed"), error.Message));
+        }
     }
 
     private async Task PluginUninstallAsync(InstalledPluginInfo plugin)

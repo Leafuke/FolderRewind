@@ -578,6 +578,18 @@ namespace FolderRewind.Services
         public static Task FlushAsync(CancellationToken cancellationToken = default)
             => ConfigWriter.FlushAsync(cancellationToken);
 
+        internal static async Task SealForExitAsync()
+        {
+            if (!IsRecoveryMode)
+            {
+                var saved = await SaveAsync(publishSavedEvent: false);
+                if (!saved.Success) throw new IOException(saved.ErrorMessage, saved.Exception);
+            }
+            // Completing the channel drains accepted snapshots and rejects late
+            // background requests before the process releases its instance lock.
+            await ConfigWriter.DisposeAsync();
+        }
+
         private static byte[] CaptureSnapshot()
         {
             NormalizeConfig(CurrentConfig);

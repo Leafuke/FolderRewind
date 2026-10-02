@@ -4862,7 +4862,7 @@ Pull Request：{1}</value>
     <value>在 Microsoft Store 中获取</value>
   </data>
   <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
-    <value>下载 MSI 安装包</value>
+    <value>下载安装程序</value>
   </data>
   <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
     <value>备份范围上下文不完整。</value>
@@ -5860,4 +5860,13 @@ Pull Request：{1}</value>
   <data name="CloudRecovery_RepositoryOption" xml:space="preserve"><value>备份项目 {0}</value></data>
   <data name="CloudRecovery_DownloadSize" xml:space="preserve"><value>下载大小：约 {0} MB</value></data>
   <data name="Home_CloudRecoveryMenu.Text" xml:space="preserve"><value>从云副本还原到新位置</value></data>
+  <data name="Msi_PinMigration_Title" xml:space="preserve">
+    <value>更新任务栏固定入口</value>
+  </data>
+  <data name="Msi_PinMigration_Content" xml:space="preserve">
+    <value>此版本已更新图标和任务栏身份。请取消固定旧的 FolderRewind 入口，再从开始菜单重新固定，以正确显示图标和分组。</value>
+  </data>
+  <data name="Startup_StateUnknown" xml:space="preserve">
+    <value>无法读取启动状态，请稍后重新打开设置重试。</value>
+  </data>
 </root>

@@ -64,6 +64,11 @@ namespace FolderRewind.Services
                     }
                 }
 
+                if (IsMsiDistribution && Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_DATA_ROOT") is { Length: > 0 } testRoot)
+                {
+                    if (!Path.IsPathFullyQualified(testRoot)) throw new InvalidOperationException("The isolated test data root must be absolute.");
+                    return Path.GetFullPath(testRoot);
+                }
                 return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             }
         }

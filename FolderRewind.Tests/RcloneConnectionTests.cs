@@ -85,8 +85,9 @@ public sealed class RcloneConnectionTests
                 Assert.IsTrue(security.AreAccessRulesProtected);
                 using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
                 var rules = security.GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier));
-                Assert.AreEqual(1, rules.Count);
-                Assert.AreEqual(identity.User, rules[0].IdentityReference);
+                Assert.HasCount(1, rules);
+                Assert.IsNotNull(rules[0]);
+                Assert.AreEqual(identity.User, rules[0]!.IdentityReference);
             }
         }
         finally { Environment.SetEnvironmentVariable(key, previous); }
@@ -142,7 +143,7 @@ public sealed class RcloneConnectionTests
         do
         {
             page = RcloneConnectionService.PageDirectories(names, offset);
-            Assert.IsTrue(page.Names.Count <= 200);
+            Assert.IsLessThanOrEqualTo(200, page.Names.Count);
             visited.AddRange(page.Names); offset = page.NextOffset;
         } while (offset >= 0);
         Assert.HasCount(1000, visited);

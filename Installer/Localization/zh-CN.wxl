@@ -1,0 +1,8 @@
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="zh-CN">
+  <String Id="NewerVersion" Value="已经安装了更高版本的 FolderRewind，无法降级安装。">
+  </String>
+  <String Id="MainFeature" Value="FolderRewind 应用程序">
+  </String>
+  <String Id="DesktopFeature" Value="创建桌面快捷方式">
+  </String>
+</WixLocalization>

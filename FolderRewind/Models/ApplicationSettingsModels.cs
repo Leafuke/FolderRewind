@@ -382,6 +382,7 @@ namespace FolderRewind.Models
         /// 是否已经展示过首次启动引导。
         /// </summary>
         public bool HasShownFirstLaunchGuide { get => _hasShownFirstLaunchGuide; set => SetProperty(ref _hasShownFirstLaunchGuide, value); }
+        public bool MsiShellIdentityNoticeShown { get; set; }
 
         /// <summary>
         /// 是否已经执行过首次核心功能自动校验。

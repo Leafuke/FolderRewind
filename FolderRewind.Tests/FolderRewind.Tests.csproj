@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\SingleInstanceCoordinator.cs" Link="Source\SingleInstanceCoordinator.cs" />
+    <Compile Include="..\FolderRewind\Services\ClassicStartupPolicy.cs" Link="Source\ClassicStartupPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\HistoryPresentationMode.cs" Link="Source\HistoryPresentationMode.cs" />
     <Compile Include="..\FolderRewind\Services\HistoryPresentationPolicy.cs" Link="Source\HistoryPresentationPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\ThemeSettingPolicy.cs" Link="Source\ThemeSettingPolicy.cs" />

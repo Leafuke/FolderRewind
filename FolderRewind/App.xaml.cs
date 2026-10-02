@@ -28,6 +28,7 @@ namespace FolderRewind
         private bool _trayRestorePending;
         private readonly CancellationTokenSource _appLifetimeCancellation = new();
         private Task _historyWarmupTask = Task.CompletedTask;
+        private Task _startupStateProbeTask = Task.CompletedTask;
         internal static bool ForceExitRequested { get; private set; }
 
         #endregion
@@ -152,6 +153,13 @@ namespace FolderRewind
                 UpdateWindowTitle();
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
+#if FOLDERREWIND_MSI
+                Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(() =>
+                {
+                    _window.AppWindow.Show();
+                    _window.Activate();
+                }));
+#endif
 
                 LogService.Log($"[Startup] Window activated: {startupSw.ElapsedMilliseconds}ms");
                 StartHistoryWarmup();
@@ -211,7 +219,7 @@ namespace FolderRewind
                 if (startupSettings != null)
                 {
                     // 启动项状态探测走后台，不阻塞首屏渲染；仅在探测到偏差时回写配置。
-                    _ = Task.Run(async () =>
+                    _startupStateProbeTask = Task.Run(async () =>
                     {
                         try
                         {
@@ -506,7 +514,11 @@ namespace FolderRewind
             _window.Title = I18n.GetString("RecoveryCenter_WindowTitle");
             _window.AppWindow.Title = _window.Title;
             _window.AppWindow.Resize(new SizeInt32(900, 680));
+            WindowIconHelper.ApplyBeforeShow(_window);
             _window.Activate();
+#if FOLDERREWIND_MSI
+            Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
+#endif
         }
 
         private void RestoreWindowFromTray()
@@ -562,19 +574,61 @@ namespace FolderRewind
 
         private async void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
         {
+            try { await ExitApplicationAsync(); }
+            catch (Exception error) { LogService.LogError("Could not finish shutting down.", nameof(App), error); NotificationService.ShowError(error.Message); }
+        }
+
+        private static Task? _exitTask;
+        internal static bool IsShuttingDown => _exitTask != null && !_exitTask.IsCompleted;
+        internal static Task ExitApplicationAsync(bool restartSafeMode = false) => _exitTask ??= ExitCoreAsync(restartSafeMode);
+
+        private static async Task ExitCoreAsync(bool restartSafeMode)
+        {
+            if (Current is not App app) return;
+            var root = _window?.Content as Control;
+            if (root != null) root.IsEnabled = false;
+#if FOLDERREWIND_MSI
+            Program.Instance?.SetClosing(true);
+#endif
+            try
+            {
+                await Services.AutomationService.StopAsync();
+                var deadline = DateTime.UtcNow.AddSeconds(30);
+                while (BackupService.ActiveTasks.Any(task => !task.IsCompleted))
+                {
+                    if (DateTime.UtcNow >= deadline)
+                        throw new InvalidOperationException("请等待当前任务完成后退出或重启。 / Wait for active tasks before exiting or restarting.");
+                    await Task.Delay(100);
+                }
+                await Services.KnotLinkService.ShutdownAsync();
+                await app.StopHistoryWarmupAsync();
+                await app._startupStateProbeTask;
+                await ConfigService.SealForExitAsync();
+            }
+            catch (Exception error)
+            {
+                if (root != null) root.IsEnabled = true;
+#if FOLDERREWIND_MSI
+                Program.Instance?.SetClosing(false);
+#endif
+                _exitTask = null;
+                NotificationService.ShowError(error.Message);
+                throw;
+            }
+#if FOLDERREWIND_MSI
+            Program.RestartSafeModeOnExit = restartSafeMode;
+#endif
             // 标记强制退出，避免被 MainWindow 的“最小化到托盘”拦截逻辑再次兜回去。
             ForceExitRequested = true;
 
             // 关闭所有 Mini 窗口并释放 FileSystemWatcher
             try { Services.MiniWindowService.CloseAll(); } catch { }
 
-            CleanupTrayIcon();
-            CleanupAppNotifications();
+            app.CleanupTrayIcon();
+            app.CleanupAppNotifications();
 
-            await StopAutomationAsync();
-            await StopHistoryWarmupAsync();
             _window?.Close();
-            Exit();
+            app.Exit();
         }
 
         private async void OnMainWindowClosed(object sender, WindowEventArgs args)

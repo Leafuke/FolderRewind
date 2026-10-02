@@ -13,6 +13,7 @@ public sealed partial class RecoveryCenterWindow : Window
     public RecoveryCenterWindow()
     {
         InitializeComponent();
+        WindowIconHelper.ApplyBeforeShow(this);
         ApplyLocalizedText();
         LoadDiagnostic();
         RefreshRecoveryCopies();

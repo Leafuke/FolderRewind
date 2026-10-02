@@ -17,12 +17,51 @@ internal sealed class ShellStartupService : IDisposable
     public Task StartAsync() => _sequence.RunAsync(new Func<CancellationToken, Task>[]
     {
         token => Task.Delay(300, token),
+        _ => ShowMsiPinMigrationNoticeAsync(),
         _ => ShowKnotLinkCompatibilityDialogAsync(),
         _ => CheckAndNotifyConflictsAsync(),
         _ => Task.WhenAll(CheckAndNotifyNoticeAsync(), CheckAndNotifyUpdateAsync()),
         _ => { CoreFeatureValidationService.TryScheduleInitialValidation(); return Task.CompletedTask; }
     }, _lifetime.Token);
     public void Dispose() { _lifetime.Cancel(); }
+
+    private async Task ShowMsiPinMigrationNoticeAsync()
+    {
+        var settings = ConfigService.CurrentConfig.GlobalSettings;
+        if (!AppRuntimeInfo.IsMsiDistribution || settings.MsiShellIdentityNoticeShown) return;
+        try
+        {
+            var pins = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar");
+            if (!System.IO.Directory.Exists(pins)) return;
+            bool legacy = false;
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null) return;
+            var shell = Activator.CreateInstance(shellType);
+            if (shell == null) return;
+            try
+            {
+                foreach (var file in System.IO.Directory.EnumerateFiles(pins, "*.lnk"))
+                {
+                    object link = ((dynamic)shell).CreateShortcut(file);
+                    try
+                    {
+                        string target = ((dynamic)link).TargetPath;
+                        if (string.Equals(System.IO.Path.GetFileName(target), "FolderRewind.exe", StringComparison.OrdinalIgnoreCase) &&
+                            ShellShortcutIdentity.GetAppUserModelId(file) != "Leafuke.FolderRewind.Msi") { legacy = true; break; }
+                    }
+                    finally { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(link); }
+                }
+            }
+            finally { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell); }
+            if (!legacy || _lifetime.IsCancellationRequested) return;
+            NotificationService.ShowInfoBar(I18n.GetString("Msi_PinMigration_Title"), I18n.GetString("Msi_PinMigration_Content"),
+                NotificationSeverity.Informational, autoCloseMs: 0);
+            await ConfigEditTransaction.ApplyAsync(() => settings.MsiShellIdentityNoticeShown = true,
+                () => settings.MsiShellIdentityNoticeShown = false, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+        }
+        catch (Exception error) { LogService.LogError("Could not check legacy taskbar shortcuts.", nameof(ShellStartupService), error); }
+    }
 
 
         private System.Threading.Tasks.Task<ContentDialogResult> ShowDialogAsync(AppDialogRequest dialog) =>

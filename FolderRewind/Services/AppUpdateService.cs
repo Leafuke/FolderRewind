@@ -143,17 +143,20 @@ namespace FolderRewind.Services
 
         private static (GitHubReleaseService.GitHubReleaseAsset? PackageAsset, string ArchitectureTag) SelectMsiPackageAsset(IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> assets)
         {
-            var architectureTag = GetCurrentArchitectureTag();
+            var architectureTag = RuntimeInformation.OSArchitecture switch
+            {
+                Architecture.Arm64 => "arm64",
+                Architecture.X64 => "x64",
+                _ => GetCurrentArchitectureTag()
+            };
             if (assets == null || assets.Count == 0)
             {
                 return (null, architectureTag);
             }
 
-            var packageAsset = SelectPackageAssetByArchitecture(
-                assets.Where(asset => asset.Name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase)).ToList(),
-                architectureTag,
-                ".msi");
-            return (packageAsset, architectureTag);
+            var packageAsset = assets.FirstOrDefault(asset => asset.Name.EndsWith($"_{architectureTag}.msi", StringComparison.OrdinalIgnoreCase));
+            var setup = assets.FirstOrDefault(asset => asset.Name.EndsWith($"_Setup_{architectureTag}.exe", StringComparison.OrdinalIgnoreCase));
+            return (setup ?? packageAsset, architectureTag);
         }
 
         private static GitHubReleaseService.GitHubReleaseAsset? SelectPackageAssetByArchitecture(

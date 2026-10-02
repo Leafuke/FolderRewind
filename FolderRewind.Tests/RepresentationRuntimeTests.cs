@@ -64,7 +64,7 @@ public sealed class RepresentationRuntimeTests
         await new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [full], Environment(Local(full.RepresentationId, path)), target, [path]);
         Assert.AreEqual("restored", File.ReadAllText(Path.Combine(target, "content.txt")));
         Assert.AreEqual("original", File.ReadAllText(path));
-        Assert.AreEqual(0, Directory.GetDirectories(_root, ".folderrewind-export-*").Length);
+        Assert.IsEmpty(Directory.GetDirectories(_root, ".folderrewind-export-*"));
     }
 
     [TestMethod]
@@ -75,7 +75,7 @@ public sealed class RepresentationRuntimeTests
         File.WriteAllText(Path.Combine(target, "keep.txt"), "keep");
         await Assert.ThrowsExactlyAsync<IOException>(() => new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [], Environment(), target, []));
         Assert.AreEqual("keep", File.ReadAllText(Path.Combine(target, "keep.txt")));
-        Assert.AreEqual(0, _archive.LastMaterialization.Count);
+        Assert.IsEmpty(_archive.LastMaterialization);
     }
 
     [TestMethod]
@@ -102,7 +102,7 @@ public sealed class RepresentationRuntimeTests
         var target = Path.Combine(_root, "missing");
         await Assert.ThrowsAsync<Exception>(() => new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [delta], Environment(), target, []));
         Assert.IsFalse(Directory.Exists(target));
-        Assert.AreEqual(0, Directory.GetDirectories(_root, ".folderrewind-export-*").Length);
+        Assert.IsEmpty(Directory.GetDirectories(_root, ".folderrewind-export-*"));
     }
 
     [TestMethod]

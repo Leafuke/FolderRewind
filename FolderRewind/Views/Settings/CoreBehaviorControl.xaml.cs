@@ -13,6 +13,7 @@ namespace FolderRewind.Views.Settings
     public sealed partial class CoreBehaviorControl : UserControl
     {
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
+        private bool _handlingStartupToggle;
 
         public CoreBehaviorControl()
         {
@@ -30,20 +31,26 @@ namespace FolderRewind.Views.Settings
             if (sender is ToggleSwitch ts)
             {
                 var desired = ts.IsOn;
-                var result = await ViewModel.HandleRunOnStartupToggledAsync(desired);
-
-                if (!result.Success && desired)
+                if (_handlingStartupToggle || ViewModel == null || desired == ViewModel.RunOnStartup) return;
+                _handlingStartupToggle = true;
+                try
                 {
-                    ts.IsOn = false;
-
-                    if (result.DisabledByUser)
+                    var result = await ViewModel.HandleRunOnStartupToggledAsync(desired);
+                    if (!result.Success && desired)
                     {
-                        await AppDialogService.Default.ShowMessageAsync(
-                            I18n.GetString("Startup_DisabledByUser_Title"),
-                            I18n.GetString("Startup_DisabledByUser_Content"),
-                            this.XamlRoot);
+                        ts.IsOn = false;
+                        if (result.DisabledByUser)
+                        {
+                            await AppDialogService.Default.ShowMessageAsync(
+                                I18n.GetString("Startup_DisabledByUser_Title"),
+                                I18n.GetString("Startup_DisabledByUser_Content"),
+                                this.XamlRoot);
+                            await Launcher.LaunchUriAsync(new Uri("ms-settings:startupapps"));
+                        }
                     }
                 }
+                catch (Exception error) { NotificationService.ShowError(I18n.Format("Startup_SetFailed", error.Message)); }
+                finally { _handlingStartupToggle = false; }
 
             }
         }

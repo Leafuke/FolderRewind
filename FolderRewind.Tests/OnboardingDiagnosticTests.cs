@@ -38,7 +38,7 @@ public sealed class OnboardingDiagnosticTests
         var observations = Enumerable.Range(0, 30).Select(_ => ("minecraft.host-connection", "NeedsInput", DateTimeOffset.UnixEpoch))
             .Prepend(("password=secret-value", "token=secret-token", DateTimeOffset.UnixEpoch));
         var output = OnboardingRepairPolicy.ExportSummary(observations);
-        Assert.AreEqual(20, output.Split(Environment.NewLine).Length);
+        Assert.HasCount(20, output.Split(Environment.NewLine));
         Assert.IsFalse(output.Contains("secret", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(output, "unknown\tUnknown");
         StringAssert.Contains(output, "minecraft.host-connection\tNeedsInput");

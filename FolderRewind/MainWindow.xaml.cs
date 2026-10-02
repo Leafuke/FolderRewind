@@ -29,14 +29,27 @@ namespace FolderRewind
 
         private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
         {
-            _closeController ??= WindowCloseService.Create(() => (Content as FrameworkElement)?.XamlRoot, HideToTray, Close);
-            args.Cancel = _closeController.HandleClosing(App.ForceExitRequested);
+            if (App.ForceExitRequested) { args.Cancel = false; return; }
+            if (App.IsShuttingDown) { args.Cancel = true; return; }
+            _closeController ??= WindowCloseService.Create(() => (Content as FrameworkElement)?.XamlRoot, HideToTray,
+                StartGracefulExit);
+            var cancel = _closeController.HandleClosing(false);
+            args.Cancel = true;
+            if (!cancel) StartGracefulExit();
             TaskObserver.Observe(_closeController.PendingTask, nameof(MainWindow));
+        }
+
+        private void StartGracefulExit() => TaskObserver.Observe(ExitAndResetCloseAsync(), nameof(MainWindow));
+        private async System.Threading.Tasks.Task ExitAndResetCloseAsync()
+        {
+            try { await App.ExitApplicationAsync(); }
+            finally { if (!App.ForceExitRequested) _closeController = null; }
         }
 
         public MainWindow()
         {
             InitializeComponent();
+            WindowIconHelper.ApplyBeforeShow(this);
 
             // 等窗口真正激活后再做依赖句柄的初始化（热键/图标等）。
             Activated += MainWindow_Activated;

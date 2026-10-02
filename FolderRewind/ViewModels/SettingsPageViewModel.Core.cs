@@ -348,11 +348,12 @@ namespace FolderRewind.ViewModels
             SponsorService.StatusChanged -= SponsorService_StateChanged;
             SponsorService.StatusChanged += SponsorService_StateChanged;
 
-            await Task.CompletedTask;
+            await RefreshStartupStatusAsync();
         }
 
         public void OnNavigatedTo()
         {
+            TaskObserver.Observe(RefreshStartupStatusAsync(), nameof(SettingsPageViewModel));
             UpdateKnotLinkStatus();
             RefreshKnotLinkServerInfo();
         }

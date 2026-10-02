@@ -1,0 +1,10 @@
+LIBRARY FolderRewind.BAFunctions.dll
+EXPORTS
+    BAFunctionsCreate=_BAFunctionsCreate@8
+    BAFunctionsDestroy=_BAFunctionsDestroy@8
+    InstallerPreflight=_InstallerPreflight@4
+    PrepareStartupCleanup=_PrepareStartupCleanup@4
+    CleanupStartup=_CleanupStartup@4
+    RollbackStartup=_RollbackStartup@4
+    CommitStartup=_CommitStartup@4
+    FailForTesting=_FailForTesting@4

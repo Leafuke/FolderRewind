@@ -4862,7 +4862,7 @@ Pull request: {1}</value>
     <value>Get it from Microsoft Store</value>
   </data>
   <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
-    <value>Download MSI installer</value>
+    <value>Download installer</value>
   </data>
   <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
     <value>The backup scope context is incomplete.</value>
@@ -5860,4 +5860,13 @@ Only the new folder will be written.</value></data>
   <data name="CloudRecovery_RepositoryOption" xml:space="preserve"><value>Backup project {0}</value></data>
   <data name="CloudRecovery_DownloadSize" xml:space="preserve"><value>Download size: about {0} MB</value></data>
   <data name="Home_CloudRecoveryMenu.Text" xml:space="preserve"><value>Restore a cloud copy to a new location</value></data>
+  <data name="Msi_PinMigration_Title" xml:space="preserve">
+    <value>Update the pinned taskbar shortcut</value>
+  </data>
+  <data name="Msi_PinMigration_Content" xml:space="preserve">
+    <value>This version updates the icon and taskbar identity. Unpin the old FolderRewind shortcut, then pin the new Start menu entry to display the correct icon and grouping.</value>
+  </data>
+  <data name="Startup_StateUnknown" xml:space="preserve">
+    <value>The startup state could not be read. Reopen settings to try again.</value>
+  </data>
 </root>

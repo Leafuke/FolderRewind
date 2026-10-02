@@ -29,11 +29,12 @@
                         <TextBlock x:Name="RunOnStartupLabel" x:Uid="SettingsPage_RunOnStartup" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                        <TextBlock Text="{x:Bind ViewModel.StartupStatusDescription, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <ToggleSwitch AutomationProperties.AutomationId="SettingsRunOnStartup"
                                   AutomationProperties.LabeledBy="{x:Bind RunOnStartupLabel, Mode=OneTime}"
-                                  IsOn="{x:Bind ViewModel.RunOnStartup, Mode=TwoWay}"
+                                  IsOn="{x:Bind ViewModel.RunOnStartup, Mode=OneWay}"
+                                  IsEnabled="{x:Bind ViewModel.StartupStateKnown, Mode=OneWay}"
                                   Toggled="OnRunOnStartupToggled" />
                 </toolkit:SettingsCard>
 
