@@ -10,11 +10,7 @@
 
     <Grid x:Name="RootGrid"
           Background="Transparent"
-          TabFocusNavigation="Cycle"
-          PointerPressed="RootGrid_PointerPressed"
-          PointerMoved="RootGrid_PointerMoved"
-          PointerReleased="RootGrid_PointerReleased"
-          PointerCaptureLost="RootGrid_PointerCaptureLost">
+          TabFocusNavigation="Cycle">
 
         <Grid.ColumnDefinitions>
             <!-- 左侧展开区域 (默认折叠) -->
@@ -32,7 +28,6 @@
               Background="Transparent"
               PointerEntered="MiniSquare_PointerEntered"
               PointerExited="MiniSquare_PointerExited"
-              Tapped="MiniSquare_Tapped"
               RightTapped="MiniSquare_RightTapped">
 
             <Border x:Name="MiniSurfaceBorder"
@@ -55,12 +50,11 @@
                     AutomationProperties.AutomationId="MiniWindowPrimaryAction"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Width="40" Height="40"
+                    Width="{x:Bind MiniCardSizeDip, Mode=OneTime}" Height="{x:Bind MiniCardSizeDip, Mode=OneTime}"
                     Padding="0"
                     Background="Transparent"
                     BorderThickness="0"
-                    Click="MiniPrimaryButton_Click"
-                    Tapped="MiniPrimaryButton_Tapped">
+                    Click="MiniPrimaryButton_Click">
                 <Grid>
                     <ProgressRing x:Name="BackupProgressRing"
                                   IsActive="False"
@@ -88,7 +82,7 @@
 
             <!-- 右键菜单 -->
             <Grid.ContextFlyout>
-                <MenuFlyout>
+                <MenuFlyout x:Name="MiniContextMenu">
                     <MenuFlyoutItem x:Name="MenuItemOpenFolder" AutomationProperties.AutomationId="MiniWindowOpenFolder" Text="" Click="OnContextOpenFolder">
                         <MenuFlyoutItem.Icon>
                             <FontIcon Glyph="&#xE838;"/>

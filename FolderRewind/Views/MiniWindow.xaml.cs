@@ -34,6 +34,11 @@ namespace FolderRewind.Views
         private bool _isDragging = false;
         private bool _isPointerCaptured = false;
         private bool _suppressNextTap = false;
+        private uint? _activePointerId;
+        private int _gestureVersion;
+        private bool _inputPanelRequested;
+        private int _transitionVersion;
+        private bool _contextMenuOpen;
         private POINT _dragStartCursorPos;
         private PointInt32 _windowStartPos;
 
@@ -128,6 +133,15 @@ namespace FolderRewind.Views
         {
             ViewModel = new(context ?? throw new ArgumentNullException(nameof(context)));
             this.InitializeComponent();
+            // Buttons handle pointer events and own capture. Observe those events on
+            // the button itself rather than stealing its capture from the root grid.
+            MiniPrimaryButton.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
+            MiniPrimaryButton.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(RootGrid_PointerMoved), true);
+            MiniPrimaryButton.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(RootGrid_PointerReleased), true);
+            MiniPrimaryButton.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler(RootGrid_PointerCaptureLost), true);
+            MiniContextMenu.Opened += (_, _) => _contextMenuOpen = true;
+            MiniContextMenu.Closed += (_, _) => _contextMenuOpen = false;
+            Activated += MiniWindow_Activated;
             WindowIconHelper.ApplyBeforeShow(this);
 
             RootGrid.Loaded += RootGrid_Loaded;
@@ -409,7 +423,7 @@ namespace FolderRewind.Views
 
         // 点击展开/收起输入框
 
-        private void MiniSquare_Tapped(object sender, TappedRoutedEventArgs e)
+        private void MiniPrimaryButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isDragging || _suppressNextTap)
             {
@@ -419,16 +433,9 @@ namespace FolderRewind.Views
             ToggleInputPanel();
         }
 
-        private void MiniPrimaryButton_Click(object sender, RoutedEventArgs e) => ToggleInputPanel();
-
-        private void MiniPrimaryButton_Tapped(object sender, TappedRoutedEventArgs e)
-            => e.Handled = true;
-
         private void ToggleInputPanel()
         {
-            var shouldExpand = _expansionState is MiniWindowExpansionState.Collapsed
-                or MiniWindowExpansionState.Collapsing;
-            TaskObserver.Observe(SetInputPanelExpandedAsync(shouldExpand), nameof(MiniWindow));
+            TaskObserver.Observe(SetInputPanelExpandedAsync(!_inputPanelRequested), nameof(MiniWindow));
         }
 
         private void CollapseInputPanel()
@@ -439,6 +446,7 @@ namespace FolderRewind.Views
         private async Task SetInputPanelExpandedAsync(bool expand)
         {
             if (_closed) return;
+            _inputPanelRequested = expand;
             if (expand && _expansionState is MiniWindowExpansionState.Expanding or MiniWindowExpansionState.Expanded)
                 return;
             if (!expand && _expansionState == MiniWindowExpansionState.Collapsed)
@@ -449,6 +457,7 @@ namespace FolderRewind.Views
             var transitionCts = new CancellationTokenSource();
             _transitionCts = transitionCts;
             var token = transitionCts.Token;
+            var version = ++_transitionVersion;
 
             try
             {
@@ -466,6 +475,7 @@ namespace FolderRewind.Views
 
                     await Task.Yield();
                     token.ThrowIfCancellationRequested();
+                    if (_closed || version != _transitionVersion) return;
                     CommentPanel.Opacity = 1;
                     CommentPanel.Translation = Vector3.Zero;
                     _expansionState = MiniWindowExpansionState.Expanded;
@@ -486,6 +496,7 @@ namespace FolderRewind.Views
 
                     await Task.Delay(180, token);
                     token.ThrowIfCancellationRequested();
+                    if (_closed || version != _transitionVersion) return;
                     CommentPanel.Visibility = Visibility.Collapsed;
                     LeftExpandColumn.Width = new GridLength(0);
                     RightExpandColumn.Width = new GridLength(0);
@@ -655,12 +666,29 @@ namespace FolderRewind.Views
         {
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
-                if (_closed || _expansionState is MiniWindowExpansionState.Collapsed or MiniWindowExpansionState.Collapsing) return;
+                if (_closed || _contextMenuOpen || _activePointerId is not null || !_inputPanelRequested) return;
                 var focused = FocusManager.GetFocusedElement(RootGrid.XamlRoot);
-                if (!ReferenceEquals(focused, CommentBox))
+                if (focused is not DependencyObject target || !IsInsideMiniWindow(target))
                 {
                     CollapseInputPanel();
                 }
+            });
+        }
+
+        private bool IsInsideMiniWindow(DependencyObject target)
+        {
+            for (DependencyObject? current = target; current is not null; current = VisualTreeHelper.GetParent(current))
+                if (ReferenceEquals(current, RootGrid)) return true;
+            return false;
+        }
+
+        private void MiniWindow_Activated(object sender, WindowActivatedEventArgs args)
+        {
+            if (args.WindowActivationState != WindowActivationState.Deactivated) return;
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                if (!_closed && !_contextMenuOpen && _activePointerId is null && _inputPanelRequested)
+                    CollapseInputPanel();
             });
         }
 
@@ -682,7 +710,7 @@ namespace FolderRewind.Views
         private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             var point = e.GetCurrentPoint(RootGrid);
-            if (!point.Properties.IsLeftButtonPressed) return;
+            if (_closed || !point.Properties.IsLeftButtonPressed || _activePointerId is not null) return;
 
             // 仅在 MiniSquare 区域内允许拖拽
             var squarePoint = e.GetCurrentPoint(MiniSquare);
@@ -692,7 +720,9 @@ namespace FolderRewind.Views
 
             _isDragging = false;
             _suppressNextTap = false;
-            _isPointerCaptured = RootGrid.CapturePointer(e.Pointer);
+            _activePointerId = e.Pointer.PointerId;
+            ++_gestureVersion;
+            _isPointerCaptured = MiniPrimaryButton.CapturePointer(e.Pointer);
 
             if (_isPointerCaptured)
             {
@@ -701,11 +731,12 @@ namespace FolderRewind.Views
                 _windowStartPos = AppWindow.Position;
                 MiniSquare.Scale = new Vector3(0.97f, 0.97f, 1f);
             }
+            else _activePointerId = null;
         }
 
         private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            if (!_isPointerCaptured) return;
+            if (!_isPointerCaptured || _activePointerId != e.Pointer.PointerId) return;
 
             // 使用屏幕坐标计算增量，避免窗口移动导致的坐标漂移
             GetCursorPos(out POINT currentCursorPos);
@@ -732,33 +763,32 @@ namespace FolderRewind.Views
 
         private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
-            var wasDragging = _isDragging;
-            if (_isPointerCaptured)
-            {
-                RootGrid.ReleasePointerCapture(e.Pointer);
-                _isPointerCaptured = false;
-            }
-
-            MiniSquare.Scale = Vector3.One;
-
-            if (wasDragging)
-            {
-                ReflowIntoCurrentWorkArea();
-                _suppressNextTap = true;
-                // Tapped is raised before this queued callback for a completed pointer gesture.
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    _isDragging = false;
-                    _suppressNextTap = false;
-                });
-            }
+            if (_activePointerId != e.Pointer.PointerId) return;
+            FinishPointerGesture();
         }
 
         private void RootGrid_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
         {
+            if (_activePointerId != e.Pointer.PointerId) return;
+            FinishPointerGesture();
+        }
+
+        private void FinishPointerGesture()
+        {
+            var wasDragging = _isDragging;
+            _activePointerId = null;
             _isPointerCaptured = false;
+            _suppressNextTap |= wasDragging;
             _isDragging = false;
             MiniSquare.Scale = Vector3.One;
+            if (wasDragging) ReflowIntoCurrentWorkArea();
+            var version = _gestureVersion;
+            // Click is raised synchronously by Button's release handler. Clear the
+            // completed gesture after routing finishes, including releases outside it.
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                if (version == _gestureVersion && _activePointerId is null) _suppressNextTap = false;
+            });
         }
 
         // 悬停效果
@@ -809,6 +839,14 @@ namespace FolderRewind.Views
         private void MiniWindow_Closed(object sender, WindowEventArgs args)
         {
             _closed = true;
+            _inputPanelRequested = false;
+            ++_transitionVersion;
+            _activePointerId = null;
+            _isPointerCaptured = false;
+            _isDragging = false;
+            _suppressNextTap = false;
+            MiniPrimaryButton.ReleasePointerCaptures();
+            Activated -= MiniWindow_Activated;
             ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
             ViewModel.Dispose();
             RootGrid.Loaded -= RootGrid_Loaded;
