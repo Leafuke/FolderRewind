@@ -586,7 +586,34 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.AreEqual(HistoryObjectKinds.BackupRun, committed.Pack.Objects[0].Kind);
         Assert.AreEqual(BackupRunOutcome.Failed, committed.Run.Outcome);
         Assert.IsNull(committed.NewCheckpoints.FirstOrDefault()!);
-        Assert.AreEqual(DeviceLocalStateStatus.Missing, (await runtime.WorkspaceStore.LoadAsync()).Status);
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.HasCount(1, workspace.SourceBaselines);
+        var state = workspace.GetSourceState(sourceId);
+        Assert.AreEqual(WorkspaceBaselineRelation.Unknown, state.Relation);
+        Assert.IsNull(state.BaseVersionId);
+        Assert.IsNull(state.ActiveBranchId);
+        Assert.IsNull(state.ActiveBranchUpdateId);
+        Assert.IsNull(state.CheckpointAncestryAnchorId);
+        Assert.IsEmpty(committed.NewVersions);
+        Assert.IsEmpty(committed.NewRepresentations);
+        Assert.IsEmpty(committed.NewBranchUpdates);
+    }
+
+    [TestMethod]
+    public async Task FailedRunPreservesExistingAndUnrequestedSourceStates()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var other = SourceId.New();
+        var snapshot = Snapshot(Source(source, "source"), Source(other, "other"));
+        await runtime.Commit.CommitAsync(Request(snapshot, null,
+            CreateCapture(source, "one", -1, null), CreateCapture(other, "two", -1, null)));
+        var before = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var failed = SourceCaptureResult.Failed(source, CaptureScope.FullSource, "failed",
+            before.StateRevision, before.GetSourceState(source).BaseVersionId);
+        var result = await runtime.Commit.CommitAsync(Request(snapshot, before, failed));
+        Assert.HasCount(1, result.Pack.Objects);
+        Assert.AreEqual(HistoryObjectKinds.BackupRun, result.Pack.Objects.Single().Kind);
+        Assert.IsTrue(HistoryWorkspace.StateEquals(before, (await runtime.WorkspaceStore.LoadAsync()).Value!));
     }
 
     [TestMethod]
