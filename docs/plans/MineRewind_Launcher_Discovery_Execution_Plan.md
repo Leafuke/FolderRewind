@@ -78,6 +78,6 @@ SDK 版本 3.6.0，程序集身份仍 3.0.0.0；MineRewind 1.9.4，要求 API 3.
 
 修订验收：Release x64 构建成功，0 警告、0 错误。在独立临时包身份中通过直接 WinApp UI 命令验证首次安装、启用插件后的主页 Minecraft 创建入口：不经目录选择器即发现 12 个可用 Java 项目；手选 `D:/Games/MC/.minecraft/versions/1.21-Fabric 0.19.2` 后仅返回一个 Java 项目。勾选项目后进入设置页面，Kind 为 Minecraft 存档，名称与实例一致；继续到审阅页面后世界与 mods 路径均正确。再次点击自动发现恢复 12 项结果。隔离配置中创建项目数为 0，未执行真实备份或还原。
 
-本地截图、UI 树和结果记录位于 `artifacts/discovery-entry-validation`（不提交构建输出）。临时包已停止并解除注册，原开发包注册路径保持在原 AppX 目录；最终构建恢复使用项目原始 Manifest。以上补足创建入口的 UI 验收，不代表所有启动器或真实游戏备份/还原已逐项验收。
+本地截图、UI 树和结果记录位于 `artifacts/discovery-entry-validation`（不提交构建输出）。临时包已停止并解除注册；最终构建恢复使用项目原始 Manifest。原 AppX 输出目录被系统锁定，因此新版开发包部署到 `artifacts/development/DiscoveryEntryFix`，保持原应用身份和配置，仅注册而不启动。以上补足创建入口的 UI 验收，不代表所有启动器或真实游戏备份/还原已逐项验收。
 
 修订后的现有发现、启动器、预设、向导与模板相关检查共 99 项通过；未新增或改写测试用例。WinUI 审查核对了动态绑定通知、种类与预设匹配、手选范围、双语资源和新增操作的 AutomationId；已查看自动发现、手选、设置与审阅四张实际界面截图。
