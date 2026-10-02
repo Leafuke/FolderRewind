@@ -162,7 +162,7 @@ public static class PluginV3PackageService
         catch (Exception ex)
         {
             LogService.LogError(
-                $"plugin.bundled_update_failed: MineRewind bundled update failed. Install MineRewind 1.9.3 or newer and restart. {ex.Message}",
+                $"plugin.bundled_update_failed: MineRewind bundled update failed. Install MineRewind 1.9.4 or newer and restart. {ex.Message}",
                 "PluginV3", ex);
         }
     }
