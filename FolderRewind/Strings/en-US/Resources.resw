@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -5916,4 +5916,22 @@ Branch at backup: {2}
   <data name="GameDiscovery_PluginBatch_PickRoot.Content" xml:space="preserve"><value>Choose a folder to scan</value></data>
   <data name="GameDiscovery_PluginBatch_NoCandidates" xml:space="preserve"><value>No save projects were found. Choose a launcher, game instance or save folder to scan.</value></data>
   <data name="GameDiscovery_ContinueSetup" xml:space="preserve"><value>Continue backup setup</value></data>
+  <data name="LegacyMigration_Boundary" xml:space="preserve"><value>The historical deletion boundary is unknown. Only non-deleting overwrite and export to a new directory are allowed.</value></data>
+  <data name="LegacyMigration_KeepSource" xml:space="preserve"><value>Keep current association / leave unassigned</value></data>
+  <data name="LegacyMigration_Notice" xml:space="preserve"><value>Old records are preserved. Some archives still require locating or verification. Create a new full backup to establish a new baseline. Old cloud archives and settings are not migrated; create a new cloud configuration yourself. Remote data is unchanged. Retrieve all dependencies and metadata when recovering old Smart archives.</value></data>
+  <data name="LegacyMigration_Open.Content" xml:space="preserve"><value>Migration report</value></data>
+  <data name="LegacyMigration_Path" xml:space="preserve"><value>Archive file full path (leave empty to keep the current choice)</value></data>
+  <data name="LegacyMigration_Recheck" xml:space="preserve"><value>Recheck</value></data>
+  <data name="LegacyMigration_Record" xml:space="preserve"><value>Old history record</value></data>
+  <data name="LegacyMigration_Save" xml:space="preserve"><value>Save choices and recheck</value></data>
+  <data name="LegacyMigration_Source" xml:space="preserve"><value>Associate with an existing source</value></data>
+  <data name="LegacyMigration_Status_Blocked" xml:space="preserve"><value>Recovery blocked</value></data>
+  <data name="LegacyMigration_Status_Locate" xml:space="preserve"><value>Awaiting location</value></data>
+  <data name="LegacyMigration_Status_Unassigned" xml:space="preserve"><value>Awaiting association</value></data>
+  <data name="LegacyMigration_Status_Verify" xml:space="preserve"><value>Imported; awaiting verification</value></data>
+  <data name="LegacyMigration_Title" xml:space="preserve"><value>1.8.2 migration report</value></data>
+<data name="LegacyMigration_Verify" xml:space="preserve"><value>Verify selected archive and dependencies</value></data>
+<data name="LegacyMigration_Status_RestrictedReady" xml:space="preserve"><value>Verified; restricted recovery</value></data>
+<data name="LegacyMigration_Browse" xml:space="preserve"><value>Choose archive file</value></data>
+<data name="LegacyMigration_BoundaryUnknown" xml:space="preserve"><value>Historical boundary unknown</value></data>
 </root>

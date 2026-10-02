@@ -24,6 +24,7 @@ public sealed partial class HistoryPage : Page
         InitializeComponent();
         ViewModel.Initialize();
         Loaded += (_, _) => HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView ? RunHistoryViewItem : SourceHistoryViewItem;
+        Loaded += OnLegacyMigrationLoaded;
 
         // 首次导航时显式设置集合，避免早期 WinUI 版本在缓存页面上延后建立绑定。
         ConfigFilter.ItemsSource = ViewModel.Configs;

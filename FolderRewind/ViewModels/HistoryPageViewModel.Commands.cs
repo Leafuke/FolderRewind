@@ -586,8 +586,11 @@ public sealed partial class HistoryPageViewModel
         var risk = I18n.GetString(config.Archive.BackupBeforeRestore ? "Restore_SafetyEnabled" : "Restore_SafetyDisabled");
         if (boundary.Fingerprint != currentBoundary.Fingerprint) risk += "\n" + I18n.GetString("Restore_BoundaryDifference");
         var fields = ReviewFields(folder.DisplayName, item.DateDisplay + " " + item.TimeDisplay, item.Comment, folder.Path).ToList();
-        fields.Add(new(I18n.GetString("Restore_FieldScope"), FormatBoundary(boundary)));
-        var mode = await ChooseRestoreModeAsync(item.IsPartialBackup, false, risk, cancellationToken, fields);
+        var restrictedLegacy = preview.Version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown;
+        fields.Add(new(I18n.GetString("Restore_FieldScope"), restrictedLegacy
+            ? I18n.GetString("LegacyMigration_BoundaryUnknown") : FormatBoundary(boundary)));
+        if (restrictedLegacy) risk += "\n" + I18n.GetString("LegacyMigration_Boundary");
+        var mode = await ChooseRestoreModeAsync(item.IsPartialBackup || restrictedLegacy, false, risk, cancellationToken, fields);
         if (mode is null)
         {
             return;

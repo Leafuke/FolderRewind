@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -5679,7 +5679,7 @@ Pull Request：{1}</value>
   <data name="Scenario_Folder.Text" xml:space="preserve"><value>普通文件夹</value></data>
   <data name="Scenario_FolderHelp.Text" xml:space="preserve"><value>备份文档、工作目录或其他文件夹。</value></data>
   <data name="Scenario_Minecraft.Text" xml:space="preserve"><value>Minecraft</value></data>
-  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>自动发现启动器中的 Java 和基岩版存档，选择世界后创建备份。</value></data>
+  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>自动发现启动器中的 Java 和基岩版存档。</value></data>
   <data name="Scenario_OtherGame.Text" xml:space="preserve"><value>其他游戏</value></data>
   <data name="Scenario_OtherGameHelp.Text" xml:space="preserve"><value>发现支持的游戏存档并创建项目。</value></data>
   <data name="Setup_ChooseTitle" xml:space="preserve"><value>创建备份项目</value></data>
@@ -5916,4 +5916,22 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_PluginBatch_PickRoot.Content" xml:space="preserve"><value>选择目录扫描</value></data>
   <data name="GameDiscovery_PluginBatch_NoCandidates" xml:space="preserve"><value>没有发现可创建的存档项目。可选择启动器、游戏实例或存档目录后扫描。</value></data>
   <data name="GameDiscovery_ContinueSetup" xml:space="preserve"><value>继续创建备份项目</value></data>
+  <data name="LegacyMigration_Boundary" xml:space="preserve"><value>无法确认历史删除边界，仅允许不删除现有文件的覆盖恢复及导出到新目录。</value></data>
+  <data name="LegacyMigration_KeepSource" xml:space="preserve"><value>保持当前关联／保留待归属</value></data>
+  <data name="LegacyMigration_Notice" xml:space="preserve"><value>旧记录已保留，部分归档仍待定位或验证。建议创建新的完整备份建立基线。1.9 不迁移旧云存档及云配置，请自行创建新的云配置，原远端数据保持不变。取回旧 Smart 备份时，请同时保留依赖归档和元数据。</value></data>
+  <data name="LegacyMigration_Open.Content" xml:space="preserve"><value>迁移报告</value></data>
+  <data name="LegacyMigration_Path" xml:space="preserve"><value>归档文件完整路径（留空保持原选择）</value></data>
+  <data name="LegacyMigration_Recheck" xml:space="preserve"><value>重新检查</value></data>
+  <data name="LegacyMigration_Record" xml:space="preserve"><value>旧历史记录</value></data>
+  <data name="LegacyMigration_Save" xml:space="preserve"><value>保存选择并重新检查</value></data>
+  <data name="LegacyMigration_Source" xml:space="preserve"><value>关联到现有来源</value></data>
+  <data name="LegacyMigration_Status_Blocked" xml:space="preserve"><value>恢复受限</value></data>
+  <data name="LegacyMigration_Status_Locate" xml:space="preserve"><value>待定位</value></data>
+  <data name="LegacyMigration_Status_Unassigned" xml:space="preserve"><value>待归属</value></data>
+  <data name="LegacyMigration_Status_Verify" xml:space="preserve"><value>已接管，待验证</value></data>
+  <data name="LegacyMigration_Title" xml:space="preserve"><value>1.8.2 迁移报告</value></data>
+<data name="LegacyMigration_Verify" xml:space="preserve"><value>验证所选归档及依赖</value></data>
+<data name="LegacyMigration_Status_RestrictedReady" xml:space="preserve"><value>已验证，可受限恢复</value></data>
+<data name="LegacyMigration_Browse" xml:space="preserve"><value>选择归档文件</value></data>
+<data name="LegacyMigration_BoundaryUnknown" xml:space="preserve"><value>历史范围未知</value></data>
 </root>

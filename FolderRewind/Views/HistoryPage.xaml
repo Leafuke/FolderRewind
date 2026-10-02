@@ -51,6 +51,12 @@
                 CornerRadius="{StaticResource OverlayCornerRadius}"
                 Padding="16,14">
             <StackPanel Spacing="12">
+                <InfoBar x:Name="LegacyMigrationNotice" IsOpen="False" IsClosable="True" Severity="Informational">
+                    <InfoBar.ActionButton>
+                        <Button x:Uid="LegacyMigration_Open" AutomationProperties.AutomationId="LegacyMigrationNoticeOpen" Click="OnLegacyMigrationClick"/>
+                    </InfoBar.ActionButton>
+                </InfoBar>
+                <Button x:Uid="LegacyMigration_Open" AutomationProperties.AutomationId="LegacyMigrationOpen" Click="OnLegacyMigrationClick" HorizontalAlignment="Left"/>
                 <!-- 第 1 行：核心维度切换 & 搜索 -->
                 <Grid x:Name="FiltersGrid" ColumnSpacing="12" RowSpacing="12">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
