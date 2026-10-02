@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using System;
+using FolderRewind.Services;
 using System.Collections.ObjectModel;
 
 namespace FolderRewind.ViewModels;
@@ -53,6 +54,6 @@ public sealed partial class ConfigSettingsDialogViewModel
 
     private static void AddRule(ObservableCollection<string> rules, string? text)
     {
-        if (!string.IsNullOrWhiteSpace(text)) rules.Add(text.Trim());
+        if (!string.IsNullOrWhiteSpace(text)) BackupFilterRulePolicy.AddDistinct(rules, text);
     }
 }

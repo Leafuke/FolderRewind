@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -5893,4 +5893,7 @@ Branch at backup: {2}
   <data name="History_DevelopmentFormatUnsupported" xml:space="preserve"><value>Development history format {0} is unsupported. Archive the old metadata and rebuild history first; existing backup files are preserved.</value></data>
   <data name="History_MenuToggleImportant.Text" xml:space="preserve"><value>Toggle favorite</value></data>
   <data name="History_MenuView.Text" xml:space="preserve"><value>View archive</value></data>
+  <data name="Filter_Browse.Content" xml:space="preserve"><value>Browse to add</value></data>
+  <data name="Filter_SelectFiles.Text" xml:space="preserve"><value>Select files…</value></data>
+  <data name="Filter_SelectFolder.Text" xml:space="preserve"><value>Select folder…</value></data>
 </root>

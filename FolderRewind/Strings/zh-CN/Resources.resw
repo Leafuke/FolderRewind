@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -5893,4 +5893,7 @@ Pull Request：{1}</value>
   <data name="History_DevelopmentFormatUnsupported" xml:space="preserve"><value>旧开发版历史格式 {0} 不受支持。请先归档旧元数据并重建历史；现有备份文件不受影响。</value></data>
   <data name="History_MenuToggleImportant.Text" xml:space="preserve"><value>切换收藏</value></data>
   <data name="History_MenuView.Text" xml:space="preserve"><value>查看归档</value></data>
+  <data name="Filter_Browse.Content" xml:space="preserve"><value>浏览添加</value></data>
+  <data name="Filter_SelectFiles.Text" xml:space="preserve"><value>选择文件…</value></data>
+  <data name="Filter_SelectFolder.Text" xml:space="preserve"><value>选择文件夹…</value></data>
 </root>

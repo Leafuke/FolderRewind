@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:settings="using:CommunityToolkit.WinUI.Controls" xmlns:models="using:FolderRewind.Models" x:Class="FolderRewind.Views.ConfigSettingsPage" SizeChanged="OnSettingsPageSizeChanged">
     <Grid x:Name="SettingsLayout" Margin="24" RowSpacing="12" HorizontalAlignment="Left">
         <Grid.RowDefinitions>
@@ -281,9 +281,16 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="RestoreWhitelistBox" x:Uid="ConfigSettingsDialog_RestoreWhitelistPlaceholder" AutomationProperties.AutomationId="RestoreWhitelistBox"/>
                             <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddRestoreWhitelist" Margin="8,0,0,0" Click="OnAddRestoreWhitelistClick" AutomationProperties.AutomationId="ConfigSettingsDialog_AddRestoreWhitelist"/>
+                            <DropDownButton x:Name="RestoreWhitelistBrowseButton" Grid.Column="2" Margin="8,0,0,0" x:Uid="Filter_Browse" AutomationProperties.AutomationId="RestoreWhitelistBrowse">
+                                <DropDownButton.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFiles" Tag="AddRestoreWhitelist" Click="OnBrowseFilterFilesClick" AutomationProperties.AutomationId="RestoreWhitelistBrowseFiles"/>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFolder" Tag="AddRestoreWhitelist" Click="OnBrowseFilterFolderClick" AutomationProperties.AutomationId="RestoreWhitelistBrowseFolder"/>
+                                </MenuFlyout></DropDownButton.Flyout>
+                            </DropDownButton>
                         </Grid>
                     </StackPanel>
                 </settings:SettingsCard>
@@ -566,9 +573,16 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="BlacklistBox" x:Uid="ConfigSettingsDialog_BlacklistPlaceholder" AutomationProperties.AutomationId="BlacklistBox"/>
                             <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick" AutomationProperties.AutomationId="ConfigSettingsDialog_AddBlacklist"/>
+                            <DropDownButton x:Name="BlacklistBrowseButton" Grid.Column="2" Margin="8,0,0,0" x:Uid="Filter_Browse" AutomationProperties.AutomationId="BlacklistBrowse">
+                                <DropDownButton.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFiles" Tag="AddBlacklist" Click="OnBrowseFilterFilesClick" AutomationProperties.AutomationId="BlacklistBrowseFiles"/>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFolder" Tag="AddBlacklist" Click="OnBrowseFilterFolderClick" AutomationProperties.AutomationId="BlacklistBrowseFolder"/>
+                                </MenuFlyout></DropDownButton.Flyout>
+                            </DropDownButton>
                         </Grid>
                     </StackPanel>
                 </settings:SettingsCard>
@@ -595,9 +609,16 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="BackupWhitelistBox" x:Uid="ConfigSettingsDialog_BackupWhitelistPlaceholder" AutomationProperties.AutomationId="BackupWhitelistBox"/>
                             <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBackupWhitelist" Margin="8,0,0,0" Click="OnAddBackupWhitelistClick" AutomationProperties.AutomationId="ConfigSettingsDialog_AddBackupWhitelist"/>
+                            <DropDownButton x:Name="BackupWhitelistBrowseButton" Grid.Column="2" Margin="8,0,0,0" x:Uid="Filter_Browse" AutomationProperties.AutomationId="BackupWhitelistBrowse">
+                                <DropDownButton.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFiles" Tag="AddBackupWhitelist" Click="OnBrowseFilterFilesClick" AutomationProperties.AutomationId="BackupWhitelistBrowseFiles"/>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFolder" Tag="AddBackupWhitelist" Click="OnBrowseFilterFolderClick" AutomationProperties.AutomationId="BackupWhitelistBrowseFolder"/>
+                                </MenuFlyout></DropDownButton.Flyout>
+                            </DropDownButton>
                         </Grid>
                     </StackPanel>
                 </settings:SettingsCard>

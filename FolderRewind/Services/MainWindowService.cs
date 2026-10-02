@@ -219,6 +219,36 @@ namespace FolderRewind.Services
             });
         }
 
+        public static async Task<IReadOnlyList<string>> PickRulePathsAsync(
+            Microsoft.UI.WindowId owner, bool folders, string settingsIdentifier)
+        {
+            try
+            {
+                return await UiDispatcherService.RunOnUiAsync<IReadOnlyList<string>>(async () =>
+                {
+                    if (folders)
+                    {
+                        var picker = new Microsoft.Windows.Storage.Pickers.FolderPicker(owner) { SettingsIdentifier = settingsIdentifier };
+                        var result = await picker.PickSingleFolderAsync();
+                        return result is null ? Array.Empty<string>() : new[] { result.Path };
+                    }
+                    var filePicker = new Microsoft.Windows.Storage.Pickers.FileOpenPicker(owner) { SettingsIdentifier = settingsIdentifier };
+                    filePicker.FileTypeFilter.Add("*");
+                    var results = await filePicker.PickMultipleFilesAsync();
+                    var paths = new List<string>();
+                    if (results is not null)
+                        foreach (var result in results) paths.Add(result.Path);
+                    return paths;
+                });
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("Picker_Log_OpenFailed", ex.Message), nameof(MainWindowService), ex);
+                NotificationService.ShowError(I18n.Format("Picker_OpenFailedWithReason", ex.Message));
+                return Array.Empty<string>();
+            }
+        }
+
         public static Task<string?> PickFilePathAsync(
             string title,
             string settingsIdentifier,
