@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -686,13 +686,14 @@ namespace FolderRewind.Services
 
             try
             {
-                bool hadChanges = targetFolder == null
+                var result = targetFolder == null
                     ? await BackupService.BackupConfigAsync(config, BackupInvocationOptions.ForAutomatic())
                     : await BackupService.BackupFolderAsync(
                         config,
                         targetFolder,
                         invocationOptions: BackupInvocationOptions.ForAutomatic());
 
+                LogService.Log($"Automatic backup '{config.Name}': {result.ProtocolResult} ({result.Outcome}).");
                 if (updateAutomationState)
                 {
                     var saveResult = await ConfigService.UpdateAndSaveAsync(current =>
@@ -705,7 +706,7 @@ namespace FolderRewind.Services
                         }
 
                         liveConfig.Automation.LastAutoBackupUtc = _timeProvider.GetUtcNow().UtcDateTime;
-                        ApplyNoChangeStopPolicy(liveConfig, hadChanges);
+                        ApplyNoChangeStopPolicy(liveConfig, result);
                     }).ConfigureAwait(false);
                     if (!saveResult.Success)
                     {
@@ -733,21 +734,16 @@ namespace FolderRewind.Services
         /// 例外：任一源文件夹的 level.dat（Minecraft 存档锁文件）仍被锁定时本轮跳过停用
         /// ——游戏仍在运行、变更大概率还会出现，待下一轮再检查。
         /// </summary>
-        private static void ApplyNoChangeStopPolicy(BackupConfig config, bool hadChanges)
+        private static void ApplyNoChangeStopPolicy(BackupConfig config, BackupOperationResult result)
         {
             if (!config.Automation.StopAfterNoChangeEnabled)
             {
                 return;
             }
 
-            if (hadChanges)
-            {
-                config.Automation.ConsecutiveNoChangeCount = 0;
-                return;
-            }
-
-            config.Automation.ConsecutiveNoChangeCount++;
-            if (config.Automation.ConsecutiveNoChangeCount < config.Automation.StopAfterNoChangeCount)
+            config.Automation.ConsecutiveNoChangeCount = result.NextNoChangeCount(config.Automation.ConsecutiveNoChangeCount);
+            if (!result.CanStopForNoChanges
+                || config.Automation.ConsecutiveNoChangeCount < config.Automation.StopAfterNoChangeCount)
             {
                 return;
             }

@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
@@ -177,12 +177,12 @@ namespace FolderRewind.Services
         /// <summary>
         /// 备份配置下的所有文件夹
         /// </summary>
-        /// <returns>true 表示至少有一个文件夹产生了新的备份文件；false 表示所有文件夹均未检测到变更。</returns>
-        public static async Task<bool> BackupConfigAsync(
+        /// <returns>保留事务状态、新归档标志与恢复待处理状态。</returns>
+        public static async Task<BackupOperationResult> BackupConfigAsync(
             BackupConfig config,
             BackupInvocationOptions? invocationOptions = null)
         {
-            if (config == null) return false;
+            if (config == null) return new(OperationOutcome.Blocked, false);
             invocationOptions ??= BackupInvocationOptions.Default;
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
@@ -195,7 +195,7 @@ namespace FolderRewind.Services
                 CancellationToken.None).ConfigureAwait(false);
 
             Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
-            return result.CreatedNewArchive;
+            return new(result.Outcome, result.CreatedNewArchive, result.HistoryRecoveryRequired);
         }
 
         internal static async Task<SafetySnapshot> CreateSafetySnapshotAsync(
@@ -223,19 +223,19 @@ namespace FolderRewind.Services
         /// <summary>
         /// 备份单个文件夹
         /// </summary>
-        /// <returns>true 表示产生了新的备份文件；false 表示未检测到变更或备份失败。</returns>
-        public static async Task<bool> BackupFolderAsync(
+        /// <returns>保留事务状态、新归档标志与恢复待处理状态。</returns>
+        public static async Task<BackupOperationResult> BackupFolderAsync(
             BackupConfig config,
             ManagedFolder folder,
             BackupInvocationOptions? invocationOptions = null)
         {
-            invocationOptions ??= BackupInvocationOptions.Default;
-            var outcome = await BackupFolderForPluginAsync(
-                config,
-                folder,
-                invocationOptions,
+            if (config is null || folder is null || NativeHostMutationContext.IsNestedMutationBlocked)
+                return new(OperationOutcome.Blocked, false);
+            var result = await ExecuteBackupTransactionAsync(
+                config, [folder], invocationOptions ?? BackupInvocationOptions.Default,
+                HistoryCommitIntent.AdvanceBranch, safetySnapshotIntent: null,
                 CancellationToken.None).ConfigureAwait(false);
-            return outcome.CreatedNewArchive;
+            return new(result.Outcome, result.CreatedNewArchive, result.HistoryRecoveryRequired);
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-using FolderRewind.History.Application;
+﻿using FolderRewind.History.Application;
 using FolderRewind.History.Cloud;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
@@ -305,7 +305,6 @@ namespace FolderRewind.Services
                 var result = await RunSilentCommandAsync(
                     CreateDirectCommand(_executable, _workingDirectory, arguments),
                     Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
                 if (!result.Success) throw new IOException(result.ErrorMessage);
             }
 

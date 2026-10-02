@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.Services.KnotLink;
@@ -460,12 +460,24 @@ namespace FolderRewind.Services
                 try
                 {
                     BroadcastCommandLifecycle(context, "command_started");
-                    bool anyNewBackup = false;
-                    anyNewBackup = await BackupService.BackupConfigAsync(
+                    var outcome = await BackupService.BackupConfigAsync(
                         effectiveConfig,
                         BackupInvocationOptions.ForRemote().WithComment(comment));
 
-                    var result = anyNewBackup ? "created" : "no_changes";
+                    var result = outcome.ProtocolResult;
+                    if (!outcome.IsSuccessful)
+                    {
+                        BroadcastEvent(context, "backup_all_failed", new Dictionary<string, string?>
+                        {
+                            ["config"] = config.Id,
+                            ["error"] = result
+                        });
+                        BroadcastCommandLifecycle(context, "command_failed", new Dictionary<string, string?>
+                        {
+                            ["reason"] = result
+                        });
+                        return;
+                    }
                     BroadcastEvent(context, "backup_all_completed", new Dictionary<string, string?>
                     {
                         ["config"] = config.Id,

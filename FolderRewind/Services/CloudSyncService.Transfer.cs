@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -304,6 +304,7 @@ namespace FolderRewind.Services
 
                 if (command.Execution is { } connection) startInfo = connection.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments));
                 using var process = new Process { StartInfo = startInfo };
+                cancellationToken.ThrowIfCancellationRequested();
                 command.Execution?.RequireUnchanged();
                 if (!process.Start())
                 {
@@ -313,25 +314,8 @@ namespace FolderRewind.Services
                 Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
                 Task<string> errorTask = process.StandardError.ReadToEndAsync();
 
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-                try
+                if (!await ProcessWaitService.WaitAsync(process, TimeSpan.FromSeconds(timeoutSeconds), cancellationToken).ConfigureAwait(false))
                 {
-                    await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    try
-                    {
-                        if (!process.HasExited)
-                        {
-                            process.Kill(entireProcessTree: true);
-                        }
-                    }
-                    catch
-                    {
-                    }
-
                     return (false, -1, string.Empty, I18n.Format("CloudSync_Task_Timeout", timeoutSeconds));
                 }
 
@@ -339,6 +323,10 @@ namespace FolderRewind.Services
                 string error = await errorTask.ConfigureAwait(false);
                 string errorMessage = GetBestErrorMessage(process.ExitCode, error, output);
                 return (process.ExitCode == 0, process.ExitCode, output, errorMessage);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\BackupOperationResult.cs" Link="Source\BackupOperationResult.cs" />
+    <Compile Include="..\FolderRewind\Services\ProcessWaitService.cs" Link="Source\ProcessWaitService.cs" />
     <None Update="Fixtures\Legacy182\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
