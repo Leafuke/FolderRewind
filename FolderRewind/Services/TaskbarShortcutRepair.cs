@@ -30,7 +30,7 @@ internal static class TaskbarShortcutRepair
                     string icon = ((dynamic)link).IconLocation;
                     if (string.Equals(icon, executable + ",0", StringComparison.OrdinalIgnoreCase) &&
                         ShellShortcutIdentity.GetAppUserModelId(path) == ShellShortcutIdentity.MsiAppId &&
-                        ShellShortcutIdentity.GetShortcutProperty(path, 3) == executable + ",0") continue;
+                        ShellShortcutIdentity.GetShortcutProperty(path, 3) == ShellShortcutIdentity.GetRelaunchIconResource(executable)) continue;
                     ((dynamic)link).IconLocation = executable + ",0";
                     ((dynamic)link).Save();
                     ShellShortcutIdentity.SetShortcutIdentity(path, ShellShortcutIdentity.MsiAppId, executable);

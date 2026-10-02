@@ -77,9 +77,9 @@
       <Directory Id="FolderRewindProgramsFolder" Name="$(var.PackageDisplayName)">
         <Component Id="StartMenuShortcutComponent" Guid="*">
           <Shortcut Id="StartMenuShortcut" Name="$(var.PackageDisplayName)" Target="[INSTALLFOLDER]FolderRewind.exe" WorkingDirectory="INSTALLFOLDER" Icon="FolderRewindIcon">
-            <ShortcutProperty Key="System.AppUserModel.ID" Value="Leafuke.FolderRewind.Msi" />
+            <ShortcutProperty Key="System.AppUserModel.ID" Value="$(var.PackageIdentifier)" />
             <ShortcutProperty Key="System.AppUserModel.RelaunchCommand" Value="&quot;[INSTALLFOLDER]FolderRewind.exe&quot;" />
-            <ShortcutProperty Key="System.AppUserModel.RelaunchIconResource" Value="[INSTALLFOLDER]FolderRewind.exe,0" />
+            <ShortcutProperty Key="System.AppUserModel.RelaunchIconResource" Value="[INSTALLFOLDER]Assets\MsiApp.ico,0" />
             <ShortcutProperty Key="System.AppUserModel.RelaunchDisplayNameResource" Value="FolderRewind" />
           </Shortcut>
           <RemoveFolder Id="RemoveFolderRewindProgramsFolder" On="uninstall" />
@@ -91,9 +91,9 @@
     <StandardDirectory Id="DesktopFolder">
       <Component Id="DesktopShortcutComponent" Guid="*">
         <Shortcut Id="DesktopShortcut" Name="$(var.PackageDisplayName)" Target="[INSTALLFOLDER]FolderRewind.exe" WorkingDirectory="INSTALLFOLDER" Icon="FolderRewindIcon">
-          <ShortcutProperty Key="System.AppUserModel.ID" Value="Leafuke.FolderRewind.Msi" />
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="$(var.PackageIdentifier)" />
           <ShortcutProperty Key="System.AppUserModel.RelaunchCommand" Value="&quot;[INSTALLFOLDER]FolderRewind.exe&quot;" />
-          <ShortcutProperty Key="System.AppUserModel.RelaunchIconResource" Value="[INSTALLFOLDER]FolderRewind.exe,0" />
+          <ShortcutProperty Key="System.AppUserModel.RelaunchIconResource" Value="[INSTALLFOLDER]Assets\MsiApp.ico,0" />
           <ShortcutProperty Key="System.AppUserModel.RelaunchDisplayNameResource" Value="FolderRewind" />
         </Shortcut>
         <RegistryValue Root="HKMU" Key="$(var.InstallerRegistryKey)" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />

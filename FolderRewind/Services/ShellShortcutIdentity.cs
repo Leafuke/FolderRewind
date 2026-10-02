@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
@@ -9,6 +10,9 @@ internal static class ShellShortcutIdentity
 {
     internal const string MsiAppId = "Leafuke.FolderRewind.Msi";
     private static readonly Guid AppModelFormat = new("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3");
+
+    internal static string GetRelaunchIconResource(string executable) =>
+        Path.Combine(Path.GetDirectoryName(executable)!, "Assets", "MsiApp.ico") + ",0";
 
     internal static void SetWindowIdentity(IntPtr hwnd, string appId, string executable)
     {
@@ -28,10 +32,12 @@ internal static class ShellShortcutIdentity
 
     private static void SetRelaunchIdentity(IPropertyStore store, string appId, string executable)
     {
-        // Set the relaunch properties before the explicit AppID. A taskbar pin
-        // must not depend on a version-specific Windows Installer icon cache.
+        // Unlike IShellLink.IconLocation, RelaunchIconResource requires a
+        // negative resource ID for EXE/DLL resources, not an ordinal index.
+        // A direct ICO path supports index 0 and avoids Installer icon caches.
+        // Set the relaunch properties before the explicit AppID.
         SetString(store, 2, $"\"{executable}\"");
-        SetString(store, 3, executable + ",0");
+        SetString(store, 3, GetRelaunchIconResource(executable));
         SetString(store, 4, "FolderRewind");
         SetString(store, 5, appId);
         store.Commit();
@@ -59,18 +65,18 @@ internal static class ShellShortcutIdentity
         }
         finally { PropVariantClear(ref value); Marshal.FinalReleaseComObject(store); }
     }
-    internal static void SetAppUserModelId(string path, string appId)
+    internal static void SetAppUserModelId(string path, string appId) => SetShortcutProperty(path, 5, appId);
+
+    internal static void SetShortcutProperty(string path, uint propertyId, string text)
     {
         var iid = typeof(IPropertyStore).GUID;
         Marshal.ThrowExceptionForHR(SHGetPropertyStoreFromParsingName(path, IntPtr.Zero, 2, ref iid, out var store));
-        var key = new PropertyKey { FormatId = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), Id = 5 };
-        var value = new PropVariant { Type = 31, Value = Marshal.StringToCoTaskMemUni(appId) };
         try
         {
-            store.SetValue(ref key, ref value);
+            SetString(store, propertyId, text);
             store.Commit();
         }
-        finally { Marshal.FreeCoTaskMem(value.Value); Marshal.FinalReleaseComObject(store); }
+        finally { Marshal.FinalReleaseComObject(store); }
     }
 
     [StructLayout(LayoutKind.Sequential)] private struct PropertyKey { public Guid FormatId; public uint Id; }
