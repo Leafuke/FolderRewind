@@ -42,12 +42,14 @@ internal static partial class NativeHistoryApplicationService
         var snapshot = (await runtime.Query.GetSafetySnapshotsAsync(cancellationToken).ConfigureAwait(false))
             .SingleOrDefault(item => item.SnapshotId == snapshotId)
             ?? throw new InvalidOperationException("SafetySnapshot does not exist.");
-        return await RestoreCheckpointAsync(
-            config,
-            snapshot.CheckpointId,
-            completeCheckpoint: true,
-            requestedMode,
-            cancellationToken).ConfigureAwait(false);
+        var selections = new Dictionary<SourceId, VersionId>();
+        foreach (var id in snapshot.CheckpointIds)
+        {
+            var checkpoint = await runtime.Query.GetCheckpointAsync(id, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("SafetySnapshot Source checkpoint is missing.");
+            selections.Add(checkpoint.SourceId, checkpoint.VersionId);
+        }
+        return await RestoreSelectionsAsync(config, selections, requestedMode, cancellationToken).ConfigureAwait(false);
     }
 
     public static async Task<bool> ReleaseSafetySnapshotAsync(
@@ -146,7 +148,7 @@ internal static partial class NativeHistoryApplicationService
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         if (requireSafetySnapshot || config.Archive.BackupBeforeRestore)
         {
-            var protection = await ProtectBeforeRestoreAsync(config, runtime, cancellationToken).ConfigureAwait(false);
+            var protection = await ProtectBeforeRestoreAsync(config, runtime, [Source(folder)], cancellationToken).ConfigureAwait(false);
             if (protection.Result is not null) return protection.Result;
             workspace = protection.Workspace!;
         }
@@ -217,11 +219,11 @@ internal static partial class NativeHistoryApplicationService
             .ToHashSet();
         var bindings = await BindingsAsync(
             config,
-            config.SourceFolders.Where(folder => completeCheckpoint || restorableSources.Contains(Source(folder))),
+            config.SourceFolders.Where(folder => restorableSources.Contains(Source(folder))),
             cancellationToken).ConfigureAwait(false);
         if (config.Archive.BackupBeforeRestore)
         {
-            var protection = await ProtectBeforeRestoreAsync(config, runtime, cancellationToken).ConfigureAwait(false);
+            var protection = await ProtectBeforeRestoreAsync(config, runtime, bindings.Select(b => b.SourceId).ToArray(), cancellationToken).ConfigureAwait(false);
             if (protection.Result is not null) return protection.Result;
             workspace = protection.Workspace!;
         }
@@ -249,7 +251,9 @@ internal static partial class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
-        var bindings = await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false);
+        var update = await runtime.Query.GetBranchUpdateAsync(selectedTipId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Branch update is missing.");
+        var bindings = await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == update.SourceId), cancellationToken).ConfigureAwait(false);
         var plan = await new HistoryCheckoutPlanner(
             runtime,
             restore,
@@ -288,12 +292,14 @@ internal static partial class NativeHistoryApplicationService
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
+        var update = await runtime.Query.GetBranchUpdateAsync(selectedTipId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Branch update is missing.");
         var plan = await new HistoryCheckoutPlanner(
             runtime,
             CreateRestoreService(config, runtime),
             new NativeWorkingStateProbe(config)).BuildAsync(
             selectedTipId,
-            await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false),
+            await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == update.SourceId), cancellationToken).ConfigureAwait(false),
             workspace,
             assessmentDepth,
             cancellationToken).ConfigureAwait(false);
@@ -346,11 +352,13 @@ internal static partial class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
-        var bindings = await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false);
+        var update = await runtime.Query.GetBranchUpdateAsync(selectedTipId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Branch update is missing.");
+        var bindings = await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == update.SourceId), cancellationToken).ConfigureAwait(false);
         var result = await new HistoryCheckoutService(
             runtime,
             restore,
-            new SafetySnapshotWorkingStateProtector(config, runtime),
+            new SafetySnapshotWorkingStateProtector(config, runtime, affectedSources: [update.SourceId]),
             new NativeWorkingStateProbe(config),
             async token =>
             {
@@ -358,7 +366,7 @@ internal static partial class NativeHistoryApplicationService
                     ?? throw new InvalidOperationException("Configuration was removed during Checkout.");
                 if (authoritative.ConfigRevision != expectedConfigRevision)
                     throw new InvalidOperationException("Configuration revision changed during Checkout.");
-                return await BindingsAsync(authoritative, authoritative.SourceFolders, token).ConfigureAwait(false);
+                return await BindingsAsync(authoritative, authoritative.SourceFolders.Where(f => Source(f) == update.SourceId), token).ConfigureAwait(false);
             }).CheckoutAsync(
             selectedTipId,
             bindings,
@@ -557,6 +565,7 @@ internal static partial class NativeHistoryApplicationService
     private static async Task<(HistoryWorkspace? Workspace, HistoryRestoreResult? Result)> ProtectBeforeRestoreAsync(
         BackupConfig config,
         HistoryRuntime runtime,
+        IReadOnlyCollection<SourceId> affectedSources,
         CancellationToken cancellationToken)
     {
         try
@@ -564,7 +573,7 @@ internal static partial class NativeHistoryApplicationService
             _ = await BackupService.CreateSafetySnapshotAsync(
                 config,
                 SafetySnapshotReason.BeforeRestore,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, affectedSources: affectedSources).ConfigureAwait(false);
             return (await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false), null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -642,7 +651,8 @@ internal static partial class NativeHistoryApplicationService
 
     private sealed class SafetySnapshotWorkingStateProtector(
         BackupConfig config,
-        HistoryRuntime runtime, SafetySnapshotReason reason = SafetySnapshotReason.BeforeCheckout) : IHistoryWorkingStateProtector, IHistoryWorkingStateProtectorInsideOperation
+        HistoryRuntime runtime, SafetySnapshotReason reason = SafetySnapshotReason.BeforeCheckout,
+        IReadOnlyCollection<SourceId>? affectedSources = null) : IHistoryWorkingStateProtector, IHistoryWorkingStateProtectorInsideOperation
     {
         public async Task<HistoryWorkspace> ProtectInsideOperationAsync(HistoryWorkspace expected,
             NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token)
@@ -650,7 +660,7 @@ internal static partial class NativeHistoryApplicationService
             operation.Require(runtime.ConfigId);
             if (!HistoryRestoreTransactionJournalStore.WorkspaceEquals(await RequireWorkspaceAsync(runtime, token).ConfigureAwait(false), expected))
                 throw new DeviceLocalStateConflictException("Workspace changed before SafetySnapshot.");
-            await BackupService.CreateSafetySnapshotAsync(config, reason, token, operation).ConfigureAwait(false);
+            await BackupService.CreateSafetySnapshotAsync(config, reason, token, operation, affectedSources).ConfigureAwait(false);
             return await RequireWorkspaceAsync(runtime, token).ConfigureAwait(false);
         }
         public async Task<HistoryWorkspace> ProtectAsync(
@@ -663,7 +673,7 @@ internal static partial class NativeHistoryApplicationService
             _ = await BackupService.CreateSafetySnapshotAsync(
                 config,
                 reason,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, affectedSources: affectedSources).ConfigureAwait(false);
             return await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         }
     }

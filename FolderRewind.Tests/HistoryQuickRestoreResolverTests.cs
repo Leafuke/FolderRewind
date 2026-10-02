@@ -152,7 +152,7 @@ public sealed class HistoryQuickRestoreResolverTests
             var representation = new VersionRepresentation(
                 RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "quick-test", [],
                 fidelity, null, null, null);
-            var checkpoint = new ConfigurationCheckpoint(
+            var checkpoint = new SourceCheckpoint(
                 CheckpointId.New(), ConfigId, createdAt, null, HistoryProvenance.Native("test"),
                 [new CheckpointSource(
                     SourceId,
@@ -162,7 +162,7 @@ public sealed class HistoryQuickRestoreResolverTests
             var update = new BranchUpdate(
                 BranchUpdateId.New(), branchId ?? BranchId.New(),
                 parentUpdateId is { } parentId ? [parentId] : [], name,
-                checkpoint.CheckpointId, false, createdAt, BranchUpdateReason.Created);
+                checkpoint.CheckpointId, false, createdAt, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
             return new Lineage(version, representation, checkpoint, update);
         }
 
@@ -175,14 +175,9 @@ public sealed class HistoryQuickRestoreResolverTests
 
         public Task SaveWorkspaceAsync(BranchUpdate activeUpdate, VersionId? exactVersionId = null)
             => History.WorkspaceStore.SaveAsync(
-                new HistoryWorkspace(
-                    ConfigId,
-                    0,
-                    activeUpdate.BranchId,
-                    activeUpdate.UpdateId,
-                    exactVersionId is { } versionId
-                        ? [new WorkspaceSourceBaseline(SourceId, versionId, WorkspaceBaselineRelation.Exact)]
-                        : []),
+                new HistoryWorkspace(ConfigId, 0,
+                    [new WorkspaceSourceBaseline(SourceId, exactVersionId, exactVersionId is null ? WorkspaceBaselineRelation.Unknown : WorkspaceBaselineRelation.Exact,
+                        activeUpdate.BranchId, activeUpdate.UpdateId, activeUpdate.TargetCheckpointId)]),
                 HistoryWorkspaceStore.MissingRevision);
 
         public ValueTask DisposeAsync() => History.DisposeAsync();
@@ -191,7 +186,7 @@ public sealed class HistoryQuickRestoreResolverTests
     private sealed record Lineage(
         SourceVersion Version,
         VersionRepresentation Representation,
-        ConfigurationCheckpoint Checkpoint,
+        SourceCheckpoint Checkpoint,
         BranchUpdate Update);
 
     private sealed class AlwaysAvailableRepresentationHandler : IRepresentationHandler

@@ -86,7 +86,10 @@ public sealed class HistoryArchiveRecoveryService
                 LocalReplicaLocator.ControlledAbsolute(path), DateTimeOffset.UtcNow)));
         var pack = new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
-            [_codec.CreateObject(version), _codec.CreateObject(representation)]);
+            [_codec.CreateObject(version), _codec.CreateObject(representation),
+                _codec.CreateObject(new SourceCheckpoint(CheckpointId.New(), _runtime.ConfigId, version.CreatedAtUtc, null,
+                    version.Provenance, [new(version.SourceId, version.SourceDescriptorSnapshot, version.VersionId,
+                        CheckpointSourceDisposition.Captured, version.EffectiveSourceBoundary)], [], CheckpointCreationKind.Import))]);
         var journal = HistoryTransactionJournal.Prepared(
             pack.TransactionId,
             pack.PackId,

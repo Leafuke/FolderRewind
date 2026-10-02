@@ -202,13 +202,14 @@ namespace FolderRewind.Services
             BackupConfig config,
             SafetySnapshotReason reason,
             CancellationToken cancellationToken = default,
-            NativeHistoryConfigurationOperationGate.Lease? existingOperation = null)
+            NativeHistoryConfigurationOperationGate.Lease? existingOperation = null,
+            System.Collections.Generic.IReadOnlyCollection<SourceId>? affectedSources = null)
         {
             ArgumentNullException.ThrowIfNull(config);
             var options = BackupInvocationOptions.ForInternal();
             var result = await ExecuteBackupTransactionAsync(
                 config,
-                config.SourceFolders,
+                config.SourceFolders.Where(f => affectedSources is null || affectedSources.Contains(new SourceId(Guid.Parse(f.Id)))).ToArray(),
                 options,
                 HistoryCommitIntent.IndependentRecoveryPoint,
                 new HistorySafetySnapshotIntent(reason),

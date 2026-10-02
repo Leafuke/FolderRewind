@@ -94,7 +94,7 @@ public sealed class HistoryBranchReconciliationService
             winner.TargetCheckpointId,
             winner.IsDeleted,
             createdAtUtc,
-            BranchUpdateReason.Reconciled);
+            BranchUpdateReason.Reconciled, sourceId: winner.SourceId);
         HistoryDomainValidator.ValidateNative(reconciliation);
 
         var workspaceLoad = await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
@@ -102,18 +102,12 @@ public sealed class HistoryBranchReconciliationService
             throw new HistoryBranchCommandException("Workspace recovery is required before reconciliation.");
         var workspace = workspaceLoad.Value;
         HistoryWorkspace? updatedWorkspace = null;
-        if (workspace?.ActiveBranchId == branchId
-            && workspace.ActiveBranchUpdateId is { } activeId
+        if (workspace?.GetSourceState(winner.SourceId).ActiveBranchId == branchId
+            && workspace.GetSourceState(winner.SourceId).ActiveBranchUpdateId is { } activeId
             && actualTips.SingleOrDefault(item => item.UpdateId == activeId) is { } activeTip
             && EquivalentState(activeTip, winner))
         {
-            updatedWorkspace = new HistoryWorkspace(
-                _runtime.ConfigId,
-                checked(workspace.StateRevision + 1),
-                branchId,
-                reconciliation.UpdateId,
-                workspace.SourceBaselines,
-                workspace.CheckpointAncestryAnchorId);
+            updatedWorkspace = workspace.WithSourceStates([workspace.GetSourceState(winner.SourceId) with { ActiveBranchUpdateId = reconciliation.UpdateId }]);
         }
 
         var committed = await HistoryCommandCommitter.CommitInsideGateAsync(

@@ -50,7 +50,7 @@ public sealed record HistoryCheckoutSourcePlan(
 public sealed record HistoryCheckoutPlan(
     HistoryCheckoutReadiness Readiness,
     BranchUpdate? Update,
-    ConfigurationCheckpoint? Checkpoint,
+    SourceCheckpoint? Checkpoint,
     long ExpectedWorkspaceRevision,
     ImmutableArray<HistoryCheckoutSourcePlan> Sources,
     ImmutableArray<MissingHistoricalSource> MissingHistoricalSources,
@@ -85,21 +85,19 @@ public sealed class HistoryCheckoutPlanner
         IReadOnlyList<HistoryRestoreSourceBinding> currentConfigSources,
         HistoryWorkspace expectedWorkspace,
         AssessmentDepth assessmentDepth,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, SourceId? sourceId = null)
     {
         ArgumentNullException.ThrowIfNull(currentConfigSources);
         ArgumentNullException.ThrowIfNull(expectedWorkspace);
         await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
-        var duplicateIdentity = currentConfigSources.GroupBy(item => item.SourceId).Any(group => group.Count() > 1);
-        var duplicatePath = currentConfigSources
-            .Select(item => Path.GetFullPath(item.TargetDirectory))
-            .Distinct(StringComparer.OrdinalIgnoreCase).Count() != currentConfigSources.Count;
-        if (duplicateIdentity || duplicatePath)
-            return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Current Config Source bindings are not unique.");
-
         var update = await _history.Query.GetBranchUpdateAsync(selectedTipId, cancellationToken).ConfigureAwait(false);
         if (update is null || update.IsDeleted || update.TargetCheckpointId is null)
-            return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Selected BranchUpdate is missing, deleted, or unborn.");
+            return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Selected Branch is missing, deleted, or unborn.");
+        if (sourceId is { } requested && update.SourceId != requested)
+            return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Branch belongs to another Source.");
+        currentConfigSources = currentConfigSources.Where(b => b.SourceId == update.SourceId).ToArray();
+        if (currentConfigSources.Select(b => b.SourceId).Distinct().Count() != currentConfigSources.Count)
+            return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Source bindings are not unique.");
         var tips = await _history.Query.GetBranchTipsAsync(update.BranchId, cancellationToken).ConfigureAwait(false);
         if (tips.Count != 1 || tips[0].UpdateId != update.UpdateId)
             return Blocked(
@@ -109,7 +107,7 @@ public sealed class HistoryCheckoutPlanner
                 update);
         var checkpoint = await _history.Query.GetCheckpointAsync(update.TargetCheckpointId.Value, cancellationToken)
             .ConfigureAwait(false);
-        if (checkpoint is null)
+        if (checkpoint is null || checkpoint.SourceId != update.SourceId)
             return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Branch target checkpoint is missing.", update);
         var admission = await _admission.EvaluateAsync(checkpoint, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -218,6 +216,6 @@ public sealed class HistoryCheckoutPlanner
         HistoryWorkspace workspace,
         string diagnostic,
         BranchUpdate? update = null,
-        ConfigurationCheckpoint? checkpoint = null)
+        SourceCheckpoint? checkpoint = null)
         => new(readiness, update, checkpoint, workspace.StateRevision, [], [], [], diagnostic);
 }

@@ -134,9 +134,10 @@ public sealed class MaterializationPolicyService
             activeOnly: true,
             cancellationToken).ConfigureAwait(false);
         foreach (var snapshot in activeSafetySnapshots)
+        foreach (var checkpointId in snapshot.Snapshot.CheckpointIds)
         {
             var checkpoint = await _runtime.Query.GetCheckpointAsync(
-                snapshot.Snapshot.CheckpointId,
+                checkpointId,
                 cancellationToken).ConfigureAwait(false);
             if (checkpoint?.Sources.Any(source => source.VersionId == versionId) == true)
             {

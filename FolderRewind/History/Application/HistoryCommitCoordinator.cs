@@ -145,9 +145,9 @@ public sealed record HistoryCommitBatch(
     ImmutableArray<SourceVersion> NewVersions,
     ImmutableArray<VersionRepresentation> NewRepresentations,
     ImmutableArray<VersionMetadataSnapshot> NewMetadataSnapshots,
-    ConfigurationCheckpoint? NewCheckpoint,
+    ImmutableArray<SourceCheckpoint> NewCheckpoints,
     SafetySnapshot? NewSafetySnapshot,
-    BranchUpdate? NewBranchUpdate,
+    ImmutableArray<BranchUpdate> NewBranchUpdates,
     HistoryWorkspace? UpdatedWorkspace,
     LocalReplicaCatalog? UpdatedLocalReplicaCatalog,
     bool IndexRefreshSucceeded);
@@ -187,8 +187,7 @@ public sealed class HistoryCommitCoordinator
     }
 
     /// <summary>
-    /// 在捕获前执行只读预检查：发现未参与本次捕获（unrequested）但有效边界已发生变更（boundary drift）的备份源。
-    /// 如果存在此类源，则子集备份无法安全 Carry Forward 其历史版本，需要先通过完整备份重新建立基线。
+    /// 检查工作区健康。独立来源备份不沿用未请求来源，因此它们的边界变化不阻断本次捕获。
     /// </summary>
     public async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
         HistoryConfigSnapshot snapshot,
@@ -223,37 +222,7 @@ public sealed class HistoryCommitCoordinator
             return Array.Empty<HistoryBoundaryRecaptureRequirement>();
         }
 
-        var baselineMap = workspace.SourceBaselines.ToDictionary(item => item.SourceId);
-        var plannedSet = plannedCaptureSources.ToHashSet();
-        var requirements = new List<HistoryBoundaryRecaptureRequirement>();
-
-        foreach (var source in snapshot.Sources)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (plannedSet.Contains(source.SourceId))
-            {
-                continue;
-            }
-
-            if (baselineMap.TryGetValue(source.SourceId, out var baseline))
-            {
-                VersionId? reliableBaseline = ReliableVersion(baseline);
-                if (reliableBaseline is { } reliableVersionId)
-                {
-                    var version = await RequireVersionForSourceAsync(reliableVersionId, source.SourceId, cancellationToken).ConfigureAwait(false);
-                    var boundary = source.Boundary;
-                    if (!StringComparer.Ordinal.Equals(version.EffectiveSourceBoundaryFingerprint, boundary.Fingerprint))
-                    {
-                        requirements.Add(new HistoryBoundaryRecaptureRequirement(
-                            source.SourceId,
-                            version.EffectiveSourceBoundaryFingerprint,
-                            boundary.Fingerprint));
-                    }
-                }
-            }
-        }
-
-        return requirements;
+        return Array.Empty<HistoryBoundaryRecaptureRequirement>();
     }
 
     public async Task<HistoryCommitBatch> CommitAsync(
@@ -308,7 +277,7 @@ public sealed class HistoryCommitCoordinator
             var currentCatalog = ValidateCatalog(catalogLoad);
             if (request.BranchCreationIntent is not null)
             {
-                await ValidateNewBranchIdentityAsync(request.BranchCreationIntent, cancellationToken).ConfigureAwait(false);
+                await ValidateNewBranchIdentityAsync(request.BranchCreationIntent, request.AffectedSourceIds.Single(), cancellationToken).ConfigureAwait(false);
             }
             await ValidateExpectedCaptureStateAsync(request, currentWorkspace, cancellationToken).ConfigureAwait(false);
 
@@ -407,39 +376,39 @@ public sealed class HistoryCommitCoordinator
         var resultMap = request.SourceCaptureResults.ToDictionary(result => result.SourceId);
         if (request.Intent == HistoryCommitIntent.IndependentRecoveryPoint)
         {
-            var configuredSources = request.ConfigSnapshot.Sources.Select(source => source.SourceId).ToHashSet();
-            if (!configuredSources.SetEquals(request.AffectedSourceIds)
-                || request.SourceCaptureResults.Any(result => result.Outcome is
+            if (request.SourceCaptureResults.Any(result => result.Outcome is
                     SourceCaptureOutcome.Unavailable
                     or SourceCaptureOutcome.Failed
                     or SourceCaptureOutcome.Canceled
                     or SourceCaptureOutcome.Blocked))
             {
                 throw new HistoryCommitConflictException(
-                    "An independent recovery point requires a reliable Exact result for every configured Source.");
+                    "An independent recovery point requires a reliable Exact result for every affected Source.");
             }
         }
-        var currentBranch = await ResolveCurrentBranchAsync(workspace, cancellationToken).ConfigureAwait(false);
-        var ancestryCheckpointId = workspace?.CheckpointAncestryAnchorId
-            ?? currentBranch?.TargetCheckpointId;
-        var currentCheckpoint = ancestryCheckpointId is { } checkpointId
-            ? await _runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
-                ?? throw new HistoryCommitConflictException("Workspace ancestry Checkpoint is missing from the index.")
-            : null;
-
         var versions = ImmutableArray.CreateBuilder<SourceVersion>();
         var representations = ImmutableArray.CreateBuilder<VersionRepresentation>();
         var metadataSnapshots = ImmutableArray.CreateBuilder<VersionMetadataSnapshot>();
         var localEntries = new List<LocalReplicaCatalogEntry>();
-        var checkpointSources = ImmutableArray.CreateBuilder<CheckpointSource>();
+        var checkpoints = ImmutableArray.CreateBuilder<SourceCheckpoint>();
+        var branchUpdates = ImmutableArray.CreateBuilder<BranchUpdate>();
+        var admissions = new List<HistoryDiagnostic>();
         var runSources = ImmutableArray.CreateBuilder<BackupRunSourceResult>();
         var nextBaselines = ImmutableArray.CreateBuilder<WorkspaceSourceBaseline>();
 
-        foreach (var source in request.ConfigSnapshot.Sources)
+        foreach (var source in request.ConfigSnapshot.Sources.Where(source => resultMap.ContainsKey(source.SourceId)))
         {
             cancellationToken.ThrowIfCancellationRequested();
             baselineMap.TryGetValue(source.SourceId, out var baseline);
             resultMap.TryGetValue(source.SourceId, out var capture);
+            var state = baseline ?? new WorkspaceSourceBaseline(source.SourceId, null, WorkspaceBaselineRelation.Unknown);
+            var currentBranch = await ResolveCurrentBranchAsync(state, cancellationToken).ConfigureAwait(false);
+            var ancestryId = state.CheckpointAncestryAnchorId ?? currentBranch?.TargetCheckpointId;
+            var currentCheckpoint = ancestryId is { } anchor
+                ? await _runtime.Query.GetCheckpointAsync(anchor, cancellationToken).ConfigureAwait(false)
+                    ?? throw new HistoryCommitConflictException("Workspace Source ancestry checkpoint is missing.") : null;
+            if (currentCheckpoint is not null && currentCheckpoint.SourceId != source.SourceId)
+                throw new HistoryCommitConflictException("Workspace ancestry crosses Source identity.");
             VersionId? reliableBaseline = ReliableVersion(baseline);
             var reliableVersion = reliableBaseline is { } reliableVersionId
                 ? await RequireVersionForSourceAsync(reliableVersionId, source.SourceId, cancellationToken).ConfigureAwait(false)
@@ -594,153 +563,72 @@ public sealed class HistoryCommitCoordinator
                     $"Recovery Source {source.SourceId} has no declared Exact representation closure.");
             }
 
-            checkpointSources.Add(new CheckpointSource(
-                source.SourceId,
-                source.Descriptor,
-                finalVersionId,
-                disposition,
-                finalBoundary));
-            runSources.Add(new BackupRunSourceResult(
-                source.SourceId,
-                runOutcome,
-                finalVersionId,
-                capture?.Diagnostics ?? []));
-            nextBaselines.Add(new WorkspaceSourceBaseline(
-                source.SourceId,
-                finalVersionId,
-                finalVersionId is null ? WorkspaceBaselineRelation.Unknown : nextRelation));
+            bool captured = runOutcome == BackupRunSourceOutcome.Captured;
+            bool successful = runOutcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused;
+            SourceCheckpoint? checkpoint = null;
+            BranchUpdate? branchUpdate = null;
+            if (successful && finalVersionId is { } resultVersion)
+            {
+                if (captured || request.SafetySnapshotIntent is not null
+                    || currentCheckpoint?.VersionId != resultVersion)
+                {
+                    checkpoint = new SourceCheckpoint(CheckpointId.New(), request.ConfigSnapshot.ConfigId, now,
+                        request.Invocation.RunId, request.Invocation.Provenance,
+                        [new(source.SourceId, source.Descriptor, resultVersion, disposition, finalBoundary)],
+                        currentCheckpoint is null ? [] : [currentCheckpoint.CheckpointId],
+                        request.SafetySnapshotIntent is not null ? CheckpointCreationKind.SafetySnapshot : CheckpointCreationKind.Capture);
+                    checkpoints.Add(checkpoint);
+                }
+                var candidate = checkpoint ?? currentCheckpoint;
+                var admission = candidate is null ? null : await _admission.EvaluateAsync(candidate, versions, representations, cancellationToken).ConfigureAwait(false);
+                if (request.SafetySnapshotIntent is not null && admission?.IsReady != true)
+                    throw new HistoryCommitConflictException("SafetySnapshot requires Exact affected Source checkpoints.");
+                if (admission is { IsReady: false })
+                    admissions.Add(new("history.checkpoint.exact_admission_failed", HistoryDiagnosticSeverity.Warning, admission.Diagnostic));
+                if (admission?.IsReady == true && request.Intent == HistoryCommitIntent.AdvanceBranch
+                    && (checkpoint is not null || state.ActiveBranchId is null || request.BranchCreationIntent is not null))
+                {
+                    var branchId = request.BranchCreationIntent?.BranchId ?? state.ActiveBranchId ?? BranchId.New();
+                    branchUpdate = new BranchUpdate(BranchUpdateId.New(), branchId,
+                        state.ActiveBranchUpdateId is { } parentUpdate ? [parentUpdate] : [],
+                        request.BranchCreationIntent?.Name ?? currentBranch?.Name ?? request.ConfigSnapshot.DefaultBranchName,
+                        candidate!.CheckpointId, false, now,
+                        request.BranchCreationIntent is not null || state.ActiveBranchId is null ? BranchUpdateReason.Created
+                            : currentCheckpoint?.VersionId != reliableBaseline ? BranchUpdateReason.BackupFromHistoricalState : BranchUpdateReason.Backup,
+                        sourceId: source.SourceId);
+                    branchUpdates.Add(branchUpdate);
+                    state = state with { ActiveBranchId = branchId, ActiveBranchUpdateId = branchUpdate.UpdateId,
+                        CheckpointAncestryAnchorId = candidate.CheckpointId };
+                }
+                else if (request.Intent == HistoryCommitIntent.IndependentRecoveryPoint && candidate is not null)
+                    state = state with { CheckpointAncestryAnchorId = candidate.CheckpointId };
+                state = state with { BaseVersionId = resultVersion, Relation = nextRelation };
+            }
+            runSources.Add(new BackupRunSourceResult(source.SourceId, runOutcome,
+                successful ? finalVersionId : null, capture?.Diagnostics ?? [],
+                checkpoint?.CheckpointId ?? (successful && currentCheckpoint?.VersionId == finalVersionId ? currentCheckpoint?.CheckpointId : null),
+                branchUpdate?.UpdateId ?? state.ActiveBranchUpdateId));
+            nextBaselines.Add(state);
         }
 
         if (resultMap.Keys.Any(sourceId => request.ConfigSnapshot.Sources.All(source => source.SourceId != sourceId)))
-        {
             throw new HistoryCommitConflictException("A Source result is absent from the Config snapshot roster.");
-        }
-
-        bool vectorChanged = !StateVectorsEqual(currentCheckpoint?.Sources ?? [], checkpointSources);
-        bool hasReliableState = checkpointSources.Any(source => source.VersionId is not null);
-        bool createCheckpoint = hasReliableState && (versions.Count > 0 || vectorChanged);
-        ConfigurationCheckpoint? checkpoint = createCheckpoint
-            ? new ConfigurationCheckpoint(
-                CheckpointId.New(),
-                request.ConfigSnapshot.ConfigId,
-                now,
-                request.Invocation.RunId,
-                request.Invocation.Provenance,
-                checkpointSources,
-                currentCheckpoint is null ? [] : [currentCheckpoint.CheckpointId],
-                request.SafetySnapshotIntent is not null
-                    ? CheckpointCreationKind.SafetySnapshot
-                    : CheckpointCreationKind.Capture)
-            : null;
-        var checkpointAdmission = checkpoint is null
-            ? null
-            : await _admission.EvaluateAsync(
-                checkpoint,
-                versions,
-                representations,
-                cancellationToken).ConfigureAwait(false);
-        SafetySnapshot? safetySnapshot = null;
-        if (request.SafetySnapshotIntent is not null)
-        {
-            if (checkpoint is null || checkpointAdmission?.IsReady != true)
-            {
-                throw new HistoryCommitConflictException(
-                    "SafetySnapshot requires a newly committed complete Exact checkpoint.");
-            }
-            safetySnapshot = new SafetySnapshot(
-                SafetySnapshotId.New(),
-                checkpoint.CheckpointId,
-                now,
-                request.SafetySnapshotIntent.Reason);
-        }
-
-        BranchUpdate? branchUpdate = null;
-        HistoryWorkspace? updatedWorkspace = null;
-        var branchCandidate = checkpoint ?? (request.BranchCreationIntent is not null ? currentCheckpoint : null);
-        var branchCandidateAdmission = branchCandidate is null
-            ? null
-            : ReferenceEquals(branchCandidate, checkpoint)
-                ? checkpointAdmission
-                : await _admission.EvaluateAsync(branchCandidate, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-        var branchTargetCheckpoint = branchCandidateAdmission?.IsReady == true ? branchCandidate : null;
-        if (branchTargetCheckpoint is not null && request.Intent == HistoryCommitIntent.AdvanceBranch)
-        {
-            var branchId = request.BranchCreationIntent?.BranchId
-                ?? workspace?.ActiveBranchId
-                ?? BranchId.New();
-            bool fromHistoricalState = currentCheckpoint is not null
-                && !WorkspaceMatchesCheckpoint(workspace!, currentCheckpoint);
-            branchUpdate = new BranchUpdate(
-                BranchUpdateId.New(),
-                branchId,
-                workspace?.ActiveBranchUpdateId is { } parentUpdateId
-                    ? new[] { parentUpdateId }
-                    : [],
-                request.BranchCreationIntent?.Name
-                    ?? currentBranch?.Name
-                    ?? request.ConfigSnapshot.DefaultBranchName,
-                branchTargetCheckpoint.CheckpointId,
-                isDeleted: false,
-                now,
-                request.BranchCreationIntent is not null || workspace?.ActiveBranchId is null
-                    ? BranchUpdateReason.Created
-                    : fromHistoricalState
-                        ? BranchUpdateReason.BackupFromHistoricalState
-                        : BranchUpdateReason.Backup);
-            HistoryDomainValidator.ValidateNative(branchUpdate);
-            updatedWorkspace = new HistoryWorkspace(
-                request.ConfigSnapshot.ConfigId,
-                checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
-                branchId,
-                branchUpdate.UpdateId,
-                nextBaselines,
-                branchTargetCheckpoint.CheckpointId);
-        }
-        else if (checkpoint is not null && request.Intent == HistoryCommitIntent.IndependentRecoveryPoint)
-        {
-            // 独立恢复点更新本机可靠基线，但不伪造隐藏 Branch，也不改变当前 Branch anchor。
-            updatedWorkspace = new HistoryWorkspace(
-                request.ConfigSnapshot.ConfigId,
-                checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
-                workspace?.ActiveBranchId,
-                workspace?.ActiveBranchUpdateId,
-                nextBaselines,
-                checkpoint.CheckpointId);
-        }
-        else if (checkpoint is not null && request.Intent == HistoryCommitIntent.AdvanceBranch)
-        {
-            // 捕获事实仍然持久化，但不完整/不可满足 Exact 的配置向量不得成为 Branch tip。
-            updatedWorkspace = new HistoryWorkspace(
-                request.ConfigSnapshot.ConfigId,
-                checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
-                workspace?.ActiveBranchId,
-                workspace?.ActiveBranchUpdateId,
-                nextBaselines,
-                workspace?.CheckpointAncestryAnchorId);
-        }
-
-        var checkpointForRun = checkpoint?.CheckpointId ?? currentCheckpoint?.CheckpointId;
-        var runOutcomeValue = DetermineRunOutcome(
-            request.SourceCaptureResults,
-            checkpoint,
-            checkpointSources);
-        var run = new BackupRun(
-            request.Invocation.RunId,
-            request.ConfigSnapshot.ConfigId,
-            request.Invocation.StartedAtUtc,
-            request.Invocation.CompletedAtUtc,
-            request.Invocation.Kind,
-            runOutcomeValue,
-            runSources,
-            checkpointForRun,
-            request.SourceCaptureResults.SelectMany(result => result.Diagnostics)
-                .Concat(checkpointAdmission is { IsReady: false }
-                    ? [new HistoryDiagnostic(
-                        "history.checkpoint.exact_admission_failed",
-                        HistoryDiagnosticSeverity.Warning,
-                        checkpointAdmission.Diagnostic)]
-                    : []));
+        if (request.BranchCreationIntent is not null && request.AffectedSourceIds.Length != 1)
+            throw new HistoryCommitConflictException("Branch creation capture must target exactly one Source.");
+        SafetySnapshot? safetySnapshot = request.SafetySnapshotIntent is null ? null
+            : new(SafetySnapshotId.New(), checkpoints.Select(c => c.CheckpointId), now, request.SafetySnapshotIntent.Reason);
+        var allStates = baselineMap.Values.ToDictionary(s => s.SourceId);
+        foreach (var state in nextBaselines) allStates[state.SourceId] = state;
+        bool stateChanged = !nextBaselines.All(state => baselineMap.TryGetValue(state.SourceId, out var before) && before == state);
+        HistoryWorkspace? updatedWorkspace = stateChanged ? new HistoryWorkspace(request.ConfigSnapshot.ConfigId,
+            checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
+            allStates.Values.OrderBy(state => state.SourceId.ToString(), StringComparer.Ordinal)) : null;
+        var runOutcomeValue = runSources.All(r => r.Outcome == BackupRunSourceOutcome.Reused) ? BackupRunOutcome.NoChange
+            : runSources.All(r => r.Outcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused) ? BackupRunOutcome.Completed
+            : runSources.Any(r => r.Outcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused) ? BackupRunOutcome.Partial : BackupRunOutcome.Failed;
+        var run = new BackupRun(request.Invocation.RunId, request.ConfigSnapshot.ConfigId, request.Invocation.StartedAtUtc,
+            request.Invocation.CompletedAtUtc, request.Invocation.Kind, runOutcomeValue, runSources,
+            request.SourceCaptureResults.SelectMany(result => result.Diagnostics).Concat(admissions));
 
         LocalReplicaCatalog? updatedCatalog = null;
         if (localEntries.Count > 0)
@@ -760,9 +648,9 @@ public sealed class HistoryCommitCoordinator
         facts.AddRange(versions);
         facts.AddRange(representations);
         facts.AddRange(metadataSnapshots);
-        if (checkpoint is not null) facts.Add(checkpoint);
+        facts.AddRange(checkpoints);
         if (safetySnapshot is not null) facts.Add(safetySnapshot);
-        if (branchUpdate is not null) facts.Add(branchUpdate);
+        facts.AddRange(branchUpdates);
         facts.Add(run);
         var comment = request.Invocation.Comment?.Trim() ?? string.Empty;
         if (!string.IsNullOrEmpty(comment))
@@ -802,9 +690,9 @@ public sealed class HistoryCommitCoordinator
             versions.ToImmutable(),
             representations.ToImmutable(),
             metadataSnapshots.ToImmutable(),
-            checkpoint,
+            checkpoints.ToImmutable(),
             safetySnapshot,
-            branchUpdate,
+            branchUpdates.ToImmutable(),
             updatedWorkspace,
             updatedCatalog,
             IndexRefreshSucceeded: false);
@@ -852,7 +740,7 @@ public sealed class HistoryCommitCoordinator
     }
 
     private async Task<BranchUpdate?> ResolveCurrentBranchAsync(
-        HistoryWorkspace? workspace,
+        WorkspaceSourceBaseline? workspace,
         CancellationToken cancellationToken)
     {
         if (workspace?.ActiveBranchId is not { } branchId
@@ -863,7 +751,7 @@ public sealed class HistoryCommitCoordinator
 
         var update = await _runtime.Query.GetBranchUpdateAsync(updateId, cancellationToken).ConfigureAwait(false)
             ?? throw new HistoryCommitConflictException("Workspace ActiveBranchUpdateId does not exist.");
-        if (update.BranchId != branchId || update.IsDeleted)
+        if (update.SourceId != workspace.SourceId || update.BranchId != branchId || update.IsDeleted)
         {
             throw new HistoryCommitConflictException("Workspace active Branch identity is stale or deleted.");
         }
@@ -878,6 +766,7 @@ public sealed class HistoryCommitCoordinator
 
     private async Task ValidateNewBranchIdentityAsync(
         HistoryBranchCreationIntent intent,
+        SourceId sourceId,
         CancellationToken cancellationToken)
     {
         var updates = await _runtime.Query.GetAllBranchUpdatesAsync(cancellationToken).ConfigureAwait(false);
@@ -887,7 +776,7 @@ public sealed class HistoryCommitCoordinator
         }
         var tips = HistoryBranchProjection.Build(updates);
         if (tips.Any(branch => !branch.IsDeleted
-                               && branch.Tips.Any(tip => string.Equals(
+                               && branch.Tips.Any(tip => tip.SourceId == sourceId && string.Equals(
                                    tip.Name,
                                    intent.Name,
                                    StringComparison.OrdinalIgnoreCase))))
@@ -929,38 +818,11 @@ public sealed class HistoryCommitCoordinator
         return catalog.Value;
     }
 
-    private static bool WorkspaceEquals(HistoryWorkspace left, HistoryWorkspace right)
-        => left.ConfigId == right.ConfigId
-            && left.StateRevision == right.StateRevision
-            && left.ActiveBranchId == right.ActiveBranchId
-            && left.ActiveBranchUpdateId == right.ActiveBranchUpdateId
-            && left.CheckpointAncestryAnchorId == right.CheckpointAncestryAnchorId
-            && left.SourceBaselines
-                .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
-                .SequenceEqual(right.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal));
+    private static bool WorkspaceEquals(HistoryWorkspace left, HistoryWorkspace right) => HistoryWorkspace.StateEquals(left, right);
 
-    private static bool WorkspaceMatchesCheckpoint(
-        HistoryWorkspace workspace,
-        ConfigurationCheckpoint checkpoint)
-    {
-        var workspaceVector = workspace.SourceBaselines
-            .Select(item => (item.SourceId, VersionId: ReliableVersion(item)))
-            .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal);
-        var checkpointVector = checkpoint.Sources
-            .Select(item => (item.SourceId, item.VersionId))
-            .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal);
-        return workspaceVector.SequenceEqual(checkpointVector);
-    }
 
-    private static bool StateVectorsEqual(
-        IEnumerable<CheckpointSource> current,
-        IEnumerable<CheckpointSource> final)
-        => current
-            .Select(item => (item.SourceId, item.VersionId, item.EffectiveSourceBoundary.Fingerprint))
-            .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
-            .SequenceEqual(final
-                .Select(item => (item.SourceId, item.VersionId, item.EffectiveSourceBoundary.Fingerprint))
-                .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal));
+
+
 
     private static VersionId? ReliableVersion(WorkspaceSourceBaseline? baseline)
         => baseline is not null && baseline.Relation != WorkspaceBaselineRelation.Unknown
@@ -1134,29 +996,7 @@ public sealed class HistoryCommitCoordinator
         }
     }
 
-    private static BackupRunOutcome DetermineRunOutcome(
-        IReadOnlyCollection<SourceCaptureResult> captures,
-        ConfigurationCheckpoint? checkpoint,
-        IEnumerable<CheckpointSource> checkpointSources)
-    {
-        bool hasFailure = captures.Any(result => result.Outcome is
-            SourceCaptureOutcome.Failed or SourceCaptureOutcome.Canceled or SourceCaptureOutcome.Blocked);
-        bool hasUnavailable = captures.Any(result => result.Outcome == SourceCaptureOutcome.Unavailable);
-        if (!hasFailure && !hasUnavailable && checkpoint is null)
-        {
-            return BackupRunOutcome.NoChange;
-        }
-        var projectedSources = checkpointSources.ToArray();
-        bool hasReliableVersion = projectedSources.Any(source => source.VersionId is not null);
-        bool hasIncompleteCoverage = projectedSources.Any(source => source.VersionId is null);
-        if (!hasReliableVersion && (hasFailure || hasUnavailable))
-        {
-            return BackupRunOutcome.Failed;
-        }
-        return hasFailure || hasUnavailable || hasIncompleteCoverage
-            ? BackupRunOutcome.Partial
-            : BackupRunOutcome.Completed;
-    }
+
 
     private static async Task CleanupUncommittedCaptureAsync(
         IEnumerable<SourceCaptureResult> captures)

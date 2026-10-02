@@ -42,7 +42,7 @@ public sealed class HistoryCheckoutServiceTests
         var versionTwo = Version(configId, sourceTwo, "two");
         var representationOne = Representation(versionOne.VersionId);
         var representationTwo = Representation(versionTwo.VersionId);
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(),
             configId,
             DateTimeOffset.UtcNow,
@@ -64,7 +64,7 @@ public sealed class HistoryCheckoutServiceTests
             checkpoint.CheckpointId,
             isDeleted: false,
             DateTimeOffset.UtcNow,
-            BranchUpdateReason.Created);
+            BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(),
@@ -73,7 +73,7 @@ public sealed class HistoryCheckoutServiceTests
             new object[] { versionOne, versionTwo, representationOne, representationTwo, checkpoint, branch }
                 .Select(fact => codec.CreateObject(fact))));
 
-        var expectedWorkspace = new HistoryWorkspace(configId, 0, null, null, []);
+        var expectedWorkspace = new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null));
         await history.WorkspaceStore.SaveAsync(expectedWorkspace, HistoryWorkspaceStore.MissingRevision);
         var targetOne = CreateTarget("source-one", "old-one");
         var targetTwo = CreateTarget("source-two", "old-two");
@@ -124,7 +124,7 @@ public sealed class HistoryCheckoutServiceTests
         var currentOnlyId = SourceId.New();
         var historical = Version(configId, historicalId, "historical");
         var currentOnly = Version(configId, currentOnlyId, "current-only");
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(
                 historicalId,
@@ -133,7 +133,7 @@ public sealed class HistoryCheckoutServiceTests
                 CheckpointSourceDisposition.Captured)]);
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
@@ -144,10 +144,7 @@ public sealed class HistoryCheckoutServiceTests
             }.Select(item => codec.CreateObject(item))));
         var workspace = new HistoryWorkspace(
             configId,
-            0,
-            null,
-            null,
-            [new WorkspaceSourceBaseline(currentOnlyId, currentOnly.VersionId, WorkspaceBaselineRelation.Derived)]);
+            0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(currentOnlyId, currentOnly.VersionId, WorkspaceBaselineRelation.Derived)], null, null, null));
         await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var historicalTarget = CreateTarget("historical-target", "old");
         var currentOnlyTarget = CreateTarget("current-only-target", "preserve-me");
@@ -196,18 +193,18 @@ public sealed class HistoryCheckoutServiceTests
         var historicalId = SourceId.New();
         var differentCurrentId = SourceId.New();
         var version = Version(configId, historicalId, "missing-world");
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(historicalId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
             new object[] { version, Representation(version.VersionId), checkpoint, branch }
                 .Select(item => codec.CreateObject(item))));
-        var workspace = new HistoryWorkspace(configId, 0, null, null, []);
+        var workspace = new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null));
         await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var suggestedPath = version.SourceDescriptorSnapshot.PathHint;
         var target = CreateTarget("missing-target", "untouched");
@@ -251,20 +248,20 @@ public sealed class HistoryCheckoutServiceTests
             VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
             CaptureScope.FullSource, CaptureOutcome.Captured, [],
             new SourceDescriptorSnapshot("world", "world"), null, HistoryProvenance.Native("test"), historicalBoundary);
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(
                 sourceId, version.SourceDescriptorSnapshot, version.VersionId,
                 CheckpointSourceDisposition.Captured, historicalBoundary)]);
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
             new object[] { version, Representation(version.VersionId), checkpoint, branch }
                 .Select(item => codec.CreateObject(item))));
-        var workspace = new HistoryWorkspace(configId, 0, null, null, []);
+        var workspace = new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null));
         await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var restore = new HistoryRestoreService(
             history,
@@ -295,7 +292,7 @@ public sealed class HistoryCheckoutServiceTests
         await history.InitializeAsync();
         var sourceId = SourceId.New();
         var version = Version(configId, sourceId, "source");
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(
                 sourceId,
@@ -304,7 +301,7 @@ public sealed class HistoryCheckoutServiceTests
                 CheckpointSourceDisposition.Captured)]);
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "target", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
@@ -312,11 +309,7 @@ public sealed class HistoryCheckoutServiceTests
                 .Select(item => codec.CreateObject(item))));
         var workspace = new HistoryWorkspace(
             configId,
-            0,
-            null,
-            null,
-            [new WorkspaceSourceBaseline(sourceId, version.VersionId, WorkspaceBaselineRelation.Exact)],
-            checkpoint.CheckpointId);
+            0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, version.VersionId, WorkspaceBaselineRelation.Exact)], null, null, checkpoint.CheckpointId));
         await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var restore = new HistoryRestoreService(
             history,
@@ -439,7 +432,7 @@ public sealed class HistoryCheckoutServiceTests
                 ? [codec.CreateObject(version), codec.CreateObject(representation)]
                 : [codec.CreateObject(parent), codec.CreateObject(version), codec.CreateObject(representation)]));
         await history.EnsureIndexCurrentAsync();
-        var workspace = new HistoryWorkspace(configId, 0, null, null, []);
+        var workspace = new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null));
         await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var target = CreateTarget("restore-" + Guid.NewGuid().ToString("N"), "old");
         var restore = new HistoryRestoreService(

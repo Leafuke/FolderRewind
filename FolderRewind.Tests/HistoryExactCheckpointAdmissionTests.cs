@@ -105,7 +105,7 @@ public sealed class HistoryExactCheckpointAdmissionTests
         Assert.AreEqual(HistoryExactCheckpointAdmissionStatus.ExactLogicalParentMissing, result.Status);
     }
 
-    private static ConfigurationCheckpoint Checkpoint(IEnumerable<CheckpointSource> sources)
+    private static SourceCheckpoint Checkpoint(IEnumerable<CheckpointSource> sources)
         => new(
             CheckpointId.New(),
             new HistoryConfigId("config"),

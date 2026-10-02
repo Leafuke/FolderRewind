@@ -23,7 +23,7 @@ internal static class HistoryMergeInteraction
             + (Conflict.Subject.Paths.IsEmpty ? I18n.GetString("Merge_WholeSource") : string.Join("\n", Conflict.Subject.Paths))
             + (Resolution is null ? "" : $" · {I18n.GetString("Merge_" + Resolution.Choice)}");
     }
-    public static async Task ShowAsync(BackupConfig config, BranchId? source, CancellationToken token)
+    public static async Task ShowAsync(BackupConfig config, SourceId sourceId, BranchId? source, CancellationToken token)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
         var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, token);
@@ -110,7 +110,7 @@ internal static class HistoryMergeInteraction
             + (diagnostic.SourceId is null ? "" : $"\nSource: {diagnostic.SourceId} · Version: {diagnostic.VersionId} · Representation: {diagnostic.RepresentationId}");
         void RefreshSessions()
         {
-            sessions.ItemsSource = runtime.MergeSessions.List().Select(s => new ComboBoxItem
+            sessions.ItemsSource = runtime.MergeSessions.List().Where(s => s.Plan.Ours.SourceId == sourceId).Select(s => new ComboBoxItem
             { Content = $"{s.Plan.Theirs.Name} → {s.Plan.Ours.Name} · {I18n.GetString("Merge_State_" + s.State)} · {s.Id}", Tag = s.Id }).ToArray();
         }
         void Refresh()

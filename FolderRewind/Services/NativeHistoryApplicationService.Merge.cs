@@ -22,15 +22,16 @@ internal static partial class NativeHistoryApplicationService
             throw new InvalidOperationException(diagnostic);
         var restore = CreateRestoreService(config, runtime);
         await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
+        var branch = (await runtime.Query.GetBranchTipsAsync(source, token).ConfigureAwait(false)).Single();
         return await new HistoryMergeService(runtime, restore).StartAsync(source, NativeHistoryConfigLease.Signature(config),
-            await BindingsAsync(config, config.SourceFolders, token).ConfigureAwait(false), token).ConfigureAwait(false);
+            await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == branch.SourceId), token).ConfigureAwait(false), token).ConfigureAwait(false);
     }
 
     internal static async Task<MergeSession> RecomputeMergeAsync(BackupConfig config, MergeSession session, CancellationToken token)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         return await new HistoryMergeService(runtime, CreateRestoreService(config, runtime)).RecomputeAsync(session,
-            NativeHistoryConfigLease.Signature(config), await BindingsAsync(config, config.SourceFolders, token).ConfigureAwait(false), token).ConfigureAwait(false);
+            NativeHistoryConfigLease.Signature(config), await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == session.Plan.Ours.SourceId), token).ConfigureAwait(false), token).ConfigureAwait(false);
     }
 
     internal static async Task<MergeSession> PrepareMergeReplicasAsync(BackupConfig config, MergeSession session, CancellationToken token)
@@ -50,7 +51,7 @@ internal static partial class NativeHistoryApplicationService
             {
                 var current = await new HistoryMergePlanner(runtime).BuildAsync(session.Plan.Theirs.BranchId,
                     await RequireWorkspaceAsync(runtime, token).ConfigureAwait(false), NativeHistoryConfigLease.Signature(config),
-                    await BindingsAsync(config, config.SourceFolders, token).ConfigureAwait(false), token).ConfigureAwait(false);
+                    await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == session.Plan.Ours.SourceId), token).ConfigureAwait(false), token).ConfigureAwait(false);
                 if (current.Ours.UpdateId != session.Plan.Ours.UpdateId || current.Theirs.UpdateId != session.Plan.Theirs.UpdateId
                     || current.ConfigRevision != session.Plan.ConfigRevision || !HistoryRestoreTransactionJournalStore.WorkspaceEquals(
                         current.ExpectedWorkspace, session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace))
@@ -72,9 +73,9 @@ internal static partial class NativeHistoryApplicationService
         var builder = new HistoryMergeCommitBuilder(runtime, restore, archives, archives,
             (version, staging, cancellation) => CaptureMergeMetadataAsync(config, version, staging, cancellation));
         var apply = new HistoryMergeApplyService(runtime, restore, builder,
-            new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge),
+            new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge, [session.Plan.Ours.SourceId]),
             async cancellation => (NativeHistoryConfigLease.Signature(config),
-                await BindingsAsync(config, config.SourceFolders, cancellation).ConfigureAwait(false)), reportFailure: ReportFailure);
+                await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == session.Plan.Ours.SourceId), cancellation).ConfigureAwait(false)), reportFailure: ReportFailure);
         PreparedMerge prepared;
         HistoryMergeApplyService.CoordinationPlan scope;
         var stage = "recover";

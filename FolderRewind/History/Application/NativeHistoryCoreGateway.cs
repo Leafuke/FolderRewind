@@ -300,6 +300,8 @@ public static class NativeHistoryCoreGateway
         CancellationToken cancellationToken)
     {
         var configId = new HistoryConfigId(config.Id);
+        if (config.HistoryRepositoryBinding is { } oldBinding && oldBinding.FormatVersion != HistoryRepositoryDescriptor.CurrentFormatVersion)
+            throw new InvalidOperationException(I18n.Format("History_DevelopmentFormatUnsupported", oldBinding.FormatVersion));
         var configLegacy = config.HistoryRepositoryBinding is null
             ? (legacy ?? LegacyHistoryReader.Read(Path.Combine(configDirectory, "history.json")))
                 .Where(item => !string.IsNullOrWhiteSpace(item.ConfigId)

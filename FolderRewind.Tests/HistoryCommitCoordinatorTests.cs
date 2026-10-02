@@ -43,22 +43,22 @@ public sealed class HistoryCommitCoordinatorTests
             {
                 HistoryObjectKinds.BackupRun,
                 HistoryObjectKinds.BranchUpdate,
-                HistoryObjectKinds.ConfigurationCheckpoint,
+                HistoryObjectKinds.SourceCheckpoint,
                 HistoryObjectKinds.SourceVersion,
                 HistoryObjectKinds.VersionRepresentation
             },
             batch.Pack.Objects.Select(item => item.Kind).ToArray());
         Assert.HasCount(1, batch.NewVersions);
         Assert.HasCount(1, batch.NewRepresentations);
-        Assert.IsNotNull(batch.NewCheckpoint);
-        Assert.IsTrue(batch.NewCheckpoint.IsStructurallyComplete);
-        Assert.AreEqual(BranchUpdateReason.Created, batch.NewBranchUpdate!.Reason);
-        Assert.AreEqual(batch.NewCheckpoint.CheckpointId, batch.Run.ResultCheckpointId);
+        Assert.IsNotNull(batch.NewCheckpoints.FirstOrDefault()!);
+        Assert.IsTrue(batch.NewCheckpoints.FirstOrDefault()!.IsStructurallyComplete);
+        Assert.AreEqual(BranchUpdateReason.Created, batch.NewBranchUpdates.FirstOrDefault()!.Reason);
+        Assert.AreEqual(batch.NewCheckpoints.FirstOrDefault()!.CheckpointId, batch.Run.SourceResults.FirstOrDefault()?.CheckpointId);
         Assert.IsTrue(batch.IndexRefreshSucceeded);
 
         var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(0, workspace.StateRevision);
-        Assert.AreEqual(batch.NewBranchUpdate.UpdateId, workspace.ActiveBranchUpdateId);
+        Assert.AreEqual(batch.NewBranchUpdates.FirstOrDefault()!.UpdateId, workspace.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
         Assert.AreEqual(batch.NewVersions[0].VersionId, workspace.SourceBaselines[0].BaseVersionId);
         Assert.AreEqual(WorkspaceBaselineRelation.Exact, workspace.SourceBaselines[0].Relation);
         var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync()).Value!;
@@ -100,7 +100,7 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
-    public async Task IndependentRecoveryPointCommitsOneCheckpointWithoutAdvancingBranch()
+    public async Task IndependentRecoveryPointCommitsSourceCheckpointsWithoutAdvancingBranches()
     {
         await using var runtime = await CreateRuntimeAsync();
         var first = SourceId.New();
@@ -114,14 +114,14 @@ public sealed class HistoryCommitCoordinatorTests
             CreateCapture(first, "first-state", -1, null),
             CreateCapture(second, "second-state", -1, null)));
 
-        Assert.IsNotNull(batch.NewCheckpoint);
-        Assert.IsNull(batch.NewBranchUpdate);
+        Assert.HasCount(2, batch.NewCheckpoints);
+        Assert.IsNull(batch.NewBranchUpdates.FirstOrDefault()!);
         Assert.IsNotNull(batch.NewSafetySnapshot);
         Assert.AreEqual(SafetySnapshotReason.BeforeCheckout, batch.NewSafetySnapshot.Reason);
         Assert.HasCount(2, batch.NewVersions);
         Assert.IsNotNull(batch.UpdatedWorkspace);
-        Assert.IsNull(batch.UpdatedWorkspace.ActiveBranchId);
-        Assert.IsNull(batch.UpdatedWorkspace.ActiveBranchUpdateId);
+        Assert.IsNull(batch.UpdatedWorkspace.SourceBaselines.FirstOrDefault()?.ActiveBranchId);
+        Assert.IsNull(batch.UpdatedWorkspace.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
         Assert.IsTrue(batch.UpdatedWorkspace.SourceBaselines.All(item =>
             item.Relation == WorkspaceBaselineRelation.Exact));
 
@@ -198,9 +198,9 @@ public sealed class HistoryCommitCoordinatorTests
             new[] { first.NewVersions[0].VersionId },
             second.NewVersions[0].ParentVersionIds.ToArray());
         CollectionAssert.AreEqual(
-            new[] { first.NewBranchUpdate!.UpdateId },
-            second.NewBranchUpdate!.ParentUpdateIds.ToArray());
-        Assert.AreEqual(BranchUpdateReason.Backup, second.NewBranchUpdate.Reason);
+            new[] { first.NewBranchUpdates.FirstOrDefault()!.UpdateId },
+            second.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.ToArray());
+        Assert.AreEqual(BranchUpdateReason.Backup, second.NewBranchUpdates.FirstOrDefault()!.Reason);
     }
 
     [TestMethod]
@@ -218,7 +218,7 @@ public sealed class HistoryCommitCoordinatorTests
             targetCheckpointId: null,
             isDeleted: false,
             DateTimeOffset.UtcNow,
-            BranchUpdateReason.Created);
+            BranchUpdateReason.Created, sourceId: sourceId);
         var codec = new HistoryPackCodec();
         await runtime.Repository.CommitAsync(new HistoryCommitPack(
             PackId.New(),
@@ -227,10 +227,7 @@ public sealed class HistoryCommitCoordinatorTests
             [codec.CreateObject(unborn)]));
         var workspace = new HistoryWorkspace(
             _configId,
-            0,
-            branchId,
-            unborn.UpdateId,
-            [new WorkspaceSourceBaseline(sourceId, null, WorkspaceBaselineRelation.Unknown)]);
+            0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, null, WorkspaceBaselineRelation.Unknown)], branchId, unborn.UpdateId, null));
         await runtime.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
 
         var committed = await runtime.Commit.CommitAsync(Request(
@@ -238,10 +235,10 @@ public sealed class HistoryCommitCoordinatorTests
             workspace,
             CreateCapture(sourceId, "first", workspace.StateRevision, null)));
 
-        Assert.AreEqual(branchId, committed.NewBranchUpdate!.BranchId);
-        Assert.AreEqual("prepared", committed.NewBranchUpdate.Name);
-        Assert.AreEqual(unborn.UpdateId, committed.NewBranchUpdate.ParentUpdateIds.Single());
-        Assert.AreEqual(committed.NewCheckpoint!.CheckpointId, committed.NewBranchUpdate.TargetCheckpointId);
+        Assert.AreEqual(branchId, committed.NewBranchUpdates.FirstOrDefault()!.BranchId);
+        Assert.AreEqual("prepared", committed.NewBranchUpdates.FirstOrDefault()!.Name);
+        Assert.AreEqual(unborn.UpdateId, committed.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.Single());
+        Assert.AreEqual(committed.NewCheckpoints.FirstOrDefault()!.CheckpointId, committed.NewBranchUpdates.FirstOrDefault()!.TargetCheckpointId);
     }
 
     [TestMethod]
@@ -267,12 +264,12 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.HasCount(1, second.Pack.Objects);
         Assert.AreEqual(HistoryObjectKinds.BackupRun, second.Pack.Objects[0].Kind);
         Assert.AreEqual(BackupRunOutcome.NoChange, second.Run.Outcome);
-        Assert.AreEqual(first.NewCheckpoint!.CheckpointId, second.Run.ResultCheckpointId);
-        Assert.IsNull(second.NewCheckpoint);
-        Assert.IsNull(second.NewBranchUpdate);
+        Assert.AreEqual(first.NewCheckpoints.FirstOrDefault()!.CheckpointId, second.Run.SourceResults.FirstOrDefault()?.CheckpointId);
+        Assert.IsNull(second.NewCheckpoints.FirstOrDefault()!);
+        Assert.IsNull(second.NewBranchUpdates.FirstOrDefault()!);
         var after = (await runtime.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(before.StateRevision, after.StateRevision);
-        Assert.AreEqual(before.ActiveBranchUpdateId, after.ActiveBranchUpdateId);
+        Assert.AreEqual(before.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, after.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
     }
 
     [TestMethod]
@@ -297,15 +294,15 @@ public sealed class HistoryCommitCoordinatorTests
                 first.NewVersions.Single().VersionId)));
 
         Assert.AreEqual(
-            first.NewCheckpoint!.CheckpointId,
-            second.NewCheckpoint!.ParentCheckpointIds.Single());
+            first.NewCheckpoints.FirstOrDefault()!.CheckpointId,
+            second.NewCheckpoints.FirstOrDefault()!.ParentCheckpointIds.Single());
         Assert.AreEqual(
-            second.NewCheckpoint.CheckpointId,
-            second.UpdatedWorkspace!.CheckpointAncestryAnchorId);
+            second.NewCheckpoints.FirstOrDefault()!.CheckpointId,
+            second.UpdatedWorkspace!.SourceBaselines.FirstOrDefault()?.CheckpointAncestryAnchorId);
     }
 
     [TestMethod]
-    public async Task PartialRunCarriesForwardFailedSourceAndStillAdvancesBranch()
+    public async Task PartialRunPreservesFailedSourceAndAdvancesOnlySuccessfulSource()
     {
         await using var runtime = await CreateRuntimeAsync();
         var firstSource = SourceId.New();
@@ -333,16 +330,16 @@ public sealed class HistoryCommitCoordinatorTests
             failed));
 
         Assert.AreEqual(BackupRunOutcome.Partial, partial.Run.Outcome);
-        Assert.IsNotNull(partial.NewCheckpoint);
-        Assert.IsTrue(partial.NewCheckpoint.IsStructurallyComplete);
-        var failedProjection = partial.NewCheckpoint.Sources.Single(item => item.SourceId == secondSource);
-        Assert.AreEqual(CheckpointSourceDisposition.Failed, failedProjection.Disposition);
-        Assert.AreEqual(secondBaseline, failedProjection.VersionId);
-        Assert.AreEqual(initial.NewBranchUpdate!.UpdateId, partial.NewBranchUpdate!.ParentUpdateIds.Single());
+        Assert.IsNotNull(partial.NewCheckpoints.FirstOrDefault()!);
+        Assert.IsTrue(partial.NewCheckpoints.FirstOrDefault()!.IsStructurallyComplete);
+        Assert.IsNull(partial.Run.SourceResults.Single(item => item.SourceId == secondSource).VersionId);
+        Assert.AreEqual(workspace.GetSourceState(secondSource), partial.UpdatedWorkspace!.GetSourceState(secondSource));
+        Assert.AreEqual(initial.NewBranchUpdates.Single(u => u.SourceId == firstSource).UpdateId,
+            partial.NewBranchUpdates.Single().ParentUpdateIds.Single());
     }
 
     [TestMethod]
-    public async Task IncompleteInitialCheckpointPreservesCaptureFactsWithoutAdvancingBranch()
+    public async Task SuccessfulInitialSourceCreatesBranchDespiteAnotherUnavailableSource()
     {
         await using var runtime = await CreateRuntimeAsync();
         var capturedSource = SourceId.New();
@@ -361,17 +358,12 @@ public sealed class HistoryCommitCoordinatorTests
                 "not available")));
 
         Assert.AreEqual(BackupRunOutcome.Partial, result.Run.Outcome);
-        Assert.IsNotNull(result.NewCheckpoint);
-        Assert.IsFalse(result.NewCheckpoint.IsStructurallyComplete);
-        Assert.IsNull(result.NewBranchUpdate);
-        Assert.HasCount(1, result.NewVersions);
-        Assert.IsTrue(result.Run.Diagnostics.Any(item =>
-            item.Code == "history.checkpoint.exact_admission_failed"));
+        Assert.HasCount(1, result.NewCheckpoints);
+        Assert.HasCount(1, result.NewBranchUpdates);
+        Assert.AreEqual(capturedSource, result.NewBranchUpdates.Single().SourceId);
         var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
-        Assert.IsNull(workspace.ActiveBranchId);
-        Assert.IsNull(workspace.CheckpointAncestryAnchorId);
-        Assert.AreEqual(result.NewVersions.Single().VersionId,
-            workspace.SourceBaselines.Single(item => item.SourceId == capturedSource).BaseVersionId);
+        Assert.AreEqual(result.NewVersions.Single().VersionId, workspace.GetSourceState(capturedSource).BaseVersionId);
+        Assert.IsNull(workspace.GetSourceState(unavailableSource).ActiveBranchId);
     }
 
     [TestMethod]
@@ -418,7 +410,7 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
-    public async Task SingleSourceBackupCarriesForwardEveryOtherRosterSource()
+    public async Task SingleSourceBackupPreservesUnrequestedSourceWorkspace()
     {
         await using var runtime = await CreateRuntimeAsync();
         var selectedSource = SourceId.New();
@@ -438,16 +430,13 @@ public sealed class HistoryCommitCoordinatorTests
             workspace,
             CreateCapture(selectedSource, "second-selected", workspace.StateRevision, selectedBase)));
 
-        var carried = committed.NewCheckpoint!.Sources.Single(item => item.SourceId == otherSource);
-        Assert.AreEqual(CheckpointSourceDisposition.CarriedForward, carried.Disposition);
-        Assert.AreEqual(otherBase, carried.VersionId);
-        Assert.AreEqual(
-            BackupRunSourceOutcome.CarriedForward,
-            committed.Run.SourceResults.Single(item => item.SourceId == otherSource).Outcome);
+        Assert.HasCount(1, committed.Run.SourceResults);
+        Assert.AreEqual(selectedSource, committed.NewCheckpoints.Single().SourceId);
+        Assert.AreEqual(workspace.GetSourceState(otherSource), committed.UpdatedWorkspace!.GetSourceState(otherSource));
     }
 
     [TestMethod]
-    public async Task FirstSingleSourceBackupCreatesPartialRosterCheckpoint()
+    public async Task FirstSingleSourceBackupCreatesCompleteSourceCheckpoint()
     {
         await using var runtime = await CreateRuntimeAsync();
         var selectedSource = SourceId.New();
@@ -459,12 +448,11 @@ public sealed class HistoryCommitCoordinatorTests
             null,
             CreateCapture(selectedSource, "selected", HistoryWorkspaceStore.MissingRevision, null)));
 
-        Assert.IsNotNull(committed.NewCheckpoint);
-        Assert.IsFalse(committed.NewCheckpoint.IsStructurallyComplete);
-        Assert.AreEqual(BackupRunOutcome.Partial, committed.Run.Outcome);
-        var unknown = committed.NewCheckpoint.Sources.Single(item => item.SourceId == unknownSource);
-        Assert.IsNull(unknown.VersionId);
-        Assert.AreEqual(CheckpointSourceDisposition.CarriedForward, unknown.Disposition);
+        Assert.HasCount(1, committed.NewCheckpoints);
+        Assert.AreEqual(selectedSource, committed.NewCheckpoints.Single().SourceId);
+        Assert.IsTrue(committed.NewCheckpoints.Single().IsStructurallyComplete);
+        Assert.AreEqual(BackupRunOutcome.Completed, committed.Run.Outcome);
+        Assert.HasCount(1, committed.NewBranchUpdates);
     }
 
     [TestMethod]
@@ -485,10 +473,7 @@ public sealed class HistoryCommitCoordinatorTests
         var workspaceTwo = (await runtime.WorkspaceStore.LoadAsync()).Value!;
         var restoredWorkspace = new HistoryWorkspace(
             _configId,
-            workspaceTwo.StateRevision + 1,
-            workspaceTwo.ActiveBranchId,
-            workspaceTwo.ActiveBranchUpdateId,
-            [new WorkspaceSourceBaseline(sourceId, first.NewVersions[0].VersionId, WorkspaceBaselineRelation.Exact)]);
+            workspaceTwo.StateRevision + 1, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, first.NewVersions[0].VersionId, WorkspaceBaselineRelation.Exact)], workspaceTwo.SourceBaselines.FirstOrDefault()?.ActiveBranchId, workspaceTwo.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, null));
         await runtime.WorkspaceStore.SaveAsync(restoredWorkspace, workspaceTwo.StateRevision);
 
         var fork = await runtime.Commit.CommitAsync(Request(
@@ -496,9 +481,9 @@ public sealed class HistoryCommitCoordinatorTests
             restoredWorkspace,
             CreateCapture(sourceId, "fork", restoredWorkspace.StateRevision, first.NewVersions[0].VersionId)));
 
-        Assert.AreEqual(restoredWorkspace.ActiveBranchId, fork.NewBranchUpdate!.BranchId);
-        Assert.AreEqual(BranchUpdateReason.BackupFromHistoricalState, fork.NewBranchUpdate.Reason);
-        Assert.AreEqual(second.NewBranchUpdate!.UpdateId, fork.NewBranchUpdate.ParentUpdateIds.Single());
+        Assert.AreEqual(restoredWorkspace.SourceBaselines.FirstOrDefault()?.ActiveBranchId, fork.NewBranchUpdates.FirstOrDefault()!.BranchId);
+        Assert.AreEqual(BranchUpdateReason.BackupFromHistoricalState, fork.NewBranchUpdates.FirstOrDefault()!.Reason);
+        Assert.AreEqual(second.NewBranchUpdates.FirstOrDefault()!.UpdateId, fork.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.Single());
         Assert.AreEqual(first.NewVersions[0].VersionId, fork.NewVersions[0].ParentVersionIds.Single());
         Assert.AreNotEqual(second.NewVersions[0].VersionId, fork.NewVersions[0].ParentVersionIds.Single());
     }
@@ -524,16 +509,16 @@ public sealed class HistoryCommitCoordinatorTests
             Request(snapshot, workspace, dirtyCapture),
             "experiment");
 
-        Assert.AreNotEqual(first.NewBranchUpdate!.BranchId, created.NewBranchUpdate!.BranchId);
-        Assert.AreEqual(first.NewBranchUpdate.UpdateId, created.NewBranchUpdate.ParentUpdateIds.Single());
-        Assert.AreEqual(BranchUpdateReason.Created, created.NewBranchUpdate.Reason);
+        Assert.AreNotEqual(first.NewBranchUpdates.FirstOrDefault()!.BranchId, created.NewBranchUpdates.FirstOrDefault()!.BranchId);
+        Assert.AreEqual(first.NewBranchUpdates.FirstOrDefault()!.UpdateId, created.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.Single());
+        Assert.AreEqual(BranchUpdateReason.Created, created.NewBranchUpdates.FirstOrDefault()!.Reason);
         Assert.AreEqual(first.NewVersions[0].VersionId, created.NewVersions[0].ParentVersionIds.Single());
-        var oldTips = await runtime.Query.GetBranchTipsAsync(first.NewBranchUpdate!.BranchId);
+        var oldTips = await runtime.Query.GetBranchTipsAsync(first.NewBranchUpdates.FirstOrDefault()!.BranchId);
         Assert.HasCount(1, oldTips);
-        Assert.AreEqual(first.NewBranchUpdate.UpdateId, oldTips[0].UpdateId);
+        Assert.AreEqual(first.NewBranchUpdates.FirstOrDefault()!.UpdateId, oldTips[0].UpdateId);
         var current = (await runtime.WorkspaceStore.LoadAsync()).Value!;
-        Assert.AreEqual(created.NewBranchUpdate.BranchId, current.ActiveBranchId);
-        Assert.AreEqual(created.NewBranchUpdate.UpdateId, current.ActiveBranchUpdateId);
+        Assert.AreEqual(created.NewBranchUpdates.FirstOrDefault()!.BranchId, current.SourceBaselines.FirstOrDefault()?.ActiveBranchId);
+        Assert.AreEqual(created.NewBranchUpdates.FirstOrDefault()!.UpdateId, current.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
     }
 
     [TestMethod]
@@ -549,10 +534,7 @@ public sealed class HistoryCommitCoordinatorTests
         var current = (await runtime.WorkspaceStore.LoadAsync()).Value!;
         var unknown = new HistoryWorkspace(
             _configId,
-            current.StateRevision + 1,
-            current.ActiveBranchId,
-            current.ActiveBranchUpdateId,
-            [new WorkspaceSourceBaseline(sourceId, first.NewVersions[0].VersionId, WorkspaceBaselineRelation.Unknown)]);
+            current.StateRevision + 1, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, first.NewVersions[0].VersionId, WorkspaceBaselineRelation.Unknown)], current.SourceBaselines.FirstOrDefault()?.ActiveBranchId, current.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, null));
         await runtime.WorkspaceStore.SaveAsync(unknown, current.StateRevision);
 
         var committed = await runtime.Commit.CommitAsync(Request(
@@ -603,7 +585,7 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.HasCount(1, committed.Pack.Objects);
         Assert.AreEqual(HistoryObjectKinds.BackupRun, committed.Pack.Objects[0].Kind);
         Assert.AreEqual(BackupRunOutcome.Failed, committed.Run.Outcome);
-        Assert.IsNull(committed.NewCheckpoint);
+        Assert.IsNull(committed.NewCheckpoints.FirstOrDefault()!);
         Assert.AreEqual(DeviceLocalStateStatus.Missing, (await runtime.WorkspaceStore.LoadAsync()).Status);
     }
 
@@ -684,7 +666,7 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
-    public async Task PreflightReportsUnrequestedSourceWhenBoundaryDriftOccurs()
+    public async Task PreflightIgnoresUnrequestedSourceBoundaryDrift()
     {
         await using var runtime = await CreateRuntimeAsync();
         var sourceA = SourceId.New();
@@ -720,15 +702,7 @@ public sealed class HistoryCommitCoordinatorTests
             driftSnapshot,
             [sourceA]);
 
-        Assert.HasCount(1, requirements);
-        Assert.AreEqual(sourceB, requirements[0].SourceId);
-        Assert.AreEqual(boundaryB.Fingerprint, requirements[0].PreviousBoundaryFingerprint);
-        Assert.AreEqual(changedBoundaryB.Fingerprint, requirements[0].CurrentBoundaryFingerprint);
-
-        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
-        var captureA = CreateCapture(sourceA, "a2", workspace.StateRevision, workspace.SourceBaselines.Single(b => b.SourceId == sourceA).BaseVersionId, boundary: boundaryA);
-        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(
-            () => runtime.Commit.CommitAsync(Request(driftSnapshot, workspace, captureA)));
+        Assert.IsEmpty(requirements);
     }
 
     [TestMethod]
@@ -908,10 +882,7 @@ public sealed class HistoryCommitCoordinatorTests
         var missingVersionId = VersionId.New();
         var workspace = new HistoryWorkspace(
             _configId,
-            0,
-            BranchId.New(),
-            BranchUpdateId.New(),
-            [new WorkspaceSourceBaseline(sourceId, missingVersionId, WorkspaceBaselineRelation.Exact)]);
+            0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, missingVersionId, WorkspaceBaselineRelation.Exact)], BranchId.New(), BranchUpdateId.New(), null));
         await runtime.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
 
         await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>

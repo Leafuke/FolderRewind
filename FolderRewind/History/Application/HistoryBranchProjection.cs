@@ -42,8 +42,8 @@ public static class HistoryBranchProjection
         var collisionGroups = branchTips
             .SelectMany(pair => pair.Value
                 .Where(tip => !tip.IsDeleted)
-                .Select(tip => (Name: tip.Name, pair.Key)))
-            .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(tip => (Name: tip.Name, tip.SourceId, pair.Key)))
+            .GroupBy(item => (item.SourceId, Name: item.Name.ToUpperInvariant()))
             .Select(group => new HistoryBranchNameCollision(
                 group.OrderBy(item => item.Name, StringComparer.Ordinal).First().Name,
                 group.Select(item => item.Key)
@@ -134,12 +134,13 @@ public static class HistoryBranchMembershipProjection
 {
     public static HistoryBranchMembershipProjectionResult Build(
         IEnumerable<BranchUpdate> updates,
-        IEnumerable<ConfigurationCheckpoint> checkpoints)
+        IEnumerable<SourceCheckpoint> checkpoints)
     {
         ArgumentNullException.ThrowIfNull(updates);
         ArgumentNullException.ThrowIfNull(checkpoints);
         var allUpdates = updates.ToImmutableArray();
         var allCheckpoints = checkpoints.ToImmutableArray();
+        var checkpointsById = allCheckpoints.ToDictionary(checkpoint => checkpoint.CheckpointId);
         var updatesById = allUpdates.ToDictionary(update => update.UpdateId);
         var checkpointBranches = new Dictionary<CheckpointId, HashSet<BranchId>>();
 
@@ -147,6 +148,7 @@ public static class HistoryBranchMembershipProjection
         {
             var pending = new Stack<BranchUpdateId>(branch.Tips.Select(tip => tip.UpdateId));
             var visited = new HashSet<BranchUpdateId>();
+            var visitedCheckpoints = new HashSet<CheckpointId>();
             while (pending.TryPop(out var updateId))
             {
                 if (!visited.Add(updateId)
@@ -158,12 +160,17 @@ public static class HistoryBranchMembershipProjection
 
                 if (update.TargetCheckpointId is { } checkpointId)
                 {
-                    if (!checkpointBranches.TryGetValue(checkpointId, out var branchIds))
+                    var ancestors = new Stack<CheckpointId>();
+                    ancestors.Push(checkpointId);
+                    while (ancestors.TryPop(out var ancestorId))
                     {
-                        branchIds = [];
-                        checkpointBranches[checkpointId] = branchIds;
+                        if (!visitedCheckpoints.Add(ancestorId) || !checkpointsById.TryGetValue(ancestorId, out var checkpoint)
+                            || checkpoint.SourceId != update.SourceId) continue;
+                        if (!checkpointBranches.TryGetValue(ancestorId, out var branchIds))
+                            checkpointBranches[ancestorId] = branchIds = [];
+                        branchIds.Add(branch.BranchId);
+                        foreach (var parent in checkpoint.ParentCheckpointIds) ancestors.Push(parent);
                     }
-                    branchIds.Add(branch.BranchId);
                 }
                 foreach (var parentId in update.ParentUpdateIds) pending.Push(parentId);
             }

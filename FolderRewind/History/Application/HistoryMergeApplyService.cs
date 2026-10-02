@@ -81,8 +81,8 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 var protectedWorkspace = protector is IHistoryWorkingStateProtectorInsideOperation nested
                     ? await nested.ProtectInsideOperationAsync(workspace, operation, token).ConfigureAwait(false)
                     : await protector.ProtectAsync(workspace, token).ConfigureAwait(false);
-                if (protectedWorkspace.ActiveBranchId != workspace.ActiveBranchId
-                    || protectedWorkspace.ActiveBranchUpdateId != workspace.ActiveBranchUpdateId)
+                if (protectedWorkspace.GetSourceState(session.Plan.Ours.SourceId).ActiveBranchId != workspace.GetSourceState(session.Plan.Ours.SourceId).ActiveBranchId
+                    || protectedWorkspace.GetSourceState(session.Plan.Ours.SourceId).ActiveBranchUpdateId != workspace.GetSourceState(session.Plan.Ours.SourceId).ActiveBranchUpdateId)
                     throw new InvalidOperationException("Protection must not advance a Branch.");
                 session = history.MergeSessions.RecordProtection(session, protectedWorkspace);
                 workspace = protectedWorkspace;
@@ -127,11 +127,10 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
             var desiredCatalog = new LocalReplicaCatalog(history.ConfigId, checked(catalog.CatalogRevision + 1),
                 catalog.Entries.Concat(prepared.NewReplicas));
             var restored = prepared.Sources.Select(s => s.Version.SourceId).ToHashSet();
-            var desired = new HistoryWorkspace(history.ConfigId, checked(workspace.StateRevision + 1),
-                prepared.Update.BranchId, prepared.Update.UpdateId,
-                workspace.SourceBaselines.Where(b => !restored.Contains(b.SourceId)).Concat(prepared.Sources.Select(s =>
-                    new WorkspaceSourceBaseline(s.Version.SourceId, s.Version.VersionId, WorkspaceBaselineRelation.Exact))),
-                prepared.Checkpoint.CheckpointId);
+            var desired = workspace.WithSourceStates([workspace.GetSourceState(prepared.Checkpoint.SourceId) with {
+                BaseVersionId = prepared.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact,
+                ActiveBranchId = prepared.Update.BranchId, ActiveBranchUpdateId = prepared.Update.UpdateId,
+                CheckpointAncestryAnchorId = prepared.Checkpoint.CheckpointId }]);
             stage = "commit";
             session = history.MergeSessions.Update(session, MergeSessionState.Applying, pack.TransactionId, pack.PackId);
             var result = mutationResult = await restore.ExecuteMutationAsync(prepared.Sources.Where(s => scope.Writes.ContainsKey(s.Version.SourceId)).Select(s =>

@@ -32,7 +32,7 @@ public sealed class HistoryMetadataSyncTests
         await using var local = await Runtime("local", id);
         await CommitVersion(remote, "remote");
         await CommitVersion(local, "local only");
-        var workspace = new HistoryWorkspace(id, 0, null, null, []);
+        var workspace = new HistoryWorkspace(id, 0, HistoryFixture.SourceStates([], null, null, null));
         await local.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var transport = new MemoryTransport();
         await new HistoryMetadataSyncService(remote, transport).SyncAsync();
@@ -64,7 +64,7 @@ public sealed class HistoryMetadataSyncTests
         await using var second = await Runtime("second", configId);
         await CommitVersion(first, "first");
         await CommitVersion(second, "second");
-        var workspace = new HistoryWorkspace(configId, 0, null, null, []);
+        var workspace = new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null));
         await second.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var transport = new MemoryTransport();
 

@@ -36,7 +36,7 @@ public sealed class HistoryExactCheckpointAdmission
         => _history = history ?? throw new ArgumentNullException(nameof(history));
 
     public async Task<HistoryExactCheckpointAdmissionResult> EvaluateAsync(
-        ConfigurationCheckpoint checkpoint,
+        SourceCheckpoint checkpoint,
         IEnumerable<SourceVersion>? additionalVersions = null,
         IEnumerable<VersionRepresentation>? additionalRepresentations = null,
         CancellationToken cancellationToken = default)
@@ -55,7 +55,7 @@ public sealed class HistoryExactCheckpointAdmission
     }
 
     internal static HistoryExactCheckpointAdmissionResult Evaluate(
-        ConfigurationCheckpoint checkpoint,
+        SourceCheckpoint checkpoint,
         IReadOnlyDictionary<VersionId, SourceVersion> versions,
         IReadOnlyDictionary<RepresentationId, VersionRepresentation> representations)
     {

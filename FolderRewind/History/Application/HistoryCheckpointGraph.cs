@@ -10,8 +10,8 @@ public sealed record HistoryMergeBase(HistoryMergeMode Mode, CheckpointId? BaseC
 
 public sealed class HistoryCheckpointGraph
 {
-    private readonly Dictionary<CheckpointId, ConfigurationCheckpoint> _nodes;
-    public HistoryCheckpointGraph(IEnumerable<ConfigurationCheckpoint> checkpoints, HistoryConfigId configId)
+    private readonly Dictionary<CheckpointId, SourceCheckpoint> _nodes;
+    public HistoryCheckpointGraph(IEnumerable<SourceCheckpoint> checkpoints, HistoryConfigId configId)
     {
         _nodes = checkpoints.ToDictionary(c => c.CheckpointId);
         var children = _nodes.Keys.ToDictionary(id => id, _ => new List<CheckpointId>());
@@ -23,6 +23,7 @@ public sealed class HistoryCheckpointGraph
             remaining[node.CheckpointId] = node.ParentCheckpointIds.Length;
             foreach (var parent in node.ParentCheckpointIds)
             {
+                if (_nodes.TryGetValue(parent, out var owner) && owner.SourceId != node.SourceId) throw new InvalidOperationException("Checkpoint ancestry crosses Source identity.");
                 if (!children.TryGetValue(parent, out var list)) throw new InvalidOperationException("Checkpoint parent is missing.");
                 list.Add(node.CheckpointId);
             }

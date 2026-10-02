@@ -22,8 +22,8 @@ public sealed class HistoryJointTransactionRecoveryTests
             await using var history = new HistoryRuntime(new FileHistoryRepository(config,
                 new HistoryRepositoryPaths(Path.Combine(root, "repo"))));
             await history.InitializeAsync();
-            var current = new HistoryWorkspace(config, 0, null, null, []);
-            var desired = new HistoryWorkspace(config, 1, null, null, []);
+            var current = new HistoryWorkspace(config, 0, HistoryFixture.SourceStates([], null, null, null));
+            var desired = new HistoryWorkspace(config, 1, HistoryFixture.SourceStates([], null, null, null));
             await history.WorkspaceStore.SaveAsync(current, -1);
             var staging = Path.Combine(root, "staging");
             Directory.CreateDirectory(staging);
@@ -81,8 +81,8 @@ public sealed class HistoryJointTransactionRecoveryTests
         {
             var config = new HistoryConfigId(Guid.NewGuid().ToString("N")); var source = SourceId.New(); var untouched = SourceId.New();
             var paths = new HistoryRepositoryPaths(Path.Combine(root, "repo"));
-            var original = new HistoryWorkspace(config, 0, null, null, []);
-            var desired = new HistoryWorkspace(config, 1, null, null, []);
+            var original = new HistoryWorkspace(config, 0, HistoryFixture.SourceStates([], null, null, null));
+            var desired = new HistoryWorkspace(config, 1, HistoryFixture.SourceStates([], null, null, null));
             var version = new SourceVersion(VersionId.New(), config, source, [], DateTimeOffset.UtcNow, null, CaptureScope.FullSource,
                 CaptureOutcome.Captured, [], new SourceDescriptorSnapshot("test", "test"), null, HistoryProvenance.Native("test"));
             var representation = new VersionRepresentation(RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull,

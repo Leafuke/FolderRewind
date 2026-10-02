@@ -45,14 +45,14 @@ public sealed class HistoryRetentionSafetyTests
         var smart = new VersionRepresentation(
             RepresentationId.New(), currentVersion.VersionId, RepresentationKind.CoreSmartDelta, "test",
             [full.RepresentationId], MaterializationFidelity.Exact, null, null, null);
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(
                 sourceId, currentVersion.SourceDescriptorSnapshot, currentVersion.VersionId,
                 CheckpointSourceDisposition.Captured)]);
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
@@ -68,11 +68,8 @@ public sealed class HistoryRetentionSafetyTests
             LocalReplicaCatalogStore.MissingRevision);
         var workspace = new HistoryWorkspace(
             configId,
-            0,
-            branch.BranchId,
-            branch.UpdateId,
-            [new WorkspaceSourceBaseline(
-                sourceId, currentVersion.VersionId, WorkspaceBaselineRelation.Exact)]);
+            0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(
+                sourceId, currentVersion.VersionId, WorkspaceBaselineRelation.Exact)], branch.BranchId, branch.UpdateId, null));
         await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
 
         var representationRuntime = new RepresentationRuntime([new ReadyTestHandler()]);
@@ -120,12 +117,12 @@ public sealed class HistoryRetentionSafetyTests
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.LegacyArchive, "declared", [],
             MaterializationFidelity.Partial, null, null, null);
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(sourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var released = new MaterializationPolicyUpdate(
             MaterializationPolicyUpdateId.New(), version.VersionId, [], MaterializationPolicyState.Released,
             DateTimeOffset.UtcNow, "user release");
@@ -141,10 +138,7 @@ public sealed class HistoryRetentionSafetyTests
         await history.WorkspaceStore.SaveAsync(
             new HistoryWorkspace(
                 configId,
-                0,
-                branch.BranchId,
-                branch.UpdateId,
-                [new WorkspaceSourceBaseline(sourceId, version.VersionId, WorkspaceBaselineRelation.Derived)]),
+                0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, version.VersionId, WorkspaceBaselineRelation.Derived)], branch.BranchId, branch.UpdateId, null)),
             HistoryWorkspaceStore.MissingRevision);
         Task<IRepresentationEnvironment> EnvironmentFactory(CancellationToken _)
             => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], []));
@@ -183,7 +177,7 @@ public sealed class HistoryRetentionSafetyTests
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "test", [],
             MaterializationFidelity.Exact, null, null, null);
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(sourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
         var snapshot = new SafetySnapshot(
@@ -197,7 +191,7 @@ public sealed class HistoryRetentionSafetyTests
             new LocalReplicaCatalog(configId, 0, [Entry(representation.RepresentationId, payload)]),
             LocalReplicaCatalogStore.MissingRevision);
         await history.WorkspaceStore.SaveAsync(
-            new HistoryWorkspace(configId, 0, null, null, []),
+            new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null)),
             HistoryWorkspaceStore.MissingRevision);
         var payloadStore = new TrackingPayloadStore();
         Task<IRepresentationEnvironment> EnvironmentFactory(CancellationToken _)

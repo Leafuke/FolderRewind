@@ -18,7 +18,7 @@ namespace FolderRewind.History.Application;
 
 public sealed record PreparedMergeSource(SourceVersion Version, string StagingDirectory, string TreeDigest);
 public sealed record PreparedMerge(MergeSession Session, ImmutableArray<PreparedMergeSource> Sources,
-    ImmutableArray<object> Facts, ConfigurationCheckpoint Checkpoint, BranchUpdate Update,
+    ImmutableArray<object> Facts, SourceCheckpoint Checkpoint, BranchUpdate Update,
     ImmutableArray<LocalReplicaCatalogEntry> NewReplicas, PackId PackId, HistoryTransactionId TransactionId);
 
 public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRestoreService restore,
@@ -184,7 +184,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 roster.Add(new(plan.SourceId, descriptor.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.CarriedForward, version.EffectiveSourceBoundary));
                 prepared.Add(new(version, staging, tree.Digest));
             }
-            ConfigurationCheckpoint checkpoint;
+            SourceCheckpoint checkpoint;
             if (session.Plan.Mode == HistoryMergeMode.FastForwardLike)
                 checkpoint = await history.Query.GetCheckpointAsync(session.Plan.Theirs.TargetCheckpointId!.Value, token).ConfigureAwait(false) ?? throw new InvalidDataException("Fast-forward checkpoint is missing.");
             else
@@ -208,7 +208,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 session.Plan.ProviderVersion, session.Plan.PolicyVersion, resolutionDigest);
             var update = new BranchUpdate(BranchUpdateId.New(), session.Plan.Ours.BranchId,
                 new[] { session.Plan.Ours.UpdateId, session.Plan.Theirs.UpdateId }, session.Plan.Ours.Name, checkpoint.CheckpointId,
-                false, DateTimeOffset.UtcNow, BranchUpdateReason.Merged, provenance);
+                false, DateTimeOffset.UtcNow, BranchUpdateReason.Merged, session.Plan.Ours.SourceId, provenance);
             facts.Add(update);
             var result = new PreparedMerge(session, prepared.ToImmutableArray(), facts.ToImmutableArray(), checkpoint, update, replicas.ToImmutableArray(), PackId.New(), HistoryTransactionId.New());
             stage = "persist-prepared";

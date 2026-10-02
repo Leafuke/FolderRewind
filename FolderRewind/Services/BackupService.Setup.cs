@@ -42,7 +42,7 @@ public static partial class BackupService
             return new SetupSourceResult(folder.Id, folder.DisplayName, outcome, fact?.VersionId?.ToString(),
                 version?.CaptureScope == CaptureScope.PartialSource, diagnostics);
         }).ToArray();
-        return new(sources, run?.ResultCheckpointId?.ToString(), run?.RunId.ToString(),
+        return new(sources, sources.Length == 1 ? run?.SourceResults.SingleOrDefault()?.CheckpointId?.ToString() : null, run?.RunId.ToString(),
             result.HistoryRecoveryRequired, DateTimeOffset.UtcNow);
     }
 }

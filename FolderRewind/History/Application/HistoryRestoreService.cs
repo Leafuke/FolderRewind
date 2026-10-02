@@ -61,59 +61,40 @@ public sealed class HistoryRestoreService
     }
 
     public async Task<HistoryRestoreResult> RestoreCheckpointAsync(
-        CheckpointId checkpointId,
-        IReadOnlyList<HistoryRestoreSourceBinding> mappedSources,
-        HistoryWorkspace expectedWorkspace,
-        HistoryCheckpointRestoreScope scope,
-        HistoryRestoreApplyMode requestedMode,
-        CancellationToken cancellationToken = default)
+        CheckpointId checkpointId, IReadOnlyList<HistoryRestoreSourceBinding> mappedSources,
+        HistoryWorkspace expectedWorkspace, HistoryCheckpointRestoreScope scope,
+        HistoryRestoreApplyMode requestedMode, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(mappedSources);
-        ArgumentNullException.ThrowIfNull(expectedWorkspace);
-        await RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
+        await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         var checkpoint = await _history.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false);
-        if (checkpoint is null)
-            return Blocked("Checkpoint does not exist.");
+        if (checkpoint is null) return Blocked("Checkpoint does not exist.");
+        return await RestoreVersionsAsync(new Dictionary<SourceId, VersionId> { [checkpoint.SourceId] = checkpoint.VersionId },
+            mappedSources, expectedWorkspace, requestedMode, cancellationToken).ConfigureAwait(false);
+    }
 
-        var duplicateSource = mappedSources
-            .GroupBy(item => item.SourceId)
-            .FirstOrDefault(group => group.Count() > 1);
-        if (mappedSources.Count == 0 || duplicateSource is not null
-            || mappedSources.Select(item => Path.GetFullPath(item.TargetDirectory))
-                .Distinct(StringComparer.OrdinalIgnoreCase).Count() != mappedSources.Count)
-        {
-            return Blocked("Checkpoint restore mappings must contain unique Sources and target directories.");
-        }
-
-        var restorable = checkpoint.Sources.Where(item => item.VersionId is not null).ToArray();
-        var mappedIds = mappedSources.Select(item => item.SourceId).ToHashSet();
-        if (mappedIds.Any(id => checkpoint.Sources.All(item => item.SourceId != id)))
-            return Blocked("A mapped Source does not belong to the Checkpoint.");
-        if (scope == HistoryCheckpointRestoreScope.CompleteCheckpoint
-            && (!checkpoint.IsStructurallyComplete
-                || !mappedIds.SetEquals(checkpoint.Sources.Select(item => item.SourceId))))
-        {
-            return Blocked("Complete Checkpoint restore requires an available mapping for every Source.");
-        }
-        if (scope == HistoryCheckpointRestoreScope.AvailableMappedSources
-            && mappedIds.Any(id => restorable.All(item => item.SourceId != id)))
-        {
-            return Blocked("A mapped Checkpoint Source has no restorable Version.");
-        }
-
+    /// <summary>Materialize all selections before one journaled mutation; preserve every Source's Branch state.</summary>
+    public async Task<HistoryRestoreResult> RestoreVersionsAsync(
+        IReadOnlyDictionary<SourceId, VersionId> selections, IReadOnlyList<HistoryRestoreSourceBinding> mappedSources,
+        HistoryWorkspace expectedWorkspace, HistoryRestoreApplyMode requestedMode, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(selections);
+        ArgumentNullException.ThrowIfNull(mappedSources);
+        await RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
+        if (selections.Count == 0 || mappedSources.Count != selections.Count
+            || mappedSources.Select(b => b.SourceId).Distinct().Count() != mappedSources.Count
+            || !mappedSources.Select(b => b.SourceId).ToHashSet().SetEquals(selections.Keys)
+            || mappedSources.Select(b => Path.GetFullPath(b.TargetDirectory)).Distinct(StringComparer.OrdinalIgnoreCase).Count() != mappedSources.Count)
+            return Blocked("Restore selections require unique Sources and target directories.");
         var prepared = new List<PreparedRestoreSource>();
         try
         {
             foreach (var binding in mappedSources)
             {
-                var checkpointSource = checkpoint.Sources.Single(item => item.SourceId == binding.SourceId);
-                if (checkpointSource.VersionId is null)
-                    throw new InvalidOperationException("A mapped Checkpoint Source has no restorable Version.");
-                var version = await _history.Query.GetVersionAsync(
-                    checkpointSource.VersionId.Value,
-                    cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException("Checkpoint SourceVersion is missing.");
-                var effectiveMode = requestedMode;
+                var version = await _history.Query.GetVersionAsync(selections[binding.SourceId], cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("Selected SourceVersion is missing.");
+                if (version.ConfigId != _history.ConfigId || version.SourceId != binding.SourceId)
+                    throw new InvalidOperationException("Restore selection crosses Source identity.");
+                var effectiveMode = version.CaptureScope == CaptureScope.PartialSource ? HistoryRestoreApplyMode.Overwrite : requestedMode;
                 prepared.Add(await PrepareSourceAsync(
                     version,
                     binding,
@@ -145,13 +126,7 @@ public sealed class HistoryRestoreService
                         && item.ApplyMode == HistoryRestoreApplyMode.Clean
                         ? WorkspaceBaselineRelation.Exact
                         : WorkspaceBaselineRelation.Derived)));
-            var desired = new HistoryWorkspace(
-                _history.ConfigId,
-                checked(current.StateRevision + 1),
-                current.ActiveBranchId,
-                current.ActiveBranchUpdateId,
-                baselines,
-                current.CheckpointAncestryAnchorId);
+            var desired = current.WithContentBaselines(baselines);
             return await ExecuteMutationAsync(prepared, current, desired, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -203,13 +178,7 @@ public sealed class HistoryRestoreService
             var baselines = current.SourceBaselines
                 .Where(item => item.SourceId != source.SourceId)
                 .Append(new WorkspaceSourceBaseline(source.SourceId, versionId, relation));
-            var desired = new HistoryWorkspace(
-                _history.ConfigId,
-                checked(current.StateRevision + 1),
-                current.ActiveBranchId,
-                current.ActiveBranchUpdateId,
-                baselines,
-                current.CheckpointAncestryAnchorId);
+            var desired = current.WithContentBaselines(baselines);
             return await ExecuteMutationAsync(
                 [prepared], current, desired, cancellationToken).ConfigureAwait(false);
         }

@@ -35,24 +35,24 @@ public sealed class HistoryBranchAndAnnotationTests
         var before = (await runtime.WorkspaceStore.LoadAsync()).Value!;
 
         var created = await runtime.Branches.CreateFromCheckpointAsync(
-            seeded.Batch.NewCheckpoint!.CheckpointId,
+            seeded.Batch.NewCheckpoints.FirstOrDefault()!.CheckpointId,
             "historical");
 
         Assert.IsFalse(created.Activated);
-        Assert.AreNotEqual(before.ActiveBranchId, created.BranchUpdate.BranchId);
-        Assert.AreEqual(seeded.Batch.NewCheckpoint.CheckpointId, created.BranchUpdate.TargetCheckpointId);
+        Assert.AreNotEqual(before.SourceBaselines.FirstOrDefault()?.ActiveBranchId, created.BranchUpdate.BranchId);
+        Assert.AreEqual(seeded.Batch.NewCheckpoints.FirstOrDefault()!.CheckpointId, created.BranchUpdate.TargetCheckpointId);
         var after = (await runtime.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(before.StateRevision, after.StateRevision);
-        Assert.AreEqual(before.ActiveBranchId, after.ActiveBranchId);
-        Assert.AreEqual(before.ActiveBranchUpdateId, after.ActiveBranchUpdateId);
+        Assert.AreEqual(before.SourceBaselines.FirstOrDefault()?.ActiveBranchId, after.SourceBaselines.FirstOrDefault()?.ActiveBranchId);
+        Assert.AreEqual(before.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, after.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
     }
 
     [TestMethod]
-    public async Task HistoricalBranchCreationRejectsIncompleteConfigurationCheckpoint()
+    public async Task HistoricalBranchCreationRejectsIncompleteSourceCheckpoint()
     {
         await using var runtime = await CreateRuntimeAsync("incomplete-branch");
         var sourceId = SourceId.New();
-        var incomplete = new ConfigurationCheckpoint(
+        var incomplete = new SourceCheckpoint(
             CheckpointId.New(),
             _configId,
             DateTimeOffset.UtcNow,
@@ -93,13 +93,13 @@ public sealed class HistoryBranchAndAnnotationTests
 
         Assert.IsTrue(created.Activated);
         Assert.IsNull(created.CreatedCheckpoint);
-        Assert.AreEqual(seeded.Batch.NewCheckpoint!.CheckpointId, created.BranchUpdate.TargetCheckpointId);
+        Assert.AreEqual(seeded.Batch.NewCheckpoints.FirstOrDefault()!.CheckpointId, created.BranchUpdate.TargetCheckpointId);
         var after = (await runtime.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(before.StateRevision + 1, after.StateRevision);
-        Assert.AreEqual(created.BranchUpdate.BranchId, after.ActiveBranchId);
-        var oldTips = await runtime.Query.GetBranchTipsAsync(seeded.Batch.NewBranchUpdate!.BranchId);
+        Assert.AreEqual(created.BranchUpdate.BranchId, after.SourceBaselines.FirstOrDefault()?.ActiveBranchId);
+        var oldTips = await runtime.Query.GetBranchTipsAsync(seeded.Batch.NewBranchUpdates.FirstOrDefault()!.BranchId);
         Assert.HasCount(1, oldTips);
-        Assert.AreEqual(seeded.Batch.NewBranchUpdate.UpdateId, oldTips[0].UpdateId);
+        Assert.AreEqual(seeded.Batch.NewBranchUpdates.FirstOrDefault()!.UpdateId, oldTips[0].UpdateId);
     }
 
     [TestMethod]
@@ -124,11 +124,7 @@ public sealed class HistoryBranchAndAnnotationTests
         await CommitFactsAsync(runtime, detached, ExactRepresentation(detached.VersionId));
         var detachedWorkspace = new HistoryWorkspace(
             _configId,
-            before.StateRevision + 1,
-            before.ActiveBranchId,
-            before.ActiveBranchUpdateId,
-            [new WorkspaceSourceBaseline(seeded.SourceId, detached.VersionId, WorkspaceBaselineRelation.Exact)],
-            before.CheckpointAncestryAnchorId);
+            before.StateRevision + 1, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(seeded.SourceId, detached.VersionId, WorkspaceBaselineRelation.Exact)], before.SourceBaselines.FirstOrDefault()?.ActiveBranchId, before.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, before.SourceBaselines.FirstOrDefault()?.CheckpointAncestryAnchorId));
         await runtime.WorkspaceStore.SaveAsync(detachedWorkspace, before.StateRevision);
 
         var created = await runtime.Branches.CreateFromCurrentStateAsync(
@@ -154,22 +150,22 @@ public sealed class HistoryBranchAndAnnotationTests
         await using var runtime = await CreateRuntimeAsync();
         var seeded = await SeedAsync(runtime);
         var inactive = await runtime.Branches.CreateFromCheckpointAsync(
-            seeded.Batch.NewCheckpoint!.CheckpointId,
+            seeded.Batch.NewCheckpoints.FirstOrDefault()!.CheckpointId,
             "feature");
 
         var renamed = await runtime.Branches.RenameAsync(inactive.BranchUpdate.BranchId, "Feature-Renamed");
         Assert.AreEqual(inactive.BranchUpdate.UpdateId, renamed.BranchUpdate.ParentUpdateIds.Single());
         Assert.AreEqual(BranchUpdateReason.Renamed, renamed.BranchUpdate.Reason);
         await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
-            () => runtime.Branches.CreateFromCheckpointAsync(seeded.Batch.NewCheckpoint.CheckpointId, "feature-renamed"));
+            () => runtime.Branches.CreateFromCheckpointAsync(seeded.Batch.NewCheckpoints.FirstOrDefault()!.CheckpointId, "feature-renamed"));
         var deleted = await runtime.Branches.DeleteAsync(inactive.BranchUpdate.BranchId);
         Assert.IsTrue(deleted.BranchUpdate.IsDeleted);
         var reusedName = await runtime.Branches.CreateFromCheckpointAsync(
-            seeded.Batch.NewCheckpoint.CheckpointId,
+            seeded.Batch.NewCheckpoints.FirstOrDefault()!.CheckpointId,
             "feature-renamed");
         Assert.AreNotEqual(inactive.BranchUpdate.BranchId, reusedName.BranchUpdate.BranchId);
         await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
-            () => runtime.Branches.DeleteAsync(seeded.Batch.NewBranchUpdate!.BranchId));
+            () => runtime.Branches.DeleteAsync(seeded.Batch.NewBranchUpdates.FirstOrDefault()!.BranchId));
     }
 
     [TestMethod]
@@ -180,13 +176,13 @@ public sealed class HistoryBranchAndAnnotationTests
         var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
         var concurrent = new BranchUpdate(
             BranchUpdateId.New(),
-            seeded.Batch.NewBranchUpdate!.BranchId,
+            seeded.Batch.NewBranchUpdates.FirstOrDefault()!.BranchId,
             [],
             "remote-main",
-            seeded.Batch.NewCheckpoint!.CheckpointId,
+            seeded.Batch.NewCheckpoints.FirstOrDefault()!.CheckpointId,
             isDeleted: false,
             DateTimeOffset.UtcNow,
-            BranchUpdateReason.Backup);
+            BranchUpdateReason.Backup, sourceId: seeded.Batch.NewCheckpoints.FirstOrDefault()!.SourceId);
         await CommitFactsAsync(runtime, concurrent);
 
         await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
@@ -202,7 +198,7 @@ public sealed class HistoryBranchAndAnnotationTests
                 "continued",
                 workspace.StateRevision,
                 seeded.Batch.NewVersions[0].VersionId)));
-        Assert.AreEqual(seeded.Batch.NewBranchUpdate.UpdateId, continued.NewBranchUpdate!.ParentUpdateIds.Single());
+        Assert.AreEqual(seeded.Batch.NewBranchUpdates.FirstOrDefault()!.UpdateId, continued.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.Single());
         Assert.HasCount(2, await runtime.Query.GetBranchTipsAsync(concurrent.BranchId));
     }
 
@@ -217,16 +213,16 @@ public sealed class HistoryBranchAndAnnotationTests
             CaptureScope.FullSource, CaptureOutcome.Captured, [],
             new SourceDescriptorSnapshot("source", "C:\\source"), null,
             HistoryProvenance.Native("test"));
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), _configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(sourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
         var branchId = BranchId.New();
         var earlier = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup, sourceId: checkpoint.SourceId);
         var later = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Backup, sourceId: checkpoint.SourceId);
         var representation = ExactRepresentation(version.VersionId);
         await CommitFactsAsync(firstRuntime, version, representation, checkpoint, earlier, later);
         await CommitFactsAsync(secondRuntime, version, representation, checkpoint, earlier, later);
@@ -258,19 +254,19 @@ public sealed class HistoryBranchAndAnnotationTests
         var branchId = BranchId.New();
         var first = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", firstCheckpoint, false,
-            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup, sourceId: HistoryFixture.DefaultSource);
         var second = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", secondCheckpoint, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Backup, sourceId: HistoryFixture.DefaultSource);
         var source = SourceId.New();
         var version = new SourceVersion(
             VersionId.New(), _configId, source, [], DateTimeOffset.UtcNow, null,
             CaptureScope.FullSource, CaptureOutcome.Captured, [],
             new SourceDescriptorSnapshot("source", "source"), null, HistoryProvenance.Native("test"));
-        var checkpointOne = new ConfigurationCheckpoint(
+        var checkpointOne = new SourceCheckpoint(
             firstCheckpoint, _configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(source, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
-        var checkpointTwo = new ConfigurationCheckpoint(
+        var checkpointTwo = new SourceCheckpoint(
             secondCheckpoint, _configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(source, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
         await CommitFactsAsync(
@@ -287,7 +283,7 @@ public sealed class HistoryBranchAndAnnotationTests
             () => service.ReconcileAsync(branchId, [first.UpdateId, second.UpdateId]));
         var third = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", firstCheckpoint, false,
-            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup, sourceId: HistoryFixture.DefaultSource);
         await CommitFactsAsync(runtime, third);
         await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
             () => service.ReconcileAsync(
@@ -306,10 +302,10 @@ public sealed class HistoryBranchAndAnnotationTests
     {
         var first = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "Same", CheckpointId.New(), false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: HistoryFixture.DefaultSource);
         var second = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "same", CheckpointId.New(), false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: HistoryFixture.DefaultSource);
 
         var projection = HistoryBranchProjection.Query([first, second]);
 
@@ -405,7 +401,7 @@ public sealed class HistoryBranchAndAnnotationTests
             MaterializationPolicyState.Retained,
             (await runtime.Query.GetMaterializationPolicyProjectionAsync(standalone.VersionId)).EffectiveState);
 
-        var pinnedCheckpoint = new ConfigurationCheckpoint(
+        var pinnedCheckpoint = new SourceCheckpoint(
             CheckpointId.New(),
             _configId,
             DateTimeOffset.UtcNow,

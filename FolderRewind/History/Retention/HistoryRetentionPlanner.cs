@@ -180,7 +180,7 @@ public sealed class HistoryRetentionPlanner
             }
         }
         void ProtectCheckpoint(
-            ConfigurationCheckpoint checkpoint,
+            SourceCheckpoint checkpoint,
             HistoryProtectionReason reason,
             MaterializationFidelity requiredFidelity)
         {
@@ -192,19 +192,19 @@ public sealed class HistoryRetentionPlanner
         }
 
         var validBackupRuns = runs
-            .Where(run => run.Outcome == BackupRunOutcome.Completed && run.ResultCheckpointId is not null)
+            .Where(run => run.Outcome is BackupRunOutcome.Completed or BackupRunOutcome.Partial)
             .ToDictionary(run => run.RunId);
         var vectors = new HashSet<string>(StringComparer.Ordinal);
-        int retainedCheckpointCount = 0;
+        var retainedCheckpointCounts = new Dictionary<SourceId, int>();
         foreach (var checkpoint in checkpoints
                      .Where(item => item.CreatedByRunId is { } runId
                          && validBackupRuns.TryGetValue(runId, out var run)
-                         && run.ResultCheckpointId == item.CheckpointId
+                         && run.SourceResults.Any(r => r.CheckpointId == item.CheckpointId && r.Outcome == BackupRunSourceOutcome.Captured)
                          && item.IsStructurallyComplete)
                      .OrderByDescending(item => item.CreatedAtUtc)
                      .ThenByDescending(item => item.CheckpointId.ToString(), StringComparer.Ordinal))
         {
-            if (retainedCheckpointCount >= request.KeepCount) break;
+            if (retainedCheckpointCounts.GetValueOrDefault(checkpoint.SourceId) >= request.KeepCount) continue;
             var vector = StateVector(checkpoint);
             if (vectors.Contains(vector)) continue;
             bool restorable = true;
@@ -220,7 +220,7 @@ public sealed class HistoryRetentionPlanner
             if (!restorable) continue;
             vectors.Add(vector);
             ProtectCheckpoint(checkpoint, HistoryProtectionReason.KeepCount, MaterializationFidelity.Exact);
-            retainedCheckpointCount++;
+            retainedCheckpointCounts[checkpoint.SourceId] = retainedCheckpointCounts.GetValueOrDefault(checkpoint.SourceId) + 1;
         }
 
         foreach (var branch in HistoryBranchProjection.Build(branchUpdates))
@@ -239,7 +239,8 @@ public sealed class HistoryRetentionPlanner
         foreach (var snapshot in safetySnapshotsTask.Result)
         {
             if (safetyReleases.Any(release => release.SnapshotId == snapshot.SnapshotId)) continue;
-            if (checkpointMap.TryGetValue(snapshot.CheckpointId, out var checkpoint))
+            foreach (var protectedId in snapshot.CheckpointIds)
+            if (checkpointMap.TryGetValue(protectedId, out var checkpoint))
             {
                 ProtectCheckpoint(
                     checkpoint,
@@ -433,7 +434,7 @@ public sealed class HistoryRetentionPlanner
             blockers.Distinct(StringComparer.Ordinal).ToImmutableArray());
     }
 
-    private static string StateVector(ConfigurationCheckpoint checkpoint)
+    private static string StateVector(SourceCheckpoint checkpoint)
         => string.Join(
             "|",
             checkpoint.Sources

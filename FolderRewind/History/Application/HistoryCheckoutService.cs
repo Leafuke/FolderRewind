@@ -152,13 +152,11 @@ public sealed class HistoryCheckoutService
                     source.SourceId,
                     source.VersionId,
                     WorkspaceBaselineRelation.Exact)));
-            var desired = new HistoryWorkspace(
-                _history.ConfigId,
-                checked(current.StateRevision + 1),
-                plan.Update!.BranchId,
-                plan.Update.UpdateId,
-                desiredBaselines,
-                plan.Checkpoint.CheckpointId);
+            var sourceState = current.GetSourceState(plan.Checkpoint!.SourceId) with {
+                BaseVersionId = plan.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact,
+                ActiveBranchId = plan.Update!.BranchId, ActiveBranchUpdateId = plan.Update.UpdateId,
+                CheckpointAncestryAnchorId = plan.Checkpoint.CheckpointId };
+            var desired = current.WithSourceStates([sourceState]);
             return await _restore.ExecuteMutationAsync(
                 prepared,
                 current,

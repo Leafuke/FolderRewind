@@ -78,8 +78,8 @@ public sealed class HistoryMergeTests
             valid with { Automatic = MergeTreeManifest.Create(new Dictionary<string, MergeFileValue> { ["../escape"] = new("external", "digest", 1) }) }));
     }
     private static readonly HistoryConfigId Config = new("merge-tests");
-    private static ConfigurationCheckpoint Checkpoint(params CheckpointId[] parents) => new(CheckpointId.New(), Config,
-        DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"), [], parents,
+    private static SourceCheckpoint Checkpoint(params CheckpointId[] parents) => new(CheckpointId.New(), Config,
+        DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"), [new CheckpointSource(HistoryFixture.DefaultSource, new("graph", "graph"), VersionId.New(), CheckpointSourceDisposition.Captured)], parents,
         parents.Length == 2 ? CheckpointCreationKind.Merge : CheckpointCreationKind.Capture);
 
     [TestMethod]
@@ -193,10 +193,10 @@ public sealed class HistoryMergeTests
         try
         {
             var source = SourceId.New(); var version = VersionId.New(); var cp = Checkpoint();
-            var o = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "ours", cp.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created);
-            var t = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "theirs", cp.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            var o = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "ours", cp.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: cp.SourceId);
+            var t = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "theirs", cp.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: cp.SourceId);
             var plan = new HistoryMergePlan(Guid.NewGuid(), HistoryMergeMode.ThreeWay, o, t, cp.CheckpointId,
-                new HistoryWorkspace(Config, 0, o.BranchId, o.UpdateId, []), "revision", [], []);
+                new HistoryWorkspace(Config, 0, HistoryFixture.SourceStates([], o.BranchId, o.UpdateId, null)), "revision", [], []);
             var store = new MergeSessionStore(root); var session = store.Create(plan, [version]);
             MergeTreeManifest Tree(string digest) => MergeTreeManifest.Create(new Dictionary<string, MergeFileValue> { ["file"] = new("controlled", digest, 1) });
             var proposal = new GenericFileMergeProvider().Analyze(source, Tree("b"), Tree("o"), Tree("t"));

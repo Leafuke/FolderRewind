@@ -156,14 +156,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
             await _runtime.WorkspaceStore.SaveAsync(journal.DesiredWorkspace, journal.ExpectedWorkspace.StateRevision, token).ConfigureAwait(false);
     }
 
-    public static bool WorkspaceEquals(HistoryWorkspace left, HistoryWorkspace right)
-        => left.ConfigId == right.ConfigId
-            && left.StateRevision == right.StateRevision
-            && left.ActiveBranchId == right.ActiveBranchId
-            && left.ActiveBranchUpdateId == right.ActiveBranchUpdateId
-            && left.CheckpointAncestryAnchorId == right.CheckpointAncestryAnchorId
-            && left.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
-                .SequenceEqual(right.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal));
+    public static bool WorkspaceEquals(HistoryWorkspace left, HistoryWorkspace right) => HistoryWorkspace.StateEquals(left, right);
 
     public static void CleanupStaging(IEnumerable<string> directories)
     {

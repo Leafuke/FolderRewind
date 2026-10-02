@@ -43,8 +43,8 @@ public sealed class HistoryQuickRestoreResolver
     {
         await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         var workspace = (await _history.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
-        if (workspace?.ActiveBranchId is not { } branchId
-            || workspace.ActiveBranchUpdateId is not { } anchorId)
+        if (workspace?.GetSourceState(sourceId).ActiveBranchId is not { } branchId
+            || workspace.GetSourceState(sourceId).ActiveBranchUpdateId is not { } anchorId)
             return Missing("Workspace has no active Branch anchor.");
         var tips = await _history.Query.GetBranchTipsAsync(branchId, cancellationToken).ConfigureAwait(false);
         if (tips.Count != 1 || tips[0].UpdateId != anchorId)
