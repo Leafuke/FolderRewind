@@ -5106,7 +5106,7 @@ Pull Request：{1}</value>
   <data name="HistoryPage_SafetySnapshotsMenuItem.Text" xml:space="preserve"><value>安全恢复点</value></data>
   <data name="History_Branch_CreateFromHereTitle" xml:space="preserve"><value>从此处创建分支</value></data>
   <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>从此备份项目检查点创建休眠分支</value></data>
-  <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>此版本不属于可创建分支的完整备份项目检查点</value></data>
+  <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>此版本没有满足精确还原条件的文件夹检查点</value></data>
   <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>此版本属于多个备份项目检查点，请改从一次备份运行创建分支</value></data>
   <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>切换分支前会先备份当前内容，再还原所选分支。</value></data>
   <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>可以切换</value></data>
@@ -5875,4 +5875,20 @@ Pull Request：{1}</value>
   <data name="KnotLink_CurrentSavePluginUnavailable" xml:space="preserve">
     <value>当前世界解析插件未激活或不可用；请检查 MineRewind 的安装、启用状态及插件启动日志。</value>
   </data>
+  <data name="History_Branch_CurrentNotEstablished" xml:space="preserve"><value>当前分支：尚未建立</value></data>
+  <data name="History_Branch_None" xml:space="preserve"><value>无分支</value></data>
+  <data name="History_Run_Version" xml:space="preserve"><value>版本 {0}</value></data>
+  <data name="History_Run_HistoricalBranch" xml:space="preserve"><value>备份时分支：{0}</value></data>
+  <data name="History_Run_SelectRestoreSources" xml:space="preserve"><value>选择要还原的文件夹</value></data>
+  <data name="History_Run_SelectRestoreSourcesHint" xml:space="preserve"><value>仅还原本批次中勾选的版本。各文件夹的活动分支保持不变；不可还原的项目不能选择。</value></data>
+  <data name="History_Run_RestoreSourceReview" xml:space="preserve"><value>{0} · 版本 {1}
+备份时分支：{2}
+{3}</value></data>
+  <data name="History_Run_RestoreSource" xml:space="preserve"><value>还原此版本</value></data>
+  <data name="History_Run_RestoreSelected" xml:space="preserve"><value>还原所选文件夹</value></data>
+  <data name="History_Run_RestoreSourceConfirm" xml:space="preserve"><value>将“{0}”还原到 {1}（备份时分支：{2}）。当前活动分支保持不变。</value></data>
+  <data name="History_RunSource_Restore.Content" xml:space="preserve"><value>还原</value></data>
+  <data name="History_RunSource_Branch.Content" xml:space="preserve"><value>从此处创建分支</value></data>
+  <data name="History_RunSource_History.Content" xml:space="preserve"><value>查看历史</value></data>
+  <data name="History_DevelopmentFormatUnsupported" xml:space="preserve"><value>旧开发版历史格式 {0} 不受支持。请先归档旧元数据并重建历史；现有备份文件不受影响。</value></data>
 </root>

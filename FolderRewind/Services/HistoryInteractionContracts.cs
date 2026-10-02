@@ -22,6 +22,8 @@ internal enum HistoryNotificationKind
 
 internal sealed record HistoryChoiceOption(string Value, string DisplayName);
 
+internal sealed record HistorySelectionOption(string Value, string DisplayName, bool IsEnabled);
+
 internal sealed record HistoryReviewField(string Label, string Value);
 
 internal sealed record HistoryChoiceRequest(
@@ -40,6 +42,10 @@ internal sealed record HistoryInteractionResult(
 
 internal interface IHistoryInteractionService
 {
+    Task<IReadOnlyList<string>?> SelectManyAsync(string title, string message,
+        IReadOnlyList<HistorySelectionOption> options, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<string>?>(null);
+
     Task<bool> ConfirmAsync(
         string title,
         string message,

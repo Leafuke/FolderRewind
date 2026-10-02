@@ -43,7 +43,8 @@ public sealed record TimelineEntrySummary(
     ImmutableArray<BranchId> BranchIds,
     CheckpointId? BranchableCheckpointId,
     int BranchableCheckpointCount,
-    SourceVersionCreationKind CreationKind = SourceVersionCreationKind.Capture);
+    SourceVersionCreationKind CreationKind = SourceVersionCreationKind.Capture,
+    CheckpointId? CheckpointId = null);
 
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
@@ -56,13 +57,12 @@ public sealed record RunSummary(
     RunId RunId,
     DateTimeOffset CompletedAtUtc,
     BackupRunOutcome Outcome,
-    CheckpointId? ResultCheckpointId,
     bool IsImportant,
     string Comment,
     bool HasPartialCapture,
-    bool IsBranchableCheckpoint,
     ImmutableArray<BackupRunSourceResult> Sources,
-    ImmutableArray<BranchId> BranchIds);
+    ImmutableArray<BranchId> BranchIds,
+    IReadOnlyDictionary<BranchUpdateId, string>? HistoricalBranchNames = null, IReadOnlySet<CheckpointId>? BranchableCheckpointIds = null);
 
 public sealed record BranchSummary(
     BranchId BranchId,
@@ -76,7 +76,7 @@ public sealed record BranchSummary(
     bool IsWorkspaceAnchoredAtTip,
     bool HasCheckoutTarget,
     bool CanRename,
-    bool CanDelete);
+    bool CanDelete, SourceId SourceId = default);
 
 public sealed record HistoryPresentationSnapshot(
     ImmutableArray<TimelineEntrySummary> Timeline,
@@ -144,19 +144,13 @@ public sealed class HistoryPresentationQueryService
         var annotationGroups = annotations.GroupBy(item => item.Target).ToDictionary(group => group.Key, group => group.AsEnumerable());
         var representationGroups = allRepresentations.GroupBy(item => item.VersionId).ToDictionary(group => group.Key, group => group.ToArray());
         var versionScopes = versions.ToDictionary(item => item.VersionId, item => item.CaptureScope);
-        var branchableCheckpointsByVersion = checkpoints
-            .Where(checkpoint => checkpoint.IsStructurallyComplete)
-            .SelectMany(checkpoint => checkpoint.Sources
-                .Where(source => source.VersionId is not null)
-                .Select(source => (VersionId: source.VersionId!.Value, checkpoint.CheckpointId)))
-            .GroupBy(item => item.VersionId)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Select(item => item.CheckpointId).Distinct().ToArray());
+        var versionMap = versions.ToDictionary(v => v.VersionId);
+        var representationMap = allRepresentations.ToDictionary(r => r.RepresentationId);
         var timeline = new List<TimelineEntrySummary>();
-        foreach (var version in versions.Where(item => !supportIds.Contains(item.VersionId)
-                     && (sourceId is null || item.SourceId == sourceId)))
+        foreach (var checkpoint in checkpoints.Where(c => c.CreationKind != CheckpointCreationKind.SafetySnapshot
+                     && (sourceId is null || c.SourceId == sourceId)))
         {
+            if (!versionMap.TryGetValue(checkpoint.VersionId, out var version) || supportIds.Contains(version.VersionId)) continue;
             var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.VersionId.Value);
             var annotation = HistoryAnnotationProjection.Project(
                 target,
@@ -171,18 +165,17 @@ public sealed class HistoryPresentationQueryService
             var fileName = selected?.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
                 ?? selected?.RepresentationSpecificMetadata.GetValueOrDefault("legacyFileName")
                 ?? (localPath is null ? null : Path.GetFileName(localPath));
-            // Version 只是 Source-level 节点；只有唯一完整 Checkpoint 才能安全承载 config-level Branch。
-            var branchableCheckpoints = branchableCheckpointsByVersion.GetValueOrDefault(version.VersionId, []);
+            var admission = HistoryExactCheckpointAdmission.Evaluate(checkpoint, versionMap, representationMap);
             timeline.Add(new(
-                version.VersionId, selected?.RepresentationId, version.SourceId, version.CreatedAtUtc,
+                version.VersionId, selected?.RepresentationId, version.SourceId, checkpoint.CreatedAtUtc,
                 version.SourceDescriptorSnapshot.DisplayName, fileName, localPath,
                 annotation.EffectiveComment ?? string.Empty, annotation.IsPinned, annotation.IsSuppressed,
                 policy.HasExplicitPolicy && policy.EffectiveState == MaterializationPolicyState.Released,
                 version.CaptureScope, state.Readiness, state.Fidelity, version.ParentVersionIds,
                 children.GetValueOrDefault(version.VersionId, []),
-                memberships.VersionBranches.GetValueOrDefault(version.VersionId, []),
-                branchableCheckpoints.Length == 1 ? branchableCheckpoints[0] : null,
-                branchableCheckpoints.Length, version.CreationKind));
+                memberships.CheckpointBranches.GetValueOrDefault(checkpoint.CheckpointId, []),
+                admission.IsReady ? checkpoint.CheckpointId : null,
+                admission.IsReady ? 1 : 0, checkpoint.CreationKind == CheckpointCreationKind.Merge ? SourceVersionCreationKind.Merge : version.CreationKind, checkpoint.CheckpointId));
         }
 
         var checkpointSummaries = new List<CheckpointSummary>();
@@ -193,39 +186,38 @@ public sealed class HistoryPresentationQueryService
             checkpointSummaries.Add(new(checkpoint.CheckpointId, checkpoint.CreatedAtUtc, checkpoint.IsStructurallyComplete,
                 projection.IsPinned, checkpoint.Sources));
         }
+        var historicalBranchNames = branchUpdates.ToDictionary(u => u.UpdateId, u => u.Name);
+        var branchableIds = checkpoints.Where(c => HistoryExactCheckpointAdmission.Evaluate(c, versionMap, representationMap).IsReady).Select(c => c.CheckpointId).ToHashSet();
         var runSummaries = runs.Select(run =>
         {
             var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, run.RunId.Value);
             var projection = HistoryAnnotationProjection.Project(target, annotationGroups.GetValueOrDefault(target) ?? []);
-            var hasPartialCapture = run.Outcome == BackupRunOutcome.Partial
-                || run.SourceResults.Any(item => item.VersionId is { } versionId
+            var hasPartialCapture = run.SourceResults.Any(item => item.VersionId is { } versionId
                     && versionScopes.GetValueOrDefault(versionId) == CaptureScope.PartialSource);
-            var branchIds = run.ResultCheckpointId is { } checkpointId
-                ? memberships.CheckpointBranches.GetValueOrDefault(checkpointId, [])
-                : [];
-            var isBranchableCheckpoint = run.ResultCheckpointId is { } resultCheckpointId
-                && completeCheckpointIds.Contains(resultCheckpointId);
-            return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome, run.ResultCheckpointId,
+            var branchIds = run.SourceResults.Where(r => r.BranchUpdateId is not null)
+                .Select(r => branchUpdates.FirstOrDefault(u => u.UpdateId == r.BranchUpdateId)?.BranchId)
+                .OfType<BranchId>().Distinct().ToImmutableArray();
+            return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome,
                 projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
-                hasPartialCapture, isBranchableCheckpoint, run.SourceResults, branchIds);
+                hasPartialCapture, run.SourceResults, branchIds, historicalBranchNames, branchableIds);
         }).ToImmutableArray();
-        var branchSummaries = branchProjection.Branches.Where(branch => !branch.IsDeleted).Select(branch =>
+        var branchSummaries = branchProjection.Branches.Where(branch => !branch.IsDeleted && (sourceId is null || branch.Tips[0].SourceId == sourceId)).Select(branch =>
         {
             var name = branch.Tips.Where(item => !item.IsDeleted).Select(item => item.Name)
                 .OrderBy(item => item, StringComparer.Ordinal).FirstOrDefault()
                 ?? branch.Tips.FirstOrDefault()?.Name ?? string.Empty;
             bool unborn = branch.Tips.All(item => item.IsUnborn);
             bool canMutate = !branch.IsMultiTip && !branch.IsDeleted;
-            bool isActive = workspace?.ActiveBranchId == branch.BranchId;
+            bool isActive = workspace?.GetSourceState(branch.Tips[0].SourceId).ActiveBranchId == branch.BranchId;
             bool isWorkspaceAnchoredAtTip = isActive
                 && branch.Tips.Length == 1
-                && workspace?.ActiveBranchUpdateId == branch.Tips[0].UpdateId;
+                && workspace?.GetSourceState(branch.Tips[0].SourceId).ActiveBranchUpdateId == branch.Tips[0].UpdateId;
             return new BranchSummary(branch.BranchId, name, branch.Tips, unborn, branch.IsMultiTip,
                 branch.IsDeleted, branch.HasNameCollision,
                 isActive,
                 isWorkspaceAnchoredAtTip,
                 !branch.IsDeleted && !unborn && branch.Tips.Any(item => item.TargetCheckpointId is not null),
-                canMutate, canMutate && !isActive);
+                canMutate, canMutate && !isActive, branch.Tips[0].SourceId);
         }).OrderByDescending(branch => branch.IsActive)
             .ThenBy(branch => branch.Name, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(branch => branch.BranchId.ToString(), StringComparer.Ordinal)
@@ -237,8 +229,8 @@ public sealed class HistoryPresentationQueryService
             runSummaries.OrderByDescending(item => item.CompletedAtUtc).ToImmutableArray(),
             branchSummaries,
             safetySnapshots.ToImmutableArray(),
-            workspace?.ActiveBranchId,
-            workspace?.ActiveBranchUpdateId);
+            sourceId is { } activeSource ? workspace?.GetSourceState(activeSource).ActiveBranchId : null,
+            sourceId is { } updateSource ? workspace?.GetSourceState(updateSource).ActiveBranchUpdateId : null);
         _measure?.Invoke("metadata-projection", timer.Elapsed);
         return snapshot;
     }

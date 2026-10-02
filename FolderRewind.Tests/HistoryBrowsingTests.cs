@@ -32,14 +32,14 @@ public sealed class HistoryBrowsingTests
             var codec = new HistoryPackCodec();
             var objects = new List<object>();
             var entries = new List<LocalReplicaCatalogEntry>();
-            var checkpoints = new List<ConfigurationCheckpoint>();
+            var checkpoints = new List<SourceCheckpoint>();
             for (var index = 0; index < count; index++)
             {
                 var version = new SourceVersion(VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow.AddSeconds(index), null,
                     CaptureScope.FullSource, CaptureOutcome.Captured, [], new("Test source", root), null, HistoryProvenance.Native("test"));
                 var representation = new VersionRepresentation(RepresentationId.New(), version.VersionId,
                     RepresentationKind.CoreFull, "7z", [], MaterializationFidelity.Exact, new string('a', 64), null, []);
-                var checkpoint = new ConfigurationCheckpoint(CheckpointId.New(), configId, version.CreatedAtUtc, null,
+                var checkpoint = new SourceCheckpoint(CheckpointId.New(), configId, version.CreatedAtUtc, null,
                     HistoryProvenance.Native("test"), [new(sourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
                 objects.AddRange([version, representation, checkpoint]);
                 checkpoints.Add(checkpoint);
@@ -47,7 +47,7 @@ public sealed class HistoryBrowsingTests
             }
             for (var index = 0; index < branches; index++)
                 objects.Add(new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], $"branch-{index}", checkpoints[index % count].CheckpointId,
-                    false, DateTimeOffset.UtcNow, BranchUpdateReason.Created));
+                    false, DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoints[index % count].SourceId));
             var paths = new HistoryRepositoryPaths(Path.Combine(root, "repository"));
             await using (var seed = new HistoryRuntime(new FileHistoryRepository(configId, paths)))
             {

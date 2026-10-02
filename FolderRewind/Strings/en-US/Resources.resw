@@ -5875,4 +5875,20 @@ Only the new folder will be written.</value></data>
   <data name="KnotLink_CurrentSavePluginUnavailable" xml:space="preserve">
     <value>The current-world resolver plugin is inactive or unavailable. Check MineRewind installation, enabled state, and plugin startup logs.</value>
   </data>
+  <data name="History_Branch_CurrentNotEstablished" xml:space="preserve"><value>Current branch: not established</value></data>
+  <data name="History_Branch_None" xml:space="preserve"><value>No branch</value></data>
+  <data name="History_Run_Version" xml:space="preserve"><value>Version {0}</value></data>
+  <data name="History_Run_HistoricalBranch" xml:space="preserve"><value>Branch at backup: {0}</value></data>
+  <data name="History_Run_SelectRestoreSources" xml:space="preserve"><value>Select folders to restore</value></data>
+  <data name="History_Run_SelectRestoreSourcesHint" xml:space="preserve"><value>Restore only the selected versions from this run. Active branches remain unchanged. Unavailable items cannot be selected.</value></data>
+  <data name="History_Run_RestoreSourceReview" xml:space="preserve"><value>{0} · Version {1}
+Branch at backup: {2}
+{3}</value></data>
+  <data name="History_Run_RestoreSource" xml:space="preserve"><value>Restore this version</value></data>
+  <data name="History_Run_RestoreSelected" xml:space="preserve"><value>Restore selected folders</value></data>
+  <data name="History_Run_RestoreSourceConfirm" xml:space="preserve"><value>Restore “{0}” to {1} (branch at backup: {2}). The current active branch remains unchanged.</value></data>
+  <data name="History_RunSource_Restore.Content" xml:space="preserve"><value>Restore</value></data>
+  <data name="History_RunSource_Branch.Content" xml:space="preserve"><value>Create branch here</value></data>
+  <data name="History_RunSource_History.Content" xml:space="preserve"><value>View history</value></data>
+  <data name="History_DevelopmentFormatUnsupported" xml:space="preserve"><value>Development history format {0} is unsupported. Archive the old metadata and rebuild history first; existing backup files are preserved.</value></data>
 </root>

@@ -48,8 +48,9 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public BatchObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
     public BatchObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
     public BatchObservableCollection<BranchViewItem> Branches { get; } = [];
+    public bool ShowBranchTools => IsAdvancedHistory && !IsGroupedRunView;
     public bool IsAdvancedHistory => _presentationMode == HistoryPresentationMode.Advanced;
-    public bool HasBranchDivergence => !IsAdvancedHistory && Branches.Any(branch => branch.IsMultiTip);
+    public bool HasBranchDivergence => !IsAdvancedHistory && !IsGroupedRunView && Branches.Any(branch => branch.IsMultiTip);
     public bool IsAssessingBranch { get; private set; }
 
     public async Task SetPresentationModeAsync(HistoryPresentationMode mode, CancellationToken cancellationToken = default)
@@ -59,6 +60,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _branchAssessmentRequests.CancelCurrent();
         if (!IsAdvancedHistory) SelectedBranch = Branches.FirstOrDefault(branch => branch.IsActive);
         OnPropertyChanged(nameof(IsAdvancedHistory));
+        OnPropertyChanged(nameof(ShowBranchTools));
         OnPropertyChanged(nameof(HasBranchDivergence));
         foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
         foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
@@ -122,7 +124,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         {
             var active = Branches.FirstOrDefault(branch => branch.IsActive);
             return active is null
-                ? I18n.GetString("History_Branch_CurrentUnavailable")
+                ? I18n.GetString("History_Branch_CurrentNotEstablished")
                 : I18n.Format("History_Branch_CurrentFormat", active.Name);
         }
     }
@@ -149,7 +151,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 Settings.UseHistoryStatusColors = value;
                 ObservePreferenceSave(ConfigService.SaveAsync());
             }
-            UpdateSemanticStatusPreferences(FilteredHistory); OnPropertyChanged();
+            UpdateSemanticStatusPreferences(_allVersions); OnPropertyChanged();
         }
     }
 
@@ -172,6 +174,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             ? HistoryPresentationMode.Advanced : HistoryPresentationMode.Normal;
         NotifyViewModeChanged();
         OnPropertyChanged(nameof(IsAdvancedHistory));
+        OnPropertyChanged(nameof(ShowBranchTools));
     }
 
     public async Task SetCurrentSelectionAsync(
@@ -191,7 +194,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         var shouldRefresh = config is not null
             && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null));
         IsLoading = shouldRefresh;
-        if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase)) SelectedBranch = null;
+        if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id) SelectedBranch = null;
         _currentConfig = config;
         _currentFolder = folder;
         if (config is not null)
@@ -297,7 +300,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             }
 
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
-            SourceId? sourceId = folder is not null
+            SourceId? sourceId = !IsGroupedRunView && folder is not null
                 && Guid.TryParse(folder.Id, out var id)
                 && id != Guid.Empty
                     ? new SourceId(id)
@@ -352,8 +355,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
         }
         NotifyViewModeChanged();
-        if (_cachedPresentation is not null) ApplyFilter();
-        else await RefreshCurrentHistoryAsync(cancellationToken);
+        SelectedBranch = null;
+        await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
     public int GetMissingCount() => _missingCount;
@@ -508,7 +511,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
                 !item.IsImportant,
                 cancellationToken);
-            if (item.ResultCheckpointId is { } checkpointId)
+            foreach (var checkpointId in item.Sources.Where(s => s.CheckpointId is not null).Select(s => s.CheckpointId!.Value))
                 await runtime.Annotations.SetPinAsync(
                     new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpointId.Value),
                     !item.IsImportant,
@@ -527,15 +530,6 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
     }
 
-    public async Task<HistoryRestoreResult?> RestoreRunAsync(BackupRunViewItem item, BackupService.RestoreMode mode)
-    {
-        if (_currentConfig is null || item.ResultCheckpointId is not { } checkpointId) return null;
-        return await NativeHistoryApplicationService.RestoreCheckpointAsync(
-            _currentConfig,
-            checkpointId,
-            completeCheckpoint: !item.HasPartialBackup,
-            mode).ConfigureAwait(false);
-    }
     public async Task<bool> DeleteRunAsync(BackupRunViewItem item)
     {
         if (_currentConfig is null) return false;
@@ -704,7 +698,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
         await runtime.Branches
-            .RenameAsync(branch.BranchId, name).ConfigureAwait(false);
+            .RenameAsync(branch.BranchId, name, sourceId: branch.SourceId).ConfigureAwait(false);
         return true;
     }
 
@@ -715,7 +709,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
         await runtime.Branches
-            .DeleteAsync(branch.BranchId).ConfigureAwait(false);
+            .DeleteAsync(branch.BranchId, sourceId: branch.SourceId).ConfigureAwait(false);
         return true;
     }
 
@@ -854,7 +848,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         using var request = _branchAssessmentRequests.Begin();
         var branch = SelectedBranch;
         var config = _currentConfig;
-        if (!_isActive || !IsAdvancedHistory || config is null || branch is null || branch.IsAssessed
+        if (!_isActive || !IsAdvancedHistory || IsGroupedRunView || config is null || branch is null || branch.IsAssessed
             || branch.IsMultiTip || !branch.HasCheckoutTarget || branch.Tips.Count != 1)
         {
             IsAssessingBranch = false;
@@ -917,8 +911,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         var branchId = (IsAdvancedHistory ? SelectedBranch : Branches.FirstOrDefault(branch => branch.IsActive))?.BranchId;
         if (IsGroupedRunView)
         {
-            var runs = _allRuns.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
-                         && (needle.Length == 0
+            var runs = _allRuns.Where(item => (needle.Length == 0
                              || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
                              || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)))
                 .ToArray();
@@ -938,7 +931,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             FilteredHistory.ReplaceAll(versions);
             FilteredRuns.ReplaceAll([]);
             _missingCount = FilteredHistory.Count(item => item.IsLocalPayloadMissing);
-            IsEmpty = FilteredHistory.Count == 0; UpdateSemanticStatusPreferences(FilteredHistory);
+            IsEmpty = FilteredHistory.Count == 0; UpdateSemanticStatusPreferences(_allVersions);
         }
         OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
     }
@@ -1031,7 +1024,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     }
 
     private void NotifyViewModeChanged()
-    { OnPropertyChanged(nameof(IsGroupedRunView)); OnPropertyChanged(nameof(ShowGroupedRunHistory)); OnPropertyChanged(nameof(ShowPerSourceHistory)); OnPropertyChanged(nameof(CanUsePerSourceActions)); NotifyCommandStateChanged(); }
+    { OnPropertyChanged(nameof(IsGroupedRunView)); OnPropertyChanged(nameof(ShowBranchTools)); OnPropertyChanged(nameof(ShowGroupedRunHistory)); OnPropertyChanged(nameof(ShowPerSourceHistory)); OnPropertyChanged(nameof(CanUsePerSourceActions)); NotifyCommandStateChanged(); }
     private void NotifyContextChanged()
     { OnPropertyChanged(nameof(CanUseCloudHistoryActions)); OnPropertyChanged(nameof(CanOpenConfigCloudSync)); OnPropertyChanged(nameof(CanUsePerSourceActions)); NotifyCommandStateChanged(); }
     private void NotifyBranchSelectionChanged()
@@ -1084,6 +1077,9 @@ public sealed class NativeHistoryVersionViewItem(
     private bool _isAdvanced;
     public bool IsAdvanced { get => _isAdvanced; set { if (SetProperty(ref _isAdvanced, value)) OnPropertyChanged(nameof(ShowBranchDisplay)); } }
     public bool ShowBranchDisplay => IsAdvanced && HasBranchDisplay;
+    public SourceId SourceId => summary.SourceId;
+    public CheckpointId? CheckpointId => summary.CheckpointId;
+    public string AutomationIdentity => (CheckpointId?.ToString() ?? VersionId.ToString());
     public VersionId VersionId => summary.VersionId;
     public RepresentationId? RepresentationId => summary.RepresentationId;
     public string TimeDisplay => UserDisplayFormatter.LongTime(summary.CreatedAtUtc.ToLocalTime());
@@ -1171,23 +1167,18 @@ public sealed class NativeHistoryVersionViewItem(
 public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<SourceId, string>? sourceNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
     private bool _isAdvanced;
-    public bool IsAdvanced { get => _isAdvanced; set => SetProperty(ref _isAdvanced, value); }
+    public bool IsAdvanced { get => _isAdvanced; set { if (SetProperty(ref _isAdvanced, value)) foreach (var source in Sources) source.IsAdvanced = value; } }
     public RunId RunId => summary.RunId;
-    public CheckpointId? ResultCheckpointId => summary.ResultCheckpointId;
     public string Comment => summary.Comment;
     public string TimeDisplay => UserDisplayFormatter.ShortTime(summary.CompletedAtUtc.ToLocalTime());
     public string DateDisplay => UserDisplayFormatter.Date(summary.CompletedAtUtc.ToLocalTime());
     public string Message => string.IsNullOrWhiteSpace(Comment) ? GetRunOutcomeText(summary.Outcome) : Comment;
     public string SourceSummary => I18n.Format("History_Run_SourceCount", summary.Sources.Length);
     public bool IsImportant => summary.IsImportant;
-    public bool CanRestore => ResultCheckpointId is not null;
-    public bool CanCreateBranch => summary.IsBranchableCheckpoint;
-    public string CreateBranchHintText => CanCreateBranch
-        ? I18n.GetString("History_Branch_CreateFromHereHint")
-        : I18n.GetString("History_Branch_CreateUnavailableNoCheckpoint");
+    public bool CanRestore => summary.Sources.Any(s => s.VersionId is not null && s.Outcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused);
     public bool HasPartialBackup => summary.HasPartialCapture;
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
-    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(item, sourceNames?.GetValueOrDefault(item.SourceId))).ToArray();
+    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(summary.RunId, item, sourceNames?.GetValueOrDefault(item.SourceId), summary.HistoricalBranchNames?.GetValueOrDefault(item.BranchUpdateId ?? default), summary.BranchableCheckpointIds?.Contains(item.CheckpointId ?? default) == true)).ToArray();
 
     private static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
     {
@@ -1199,8 +1190,20 @@ public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<So
     };
 }
 
-public sealed class BackupRunSourceViewItem(BackupRunSourceResult result, string? sourceName = null)
+public sealed class BackupRunSourceViewItem(RunId runId, BackupRunSourceResult result, string? sourceName = null, string? branchName = null, bool canCreateBranch = false)
+    : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
+    private bool _isAdvanced;
+    public bool IsAdvanced { get => _isAdvanced; set => SetProperty(ref _isAdvanced, value); }
+    public RunId RunId => runId;
+    public SourceId SourceId => result.SourceId;
+    public VersionId? VersionId => result.VersionId;
+    public CheckpointId? CheckpointId => result.CheckpointId;
+    public bool CanRestore => VersionId is not null && result.Outcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused;
+    public bool CanCreateBranch => canCreateBranch;
+    public string BranchName => branchName ?? I18n.GetString("History_Branch_None");
+    public string VersionDisplay => VersionId is { } version ? I18n.Format("History_Run_Version", version.ToString()[..8]) : string.Empty;
+    public string BranchDisplay => I18n.Format("History_Run_HistoricalBranch", BranchName);
     public string Name => sourceName ?? I18n.GetString("History_SourceUnavailable");
     public string StatusText => result.Outcome switch
     {
@@ -1222,6 +1225,7 @@ public sealed class BranchViewItem(BranchSummary summary, HistoryCheckoutPlan? c
     public bool IsAssessed { get; private set; } = checkoutPlan is not null;
     public bool HasCheckoutTarget => summary.HasCheckoutTarget;
     public void SetAssessment(HistoryCheckoutPlan? plan) { _checkoutPlan = plan; IsAssessed = true; }
+    public SourceId SourceId => summary.SourceId;
     public BranchId BranchId => summary.BranchId;
     public string Name => summary.Name;
     public string DisplayName => summary.IsActive
@@ -1265,6 +1269,6 @@ public sealed class BranchViewItem(BranchSummary summary, HistoryCheckoutPlan? c
 public sealed class SafetySnapshotViewItem(SafetySnapshotProjection projection)
 {
     public SafetySnapshotId SnapshotId => projection.Snapshot.SnapshotId;
-    public CheckpointId CheckpointId => projection.Snapshot.CheckpointId;
+
     public string DisplayName => $"{UserDisplayFormatter.LongDateTime(projection.Snapshot.CreatedAtUtc.ToLocalTime())} · {I18n.GetString("History_SafetyReason_" + projection.Snapshot.Reason)}";
 }

@@ -49,11 +49,14 @@ public sealed partial class HistoryPageViewModel
 
         EditRunCommentCommand = new AsyncRelayCommand<BackupRunViewItem>(EditRunCommentCommandAsync, CanExecuteItemOperation);
         ToggleRunImportantCommand = new AsyncRelayCommand<BackupRunViewItem>(ToggleRunImportantCommandAsync, CanExecuteItemOperation);
-        CreateBranchFromRunCommand = new AsyncRelayCommand<BackupRunViewItem>(CreateBranchFromRunCommandAsync, CanExecuteItemOperation);
+        CreateBranchFromRunSourceCommand = new AsyncRelayCommand<BackupRunSourceViewItem>(CreateBranchFromRunSourceCommandAsync, CanExecuteItemOperation);
+        RestoreRunSourceCommand = new AsyncRelayCommand<BackupRunSourceViewItem>((item, token) => item is null ? Task.CompletedTask
+            : ExecuteOperationAsync("run source restore", ct => RestoreRunSourceCoreAsync(item, ct), token), CanExecuteItemOperation);
+        ShowRunSourceHistoryCommand = new AsyncRelayCommand<BackupRunSourceViewItem>(ShowRunSourceHistoryAsync, CanExecuteItemOperation);
         RestoreRunCommand = new AsyncRelayCommand<BackupRunViewItem>(RestoreRunCommandAsync, CanExecuteItemOperation);
         DeleteRunCommand = new AsyncRelayCommand<BackupRunViewItem>(DeleteRunCommandAsync, CanExecuteItemOperation);
 
-        MergeBranchCommand = new AsyncRelayCommand(MergeBranchCommandAsync, CanExecuteOperation);
+        MergeBranchCommand = new AsyncRelayCommand(MergeBranchCommandAsync, () => CanExecuteOperation() && CanUsePerSourceActions);
         CheckoutBranchCommand = new AsyncRelayCommand(CheckoutBranchCommandAsync, () => CanExecuteOperation() && CanStartCheckoutSelectedBranch);
         ReconcileBranchCommand = new AsyncRelayCommand(ReconcileBranchCommandAsync, () => CanExecuteOperation() && CanReconcileSelectedBranch);
         RenameBranchCommand = new AsyncRelayCommand(RenameBranchCommandAsync, () => CanExecuteOperation() && CanRenameSelectedBranch);
@@ -84,7 +87,9 @@ public sealed partial class HistoryPageViewModel
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> DeleteVersionCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> EditRunCommentCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> ToggleRunImportantCommand { get; }
-    public IAsyncRelayCommand<BackupRunViewItem> CreateBranchFromRunCommand { get; }
+    public IAsyncRelayCommand<BackupRunSourceViewItem> CreateBranchFromRunSourceCommand { get; }
+    public IAsyncRelayCommand<BackupRunSourceViewItem> RestoreRunSourceCommand { get; }
+    public IAsyncRelayCommand<BackupRunSourceViewItem> ShowRunSourceHistoryCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> RestoreRunCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> DeleteRunCommand { get; }
     public IAsyncRelayCommand MergeBranchCommand { get; }
@@ -209,10 +214,10 @@ public sealed partial class HistoryPageViewModel
             ? Task.CompletedTask
             : CreateBranchFromCheckpointCommandAsync(checkpointId, cancellationToken);
 
-    private Task CreateBranchFromRunCommandAsync(
-        BackupRunViewItem? item,
+    private Task CreateBranchFromRunSourceCommandAsync(
+        BackupRunSourceViewItem? item,
         CancellationToken cancellationToken)
-        => item?.ResultCheckpointId is not { } checkpointId
+        => item?.CheckpointId is not { } checkpointId
             ? Task.CompletedTask
             : CreateBranchFromCheckpointCommandAsync(checkpointId, cancellationToken);
 
@@ -284,7 +289,7 @@ public sealed partial class HistoryPageViewModel
         => ExecuteOperationAsync("branch merge", async token =>
         {
             if (!TryGetCurrentConfig(out var config) || config is null) return;
-            await HistoryMergeInteraction.ShowAsync(config, SelectedBranch?.BranchId, token);
+            await HistoryMergeInteraction.ShowAsync(config, new SourceId(Guid.Parse(_currentFolder!.Id)), SelectedBranch?.BranchId, token);
             await RefreshCurrentHistoryAsync(token);
         }, cancellationToken);
 
@@ -615,40 +620,48 @@ public sealed partial class HistoryPageViewModel
             return;
         }
 
-        var mode = await ChooseRestoreModeAsync(
-            item.HasPartialBackup,
-            isRun: true,
-            I18n.GetString(config.Archive.BackupBeforeRestore ? "Restore_SafetyEnabled" : "Restore_SafetyDisabled"),
-            cancellationToken,
-            ReviewFields(config.Name, item.DateDisplay + " " + item.TimeDisplay, item.Comment,
-                string.Join("\n", config.SourceFolders.Select(folder => folder.Path))));
-        if (mode is null)
-        {
-            return;
-        }
+        var options = await NativeHistoryApplicationService.GetRunRestoreOptionsAsync(config, item.RunId, cancellationToken);
+        var selected = await _interactions.SelectManyAsync(I18n.GetString("History_Run_SelectRestoreSources"),
+            I18n.GetString("History_Run_SelectRestoreSourcesHint"), options.Select(option => new HistorySelectionOption(
+                option.SourceId.ToString(), I18n.Format("History_Run_RestoreSourceReview", option.Name,
+                    option.VersionId?.ToString()[..8] ?? "—", option.BranchName, option.Diagnostic), option.CanRestore)).ToArray(), cancellationToken);
+        if (selected is null || selected.Count == 0) return;
+        var selectedIds = selected.Select(SourceId.Parse).ToHashSet();
+        var mode = await ChooseRestoreModeAsync(options.Any(option => selectedIds.Contains(option.SourceId) && option.IsPartial),
+            isRun: true, I18n.GetString(config.Archive.BackupBeforeRestore ? "Restore_SafetyEnabled" : "Restore_SafetyDisabled"),
+            cancellationToken, ReviewFields(config.Name, item.DateDisplay + " " + item.TimeDisplay, item.Comment,
+                string.Join("\n", config.SourceFolders.Where(folder => selectedIds.Contains(new SourceId(Guid.Parse(folder.Id)))).Select(folder => folder.Path))));
+        if (mode is null) return;
 
-        if (item.ResultCheckpointId is not { } checkpointId)
-        {
-            return;
-        }
         SetOperationStatus("Restore_Progress");
-        var result = await NativeHistoryApplicationService.RestoreCheckpointAsync(
-            config,
-            checkpointId,
-            completeCheckpoint: !item.HasPartialBackup,
-            mode.Value);
-        if (result?.Succeeded != true)
-        {
-            _interactions.NotifyRestoreCompleted(config.Name, false, NormalizeDiagnostic(result?.Diagnostic));
-            return;
-        }
+        var result = await NativeHistoryApplicationService.RestoreRunAsync(config, item.RunId,
+            selectedIds.ToArray(), mode.Value, cancellationToken);
+        _interactions.NotifyRestoreCompleted(config.Name, result.Succeeded, NormalizeDiagnostic(result.Diagnostic));
+        if (result.Succeeded) await RefreshCurrentHistoryAsync(cancellationToken);
+    }
 
-        var succeeded = result.AppliedSources.Count;
-        var failed = Math.Max(0, item.Sources.Count - succeeded);
-        _interactions.NotifyRestoreCompleted(
-            config.Name,
-            failed == 0,
-            failed == 0 ? null : I18n.Format("History_Run_RestoreSummary", succeeded, failed));
+    private async Task RestoreRunSourceCoreAsync(BackupRunSourceViewItem item, CancellationToken token)
+    {
+        var config = _currentConfig;
+        if (config is null || !item.CanRestore || !await VerifyPasswordIfRequiredAsync(config, token)) return;
+        if (!await _interactions.ConfirmAsync(I18n.GetString("History_Run_RestoreSource"),
+            I18n.Format("History_Run_RestoreSourceConfirm", item.Name, item.VersionDisplay, item.BranchName),
+            I18n.GetString("Common_Ok"), true, token)) return;
+        var result = await NativeHistoryApplicationService.RestoreRunAsync(config, item.RunId,
+            [item.SourceId], BackupService.RestoreMode.Clean, token);
+        _interactions.NotifyRestoreCompleted(item.Name, result.Succeeded, NormalizeDiagnostic(result.Diagnostic));
+        if (result.Succeeded) await RefreshCurrentHistoryAsync(token);
+    }
+
+    private async Task ShowRunSourceHistoryAsync(BackupRunSourceViewItem? item, CancellationToken token)
+    {
+        if (item is null || _currentConfig is not { } config) return;
+        var folder = config.SourceFolders.FirstOrDefault(f => Guid.TryParse(f.Id, out var id) && id == item.SourceId.Value);
+        if (folder is null) return;
+        _viewMode = HistoryViewMode.PerSource;
+        if (Settings is not null) { Settings.LastHistoryViewMode = _viewMode; await ConfigService.SaveAsync(cancellationToken: token); }
+        NotifyViewModeChanged();
+        await SetCurrentSelectionAsync(config, folder, true, true, token);
     }
 
     private async Task<BackupService.RestoreMode?> ChooseRestoreModeAsync(
@@ -1021,8 +1034,10 @@ public sealed partial class HistoryPageViewModel
         DeleteVersionCommand.NotifyCanExecuteChanged();
         EditRunCommentCommand.NotifyCanExecuteChanged();
         ToggleRunImportantCommand.NotifyCanExecuteChanged();
-        CreateBranchFromRunCommand.NotifyCanExecuteChanged();
+        CreateBranchFromRunSourceCommand.NotifyCanExecuteChanged();
         RestoreRunCommand.NotifyCanExecuteChanged();
+        RestoreRunSourceCommand.NotifyCanExecuteChanged();
+        ShowRunSourceHistoryCommand.NotifyCanExecuteChanged();
         DeleteRunCommand.NotifyCanExecuteChanged();
         MergeBranchCommand.NotifyCanExecuteChanged();
         CheckoutBranchCommand.NotifyCanExecuteChanged();
@@ -1055,8 +1070,10 @@ public sealed partial class HistoryPageViewModel
         DeleteVersionCommand.Cancel();
         EditRunCommentCommand.Cancel();
         ToggleRunImportantCommand.Cancel();
-        CreateBranchFromRunCommand.Cancel();
+        CreateBranchFromRunSourceCommand.Cancel();
         RestoreRunCommand.Cancel();
+        RestoreRunSourceCommand.Cancel();
+        ShowRunSourceHistoryCommand.Cancel();
         DeleteRunCommand.Cancel();
         MergeBranchCommand.Cancel();
         CheckoutBranchCommand.Cancel();

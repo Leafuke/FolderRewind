@@ -53,7 +53,7 @@
                               DisplayMemberPath="Name"
                               SelectionChanged="ConfigFilter_SelectionChanged"/>
 
-                    <ComboBox x:Name="FolderFilter" Grid.Column="1" x:Uid="HistoryPage_FolderFilter"
+                    <ComboBox Visibility="{x:Bind ViewModel.ShowPerSourceHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Name="FolderFilter" Grid.Column="1" x:Uid="HistoryPage_FolderFilter"
                               AutomationProperties.AutomationId="HistoryFolderFilter"
                               HorizontalAlignment="Stretch"
                               DisplayMemberPath="DisplayName"
@@ -83,7 +83,7 @@
                 </InfoBar>
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsAdvancedHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.AutomationId="HistoryAdvancedTools">
                     <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
-                    <Grid x:Name="BranchSelectionGrid" ColumnSpacing="12" SizeChanged="OnBranchToolbarSizeChanged">
+                    <Grid Visibility="{x:Bind ViewModel.ShowBranchTools, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Name="BranchSelectionGrid" ColumnSpacing="12" SizeChanged="OnBranchToolbarSizeChanged">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="200"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <TextBlock x:Name="CurrentBranchLabel" Text="{x:Bind ViewModel.CurrentBranchDisplay, Mode=OneWay}" MaxWidth="180" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind ViewModel.CurrentBranchDisplay, Mode=OneWay}"/>
@@ -359,7 +359,6 @@
                                             <FontIcon Glyph="&#xE712;" FontSize="14"/>
                                             <DropDownButton.Flyout><MenuFlyout>
                                                 <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuComment" Click="OnEditRunCommentClick" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunEditComment}"/>
-                                                <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuBranch" Click="OnCreateBranchFromRunClick" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunCreateBranch}" IsEnabled="{x:Bind CanCreateBranch, Mode=OneTime}" Visibility="{x:Bind IsAdvanced, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                                                 <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuDelete" Click="OnDeleteRunClick" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunDelete}"/>
                                             </MenuFlyout></DropDownButton.Flyout>
                                         </DropDownButton>
@@ -369,16 +368,19 @@
                             <ItemsControl ItemsSource="{x:Bind Sources, Mode=OneTime}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BackupRunSourceViewItem">
-                                        <Grid Padding="8,5" ColumnSpacing="12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{x:Bind Name, Mode=OneTime}" TextWrapping="Wrap"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind StatusText, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind Detail, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                                        </Grid>
+                                        <StackPanel Padding="8,8" Spacing="4">
+                                            <TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{x:Bind StatusText, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind VersionDisplay, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind BranchDisplay, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{x:Bind Detail, Mode=OneTime}" TextWrapping="Wrap"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button x:Uid="History_RunSource_Restore" Click="OnRestoreRunSourceClick" IsEnabled="{x:Bind CanRestore, Mode=OneTime}" AutomationProperties.AutomationId="HistoryRunSourceRestore"/>
+                                                <Button x:Uid="History_RunSource_Branch" Click="OnCreateBranchFromRunSourceClick" IsEnabled="{x:Bind CanCreateBranch, Mode=OneTime}"
+                                                    Visibility="{x:Bind IsAdvanced, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.AutomationId="HistoryRunSourceBranch"/>
+                                                <Button x:Uid="History_RunSource_History" Click="OnShowRunSourceHistoryClick" AutomationProperties.AutomationId="HistoryRunSourceHistory"/>
+                                            </StackPanel>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>

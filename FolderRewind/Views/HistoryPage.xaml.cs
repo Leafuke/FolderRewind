@@ -44,14 +44,17 @@ public sealed partial class HistoryPage : Page
 
     private void OnOpenAdvancedClick(object sender, RoutedEventArgs e) => PresentationSelector.SelectedItem = AdvancedHistoryItem;
 
-    private void OnHistoryPageSizeChanged(object sender, SizeChangedEventArgs e)
+    private void OnHistoryPageSizeChanged(object sender, SizeChangedEventArgs e) => UpdateFilterLayout(e.NewSize.Width);
+
+    private void UpdateFilterLayout(double width)
     {
         if (FiltersGrid is null) return;
-        var narrow = e.NewSize.Width < 860;
+        var narrow = width < 860;
         Grid.SetColumn(CommentFilterBox, narrow ? 0 : 2);
         Grid.SetRow(CommentFilterBox, narrow ? 1 : 0);
         Grid.SetColumn(GroupingPanel, narrow ? 1 : 3);
         Grid.SetRow(GroupingPanel, narrow ? 1 : 0);
+        FiltersGrid.ColumnDefinitions[1].Width = ViewModel.IsGroupedRunView && !narrow ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
         FiltersGrid.ColumnDefinitions[2].Width = new GridLength(narrow ? 0 : 1, GridUnitType.Star);
         FiltersGrid.ColumnDefinitions[3].Width = new GridLength(0, GridUnitType.Auto);
         Grid.SetColumn(PresentationSelector, narrow ? 0 : 1);
@@ -101,7 +104,7 @@ public sealed partial class HistoryPage : Page
         if (args.Item is NativeHistoryVersionViewItem item)
         {
             AutomationProperties.SetName(args.ItemContainer, item.Message);
-            AutomationProperties.SetAutomationId(args.ItemContainer, $"HistoryVersionItem_{item.VersionId}");
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"HistoryVersionItem_{item.AutomationIdentity}");
         }
     }
 
@@ -239,7 +242,7 @@ public sealed partial class HistoryPage : Page
         SelectorBar sender,
         SelectorBarSelectionChangedEventArgs args)
     {
-        if (sender.SelectedItem?.Tag is not string tag)
+        if (_isNavigating || sender.SelectedItem?.Tag is not string tag)
         {
             return;
         }
@@ -271,6 +274,7 @@ public sealed partial class HistoryPage : Page
     private void ConfigureFolderFilter(BackupConfig config, ManagedFolder? preferredFolder)
     {
         var grouped = ViewModel.IsGroupedRunView;
+        UpdateFilterLayout(ActualWidth);
         FolderFilter.IsEnabled = !grouped;
         FolderFilter.PlaceholderText = grouped
             ? I18n.GetString("History_Run_AllSources")
@@ -316,8 +320,26 @@ public sealed partial class HistoryPage : Page
     private void OnToggleRunImportantClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.ToggleRunImportantCommand);
 
-    private void OnCreateBranchFromRunClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.CreateBranchFromRunCommand);
+    private void OnCreateBranchFromRunSourceClick(object sender, RoutedEventArgs e)
+        => ExecuteItemCommand<BackupRunSourceViewItem>(sender, ViewModel.CreateBranchFromRunSourceCommand);
+
+    private void OnRestoreRunSourceClick(object sender, RoutedEventArgs e)
+        => ExecuteItemCommand<BackupRunSourceViewItem>(sender, ViewModel.RestoreRunSourceCommand);
+
+    private async void OnShowRunSourceHistoryClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not BackupRunSourceViewItem item) return;
+        await ViewModel.ShowRunSourceHistoryCommand.ExecuteAsync(item);
+        ViewModel.TryGetCurrentSelection(out var config, out var folder);
+        if (config is null) return;
+        _isNavigating = true;
+        try
+        {
+            HistoryViewSelector.SelectedItem = SourceHistoryViewItem;
+            ConfigureFolderFilter(config, folder);
+        }
+        finally { _isNavigating = false; }
+    }
 
     private void OnRestoreRunClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.RestoreRunCommand);

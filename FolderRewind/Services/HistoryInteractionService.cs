@@ -11,6 +11,36 @@ namespace FolderRewind.Services;
 
 internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider) : IHistoryInteractionService
 {
+    public Task<System.Collections.Generic.IReadOnlyList<string>?> SelectManyAsync(string title, string message,
+        System.Collections.Generic.IReadOnlyList<HistorySelectionOption> options, CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync<System.Collections.Generic.IReadOnlyList<string>?>(async () =>
+        {
+            var content = new StackPanel { Spacing = 12, MaxWidth = 560 };
+            content.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
+            var rows = options.Select(option =>
+            {
+                var row = new CheckBox { Tag = option.Value, IsEnabled = option.IsEnabled, IsChecked = option.IsEnabled,
+                    Content = new TextBlock { Text = option.DisplayName, TextWrapping = TextWrapping.Wrap } };
+                AutomationProperties.SetAutomationId(row, "HistoryRunRestoreSource_" + option.Value);
+                AutomationProperties.SetName(row, option.DisplayName);
+                content.Children.Add(row);
+                return row;
+            }).ToArray();
+            var dialog = new ContentDialog { Title = title,
+                Content = new ScrollViewer { Content = content, MaxHeight = 420, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+                PrimaryButtonText = I18n.GetString("History_Run_RestoreSelected"),
+                CloseButtonText = I18n.GetString("Common_Cancel"), DefaultButton = ContentDialogButton.Close,
+                IsPrimaryButtonEnabled = rows.Any(row => row.IsEnabled && row.IsChecked == true) };
+            foreach (var row in rows)
+            {
+                row.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = rows.Any(r => r.IsEnabled && r.IsChecked == true);
+                row.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = rows.Any(r => r.IsEnabled && r.IsChecked == true);
+            }
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, GetXamlRoot(), cancellationToken);
+            return result == ContentDialogResult.Primary ? rows.Where(row => row.IsEnabled && row.IsChecked == true)
+                .Select(row => (string)row.Tag).ToArray() : null;
+        });
+
     public Task<bool> ConfirmAsync(
         string title,
         string message,

@@ -43,10 +43,10 @@ public sealed class HistoryPresentationQueryTests
         var branchId = BranchId.New();
         var tipOne = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", checkpointOne.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpointOne.SourceId);
         var tipTwo = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", checkpointTwo.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddTicks(1), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddTicks(1), BranchUpdateReason.Backup, sourceId: checkpointTwo.SourceId);
         var codec = new HistoryPackCodec();
         await runtime.Repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
@@ -96,7 +96,6 @@ public sealed class HistoryPresentationQueryTests
             RunId.New(), configId, DateTimeOffset.UtcNow.AddSeconds(-1), DateTimeOffset.UtcNow,
             BackupInvocationKind.Manual, BackupRunOutcome.Completed,
             [new BackupRunSourceResult(sourceId, BackupRunSourceOutcome.Captured, version.VersionId, [])],
-            resultCheckpointId: null,
             diagnostics: []);
         var codec = new HistoryPackCodec();
         await runtime.Repository.CommitAsync(new HistoryCommitPack(
@@ -126,16 +125,16 @@ public sealed class HistoryPresentationQueryTests
         var featureId = BranchId.New();
         var mainRoot = new BranchUpdate(
             BranchUpdateId.New(), mainId, [], "main", sharedCheckpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: sharedCheckpoint.SourceId);
         var mainTip = new BranchUpdate(
             BranchUpdateId.New(), mainId, [mainRoot.UpdateId], "main", mainCheckpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddTicks(1), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddTicks(1), BranchUpdateReason.Backup, sourceId: mainCheckpoint.SourceId);
         var featureRoot = new BranchUpdate(
             BranchUpdateId.New(), featureId, [], "feature", sharedCheckpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddTicks(2), BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow.AddTicks(2), BranchUpdateReason.Created, sourceId: sharedCheckpoint.SourceId);
         var featureTip = new BranchUpdate(
             BranchUpdateId.New(), featureId, [featureRoot.UpdateId], "feature", featureCheckpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddTicks(3), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddTicks(3), BranchUpdateReason.Backup, sourceId: featureCheckpoint.SourceId);
         var codec = new HistoryPackCodec();
         await runtime.Repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
@@ -148,13 +147,13 @@ public sealed class HistoryPresentationQueryTests
         await runtime.WorkspaceStore.SaveAsync(
             new FolderRewind.History.LocalState.HistoryWorkspace(
                 configId,
-                0,
-                featureId,
-                featureTip.UpdateId,
+                0, HistoryFixture.SourceStates(
                 [new FolderRewind.History.LocalState.WorkspaceSourceBaseline(
                     sourceId,
                     featureOnly.VersionId,
-                    FolderRewind.History.LocalState.WorkspaceBaselineRelation.Exact)]),
+                    FolderRewind.History.LocalState.WorkspaceBaselineRelation.Exact)],
+                featureId,
+                featureTip.UpdateId,null)),
             FolderRewind.History.LocalState.HistoryWorkspaceStore.MissingRevision);
 
         var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
@@ -176,13 +175,13 @@ public sealed class HistoryPresentationQueryTests
         await runtime.WorkspaceStore.SaveAsync(
             new FolderRewind.History.LocalState.HistoryWorkspace(
                 configId,
-                1,
-                featureId,
-                featureRoot.UpdateId,
+                1, HistoryFixture.SourceStates(
                 [new FolderRewind.History.LocalState.WorkspaceSourceBaseline(
                     sourceId,
                     shared.VersionId,
-                    FolderRewind.History.LocalState.WorkspaceBaselineRelation.Exact)]),
+                    FolderRewind.History.LocalState.WorkspaceBaselineRelation.Exact)],
+                featureId,
+                featureRoot.UpdateId,null)),
             expectedRevision: 0);
         var staleAnchorSnapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
         Assert.IsFalse(staleAnchorSnapshot.Branches
@@ -233,7 +232,7 @@ public sealed class HistoryPresentationQueryTests
             CaptureScope.FullSource, CaptureOutcome.Recovered, [],
             new SourceDescriptorSnapshot(name, name), name, HistoryProvenance.Native("test"));
 
-    private static ConfigurationCheckpoint Checkpoint(
+    private static SourceCheckpoint Checkpoint(
         HistoryConfigId configId,
         SourceId sourceId,
         SourceVersion version)
