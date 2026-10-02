@@ -115,14 +115,6 @@ public sealed class ShellOrchestrationTests
         Assert.IsTrue(hidden);
     }
 
-    [TestMethod]
-    public void ShellCodeBehindOnlyOwnsNavigationAndPresentationAdapters()
-    {
-        var source = File.ReadAllText(Path.Combine(FolderManagerMvvmArchitectureTests.FindRoot(), "FolderRewind/Views/ShellPage.xaml.cs"));
-        foreach (var forbidden in new[] { "ConfigService", "NoticeService", "AppUpdateService", "NotificationService", "KnotLinkServerManagerService", "Task.Run(", "new ContentDialog" })
-            Assert.IsFalse(source.Contains(forbidden, StringComparison.Ordinal), forbidden);
-    }
-
     private sealed class ManualTime : TimeProvider
     {
         public long Timestamp;

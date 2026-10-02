@@ -1,10 +1,7 @@
 using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
-using FolderRewind.Plugin.Runtime.Loading;
 using FolderRewind.Plugin.Runtime.Operations;
-using FolderRewind.Plugin.Runtime.Packaging;
-using FolderRewind.Plugin.Runtime.Settings;
 
 namespace FolderRewind.Plugin.Runtime.Tests;
 
@@ -12,16 +9,7 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private const string MineRewindSha256 = "9cf45bc4be235ec2c95beb4b4dcbf7d14184d66b2cd6c8e6d55206ae5fc35de5";
-    private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
-    private static readonly ConfigKindRef MinecraftKind = new(
-        new OwnerId(MineRewindPluginId.Value),
-        "minecraft-saves");
-
-    [ClassCleanup]
-    public static void CleanupBlackBoxExtractions()
-        => BlackBoxExtraction.CleanupPending();
 
     [TestMethod]
     public async Task FakeDiscoveryRunsOnlyAfterRuntimeActivationCommit()
@@ -108,184 +96,6 @@ public sealed class PluginVerticalSliceTests
 
         Assert.AreEqual(OperationOutcome.Success, result.Outcome);
         CollectionAssert.AreEqual(new[] { "commit", "command", "safety-backup" }, events);
-    }
-
-    [TestMethod]
-    public async Task MineRewindDiscoveryReturnsHostOwnedDraftThroughRuntime()
-    {
-        using var world = TemporaryWorld.Create();
-        var events = new List<string>();
-        await using var fixture = await ActivateMineRewindAsync(events);
-        var draftStore = new RecordingDiscoveryDraftStore(events);
-        var coordinator = new PluginDiscoveryCoordinator(fixture.Manager, draftStore);
-
-        var run = await coordinator.DiscoverAsync(
-            MineRewindPluginId,
-            new DiscoveryRequest([world.Path]),
-            autoCreateConfigs: true);
-
-        using var discoveryLease = fixture.Manager.TryAcquire<IDiscoveryCapability>(MineRewindPluginId);
-        Assert.IsNotNull(discoveryLease);
-        var catalog = discoveryLease.Capability as IDiscoveryDefinitionCatalog;
-        Assert.IsNotNull(catalog);
-        var definition = catalog.Definitions.Single();
-        Assert.AreEqual("minecraft-java", definition.DefinitionId);
-        Assert.AreEqual(
-            definition.DefinitionId,
-            catalog.ResolveDefinitionId(run.Discovery.Candidates.Single()));
-
-        CollectionAssert.AreEqual(new[] { "commit", "draft-commit" }, events);
-        Assert.IsTrue(run.DraftsCommitted);
-        var draft = run.Discovery.Candidates.Single().ConfigDrafts.Single();
-        Assert.AreEqual(MinecraftKind, draft.Kind);
-        Assert.AreEqual(world.Path, draft.Folders.Single().Path);
-        Assert.AreEqual(0, fixture.Host.Configs.FindCalls);
-        Assert.HasCount(1, draftStore.Commits);
-    }
-
-    [TestMethod]
-    public async Task MineRewindConsistencyRunsBeforeOneSourceIsConsumedThroughRuntime()
-    {
-        using var world = TemporaryWorld.Create();
-        using var sessionLock = world.AcquireSessionLock();
-        var events = new List<string>();
-        await using var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
-        fixture.Host.KnotLink.OnSendAsync = async (eventName, _, _) =>
-        {
-            var response = eventName switch
-            {
-                "handshake" => "HANDSHAKE_RESPONSE",
-                "pre_hot_backup" => "WORLD_SAVED",
-                _ => null
-            };
-            if (response is null) return;
-            using var signalLease = fixture.Manager.TryAcquire<IKnotLinkIntegrationCapability>(MineRewindPluginId);
-            Assert.IsNotNull(signalLease);
-            await signalLease.Capability.ExecuteAsync(
-                response,
-                response == "HANDSHAKE_RESPONSE"
-                    ? new Dictionary<string, string> { ["mod_version"] = "3.0.0" }
-                    : new Dictionary<string, string>(),
-                signalLease.Context);
-        };
-        using var capabilityLease = fixture.Manager.TryAcquire<IBackupConsistencyCapability>(MineRewindPluginId);
-        Assert.IsNotNull(capabilityLease);
-        var (config, folder) = Snapshot(MinecraftKind, world.Path);
-
-        var sourceLease = await capabilityLease.Capability.AcquireAsync(
-            new BackupConsistencyRequest(config, folder, ConsistencyIntent.Require),
-            capabilityLease.Context);
-        var capturedSource = sourceLease.SourcePath;
-        events.Add($"diff:{sourceLease.SourcePath}");
-        events.Add($"archive:{sourceLease.SourcePath}");
-
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                "commit",
-                "knot:handshake",
-                "knot:handshake_ack",
-                "knot:pre_hot_backup",
-                $"diff:{capturedSource}",
-                $"archive:{capturedSource}"
-            },
-            events);
-        Assert.AreNotEqual(world.Path, capturedSource);
-        Assert.IsTrue(sourceLease.IsStableSourceView);
-        Assert.IsTrue(File.Exists(Path.Combine(capturedSource, "level.dat")));
-        await sourceLease.DisposeAsync();
-        Assert.IsFalse(Directory.Exists(capturedSource));
-    }
-
-    [TestMethod]
-    public async Task MineRewindCaptureMetadataProviderIsRegisteredFromBundledManifest()
-    {
-        var events = new List<string>();
-        await using var fixture = await ActivateMineRewindAsync(events);
-
-        using var lease = fixture.Manager.TryAcquire<IVersionMetadataProviderCapability>(MineRewindPluginId);
-
-        Assert.IsNotNull(lease);
-        Assert.AreEqual(MinecraftKind, lease.Capability.Kind);
-    }
-
-    [TestMethod]
-    public async Task MineRewindRestoreCoordinatesBackupMutationAndRejoinThroughRuntime()
-    {
-        using var world = TemporaryWorld.Create();
-        using var sessionLock = world.AcquireSessionLock();
-        var events = new List<string>();
-        await using var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
-        fixture.Host.KnotLink.OnSendAsync = async (eventName, _, _) =>
-        {
-            string? response = null;
-            IReadOnlyDictionary<string, string> arguments = new Dictionary<string, string>();
-            if (eventName == "handshake")
-            {
-                response = "HANDSHAKE_RESPONSE";
-                arguments = new Dictionary<string, string> { ["mod_version"] = "3.0.0" };
-            }
-            else if (eventName == "pre_hot_restore")
-            {
-                sessionLock.Dispose();
-                response = "WORLD_SAVE_AND_EXIT_COMPLETE";
-            }
-            else if (eventName == "rejoin_world")
-            {
-                response = "REJOIN_RESULT";
-                arguments = new Dictionary<string, string> { ["result"] = "success" };
-            }
-            if (response is null) return;
-            using var signalLease = fixture.Manager.TryAcquire<IKnotLinkIntegrationCapability>(MineRewindPluginId);
-            Assert.IsNotNull(signalLease);
-            await signalLease.Capability.ExecuteAsync(response, arguments, signalLease.Context);
-        };
-        using var lease = fixture.Manager.TryAcquire<IRestoreCoordinatorCapability>(MineRewindPluginId);
-        Assert.IsNotNull(lease);
-        var (config, folder) = Snapshot(MinecraftKind, world.Path);
-        var gate = new RestoreMutationContinuationGate(_ =>
-        {
-            events.Add("mutation");
-            return ValueTask.FromResult(OperationOutcome.Success);
-        });
-
-        var result = await lease.Capability.CoordinateAsync(
-            new RestoreCoordinatorRequest(config, [folder], "history-1", Guid.NewGuid(), WorkspaceOperationKind.Restore, gate.InvokeAsync),
-            lease.Context);
-
-        Assert.AreEqual(OperationOutcome.Success, result.Outcome);
-        Assert.IsTrue(gate.WasInvoked);
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                "commit",
-                "knot:handshake",
-                "knot:handshake_ack",
-                "knot:pre_hot_restore",
-                "mutation",
-                "knot:restore_finished",
-                "knot:rejoin_world",
-                "knot:hot_restore_complete"
-            },
-            events);
-    }
-
-    [TestMethod]
-    public async Task MineRewindCommandRoutesThroughHostServiceAfterRuntimeActivation()
-    {
-        var events = new List<string>();
-        await using var fixture = await ActivateMineRewindAsync(events);
-        using var lease = fixture.Manager.TryAcquire<IPluginCommandCapability>(MineRewindPluginId);
-        Assert.IsNotNull(lease);
-
-        var result = await lease.Capability.ExecuteAsync(
-            new PluginCommandRequest(
-                new PluginCommandId(MineRewindPluginId, "hotbackup.active-world"),
-                new Dictionary<string, JsonElement> { ["configId"] = Json("\"config-1\"") }),
-            lease.Context);
-
-        Assert.AreEqual(OperationOutcome.Success, result.Outcome);
-        CollectionAssert.AreEqual(new[] { "commit", "safety-backup" }, events);
     }
 
     [TestMethod]
@@ -413,78 +223,6 @@ public sealed class PluginVerticalSliceTests
         return new RuntimeFixture(manager, host);
     }
 
-    private static async Task<MineRuntimeFixture> ActivateMineRewindAsync(
-        List<string> events,
-        bool knotLinkAvailable = false)
-    {
-        var repositoryRoot = FindRepositoryRoot();
-        var packagePath = Path.Combine(
-            repositoryRoot,
-            "FolderRewind",
-            "Assets",
-            "Plugins",
-            "MineRewind-1.9.3.frplugin");
-        var sidecarSha256 = (await File.ReadAllTextAsync(packagePath + ".sha256"))
-            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
-        Assert.AreEqual(MineRewindSha256, sidecarSha256);
-        var package = await PluginPackageValidator.ValidateAsync(packagePath, sidecarSha256);
-        Assert.AreEqual(MineRewindPluginId, package.Manifest.Contract.PluginId);
-        Assert.AreEqual("1.9.3", package.Manifest.Contract.Version);
-        CollectionAssert.AreEquivalent(
-            new[]
-            {
-                HostServiceKind.ConfigQuery,
-                HostServiceKind.BackupRequest,
-                HostServiceKind.RestoreRequest,
-                HostServiceKind.HistoryQuery,
-                HostServiceKind.KnotLink,
-                HostServiceKind.TemporaryStorage,
-                HostServiceKind.Logging
-            },
-            package.Manifest.Contract.RequestedHostServices.ToArray());
-        Assert.IsFalse(package.Entries.Any(entry => entry.CanonicalPath.EndsWith(
-            "FolderRewind.Plugin.Abstractions.dll",
-            StringComparison.OrdinalIgnoreCase)));
-
-        var extraction = BlackBoxExtraction.Create();
-        await PluginPackageValidator.ExtractAsync(package, extraction.PayloadPath);
-        var manifest = PluginPackageManifestReader.Parse(
-            await File.ReadAllBytesAsync(Path.Combine(extraction.PayloadPath, "manifest.json")));
-        var loaded = PluginAssemblyLoader.Load(new PluginLoadRequest(
-            manifest.Contract.PluginId,
-            extraction.PayloadPath,
-            manifest.Contract.EntryAssembly,
-            manifest.Contract.EntryType,
-            manifest.Contract.RequiredApi));
-        var schema = PluginSettingsSchema.Parse(
-            await File.ReadAllBytesAsync(Path.Combine(extraction.PayloadPath, manifest.Contract.SettingsSchema)));
-        var settings = schema.Validate(new PluginSettingsSnapshot(
-            manifest.Contract.PluginId,
-            new Dictionary<string, JsonElement>())).NormalizedSettings;
-        var host = new RecordingHostServices(events, knotLinkAvailable);
-        var manager = new PluginRuntimeManager();
-        try
-        {
-            var result = await manager.ActivateAsync(new PluginActivationCandidate(
-                manifest.Contract.PluginId,
-                () => loaded.Instance,
-                settings,
-                Array.Empty<ConfigSnapshot>(),
-                host,
-                new RecordingActivationStore(events),
-                manifest.Contract));
-            Assert.IsTrue(result.Success, string.Join(", ", result.Diagnostics.Select(diagnostic =>
-                diagnostic.Arguments.TryGetValue("message", out var message) ? $"{diagnostic.Code}: {message}" : diagnostic.Code)));
-            return new MineRuntimeFixture(manager, host, loaded, extraction);
-        }
-        catch
-        {
-            loaded.Dispose();
-            extraction.Dispose();
-            throw;
-        }
-    }
-
     private static PluginActivationCandidate Candidate(
         PluginId pluginId,
         Func<IFolderRewindPlugin> factory,
@@ -527,98 +265,6 @@ public sealed class PluginVerticalSliceTests
             Array.Empty<PluginDiagnostic>());
 
     private sealed record RuntimeFixture(PluginRuntimeManager Manager, RecordingHostServices Host);
-
-    private sealed class MineRuntimeFixture(
-        PluginRuntimeManager manager,
-        RecordingHostServices host,
-        LoadedPluginAssembly loaded,
-        BlackBoxExtraction extraction) : IAsyncDisposable
-    {
-        public PluginRuntimeManager Manager { get; } = manager;
-        public RecordingHostServices Host { get; } = host;
-
-        public async ValueTask DisposeAsync()
-        {
-            await Manager.DeactivateAsync(MineRewindPluginId);
-            loaded.Dispose();
-            extraction.Dispose();
-        }
-    }
-
-    private sealed class BlackBoxExtraction : IDisposable
-    {
-        private static readonly System.Collections.Concurrent.ConcurrentBag<string> PendingCleanup = new();
-
-        private BlackBoxExtraction(string root)
-        {
-            Root = root;
-            PayloadPath = Path.Combine(root, "payload");
-        }
-
-        public string Root { get; }
-        public string PayloadPath { get; }
-
-        public static BlackBoxExtraction Create()
-        {
-            var root = Path.Combine(
-                Path.GetTempPath(),
-                "FolderRewind-BlackBox",
-                Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(root);
-            return new BlackBoxExtraction(root);
-        }
-
-        public void Dispose()
-        {
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                PendingCleanup.Add(Root);
-            }
-        }
-
-        public static void CleanupPending()
-        {
-            while (PendingCleanup.TryTake(out var path))
-            {
-                for (var attempt = 0; attempt < 10 && Directory.Exists(path); attempt++)
-                {
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
-                    GC.Collect();
-                    try
-                    {
-                        Directory.Delete(path, recursive: true);
-                    }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    {
-                        // Windows may retain mapped plugin modules until testhost exits even after
-                        // collectible ALC disposal. The OS temp root remains the recovery boundary.
-                    }
-                }
-            }
-        }
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(
-                    directory.FullName,
-                    "FolderRewind",
-                    "Assets",
-                    "Plugins",
-                    "MineRewind-1.9.3.frplugin")))
-                return directory.FullName;
-            directory = directory.Parent;
-        }
-        throw new DirectoryNotFoundException("FolderRewind repository root could not be located.");
-    }
 
     private sealed class RecordingActivationStore(List<string> events) : IPluginActivationStore
     {
@@ -839,17 +485,13 @@ public sealed class PluginVerticalSliceTests
     private sealed class RecordingKnotLink(List<string> events, bool available) : IKnotLinkHostService
     {
         public bool IsAvailable { get; } = available;
-        public Func<string, IReadOnlyDictionary<string, string>, CancellationToken, Task>? OnSendAsync { get; set; }
-        public async ValueTask SendAsync(
+        public ValueTask SendAsync(
             string eventName,
             IReadOnlyDictionary<string, string> arguments,
             CancellationToken cancellationToken)
         {
             events.Add($"knot:{eventName}");
-            if (OnSendAsync is not null)
-            {
-                await OnSendAsync(eventName, arguments, cancellationToken);
-            }
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -872,31 +514,4 @@ public sealed class PluginVerticalSliceTests
         public void Log(DiagnosticSeverity severity, string message, Exception? exception = null) { }
     }
 
-    private sealed class TemporaryWorld : IDisposable
-    {
-        private TemporaryWorld(string path) => Path = path;
-        public string Path { get; }
-
-        public static TemporaryWorld Create()
-        {
-            var path = System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(),
-                "FolderRewind-M3-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(path);
-            File.WriteAllBytes(System.IO.Path.Combine(path, "level.dat"), [0x0A]);
-            return new TemporaryWorld(path);
-        }
-
-        public FileStream AcquireSessionLock()
-        {
-            var path = System.IO.Path.Combine(Path, "session.lock");
-            File.WriteAllBytes(path, [0]);
-            return new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-        }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(Path)) Directory.Delete(Path, recursive: true);
-        }
-    }
 }

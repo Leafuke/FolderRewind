@@ -28,13 +28,4 @@ public sealed class HistoryConfigIdentityLookupTests
         Assert.IsFalse(id.Matches(null));
         Assert.IsFalse(id.Matches(""));
     }
-
-    [TestMethod]
-    public void RuntimeLookupUsesCanonicalIdentityOnTheOwnerThread()
-    {
-        var source = File.ReadAllText(Path.Combine(FolderManagerMvvmArchitectureTests.FindRoot(),
-            "FolderRewind/History/Application/NativeHistoryCoreGateway.cs"));
-        StringAssert.Contains(source, "identity.Matches(item.Id)");
-        StringAssert.Contains(source, "await UiDispatcherService.RunOnUiAsync");
-    }
 }

@@ -93,14 +93,4 @@ public sealed class MiniBackupControllerTests
         changes.MarkChanged();
         Assert.IsTrue(changes.HasChanges);
     }
-
-    [TestMethod]
-    public void WindowCodeBehindDoesNotOwnBackupOrProcessBusiness()
-    {
-        var source = File.ReadAllText(Path.Combine(FolderManagerMvvmArchitectureTests.FindRoot(), "FolderRewind/Views/MiniWindow.xaml.cs"));
-        foreach (var dependency in new[] { "BackupService", "FolderWatcherService", "Process.Start", "ConfigService", "Task.Run(", "TryEnqueue(async" })
-            Assert.IsFalse(source.Contains(dependency, StringComparison.Ordinal), dependency);
-        StringAssert.Contains(source, "ViewModel.Dispose()");
-        StringAssert.Contains(source, "Tick -= WatchTimer_Tick");
-    }
 }

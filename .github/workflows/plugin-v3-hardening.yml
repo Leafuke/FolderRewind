@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   contracts-runtime-host:
-    name: Contracts, Runtime, Host, bundled plugin
+    name: Contracts, Runtime, Host policies
     runs-on: windows-latest
 
     steps:
@@ -43,11 +43,11 @@ jobs:
         shell: pwsh
         run: dotnet restore FolderRewind.slnx -p:Platform=x64
 
-      - name: Test frozen Plugin API
+      - name: Test approved Plugin API contract
         shell: pwsh
         run: dotnet test FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj -c Release --no-restore
 
-      - name: Test Runtime and bundled MineRewind black box
+      - name: Test Runtime and Fake plugin behavior
         shell: pwsh
         run: dotnet test FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj -c Release --no-restore
 
@@ -55,7 +55,7 @@ jobs:
         shell: pwsh
         run: dotnet test FolderRewind.Tests/FolderRewind.Tests.csproj -c Release --no-restore
 
-      - name: Pack frozen Plugin API
+      - name: Pack Plugin API
         shell: pwsh
         run: dotnet pack FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj -c Release --no-restore -o artifacts/nuget
 

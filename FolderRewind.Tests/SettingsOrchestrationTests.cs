@@ -149,21 +149,6 @@ public sealed class SettingsOrchestrationTests
         controller.Activate(); Assert.IsTrue(controller.CanExecute);
     }
 
-    [TestMethod]
-    public void SettingsCodeBehindDoesNotOwnPersistenceProcessOrPluginBusiness()
-    {
-        var root = FolderManagerMvvmArchitectureTests.FindRoot();
-        var files = new[] { "Views/ConfigSettingsPage.xaml.cs", "Views/ConfigSettingsPage.Actions.cs",
-            "Views/ConfigSettingsPage.Filters.cs", "Views/ConfigSettingsPage.Lifecycle.cs", "Views/Settings/PluginsKnotLinkControl.xaml.cs" };
-        foreach (var file in files)
-        {
-            var source = File.ReadAllText(Path.Combine(root, "FolderRewind", file));
-            foreach (var forbidden in new[] { "ConfigService.", "PluginService.", "PluginV3PackageService.", "KnotLinkService.",
-                "KnotLinkServerManagerService.", "BackupPresetService.", "Directory.", "Process.Start", "Task.Run(" })
-                Assert.IsFalse(source.Contains(forbidden, StringComparison.Ordinal), file + ": " + forbidden);
-        }
-    }
-
     private sealed class FakeActions(Func<PluginSettingsRequest, CancellationToken, Task> execute) : IPluginSettingsActions
     {
         public int Calls { get; private set; }

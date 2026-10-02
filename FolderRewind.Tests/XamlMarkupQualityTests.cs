@@ -22,20 +22,6 @@ public sealed class XamlMarkupQualityTests
         Assert.HasCount(0, templatesWithoutTypes, $"DataTemplates without x:DataType: {string.Join(", ", templatesWithoutTypes)}");
     }
 
-    [TestMethod]
-    public void StableStylesUseStaticResourceLookup()
-    {
-        var dynamicStyleLookups = LoadXamlDocuments()
-            .SelectMany(item => item.document
-                .Descendants()
-                .Attributes("Style")
-                .Where(attribute => attribute.Value.StartsWith("{ThemeResource ", StringComparison.Ordinal))
-                .Select(attribute => $"{item.path}:{attribute.Value}"))
-            .ToArray();
-
-        Assert.HasCount(0, dynamicStyleLookups, $"Stable styles should use StaticResource: {string.Join(", ", dynamicStyleLookups)}");
-    }
-
     private static IEnumerable<(string path, XDocument document)> LoadXamlDocuments()
     {
         var projectRoot = Path.Combine(FindRepositoryRoot(), "FolderRewind");

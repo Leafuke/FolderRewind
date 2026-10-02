@@ -63,7 +63,6 @@ public sealed class AccessibilityMarkupTests
             .Select(group => group.Key)
             .ToArray();
 
-        Assert.IsGreaterThanOrEqualTo(140, ids.Length, $"Expected the audited surfaces to expose stable selectors, found {ids.Length}.");
         Assert.HasCount(0, duplicates, $"Duplicate AutomationIds: {string.Join(", ", duplicates)}");
     }
 

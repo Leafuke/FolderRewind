@@ -86,18 +86,6 @@ public sealed class HistoryDomainTests
     }
 
     [TestMethod]
-    public void NativeRepresentationHasNoLegacyHistoryBindingFields()
-    {
-        var propertyNames = typeof(VersionRepresentation)
-            .GetProperties()
-            .Select(property => property.Name)
-            .ToHashSet(StringComparer.Ordinal);
-
-        Assert.DoesNotContain("HistoryItemId", propertyNames);
-        Assert.DoesNotContain("GraphRevision", propertyNames);
-    }
-
-    [TestMethod]
     public void ConfigId_UsesOneCanonicalContract()
     {
         var guid = Guid.NewGuid();

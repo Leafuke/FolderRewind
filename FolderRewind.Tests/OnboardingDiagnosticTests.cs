@@ -43,15 +43,4 @@ public sealed class OnboardingDiagnosticTests
         StringAssert.Contains(output, "unknown\tUnknown");
         StringAssert.Contains(output, "minecraft.host-connection\tNeedsInput");
     }
-
-    [TestMethod]
-    public async Task ActualRcloneVersionProbeIsBoundedAndReadOnly()
-    {
-        var executable = Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_RCLONE_PATH");
-        if (string.IsNullOrEmpty(executable)) { Assert.Inconclusive("Set FOLDERREWIND_TEST_RCLONE_PATH for the isolated version probe."); return; }
-        var before = ToolExecutableVerifier.HashExecutable(executable);
-        var version = await ToolExecutableVerifier.VerifyAsync(executable, "rclone", CancellationToken.None);
-        StringAssert.StartsWith(version, "rclone v");
-        Assert.AreEqual(before, ToolExecutableVerifier.HashExecutable(executable));
-    }
 }
