@@ -334,6 +334,7 @@ P FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor.DefinitionId:Sy
 P FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor.DisplayName:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor.ExternalIds:System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.DiscoveryProviderId.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.DiscoveryRequest.IncludeKnownLocations:System.Boolean { public get; public init; }
 P FolderRewind.Plugin.Abstractions.DiscoveryRequest.UserRoots:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.DiscoveryResult.Candidates:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.DiscoveryCandidate> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.DiscoveryResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }

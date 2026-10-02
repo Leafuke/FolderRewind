@@ -36,6 +36,9 @@ public static class PluginV3DiscoveryService
             new FolderRewind.Plugin.Abstractions.DiscoveryRequest([userRoot]),
             autoCreateConfigs: false,
             cancellationToken).ConfigureAwait(false);
+        if (!run.Discovery.Diagnostics.Any(value => value.Severity == DiagnosticSeverity.Error
+            || value.Code == "minerewind.discovery_budget"))
+            await PluginV3DiscoveryRootService.RememberUserRootsAsync(pluginId, [userRoot]).ConfigureAwait(false);
         var kind = PluginV3ModelMapper.ToKind(config);
         return run.Discovery.Candidates
             .SelectMany(candidate => candidate.ConfigDrafts)
@@ -69,12 +72,18 @@ public static class PluginV3DiscoveryService
             new HostDiscoveryDraftStore());
         try
         {
-            await coordinator.DiscoverAsync(
+            var run = await coordinator.DiscoverAsync(
                 pluginId,
                 new FolderRewind.Plugin.Abstractions.DiscoveryRequest(
-                    await PluginV3DiscoveryRootService.BuildDefaultRootsAsync(pluginId).ConfigureAwait(false)),
+                    await PluginV3DiscoveryRootService.BuildDefaultRootsAsync(pluginId).ConfigureAwait(false))
+                {
+                    IncludeKnownLocations = true
+                },
                 autoCreateConfigs: true,
                 cancellationToken).ConfigureAwait(false);
+            foreach (var diagnostic in run.Discovery.Diagnostics.Where(value => value.Severity != DiagnosticSeverity.Information))
+                LogService.LogWarning($"{diagnostic.Code}: {string.Join(", ", diagnostic.Arguments?.Values ?? Array.Empty<string>())}",
+                    "PluginV3Discovery");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

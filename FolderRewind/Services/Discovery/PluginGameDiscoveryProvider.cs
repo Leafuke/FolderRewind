@@ -101,10 +101,18 @@ internal sealed class PluginGameDiscoveryProvider : IGameDiscoveryProvider
         });
 
         var discovered = await lease.Capability.DiscoverAsync(
-            new PluginDiscoveryRequest(roots),
+            new PluginDiscoveryRequest(roots)
+            {
+                IncludeKnownLocations = request.Mode != DiscoveryRequestMode.UserRoots
+            },
             lease.Context).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        diagnostics.AddRange((discovered.Diagnostics ?? Array.Empty<PluginDiagnostic>()).Select(MapDiagnostic));
+        var pluginDiagnostics = discovered.Diagnostics ?? Array.Empty<PluginDiagnostic>();
+        diagnostics.AddRange(pluginDiagnostics.Select(MapDiagnostic));
+        if (request.Mode == DiscoveryRequestMode.UserRoots
+            && !pluginDiagnostics.Any(value => value.Severity == DiagnosticSeverity.Error
+                || value.Code == "minerewind.discovery_budget"))
+            await PluginV3DiscoveryRootService.RememberUserRootsAsync(_pluginId, roots).ConfigureAwait(false);
 
         var candidates = new List<DiscoveredGameCandidate>();
         foreach (var candidate in discovered.Candidates ?? Array.Empty<PluginDiscoveryCandidate>())
@@ -124,13 +132,18 @@ internal sealed class PluginGameDiscoveryProvider : IGameDiscoveryProvider
 
             try
             {
+                var kind = candidate.ConfigDrafts?.FirstOrDefault()?.Kind;
+                var declaration = kind.HasValue ? PluginV3RuntimeService.FindKind(kind.Value) : null;
+                var kindDescription = declaration == null ? null
+                    : I18n.PickBest(declaration.Description.Translations, declaration.Description.Default);
                 var mapped = PluginDiscoveryCandidateMapper.Map(
                     _pluginId,
                     _providerId,
                     _discoveryRevision,
                     candidate,
                     definition!,
-                    diagnostics);
+                    diagnostics,
+                    kindDescription);
                 if (mapped != null)
                 {
                     candidates.Add(mapped);
@@ -171,6 +184,10 @@ internal sealed class PluginGameDiscoveryProvider : IGameDiscoveryProvider
 
     private DiscoveryDiagnostic MapDiagnostic(PluginDiagnostic diagnostic)
     {
+        var code = diagnostic.Code == "minerewind.discovery_budget"
+            ? diagnostic.Arguments?.GetValueOrDefault("source") == "time"
+                ? "discovery-time-budget" : "discovery-result-budget"
+            : diagnostic.Code;
         var arguments = diagnostic.Arguments == null
             ? string.Empty
             : string.Join(", ", diagnostic.Arguments.OrderBy(pair => pair.Key, StringComparer.Ordinal)
@@ -183,7 +200,7 @@ internal sealed class PluginGameDiscoveryProvider : IGameDiscoveryProvider
                 DiagnosticSeverity.Warning => DiscoveryDiagnosticSeverity.Warning,
                 _ => DiscoveryDiagnosticSeverity.Information
             },
-            Code = diagnostic.Code,
+            Code = code,
             Message = string.IsNullOrWhiteSpace(arguments) ? diagnostic.Code : $"{diagnostic.Code}: {arguments}",
             ProviderId = _providerId.Value,
             Category = diagnostic.Capability

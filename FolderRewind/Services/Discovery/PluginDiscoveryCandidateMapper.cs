@@ -21,7 +21,8 @@ internal static class PluginDiscoveryCandidateMapper
         string discoveryRevision,
         PluginDiscoveryCandidate? candidate,
         DiscoveryDefinitionDescriptor definition,
-        ICollection<DiscoveryDiagnostic> diagnostics)
+        ICollection<DiscoveryDiagnostic> diagnostics,
+        string? kindDescription = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(diagnostics);
@@ -118,6 +119,7 @@ internal static class PluginDiscoveryCandidateMapper
                 DefinitionId = definition.DefinitionId,
                 DisplayName = definition.DisplayName,
                 Aliases = definition.Aliases.ToArray(),
+                Notes = string.IsNullOrWhiteSpace(kindDescription) ? Array.Empty<string>() : [kindDescription],
                 ExternalIds = new Dictionary<string, string>(definition.ExternalIds, StringComparer.OrdinalIgnoreCase)
             },
             BackupSets = [set]

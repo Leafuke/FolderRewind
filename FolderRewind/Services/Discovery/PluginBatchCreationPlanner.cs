@@ -231,17 +231,7 @@ public static class PluginBatchCreationPlanner
             return recommended[0];
         }
 
-        var preset = BackupPresetService.CreateStandardGamePreset();
-        var batchPresetId = $"builtin.plugin-batch:{configKind.OwnerId}/{configKind.KindId}";
-        preset.Id = batchPresetId;
-        preset.ShareId = batchPresetId;
-        preset.Kind = new ConfigKindReference
-        {
-            OwnerId = configKind.OwnerId,
-            KindId = configKind.KindId
-        };
-        preset.RequiredPluginIds = new ObservableCollection<string> { pluginId };
-        return preset;
+        return BackupPresetService.CreateStandardPluginPreset(pluginId, configKind);
     }
 
     private static bool KindsEqual(ConfigKindReference left, ConfigKindReference right) =>

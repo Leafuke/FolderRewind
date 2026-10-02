@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
 namespace FolderRewind.Models;
@@ -7,6 +9,13 @@ public sealed class GameDiscoverySettings : ObservableObject
     private ObservableCollection<GameLibraryRootSetting> _libraryRoots = new();
     private string _secondaryManifestPath = string.Empty;
     private string _overridePath = string.Empty;
+    private Dictionary<string, List<string>> _pluginRoots = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, List<string>> PluginRoots
+    {
+        get => _pluginRoots;
+        set => SetProperty(ref _pluginRoots, value ?? new(StringComparer.OrdinalIgnoreCase));
+    }
 
     public ObservableCollection<GameLibraryRootSetting> LibraryRoots
     {

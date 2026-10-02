@@ -33,7 +33,9 @@ public static class DiscoveryDraftService
         {
             preset = recommended.Count == 1
                 ? recommended[0]
-                : BackupPresetService.CreateStandardGamePreset();
+                : backupSet.PluginDraftContext is { } context
+                    ? BackupPresetService.CreateStandardPluginPreset(context.PluginId, context.Kind)
+                    : BackupPresetService.CreateStandardGamePreset();
             if (recommended.Count > 1)
             {
                 issues.Add(new BackupConfigDraftIssue

@@ -139,6 +139,16 @@ namespace FolderRewind.Services
             };
         }
 
+        public static BackupPreset CreateStandardPluginPreset(string pluginId, ConfigKindReference kind)
+        {
+            var preset = CreateStandardGamePreset();
+            // Retain the existing plugin-batch preset identity for configurations created that way.
+            preset.Id = preset.ShareId = $"builtin.plugin-batch:{kind.OwnerId}/{kind.KindId}";
+            preset.Kind = new ConfigKindReference { OwnerId = kind.OwnerId, KindId = kind.KindId };
+            preset.RequiredPluginIds = new ObservableCollection<string> { pluginId };
+            return preset;
+        }
+
         public static IReadOnlyList<TemplateRuleEditItem> BuildRuleEditItems(BackupPreset? template)
         {
             if (template?.PathRules == null)

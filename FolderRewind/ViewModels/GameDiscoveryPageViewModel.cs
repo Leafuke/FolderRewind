@@ -313,7 +313,11 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             return false;
         }
         var previous = ConfigService.CurrentConfig.GlobalSettings.GameDiscovery;
-        ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = CloneSettings(Settings);
+        var updated = CloneSettings(Settings);
+        // Scan workers may have remembered roots after this page took its settings snapshot.
+        updated.PluginRoots = previous.PluginRoots.ToDictionary(pair => pair.Key,
+            pair => new List<string>(pair.Value ?? new List<string>()), StringComparer.OrdinalIgnoreCase);
+        ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = updated;
         var result = ConfigService.SaveWithResult();
         if (!result.Success)
         {
@@ -833,6 +837,9 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         SecondaryManifestPath = source?.SecondaryManifestPath ?? string.Empty,
         OverridePath = source?.OverridePath ?? string.Empty,
+        PluginRoots = (source?.PluginRoots ?? new Dictionary<string, List<string>>())
+            .ToDictionary(pair => pair.Key, pair => new List<string>(pair.Value ?? new List<string>()),
+                StringComparer.OrdinalIgnoreCase),
         LibraryRoots = new ObservableCollection<GameLibraryRootSetting>(
             (source?.LibraryRoots ?? new ObservableCollection<GameLibraryRootSetting>()).Select(root =>
                 new GameLibraryRootSetting
@@ -859,14 +866,15 @@ public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableO
         Candidate = candidate;
         var configs = existingConfigs.ToList();
         _status = DiscoveryPresentationService.GetStatus(candidate, configs.Select(config => config.DiscoveryOrigin));
-        var presetItems = (lockedPreset == null
-                ? new[] { BackupPresetService.CreateStandardGamePreset() }.Concat(presets)
-                : presets)
-            .GroupBy(preset => preset.ShareId, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new GameDiscoveryPresetItem(group.First()))
-            .ToList();
+        var availablePresets = presets.ToList();
         foreach (var set in candidate.BackupSets)
         {
+            var standard = set.PluginDraftContext is { } context
+                ? BackupPresetService.CreateStandardPluginPreset(context.PluginId, context.Kind)
+                : BackupPresetService.CreateStandardGamePreset();
+            var presetItems = (lockedPreset == null ? new[] { standard }.Concat(availablePresets) : availablePresets)
+                .GroupBy(preset => preset.ShareId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new GameDiscoveryPresetItem(group.First())).ToList();
             BackupSets.Add(new GameDiscoveryBackupSetItem(
                 set,
                 presetItems,

@@ -8,7 +8,11 @@ public interface IDiscoveryCapability : IPluginCapability
     ValueTask<DiscoveryResult> DiscoverAsync(DiscoveryRequest request, PluginInvocationContext context);
 }
 
-public sealed record DiscoveryRequest(IReadOnlyList<string> UserRoots);
+public sealed record DiscoveryRequest(IReadOnlyList<string> UserRoots)
+{
+    /// <summary>Allows known machine locations in addition to the explicitly supplied roots.</summary>
+    public bool IncludeKnownLocations { get; init; }
+}
 public sealed record DiscoveryResult(IReadOnlyList<DiscoveryCandidate> Candidates, IReadOnlyList<PluginDiagnostic> Diagnostics);
 public sealed record DiscoveryCandidate(string CandidateId, string DisplayName, IReadOnlyList<ConfigDraft> ConfigDrafts);
 
