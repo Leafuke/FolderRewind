@@ -1,4 +1,3 @@
-#if FOLDERREWIND_MSI
 using FolderRewind.Services;
 using System;
 using System.Diagnostics;
@@ -17,13 +16,15 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        string identity = "Leafuke.FolderRewind.Msi." + (WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName);
         try
         {
+            using var userIdentity = WindowsIdentity.GetCurrent();
+            // Share the guard across builds and installation paths for this user.
+            string identity = "Leafuke.FolderRewind." + (userIdentity.User?.Value ?? Environment.UserName);
             using var instance = SingleInstanceCoordinator.TryAcquire(identity);
             if (instance == null)
             {
-                bool startup = args.Any(value => string.Equals(value, "--startup", StringComparison.OrdinalIgnoreCase));
+                bool startup = IsStartupLaunch(args);
                 bool accepted = SingleInstanceCoordinator.NotifyAsync(identity,
                     startup,
                     allowForeground: process => AllowSetForegroundWindow(process)).GetAwaiter().GetResult();
@@ -31,7 +32,9 @@ internal static class Program
                 return accepted ? 0 : 2;
             }
             Instance = instance;
+#if FOLDERREWIND_MSI
             Marshal.ThrowExceptionForHR(SetCurrentProcessExplicitAppUserModelID(AppUserModelId));
+#endif
             XamlGeneratedProgram.XamlGeneratedMain();
         }
         catch (Exception error)
@@ -42,14 +45,30 @@ internal static class Program
         finally { Instance = null; }
         if (RestartSafeModeOnExit && Environment.ProcessPath is { } executable)
         {
-            try { using var child = Process.Start(new ProcessStartInfo(executable) { Arguments = "--safe-mode", UseShellExecute = false }); }
+            try { using var child = Process.Start(new ProcessStartInfo(executable) { Arguments = "--safe-mode", UseShellExecute = !AppRuntimeInfo.IsMsiDistribution }); }
             catch (Exception error) { MessageBox(IntPtr.Zero, "重新启动失败 / Restart failed:\n" + error.Message, "FolderRewind", 0x10); return 1; }
         }
         return 0;
+    }
+
+    private static bool IsStartupLaunch(string[] args)
+    {
+        if (args.Any(value => string.Equals(value, StartupService.ClassicStartupArgument, StringComparison.OrdinalIgnoreCase)))
+            return true;
+#if !FOLDERREWIND_MSI
+        try
+        {
+            // Secondary processes do not run the generated XAML entry point.
+            WinRT.ComWrappersSupport.InitializeComWrappers();
+            return Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs()?.Kind
+                == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask;
+        }
+        catch { }
+#endif
+        return false;
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
     [DllImport("user32.dll")] private static extern bool AllowSetForegroundWindow(int processId);
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "MessageBoxW")] private static extern int MessageBox(IntPtr window, string text, string caption, uint type);
 }
-#endif

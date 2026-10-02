@@ -158,9 +158,7 @@ internal sealed class PluginSettingsActions(SettingsPageViewModel viewModel, Fun
 
         try
         {
-            if (AppRuntimeInfo.IsMsiDistribution) await PluginRuntimeModeService.RestartSafeModeAsync();
-            else if (PluginRuntimeModeService.TryStartSafeModeInstance(out var launchError)) await App.ExitApplicationAsync();
-            else throw new InvalidOperationException(launchError);
+            await PluginRuntimeModeService.RestartSafeModeAsync();
             return;
         }
         catch (Exception error)

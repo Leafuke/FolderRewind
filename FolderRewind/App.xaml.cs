@@ -147,13 +147,7 @@ namespace FolderRewind
                 UpdateWindowTitle();
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
-#if FOLDERREWIND_MSI
-                Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(() =>
-                {
-                    _window.AppWindow.Show();
-                    _window.Activate();
-                }));
-#endif
+                Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
 
                 StartHistoryWarmup();
 
@@ -507,9 +501,7 @@ namespace FolderRewind
             _window.AppWindow.Resize(new SizeInt32(900, 680));
             WindowIconHelper.ApplyBeforeShow(_window);
             _window.Activate();
-#if FOLDERREWIND_MSI
             Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
-#endif
         }
 
         private void RestoreWindowFromTray()
@@ -578,9 +570,7 @@ namespace FolderRewind
             if (Current is not App app) return;
             var root = _window?.Content as Control;
             if (root != null) root.IsEnabled = false;
-#if FOLDERREWIND_MSI
             Program.Instance?.SetClosing(true);
-#endif
             try
             {
                 await Services.AutomationService.StopAsync();
@@ -599,16 +589,12 @@ namespace FolderRewind
             catch (Exception error)
             {
                 if (root != null) root.IsEnabled = true;
-#if FOLDERREWIND_MSI
                 Program.Instance?.SetClosing(false);
-#endif
                 _exitTask = null;
                 NotificationService.ShowError(error.Message);
                 throw;
             }
-#if FOLDERREWIND_MSI
             Program.RestartSafeModeOnExit = restartSafeMode;
-#endif
             // 标记强制退出，避免被 MainWindow 的“最小化到托盘”拦截逻辑再次兜回去。
             ForceExitRequested = true;
 

@@ -13,6 +13,9 @@
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
+    <!-- Every distribution enters the single-instance guard before constructing App. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <StartupObject>FolderRewind.Program</StartupObject>
     <TieredPGO>true</TieredPGO>
     <!--
       Keep the Windows App SDK version and the 2.3.1 XAML performance opt-ins
@@ -34,8 +37,7 @@
     .NET 或 Windows App SDK Runtime；EnableMsixTooling 保留以免影响既有 MSIX 流程。
   -->
   <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
-    <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI;DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-    <StartupObject>FolderRewind.Program</StartupObject>
+    <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI</DefineConstants>
     <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>
     <WindowsPackageType>None</WindowsPackageType>
     <AppxPackage>false</AppxPackage>
