@@ -43,12 +43,12 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetVersionAsync(versionId, cancellationToken);
 
-    public Task<ConfigurationCheckpoint?> GetCheckpointAsync(
+    public Task<SourceCheckpoint?> GetCheckpointAsync(
         CheckpointId checkpointId,
         CancellationToken cancellationToken = default)
         => _index.GetCheckpointAsync(checkpointId, cancellationToken);
 
-    public Task<IReadOnlyList<ConfigurationCheckpoint>> GetAllCheckpointsAsync(
+    public Task<IReadOnlyList<SourceCheckpoint>> GetAllCheckpointsAsync(
         CancellationToken cancellationToken = default)
         => _index.GetAllCheckpointsAsync(cancellationToken);
 

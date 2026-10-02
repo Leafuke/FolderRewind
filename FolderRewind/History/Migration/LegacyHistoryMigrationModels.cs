@@ -58,9 +58,7 @@ public sealed record LegacyHistoryMigrationInput
 public sealed record LegacyHistoryMigrationBuild(
     ImmutableArray<HistoryCommitPack> Packs,
     LocalReplicaCatalog LocalReplicaCatalog,
-    HistoryWorkspace Workspace,
-    CheckpointId BootstrapCheckpointId,
-    BranchUpdateId BootstrapBranchUpdateId);
+    HistoryWorkspace Workspace);
 
 public enum LegacyHistoryMigrationStatus
 {

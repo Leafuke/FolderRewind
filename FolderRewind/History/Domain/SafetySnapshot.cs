@@ -1,5 +1,8 @@
 using System;
 using System.Linq;
+using System.Collections.Immutable;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace FolderRewind.History.Domain;
 
@@ -12,20 +15,29 @@ public enum SafetySnapshotReason
 
 public sealed record SafetySnapshot
 {
+    [JsonConstructor]
     public SafetySnapshot(
         SafetySnapshotId snapshotId,
-        CheckpointId checkpointId,
+        ImmutableArray<CheckpointId> checkpointIds,
         DateTimeOffset createdAtUtc,
         SafetySnapshotReason reason)
     {
         SnapshotId = snapshotId;
-        CheckpointId = checkpointId;
+        CheckpointIds = checkpointIds.IsDefault ? [] : checkpointIds;
+        if (CheckpointIds.Length == 0 || CheckpointIds.Distinct().Count() != CheckpointIds.Length)
+            throw new ArgumentException("Safety snapshot requires distinct Source checkpoints.");
         CreatedAtUtc = createdAtUtc.ToUniversalTime();
         Reason = reason;
     }
 
     public SafetySnapshotId SnapshotId { get; }
-    public CheckpointId CheckpointId { get; }
+    public ImmutableArray<CheckpointId> CheckpointIds { get; }
+
+    public SafetySnapshot(SafetySnapshotId snapshotId, IEnumerable<CheckpointId> checkpointIds, DateTimeOffset createdAtUtc, SafetySnapshotReason reason)
+        : this(snapshotId, [.. checkpointIds], createdAtUtc, reason) { }
+
+    public SafetySnapshot(SafetySnapshotId snapshotId, CheckpointId checkpointId, DateTimeOffset createdAtUtc, SafetySnapshotReason reason)
+        : this(snapshotId, [checkpointId], createdAtUtc, reason) { }
     public DateTimeOffset CreatedAtUtc { get; }
     public SafetySnapshotReason Reason { get; }
 }

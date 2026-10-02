@@ -40,13 +40,13 @@ public sealed class HistoryIndexAndLocalStateTests
         var branchId = BranchId.New();
         var rootUpdate = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var firstTip = new BranchUpdate(
             BranchUpdateId.New(), branchId, [rootUpdate.UpdateId], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup, sourceId: checkpoint.SourceId);
         var secondTip = new BranchUpdate(
             BranchUpdateId.New(), branchId, [rootUpdate.UpdateId], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddSeconds(2), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddSeconds(2), BranchUpdateReason.Backup, sourceId: checkpoint.SourceId);
         var pack = CreatePack(version, checkpoint, rootUpdate, firstTip, secondTip);
         await _repository.CommitAsync(pack);
         var indexPath = Path.Combine(_repository.Paths.IndexRoot, "history-index.db");
@@ -138,10 +138,10 @@ public sealed class HistoryIndexAndLocalStateTests
         var mainId = BranchId.New();
         var experimentTip = new BranchUpdate(
             BranchUpdateId.New(), experimentId, [], "experiment", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var mainTip = new BranchUpdate(
             BranchUpdateId.New(), mainId, [experimentTip.UpdateId], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup);
+            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup, sourceId: checkpoint.SourceId);
         await _repository.CommitAsync(CreatePack(version, checkpoint, experimentTip, mainTip));
         using var index = new HistoryIndex(
             Path.Combine(_repository.Paths.IndexRoot, "history-index.db"),
@@ -175,19 +175,17 @@ public sealed class HistoryIndexAndLocalStateTests
         var updateId = BranchUpdateId.New();
         var anchorId = CheckpointId.New();
         var workspace = new HistoryWorkspace(
-            _configId, 0, branchId, updateId,
-            [new WorkspaceSourceBaseline(SourceId.New(), null, WorkspaceBaselineRelation.Unknown)],
-            anchorId);
+            _configId, 0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(SourceId.New(), null, WorkspaceBaselineRelation.Unknown)], branchId, updateId, anchorId));
 
         await store.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
-        var conflicting = new HistoryWorkspace(_configId, 1, branchId, updateId, workspace.SourceBaselines);
+        var conflicting = new HistoryWorkspace(_configId, 1, HistoryFixture.SourceStates(workspace.SourceBaselines, branchId, updateId, null));
 
         Assert.AreEqual(DeviceLocalStateStatus.Missing, missing.Status);
         await Assert.ThrowsExactlyAsync<DeviceLocalStateConflictException>(
             () => store.SaveAsync(conflicting, HistoryWorkspaceStore.MissingRevision));
         var loaded = (await store.LoadAsync()).Value!;
         Assert.AreEqual(0, loaded.StateRevision);
-        Assert.AreEqual(anchorId, loaded.CheckpointAncestryAnchorId);
+        Assert.AreEqual(anchorId, loaded.SourceBaselines.FirstOrDefault()?.CheckpointAncestryAnchorId);
     }
 
     [TestMethod]
@@ -231,7 +229,7 @@ public sealed class HistoryIndexAndLocalStateTests
         var recovery = new HistoryLocalStateJournalRecovery(workspaceStore, catalogStore);
         var branchId = BranchId.New();
         var branchUpdateId = BranchUpdateId.New();
-        var workspace = new HistoryWorkspace(_configId, 0, branchId, branchUpdateId, []);
+        var workspace = new HistoryWorkspace(_configId, 0, HistoryFixture.SourceStates([], branchId, branchUpdateId, null));
         var catalog = new LocalReplicaCatalog(_configId, 0, []);
         var pack = CreatePack(CreateVersion(SourceId.New()));
         var journal = HistoryTransactionJournal.Prepared(
@@ -249,7 +247,7 @@ public sealed class HistoryIndexAndLocalStateTests
             recovery.ApplyCommittedStateAsync,
             (_, _) => Task.CompletedTask);
 
-        Assert.AreEqual(branchUpdateId, (await workspaceStore.LoadAsync()).Value!.ActiveBranchUpdateId);
+        Assert.AreEqual(branchUpdateId, (await workspaceStore.LoadAsync()).Value!.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
         Assert.AreEqual(0, (await catalogStore.LoadAsync()).Value!.CatalogRevision);
 
         // 恢复可重复执行，不会因 expected revision 已前进而覆盖或报冲突。
@@ -265,7 +263,7 @@ public sealed class HistoryIndexAndLocalStateTests
             new SourceDescriptorSnapshot("source", "C:\\source"), null,
             HistoryProvenance.Native("test"));
 
-    private ConfigurationCheckpoint CreateCheckpoint(SourceId sourceId, VersionId versionId)
+    private SourceCheckpoint CreateCheckpoint(SourceId sourceId, VersionId versionId)
         => new(
             CheckpointId.New(), _configId, DateTimeOffset.UtcNow, null,
             HistoryProvenance.Native("test"),

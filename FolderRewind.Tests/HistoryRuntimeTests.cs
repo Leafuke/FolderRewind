@@ -60,7 +60,7 @@ public sealed class HistoryRuntimeTests
         await runtime.RefreshLocalStateHealthAsync();
         Assert.AreEqual(HistoryRuntimeHealth.Ready, runtime.Health);
         Assert.IsNull(runtime.HealthDiagnostic);
-        await runtime.WorkspaceStore.SaveAsync(new(_configId, 0, null, null, []), -1);
+        await runtime.WorkspaceStore.SaveAsync(new(_configId, 0, []), -1);
         await runtime.LocalReplicaCatalogStore.SaveAsync(new(_configId, 0, []), -1);
         await runtime.RefreshLocalStateHealthAsync();
         Assert.AreEqual(HistoryRuntimeHealth.Ready, runtime.Health);
@@ -76,7 +76,7 @@ public sealed class HistoryRuntimeTests
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "7z", [],
             MaterializationFidelity.Exact, null, null, null);
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), _configId, DateTimeOffset.UtcNow.AddSeconds(1), null,
             HistoryProvenance.Native("test"),
             [new CheckpointSource(
@@ -85,11 +85,10 @@ public sealed class HistoryRuntimeTests
         var run = new BackupRun(
             RunId.New(), _configId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddSeconds(2),
             BackupInvocationKind.Manual, BackupRunOutcome.Completed,
-            [new BackupRunSourceResult(sourceId, BackupRunSourceOutcome.Captured, version.VersionId, [])],
-            checkpoint.CheckpointId, []);
+            [new BackupRunSourceResult(sourceId, BackupRunSourceOutcome.Captured, version.VersionId, [])], []);
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow.AddSeconds(2), BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow.AddSeconds(2), BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var pack = new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
             new object[] { version, representation, checkpoint, run, branch }.Select(value => codec.CreateObject(value)));

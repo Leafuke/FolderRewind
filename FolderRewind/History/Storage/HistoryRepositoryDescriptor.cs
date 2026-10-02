@@ -9,7 +9,7 @@ namespace FolderRewind.History.Storage;
 public sealed record HistoryRepositoryDescriptor(string Magic, int FormatVersion, HistoryConfigId ConfigId)
 {
     public const string CurrentMagic = "FolderRewindHistoryRepository";
-    public const int CurrentFormatVersion = 1;
+    public const int CurrentFormatVersion = 2;
 
     public static HistoryRepositoryDescriptor Create(HistoryConfigId configId)
         => new(CurrentMagic, CurrentFormatVersion, configId);

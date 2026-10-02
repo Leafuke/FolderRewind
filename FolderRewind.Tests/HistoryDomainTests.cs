@@ -44,7 +44,7 @@ public sealed class HistoryDomainTests
     public void AllRepositoryDomainObjects_HaveStableRoundTripShapes()
     {
         var version = CreateVersion([]);
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(), version.ConfigId, DateTimeOffset.UtcNow, null,
             HistoryProvenance.Native("test"),
             [new CheckpointSource(version.SourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
@@ -59,7 +59,7 @@ public sealed class HistoryDomainTests
             DateTimeOffset.UtcNow, "created");
         var branch = new BranchUpdate(
             BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
         var annotation = new HistoryAnnotationUpdate(
             AnnotationUpdateId.New(),
             new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.VersionId.Value),
@@ -70,8 +70,7 @@ public sealed class HistoryDomainTests
         var run = new BackupRun(
             RunId.New(), version.ConfigId, DateTimeOffset.UtcNow.AddSeconds(-1), DateTimeOffset.UtcNow,
             BackupInvocationKind.Manual, BackupRunOutcome.Completed,
-            [new BackupRunSourceResult(version.SourceId, BackupRunSourceOutcome.Captured, version.VersionId, [])],
-            checkpoint.CheckpointId, []);
+            [new BackupRunSourceResult(version.SourceId, BackupRunSourceOutcome.Captured, version.VersionId, [])], []);
 
         foreach (var value in new object[]
                  {
@@ -121,10 +120,10 @@ public sealed class HistoryDomainTests
     public void MergeCheckpoint_RequiresTwoDistinctParents()
     {
         var parent = CheckpointId.New();
-        var invalid = new ConfigurationCheckpoint(
+        var invalid = new SourceCheckpoint(
             CheckpointId.New(), new HistoryConfigId("config"), DateTimeOffset.UtcNow, null,
             HistoryProvenance.Native("merge"), [], [parent], CheckpointCreationKind.Merge);
-        var valid = new ConfigurationCheckpoint(
+        var valid = new SourceCheckpoint(
             CheckpointId.New(), new HistoryConfigId("config"), DateTimeOffset.UtcNow, null,
             HistoryProvenance.Native("merge"), [], [parent, CheckpointId.New()], CheckpointCreationKind.Merge);
 
@@ -136,7 +135,7 @@ public sealed class HistoryDomainTests
     [TestMethod]
     public void Checkpoint_AllowsUnavailableSourceWithoutVersion()
     {
-        var checkpoint = new ConfigurationCheckpoint(
+        var checkpoint = new SourceCheckpoint(
             CheckpointId.New(),
             new HistoryConfigId("legacy"),
             DateTimeOffset.UtcNow,
@@ -162,7 +161,7 @@ public sealed class HistoryDomainTests
             null,
             false,
             DateTimeOffset.UtcNow,
-            BranchUpdateReason.Created);
+            BranchUpdateReason.Created, sourceId: HistoryFixture.DefaultSource);
 
         HistoryDomainValidator.ValidateNative(branch);
         Assert.IsTrue(branch.IsUnborn);

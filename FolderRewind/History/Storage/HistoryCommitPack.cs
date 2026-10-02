@@ -8,7 +8,7 @@ namespace FolderRewind.History.Storage;
 public static class HistoryObjectKinds
 {
     public const string SourceVersion = "sourceVersion";
-    public const string ConfigurationCheckpoint = "configurationCheckpoint";
+    public const string SourceCheckpoint = "sourceCheckpoint";
     public const string VersionRepresentation = "versionRepresentation";
     public const string StorageReplica = "storageReplica";
     public const string ReplicaLifecycleUpdate = "replicaLifecycleUpdate";
@@ -23,7 +23,7 @@ public static class HistoryObjectKinds
 
     public static bool IsKnown(string kind)
         => kind is SourceVersion
-            or ConfigurationCheckpoint
+            or SourceCheckpoint
             or VersionRepresentation
             or StorageReplica
             or ReplicaLifecycleUpdate

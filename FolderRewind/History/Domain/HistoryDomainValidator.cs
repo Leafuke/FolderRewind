@@ -33,9 +33,11 @@ public static class HistoryDomainValidator
         }
     }
 
-    public static void ValidateNative(ConfigurationCheckpoint checkpoint)
+    public static void ValidateNative(SourceCheckpoint checkpoint)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
+        if (checkpoint.SourceId.Value == Guid.Empty || checkpoint.VersionId.Value == Guid.Empty)
+            throw new HistoryDomainValidationException("A Source checkpoint requires valid Source and Version identities.");
         if (checkpoint.CreationKind == CheckpointCreationKind.Merge
             && checkpoint.ParentCheckpointIds.Length != 2)
         {
@@ -60,6 +62,7 @@ public static class HistoryDomainValidator
     public static void ValidateNative(BranchUpdate update)
     {
         ArgumentNullException.ThrowIfNull(update);
+        if (update.SourceId.Value == Guid.Empty) throw new HistoryDomainValidationException("Branch requires a Source identity.");
         if (update.Reason == BranchUpdateReason.Merged)
         {
             var p = update.MergeProvenance ?? throw new HistoryDomainValidationException("Merge provenance is required.");

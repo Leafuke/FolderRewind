@@ -23,7 +23,7 @@ public sealed class HistoryRepositoryValidator
             .ToArray();
 
         var versions = known.OfType<SourceVersion>().ToDictionary(item => item.VersionId);
-        var checkpoints = known.OfType<ConfigurationCheckpoint>().ToDictionary(item => item.CheckpointId);
+        var checkpoints = known.OfType<SourceCheckpoint>().ToDictionary(item => item.CheckpointId);
         var representations = known.OfType<VersionRepresentation>().ToDictionary(item => item.RepresentationId);
         var replicas = known.OfType<StorageReplica>().ToDictionary(item => item.ReplicaId);
         var lifecycles = known.OfType<ReplicaLifecycleUpdate>().ToDictionary(item => item.UpdateId);
@@ -61,12 +61,12 @@ public sealed class HistoryRepositoryValidator
 
         foreach (var checkpoint in checkpoints.Values)
         {
-            RequireConfig(configId, checkpoint.ConfigId, HistoryObjectKinds.ConfigurationCheckpoint, checkpoint.CheckpointId.ToString());
+            RequireConfig(configId, checkpoint.ConfigId, HistoryObjectKinds.SourceCheckpoint, checkpoint.CheckpointId.ToString());
             HistoryDomainValidator.ValidateNative(checkpoint);
             foreach (var parentId in checkpoint.ParentCheckpointIds)
             {
-                var parent = Require(checkpoints, parentId, "ConfigurationCheckpoint parent");
-                if (parent.ConfigId != checkpoint.ConfigId)
+                var parent = Require(checkpoints, parentId, "SourceCheckpoint parent");
+                if (parent.ConfigId != checkpoint.ConfigId || parent.SourceId != checkpoint.SourceId)
                     throw Invalid("Checkpoint parent must belong to the same Config.");
             }
             var duplicateSource = checkpoint.Sources.GroupBy(item => item.SourceId).FirstOrDefault(group => group.Count() > 1);
@@ -94,9 +94,18 @@ public sealed class HistoryRepositoryValidator
         foreach (var run in runs.Values)
         {
             RequireConfig(configId, run.ConfigId, HistoryObjectKinds.BackupRun, run.RunId.ToString());
-            if (run.ResultCheckpointId is { } checkpointId)
+            if (run.SourceResults.Select(r => r.SourceId).Distinct().Count() != run.SourceResults.Length)
+                throw Invalid("BackupRun contains duplicate Source results.");
+            foreach (var result in run.SourceResults)
             {
-                Require(checkpoints, checkpointId, "BackupRun result checkpoint");
+                if (result.CheckpointId is { } resultId)
+                {
+                    var cp = Require(checkpoints, resultId, "BackupRun Source checkpoint");
+                    if (cp.SourceId != result.SourceId || cp.VersionId != result.VersionId)
+                        throw Invalid("BackupRun checkpoint does not match its Source result.");
+                }
+                if (result.BranchUpdateId is { } branchId && Require(branchUpdates, branchId, "BackupRun Branch context").SourceId != result.SourceId)
+                    throw Invalid("BackupRun Branch context crosses Source identity.");
             }
 
             foreach (var source in run.SourceResults.Where(item => item.VersionId is not null))
@@ -120,7 +129,7 @@ public sealed class HistoryRepositoryValidator
                     || ours.TargetCheckpointId != merge.OursCheckpointId || theirs.TargetCheckpointId != merge.TheirsCheckpointId
                     || ours.IsDeleted || theirs.IsDeleted)
                     throw Invalid("Merge provenance does not identify its parents.");
-                var ancestry = new Application.HistoryCheckpointGraph(checkpoints.Values, configId).FindBase(merge.OursCheckpointId, merge.TheirsCheckpointId);
+                var ancestry = new Application.HistoryCheckpointGraph(checkpoints.Values.Where(c => c.SourceId == update.SourceId), configId).FindBase(merge.OursCheckpointId, merge.TheirsCheckpointId);
                 if (ancestry.Mode != (merge.Mode == BranchMergeMode.FastForwardLike ? Application.HistoryMergeMode.FastForwardLike : Application.HistoryMergeMode.ThreeWay)
                     || ancestry.BaseCheckpointId != merge.BaseCheckpointId) throw Invalid("Merge provenance does not match checkpoint ancestry.");
                 var result = Require(checkpoints, update.TargetCheckpointId!.Value, "Merge result");
@@ -137,12 +146,14 @@ public sealed class HistoryRepositoryValidator
             }
             if (update.TargetCheckpointId is { } targetId)
             {
-                Require(checkpoints, targetId, "Branch target checkpoint");
+                if (Require(checkpoints, targetId, "Branch target checkpoint").SourceId != update.SourceId)
+                    throw Invalid("Branch target crosses Source identity.");
             }
 
             foreach (var parentId in update.ParentUpdateIds)
             {
                 var parent = Require(branchUpdates, parentId, "BranchUpdate parent");
+                if (parent.SourceId != update.SourceId) throw Invalid("Branch parent crosses Source identity.");
                 if (update.Reason == BranchUpdateReason.Reconciled && parent.BranchId != update.BranchId)
                     throw Invalid("Reconciliation parents must belong to the reconciled Branch.");
             }
@@ -208,9 +219,14 @@ public sealed class HistoryRepositoryValidator
 
         foreach (var snapshot in safetySnapshots.Values)
         {
-            var checkpoint = Require(checkpoints, snapshot.CheckpointId, "SafetySnapshot checkpoint");
-            if (!checkpoint.IsStructurallyComplete)
-                throw Invalid("SafetySnapshot requires a structurally complete checkpoint.");
+            var protectedSources = new HashSet<SourceId>();
+            foreach (var checkpointId in snapshot.CheckpointIds)
+            {
+                var checkpoint = Require(checkpoints, checkpointId, "SafetySnapshot Source checkpoint");
+                if (!protectedSources.Add(checkpoint.SourceId)) throw Invalid("SafetySnapshot contains duplicate Sources.");
+                var admission = Application.HistoryExactCheckpointAdmission.Evaluate(checkpoint, versions, representations);
+                if (!admission.IsReady) throw Invalid(admission.Diagnostic);
+            }
         }
 
         foreach (var release in safetySnapshotReleases.Values)
@@ -231,7 +247,7 @@ public sealed class HistoryRepositoryValidator
         }
 
         EnsureAcyclic(versions.Values, item => item.VersionId, item => item.ParentVersionIds, "SourceVersion");
-        EnsureAcyclic(checkpoints.Values, item => item.CheckpointId, item => item.ParentCheckpointIds, "ConfigurationCheckpoint");
+        EnsureAcyclic(checkpoints.Values, item => item.CheckpointId, item => item.ParentCheckpointIds, "SourceCheckpoint");
         EnsureAcyclic(representations.Values, item => item.RepresentationId, item => item.DependencyRepresentationIds, "Representation");
         EnsureAcyclic(branchUpdates.Values, item => item.UpdateId, item => item.ParentUpdateIds, "BranchUpdate");
         EnsureAcyclic(lifecycles.Values, item => item.UpdateId, item => item.ParentUpdateIds, "ReplicaLifecycle");
@@ -267,7 +283,7 @@ public sealed class HistoryRepositoryValidator
     private static void ValidateAnnotationTarget(
         HistoryAnnotationUpdate update,
         IReadOnlyDictionary<VersionId, SourceVersion> versions,
-        IReadOnlyDictionary<CheckpointId, ConfigurationCheckpoint> checkpoints,
+        IReadOnlyDictionary<CheckpointId, SourceCheckpoint> checkpoints,
         IReadOnlyDictionary<RunId, BackupRun> runs)
     {
         var exists = update.Target.Kind switch

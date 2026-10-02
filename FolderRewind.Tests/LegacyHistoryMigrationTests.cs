@@ -33,7 +33,7 @@ public sealed class LegacyHistoryMigrationTests
             [second, first]));
 
         CollectionAssert.AreEqual(ObjectDefinitions(forward), ObjectDefinitions(reversed));
-        Assert.AreEqual(forward.BootstrapCheckpointId, reversed.BootstrapCheckpointId);
+        CollectionAssert.AreEqual(forward.Packs.Select(p => p.PackId).ToArray(), reversed.Packs.Select(p => p.PackId).ToArray());
         CollectionAssert.AreEqual(
             forward.Workspace.SourceBaselines.ToArray(),
             reversed.Workspace.SourceBaselines.ToArray());

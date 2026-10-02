@@ -143,7 +143,7 @@ public sealed class HistoryPackCodec
         var type = item.Kind switch
         {
             HistoryObjectKinds.SourceVersion => typeof(SourceVersion),
-            HistoryObjectKinds.ConfigurationCheckpoint => typeof(ConfigurationCheckpoint),
+            HistoryObjectKinds.SourceCheckpoint => typeof(SourceCheckpoint),
             HistoryObjectKinds.VersionRepresentation => typeof(VersionRepresentation),
             HistoryObjectKinds.StorageReplica => typeof(StorageReplica),
             HistoryObjectKinds.ReplicaLifecycleUpdate => typeof(ReplicaLifecycleUpdate),
@@ -221,7 +221,7 @@ public sealed class HistoryPackCodec
         => value switch
         {
             SourceVersion item => (HistoryObjectKinds.SourceVersion, item.VersionId.ToString()),
-            ConfigurationCheckpoint item => (HistoryObjectKinds.ConfigurationCheckpoint, item.CheckpointId.ToString()),
+            SourceCheckpoint item => (HistoryObjectKinds.SourceCheckpoint, item.CheckpointId.ToString()),
             VersionRepresentation item => (HistoryObjectKinds.VersionRepresentation, item.RepresentationId.ToString()),
             StorageReplica item => (HistoryObjectKinds.StorageReplica, item.ReplicaId.ToString()),
             ReplicaLifecycleUpdate item => (HistoryObjectKinds.ReplicaLifecycleUpdate, item.UpdateId.ToString()),

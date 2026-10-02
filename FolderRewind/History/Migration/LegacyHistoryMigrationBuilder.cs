@@ -177,6 +177,10 @@ public sealed class LegacyHistoryMigrationBuilder
                 facts.Add(Annotation(state, version, HistoryAnnotationKind.Pin, "true"));
             if (entry.IsPartialBackup)
                 diagnostics.Add(Warning("legacy.partial.overlay", "Partial Legacy backup was imported with Overlay fidelity."));
+            facts.Add(new SourceCheckpoint(LegacyHistoryMigrationIdentityV1.Checkpoint(state.OriginKey), input.ConfigId,
+                version.CreatedAtUtc, null, version.Provenance,
+                [new(version.SourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured, version.EffectiveSourceBoundary)],
+                [], CheckpointCreationKind.Import));
             facts.Add(new LegacyMigrationRecord(
                 LegacyHistoryMigrationIdentityV1.Record(state.OriginKey),
                 state.OriginKey,
@@ -187,61 +191,11 @@ public sealed class LegacyHistoryMigrationBuilder
             factsByOrigin[state.OriginKey] = facts;
         }
 
-        var checkpointSources = new List<CheckpointSource>();
-        foreach (var source in input.Sources.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal))
-        {
-            var latest = entries.Where(item => item.Entry.SourceId == source.SourceId)
-                .OrderByDescending(item => ToUtc(item.Entry.Timestamp))
-                .ThenByDescending(item => item.OriginKey, StringComparer.Ordinal)
-                .FirstOrDefault();
-            checkpointSources.Add(new CheckpointSource(
-                source.SourceId,
-                new SourceDescriptorSnapshot(source.DisplayName, source.OriginalPath),
-                latest is null ? null : versions[latest.OriginKey].VersionId,
-                latest is null ? CheckpointSourceDisposition.Unavailable : CheckpointSourceDisposition.CarriedForward));
-        }
-        var vector = string.Join("|", checkpointSources.Select(item => $"{item.SourceId}:{item.VersionId?.ToString() ?? "missing"}"));
-        var checkpointId = LegacyHistoryMigrationIdentityV1.Checkpoint(input.ConfigId + "|" + vector);
-        var created = entries.Length == 0 ? DateTimeOffset.UnixEpoch : entries.Max(item => ToUtc(item.Entry.Timestamp));
-        var checkpoint = new ConfigurationCheckpoint(
-            checkpointId,
-            input.ConfigId,
-            created,
-            null,
-            new HistoryProvenance(HistoryOrigin.LegacyMigration, string.Empty, "bootstrap"),
-            checkpointSources,
-            parentCheckpointIds: [],
-            creationKind: CheckpointCreationKind.Import);
-        var branchId = LegacyHistoryMigrationIdentityV1.LegacyMain(input.ConfigId);
-        var branch = new BranchUpdate(
-            LegacyHistoryMigrationIdentityV1.BranchUpdate(branchId, checkpointId),
-            branchId,
-            [],
-            "legacy-main",
-            checkpointId,
-            false,
-            created,
-            BranchUpdateReason.Migration);
-        factsByOrigin["~bootstrap"] = [checkpoint, branch];
-
-        var packs = factsByOrigin.Select(pair => Pack(pair.Value, pair.Key == "~bootstrap" ? created : RecordTime(pair.Value)))
-            .ToImmutableArray();
-        var workspace = new HistoryWorkspace(
-            input.ConfigId,
-            0,
-            branchId,
-            branch.UpdateId,
-            checkpointSources.Select(item => new WorkspaceSourceBaseline(
-                item.SourceId,
-                item.VersionId,
-                WorkspaceBaselineRelation.Unknown)),
-            checkpointId);
-        return new LegacyHistoryMigrationBuild(
-            packs,
-            new LocalReplicaCatalog(input.ConfigId, 0, localEntries.DistinctBy(item => item.LocalReplicaId)),
-            workspace,
-            checkpointId,
-            branch.UpdateId);
+        var packs = factsByOrigin.Select(pair => Pack(pair.Value, RecordTime(pair.Value))).ToImmutableArray();
+        var workspace = new HistoryWorkspace(input.ConfigId, 0,
+            input.Sources.Select(source => new WorkspaceSourceBaseline(source.SourceId, null, WorkspaceBaselineRelation.Unknown)));
+        return new LegacyHistoryMigrationBuild(packs,
+            new LocalReplicaCatalog(input.ConfigId, 0, localEntries.DistinctBy(item => item.LocalReplicaId)), workspace);
     }
 
     private RepresentationId? ResolveDependency(

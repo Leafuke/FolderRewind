@@ -38,7 +38,7 @@ public sealed record HistoryReplicaObservation(
 
 public sealed class HistoryIndex : IDisposable
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
     private static readonly JsonSerializerOptions PayloadJsonOptions = new(JsonSerializerDefaults.Web);
     private const string Schema = """
         PRAGMA foreign_keys = OFF;
@@ -48,11 +48,11 @@ public sealed class HistoryIndex : IDisposable
         CREATE TABLE VersionParents(VersionId TEXT NOT NULL, ParentVersionId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(VersionId, Ordinal));
         CREATE TABLE Representations(RepresentationId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, Kind INTEGER NOT NULL, Format TEXT NOT NULL, Fidelity INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE RepresentationDependencies(RepresentationId TEXT NOT NULL, DependencyRepresentationId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(RepresentationId, Ordinal));
-        CREATE TABLE Checkpoints(CheckpointId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CreatedByRunId TEXT NULL, CreationKind INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE Checkpoints(CheckpointId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, SourceId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CreatedByRunId TEXT NULL, CreationKind INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE CheckpointParents(CheckpointId TEXT NOT NULL, ParentCheckpointId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, Ordinal));
         CREATE TABLE CheckpointSources(CheckpointId TEXT NOT NULL, SourceId TEXT NOT NULL, VersionId TEXT NULL, Disposition INTEGER NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, SourceId));
-        CREATE TABLE Runs(RunId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, StartedAtUtc TEXT NOT NULL, CompletedAtUtc TEXT NOT NULL, Outcome INTEGER NOT NULL, ResultCheckpointId TEXT NULL, PayloadJson TEXT NOT NULL);
-        CREATE TABLE BranchUpdates(UpdateId TEXT PRIMARY KEY, BranchId TEXT NOT NULL, Name TEXT NOT NULL, TargetCheckpointId TEXT NULL, IsDeleted INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE Runs(RunId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, StartedAtUtc TEXT NOT NULL, CompletedAtUtc TEXT NOT NULL, Outcome INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE BranchUpdates(UpdateId TEXT PRIMARY KEY, BranchId TEXT NOT NULL, SourceId TEXT NOT NULL, Name TEXT NOT NULL, TargetCheckpointId TEXT NULL, IsDeleted INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE BranchUpdateParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
         CREATE TABLE BranchTips(BranchId TEXT NOT NULL, UpdateId TEXT NOT NULL, PRIMARY KEY(BranchId, UpdateId));
         CREATE TABLE Annotations(UpdateId TEXT PRIMARY KEY, TargetKind INTEGER NOT NULL, TargetId TEXT NOT NULL, AnnotationKind INTEGER NOT NULL, Value TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
@@ -63,7 +63,7 @@ public sealed class HistoryIndex : IDisposable
         CREATE TABLE MaterializationPolicies(UpdateId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, State INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE MaterializationPolicyParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
         CREATE TABLE MigrationRecords(RecordId TEXT PRIMARY KEY, PayloadJson TEXT NOT NULL);
-        CREATE TABLE SafetySnapshots(SnapshotId TEXT PRIMARY KEY, CheckpointId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE SafetySnapshots(SnapshotId TEXT PRIMARY KEY, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE SafetySnapshotReleases(ReleaseId TEXT PRIMARY KEY, SnapshotId TEXT NOT NULL, ReleasedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE VersionMetadataSnapshots(MetadataSnapshotId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, ProducerPluginId TEXT NOT NULL, SchemaId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, CapturedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE ReplicaObservations(ReplicaKey TEXT PRIMARY KEY, Availability INTEGER NOT NULL, Integrity INTEGER NOT NULL, ObservedAtUtc TEXT NOT NULL, Evidence TEXT NOT NULL);
@@ -71,6 +71,8 @@ public sealed class HistoryIndex : IDisposable
         CREATE INDEX IX_Representations_Version ON Representations(VersionId);
         CREATE INDEX IX_VersionMetadataSnapshots_Version ON VersionMetadataSnapshots(VersionId, ProducerPluginId, SchemaId, SchemaVersion);
         CREATE INDEX IX_Checkpoints_Created ON Checkpoints(CreatedAtUtc);
+        CREATE INDEX IX_Checkpoints_Source ON Checkpoints(SourceId, CreatedAtUtc);
+        CREATE INDEX IX_BranchUpdates_Source ON BranchUpdates(SourceId, Name);
         CREATE INDEX IX_BranchUpdates_Branch ON BranchUpdates(BranchId, CreatedAtUtc);
         """;
 
@@ -214,17 +216,17 @@ public sealed class HistoryIndex : IDisposable
             [("$id", versionId.ToString())],
             cancellationToken).ConfigureAwait(false)).SingleOrDefault();
 
-    public async Task<ConfigurationCheckpoint?> GetCheckpointAsync(
+    public async Task<SourceCheckpoint?> GetCheckpointAsync(
         CheckpointId checkpointId,
         CancellationToken cancellationToken = default)
-        => (await ReadPayloadsAsync<ConfigurationCheckpoint>(
+        => (await ReadPayloadsAsync<SourceCheckpoint>(
             "SELECT PayloadJson FROM Checkpoints WHERE CheckpointId = $id",
             [("$id", checkpointId.ToString())],
             cancellationToken).ConfigureAwait(false)).SingleOrDefault();
 
-    public Task<IReadOnlyList<ConfigurationCheckpoint>> GetAllCheckpointsAsync(
+    public Task<IReadOnlyList<SourceCheckpoint>> GetAllCheckpointsAsync(
         CancellationToken cancellationToken = default)
-        => ReadPayloadsAsync<ConfigurationCheckpoint>(
+        => ReadPayloadsAsync<SourceCheckpoint>(
             "SELECT PayloadJson FROM Checkpoints ORDER BY CreatedAtUtc DESC, CheckpointId DESC",
             [],
             cancellationToken);
@@ -613,10 +615,10 @@ public sealed class HistoryIndex : IDisposable
                     ("$strategy", (int)item.Fidelity), ("$payload", payloadJson));
                 InsertEdges(connection, transaction, "RepresentationDependencies", "RepresentationId", item.RepresentationId.ToString(), "DependencyRepresentationId", item.DependencyRepresentationIds.Select(id => id.ToString()));
                 break;
-            case ConfigurationCheckpoint item:
+            case SourceCheckpoint item:
                 Execute(connection, transaction,
-                    "INSERT INTO Checkpoints VALUES($id,$config,$created,$run,$creationKind,$payload)",
-                    ("$id", item.CheckpointId.ToString()), ("$config", item.ConfigId.Value),
+                    "INSERT INTO Checkpoints VALUES($id,$config,$source,$created,$run,$creationKind,$payload)",
+                    ("$id", item.CheckpointId.ToString()), ("$config", item.ConfigId.Value), ("$source", item.SourceId.ToString()),
                     ("$created", Utc(item.CreatedAtUtc)), ("$run", item.CreatedByRunId?.ToString()),
                     ("$creationKind", (int)item.CreationKind),
                     ("$payload", payloadJson));
@@ -633,16 +635,16 @@ public sealed class HistoryIndex : IDisposable
                 break;
             case BackupRun item:
                 Execute(connection, transaction,
-                    "INSERT INTO Runs VALUES($id,$config,$started,$completed,$outcome,$checkpoint,$payload)",
+                    "INSERT INTO Runs VALUES($id,$config,$started,$completed,$outcome,$payload)",
                     ("$id", item.RunId.ToString()), ("$config", item.ConfigId.Value),
                     ("$started", Utc(item.StartedAtUtc)), ("$completed", Utc(item.CompletedAtUtc)),
-                    ("$outcome", (int)item.Outcome), ("$checkpoint", item.ResultCheckpointId?.ToString()),
+                    ("$outcome", (int)item.Outcome),
                     ("$payload", payloadJson));
                 break;
             case BranchUpdate item:
                 Execute(connection, transaction,
-                    "INSERT INTO BranchUpdates VALUES($id,$branch,$name,$target,$deleted,$created,$reason,$payload)",
-                    ("$id", item.UpdateId.ToString()), ("$branch", item.BranchId.ToString()),
+                    "INSERT INTO BranchUpdates VALUES($id,$branch,$source,$name,$target,$deleted,$created,$reason,$payload)",
+                    ("$id", item.UpdateId.ToString()), ("$branch", item.BranchId.ToString()), ("$source", item.SourceId.ToString()),
                     ("$name", item.Name), ("$target", item.TargetCheckpointId?.ToString()),
                     ("$deleted", item.IsDeleted ? 1 : 0), ("$created", Utc(item.CreatedAtUtc)),
                     ("$reason", (int)item.Reason), ("$payload", payloadJson));
@@ -683,8 +685,8 @@ public sealed class HistoryIndex : IDisposable
                 break;
             case SafetySnapshot item:
                 Execute(connection, transaction,
-                    "INSERT INTO SafetySnapshots VALUES($id,$checkpoint,$created,$reason,$payload)",
-                    ("$id", item.SnapshotId.ToString()), ("$checkpoint", item.CheckpointId.ToString()),
+                    "INSERT INTO SafetySnapshots VALUES($id,$created,$reason,$payload)",
+                    ("$id", item.SnapshotId.ToString()),
                     ("$created", Utc(item.CreatedAtUtc)), ("$reason", (int)item.Reason),
                     ("$payload", payloadJson));
                 break;

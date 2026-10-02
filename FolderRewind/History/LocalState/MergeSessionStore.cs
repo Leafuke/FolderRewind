@@ -24,7 +24,7 @@ public sealed record MergeSessionSource(HistoryMergeSourcePlan Plan, MergeTreeMa
     MergeTreeManifest Base, MergeTreeManifest Ours, MergeTreeManifest Theirs);
 public sealed record PreparedMergeDescriptor(Guid SessionId, Guid PlanRevision, long ResolutionRevision,
     string ProviderVersion, string PolicyVersion, ImmutableArray<PreparedMergeSource> Sources,
-    ConfigurationCheckpoint Checkpoint, ImmutableArray<LocalReplicaCatalogEntry> NewReplicas, byte[] PackBytes)
+    SourceCheckpoint Checkpoint, ImmutableArray<LocalReplicaCatalogEntry> NewReplicas, byte[] PackBytes)
 {
     public PreparedMerge Restore(MergeSession session)
     {

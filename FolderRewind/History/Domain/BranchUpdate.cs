@@ -28,7 +28,7 @@ public sealed record BranchUpdate
         bool isDeleted,
         DateTimeOffset createdAtUtc,
         BranchUpdateReason reason,
-        BranchMergeProvenance? mergeProvenance = null)
+        SourceId sourceId, BranchMergeProvenance? mergeProvenance = null)
         : this(
             updateId,
             branchId,
@@ -37,7 +37,7 @@ public sealed record BranchUpdate
             targetCheckpointId,
             isDeleted,
             createdAtUtc,
-            reason, mergeProvenance)
+            reason, sourceId, mergeProvenance)
     {
     }
 
@@ -51,8 +51,10 @@ public sealed record BranchUpdate
         bool isDeleted,
         DateTimeOffset createdAtUtc,
         BranchUpdateReason reason,
-        BranchMergeProvenance? mergeProvenance = null)
+        SourceId sourceId, BranchMergeProvenance? mergeProvenance = null)
     {
+        if (sourceId.Value == Guid.Empty) throw new ArgumentException("Branch Source identity cannot be empty.", nameof(sourceId));
+        SourceId = sourceId;
         UpdateId = updateId;
         BranchId = branchId;
         ParentUpdateIds = parentUpdateIds.IsDefault ? ImmutableArray<BranchUpdateId>.Empty : parentUpdateIds;
@@ -66,6 +68,7 @@ public sealed record BranchUpdate
         MergeProvenance = mergeProvenance;
     }
 
+    public SourceId SourceId { get; }
     public BranchUpdateId UpdateId { get; }
     public BranchId BranchId { get; }
     public ImmutableArray<BranchUpdateId> ParentUpdateIds { get; }

@@ -38,14 +38,15 @@ public sealed record BackupRunSourceResult(
     SourceId SourceId,
     BackupRunSourceOutcome Outcome,
     VersionId? VersionId,
-    ImmutableArray<HistoryDiagnostic> Diagnostics)
+    ImmutableArray<HistoryDiagnostic> Diagnostics,
+    CheckpointId? CheckpointId = null, BranchUpdateId? BranchUpdateId = null)
 {
     public BackupRunSourceResult(
         SourceId sourceId,
         BackupRunSourceOutcome outcome,
         VersionId? versionId,
-        IEnumerable<HistoryDiagnostic>? diagnostics)
-        : this(sourceId, outcome, versionId, DomainCollections.Freeze(diagnostics))
+        IEnumerable<HistoryDiagnostic>? diagnostics, CheckpointId? checkpointId = null, BranchUpdateId? branchUpdateId = null)
+        : this(sourceId, outcome, versionId, DomainCollections.Freeze(diagnostics), checkpointId, branchUpdateId)
     {
     }
 }
@@ -60,7 +61,6 @@ public sealed record BackupRun
         BackupInvocationKind invocation,
         BackupRunOutcome outcome,
         IEnumerable<BackupRunSourceResult>? sourceResults,
-        CheckpointId? resultCheckpointId,
         IEnumerable<HistoryDiagnostic>? diagnostics)
         : this(
             runId,
@@ -70,7 +70,6 @@ public sealed record BackupRun
             invocation,
             outcome,
             DomainCollections.Freeze(sourceResults),
-            resultCheckpointId,
             DomainCollections.Freeze(diagnostics))
     {
     }
@@ -84,7 +83,6 @@ public sealed record BackupRun
         BackupInvocationKind invocation,
         BackupRunOutcome outcome,
         ImmutableArray<BackupRunSourceResult> sourceResults,
-        CheckpointId? resultCheckpointId,
         ImmutableArray<HistoryDiagnostic> diagnostics)
     {
         RunId = runId;
@@ -94,7 +92,6 @@ public sealed record BackupRun
         Invocation = invocation;
         Outcome = outcome;
         SourceResults = sourceResults.IsDefault ? ImmutableArray<BackupRunSourceResult>.Empty : sourceResults;
-        ResultCheckpointId = resultCheckpointId;
         Diagnostics = diagnostics.IsDefault ? ImmutableArray<HistoryDiagnostic>.Empty : diagnostics;
     }
 
@@ -105,6 +102,5 @@ public sealed record BackupRun
     public BackupInvocationKind Invocation { get; }
     public BackupRunOutcome Outcome { get; }
     public ImmutableArray<BackupRunSourceResult> SourceResults { get; }
-    public CheckpointId? ResultCheckpointId { get; }
     public ImmutableArray<HistoryDiagnostic> Diagnostics { get; }
 }

@@ -83,14 +83,11 @@ public sealed class SourceCaptureBaselineCacheTests
             0,
             ImmutableSortedDictionary<string, SourceCaptureFileState>.Empty);
         var exact = new HistoryWorkspace(
-            configId, 0, null, null,
-            [new WorkspaceSourceBaseline(sourceId, versionId, WorkspaceBaselineRelation.Exact)]);
+            configId, 0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, versionId, WorkspaceBaselineRelation.Exact)], null, null, null));
         var differentVersion = new HistoryWorkspace(
-            configId, 0, null, null,
-            [new WorkspaceSourceBaseline(sourceId, VersionId.New(), WorkspaceBaselineRelation.Exact)]);
+            configId, 0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, VersionId.New(), WorkspaceBaselineRelation.Exact)], null, null, null));
         var derived = new HistoryWorkspace(
-            configId, 0, null, null,
-            [new WorkspaceSourceBaseline(sourceId, versionId, WorkspaceBaselineRelation.Derived)]);
+            configId, 0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, versionId, WorkspaceBaselineRelation.Derived)], null, null, null));
 
         Assert.IsTrue(SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, exact));
         Assert.IsFalse(SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, differentVersion));
