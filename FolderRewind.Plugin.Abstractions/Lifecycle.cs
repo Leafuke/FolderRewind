@@ -72,11 +72,11 @@ public interface IRestoreRequestService
     ValueTask<OperationOutcome> RequestQuickAsync(string configId, Guid folderId, CancellationToken cancellationToken);
     ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId,
         RestoreRequestOptions options, CancellationToken cancellationToken)
-        => options.PreservePlayerData || options.PreservePlayerDataOverride.HasValue || options.Mode is not null || options.RestoreWhitelist.Count != 0 ? ValueTask.FromResult(OperationOutcome.Blocked)
+        => options.PreservePlayerData || options.PreservePlayerDataOverride.HasValue || options.Mode is not null || options.RestoreWhitelist.Count != 0 || options.RestorePreservePaths.Count != 0 ? ValueTask.FromResult(OperationOutcome.Blocked)
             : RequestAsync(configId, folderId, versionId, cancellationToken);
     ValueTask<OperationOutcome> RequestQuickAsync(string configId, Guid folderId,
         RestoreRequestOptions options, CancellationToken cancellationToken)
-        => options.PreservePlayerData || options.PreservePlayerDataOverride.HasValue || options.Mode is not null || options.RestoreWhitelist.Count != 0 ? ValueTask.FromResult(OperationOutcome.Blocked)
+        => options.PreservePlayerData || options.PreservePlayerDataOverride.HasValue || options.Mode is not null || options.RestoreWhitelist.Count != 0 || options.RestorePreservePaths.Count != 0 ? ValueTask.FromResult(OperationOutcome.Blocked)
             : RequestQuickAsync(configId, folderId, cancellationToken);
 }
 
@@ -85,6 +85,7 @@ public sealed record RestoreRequestOptions(bool PreservePlayerData = false)
     public bool? PreservePlayerDataOverride { get; init; }
     public string? Mode { get; init; }
     public IReadOnlyList<string> RestoreWhitelist { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> RestorePreservePaths { get; init; } = Array.Empty<string>();
 }
 
 public interface IHistoryQueryService

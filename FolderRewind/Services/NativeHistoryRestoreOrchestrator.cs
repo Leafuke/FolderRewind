@@ -14,7 +14,7 @@ namespace FolderRewind.Services;
 internal sealed class NativeHistoryRestoreOrchestrator
 {
     internal sealed record Operation(Guid Id, bool PreservePlayerData, bool? PreservePlayerDataOverride,
-        IReadOnlyList<string> RestoreWhitelist);
+        IReadOnlyList<string> RestoreWhitelist, IReadOnlyList<string> RestorePreservePaths);
     private static readonly AsyncLocal<Operation?> CurrentOperation = new();
     internal static Operation? Current => CurrentOperation.Value;
     public static bool IsCoordinatorAvailable(BackupConfig config, out string diagnostic)
@@ -54,7 +54,8 @@ internal sealed class NativeHistoryRestoreOrchestrator
         var isRestore = operationKind == WorkspaceOperationKind.Restore;
         CurrentOperation.Value = new(Guid.NewGuid(), isRestore && options?.PreservePlayerData == true,
             isRestore ? options?.PreservePlayerDataOverride : null,
-            isRestore ? options?.RestoreWhitelist?.ToArray() ?? [] : []);
+            isRestore ? options?.RestoreWhitelist?.ToArray() ?? [] : [],
+            isRestore ? RestorePreservePaths.Normalize(options?.RestorePreservePaths ?? []) : []);
         try { return await ExecuteCoreAsync(config, affectedFolders, targetIdentity, hostMutation,
             cancellationToken, operationKind).ConfigureAwait(false); }
         finally { CurrentOperation.Value = previous; }

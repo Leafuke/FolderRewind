@@ -51,6 +51,7 @@ public static class KnotLinkCoreCommands
             [Input("file", "Optional archive name; omit for the active Workspace's unique local branch tip."),
              Choice("mode", "Optional restore mode; default clean. Partial backups always overwrite.", ["overwrite", "clean"], "clean"),
              Input("restore_whitelist", "Optional rules appended to local rules: retain matching current paths during clean unless the archive supplies the same path."),
+             Input("restore_preserve_paths", "One-shot comma-separated relative files or directories (trailing /). Exact current state wins, including deletions; no glob, root or traversal. Minecraft paths are relative to the unique managed world root."),
              Choice("preserve_player_data", "Minecraft only: omit to inherit local setting; true/false overrides it. Preserve selected NBT fields for ALL players; players absent from the backup retain their entire current NBT. Advancements/statistics still restore. Cross-26.1-layout preservation is blocked.", ["true", "false"])], ["message"]);
         return commands.AsReadOnly();
 

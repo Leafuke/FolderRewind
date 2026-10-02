@@ -9,6 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\RestorePreservePaths.cs" Link="Source\RestorePreservePaths.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryPathPolicy.cs" Link="Source\DiscoveryPathPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\CollectionChangedSubscription.cs" Link="Source\CollectionChangedSubscription.cs" />
     <Compile Include="..\FolderRewind\Services\BackupOperationResult.cs" Link="Source\BackupOperationResult.cs" />
     <Compile Include="..\FolderRewind\Services\ProcessWaitService.cs" Link="Source\ProcessWaitService.cs" />
     <None Update="Fixtures\Legacy182\**\*" CopyToOutputDirectory="PreserveNewest" />

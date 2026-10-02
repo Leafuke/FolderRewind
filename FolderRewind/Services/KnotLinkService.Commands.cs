@@ -373,13 +373,17 @@ namespace FolderRewind.Services
             var backupFile = request.GetString("file");
             if (!TryResolveRestoreMode(request, out var mode, out error)) return error;
             var restoreWhitelist = request.GetList("restore_whitelist");
+            string[] preservePaths;
+            try { preservePaths = RestorePreservePaths.Normalize(request.GetList("restore_preserve_paths")); }
+            catch (Exception ex) { return $"ERROR:invalid_preserve_path:{ex.Message}"; }
             try { PathRuleMatcher.ValidateRestoreRules(config!.Filters.RestoreWhitelist.Concat(restoreWhitelist)); }
             catch (Exception ex) { return $"ERROR:invalid_filter_rule:{ex.Message}"; }
             var options = new FolderRewind.Plugin.Abstractions.RestoreRequestOptions
             {
                 PreservePlayerDataOverride = request.HasOption("preserve_player_data") ? request.GetBool("preserve_player_data") : null,
                 Mode = mode.ToString().ToLowerInvariant(),
-                RestoreWhitelist = restoreWhitelist.ToArray()
+                RestoreWhitelist = restoreWhitelist.ToArray(),
+                RestorePreservePaths = preservePaths
             };
             if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
                 return "ERROR:invalid_source_identity";
