@@ -19,3 +19,5 @@
 本机安装路径保留 D:\Program Files\FolderRewind\；用户配置保全和最终文件哈希以 delivery-state.json 为准。安装包、SHA-256、测试 JSON、截图和日志在 artifacts/msi-implementation-20261002/。交付目录中的安装包仅供本机验证；测试夹具和 99.x 包禁止发行。
 
 按照用户最新要求，**未安排关机，未发布远程 Release**。
+
+后续 GitHub 发行仅提供 Setup EXE 和 SHA-256，不提供独立 MSI；客户端 MSI 下载回退已移除。内部 MSI 只用于 Burn 内嵌载荷及测试，详见 [EXE-only 发布政策](exe-only-release-policy-2026-10-02.md)。

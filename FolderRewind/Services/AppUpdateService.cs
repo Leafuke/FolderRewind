@@ -16,7 +16,7 @@ namespace FolderRewind.Services
         OpenReleasePage = 0,
         OpenStorePage = 1,
         PrepareSideloadPackage = 2,
-        OpenMsiDownload = 3
+        OpenMsiDownload = 3 // Legacy action identity; now opens only a Setup EXE.
     }
 
     internal static class AppUpdateService
@@ -61,7 +61,7 @@ namespace FolderRewind.Services
             }
             else if (channel == InstallChannel.Msi)
             {
-                var (packageAsset, resolvedArchitectureTag) = SelectMsiPackageAsset(latest.Assets);
+                var (packageAsset, resolvedArchitectureTag) = SelectSetupPackageAsset(latest.Assets);
                 architectureTag = resolvedArchitectureTag;
                 if (packageAsset != null)
                 {
@@ -141,7 +141,7 @@ namespace FolderRewind.Services
             return (packageAsset, sha256Asset, architectureTag);
         }
 
-        private static (GitHubReleaseService.GitHubReleaseAsset? PackageAsset, string ArchitectureTag) SelectMsiPackageAsset(IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> assets)
+        private static (GitHubReleaseService.GitHubReleaseAsset? PackageAsset, string ArchitectureTag) SelectSetupPackageAsset(IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> assets)
         {
             var architectureTag = RuntimeInformation.OSArchitecture switch
             {
@@ -154,9 +154,8 @@ namespace FolderRewind.Services
                 return (null, architectureTag);
             }
 
-            var packageAsset = assets.FirstOrDefault(asset => asset.Name.EndsWith($"_{architectureTag}.msi", StringComparison.OrdinalIgnoreCase));
             var setup = assets.FirstOrDefault(asset => asset.Name.EndsWith($"_Setup_{architectureTag}.exe", StringComparison.OrdinalIgnoreCase));
-            return (setup ?? packageAsset, architectureTag);
+            return (setup, architectureTag);
         }
 
         private static GitHubReleaseService.GitHubReleaseAsset? SelectPackageAssetByArchitecture(

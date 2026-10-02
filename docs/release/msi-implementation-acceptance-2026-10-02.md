@@ -2,6 +2,8 @@
 
 日期：2026-10-02。分支：`codex/msi-install-experience`。本次授权包含源码修改、构建、隔离测试和本机部署。用户后来撤销了关机要求；没有安排关机，也没有发布远程 Release。
 
+后续发行政策已按用户要求改为：**GitHub Release 仅发布 x64/ARM64 Setup EXE 及 SHA-256，不发布独立 MSI、MSIX 或侧载压缩包，客户端取消 MSI 下载回退。** 下文 MSI 哈希和测试记录是保留的本机验收证据，内部 MSI 仍用于 Burn 载荷和测试。政策实现及校验见 [EXE-only 发布说明](exe-only-release-policy-2026-10-02.md)。
+
 ## 交付结论
 
 主要安装体验修复已经实现，x64 与 ARM64 的自包含应用、MSI、离线 Setup 均已严格构建，MSIX 构建回归通过。本机安装保留当前用户范围和 `D:\Program Files\FolderRewind\`，版本为 1.9.1.0。
@@ -40,7 +42,7 @@
 | 同版本、正常跨语言升级、降级 | 已验证指定包场景 | 同一 MSI/同一 Setup 重复执行只保留一个 MSI 产品，保留路径和桌面选项；中→英和英→中升级及降级阻止有证据。重新构建同版本产生新 BundleCode 的注册去重未验收，不能推定同一 EXE 重复运行测试覆盖该场景。 |
 | 跨范围迁移 | 已修复并验证拒绝路径 | 新版本跨范围请求被阻止，提示先卸载；维护沿用已有上下文。`boundaries-v2/results.json`。未自动跨范围卸载。 |
 | 残留目录标记 | 已修复并验证 Bundle 路径选择 | 初次补测误信旧失败夹具标记，实际安装到了旧测试目录。BA 改为确认同 MSI family 的注册产品后才锁定路径/范围；后续 Bundle 在指定新临时目录完整安装并同版本维护。`bundle-validation-orphan-fixed/` 与后续 Bundle 日志。 |
-| 更新入口兼容 | 源码审查及相关回归通过；远程分发未验证 | MSI 更新按 OS 架构优先 Setup，再回退匹配 MSI；既有 action 数值、Store/MSIX 更新分支保留。未自动发布 Release，也未执行生产远程更新。 |
+| 更新入口 | 后续已改为仅 Setup；远程分发未验证 | 更新按 OS 架构选择 Setup，取消 MSI 回退；既有 action 数值及 Store 更新分支保留。GitHub 不再提供侧载压缩包时，该通道打开 Release 页面。未自动发布 Release，也未执行生产远程更新。 |
 | 插件公开契约 | 已修复并验证发布程序集 | 契约保持 `FolderRewind.Plugin.Abstractions, Version=3.0.0.0`，应用版本参数不污染公开身份。`final-contract-identities.json`。 |
 | ARM64 7-Zip | 已修复并验证构建载荷 | 固定 v26.02-v1.5.7-R2，两架构分别下载、校验和提取原生工具。ARM64 载荷成功构建，真机运行未验证。 |
 | MSI ICE 检查 | 已恢复并验证构建 | 没有全局关闭验证；元数据修正后重跑 ICE03/60 等，仅排除并说明 ICE57/105，机器 CA 的执行条件额外检查。 |

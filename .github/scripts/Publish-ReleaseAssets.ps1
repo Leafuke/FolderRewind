@@ -12,33 +12,35 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$TargetCommit,
 
+    [Parameter(Mandatory = $true)]
+    [string]$Version,
+
     [string]$ReleaseNotesPath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    throw "GitHub CLI (gh) is required."
-}
-
-if (-not (Test-Path -LiteralPath $AssetsDirectory)) {
-    throw "Assets directory not found: $AssetsDirectory"
-}
-
-$assets = Get-ChildItem -Path $AssetsDirectory -File | Sort-Object Name
-if ($assets.Count -eq 0) {
-    throw "Assets directory is empty."
-}
+# Enforce the public EXE-only policy before any GitHub operation.
+$assets = @(& "$PSScriptRoot\Get-SetupReleaseAssets.ps1" -Directory $AssetsDirectory -Version $Version)
+if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw "GitHub CLI (gh) is required." }
 
 if ($ReleaseNotesPath -and -not (Test-Path -LiteralPath $ReleaseNotesPath)) {
     throw "Release notes file not found: $ReleaseNotesPath"
 }
 
 $releaseExists = $true
-gh release view $Tag | Out-Null
+$existingAssetsJson = gh release view $Tag --json assets
 if ($LASTEXITCODE -ne 0) {
     $releaseExists = $false
+}
+else {
+    $existingAssets = ($existingAssetsJson | ConvertFrom-Json).assets
+    foreach ($existing in $existingAssets) {
+        if ($existing.name -notin $assets.Name) {
+            throw "Existing release contains a non-policy asset: $($existing.name). Refusing to publish a mixed-format release."
+        }
+    }
 }
 
 if (-not $releaseExists) {
@@ -47,7 +49,7 @@ if (-not $releaseExists) {
         gh release create $Tag --title $ReleaseName --notes-file $ReleaseNotesPath --target $TargetCommit
     }
     else {
-        gh release create $Tag --title $ReleaseName --notes "Automated GitHub sideload build." --target $TargetCommit
+        gh release create $Tag --title $ReleaseName --notes "Automated FolderRewind Setup build." --target $TargetCommit
     }
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to create the release."
