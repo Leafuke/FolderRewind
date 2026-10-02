@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="Fixtures\Legacy182\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\FolderRewind\Services\ShellShortcutIdentity.cs" Link="Source\ShellShortcutIdentity.cs" />
     <Compile Include="..\FolderRewind\Services\TaskbarShortcutRepair.cs" Link="Source\TaskbarShortcutRepair.cs" />
     <Compile Include="..\FolderRewind\Services\SingleInstanceCoordinator.cs" Link="Source\SingleInstanceCoordinator.cs" />
@@ -115,6 +119,7 @@
     <Compile Include="..\FolderRewind\Services\OnboardingOperationBudgets.cs" Link="Source\OnboardingOperationBudgets.cs" />
     <Compile Include="..\FolderRewind\Models\OnboardingModels.cs" Link="Source\OnboardingModels.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryVersionExportService.cs" Link="Source\History\Application\HistoryVersionExportService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryArchiveRecoveryService.cs" Link="Source\History\Application\HistoryArchiveRecoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
@@ -178,6 +183,7 @@
     <Compile Include="..\FolderRewind\History\Representation\*.cs" Link="Source\History\Representation\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Retention\*.cs" Link="Source\History\Retention\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Migration\*.cs" Link="Source\History\Migration\%(Filename)%(Extension)" />
+    <Compile Include="..\FolderRewind\History\Legacy\*.cs" Link="Source\History\Legacy\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Cloud\*.cs" Link="Source\History\Cloud\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Capture\*.cs" Link="Source\History\Capture\%(Filename)%(Extension)" />
   </ItemGroup>

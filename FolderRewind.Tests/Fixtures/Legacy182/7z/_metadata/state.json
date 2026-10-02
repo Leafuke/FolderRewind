@@ -1,0 +1,23 @@
+{
+  "Version": "3.0",
+  "LastBackupTime": "2026-10-02T21:31:09.4407516+08:00",
+  "LastBackupFileName": "smart2.7z",
+  "BasedOnFullBackup": "full.7z",
+  "FileStates": {
+    "a.txt": {
+      "Size": 5,
+      "LastWriteTimeUtc": "2026-01-03T00:00:00Z",
+      "Hash": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    "switch": {
+      "Size": 10,
+      "LastWriteTimeUtc": "2026-01-03T00:00:00Z",
+      "Hash": "eb6832b34ca2adb7cbf8e5b8b5970f9ce348d46dbd6351237f8ce98bb1dcbb55"
+    },
+    "deleted.txt": {
+      "Size": 9,
+      "LastWriteTimeUtc": "2026-01-03T00:00:00Z",
+      "Hash": "e569dbda12a505b3a8ffb7e15e568b1569574c0c364c430bc132355d0a07162a"
+    }
+  }
+}

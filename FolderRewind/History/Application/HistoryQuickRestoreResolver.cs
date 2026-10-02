@@ -62,6 +62,8 @@ public sealed class HistoryQuickRestoreResolver
         if (versionId is null)
             return Missing("Active Branch checkpoint has no Version for this Source.", anchorId);
         var version = await _history.Query.GetVersionAsync(versionId.Value, cancellationToken).ConfigureAwait(false);
+        if (version?.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)
+            return Missing(LegacyRecoveryPolicy.BoundaryDiagnostic, anchorId);
         var fidelity = version?.CaptureScope == CaptureScope.PartialSource
             ? MaterializationFidelity.Partial : MaterializationFidelity.Exact;
         var assessment = await _restore.AssessVersionAsync(

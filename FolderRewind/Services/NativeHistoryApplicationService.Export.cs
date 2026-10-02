@@ -34,7 +34,8 @@ internal static partial class NativeHistoryApplicationService
         return await engine.AssessVersionAsync(versionId,
             await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false),
             await BuildEnvironmentAsync(runtime, token).ConfigureAwait(false), AssessmentDepth.Fast,
-            version.CaptureScope == CaptureScope.PartialSource ? MaterializationFidelity.Partial : MaterializationFidelity.Exact, token).ConfigureAwait(false);
+            version.CaptureScope == CaptureScope.PartialSource || version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
+                ? MaterializationFidelity.Partial : MaterializationFidelity.Exact, token).ConfigureAwait(false);
     }
 
     public static async Task ExportVersionAsync(BackupConfig config, ManagedFolder source, VersionId versionId,
@@ -53,7 +54,8 @@ internal static partial class NativeHistoryApplicationService
         await new HistoryVersionExportService(CreateExportRuntime(config)).ExportAsync(versionId,
             await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false),
             await BuildEnvironmentAsync(runtime, token).ConfigureAwait(false), destination, roots, token,
-            version.CaptureScope == CaptureScope.PartialSource ? MaterializationFidelity.Partial : MaterializationFidelity.Exact).ConfigureAwait(false);
+            version.CaptureScope == CaptureScope.PartialSource || version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
+                ? MaterializationFidelity.Partial : MaterializationFidelity.Exact).ConfigureAwait(false);
     }
 
     private static RepresentationRuntime CreateExportRuntime(BackupConfig config)

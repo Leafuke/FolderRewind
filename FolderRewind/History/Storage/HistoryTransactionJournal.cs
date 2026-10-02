@@ -74,6 +74,13 @@ public sealed class HistoryTransactionJournalStore
             ? Directory.GetFiles(_paths.TransactionsRoot, "journal.json", SearchOption.AllDirectories)
             : [];
 
+    internal void RequireRecovered()
+    {
+        foreach (var path in EnumerateJournalPaths())
+            if (Load(path).Phase != HistoryTransactionPhase.Complete)
+                throw new InvalidOperationException("An incomplete history commit requires recovery before further mutations or GC.");
+    }
+
     public async Task RecoverAsync(
         Func<HistoryTransactionJournal, CancellationToken, Task> applyCommittedState,
         Func<HistoryTransactionJournal, CancellationToken, Task> rollbackPreparedState,
@@ -103,4 +110,3 @@ public sealed class HistoryTransactionJournalStore
         }
     }
 }
-

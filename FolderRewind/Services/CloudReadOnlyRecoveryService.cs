@@ -30,7 +30,7 @@ internal static class CloudReadOnlyRecoveryService
         var graph = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).ToDictionary(r => r.RepresentationId);
         var assessment = await CreateRepresentations(null).AssessVersionAsync(versionId, graph.Values.ToArray(),
             await NativeHistoryApplicationService.BuildEnvironmentAsync(runtime, token).ConfigureAwait(false), AssessmentDepth.Fast,
-            HistoryRecoveryPreview.FidelityFor(version.CaptureScope), token).ConfigureAwait(false);
+            HistoryRecoveryPreview.FidelityFor(version), token).ConfigureAwait(false);
         var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         var local = (catalog?.Entries ?? []).Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath
             && File.Exists(e.Locator.AbsolutePath)).Select(e => e.RepresentationId).ToHashSet();

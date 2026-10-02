@@ -51,6 +51,7 @@ namespace FolderRewind.Models
     /// </summary>
     public class AppConfig : ObservableObject
     {
+        public bool Legacy182UpgradePending { get; set; }
         private int _schemaVersion = 1;
         private GlobalSettings _globalSettings = new();
         private ObservableCollection<BackupConfig> _backupConfigs = new GuardedObservableCollection<BackupConfig>();

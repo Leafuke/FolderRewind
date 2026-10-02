@@ -17,7 +17,8 @@ public enum HistoryExactCheckpointAdmissionStatus
     VersionIdentityMismatch = 3,
     BoundaryMismatch = 4,
     ExactLogicalParentMissing = 5,
-    ExactRepresentationUnavailable = 6
+    ExactRepresentationUnavailable = 6,
+    HistoricalBoundaryUnknown = 7
 }
 
 public sealed record HistoryExactCheckpointAdmissionResult(
@@ -72,6 +73,9 @@ public sealed class HistoryExactCheckpointAdmission
             if (version.ConfigId != checkpoint.ConfigId || version.SourceId != source.SourceId)
                 return Blocked(HistoryExactCheckpointAdmissionStatus.VersionIdentityMismatch, [source.SourceId],
                     "Checkpoint SourceVersion belongs to another Config or Source.");
+            if (version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)
+                return Blocked(HistoryExactCheckpointAdmissionStatus.HistoricalBoundaryUnknown,
+                    [source.SourceId], LegacyRecoveryPolicy.BoundaryDiagnostic);
             if (!StringComparer.Ordinal.Equals(
                     source.EffectiveSourceBoundaryFingerprint,
                     version.EffectiveSourceBoundaryFingerprint))

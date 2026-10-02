@@ -41,7 +41,11 @@ public sealed class HistoryRuntime : IAsyncDisposable
             Path.Combine(repository.Paths.LocalStateRoot, "replicas.json"));
         CaptureBaselines = new SourceCaptureBaselineCache(repository.Paths.LocalStateRoot);
         MergeSessions = new MergeSessionStore(repository.Paths.LocalStateRoot);
-        MutationGate = new HistoryMutationGate(repository.ConfigId, () => HistoryRestoreTransactionJournalStore.RequireRecovered(repository.Paths.TransactionsRoot));
+        MutationGate = new HistoryMutationGate(repository.ConfigId, () =>
+        {
+            HistoryRestoreTransactionJournalStore.RequireRecovered(repository.Paths.TransactionsRoot);
+            repository.Journals.RequireRecovered();
+        });
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
         Commit = new HistoryCommitCoordinator(this, _codec);

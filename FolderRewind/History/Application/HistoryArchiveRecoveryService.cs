@@ -34,6 +34,9 @@ public sealed class HistoryArchiveRecoveryService
     {
         var path = Path.GetFullPath(archivePath);
         if (!File.Exists(path)) throw new FileNotFoundException("Recovery archive does not exist.", path);
+        var releasedArchive = Legacy.LegacyArchiveNameParser.TryParse(Path.GetFileName(path), out var legacyName);
+        if (releasedArchive && legacyName!.BackupType.Equals("Smart", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("A legacy Smart archive requires its migration metadata and dependency chain. Use the migration report to locate it.");
         await using var lease = await _runtime.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
         await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         var load = await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
@@ -69,12 +72,12 @@ public sealed class HistoryArchiveRecoveryService
             VersionId.New(), _runtime.ConfigId, explicitlySelectedSourceId, [], DateTimeOffset.UtcNow, null,
             overlay ? CaptureScope.PartialSource : CaptureScope.FullSource,
             CaptureOutcome.Recovered, [], descriptor, null,
-            new HistoryProvenance(HistoryOrigin.Recovery, string.Empty, "explicit archive recovery"),
+            new HistoryProvenance(releasedArchive ? HistoryOrigin.LegacyMetadataRecovery : HistoryOrigin.Recovery, string.Empty, "explicit archive recovery"),
             creationKind: SourceVersionCreationKind.Recovery);
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.LegacyArchive,
             Path.GetExtension(path).TrimStart('.').ToLowerInvariant() is { Length: > 0 } format ? format : "7z",
-            [], overlay ? MaterializationFidelity.Partial : MaterializationFidelity.Exact, null, null,
+            [], overlay || releasedArchive ? MaterializationFidelity.Partial : MaterializationFidelity.Exact, null, null,
             new[] { new KeyValuePair<string, string>("recoveredFileName", Path.GetFileName(path)) });
         var localId = LocalReplicaId.New();
         var revision = load.Value?.CatalogRevision ?? LocalReplicaCatalogStore.MissingRevision;

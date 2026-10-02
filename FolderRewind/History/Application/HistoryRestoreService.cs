@@ -51,6 +51,9 @@ public sealed class HistoryRestoreService
     {
         operation.Require(_history.ConfigId);
         await using var lease = await _history.MutationGate.EnterForRecoveryAsync(cancellationToken).ConfigureAwait(false);
+        var localRecovery = new HistoryLocalStateJournalRecovery(_history.WorkspaceStore, _history.LocalReplicaCatalogStore);
+        await _history.Repository.Journals.RecoverAsync(localRecovery.ApplyCommittedStateAsync,
+            (_, _) => Task.CompletedTask, cancellationToken).ConfigureAwait(false);
         if (await _journals.RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false))
         {
             await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
@@ -196,6 +199,8 @@ public sealed class HistoryRestoreService
         HistoryRestoreApplyMode applyMode,
         CancellationToken cancellationToken)
     {
+        if (applyMode == HistoryRestoreApplyMode.Clean)
+            LegacyRecoveryPolicy.RequireKnownBoundary(version);
         var allRepresentations = await _history.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
         var environment = await _environmentFactory(cancellationToken).ConfigureAwait(false);
         var assessment = await _representations.AssessVersionAsync(
@@ -214,8 +219,11 @@ public sealed class HistoryRestoreService
             Guid.NewGuid().ToString("N"));
         try
         {
+            using var legacyRead = version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
+                ? await _representations.LockVersionAsync(version.VersionId, allRepresentations, environment,
+                    requiredFidelity, cancellationToken).ConfigureAwait(false) : null;
             await _representations.MaterializeAsync(
-                assessment.Selected.RepresentationId,
+                legacyRead?.RepresentationId ?? assessment.Selected.RepresentationId,
                 allRepresentations,
                 environment,
                 requiredFidelity,
@@ -263,6 +271,7 @@ public sealed class HistoryRestoreService
 
     internal async Task<IDisposable> VerifyExactTreeAndLockAsync(SourceVersion version, string expectedDigest, CancellationToken token)
     {
+        LegacyRecoveryPolicy.RequireKnownBoundary(version);
         var representations = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var environment = await _environmentFactory(token).ConfigureAwait(false);
         var lease = await _representations.LockExactVersionAsync(version.VersionId, representations, environment, token).ConfigureAwait(false);
@@ -315,6 +324,12 @@ public sealed class HistoryRestoreService
         LocalReplicaCatalog? desiredCatalog = null,
         long expectedCatalogRevision = -1)
     {
+        foreach (var item in prepared)
+        {
+            if (item.ApplyMode == HistoryRestoreApplyMode.Clean)
+                LegacyRecoveryPolicy.RequireKnownBoundary(item.Version);
+            LegacyRecoveryPolicy.ValidateOverlay(item.Version, item.StagingDirectory, item.Binding.TargetDirectory);
+        }
         var transactionId = commitPack?.TransactionId ?? HistoryTransactionId.New();
         var journal = new HistoryRestoreTransactionJournal(
             transactionId,

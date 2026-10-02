@@ -17,6 +17,8 @@ public enum CaptureOutcome
     Recovered = 1
 }
 
+public enum HistoricalBoundaryConfidence { Unknown = 0, Known = 1 }
+
 public enum SourceVersionCreationKind
 {
     Capture = 0,
@@ -108,6 +110,12 @@ public sealed record SourceVersion
     public SourceDescriptorSnapshot SourceDescriptorSnapshot { get; }
     public string? StateFingerprint { get; }
     public HistoryProvenance Provenance { get; }
+    // A released legacy archive never recorded the historical deletion boundary.
+    // Derive this from immutable provenance, including after compaction or replica repair.
+    [JsonIgnore]
+    public HistoricalBoundaryConfidence BoundaryConfidence =>
+        Provenance.Origin is HistoryOrigin.LegacyMigration or HistoryOrigin.LegacyMetadataRecovery
+            ? HistoricalBoundaryConfidence.Unknown : HistoricalBoundaryConfidence.Known;
     public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
     public SourceVersionCreationKind CreationKind { get; }
     public string EffectiveSourceBoundaryFingerprint => EffectiveSourceBoundary.Fingerprint;

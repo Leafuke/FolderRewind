@@ -119,6 +119,8 @@ internal static partial class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime, expectedSignature: signature);
         var selectedVersion = await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
+        if (selectedVersion?.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown && requestedMode == BackupService.RestoreMode.Clean)
+            return Blocked(I18n.GetString("LegacyMigration_Boundary"));
         if (selectedVersion?.CaptureScope == CaptureScope.PartialSource) requestedMode = BackupService.RestoreMode.Overwrite;
         var requiredFidelity = requestedMode == BackupService.RestoreMode.Clean
             ? MaterializationFidelity.Exact

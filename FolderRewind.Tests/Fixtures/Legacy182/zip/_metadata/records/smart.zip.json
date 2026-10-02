@@ -1,0 +1,23 @@
+{
+  "ArchiveFileName": "smart.zip",
+  "BackupType": "Smart",
+  "BasedOnFullBackup": "full.zip",
+  "PreviousBackupFileName": "full.zip",
+  "CreatedAtUtc": "2026-10-02T13:31:09.5652148Z",
+  "AddedFiles": [
+    "switch/child.txt",
+    "\u4E2D\u6587.txt"
+  ],
+  "ModifiedFiles": [
+    "a.txt"
+  ],
+  "DeletedFiles": [
+    "deleted.txt",
+    "switch"
+  ],
+  "FullFileList": [
+    "a.txt",
+    "switch/child.txt",
+    "\u4E2D\u6587.txt"
+  ]
+}

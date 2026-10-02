@@ -24,13 +24,21 @@ public sealed record LegacyHistoryEntrySnapshot(
     bool IsImportant,
     bool IsPartialBackup,
     bool IsCloudArchived,
-    string LegacyCloudRelativeLocator);
+    string LegacyCloudRelativeLocator,
+    string? ResolvedArchivePath = null);
 
 public sealed record LegacySmartRecordSnapshot(
     SourceId SourceId,
     string ArchiveFileName,
     string PreviousBackupFileName,
-    string BasedOnFullBackup);
+    string BasedOnFullBackup,
+    string BackupType = "",
+    string[]? AddedFiles = null,
+    string[]? ModifiedFiles = null,
+    string[]? DeletedFiles = null,
+    string[]? FullFileList = null,
+    string Diagnostic = "",
+    string? ArchivePath = null);
 
 public sealed record LegacyHistoryMigrationInput
 {

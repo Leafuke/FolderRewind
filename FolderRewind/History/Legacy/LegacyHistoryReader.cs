@@ -1,6 +1,6 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.Migration;
-using FolderRewind.Models;
+
 using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
@@ -78,103 +78,58 @@ public static partial class LegacyArchiveNameParser
 
 public static class LegacySmartMetadataReader
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
-    public static IReadOnlyList<LegacySmartRecordSnapshot> Read(BackupConfig config)
+    public static IReadOnlyList<LegacySmartRecordSnapshot> Read(IEnumerable<(SourceId SourceId, string ArchiveDirectory)> locations)
     {
-        var result = new List<LegacySmartRecordSnapshot>();
-        foreach (var folder in config.SourceFolders)
+        var all = new List<LegacySmartRecordSnapshot>();
+        foreach (var location in locations.Distinct())
         {
-            if (!Guid.TryParse(folder.Id, out var sourceGuid) || sourceGuid == Guid.Empty
-                || !BackupStoragePathService.TryResolveBackupStoragePaths(
-                    config.DestinationPath,
-                    folder.DisplayName,
-                    folder.Path,
-                    out _,
-                    out _,
-                    out var metadataDirectory))
-                continue;
-            var sourceId = new SourceId(sourceGuid);
-            ReadRecordsDirectory(metadataDirectory, sourceId, result);
-            ReadAggregate(Path.Combine(metadataDirectory, "metadata.json"), sourceId, result);
-            ReadAggregate(Path.Combine(metadataDirectory, "metadata.legacy.json"), sourceId, result);
-        }
-        return result
-            .DistinctBy(item => (item.SourceId, item.ArchiveFileName), LegacySmartRecordKeyComparer.Instance)
-            .ToArray();
-    }
-
-    private static void ReadRecordsDirectory(
-        string metadataDirectory,
-        SourceId sourceId,
-        ICollection<LegacySmartRecordSnapshot> output)
-    {
-        var records = Path.Combine(metadataDirectory, "records");
-        if (!Directory.Exists(records)) return;
-        foreach (var path in Directory.EnumerateFiles(records, "*.json", SearchOption.TopDirectoryOnly))
-        {
-            try
+            var selected = new Dictionary<string, (int Priority, LegacySmartRecordSnapshot Record)>(StringComparer.OrdinalIgnoreCase);
+            var metadata = Path.Combine(location.ArchiveDirectory, "_metadata");
+            void ReadFile(string path, int priority, bool aggregate)
             {
-                using var document = JsonDocument.Parse(File.ReadAllBytes(path));
-                Add(document.RootElement, sourceId, output);
+                if (!File.Exists(path)) return;
+                try
+                {
+                    using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+                    var elements = aggregate
+                        ? Property(document.RootElement, "backupRecords")?.EnumerateArray().ToArray() ?? []
+                        : new[] { document.RootElement };
+                    foreach (var element in elements)
+                    {
+                        var name = Text(element, "archiveFileName");
+                        if (string.IsNullOrWhiteSpace(name)) continue;
+                        var record = new LegacySmartRecordSnapshot(location.SourceId, name,
+                            Text(element, "previousBackupFileName"), Text(element, "basedOnFullBackup"), Text(element, "backupType"),
+                            Array(element, "addedFiles"), Array(element, "modifiedFiles"), Array(element, "deletedFiles"), Array(element, "fullFileList"),
+                            ArchivePath: LegacySmartPlan.SafeArchive(name) ? Path.Combine(location.ArchiveDirectory, name) : "");
+                        if (!selected.TryGetValue(name, out var previous) || priority > previous.Priority)
+                            selected[name] = (priority, record);
+                        else if (priority == previous.Priority && JsonSerializer.Serialize(record) != JsonSerializer.Serialize(previous.Record))
+                            selected[name] = (priority, previous.Record with { Diagnostic = "Conflicting legacy metadata for " + name });
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+                {
+                    // An unreadable preferred record must not silently fall back to stale aggregate metadata.
+                    throw new InvalidDataException("Cannot read legacy metadata: " + path, ex);
+                }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-            {
-                // Migration remains fail-safe: an unreadable optional Smart record is treated as absent.
-            }
+            ReadFile(Path.Combine(metadata, "metadata.legacy.json"), 0, true);
+            ReadFile(Path.Combine(metadata, "metadata.json"), 1, true);
+            var records = Path.Combine(metadata, "records");
+            if (Directory.Exists(records))
+                foreach (var path in Directory.EnumerateFiles(records, "*.json").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+                    ReadFile(path, 2, false);
+            all.AddRange(selected.Values.Select(v => v.Record));
         }
+        return all;
     }
-
-    private static void ReadAggregate(
-        string path,
-        SourceId sourceId,
-        ICollection<LegacySmartRecordSnapshot> output)
-    {
-        if (!File.Exists(path)) return;
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllBytes(path));
-            if (!document.RootElement.TryGetProperty("backupRecords", out var records)
-                || records.ValueKind != JsonValueKind.Array)
-                return;
-            foreach (var record in records.EnumerateArray()) Add(record, sourceId, output);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-        }
-    }
-
-    private static void Add(
-        JsonElement element,
-        SourceId sourceId,
-        ICollection<LegacySmartRecordSnapshot> output)
-    {
-        var archive = String(element, "archiveFileName");
-        if (string.IsNullOrWhiteSpace(archive)) return;
-        output.Add(new(
-            sourceId,
-            archive,
-            String(element, "previousBackupFileName"),
-            String(element, "basedOnFullBackup")));
-    }
-
-    private static string String(JsonElement element, string property)
-        => element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString() ?? string.Empty
-            : string.Empty;
-
-    private sealed class LegacySmartRecordKeyComparer
-        : IEqualityComparer<(SourceId SourceId, string ArchiveFileName)>
-    {
-        public static LegacySmartRecordKeyComparer Instance { get; } = new();
-
-        public bool Equals(
-            (SourceId SourceId, string ArchiveFileName) left,
-            (SourceId SourceId, string ArchiveFileName) right)
-            => left.SourceId == right.SourceId
-               && StringComparer.OrdinalIgnoreCase.Equals(left.ArchiveFileName, right.ArchiveFileName);
-
-        public int GetHashCode((SourceId SourceId, string ArchiveFileName) value)
-            => HashCode.Combine(value.SourceId, StringComparer.OrdinalIgnoreCase.GetHashCode(value.ArchiveFileName));
-    }
+    private static JsonElement? Property(JsonElement element, string name)
+        => element.EnumerateObject().Where(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+            .Select(p => (JsonElement?)p.Value).FirstOrDefault();
+    private static string Text(JsonElement element, string name)
+        => Property(element, name) is { ValueKind: JsonValueKind.String } value ? value.GetString() ?? "" : "";
+    private static string[]? Array(JsonElement element, string name)
+        => Property(element, name) is { ValueKind: JsonValueKind.Array } value
+            ? value.EnumerateArray().Select(v => v.GetString() ?? "").ToArray() : null;
 }

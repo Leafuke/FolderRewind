@@ -375,6 +375,10 @@ public sealed class HistoryRetentionPlanner
                          .Where(item => !hypotheticalProtected.Contains(item.RepresentationId))
                          .OrderBy(item => item.LocalReplicaId.ToString(), StringComparer.Ordinal))
             {
+                if (representationMap.TryGetValue(entry.RepresentationId, out var legacyRepresentation)
+                    && versionMap.TryGetValue(legacyRepresentation.VersionId, out var legacyVersion)
+                    && legacyVersion.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)
+                    continue; // Borrowed 1.8 archives stay outside automatic GC, even after the first native backup.
                 var inspection = inspectionCache[entry.LocalReplicaId];
                 if (!inspection.CanRemoveRegistration) continue;
                 deletions.Add(new HistoryLocalPayloadDeletion(

@@ -1,11 +1,14 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
 using FolderRewind.History.Retention;
+using FolderRewind.History.Migration;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,6 +23,9 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         string localPath,
         CancellationToken cancellationToken)
     {
+        if (representation.RepresentationSpecificMetadata.ContainsKey("legacyFileName")
+            && (!representation.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.ContractKey, out var contract) || contract != "1"))
+            return new(false, string.Empty, "Unsupported development-era legacy representation. Reimport preserved 1.8.2 data into a separate repository.");
         if (!File.Exists(localPath))
             return new(false, string.Empty, "Archive payload is missing.");
         var result = await RunAsync("t", localPath, outputDirectory: null, workingDirectory: null, cancellationToken)
@@ -27,8 +33,12 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         if (result.Success)
         {
             var listing = await RunAsync("l", localPath, outputDirectory: null, workingDirectory: null, cancellationToken).ConfigureAwait(false);
-            if (!listing.Success || !SevenZipArchiveListingParser.TryParse(listing.Output, out _))
+            if (!listing.Success || !SevenZipArchiveListingParser.TryParse(listing.Output, out var entries))
                 return new(false, string.Empty, "Archive entries are unsafe or could not be validated.");
+            if (!representation.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.OwnersKey)
+                && representation.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.FilesKey, out var manifest)
+                && !LegacySmartPlan.Paths(JsonSerializer.Deserialize<string[]>(manifest)).SetEquals(entries.Keys))
+                return new(false, string.Empty, "Legacy archive disagrees with its historical manifest.");
         }
         return result.Success
             ? new(true, $"7z-test:{new FileInfo(localPath).Length}", string.Empty)
@@ -41,6 +51,12 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(stagingDirectory);
+        if (dependencyFirstInputs.Count > 0
+            && dependencyFirstInputs[^1].Representation.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.ContractKey))
+        {
+            await MaterializeLegacyAsync(dependencyFirstInputs, stagingDirectory, cancellationToken).ConfigureAwait(false);
+            return;
+        }
         foreach (var input in dependencyFirstInputs)
         {
             var result = await RunAsync(
@@ -55,6 +71,60 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         }
         var marker = Path.Combine(stagingDirectory, restoreMarkerDirectory);
         if (Directory.Exists(marker)) Directory.Delete(marker, recursive: true);
+    }
+
+    private async Task MaterializeLegacyAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging, CancellationToken token)
+    {
+        if (Directory.EnumerateFileSystemEntries(staging).Any())
+            throw new InvalidDataException("Legacy materialization requires an empty staging directory.");
+        var root = inputs[^1].Representation;
+        if (root.RepresentationSpecificMetadata.ContainsKey("legacy182Support"))
+            throw new InvalidDataException("A legacy dependency payload cannot be restored independently.");
+        Dictionary<string, string>? owners = null;
+        if (root.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.OwnersKey, out var encoded))
+        {
+            owners = JsonSerializer.Deserialize<Dictionary<string, string>>(encoded)
+                ?? throw new InvalidDataException("Legacy ownership manifest is absent.");
+            _ = LegacySmartPlan.Paths(owners.Keys);
+            if (owners.Values.Any(name => !LegacySmartPlan.SafeArchive(name)))
+                throw new InvalidDataException("Unsafe legacy owner archive.");
+        }
+        var names = inputs.Select(i => i.Representation.RepresentationSpecificMetadata["legacyFileName"])
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (owners is not null && owners.Values.Any(name => !names.Contains(name)))
+            throw new InvalidDataException("Legacy ownership plan references an absent dependency.");
+        foreach (var input in inputs)
+        {
+            token.ThrowIfCancellationRequested();
+            var verification = await VerifyAsync(input.Representation, input.LocalPath, token).ConfigureAwait(false);
+            if (!verification.Success) throw new InvalidDataException(verification.Diagnostic);
+            string? list = null;
+            try
+            {
+                if (owners is not null)
+                {
+                    var name = input.Representation.RepresentationSpecificMetadata["legacyFileName"];
+                    var selected = owners.Where(p => p.Value.Equals(name, StringComparison.OrdinalIgnoreCase)).Select(p => p.Key).ToArray();
+                    if (selected.Length == 0) continue;
+                    var listing = await RunAsync("l", input.LocalPath, null, null, token).ConfigureAwait(false);
+                    if (!listing.Success || !SevenZipArchiveListingParser.TryParse(listing.Output, out var actual)
+                        || selected.Any(file => !actual.ContainsKey(file)))
+                        throw new InvalidDataException("Legacy owner archive is missing a required file.");
+                    list = Path.Combine(Path.GetDirectoryName(staging)!, "legacy-files-" + Guid.NewGuid().ToString("N") + ".txt");
+                    await File.WriteAllLinesAsync(list, selected, new System.Text.UTF8Encoding(false), token).ConfigureAwait(false);
+                }
+                var result = await RunAsync("x", input.LocalPath, staging, null, token, list).ConfigureAwait(false);
+                if (!result.Success) throw new InvalidDataException(result.Diagnostic);
+            }
+            finally { if (list is not null) File.Delete(list); }
+        }
+        var files = Directory.EnumerateFiles(staging, "*", SearchOption.AllDirectories)
+            .Select(p => Path.GetRelativePath(staging, p).Replace('\\', '/')).ToArray();
+        var expected = owners?.Keys.AsEnumerable();
+        if (expected is null && root.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.FilesKey, out var manifest))
+            expected = JsonSerializer.Deserialize<string[]>(manifest);
+        if (expected is not null && !LegacySmartPlan.Paths(expected).SetEquals(files))
+            throw new InvalidDataException("Materialized legacy files disagree with the target manifest.");
     }
 
     public async Task<HistoryCompactionPayload> CreateFullAsync(
@@ -93,7 +163,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         string archivePath,
         string? outputDirectory,
         string? workingDirectory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? includeList = null)
     {
         var executable = executablePath();
         if (string.IsNullOrWhiteSpace(executable))
@@ -119,6 +189,13 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         if (operation == "l") { start.ArgumentList.Add("-slt"); start.ArgumentList.Add("-sccUTF-8"); }
         start.ArgumentList.Add(archivePath);
         if (operation == "x") start.ArgumentList.Add("-o" + outputDirectory);
+        if (includeList is not null)
+        {
+            start.ArgumentList.Add("-i@" + includeList);
+            start.ArgumentList.Add("-scsUTF-8");
+            start.ArgumentList.Add("-spd");
+            start.ArgumentList.Add("-r-");
+        }
         if (operation == "a") start.ArgumentList.Add(Path.Combine(Path.GetFullPath(workingDirectory!), "*"));
         start.ArgumentList.Add("-y");
         if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);

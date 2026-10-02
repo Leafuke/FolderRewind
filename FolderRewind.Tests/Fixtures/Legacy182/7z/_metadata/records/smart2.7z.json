@@ -1,0 +1,23 @@
+{
+  "ArchiveFileName": "smart2.7z",
+  "BackupType": "Smart",
+  "BasedOnFullBackup": "full.7z",
+  "PreviousBackupFileName": "smart.7z",
+  "CreatedAtUtc": "2026-10-02T13:31:09.4407548Z",
+  "AddedFiles": [
+    "deleted.txt",
+    "switch"
+  ],
+  "ModifiedFiles": [
+    "a.txt"
+  ],
+  "DeletedFiles": [
+    "switch/child.txt",
+    "\u4E2D\u6587.txt"
+  ],
+  "FullFileList": [
+    "a.txt",
+    "deleted.txt",
+    "switch"
+  ]
+}

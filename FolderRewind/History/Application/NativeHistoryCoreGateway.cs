@@ -21,11 +21,18 @@ public static class NativeHistoryCoreGateway
     private static readonly HistoryRuntimeManager Runtimes = new();
     private static readonly ConcurrentDictionary<string, string> Failed = new(StringComparer.Ordinal);
 
-    public static Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
-        => InitializeAsync(
+    public static async Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(
             appConfig.BackupConfigs.Where(item => item is not null).ToArray(),
             configDirectory,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+        if (appConfig.Legacy182UpgradePending)
+        {
+            NotificationService.ShowInfo(I18n.GetString("LegacyMigration_Notice"));
+            await ConfigService.UpdateAndSaveAsync(current => current.Legacy182UpgradePending = false).ConfigureAwait(false);
+        }
+    }
 
     public static async Task InitializeAsync(
         IReadOnlyList<BackupConfig> configs,
@@ -37,9 +44,9 @@ public static class NativeHistoryCoreGateway
         {
             try
             {
-                if (config.HistoryRepositoryBinding is null)
-                    legacy ??= LegacyHistoryReader.Read(Path.Combine(configDirectory, "history.json"));
-                _ = await EnsureReadyAsync(config, configDirectory, legacy, cancellationToken).ConfigureAwait(false);
+                var runtime = await EnsureReadyAsync(config, configDirectory, legacy, cancellationToken).ConfigureAwait(false);
+                await new LegacyTakeoverService(configDirectory, new HistoryConfigId(config.Id))
+                    .ResumeAsync(runtime, MigrationSources(config), config.DestinationPath, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
@@ -301,35 +308,22 @@ public static class NativeHistoryCoreGateway
         var configId = new HistoryConfigId(config.Id);
         if (config.HistoryRepositoryBinding is { } oldBinding && oldBinding.FormatVersion != HistoryRepositoryDescriptor.CurrentFormatVersion)
             throw new InvalidOperationException(I18n.Format("History_DevelopmentFormatUnsupported", oldBinding.FormatVersion));
-        var configLegacy = config.HistoryRepositoryBinding is null
-            ? (legacy ?? LegacyHistoryReader.Read(Path.Combine(configDirectory, "history.json")))
-                .Where(item => !string.IsNullOrWhiteSpace(item.ConfigId)
-                    && new HistoryConfigId(item.ConfigId) == configId)
-                .ToArray()
-            : [];
-        if (config.HistoryRepositoryBinding is null && configLegacy.Length > 0)
+        if (config.HistoryRepositoryBinding is null)
         {
-            var sources = config.SourceFolders.Select(folder => new LegacyMigrationSourceSnapshot(
-                Source(folder), folder.Path, folder.DisplayName,
-                Path.Combine(config.DestinationPath, folder.DisplayName))).ToArray();
-            var entries = configLegacy.Select(item => new LegacyHistoryEntrySnapshot(
-                ResolveSource(config, item), item.FolderPath, item.FolderName, item.FileName,
-                item.Timestamp, item.BackupType, item.Comment, item.IsImportant, item.IsPartialBackup,
-                item.IsCloudArchived, SafeLegacyCloudLocator(item))).ToArray();
-            var migration = await new LegacyHistoryMigrationService().MigrateAsync(
-                new LegacyHistoryMigrationInput(
-                    configDirectory,
-                    configId,
-                    sources,
-                    entries,
-                    LegacySmartMetadataReader.Read(config)),
-                (version, _) => PersistBinding(config, version),
-                cancellationToken).ConfigureAwait(false);
-            if (!migration.IsReady || migration.Repository is null)
-                throw new InvalidOperationException(migration.Diagnostic);
-            return migration.Repository;
+            var prepared = new LegacyTakeoverService(configDirectory, configId).Prepare(MigrationSources(config), config.DestinationPath);
+            if (prepared.Input.Entries.Length > 0)
+            {
+                var migration = await new LegacyHistoryMigrationService().MigrateAsync(prepared.Input,
+                    (version, _) => PersistBinding(config, version), cancellationToken).ConfigureAwait(false);
+                if (!migration.IsReady || migration.Repository is null)
+                {
+                    new LegacyTakeoverService(configDirectory, configId).SaveReport(prepared.Report with
+                    { OperationStatus = migration.Status.ToString(), Diagnostic = migration.Diagnostic });
+                    throw new InvalidOperationException(migration.Diagnostic);
+                }
+                return migration.Repository;
+            }
         }
-
         var binding = await new HistoryRepositoryBindingService(configDirectory).EnsureAsync(
             config,
             _ => PersistConfig(),
@@ -339,14 +333,33 @@ public static class NativeHistoryCoreGateway
         return binding.Repository;
     }
 
-    private static SourceId ResolveSource(BackupConfig config, LegacyHistoryRecord item)
-    {
-        var folder = item.FolderId is { } id
-            ? config.SourceFolders.FirstOrDefault(value => Guid.TryParse(value.Id, out var parsed) && parsed == id)
-            : config.SourceFolders.FirstOrDefault(value => StringComparer.OrdinalIgnoreCase.Equals(value.Path, item.FolderPath));
-        return folder is null ? throw new InvalidDataException("Legacy history Source cannot be mapped deterministically.") : Source(folder);
-    }
+    internal static LegacyMigrationSourceSnapshot[] MigrationSources(BackupConfig config)
+        => config.SourceFolders.Select(folder =>
+        {
+            BackupStoragePathService.TryResolveBackupStoragePaths(config.DestinationPath, folder.DisplayName,
+                folder.Path, out _, out var directory, out _);
+            return new LegacyMigrationSourceSnapshot(Source(folder), folder.Path, folder.DisplayName, directory);
+        }).ToArray();
 
+    public static async Task<LegacyTakeoverReport> RecheckLegacyAsync(BackupConfig config, CancellationToken token = default)
+    {
+        var store = new LegacyTakeoverService(ConfigService.ConfigDirectory, new HistoryConfigId(config.Id));
+        try
+        {
+            var runtime = await EnsureReadyAsync(config, token).ConfigureAwait(false);
+            var sources = MigrationSources(config);
+            return await Task.Run(() => store.ResumeAsync(runtime, sources, config.DestinationPath, token), token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            // A migration failure must not also hide the report and its retry/selection controls.
+            var report = store.ReadReport();
+            report = report with { Diagnostic = report.OperationStatus + ": " + ex.Message };
+            try { store.SaveReport(report); } catch (Exception io) when (io is IOException or UnauthorizedAccessException) { }
+            return report;
+        }
+    }
     private static SourceId Source(ManagedFolder folder)
         => Guid.TryParse(folder.Id, out var id) && id != Guid.Empty
             ? new SourceId(id)

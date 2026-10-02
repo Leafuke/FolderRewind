@@ -671,7 +671,7 @@ namespace FolderRewind
             {
                 await Task.Run(
                     () => FolderRewind.History.Application.NativeHistoryCoreGateway.InitializeAsync(
-                        configs,
+                        Services.ConfigService.CurrentConfig,
                         Services.ConfigService.ConfigDirectory,
                         cancellationToken),
                     cancellationToken).ConfigureAwait(false);

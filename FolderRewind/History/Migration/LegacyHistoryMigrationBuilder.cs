@@ -4,9 +4,9 @@ using FolderRewind.History.Storage;
 using FolderRewind.Plugin.Runtime.Configuration;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace FolderRewind.History.Migration;
 
@@ -14,315 +14,124 @@ public sealed class LegacyHistoryMigrationBuilder
 {
     private readonly HistoryPackCodec _codec;
     private readonly Func<string, bool> _fileExists;
-
     public LegacyHistoryMigrationBuilder(HistoryPackCodec? codec = null, Func<string, bool>? fileExists = null)
-    {
-        _codec = codec ?? new HistoryPackCodec();
-        _fileExists = fileExists ?? File.Exists;
-    }
+    { _codec = codec ?? new(); _fileExists = fileExists ?? File.Exists; }
 
     public LegacyHistoryMigrationBuild Build(LegacyHistoryMigrationInput input)
     {
-        ArgumentNullException.ThrowIfNull(input);
-        if (input.Sources.GroupBy(item => item.SourceId).Any(group => group.Count() > 1))
-            throw new InvalidDataException("Legacy migration Source roster contains duplicate SourceId values.");
-        var sourceMap = input.Sources.ToDictionary(item => item.SourceId);
-        if (input.Entries.Any(item => !sourceMap.ContainsKey(item.SourceId)))
-            throw new InvalidDataException("Legacy history references a Source absent from the migrated Config roster.");
-
-        var entries = input.Entries
-            .Select(item => new EntryState(item, OriginKey(input.ConfigId, item)))
-            .OrderBy(item => item.OriginKey, StringComparer.Ordinal)
-            .ToArray();
-        var conflictingOrigin = entries.GroupBy(item => item.OriginKey, StringComparer.Ordinal)
-            .FirstOrDefault(group => group.DistinctBy(item => item.Entry).Count() > 1);
-        if (conflictingOrigin is not null)
-            throw new InvalidDataException($"Legacy history identity conflict: {conflictingOrigin.Key}");
-        entries = entries.DistinctBy(item => item.OriginKey, StringComparer.Ordinal).ToArray();
-
-        var smartMap = input.SmartRecords
-            .GroupBy(item => (item.SourceId, File: NormalizeFile(item.ArchiveFileName)))
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderBy(item => NormalizeFile(item.PreviousBackupFileName), StringComparer.Ordinal)
-                    .ThenBy(item => NormalizeFile(item.BasedOnFullBackup), StringComparer.Ordinal).First());
-        var factsByOrigin = new SortedDictionary<string, List<object>>(StringComparer.Ordinal);
-        var localEntries = new List<LocalReplicaCatalogEntry>();
-        var representations = new Dictionary<string, VersionRepresentation>(StringComparer.Ordinal);
-        var versions = new Dictionary<string, SourceVersion>(StringComparer.Ordinal);
-
-        foreach (var state in entries)
+        var sources = input.Sources.ToDictionary(s => s.SourceId);
+        var entries = input.Entries.GroupBy(e => OriginKey(input.ConfigId, e), StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
+        var facts = new Dictionary<HistoryObjectKey, HistoryPackObject>();
+        var catalog = new Dictionary<LocalReplicaId, LocalReplicaCatalogEntry>();
+        void Add(object value)
         {
-            var entry = state.Entry;
-            var diagnostics = new List<HistoryDiagnostic>();
-            if (!SafeFileName(entry.FileName))
-                diagnostics.Add(Warning("legacy.file.invalid", "Legacy archive filename is unsafe; no Representation was imported."));
-            var version = new SourceVersion(
-                LegacyHistoryMigrationIdentityV1.Version(state.OriginKey),
-                input.ConfigId,
-                entry.SourceId,
-                [],
-                ToUtc(entry.Timestamp),
-                null,
-                entry.IsPartialBackup ? CaptureScope.PartialSource : CaptureScope.FullSource,
-                CaptureOutcome.Recovered,
-                [],
-                new SourceDescriptorSnapshot(
-                    string.IsNullOrWhiteSpace(entry.FolderName) ? sourceMap[entry.SourceId].DisplayName : entry.FolderName,
-                    entry.OriginalFolderPath),
-                null,
-                new HistoryProvenance(HistoryOrigin.LegacyMigration, string.Empty, state.OriginKey),
+            var obj = _codec.CreateObject(value);
+            if (facts.TryGetValue(obj.Key, out var previous) && previous.PayloadHash != obj.PayloadHash)
+                throw new InvalidDataException("Conflicting legacy immutable identity.");
+            facts[obj.Key] = obj;
+        }
+        SourceVersion Version(string origin, SourceId source, string path, string name, DateTimeOffset timestamp,
+            bool partial, bool support = false) => new(
+                LegacyHistoryMigrationIdentityV1.Version(origin), input.ConfigId, source, [], timestamp, null,
+                partial ? CaptureScope.PartialSource : CaptureScope.FullSource, CaptureOutcome.Recovered, [],
+                new SourceDescriptorSnapshot(name, path), null,
+                new HistoryProvenance(support ? HistoryOrigin.LegacyMetadataRecovery : HistoryOrigin.LegacyMigration, "", origin),
                 creationKind: SourceVersionCreationKind.Import);
-            versions[state.OriginKey] = version;
-            var facts = new List<object> { version };
-            string archivePath = SafeFileName(entry.FileName)
-                ? Path.Combine(sourceMap[entry.SourceId].ArchiveDirectory, entry.FileName)
-                : string.Empty;
-            bool localExists = archivePath.Length > 0 && _fileExists(archivePath);
-            bool cloudDeclared = entry.IsCloudArchived
-                && HistoryRepositoryPaths.IsSafeRepositoryRelativePath(entry.LegacyCloudRelativeLocator);
-            if (entry.IsCloudArchived && !cloudDeclared)
-                diagnostics.Add(Warning("legacy.cloud.locator", "Legacy Cloud declaration had no safe relative locator and was not imported."));
 
-            if (localExists || cloudDeclared)
-            {
-                var dependencies = new List<RepresentationId>();
-                bool dependencyResolutionFailed = false;
-                if (IsSmart(entry.BackupType))
-                {
-                    if (!smartMap.TryGetValue((entry.SourceId, NormalizeFile(entry.FileName)), out var smart))
-                    {
-                        diagnostics.Add(Warning(
-                            "legacy.smart.metadata-missing",
-                            "Smart archive has no released dependency metadata; no Representation was fabricated."));
-                        dependencyResolutionFailed = true;
-                    }
-                    foreach (var dependencyFile in new[] { smart?.PreviousBackupFileName, smart?.BasedOnFullBackup }
-                                 .Where(value => !string.IsNullOrWhiteSpace(value))
-                                 .Select(value => value!)
-                                 .Distinct(StringComparer.OrdinalIgnoreCase))
-                    {
-                        var dependency = ResolveDependency(
-                            input,
-                            entry.SourceId,
-                            dependencyFile,
-                            entries,
-                            factsByOrigin,
-                            localEntries,
-                            representations,
-                            versions);
-                        if (dependency is null)
-                        {
-                            dependencyResolutionFailed = true;
-                        }
-                        else
-                        {
-                            dependencies.Add(dependency.Value);
-                        }
-                    }
-                }
-                if (!dependencyResolutionFailed)
-                {
-                    var representation = new VersionRepresentation(
-                        LegacyHistoryMigrationIdentityV1.Representation(state.OriginKey),
-                        version.VersionId,
-                        Kind(entry.BackupType),
-                        Format(entry.FileName),
-                        dependencies.Distinct(),
-                        entry.IsPartialBackup ? MaterializationFidelity.Partial : MaterializationFidelity.Exact,
-                        null,
-                        null,
-                        new Dictionary<string, string>
-                        {
-                            ["legacyFileName"] = entry.FileName,
-                            ["legacyBackupType"] = entry.BackupType
-                        });
-                    representations[state.OriginKey] = representation;
-                    facts.Add(representation);
-                    if (localExists)
-                    {
-                        localEntries.Add(new LocalReplicaCatalogEntry(
-                            representation.RepresentationId,
-                            LegacyHistoryMigrationIdentityV1.LocalReplica(state.OriginKey),
-                            LocalReplicaLocator.ControlledAbsolute(archivePath),
-                            ToUtc(entry.Timestamp)));
-                    }
-                    if (cloudDeclared)
-                    {
-                        var replica = new StorageReplica(
-                            LegacyHistoryMigrationIdentityV1.CloudReplica(state.OriginKey),
-                            representation.RepresentationId,
-                            ReplicaProviderKind.LegacyCloud,
-                            "legacy-declarations/" + entry.LegacyCloudRelativeLocator.Trim('/'),
-                            null,
-                            null,
-                            new HistoryProvenance(
-                                HistoryOrigin.LegacyDeclaration,
-                                string.Empty,
-                                entry.LegacyCloudRelativeLocator));
-                        facts.Add(replica);
-                        facts.Add(new ReplicaLifecycleUpdate(
-                            LegacyHistoryMigrationIdentityV1.CloudLifecycle(state.OriginKey),
-                            replica.ReplicaId,
-                            [],
-                            ReplicaLifecycleState.Active,
-                            ToUtc(entry.Timestamp),
-                            "Imported unverified Legacy declaration."));
-                    }
-                }
-            }
-            if (!string.IsNullOrWhiteSpace(entry.Comment))
-                facts.Add(Annotation(state, version, HistoryAnnotationKind.Comment, entry.Comment));
-            if (entry.IsImportant)
-                facts.Add(Annotation(state, version, HistoryAnnotationKind.Pin, "true"));
-            if (entry.IsPartialBackup)
-                diagnostics.Add(Warning("legacy.partial.overlay", "Partial Legacy backup was imported with Overlay fidelity."));
-            facts.Add(new SourceCheckpoint(LegacyHistoryMigrationIdentityV1.Checkpoint(state.OriginKey), input.ConfigId,
-                version.CreatedAtUtc, null, version.Provenance,
+        foreach (var group in entries)
+        {
+            if (group.Distinct().Count() != 1) continue;
+            var entry = group.First();
+            if (!sources.TryGetValue(entry.SourceId, out var source)) continue;
+            var origin = group.Key;
+            var timestamp = ToUtc(entry.Timestamp);
+            var version = Version(origin, entry.SourceId, entry.OriginalFolderPath, entry.FolderName, timestamp, entry.IsPartialBackup);
+            Add(version);
+            Add(new SourceCheckpoint(LegacyHistoryMigrationIdentityV1.Checkpoint(origin), input.ConfigId, timestamp,
+                null, version.Provenance,
                 [new(version.SourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured, version.EffectiveSourceBoundary)],
                 [], CheckpointCreationKind.Import));
-            facts.Add(new LegacyMigrationRecord(
-                LegacyHistoryMigrationIdentityV1.Record(state.OriginKey),
-                state.OriginKey,
-                version.VersionId,
-                LegacyMigrationVisibility.Timeline,
-                ToUtc(entry.Timestamp),
-                diagnostics));
-            factsByOrigin[state.OriginKey] = facts;
-        }
+            var diagnostics = new List<HistoryDiagnostic>
+            { new("legacy.boundary.unknown", HistoryDiagnosticSeverity.Warning, LegacyRecoveryPolicy.BoundaryDiagnostic) };
+            if (entry.IsCloudArchived)
+                diagnostics.Add(new("legacy.cloud.not-migrated", HistoryDiagnosticSeverity.Warning,
+                    "Old cloud archives and settings are not migrated. Create a new cloud configuration; retrieve old archives and Smart metadata yourself."));
+            Add(new LegacyMigrationRecord(LegacyHistoryMigrationIdentityV1.Record(origin), origin, version.VersionId,
+                LegacyMigrationVisibility.Timeline, timestamp, diagnostics));
+            if (!string.IsNullOrWhiteSpace(entry.Comment)) Annotate(HistoryAnnotationKind.Comment, entry.Comment);
+            if (entry.IsImportant) Annotate(HistoryAnnotationKind.Pin, "true");
+            void Annotate(HistoryAnnotationKind kind, string text) => Add(new HistoryAnnotationUpdate(
+                LegacyHistoryMigrationIdentityV1.Annotation(origin, kind),
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.VersionId.Value), kind, [], text, timestamp));
 
-        var packs = factsByOrigin.Select(pair => Pack(pair.Value, RecordTime(pair.Value))).ToImmutableArray();
-        var workspace = new HistoryWorkspace(input.ConfigId, 0,
-            input.Sources.Select(source => new WorkspaceSourceBaseline(source.SourceId, null, WorkspaceBaselineRelation.Unknown)));
-        return new LegacyHistoryMigrationBuild(packs,
-            new LocalReplicaCatalog(input.ConfigId, 0, localEntries.DistinctBy(item => item.LocalReplicaId)), workspace);
+            if (!LegacySmartPlan.SafeArchive(entry.FileName)) continue;
+            if (input.Entries.Count(e => e.SourceId == entry.SourceId
+                && e.FileName.Equals(entry.FileName, StringComparison.OrdinalIgnoreCase)) > 1)
+                continue; // A mutable legacy archive cannot prove which historical generation it contains.
+            try
+            {
+                var records = LegacySmartPlan.RecordsForTarget(entry.SourceId, entry.ResolvedArchivePath, input.SmartRecords);
+                var rootRecords = records.Where(r => r.ArchiveFileName.Equals(entry.FileName, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (rootRecords.Length > 1 || rootRecords.Any(r => r.Diagnostic.Length != 0)) continue;
+                var isSmart = entry.BackupType.Equals("Smart", StringComparison.OrdinalIgnoreCase);
+                LegacySmartPlan? plan = isSmart ? LegacySmartPlan.Build(entry.SourceId, entry.FileName, records) : null;
+                var manifest = rootRecords.SingleOrDefault()?.FullFileList;
+                if (manifest is not null) _ = LegacySmartPlan.Paths(manifest);
+                if (!isSmart && !entry.BackupType.Equals("Full", StringComparison.OrdinalIgnoreCase)
+                    && manifest is null) continue;
+                var metadata = new Dictionary<string, string>
+                { [LegacySmartPlan.ContractKey] = "1", ["legacyFileName"] = entry.FileName, ["legacyBackupType"] = entry.BackupType };
+                if (manifest is not null) metadata[LegacySmartPlan.FilesKey] = JsonSerializer.Serialize(
+                    LegacySmartPlan.Paths(manifest).OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
+                var dependencies = new List<RepresentationId>();
+                if (plan is not null)
+                {
+                    metadata[LegacySmartPlan.OwnersKey] = plan.EncodeOwners();
+                    foreach (var file in plan.Chain.Where(f => !f.Equals(entry.FileName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var supportOrigin = $"legacy182-support|{origin}|{file.ToUpperInvariant()}";
+                        var supportVersion = Version(supportOrigin, entry.SourceId, entry.OriginalFolderPath, entry.FolderName,
+                            DateTimeOffset.UnixEpoch, true, true);
+                        var supportMetadata = new Dictionary<string, string>
+                        { [LegacySmartPlan.ContractKey] = "1", ["legacyFileName"] = file, ["legacy182Support"] = "true" };
+                        var support = new VersionRepresentation(LegacyHistoryMigrationIdentityV1.Representation(supportOrigin),
+                            supportVersion.VersionId, RepresentationKind.LegacyArchive, Format(file), [], MaterializationFidelity.Partial,
+                            null, null, supportMetadata);
+                        Add(supportVersion); Add(support);
+                        Add(new LegacyMigrationRecord(LegacyHistoryMigrationIdentityV1.Record(supportOrigin), supportOrigin,
+                            supportVersion.VersionId, LegacyMigrationVisibility.SupportOnly, DateTimeOffset.UnixEpoch, []));
+                        dependencies.Add(support.RepresentationId);
+                        var recordPath = records.Single(r => r.ArchiveFileName.Equals(file, StringComparison.OrdinalIgnoreCase)).ArchivePath;
+                        var known = input.Entries.Where(e => e.SourceId == entry.SourceId
+                            && e.FileName.Equals(file, StringComparison.OrdinalIgnoreCase)).ToArray();
+                        var supportPath = known.Length == 1 && !string.IsNullOrEmpty(known[0].ResolvedArchivePath)
+                            ? known[0].ResolvedArchivePath : recordPath;
+                        Register(support, supportOrigin, supportPath ?? Path.Combine(source.ArchiveDirectory, file), DateTimeOffset.UnixEpoch);
+                    }
+                }
+                var root = new VersionRepresentation(LegacyHistoryMigrationIdentityV1.Representation(origin), version.VersionId,
+                    RepresentationKind.LegacyArchive, Format(entry.FileName), dependencies, MaterializationFidelity.Partial,
+                    null, null, metadata);
+                Add(root);
+                Register(root, origin, entry.ResolvedArchivePath ?? Path.Combine(source.ArchiveDirectory, entry.FileName), timestamp);
+            }
+            catch (InvalidDataException) { /* Keep logical history; the takeover report explains blocked metadata. */ }
+        }
+        return new(facts.Count == 0 ? [] : [new HistoryCommitPack(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UnixEpoch,
+            facts.Values.OrderBy(f => f.Kind, StringComparer.Ordinal).ThenBy(f => f.Id, StringComparer.Ordinal))], new LocalReplicaCatalog(input.ConfigId, 0, catalog.Values),
+            new HistoryWorkspace(input.ConfigId, 0, input.Sources.Select(s => new WorkspaceSourceBaseline(s.SourceId, null, WorkspaceBaselineRelation.Unknown))));
+
+        void Register(VersionRepresentation representation, string key, string path, DateTimeOffset timestamp)
+        {
+            if (path.Length == 0 || !_fileExists(path)) return;
+            var id = LegacyHistoryMigrationIdentityV1.LocalReplica(key);
+            catalog[id] = new(representation.RepresentationId, id, LocalReplicaLocator.ControlledAbsolute(path), timestamp);
+        }
     }
-
-    private RepresentationId? ResolveDependency(
-        LegacyHistoryMigrationInput input,
-        SourceId sourceId,
-        string dependencyFile,
-        IReadOnlyList<EntryState> entries,
-        SortedDictionary<string, List<object>> factsByOrigin,
-        List<LocalReplicaCatalogEntry> localEntries,
-        Dictionary<string, VersionRepresentation> representations,
-        Dictionary<string, SourceVersion> versions)
-    {
-        var known = entries.Where(item => item.Entry.SourceId == sourceId
-                && StringComparer.OrdinalIgnoreCase.Equals(item.Entry.FileName, dependencyFile))
-            .OrderByDescending(item => ToUtc(item.Entry.Timestamp))
-            .ThenByDescending(item => item.OriginKey, StringComparer.Ordinal)
-            .FirstOrDefault();
-        if (known is not null)
-        {
-            var knownSource = input.Sources.Single(item => item.SourceId == sourceId);
-            var knownPath = SafeFileName(known.Entry.FileName)
-                ? Path.Combine(knownSource.ArchiveDirectory, known.Entry.FileName)
-                : string.Empty;
-            bool declared = known.Entry.IsCloudArchived
-                && HistoryRepositoryPaths.IsSafeRepositoryRelativePath(known.Entry.LegacyCloudRelativeLocator);
-            return (knownPath.Length > 0 && _fileExists(knownPath)) || declared
-                ? LegacyHistoryMigrationIdentityV1.Representation(known.OriginKey)
-                : null;
-        }
-
-        var source = input.Sources.Single(item => item.SourceId == sourceId);
-        var origin = string.Join('|',
-            "legacy-support-v1",
-            input.ConfigId,
-            sourceId,
-            NormalizeFile(dependencyFile));
-        if (representations.TryGetValue(origin, out var existing)) return existing.RepresentationId;
-        var version = new SourceVersion(
-            LegacyHistoryMigrationIdentityV1.Version(origin), input.ConfigId, sourceId, [], DateTimeOffset.UnixEpoch,
-            null, CaptureScope.FullSource, CaptureOutcome.Recovered, [],
-            new SourceDescriptorSnapshot(source.DisplayName, source.OriginalPath), null,
-            new HistoryProvenance(HistoryOrigin.LegacyMetadataRecovery, string.Empty, origin),
-            creationKind: SourceVersionCreationKind.Import);
-        var representation = new VersionRepresentation(
-            LegacyHistoryMigrationIdentityV1.Representation(origin), version.VersionId,
-            RepresentationKind.LegacyArchive, Format(dependencyFile), [], MaterializationFidelity.Exact,
-            null, null, new Dictionary<string, string> { ["legacyFileName"] = dependencyFile });
-        versions[origin] = version;
-        representations[origin] = representation;
-        var diagnostics = new List<HistoryDiagnostic>
-        {
-            Warning(
-                "legacy.support.recovered",
-                "Support-only Version was recovered from an explicit released Smart dependency reference.")
-        };
-        var path = SafeFileName(dependencyFile) ? Path.Combine(source.ArchiveDirectory, dependencyFile) : string.Empty;
-        if (path.Length > 0 && _fileExists(path))
-        {
-            localEntries.Add(new LocalReplicaCatalogEntry(
-                representation.RepresentationId,
-                LegacyHistoryMigrationIdentityV1.LocalReplica(origin),
-                LocalReplicaLocator.ControlledAbsolute(path),
-                DateTimeOffset.UnixEpoch));
-        }
-        factsByOrigin[origin] =
-        [
-            version,
-            representation,
-            new LegacyMigrationRecord(
-                LegacyHistoryMigrationIdentityV1.Record(origin), origin, version.VersionId,
-                LegacyMigrationVisibility.SupportOnly, DateTimeOffset.UnixEpoch, diagnostics)
-        ];
-        return representation.RepresentationId;
-    }
-
-    private HistoryCommitPack Pack(IEnumerable<object> facts, DateTimeOffset timestamp)
-        => new(
-            PackId.New(),
-            HistoryTransactionId.New(),
-            timestamp,
-            facts.Select(fact => _codec.CreateObject(fact))
-                .OrderBy(item => item.Kind, StringComparer.Ordinal)
-                .ThenBy(item => item.Id, StringComparer.Ordinal));
-
-    private static HistoryAnnotationUpdate Annotation(
-        EntryState state,
-        SourceVersion version,
-        HistoryAnnotationKind kind,
-        string value)
-        => new(
-            LegacyHistoryMigrationIdentityV1.Annotation(state.OriginKey, kind),
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.VersionId.Value),
-            kind,
-            [],
-            value,
-            ToUtc(state.Entry.Timestamp));
-
-    private static DateTimeOffset RecordTime(IEnumerable<object> facts)
-        => facts.OfType<LegacyMigrationRecord>().Select(item => item.LegacyTimestampUtc).DefaultIfEmpty(DateTimeOffset.UnixEpoch).Max();
-
-    private static string OriginKey(HistoryConfigId configId, LegacyHistoryEntrySnapshot entry)
-        => LegacySourceIdentityV1.CreateHistoryOriginKey(
-            configId.Value, entry.OriginalFolderPath, entry.FileName, entry.Timestamp);
-
-    private static DateTimeOffset ToUtc(DateTime value)
-        => value.Kind == DateTimeKind.Unspecified
-            ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc))
-            : new DateTimeOffset(value.ToUniversalTime());
-
-    private static bool SafeFileName(string value)
-        => !string.IsNullOrWhiteSpace(value)
-            && StringComparer.Ordinal.Equals(Path.GetFileName(value), value);
-
-    private static string NormalizeFile(string value) => (value ?? string.Empty).Trim().ToUpperInvariant();
-    private static bool IsSmart(string value) => StringComparer.OrdinalIgnoreCase.Equals(value?.Trim(), "Smart");
-    private static string Format(string fileName)
-        => Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant() is { Length: > 0 } format ? format : "7z";
-    private static RepresentationKind Kind(string value)
-        => value?.Trim().ToUpperInvariant() switch
-        {
-            "FULL" => RepresentationKind.CoreFull,
-            "SMART" => RepresentationKind.CoreSmartDelta,
-            "ROLLING" => RepresentationKind.CoreRolling,
-            _ => RepresentationKind.LegacyArchive
-        };
-    private static HistoryDiagnostic Warning(string code, string message)
-        => new(code, HistoryDiagnosticSeverity.Warning, message);
-
-    private sealed record EntryState(LegacyHistoryEntrySnapshot Entry, string OriginKey);
+    public static string OriginKey(HistoryConfigId configId, LegacyHistoryEntrySnapshot entry)
+        => LegacySourceIdentityV1.CreateHistoryOriginKey(configId.Value, entry.OriginalFolderPath, entry.FileName, entry.Timestamp);
+    private static DateTimeOffset ToUtc(DateTime value) => value.Kind == DateTimeKind.Unspecified
+        ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)) : new DateTimeOffset(value.ToUniversalTime());
+    private static string Format(string name) => Path.GetExtension(name).TrimStart('.').ToLowerInvariant();
 }
