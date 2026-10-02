@@ -1,12 +1,14 @@
-# Branch Merge 完整整改实施进度（2026-09-23）
+# Branch Merge 整改历史记录与当前证据入口
 
-本文件记录依据 [完整整改计划](FolderRewind_1.9.0_Branch_Merge_Hardening_Plan.md) 与 [实现质量评估报告](../reviews/FolderRewind_1.9.0_Branch_Merge_Implementation_Review_2026-09-22.md) 完成的 R1–R6 安全修复、性能优化、体验完善与端到端自动化验证结果。
+当前 Source 模型验收见 [阶段 A 验收记录](History_Stage_A_Acceptance_2026-10-02.md)。本文件第 2–8 节保留 2026-09-23 与 2026-09-26 的历史记录；旧测试类名及 815/776 项统计不能作为当前模型的通过证据。旧保护意图的现存、替代及待补测试映射见新记录。
+
+以下历史内容记录依据 [完整整改计划](FolderRewind_1.9.0_Branch_Merge_Hardening_Plan.md) 与 [实现质量评估报告](../reviews/FolderRewind_1.9.0_Branch_Merge_Implementation_Review_2026-09-22.md) 当时完成的 R1–R6 修复及验证。
 
 ## 1. 当前状态与发布 Gate
 
 **发布 Gate 状态：当前关闭（CLOSED）**
 
-整改计划步骤 C00–C13 的代码实现、定向测试、性能优化、跨架构编译以及长期端到端故障注入已全部完成并纳入版本控制。所有 815 项自动化测试通过，4 种架构（Debug x64、Release x64、Debug ARM64、Debug x86）构建 0 警告 0 错误。
+2026-10-02 阶段 A 本地 Release 回归：Host 681、Plugin Runtime 138、Abstractions 15，共 834 项通过，零失败、零跳过。上传取消的三个时点另连续执行 20 轮，共 60 项通过。最终提交及 CI 完成状态以新记录所述、绑定具体 SHA 的工作流结果为准。
 
 由于尚未在复制目录与测试 Minecraft 世界中完成真实破坏性人工验收，本阶段**明确保持发布阻塞，不声称具备发布条件**。待人工验收全部通过后，再单独提交验收记录并关闭发布阻塞项。
 

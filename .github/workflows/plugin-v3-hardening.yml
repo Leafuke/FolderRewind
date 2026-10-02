@@ -43,17 +43,68 @@ jobs:
         shell: pwsh
         run: dotnet restore FolderRewind.slnx -p:Platform=x64
 
+      - name: Require real 7-Zip for archive integration tests
+        shell: pwsh
+        run: |
+          $sevenZip = (Get-Command '7z.exe' -ErrorAction Stop).Source
+          & $sevenZip i
+          if ($LASTEXITCODE -ne 0) { throw 'Real 7-Zip is required; archive tests must not be skipped.' }
+          "FOLDERREWIND_TEST_7Z=$sevenZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Test approved Plugin API contract
         shell: pwsh
-        run: dotnet test FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj -c Release --no-restore
+        run: dotnet test FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj -c Release --no-restore --logger trx --results-directory artifacts/test-results/abstractions
 
       - name: Test Runtime and Fake plugin behavior
         shell: pwsh
-        run: dotnet test FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj -c Release --no-restore
+        run: dotnet test FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj -c Release --no-restore --logger trx --results-directory artifacts/test-results/runtime
 
       - name: Test Host policies
         shell: pwsh
-        run: dotnet test FolderRewind.Tests/FolderRewind.Tests.csproj -c Release --no-restore
+        run: dotnet test FolderRewind.Tests/FolderRewind.Tests.csproj -c Release --no-restore --logger trx --results-directory artifacts/test-results/host
+
+      - name: Repeat upload cancellation at all three boundaries
+        shell: pwsh
+        run: ./scripts/tests/Test-HistoryUploadCancellation.ps1 -ResultsDirectory artifacts/test-results/cloud-cancellation
+
+      - name: Require complete test evidence without skipped cases
+        shell: pwsh
+        run: |
+          $reports = @(Get-ChildItem -LiteralPath artifacts/test-results -Recurse -Filter '*.trx')
+          if ($reports.Count -ne 23) { throw "Expected 3 full suites and 20 cancellation reports, got $($reports.Count)." }
+          foreach ($report in $reports) {
+            [xml]$result = Get-Content -LiteralPath $report.FullName
+            $counters = $result.TestRun.ResultSummary.Counters
+            if ([int]$counters.total -eq 0 -or [int]$counters.passed -ne [int]$counters.total) {
+              throw "Failed, skipped or missing tests in $($report.Name)."
+            }
+            if ($report.Name -like 'cloud-cancellation-*' -and [int]$counters.total -ne 3) {
+              throw "All three cancellation boundaries must execute in $($report.Name)."
+            }
+          }
+          $evidence = @(
+            '# Stage A automated acceptance',
+            "Commit: $env:GITHUB_SHA",
+            "SDK: $(dotnet --version)",
+            'Configuration: Release',
+            'Cancellation: 20 rounds, 3 boundaries per round, 60 passed, zero skipped',
+            "Run: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          )
+          foreach ($report in $reports | Where-Object { $_.Name -notlike 'cloud-cancellation-*' }) {
+            [xml]$result = Get-Content -LiteralPath $report.FullName
+            $counters = $result.TestRun.ResultSummary.Counters
+            $evidence += "$($report.Directory.Name): total=$($counters.total), passed=$($counters.passed), failed=$($counters.failed), skipped=$($counters.notExecuted)"
+          }
+          $evidence | Set-Content -LiteralPath artifacts/test-results/stage-a-acceptance.md -Encoding utf8
+          $evidence | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+
+      - name: Preserve test results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-a-test-results
+          path: artifacts/test-results/
+          if-no-files-found: warn
 
       - name: Pack Plugin API
         shell: pwsh
@@ -126,3 +177,4 @@ jobs:
             -p:Platform=${{ matrix.platform }} `
             -p:CETCompat=false `
             -p:GenerateAppxPackageOnBuild=false `
+            -warnaserror
