@@ -106,6 +106,16 @@ jobs:
           path: artifacts/test-results/
           if-no-files-found: warn
 
+      - name: Preserve released migration fixture provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy182-fixture-evidence
+          path: |
+            FolderRewind.Tests/Fixtures/Legacy182/
+            docs/plans/Upgrade_1.8.2_to_1.9_Manual_Acceptance.md
+          if-no-files-found: error
+
       - name: Pack Plugin API
         shell: pwsh
         run: dotnet pack FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj -c Release --no-restore -o artifacts/nuget
@@ -178,3 +188,20 @@ jobs:
             -p:CETCompat=false `
             -p:GenerateAppxPackageOnBuild=false `
             -warnaserror
+
+      - name: Verify bundled legacy upgrade plugin in build output
+        shell: pwsh
+        run: |
+          $platform = '${{ matrix.platform }}'
+          $rid = 'win-' + $platform.ToLowerInvariant()
+          ./scripts/tests/Test-Legacy182ReleasePayload.ps1 `
+            -PayloadDirectory "FolderRewind/bin/$platform/Release/net10.0-windows10.0.19041.0/$rid" `
+            -ReportPath "artifacts/migration-payload-$platform.json"
+
+      - name: Preserve migration payload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-payload-${{ matrix.platform }}
+          path: artifacts/migration-payload-*.json
+          if-no-files-found: warn
