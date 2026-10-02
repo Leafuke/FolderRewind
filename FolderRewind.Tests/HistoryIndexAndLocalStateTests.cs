@@ -229,9 +229,19 @@ public sealed class HistoryIndexAndLocalStateTests
         var recovery = new HistoryLocalStateJournalRecovery(workspaceStore, catalogStore);
         var branchId = BranchId.New();
         var branchUpdateId = BranchUpdateId.New();
-        var workspace = new HistoryWorkspace(_configId, 0, HistoryFixture.SourceStates([], branchId, branchUpdateId, null));
-        var catalog = new LocalReplicaCatalog(_configId, 0, []);
-        var pack = CreatePack(CreateVersion(SourceId.New()));
+        var version = CreateVersion(SourceId.New());
+        var checkpoint = CreateCheckpoint(version.SourceId, version.VersionId);
+        var representation = new VersionRepresentation(RepresentationId.New(), version.VersionId,
+            RepresentationKind.CoreFull, "7z", [], MaterializationFidelity.Exact, null, null, []);
+        var branch = new BranchUpdate(branchUpdateId, branchId, [], "main", checkpoint.CheckpointId,
+            false, DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: version.SourceId);
+        var workspace = new HistoryWorkspace(_configId, 0,
+            [new(version.SourceId, version.VersionId, WorkspaceBaselineRelation.Exact,
+                branchId, branchUpdateId, checkpoint.CheckpointId)]);
+        var replica = new LocalReplicaCatalogEntry(representation.RepresentationId, LocalReplicaId.New(),
+            LocalReplicaLocator.ControlledAbsolute(Path.Combine(_root, "payload.7z")), DateTimeOffset.UtcNow);
+        var catalog = new LocalReplicaCatalog(_configId, 0, [replica]);
+        var pack = CreatePack(version, representation, checkpoint, branch);
         var journal = HistoryTransactionJournal.Prepared(
             pack.TransactionId,
             pack.PackId,
@@ -248,6 +258,11 @@ public sealed class HistoryIndexAndLocalStateTests
             (_, _) => Task.CompletedTask);
 
         Assert.AreEqual(branchUpdateId, (await workspaceStore.LoadAsync()).Value!.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
+        var recoveredState = (await workspaceStore.LoadAsync()).Value!.GetSourceState(version.SourceId);
+        Assert.AreEqual(branchId, recoveredState.ActiveBranchId);
+        Assert.AreEqual(checkpoint.CheckpointId, recoveredState.CheckpointAncestryAnchorId);
+        Assert.AreEqual(version.VersionId, recoveredState.BaseVersionId);
+        Assert.AreEqual(replica, (await catalogStore.LoadAsync()).Value!.Entries.Single());
         Assert.AreEqual(0, (await catalogStore.LoadAsync()).Value!.CatalogRevision);
 
         // 恢复可重复执行，不会因 expected revision 已前进而覆盖或报冲突。

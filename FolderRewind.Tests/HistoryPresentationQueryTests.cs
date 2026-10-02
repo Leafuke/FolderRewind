@@ -52,7 +52,8 @@ public sealed class HistoryPresentationQueryTests
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
             new object[]
             {
-                first, second, checkpointOne, duplicateCheckpointForFirst, checkpointTwo,
+                first, second, ExactRepresentation(first), ExactRepresentation(second),
+                checkpointOne, duplicateCheckpointForFirst, checkpointTwo,
                 tipOne, tipTwo, safetySnapshot
             }
                 .Select(item => codec.CreateObject(item))));
@@ -60,17 +61,20 @@ public sealed class HistoryPresentationQueryTests
         var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
 
         CollectionAssert.AreEquivalent(
-            new[] { first.VersionId, second.VersionId },
-            snapshot.Timeline.Select(item => item.VersionId).ToArray());
+            new[] { checkpointOne.CheckpointId, duplicateCheckpointForFirst.CheckpointId, checkpointTwo.CheckpointId },
+            snapshot.Timeline.Select(item => item.CheckpointId!.Value).ToArray());
+        Assert.HasCount(2, snapshot.Timeline.Where(item => item.VersionId == first.VersionId));
         Assert.IsTrue(snapshot.Timeline.All(item => item.ParentVersionIds.IsEmpty));
         var branch = snapshot.Branches.Single();
         Assert.IsTrue(branch.IsMultiTip);
         Assert.IsFalse(branch.CanRename);
         Assert.IsFalse(branch.CanDelete);
         Assert.IsTrue(branch.HasCheckoutTarget);
-        var firstTimeline = snapshot.Timeline.Single(item => item.VersionId == first.VersionId);
-        Assert.AreEqual(2, firstTimeline.BranchableCheckpointCount);
-        Assert.IsNull(firstTimeline.BranchableCheckpointId);
+        foreach (var firstTimeline in snapshot.Timeline.Where(item => item.VersionId == first.VersionId))
+        {
+            Assert.AreEqual(1, firstTimeline.BranchableCheckpointCount);
+            Assert.AreEqual(firstTimeline.CheckpointId, firstTimeline.BranchableCheckpointId);
+        }
         var secondTimeline = snapshot.Timeline.Single(item => item.VersionId == second.VersionId);
         Assert.AreEqual(checkpointTwo.CheckpointId, secondTimeline.BranchableCheckpointId);
         Assert.AreEqual(safetySnapshot.SnapshotId, snapshot.ActiveSafetySnapshots.Single().Snapshot.SnapshotId);
@@ -141,6 +145,7 @@ public sealed class HistoryPresentationQueryTests
             new object[]
             {
                 shared, mainOnly, featureOnly,
+                ExactRepresentation(shared), ExactRepresentation(mainOnly), ExactRepresentation(featureOnly),
                 sharedCheckpoint, mainCheckpoint, featureCheckpoint,
                 mainRoot, mainTip, featureRoot, featureTip
             }.Select(item => codec.CreateObject(item))));
@@ -158,7 +163,11 @@ public sealed class HistoryPresentationQueryTests
 
         var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
 
-        Assert.AreEqual(featureId, snapshot.ActiveBranchId);
+        Assert.IsNull(snapshot.ActiveBranchId);
+        Assert.IsNull(snapshot.ActiveBranchUpdateId);
+        var sourceSnapshot = await new HistoryPresentationQueryService(runtime).QueryAsync(sourceId);
+        Assert.AreEqual(featureId, sourceSnapshot.ActiveBranchId);
+        Assert.AreEqual(featureTip.UpdateId, sourceSnapshot.ActiveBranchUpdateId);
         var activeBranch = snapshot.Branches.Single(branch => branch.BranchId == featureId);
         Assert.IsTrue(activeBranch.IsActive);
         Assert.IsTrue(activeBranch.IsWorkspaceAnchoredAtTip);
@@ -210,7 +219,9 @@ public sealed class HistoryPresentationQueryTests
             ReplicaLifecycleState.Active, DateTimeOffset.UtcNow, "active");
         var facts = new object[]
         {
-            available, released, activeRep, retiredRep, activeReplica, retiredReplica, oldActive,
+            available, released, activeRep, retiredRep,
+            Checkpoint(configId, sourceId, available), Checkpoint(configId, sourceId, released),
+            activeReplica, retiredReplica, oldActive,
             new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), retiredReplica.ReplicaId, [oldActive.UpdateId],
                 ReplicaLifecycleState.Retired, DateTimeOffset.UtcNow, "retired"),
             new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), activeReplica.ReplicaId, [],
@@ -225,6 +236,10 @@ public sealed class HistoryPresentationQueryTests
         Assert.AreEqual(HistoryPresentationReadiness.PreparationRequired, snapshot.Timeline.Single(item => item.VersionId == available.VersionId).Readiness);
         Assert.AreEqual(HistoryPresentationReadiness.PayloadReleased, snapshot.Timeline.Single(item => item.VersionId == released.VersionId).Readiness);
     }
+
+    private static VersionRepresentation ExactRepresentation(SourceVersion version)
+        => new(RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "7z", [],
+            MaterializationFidelity.Exact, null, null, []);
 
     private static SourceVersion Version(HistoryConfigId configId, SourceId sourceId, string name)
         => new(
