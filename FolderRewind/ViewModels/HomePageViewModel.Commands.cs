@@ -28,7 +28,8 @@ public sealed partial class HomePageViewModel
         string Name,
         string IconGlyph,
         PluginConfigKindOption ConfigKind,
-        bool CreatePluginBatch);
+        bool CreatePluginBatch,
+        bool DiscoverKnownLocations = false);
 
     internal sealed record CreateConfigFromTemplateRequest(
         BackupPreset Template,
@@ -243,6 +244,13 @@ public sealed partial class HomePageViewModel
                 return;
             }
 
+            if (request.DiscoverKnownLocations)
+            {
+                _interactions.NavigateToGameDiscovery(GameDiscoveryNavigationParameter.ForPluginDiscovery(
+                    request.ConfigKind.RequiredPluginId, returnDraftToSetup: true,
+                    configKind: request.ConfigKind.CreateReference()));
+                return;
+            }
             var root = await _interactions.PickPluginBatchRootAsync(cancellationToken);
             if (!string.IsNullOrWhiteSpace(root))
             {

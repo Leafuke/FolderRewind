@@ -66,6 +66,9 @@ public static class PluginPresetService
                 : results.Any(value => value.Outcome == PluginPresetStepOutcome.SuccessWithWarnings)
                     ? PluginPresetStepOutcome.SuccessWithWarnings
                     : PluginPresetStepOutcome.Success;
+        // Installation/enable actions can finish after the initial UI inventory was populated.
+        // Refresh it before callers create drafts that validate required plugins.
+        await UiDispatcherService.RunOnUiAsync(PluginService.RefreshRuntimeUi).ConfigureAwait(false);
         return new PluginPresetRunResult(outcome, results);
     }
 

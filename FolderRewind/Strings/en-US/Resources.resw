@@ -5291,8 +5291,8 @@ Confirm to use the historical scope.</value></data>
   <data name="Setup_AddFolder.Content" xml:space="preserve"><value>Choose a folder</value></data>
   <data name="Setup_RemoveSource.Content" xml:space="preserve"><value>Remove selected content</value></data>
   <data name="Setup_OtherScenarios.Header" xml:space="preserve"><value>Games and discovery</value></data>
-  <data name="Setup_Minecraft.Content" xml:space="preserve"><value>Minecraft worlds</value></data>
-  <data name="Setup_MinecraftHelp.Text" xml:space="preserve"><value>MineRewind discovers worlds in your selected instance. Exit the world for a basic backup; set up game integration after your first backup.</value></data>
+  <data name="Setup_Minecraft.Content" xml:space="preserve"><value>Discover Minecraft saves automatically</value></data>
+  <data name="Setup_MinecraftHelp.Text" xml:space="preserve"><value>Find Java and Bedrock saves in common launchers automatically, or choose a folder on the results page. Close the game for a basic backup; set up game integration after your first backup.</value></data>
   <data name="Setup_Discovery.Content" xml:space="preserve"><value>Discover other games</value></data>
   <data name="Setup_Resume.Content" xml:space="preserve"><value>Resume saved draft</value></data>
   <data name="Setup_Discard.Content" xml:space="preserve"><value>Discard saved draft</value></data>
@@ -5679,7 +5679,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="Scenario_Folder.Text" xml:space="preserve"><value>Folder</value></data>
   <data name="Scenario_FolderHelp.Text" xml:space="preserve"><value>Back up documents, work, or other folders.</value></data>
   <data name="Scenario_Minecraft.Text" xml:space="preserve"><value>Minecraft</value></data>
-  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>Find instances and worlds to back up.</value></data>
+  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>Find Java and Bedrock saves in launchers automatically, then choose worlds to back up.</value></data>
   <data name="Scenario_OtherGame.Text" xml:space="preserve"><value>Other games</value></data>
   <data name="Scenario_OtherGameHelp.Text" xml:space="preserve"><value>Find supported game saves and create a project.</value></data>
   <data name="Setup_ChooseTitle" xml:space="preserve"><value>Create a backup project</value></data>
@@ -5908,4 +5908,12 @@ Branch at backup: {2}
   <data name="Performance_Description_UltraFast" xml:space="preserve"><value>Use automatic threads, normal priority, and zstd level 1 to prioritize backup speed.</value></data>
   <data name="Performance_Description_SpaceSaving" xml:space="preserve"><value>Use all CPU threads at low priority and keep the current algorithm: zstd level 19, otherwise level 9. May increase memory use and backup time.</value></data>
   <data name="Performance_FileTypeOverrideHint.Text" xml:space="preserve"><value>The archive format stays unchanged. Enabled file type rules still use their own compression levels.</value></data>
+  <data name="GameDiscovery_PluginBatch_Title.Text" xml:space="preserve"><value>Discover backup sources</value></data>
+  <data name="GameDiscovery_PluginBatch_AutomaticKind" xml:space="preserve"><value>Detect edition from each save</value></data>
+  <data name="GameDiscovery_PluginBatch_KnownLocations" xml:space="preserve"><value>Known launcher locations, remembered folders and nearby managed projects</value></data>
+  <data name="GameDiscovery_PluginBatch_DiscoveryHelp.Text" xml:space="preserve"><value>Automatic discovery checks common launchers and remembered folders. A folder scan checks only the selected location. Select projects to continue with backup setup.</value></data>
+  <data name="GameDiscovery_PluginBatch_DiscoverKnown.Content" xml:space="preserve"><value>Discover saves automatically</value></data>
+  <data name="GameDiscovery_PluginBatch_PickRoot.Content" xml:space="preserve"><value>Choose a folder to scan</value></data>
+  <data name="GameDiscovery_PluginBatch_NoCandidates" xml:space="preserve"><value>No save projects were found. Choose a launcher, game instance or save folder to scan.</value></data>
+  <data name="GameDiscovery_ContinueSetup" xml:space="preserve"><value>Continue backup setup</value></data>
 </root>

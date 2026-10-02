@@ -98,17 +98,14 @@ public sealed partial class BackupSetupPage : Page
     private async void OnMinecraft(object sender, RoutedEventArgs e) => await RunAsync(async () =>
     {
         const string pluginId = "com.folderrewind.minerewind";
-        var option = PluginService.GetAllSupportedConfigKinds().FirstOrDefault(k => k.RequiredPluginId == pluginId);
-        if (option is null || !FolderRewind.Services.Discovery.GameDiscoveryProviderFactory.GetPluginBatchAvailability(pluginId).IsAvailable)
+        if (!FolderRewind.Services.Discovery.GameDiscoveryProviderFactory.GetPluginBatchAvailability(pluginId).IsAvailable)
         {
             if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("Setup_MinecraftTitle"), I18n.GetString("Setup_MinecraftConsent"), I18n.GetString("Common_Confirm"), XamlRoot)) return;
             await MinecraftOnboardingService.PrepareBasicPluginAsync();
             if (!_active) return;
-            option = PluginService.GetAllSupportedConfigKinds().FirstOrDefault(k => k.RequiredPluginId == pluginId);
         }
-        if (option is null || !FolderRewind.Services.Discovery.GameDiscoveryProviderFactory.GetPluginBatchAvailability(pluginId).IsAvailable)
+        if (!FolderRewind.Services.Discovery.GameDiscoveryProviderFactory.GetPluginBatchAvailability(pluginId).IsAvailable)
             throw new InvalidOperationException(I18n.GetString("Setup_PluginUnavailable"));
-        var root = await MainWindowService.PickFolderPathAsync(I18n.GetString("Setup_InstanceRoot"), "FolderRewind.Setup.Minecraft", MainWindowService.SuggestedPickerLocation.ComputerFolder);
-        if (_active && !string.IsNullOrWhiteSpace(root)) NavigationService.NavigateTo("GameDiscovery", GameDiscoveryNavigationParameter.ForPluginBatch(pluginId, option.CreateReference(), root, returnDraftToSetup: true));
+        if (_active) NavigationService.NavigateTo("GameDiscovery", GameDiscoveryNavigationParameter.ForPluginDiscovery(pluginId, returnDraftToSetup: true));
     });
 }

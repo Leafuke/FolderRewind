@@ -774,9 +774,9 @@ public static class PluginV3PackageService
                     "PluginV3");
             }
         }
+        // Keep each manifest's declaration order: sorting Kind IDs must not change UI defaults.
         return result
             .OrderBy(pair => pair.Item1.Value, StringComparer.Ordinal)
-            .ThenBy(pair => pair.Item2.Kind.KindId, StringComparer.Ordinal)
             .ToArray();
     }
 

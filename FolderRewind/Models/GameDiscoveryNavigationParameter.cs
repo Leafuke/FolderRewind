@@ -15,6 +15,7 @@ public sealed class GameDiscoveryNavigationParameter
     public string PluginId { get; init; } = string.Empty;
     public ConfigKindReference? ConfigKind { get; init; }
     public string UserRoot { get; init; } = string.Empty;
+    public bool IncludeKnownLocations { get; init; }
     public bool ReturnDraftToSetup { get; init; }
     public System.Collections.Generic.List<BackupSetupDraftSelection> ResumingSelections { get; init; } = [];
 
@@ -31,7 +32,7 @@ public sealed class GameDiscoveryNavigationParameter
 
     public static GameDiscoveryNavigationParameter ForPluginBatch(
         string pluginId,
-        ConfigKindReference configKind,
+        ConfigKindReference? configKind,
         string userRoot,
         bool returnDraftToSetup = false) => new()
     {
@@ -46,5 +47,21 @@ public sealed class GameDiscoveryNavigationParameter
                 KindId = configKind.KindId
             },
         UserRoot = userRoot?.Trim() ?? string.Empty
+    };
+
+    public static GameDiscoveryNavigationParameter ForPluginDiscovery(
+        string pluginId,
+        bool returnDraftToSetup = false,
+        ConfigKindReference? configKind = null) => new()
+    {
+        Mode = GameDiscoveryNavigationMode.PluginBatch,
+        PluginId = pluginId?.Trim() ?? string.Empty,
+        ConfigKind = configKind == null ? null : new ConfigKindReference
+        {
+            OwnerId = configKind.OwnerId,
+            KindId = configKind.KindId
+        },
+        IncludeKnownLocations = true,
+        ReturnDraftToSetup = returnDraftToSetup
     };
 }

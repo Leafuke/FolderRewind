@@ -413,11 +413,20 @@ public sealed partial class HomePage : Page
         }
         var picker = CreateConfigKindCombo(kinds, "HomePluginBatchKind", resources);
         var dialog = new ContentDialog { Title = I18n.GetString("Home_PluginBatchTitle"), Content = picker,
-            PrimaryButtonText = I18n.GetString("Common_Confirm"), CloseButtonText = I18n.GetString("Common_Cancel"), IsPrimaryButtonEnabled = false };
-        picker.SelectionChanged += (_, _) => dialog.IsPrimaryButtonEnabled = picker.SelectedItem is PluginConfigKindOption;
-        if (await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot, cancellationToken) != ContentDialogResult.Primary
+            PrimaryButtonText = I18n.GetString("GameDiscovery_PluginBatch_DiscoverKnown.Content"),
+            SecondaryButtonText = I18n.GetString("GameDiscovery_PluginBatch_PickRoot.Content"),
+            CloseButtonText = I18n.GetString("Common_Cancel"), IsPrimaryButtonEnabled = false, IsSecondaryButtonEnabled = false };
+        picker.SelectionChanged += (_, _) =>
+        {
+            dialog.IsPrimaryButtonEnabled = picker.SelectedItem is PluginConfigKindOption;
+            dialog.IsSecondaryButtonEnabled = dialog.IsPrimaryButtonEnabled;
+        };
+        picker.SelectedIndex = 0;
+        var result = await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot, cancellationToken);
+        if (result == ContentDialogResult.None
             || picker.SelectedItem is not PluginConfigKindOption selected) return;
-        await ViewModel.CreateConfigCommand.ExecuteAsync(new HomePageViewModel.CreateConfigRequest("", IconCatalog.DefaultConfigIconGlyph, selected, true));
+        await ViewModel.CreateConfigCommand.ExecuteAsync(new HomePageViewModel.CreateConfigRequest(
+            "", IconCatalog.DefaultConfigIconGlyph, selected, true, DiscoverKnownLocations: result == ContentDialogResult.Primary));
     }
 
     private static ComboBox CreateConfigKindCombo(

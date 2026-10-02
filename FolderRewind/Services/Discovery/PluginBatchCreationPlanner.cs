@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Services.Plugins;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -10,10 +11,11 @@ public sealed class PluginBatchCreationSummaryItem : ObservableObject
 {
     private bool _isSelected;
 
-    public PluginBatchCreationSummaryItem(BackupConfigDraft draft)
+    public PluginBatchCreationSummaryItem(BackupConfigDraft draft, string? kindName = null)
     {
         Draft = draft;
         _isSelected = draft.IsSelected;
+        KindName = kindName ?? PluginService.ResolveConfigKindOption(draft.ProposedConfig).DisplayName;
     }
 
     public BackupConfigDraft Draft { get; }
@@ -27,6 +29,7 @@ public sealed class PluginBatchCreationSummaryItem : ObservableObject
         }
     }
     public string ConfigName => Draft.ProposedConfig.Name;
+    public string KindName { get; }
     public string DestinationPath => Draft.ProposedConfig.DestinationPath;
     public string SourceSummary => string.Join(
         Environment.NewLine,
@@ -56,12 +59,11 @@ public static class PluginBatchCreationPlanner
     public static PluginBatchCreationPlan Build(
         GameDiscoveryResult result,
         string pluginId,
-        ConfigKindReference configKind,
+        ConfigKindReference? configKind,
         IEnumerable<BackupPreset>? presets,
         IEnumerable<BackupConfig>? existingConfigs)
     {
         ArgumentNullException.ThrowIfNull(result);
-        ArgumentNullException.ThrowIfNull(configKind);
 
         var existing = (existingConfigs ?? Array.Empty<BackupConfig>()).ToList();
         var skippedMessages = new List<string>();
@@ -82,7 +84,7 @@ public static class PluginBatchCreationPlanner
             var context = pair.Set.PluginDraftContext;
             if (context == null
                 || !string.Equals(context.PluginId, pluginId, StringComparison.OrdinalIgnoreCase)
-                || !KindsEqual(context.Kind, configKind))
+                || (configKind != null && !KindsEqual(context.Kind, configKind)))
             {
                 continue;
             }
@@ -115,7 +117,7 @@ public static class PluginBatchCreationPlanner
                 existing,
                 string.Empty,
                 selectedResourceIds,
-                SelectBatchPreset(pair.Game.Definition, presets, pluginId, configKind));
+                SelectBatchPreset(pair.Game.Definition, presets, pluginId, context.Kind));
             if (draft.ExistingConfig != null)
             {
                 existingCount++;
@@ -140,7 +142,8 @@ public static class PluginBatchCreationPlanner
         if (matchingSetCount == 0
             && !result.Diagnostics.Any(diagnostic => diagnostic.Severity == DiscoveryDiagnosticSeverity.Error))
         {
-            skippedMessages.Add(I18n.GetString("GameDiscovery_PluginBatch_NoMatchingKind"));
+            skippedMessages.Add(I18n.GetString(configKind == null
+                ? "GameDiscovery_PluginBatch_NoCandidates" : "GameDiscovery_PluginBatch_NoMatchingKind"));
         }
 
         AllocateUniqueNamesAndDestinations(drafts, existing);
@@ -158,10 +161,13 @@ public static class PluginBatchCreationPlanner
                 .Where(message => !string.IsNullOrWhiteSpace(message))
                 .Distinct(StringComparer.CurrentCulture));
 
+        var kindOptions = PluginService.GetAllSupportedConfigKinds();
         return new PluginBatchCreationPlan
         {
             Drafts = drafts,
-            Items = drafts.Select(draft => new PluginBatchCreationSummaryItem(draft)).ToList(),
+            Items = drafts.Select(draft => new PluginBatchCreationSummaryItem(draft,
+                kindOptions.FirstOrDefault(option => KindsEqual(option.Kind, draft.ProposedConfig.Kind))?.DisplayName
+                    ?? draft.ProposedConfig.Kind.KindId)).ToList(),
             BroadRootResources = broadRoots,
             SkippedMessages = skippedMessages,
             ExistingCount = existingCount,

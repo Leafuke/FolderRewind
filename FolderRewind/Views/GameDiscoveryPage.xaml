@@ -13,8 +13,9 @@
     <ScrollViewer Padding="28">
         <StackPanel Spacing="16">
             <StackPanel Spacing="4">
-                <TextBlock x:Uid="GameDiscoveryPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
-                <TextBlock x:Uid="GameDiscoveryPage_Description" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <TextBlock x:Uid="GameDiscoveryPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1" Visibility="{x:Bind ViewModel.IsStandardDiscoveryMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                <TextBlock x:Uid="GameDiscoveryPage_Description" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Visibility="{x:Bind ViewModel.IsStandardDiscoveryMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                <TextBlock x:Uid="GameDiscovery_PluginBatch_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1" Visibility="{x:Bind ViewModel.IsPluginBatchMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
             </StackPanel>
 
             <InfoBar x:Uid="GameDiscoveryPage_BetaNotice" IsOpen="True" IsClosable="False" Severity="Informational" Visibility="{x:Bind ViewModel.IsStandardDiscoveryMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
@@ -102,14 +103,17 @@
                         <TextBlock x:Uid="GameDiscovery_PluginBatch_Root" Grid.Row="2"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.PluginBatchRoot, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
                     </Grid>
+                    <TextBlock x:Uid="GameDiscovery_PluginBatch_DiscoveryHelp" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"/>
                         <TextBlock Text="{x:Bind ViewModel.ProgressText, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Uid="GameDiscovery_PluginBatch_Rescan" Click="OnScanClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
-                        <Button x:Uid="GameDiscoveryPage_Cancel" Click="OnCancelClick" IsEnabled="{x:Bind ViewModel.CanCancel, Mode=OneWay}"/>
+                        <Button x:Uid="GameDiscovery_PluginBatch_Rescan" Click="OnScanClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}" AutomationProperties.AutomationId="PluginBatchRescan"/>
+                        <Button x:Uid="GameDiscoveryPage_Cancel" Click="OnCancelClick" IsEnabled="{x:Bind ViewModel.CanCancel, Mode=OneWay}" AutomationProperties.AutomationId="PluginBatchCancel"/>
                     </StackPanel>
+                    <Button x:Uid="GameDiscovery_PluginBatch_DiscoverKnown" Click="OnPluginKnownLocationsClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}" HorizontalAlignment="Left" AutomationProperties.AutomationId="PluginBatchDiscoverKnown"/>
+                    <Button x:Uid="GameDiscovery_PluginBatch_PickRoot" Click="OnPluginPickRootClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}" HorizontalAlignment="Left" AutomationProperties.AutomationId="PluginBatchPickRoot"/>
                     <InfoBar IsOpen="{x:Bind ViewModel.HasPluginBatchFatalMessage, Mode=OneWay}" IsClosable="False" Severity="Error" Message="{x:Bind ViewModel.PluginBatchFatalMessage, Mode=OneWay}"/>
                     <TextBlock Text="{x:Bind ViewModel.PluginBatchSummary, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                     <ItemsControl ItemsSource="{x:Bind ViewModel.PluginBatchItems, Mode=OneWay}">
@@ -121,9 +125,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Top"/>
+                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Top" AutomationProperties.Name="{x:Bind ConfigName, Mode=OneTime}" AutomationProperties.AutomationId="PluginBatchSelect"/>
                                         <StackPanel Grid.Column="1" Spacing="4">
                                             <TextBlock Text="{x:Bind ConfigName, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="{x:Bind KindName, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                             <TextBlock Text="{x:Bind DestinationPath, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                             <TextBlock Text="{x:Bind SourceSummary, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap"/>
                                         </StackPanel>
@@ -140,7 +145,7 @@
                             <CheckBox x:Uid="GameDiscovery_PluginBatch_BroadRootConfirm" IsChecked="{x:Bind ViewModel.IsPluginBatchBroadRootConfirmed, Mode=TwoWay}"/>
                         </StackPanel>
                     </Border>
-                    <Button x:Uid="GameDiscovery_PluginBatch_Commit" Click="OnPluginBatchCommitClick" HorizontalAlignment="Right" IsEnabled="{x:Bind ViewModel.CanCommitPluginBatch, Mode=OneWay}" AutomationProperties.AutomationId="PluginBatchCommitButton"/>
+                    <Button Content="{x:Bind ViewModel.PluginBatchCommitLabel, Mode=OneWay}" Click="OnPluginBatchCommitClick" HorizontalAlignment="Right" IsEnabled="{x:Bind ViewModel.CanCommitPluginBatch, Mode=OneWay}" AutomationProperties.AutomationId="PluginBatchCommitButton"/>
                 </StackPanel>
             </Border>
 

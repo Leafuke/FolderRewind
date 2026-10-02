@@ -41,6 +41,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     private string _pluginBatchPluginName = string.Empty;
     private string _pluginBatchKindName = string.Empty;
     private string _pluginBatchRoot = string.Empty;
+    private bool _pluginBatchIncludeKnownLocations;
     private string _pluginBatchSummary = string.Empty;
     private string _pluginBatchSkippedSummary = string.Empty;
     private string _pluginBatchFatalMessage = string.Empty;
@@ -100,7 +101,12 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public bool IsFullMachineMode => _navigationMode == GameDiscoveryNavigationMode.FullMachine;
     public string PluginBatchPluginName => _pluginBatchPluginName;
     public string PluginBatchKindName => _pluginBatchKindName;
-    public string PluginBatchRoot => _pluginBatchRoot;
+    public string PluginBatchCommitLabel => ReturnDraftToSetup
+        ? I18n.GetString("GameDiscovery_ContinueSetup")
+        : I18n.GetString("GameDiscovery_PluginBatch_Commit.Content");
+    public string PluginBatchRoot => _pluginBatchIncludeKnownLocations
+        ? I18n.GetString("GameDiscovery_PluginBatch_KnownLocations")
+        : _pluginBatchRoot;
     public string PluginBatchSummary { get => _pluginBatchSummary; private set => SetProperty(ref _pluginBatchSummary, value); }
     public string PluginBatchSkippedSummary { get => _pluginBatchSkippedSummary; private set => SetProperty(ref _pluginBatchSkippedSummary, value); }
     public string PluginBatchFatalMessage { get => _pluginBatchFatalMessage; private set { if (SetProperty(ref _pluginBatchFatalMessage, value)) OnPropertyChanged(nameof(HasPluginBatchFatalMessage)); } }
@@ -186,13 +192,14 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                     KindId = requestedKind.KindId
                 };
             _pluginBatchRoot = parameter?.UserRoot?.Trim() ?? string.Empty;
+            _pluginBatchIncludeKnownLocations = parameter?.IncludeKnownLocations == true;
             var availability = GameDiscoveryProviderFactory.GetPluginBatchAvailability(_pluginBatchPluginId);
             _pluginBatchPluginName = availability.PluginDisplayName;
             _pluginBatchKindName = PluginService.GetAllSupportedConfigKinds(includeEncrypted: true)
                 .FirstOrDefault(kind => _pluginBatchKind != null
                     && string.Equals(kind.Kind.OwnerId, _pluginBatchKind.OwnerId, StringComparison.Ordinal)
                     && string.Equals(kind.Kind.KindId, _pluginBatchKind.KindId, StringComparison.Ordinal))
-                ?.DisplayName ?? _pluginBatchKind?.KindId ?? string.Empty;
+                ?.DisplayName ?? _pluginBatchKind?.KindId ?? I18n.GetString("GameDiscovery_PluginBatch_AutomaticKind");
         }
         OnPropertyChanged(nameof(IsTargetedMode));
         OnPropertyChanged(nameof(IsPluginBatchMode));
@@ -200,6 +207,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsFullMachineMode));
         OnPropertyChanged(nameof(PluginBatchPluginName));
         OnPropertyChanged(nameof(PluginBatchKindName));
+        OnPropertyChanged(nameof(PluginBatchCommitLabel));
         OnPropertyChanged(nameof(PluginBatchRoot));
         OnPropertyChanged(nameof(CanCommitPluginBatch));
         if (requestedMode == GameDiscoveryNavigationMode.PresetTargeted)
@@ -216,10 +224,9 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         }
         else if (requestedMode == GameDiscoveryNavigationMode.PluginBatch)
         {
-            if (_pluginBatchKind == null
-                || string.IsNullOrWhiteSpace(_pluginBatchPluginId)
-                || string.IsNullOrWhiteSpace(_pluginBatchRoot)
-                || !Directory.Exists(_pluginBatchRoot))
+            if (string.IsNullOrWhiteSpace(_pluginBatchPluginId)
+                || (!_pluginBatchIncludeKnownLocations
+                    && (string.IsNullOrWhiteSpace(_pluginBatchRoot) || !Directory.Exists(_pluginBatchRoot))))
             {
                 PluginBatchFatalMessage = I18n.GetString("GameDiscovery_PluginBatch_InvalidRequest");
                 ProgressText = PluginBatchFatalMessage;
@@ -534,12 +541,45 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         ApplyResult(result, stopwatch, preset);
     }
 
+    public async Task ScanPluginKnownLocationsAsync()
+    {
+        if (!IsPluginBatchMode || IsBusy) return;
+        SetPluginBatchScope(null);
+        await RunOperationAsync(ScanPluginBatchCoreAsync);
+    }
+
+    public async Task ScanPluginUserRootAsync(string root)
+    {
+        if (!IsPluginBatchMode || IsBusy || string.IsNullOrWhiteSpace(root)) return;
+        if (!Directory.Exists(root))
+        {
+            PluginBatchFatalMessage = I18n.GetString("GameDiscovery_PluginBatch_InvalidRequest");
+            return;
+        }
+        SetPluginBatchScope(root.Trim());
+        await RunOperationAsync(ScanPluginBatchCoreAsync);
+    }
+
+    private void SetPluginBatchScope(string? root)
+    {
+        _pluginBatchIncludeKnownLocations = root == null;
+        _pluginBatchRoot = root ?? string.Empty;
+        OnPropertyChanged(nameof(PluginBatchRoot));
+        if (ReturnDraftToSetup)
+            SetupReentry = new GameDiscoveryNavigationParameter
+            {
+                Mode = GameDiscoveryNavigationMode.PluginBatch,
+                PluginId = _pluginBatchPluginId,
+                ConfigKind = _pluginBatchKind,
+                UserRoot = _pluginBatchRoot,
+                IncludeKnownLocations = _pluginBatchIncludeKnownLocations,
+                ReturnDraftToSetup = true,
+                ResumingSelections = SetupReentry?.ResumingSelections ?? []
+            };
+    }
+
     private async Task ScanPluginBatchCoreAsync(CancellationToken token)
     {
-        if (_pluginBatchKind == null)
-        {
-            throw new InvalidOperationException(I18n.GetString("GameDiscovery_PluginBatch_InvalidRequest"));
-        }
 
         PluginBatchItems.Clear();
         PluginBatchSummary = string.Empty;
@@ -556,8 +596,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         var result = await discoveryService.DiscoverAsync(
             new DiscoveryRequest
             {
-                Mode = DiscoveryRequestMode.UserRoots,
-                UserRoots = [_pluginBatchRoot]
+                Mode = _pluginBatchIncludeKnownLocations ? DiscoveryRequestMode.FullMachine : DiscoveryRequestMode.UserRoots,
+                UserRoots = _pluginBatchIncludeKnownLocations ? [] : [_pluginBatchRoot]
             },
             CreateProgress(),
             token, OnboardingOperationBudgets.Discovery, OnboardingOperationBudgets.DiscoveryCandidates);
@@ -807,6 +847,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         _pluginBatchPluginName = string.Empty;
         _pluginBatchKindName = string.Empty;
         _pluginBatchRoot = string.Empty;
+        _pluginBatchIncludeKnownLocations = false;
         _pluginBatchKind = null;
         _pluginBatchPlan = null;
         PluginBatchSummary = string.Empty;

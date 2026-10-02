@@ -16,6 +16,7 @@ namespace FolderRewind.Views;
 public sealed partial class GameDiscoveryPage : Page
 {
     public GameDiscoveryPageViewModel ViewModel { get; } = new();
+    private bool _pickingPluginRoot;
 
     public GameDiscoveryPage()
     {
@@ -38,6 +39,28 @@ public sealed partial class GameDiscoveryPage : Page
     private async void OnCheckUpdateClick(object sender, RoutedEventArgs e) => await ViewModel.DownloadAndScanAsync();
     private async void OnScanClick(object sender, RoutedEventArgs e) => await ViewModel.ScanAsync();
     private void OnCancelClick(object sender, RoutedEventArgs e) => ViewModel.Cancel();
+
+    private async void OnPluginKnownLocationsClick(object sender, RoutedEventArgs e)
+        => await ViewModel.ScanPluginKnownLocationsAsync();
+
+    private async void OnPluginPickRootClick(object sender, RoutedEventArgs e)
+    {
+        if (_pickingPluginRoot || ViewModel.IsBusy) return;
+        _pickingPluginRoot = true;
+        try
+        {
+            var root = await MainWindowService.PickFolderPathAsync(
+                I18n.GetString("Setup_InstanceRoot"), "FolderRewind.GameDiscovery.PluginRoot",
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            if (ReferenceEquals(Frame.Content, this) && !string.IsNullOrWhiteSpace(root))
+                await ViewModel.ScanPluginUserRootAsync(root);
+        }
+        catch (Exception ex)
+        {
+            if (ReferenceEquals(Frame.Content, this)) await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message);
+        }
+        finally { _pickingPluginRoot = false; }
+    }
 
     private async void OnImportManifestClick(object sender, RoutedEventArgs e)
     {

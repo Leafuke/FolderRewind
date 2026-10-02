@@ -5291,8 +5291,8 @@ Pull Request：{1}</value>
   <data name="Setup_AddFolder.Content" xml:space="preserve"><value>选择文件夹</value></data>
   <data name="Setup_RemoveSource.Content" xml:space="preserve"><value>移除选中内容</value></data>
   <data name="Setup_OtherScenarios.Header" xml:space="preserve"><value>游戏与发现入口</value></data>
-  <data name="Setup_Minecraft.Content" xml:space="preserve"><value>Minecraft 世界</value></data>
-  <data name="Setup_MinecraftHelp.Text" xml:space="preserve"><value>选择实例后由 MineRewind 发现世界。基础备份请先退出世界；游戏联动可在首次备份后设置。</value></data>
+  <data name="Setup_Minecraft.Content" xml:space="preserve"><value>自动发现 Minecraft 存档</value></data>
+  <data name="Setup_MinecraftHelp.Text" xml:space="preserve"><value>自动发现常见启动器中的 Java 和基岩版存档，也可在结果页选择目录扫描。基础备份请先关闭游戏；游戏联动可在首次备份后设置。</value></data>
   <data name="Setup_Discovery.Content" xml:space="preserve"><value>发现其他游戏</value></data>
   <data name="Setup_Resume.Content" xml:space="preserve"><value>继续上次草稿</value></data>
   <data name="Setup_Discard.Content" xml:space="preserve"><value>丢弃已保存草稿</value></data>
@@ -5679,7 +5679,7 @@ Pull Request：{1}</value>
   <data name="Scenario_Folder.Text" xml:space="preserve"><value>普通文件夹</value></data>
   <data name="Scenario_FolderHelp.Text" xml:space="preserve"><value>备份文档、工作目录或其他文件夹。</value></data>
   <data name="Scenario_Minecraft.Text" xml:space="preserve"><value>Minecraft</value></data>
-  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>发现实例和世界，创建存档备份。</value></data>
+  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>自动发现启动器中的 Java 和基岩版存档，选择世界后创建备份。</value></data>
   <data name="Scenario_OtherGame.Text" xml:space="preserve"><value>其他游戏</value></data>
   <data name="Scenario_OtherGameHelp.Text" xml:space="preserve"><value>发现支持的游戏存档并创建项目。</value></data>
   <data name="Setup_ChooseTitle" xml:space="preserve"><value>创建备份项目</value></data>
@@ -5908,4 +5908,12 @@ Pull Request：{1}</value>
   <data name="Performance_Description_UltraFast" xml:space="preserve"><value>使用自动线程，关闭低优先级，采用 zstd 等级 1，优先缩短备份时间。</value></data>
   <data name="Performance_Description_SpaceSaving" xml:space="preserve"><value>使用全部 CPU 线程，开启低优先级，保留当前算法；zstd 等级 19，其他算法等级 9。可能增加内存占用和备份耗时。</value></data>
   <data name="Performance_FileTypeOverrideHint.Text" xml:space="preserve"><value>归档格式保持不变。已启用的文件类型规则仍优先使用各自的压缩等级。</value></data>
+  <data name="GameDiscovery_PluginBatch_Title.Text" xml:space="preserve"><value>发现备份来源</value></data>
+  <data name="GameDiscovery_PluginBatch_AutomaticKind" xml:space="preserve"><value>按存档版别自动识别</value></data>
+  <data name="GameDiscovery_PluginBatch_KnownLocations" xml:space="preserve"><value>已知启动器位置、记住的目录与已有项目附近目录</value></data>
+  <data name="GameDiscovery_PluginBatch_DiscoveryHelp.Text" xml:space="preserve"><value>自动发现会检查常见启动器和记住的目录；选择目录扫描仅检查所选位置。勾选项目后继续设置备份。</value></data>
+  <data name="GameDiscovery_PluginBatch_DiscoverKnown.Content" xml:space="preserve"><value>自动发现存档</value></data>
+  <data name="GameDiscovery_PluginBatch_PickRoot.Content" xml:space="preserve"><value>选择目录扫描</value></data>
+  <data name="GameDiscovery_PluginBatch_NoCandidates" xml:space="preserve"><value>没有发现可创建的存档项目。可选择启动器、游戏实例或存档目录后扫描。</value></data>
+  <data name="GameDiscovery_ContinueSetup" xml:space="preserve"><value>继续创建备份项目</value></data>
 </root>

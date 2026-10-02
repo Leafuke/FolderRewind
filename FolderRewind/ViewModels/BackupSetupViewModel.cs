@@ -258,6 +258,7 @@ public sealed class BackupSetupViewModel : ViewModelBase
             {
                 Mode = request.Mode, PresetShareId = request.PresetShareId, RequestedConfigName = request.RequestedConfigName,
                 PluginId = request.PluginId, ConfigKind = request.ConfigKind, UserRoot = request.UserRoot,
+                IncludeKnownLocations = request.IncludeKnownLocations,
                 ReturnDraftToSetup = true, ResumingSelections = session.Selections
             });
             return;
