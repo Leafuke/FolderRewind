@@ -6,7 +6,7 @@ package instead of the FolderRewind application or UI projects.
 ## Compatibility
 
 - Target framework: `net10.0`.
-- Package version: `3.5.0`; Plugin API requirement: `3.5`.
+- Package version: `3.6.0`; Plugin API requirement: `3.6`.
 - Assembly version remains `3.0.0.0` throughout API 3.x.
 - A Host accepts a manifest only when its API major matches and its minor is at
   least the plugin's requested minor.
@@ -47,8 +47,15 @@ trusted before installation.
 
 API 3.5 adds optional KnotLink target resolution, shared command/argument metadata and plugin signal descriptions, nullable per-operation player-preservation overrides, and locked enumerable ordinary-Restore views. Existing positional constructors and service methods remain available. New option-bearing calls cannot silently fall back to legacy services that do not support their options. MineRewind 1.9.3 requires API 3.5; Host assembly identity remains 3.0.0.0.
 
-API 3.5 is the source/release-candidate baseline. Before documenting a public
-`PackageReference` restore as available, verify that 3.5.0 is listed on nuget.org
+API 3.6 adds the optional `DiscoveryRequest.IncludeKnownLocations` init property.
+Its default is false, and the existing positional constructor is unchanged.
+Hosts opt in for machine/preset discovery; explicitly selected roots stay scoped.
+MineRewind 1.9.4 requires API 3.6. Assembly identity remains 3.0.0.0.
+
+API 3.6 is the source/release-candidate baseline. Before documenting a public
+`PackageReference` restore as available, verify that 3.6.0 is listed on nuget.org
 and restore it with an empty package cache. Building a local package does not
-prove public availability. FolderRewind App 1.9.x, MineRewind 1.9.3, package
-3.5.0, and assembly identity 3.0.0.0 are separate version numbers.
+prove public availability. FolderRewind App 1.9.x, MineRewind 1.9.4, package
+3.6.0, and assembly identity 3.0.0.0 are separate version numbers. The discovery
+candidate was built against a local nupkg through an isolated temporary feed;
+this does not publish the package or prove public restore availability.

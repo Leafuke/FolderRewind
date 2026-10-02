@@ -397,6 +397,10 @@ FodyWeavers.xsd
 !/docs/adr/*.md
 !/docs/plans/
 !/docs/plans/FolderRewind_Plugin_System_v3_Execution_Plan.md
+!/docs/plans/MineRewind_Launcher_Discovery_Execution_Plan.md
+!/docs/research/
+/docs/research/*
+!/docs/research/2026-10-02-pcl-static-discovery-evidence.md
 !/docs/release/
 !/docs/release/*.md
 !/docs/plugin-v3/
