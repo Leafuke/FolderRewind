@@ -158,9 +158,10 @@
                         <ComboBox x:Uid="ConfigSettingsDialog_PerformancePreset_CardInput" ItemsSource="{x:Bind ViewModel.PerformancePresetOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.PerformanceChoice, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="ConfigSettingsDialog_PerformancePreset"/>
                         <TextBlock Text="{x:Bind ViewModel.PerformancePresetDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.PerformanceChangePreview, Mode=OneWay}" TextWrapping="Wrap"/>
+                        <TextBlock x:Uid="Performance_FileTypeOverrideHint" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button x:Uid="Performance_Apply" Click="OnApplyPerformance" AutomationProperties.AutomationId="PerformanceApply"/>
-                            <Button x:Uid="Performance_Undo" Click="OnUndoPerformance" AutomationProperties.AutomationId="PerformanceUndo"/>
+                            <Button x:Uid="Performance_Apply" Click="OnApplyPerformance" IsEnabled="{x:Bind ViewModel.CanApplyPerformancePreset, Mode=OneWay}" AutomationProperties.AutomationId="PerformanceApply"/>
+                            <Button x:Uid="Performance_Undo" Click="OnUndoPerformance" IsEnabled="{x:Bind ViewModel.CanUndoPerformance, Mode=OneWay}" AutomationProperties.AutomationId="PerformanceUndo"/>
                         </StackPanel>
                     </StackPanel>
                 </settings:SettingsCard>
@@ -176,7 +177,7 @@
                                     <ComboBoxItem x:Uid="ConfigSettingsDialog_Format7z"/>
                                     <ComboBoxItem x:Uid="ConfigSettingsDialog_FormatZip"/>
                                 </ComboBox>
-                                <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind MethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0" AutomationProperties.AutomationId="ConfigSettingsDialog_Method">
+                                <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind ViewModel.CompressionMethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0" AutomationProperties.AutomationId="ConfigSettingsDialog_Method">
                                     <ComboBoxItem Content="LZMA2"/>
                                     <ComboBoxItem Content="Deflate"/>
                                     <ComboBoxItem Content="BZip2"/>

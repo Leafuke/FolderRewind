@@ -53,20 +53,24 @@ namespace FolderRewind.ViewModels
             {
                 case nameof(ArchiveSettings.Method):
                     NormalizeCompressionLevel();
+                    OnPropertyChanged(nameof(CompressionMethodSelectedIndex));
                     OnPropertyChanged(nameof(CompressionLevelMin));
                     OnPropertyChanged(nameof(CompressionLevelMax));
+                    OnPerformanceFieldEdited(BackupPerformanceFields.Method);
                     RaiseCloudUiProperties();
                     break;
+                case nameof(ArchiveSettings.CompressionLevel):
+                    NormalizeCompressionLevel();
+                    OnPerformanceFieldEdited(BackupPerformanceFields.Level);
+                    break;
                 case nameof(ArchiveSettings.CpuThreads):
-                    _performanceChoice = -1;
                     NormalizeCpuThreads();
                     OnPropertyChanged(nameof(CpuThreadsValue));
-                    RaisePerformancePresetProperties();
+                    OnPerformanceFieldEdited(BackupPerformanceFields.Threads);
                     break;
                 case nameof(ArchiveSettings.RunCompressionAtLowPriority):
-                    _performanceChoice = -1;
                     OnPropertyChanged(nameof(RunCompressionAtLowPriority));
-                    RaisePerformancePresetProperties();
+                    OnPerformanceFieldEdited(BackupPerformanceFields.Priority);
                     break;
                 case nameof(ArchiveSettings.AdditionalSevenZipArguments):
                     OnPropertyChanged(nameof(AdditionalSevenZipArgumentsText));
@@ -179,6 +183,7 @@ namespace FolderRewind.ViewModels
 
         private void RaiseArchiveUiProperties()
         {
+            OnPropertyChanged(nameof(CompressionMethodSelectedIndex));
             OnPropertyChanged(nameof(CompressionLevelMin));
             OnPropertyChanged(nameof(CompressionLevelMax));
             OnPropertyChanged(nameof(CpuThreadMax));
@@ -188,17 +193,8 @@ namespace FolderRewind.ViewModels
         }
 
         private int DerivePerformancePresetIndex()
-            => BackupPerformancePolicy.Derive(new(_archive.CpuThreads, _archive.RunCompressionAtLowPriority),
-                _cpuThreadMax, _lastAppliedPerformancePresetIndex);
-
-        private void ApplyPerformancePreset(int value)
-        {
-            var target = BackupPerformancePolicy.Get(value, _cpuThreadMax, new(_archive.CpuThreads, _archive.RunCompressionAtLowPriority));
-            _lastAppliedPerformancePresetIndex = value is >= 0 and <= 2 ? value : PerformancePresetCustomIndex;
-            _archive.CpuThreads = target.CpuThreads;
-            _archive.RunCompressionAtLowPriority = target.LowPriority;
-            RaisePerformancePresetProperties();
-        }
+            => BackupPerformancePolicy.OptionIndex(BackupPerformancePolicy.Derive(CurrentPerformance,
+                _cpuThreadMax, _lastAppliedPerformancePreset));
 
         private void RaisePerformancePresetProperties()
         {
@@ -206,6 +202,8 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(PerformancePresetDescription));
             OnPropertyChanged(nameof(PerformanceChoice));
             OnPropertyChanged(nameof(PerformanceChangePreview));
+            OnPropertyChanged(nameof(CanApplyPerformancePreset));
+            OnPropertyChanged(nameof(CanUndoPerformance));
         }
 
         private void RaisePageVisibilityProperties()

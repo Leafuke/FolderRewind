@@ -5372,7 +5372,8 @@ Pull Request：{1}</value>
   <data name="SettingsProject_SearchCloud" xml:space="preserve"><value>云|网盘|连接|rclone|WebDAV|OpenList</value></data>
   <data name="SettingsProject_SearchFilter" xml:space="preserve"><value>排除|过滤|白名单|黑名单|范围</value></data>
   <data name="SettingsProject_SearchResult" xml:space="preserve"><value>已定位到设置分组：{0}</value></data>
-  <data name="Performance_Preview" xml:space="preserve"><value>线程数：{0} → {1} · 后台低优先级：{2} → {3}</value></data>
+  <data name="Performance_Preview" xml:space="preserve"><value>线程数：{0} → {1} · 低优先级：{2} → {3}
+算法：{4} → {5} · 压缩等级：{6} → {7}</value></data>
   <data name="Performance_Apply.Content" xml:space="preserve"><value>应用预设</value></data>
   <data name="Performance_Undo.Content" xml:space="preserve"><value>撤销</value></data>
   <data name="Onboarding_ToolChecksumUnavailable" xml:space="preserve"><value>未获得官方发布资产的有效 SHA256 或包超过限制。请从官方页面手动获取并选择程序，不会应用未验证的下载。</value></data>
@@ -5896,4 +5897,15 @@ Pull Request：{1}</value>
   <data name="Filter_Browse.Content" xml:space="preserve"><value>浏览添加</value></data>
   <data name="Filter_SelectFiles.Text" xml:space="preserve"><value>选择文件…</value></data>
   <data name="Filter_SelectFolder.Text" xml:space="preserve"><value>选择文件夹…</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_GamePriority" xml:space="preserve"><value>游戏优先</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_UltraFast" xml:space="preserve"><value>极速</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_SpaceSaving" xml:space="preserve"><value>极省空间</value></data>
+  <data name="Performance_Description_Auto" xml:space="preserve"><value>使用自动线程，关闭低优先级；保留当前算法和压缩等级。</value></data>
+  <data name="Performance_Description_Light" xml:space="preserve"><value>使用约一半 CPU 线程，开启低优先级；保留当前算法和压缩等级。</value></data>
+  <data name="Performance_Description_VeryLight" xml:space="preserve"><value>最多使用 2 个 CPU 线程，开启低优先级；保留当前算法和压缩等级。</value></data>
+  <data name="Performance_Description_Custom" xml:space="preserve"><value>保留手动设置；选择其他预设可预览并应用参数。</value></data>
+  <data name="Performance_Description_GamePriority" xml:space="preserve"><value>使用 CPU 线程数的八分之一（至少 1 线程），开启低优先级，采用 zstd 等级 3。</value></data>
+  <data name="Performance_Description_UltraFast" xml:space="preserve"><value>使用自动线程，关闭低优先级，采用 zstd 等级 1，优先缩短备份时间。</value></data>
+  <data name="Performance_Description_SpaceSaving" xml:space="preserve"><value>使用全部 CPU 线程，开启低优先级，保留当前算法；zstd 等级 19，其他算法等级 9。可能增加内存占用和备份耗时。</value></data>
+  <data name="Performance_FileTypeOverrideHint.Text" xml:space="preserve"><value>归档格式保持不变。已启用的文件类型规则仍优先使用各自的压缩等级。</value></data>
 </root>

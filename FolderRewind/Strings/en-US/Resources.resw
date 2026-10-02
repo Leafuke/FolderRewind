@@ -5372,7 +5372,8 @@ Diagnostics: {4}</value></data>
   <data name="SettingsProject_SearchCloud" xml:space="preserve"><value>cloud|connection|rclone|WebDAV|OpenList</value></data>
   <data name="SettingsProject_SearchFilter" xml:space="preserve"><value>exclude|filter|whitelist|blacklist|scope</value></data>
   <data name="SettingsProject_SearchResult" xml:space="preserve"><value>Located settings group: {0}</value></data>
-  <data name="Performance_Preview" xml:space="preserve"><value>Threads: {0} → {1} · Background priority: {2} → {3}</value></data>
+  <data name="Performance_Preview" xml:space="preserve"><value>Threads: {0} → {1} · Low priority: {2} → {3}
+Algorithm: {4} → {5} · Compression level: {6} → {7}</value></data>
   <data name="Performance_Apply.Content" xml:space="preserve"><value>Apply preset</value></data>
   <data name="Performance_Undo.Content" xml:space="preserve"><value>Undo</value></data>
   <data name="Onboarding_ToolChecksumUnavailable" xml:space="preserve"><value>A valid SHA256 from official release metadata is unavailable, or the package exceeds its size limit. Download from the official page and select the executable manually. An unverified download will not be applied.</value></data>
@@ -5896,4 +5897,15 @@ Branch at backup: {2}
   <data name="Filter_Browse.Content" xml:space="preserve"><value>Browse to add</value></data>
   <data name="Filter_SelectFiles.Text" xml:space="preserve"><value>Select files…</value></data>
   <data name="Filter_SelectFolder.Text" xml:space="preserve"><value>Select folder…</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_GamePriority" xml:space="preserve"><value>Game priority</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_UltraFast" xml:space="preserve"><value>Ultra fast</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_SpaceSaving" xml:space="preserve"><value>Maximum space saving</value></data>
+  <data name="Performance_Description_Auto" xml:space="preserve"><value>Use automatic threads and normal priority; keep the current algorithm and compression level.</value></data>
+  <data name="Performance_Description_Light" xml:space="preserve"><value>Use about half the CPU threads at low priority; keep the current algorithm and compression level.</value></data>
+  <data name="Performance_Description_VeryLight" xml:space="preserve"><value>Use at most 2 CPU threads at low priority; keep the current algorithm and compression level.</value></data>
+  <data name="Performance_Description_Custom" xml:space="preserve"><value>Keep manual settings. Select another preset to preview and apply its parameters.</value></data>
+  <data name="Performance_Description_GamePriority" xml:space="preserve"><value>Use one eighth of the CPU threads (at least 1), low priority, and zstd level 3.</value></data>
+  <data name="Performance_Description_UltraFast" xml:space="preserve"><value>Use automatic threads, normal priority, and zstd level 1 to prioritize backup speed.</value></data>
+  <data name="Performance_Description_SpaceSaving" xml:space="preserve"><value>Use all CPU threads at low priority and keep the current algorithm: zstd level 19, otherwise level 9. May increase memory use and backup time.</value></data>
+  <data name="Performance_FileTypeOverrideHint.Text" xml:space="preserve"><value>The archive format stays unchanged. Enabled file type rules still use their own compression levels.</value></data>
 </root>

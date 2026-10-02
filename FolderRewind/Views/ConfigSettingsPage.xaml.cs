@@ -61,52 +61,6 @@ namespace FolderRewind.Views
             set => Config.Archive.Format = value == 1 ? "zip" : "7z";
         }
 
-        /// <summary>
-        /// 压缩算法选择索引
-        /// </summary>
-        private static readonly string[] CompressionMethods = { "LZMA2", "Deflate", "BZip2", "zstd" };
-
-        /// <summary>
-        /// 根据当前压缩算法返回压缩等级的最小值
-        /// </summary>
-        /// <summary>
-        /// 根据当前压缩算法返回压缩等级的最大值
-        /// </summary>
-        /// <summary>
-        /// 获取各压缩算法的有效压缩等级范围
-        /// </summary>
-        public int MethodSelectedIndex
-        {
-            get
-            {
-                var idx = Array.IndexOf(CompressionMethods, Config.Archive.Method);
-                return idx >= 0 ? idx : 0; // 默认 LZMA2
-            }
-            set
-            {
-                if (value >= 0 && value < CompressionMethods.Length)
-                {
-                    Config.Archive.Method = CompressionMethods[value];
-                }
-            }
-        }
-
-        /// <summary>
-        /// 当压缩算法变更时，更新压缩等级滑块的有效范围，并将当前值限制在新范围内
-        /// </summary>
-        private void UpdateCompressionLevelSliderRange()
-        {
-            if (CompressionLevelSlider == null) return;
-            var (min, max) = ArchiveCompressionPolicy.GetLevelRange(Config?.Archive?.Method);
-            CompressionLevelSlider.Minimum = min;
-            CompressionLevelSlider.Maximum = max;
-            // 将当前值限制在新的有效范围内
-            if (Config?.Archive != null)
-            {
-                Config.Archive.CompressionLevel = Math.Clamp(Config.Archive.CompressionLevel, min, max);
-            }
-        }
-
         public ConfigSettingsPage() : this(new BackupConfig()) { }
 
         public ConfigSettingsPage(BackupConfig config)

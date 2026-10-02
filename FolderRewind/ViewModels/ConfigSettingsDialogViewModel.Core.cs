@@ -22,14 +22,10 @@ namespace FolderRewind.ViewModels
         private List<AutomationFolderOption> _automationFolderOptions = new();
         private List<BackupScopeOption> _backupScopeOptions = new();
         private int _selectedPageIndex;
-        private int _lastAppliedPerformancePresetIndex = 3;
+        private BackupPerformancePreset _lastAppliedPerformancePreset = BackupPerformancePreset.Custom;
 
         private const int MinPageIndex = 0;
         private const int MaxPageIndex = 5;
-        private const int PerformancePresetAutoIndex = 0;
-        private const int PerformancePresetLightIndex = 1;
-        private const int PerformancePresetVeryLightIndex = 2;
-        private const int PerformancePresetCustomIndex = 3;
 
         public ConfigSettingsDialogViewModel(BackupConfig config)
             : this(config, viewModel => new ConfigSettingsActions(viewModel, MainWindowService.GetXamlRoot))
@@ -89,6 +85,7 @@ namespace FolderRewind.ViewModels
         public void Rebind(BackupConfig config)
         {
             Unbind();
+            ResetPerformanceDraftState();
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _archive = _config.Archive ??= new ArchiveSettings();
             _automation = _config.Automation ??= new AutomationSettings();

@@ -1,10 +1,18 @@
 using FolderRewind.Models;
 using System.Collections.ObjectModel;
+using System;
 
 namespace FolderRewind.ViewModels;
 
 public sealed partial class ConfigSettingsDialogViewModel
 {
+    private static readonly string[] CompressionMethods = { "LZMA2", "Deflate", "BZip2", "zstd" };
+    public int CompressionMethodSelectedIndex
+    {
+        get => Math.Max(0, Array.IndexOf(CompressionMethods, _archive.Method));
+        set { if (value >= 0 && value < CompressionMethods.Length) _archive.Method = CompressionMethods[value]; }
+    }
+
     public int CompressionLevel { get => _archive.CompressionLevel; set => _archive.CompressionLevel = value; }
     public int KeepCount { get => _archive.KeepCount; set => _archive.KeepCount = value; }
     public int MaxSmartBackupsPerFull { get => _archive.MaxSmartBackupsPerFull; set => _archive.MaxSmartBackupsPerFull = value; }
