@@ -7,6 +7,14 @@ namespace FolderRewind.Controls;
 
 public sealed partial class SemanticStatusPresenter : UserControl
 {
+    public static readonly DependencyProperty TextSizeProperty = DependencyProperty.Register(
+        nameof(TextSize), typeof(double), typeof(SemanticStatusPresenter), new PropertyMetadata(12d, OnPresentationChanged));
+
+    public double TextSize
+    {
+        get => (double)GetValue(TextSizeProperty);
+        set => SetValue(TextSizeProperty, value);
+    }
     public static readonly DependencyProperty StatusProperty = DependencyProperty.Register(
         nameof(Status),
         typeof(SemanticStatus),
@@ -70,6 +78,7 @@ public sealed partial class SemanticStatusPresenter : UserControl
             ? SemanticStatusGlyphs.GetGlyph(Status)
             : Glyph;
         StatusTextBlock.Text = Text ?? string.Empty;
+        StatusTextBlock.FontSize = TextSize;
         AutomationProperties.SetName(this, Text ?? string.Empty);
         VisualStateManager.GoToState(this, Status.ToString(), useTransitions: false);
     }

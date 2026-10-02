@@ -5891,4 +5891,6 @@ Branch at backup: {2}
   <data name="History_RunSource_Branch.Content" xml:space="preserve"><value>Create branch here</value></data>
   <data name="History_RunSource_History.Content" xml:space="preserve"><value>View history</value></data>
   <data name="History_DevelopmentFormatUnsupported" xml:space="preserve"><value>Development history format {0} is unsupported. Archive the old metadata and rebuild history first; existing backup files are preserved.</value></data>
+  <data name="History_MenuToggleImportant.Text" xml:space="preserve"><value>Toggle favorite</value></data>
+  <data name="History_MenuView.Text" xml:space="preserve"><value>View archive</value></data>
 </root>

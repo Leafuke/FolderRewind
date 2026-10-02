@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Threading.Tasks;
 
@@ -85,10 +86,27 @@ public sealed partial class HistoryPage : Page
         if (sender is not Grid grid || grid.Children.Count < 2) return;
         var narrow = e.NewSize.Width < 520;
         if (grid.Children[1] is not FrameworkElement actions) return;
-        Grid.SetColumn(actions, narrow ? 0 : 1);
-        Grid.SetRow(actions, narrow ? 1 : 0);
-        Grid.SetColumnSpan(actions, narrow ? 2 : 1);
-        grid.ColumnDefinitions[1].Width = new GridLength(0, GridUnitType.Auto);
+        if (actions is StackPanel panel)
+        {
+            foreach (var child in panel.Children)
+            {
+                if (child is FrameworkElement { Tag: "HistoryCompactAction" } compact)
+                    compact.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+                if (child is DropDownButton { Flyout: MenuFlyout menu })
+                    foreach (var entry in menu.Items)
+                        if (entry.Name.StartsWith("Compact", StringComparison.Ordinal))
+                            entry.Visibility = narrow ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+        SetHistorySizeVisibility(grid.Children[0], narrow);
+    }
+
+    private static void SetHistorySizeVisibility(DependencyObject parent, bool narrow)
+    {
+        if (parent is FrameworkElement { Tag: "HistorySize" } size)
+            size.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            SetHistorySizeVisibility(VisualTreeHelper.GetChild(parent, i), narrow);
     }
 
     private void OnHistoryContainerContentChanging(

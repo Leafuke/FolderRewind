@@ -5891,4 +5891,6 @@ Pull Request：{1}</value>
   <data name="History_RunSource_Branch.Content" xml:space="preserve"><value>从此处创建分支</value></data>
   <data name="History_RunSource_History.Content" xml:space="preserve"><value>查看历史</value></data>
   <data name="History_DevelopmentFormatUnsupported" xml:space="preserve"><value>旧开发版历史格式 {0} 不受支持。请先归档旧元数据并重建历史；现有备份文件不受影响。</value></data>
+  <data name="History_MenuToggleImportant.Text" xml:space="preserve"><value>切换收藏</value></data>
+  <data name="History_MenuView.Text" xml:space="preserve"><value>查看归档</value></data>
 </root>
