@@ -1,17 +1,21 @@
 <Project Sdk="WixToolset.Sdk/7.0.0">
   <PropertyGroup>
     <OutputType>Bundle</OutputType><AcceptEula>wix7</AcceptEula><InstallerPlatform>x86</InstallerPlatform><EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
-    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.1.0</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.3.0</ProductVersion>
     <PayloadArchitecture Condition="'$(PayloadArchitecture)'==''">x64</PayloadArchitecture>
     <BundleDisplayName Condition="'$(BundleDisplayName)'==''">FolderRewind</BundleDisplayName>
+    <EnableFaultInjection Condition="'$(EnableFaultInjection)'==''">0</EnableFaultInjection>
     <BundleUpgradeCode Condition="'$(BundleUpgradeCode)'==''">{A941C3B8-5D6F-4C0E-B62C-32F5FF9D7E8B}</BundleUpgradeCode>
     <MsiRegistryKey Condition="'$(MsiRegistryKey)'==''">Software\Leafuke\FolderRewind</MsiRegistryKey>
     <MsiUpgradeCode Condition="'$(MsiUpgradeCode)'==''">{6BCE6B1A-ADA1-5399-91BD-238EBF552F6E}</MsiUpgradeCode>
     <NativeOutputDirectory Condition="'$(NativeOutputDirectory)'==''">$(MSBuildThisFileDirectory)..\..\artifacts\installer-native</NativeOutputDirectory>
     <MsiPath Condition="'$(MsiPath)'==''">$(MSBuildThisFileDirectory)..\..\artifacts\release\$(PayloadArchitecture)\FolderRewind_$(ProductVersion)_$(PayloadArchitecture).msi</MsiPath>
     <OutputName>FolderRewind_$(ProductVersion)_Setup_$(PayloadArchitecture)</OutputName>
-    <DefineConstants>ProductVersion=$(ProductVersion);PayloadArchitecture=$(PayloadArchitecture);NativeOutputDirectory=$(NativeOutputDirectory);MsiPath=$(MsiPath);ProductCode=$(ProductCode);BundleDisplayName=$(BundleDisplayName);BundleUpgradeCode=$(BundleUpgradeCode);MsiRegistryKey=$(MsiRegistryKey);MsiUpgradeCode=$(MsiUpgradeCode)</DefineConstants>
+    <DefineConstants>ProductVersion=$(ProductVersion);PayloadArchitecture=$(PayloadArchitecture);NativeOutputDirectory=$(NativeOutputDirectory);MsiPath=$(MsiPath);ProductCode=$(ProductCode);BundleDisplayName=$(BundleDisplayName);BundleUpgradeCode=$(BundleUpgradeCode);MsiRegistryKey=$(MsiRegistryKey);MsiUpgradeCode=$(MsiUpgradeCode);EnableFaultInjection=$(EnableFaultInjection)</DefineConstants>
     <DebugType>none</DebugType>
   </PropertyGroup>
   <ItemGroup><PackageReference Include="WixToolset.BootstrapperApplications.wixext" Version="7.0.0" /></ItemGroup>
+  <Target Name="RejectProductionFaultInjection" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(EnableFaultInjection)'=='1' and '$(BundleUpgradeCode)'=='{A941C3B8-5D6F-4C0E-B62C-32F5FF9D7E8B}'" Text="Fault injection cannot be enabled for the production Bundle family." />
+  </Target>
 </Project>

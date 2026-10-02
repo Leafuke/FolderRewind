@@ -13,3 +13,4 @@ EXPORTS
     WriteBundleLocation=_WriteBundleLocation@4
     RollbackBundleLocation=_RollbackBundleLocation@4
     CommitBundleLocation=_CommitBundleLocation@4
+    FailForTesting=_FailForTesting@4

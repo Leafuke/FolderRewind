@@ -10,6 +10,12 @@
       <Payload SourceFile="..\..\LICENSE.txt" Name="LICENSE.txt" />
     </BootstrapperApplication>
     <Variable Name="FolderRewindSelectedLanguage" Type="numeric" Value="1033" />
+    <?if $(var.EnableFaultInjection) = 1 ?>
+    <Variable Name="FolderRewindTestFail" Type="string" Value="" bal:Overridable="yes" />
+    <Variable Name="FolderRewindSettingsTestRoot" Type="string" Value="" bal:Overridable="yes" />
+    <?endif?>
+    <Variable Name="FolderRewindBundleVersion" Type="string" Value="$(var.ProductVersion)" />
+    <Variable Name="FolderRewindBundleFamily" Type="string" Value="$(var.BundleUpgradeCode)" />
     <Variable Name="FolderRewindMaintenance" Type="numeric" Value="0" />
     <Variable Name="FolderRewindArchitecture" Type="string" Value="$(var.PayloadArchitecture)" />
     <Variable Name="FolderRewindProductCode" Type="string" Value="$(var.ProductCode)" />
@@ -20,10 +26,16 @@
     <Variable Name="FolderRewindMachineFolder" Type="string" Value="[ProgramFiles64Folder]FolderRewind" />
     <Variable Name="DesktopShortcutChosen" Type="numeric" Value="1" Persisted="yes" bal:Overridable="yes" />
     <Variable Name="LaunchAfterInstallChosen" Type="numeric" Value="1" />
+    <Variable Name="ClearSettingsChosen" Type="numeric" Value="0" bal:Overridable="yes" />
     <Variable Name="LaunchTarget" Type="string" Value="[InstallFolder]\FolderRewind.exe" />
     <Variable Name="InstallFolder" Type="string" Value="[LocalAppDataFolder]Programs\FolderRewind" Persisted="yes" bal:Overridable="yes" />
     <Chain>
       <MsiPackage Id="FolderRewindMsi" SourceFile="$(var.MsiPath)" Compressed="yes" Vital="yes" Visible="no" EnableFeatureSelection="yes">
+        <?if $(var.EnableFaultInjection) = 1 ?>
+        <MsiProperty Name="FOLDERREWIND_TEST_FAIL" Value="[FolderRewindTestFail]" />
+        <?endif?>
+        <MsiProperty Name="FOLDERREWIND_BUNDLECODE" Value="[WixBundleProviderKey]" Condition="WixStdBAScope = &quot;PerMachine&quot;" />
+        <MsiProperty Name="FOLDERREWIND_BUNDLEFAMILY" Value="$(var.BundleUpgradeCode)" Condition="WixStdBAScope = &quot;PerMachine&quot;" />
         <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
         <MsiProperty Name="TRANSFORMS" Value="[FolderRewindMsiTransform]" Condition="NOT FolderRewindMaintenance" />
       </MsiPackage>

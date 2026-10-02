@@ -14,12 +14,15 @@ namespace FolderRewind.Services
     {
         public static void ApplyBeforeShow(Window window)
         {
-            if (!AppRuntimeInfo.IsMsiDistribution) return;
             try
             {
                 var icon = Path.Combine(AppRuntimeInfo.ApplicationBaseDirectory, "Assets", "MsiApp.ico");
                 if (!File.Exists(icon)) throw new FileNotFoundException("MSI window icon is missing.", icon);
                 window.AppWindow.SetIcon(icon);
+                if (!AppRuntimeInfo.IsPackaged)
+                    ShellShortcutIdentity.SetWindowIdentity(WindowNative.GetWindowHandle(window),
+                        AppRuntimeInfo.IsMsiDistribution ? ShellShortcutIdentity.MsiAppId : "Leafuke.FolderRewind.Unpackaged",
+                        AppRuntimeInfo.ExecutablePath);
             }
             catch (Exception error)
             {
@@ -32,7 +35,7 @@ namespace FolderRewind.Services
 
         public static async Task TryApplyAsync(Window window)
         {
-            if (AppRuntimeInfo.IsMsiDistribution) { ApplyBeforeShow(window); return; }
+            if (File.Exists(Path.Combine(AppRuntimeInfo.ApplicationBaseDirectory, "Assets", "MsiApp.ico"))) { ApplyBeforeShow(window); return; }
             try
             {
                 var hwnd = WindowNative.GetWindowHandle(window);

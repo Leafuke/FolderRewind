@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\ShellShortcutIdentity.cs" Link="Source\ShellShortcutIdentity.cs" />
+    <Compile Include="..\FolderRewind\Services\TaskbarShortcutRepair.cs" Link="Source\TaskbarShortcutRepair.cs" />
     <Compile Include="..\FolderRewind\Services\SingleInstanceCoordinator.cs" Link="Source\SingleInstanceCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\ClassicStartupPolicy.cs" Link="Source\ClassicStartupPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\HistoryPresentationMode.cs" Link="Source\HistoryPresentationMode.cs" />

@@ -8,10 +8,11 @@ param(
     [switch]$SkipBundle,
     [switch]$TestIdentity,
     [switch]$EnableFaultInjection,
-    [ValidatePattern('^[A-Za-z0-9-]{1,32}$')][string]$TestIdentitySuffix = 'Current'
+    [ValidatePattern('^[A-Za-z0-9-]{1,32}$')][string]$TestIdentitySuffix = [guid]::NewGuid().ToString('N')
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot\InstallerValidation.ps1"
 if ($EnableFaultInjection -and -not $TestIdentity) { throw 'Fault injection is restricted to the isolated validation identity.' }
 if ($Version -notmatch '^\d+\.\d+\.\d+\.0$') { throw 'MSI version must have four parts with revision 0.' }
 $parsed = [version]$Version
@@ -21,16 +22,18 @@ $publish = [IO.Path]::GetFullPath($PublishDirectory)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $arch = $Platform.ToLowerInvariant()
 $work = Join-Path $root "artifacts\installer-build\$arch\$Version"
-if ($TestIdentity) { $work = Join-Path $work 'validation'; $SkipBundle = $true }
+if ($TestIdentity) { $work = Join-Path $work "validation\$TestIdentitySuffix"; $SkipBundle = $true }
 $packageId = if ($TestIdentity) { "Leafuke.FolderRewind.Msi.Validation.$TestIdentitySuffix" } else { 'Leafuke.FolderRewind.Msi' }
-$packageName = if ($TestIdentity) { 'FolderRewind MSI Validation' } else { 'FolderRewind' }
+$packageName = if ($TestIdentity) { "FolderRewind MSI Validation $TestIdentitySuffix" } else { 'FolderRewind' }
 $registryKey = if ($TestIdentity) { "Software\Leafuke\FolderRewind.Msi.Validation.$TestIdentitySuffix" } else { 'Software\Leafuke\FolderRewind' }
-$upgradeCode = if ($TestIdentity) { '{39B92584-E7D5-43F9-AD6F-476D08F854AC}' } else { '{6BCE6B1A-ADA1-5399-91BD-238EBF552F6E}' }
+$upgradeCode = if ($TestIdentity) { Get-ValidationGuid "$TestIdentitySuffix/msi" } else { '{6BCE6B1A-ADA1-5399-91BD-238EBF552F6E}' }
+$bundleFamily = if ($TestIdentity) { Get-ValidationGuid "$TestIdentitySuffix/bundle" } else { '{A941C3B8-5D6F-4C0E-B62C-32F5FF9D7E8B}' }
 $native = Join-Path $root 'artifacts\installer-native'
+if ($EnableFaultInjection) { $native = Join-Path $work 'native-test' }
 New-Item -ItemType Directory -Path $work,$output -Force | Out-Null
 & "$PSScriptRoot\Normalize-MsiResourcePaths.ps1" -Directory $publish
 & "$PSScriptRoot\Test-MsiPayload.ps1" -Directory $publish -ResultPath (Join-Path $work 'resources.json')
-& "$PSScriptRoot\Build-InstallerNative.ps1" -OutputDirectory $native | Out-Host
+& "$PSScriptRoot\Build-InstallerNative.ps1" -OutputDirectory $native -EnableFaultInjection:$EnableFaultInjection | Out-Host
 $components = Join-Path $work 'ApplicationFiles.wxs'
 & "$PSScriptRoot\Generate-MsiFileComponents.ps1" -PublishDirectory $publish -OutputPath $components -Platform $arch -RegistryKey $registryKey
 # Stable across rebuilds, distinct between versions and architectures. Both
@@ -45,7 +48,8 @@ foreach ($culture in @('en-US','zh-CN')) {
     dotnet build $ProjectPath -t:Rebuild -c Release "-p:InstallerPlatform=$arch" "-p:ProductVersion=$Version" "-p:ProductCode=$productCode" `
         "-p:PublishDir=$publish" "-p:GeneratedComponents=$components" "-p:NativeOutputDirectory=$native" `
         "-p:Cultures=$culture" "-p:PackageLanguage=$language" "-p:OutputPath=$directory\" "-p:OutputName=$msiName" `
-        "-p:PackageIdentifier=$packageId" "-p:PackageDisplayName=$packageName" "-p:InstallerRegistryKey=$registryKey" "-p:UpgradeCode=$upgradeCode" "-p:EnableFaultInjection=$faults" /warnaserror
+        "-p:BaseIntermediateOutputPath=$directory\obj\" `
+        "-p:PackageIdentifier=$packageId" "-p:PackageDisplayName=$packageName" "-p:InstallerRegistryKey=$registryKey" "-p:UpgradeCode=$upgradeCode" "-p:EnableFaultInjection=$faults" "-p:ValidationId=$(if ($TestIdentity) { $TestIdentitySuffix })" "-p:ExpectedBundleFamily=$bundleFamily" /warnaserror
     if ($LASTEXITCODE) { throw "$culture MSI build failed: $LASTEXITCODE" }
     Copy-Item -LiteralPath (Join-Path $directory "$culture\$msiName.msi") -Destination (Join-Path $work "$culture.msi") -Force
 }
@@ -71,11 +75,14 @@ try {
 }
 [GC]::Collect(); [GC]::WaitForPendingFinalizers()
 # Validate the final database after embedding the transform as well.
-& $wix msi validate -acceptEula wix7 -sice ICE57 -sice ICE105 $msi
+$validationWork = Join-Path $work ('embedded-ice-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $validationWork | Out-Null
+& $wix msi validate -acceptEula wix7 -intermediateFolder $validationWork -sice ICE57 -sice ICE105 $msi
 if ($LASTEXITCODE) { throw "Embedded-transform MSI validation failed: $LASTEXITCODE" }
 if (-not $SkipBundle) {
     dotnet build (Join-Path $root 'Installer\Bootstrapper\FolderRewind.Bootstrapper.wixproj') -t:Rebuild -c Release `
         "-p:ProductVersion=$Version" "-p:PayloadArchitecture=$arch" "-p:MsiPath=$msi" "-p:ProductCode=$productCode" `
+        "-p:BaseIntermediateOutputPath=$work\bundle-obj\" `
         "-p:NativeOutputDirectory=$native" "-p:OutputPath=$output\" /warnaserror
     if ($LASTEXITCODE) { throw "Setup build failed: $LASTEXITCODE" }
 }

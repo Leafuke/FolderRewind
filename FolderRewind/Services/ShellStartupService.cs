@@ -17,6 +17,7 @@ internal sealed class ShellStartupService : IDisposable
     public Task StartAsync() => _sequence.RunAsync(new Func<CancellationToken, Task>[]
     {
         token => Task.Delay(300, token),
+        _ => RepairMsiPinsAsync(),
         _ => ShowMsiPinMigrationNoticeAsync(),
         _ => ShowKnotLinkCompatibilityDialogAsync(),
         _ => CheckAndNotifyConflictsAsync(),
@@ -24,6 +25,22 @@ internal sealed class ShellStartupService : IDisposable
         _ => { CoreFeatureValidationService.TryScheduleInitialValidation(); return Task.CompletedTask; }
     }, _lifetime.Token);
     public void Dispose() { _lifetime.Cancel(); }
+
+    private static Task RepairMsiPinsAsync()
+    {
+        if (AppRuntimeInfo.IsMsiDistribution)
+        {
+            try
+            {
+                var pins = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar");
+                TaskbarShortcutRepair.RepairOwnedPins(pins, AppRuntimeInfo.ExecutablePath,
+                    error => LogService.LogError("Could not repair an owned taskbar shortcut.", nameof(ShellStartupService), error));
+            }
+            catch (Exception error) { LogService.LogError("Could not inspect taskbar pins.", nameof(ShellStartupService), error); }
+        }
+        return Task.CompletedTask;
+    }
 
     private async Task ShowMsiPinMigrationNoticeAsync()
     {

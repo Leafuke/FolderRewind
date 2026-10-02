@@ -2,13 +2,17 @@
 param([Parameter(Mandatory)][string]$BaseMsi, [Parameter(Mandatory)][string]$UpgradeMsi,
       [Parameter(Mandatory)][string]$ResultDirectory)
 $ErrorActionPreference = 'Stop'
-$family = '{39B92584-E7D5-43F9-AD6F-476D08F854AC}'
+. "$PSScriptRoot\InstallerValidation.ps1"
+$testId = (Get-MsiIdentity $BaseMsi).FOLDERREWIND_TEST_ID
+$baseIdentity = Assert-ValidationMsi $BaseMsi $testId
+$family = $baseIdentity.UpgradeCode
 $installer = New-Object -ComObject WindowsInstaller.Installer
 if (@($installer.RelatedProducts($family)).Count -or (Get-Process FolderRewind -ErrorAction SilentlyContinue)) { throw 'An empty isolated context is required.' }
 $root = [IO.Path]::GetFullPath($ResultDirectory)
 New-Item -ItemType Directory -Path $root -Force | Out-Null
 $results = [Collections.Generic.List[object]]::new()
 foreach ($path in @($BaseMsi,$UpgradeMsi)) {
+    [void](Assert-ValidationMsi $path $testId)
     $db = $installer.OpenDatabase([IO.Path]::GetFullPath($path),0)
     $view = $db.OpenView('SELECT `Value` FROM `Property` WHERE `Property` = ''UpgradeCode''')
     $view.Execute(); $found = $view.Fetch().StringData(1); $view.Close()
@@ -30,7 +34,7 @@ try {
     $products = @($installer.RelatedProducts($family))
     if ($products.Count -ne 1) { throw 'Expected one isolated installation.' }
     $location = $installer.ProductInfo($products[0],'InstallLocation')
-    $default = Join-Path $env:LOCALAPPDATA 'Programs\FolderRewind MSI Validation'
+    $default = Join-Path $env:LOCALAPPDATA ('Programs\' + $baseIdentity.ProductName)
     if ($location.TrimEnd('\') -ine $default) { throw "Incorrect default user directory: $location" }
     Invoke-Probe 'cross-scope-blocked' $UpgradeMsi 'ALLUSERS=1 MSIINSTALLPERUSER=""' @(1603)
     Invoke-Probe 'chinese-to-english-upgrade' $UpgradeMsi ''
@@ -45,5 +49,6 @@ try {
         $process = Start-Process msiexec.exe -ArgumentList ('/x '+$product+' /qn /norestart /l*v "'+$log+'"') -WindowStyle Hidden -Wait -PassThru
         $results.Add(@{scenario='boundary-cleanup';passed=$process.ExitCode -in @(0,3010);exitCode=$process.ExitCode;log=$log})
     }
-    $results | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $root 'results.json') -Encoding utf8
+    Export-InstallerResults $results (Join-Path $root 'results.json') $BaseMsi
 }
+if (@($results | Where-Object status -NE 'passed').Count) { throw 'Boundary acceptance failed.' }

@@ -9,6 +9,8 @@
     <ClCompile><LanguageStandard>stdcpp17</LanguageStandard><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><RuntimeLibrary>MultiThreaded</RuntimeLibrary><Optimization>MaxSpeed</Optimization><PreprocessorDefinitions>WIN32;_WINDOWS;UNICODE;_UNICODE;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalIncludeDirectories>$(NativeApiRoot)\WixToolset.BootstrapperApplicationApi\build\native\include;$(NativeApiRoot)\WixToolset.WixStandardBootstrapperApplicationFunctionApi\lib\native\include;$(NativeApiRoot)\WixToolset.DUtil\build\native\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile>
     <Link><SubSystem>Windows</SubSystem><ModuleDefinitionFile>BAFunctions.def</ModuleDefinitionFile><AdditionalDependencies>$(NativeApiRoot)\WixToolset.DUtil\build\native\v14\x86\dutil.lib;comctl32.lib;shell32.lib;msi.lib;advapi32.lib;ole32.lib;oleaut32.lib;uuid.lib;shlwapi.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies><GenerateDebugInformation>false</GenerateDebugInformation></Link>
   </ItemDefinitionGroup>
-  <ItemGroup><ClCompile Include="BAFunctions.cpp" /><ClCompile Include="InstallerActions.cpp" /><ClCompile Include="StartupCleanup.cpp" /></ItemGroup>
+  <ItemDefinitionGroup Condition="'$(EnableFaultInjection)'=='true'"><Link><ModuleDefinitionFile>BAFunctions.Test.def</ModuleDefinitionFile></Link></ItemDefinitionGroup>
+  <ItemGroup Condition="'$(EnableFaultInjection)'=='true'"><ClCompile Include="FaultInjection.cpp" /></ItemGroup>
+  <ItemGroup><ClCompile Include="BAFunctions.cpp" /><ClCompile Include="InstallerActions.cpp" /><ClCompile Include="StartupCleanup.cpp" /><ClCompile Include="BundleLocation.cpp" /><ClCompile Include="ShortcutIcons.cpp" /></ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

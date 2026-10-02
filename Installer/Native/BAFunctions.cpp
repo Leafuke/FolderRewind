@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <msiquery.h>
 #include <objbase.h>
 #include <winternl.h>
@@ -12,6 +13,10 @@
 #include <dutil.h>
 #include <shelutil.h>
 #include "WindowsVersion.h"
+#include "RegistryValue.h"
+#include "InstallerDiagnostics.h"
+#include "SettingsCleanup.h"
+#include <tlhelp32.h>
 
 static IBootstrapperEngine* engine = nullptr;
 static BOOTSTRAPPER_DISPLAY display = BOOTSTRAPPER_DISPLAY_UNKNOWN;
@@ -22,6 +27,15 @@ static HWND userScopeButton = nullptr, machineScopeButton = nullptr;
 static HHOOK dialogHook = nullptr;
 static std::wstring existingScope, existingPath;
 static bool applied = false;
+static bool duplicateVersion = false;
+static HWND clearSettingsCheckbox = nullptr;
+static bool clearSettingsAfterUninstall = false;
+static std::wstring settingsDirectory;
+static bool settingsTestContext = false;
+static Registry::Value userStartupCommand, userStartupApproval;
+static bool userStartupOwned = false;
+static const wchar_t* StartupRunKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+static const wchar_t* StartupApprovalKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run";
 
 static std::wstring Variable(const wchar_t* name, bool format = false)
 {
@@ -42,6 +56,148 @@ static LONGLONG Number(const wchar_t* name)
     LONGLONG value = 0;
     if (FAILED(engine->GetVariableNumeric(name, &value))) value = _wcstoi64(Variable(name).c_str(), nullptr, 10);
     return value;
+}
+static HRESULT RegisterUserLocation()
+{
+    // Run only after Burn has committed successfully. A failed/cancelled apply
+    // never mutates this metadata, and no HKLM write is attempted from the BA.
+    const auto product = Variable(L"FolderRewindProductCode");
+    DWORD length = 0;
+    auto status = MsiGetProductInfoExW(product.c_str(), nullptr, MSIINSTALLCONTEXT_USERUNMANAGED, INSTALLPROPERTY_INSTALLLOCATION, L"", &length);
+    if (status != ERROR_SUCCESS && status != ERROR_MORE_DATA) return HRESULT_FROM_WIN32(status);
+    std::vector<wchar_t> folder(static_cast<size_t>(length)+1); length = static_cast<DWORD>(folder.size());
+    status = MsiGetProductInfoExW(product.c_str(), nullptr, MSIINSTALLCONTEXT_USERUNMANAGED, INSTALLPROPERTY_INSTALLLOCATION, folder.data(), &length);
+    if (status != ERROR_SUCCESS || !folder[0]) return HRESULT_FROM_WIN32(status == ERROR_SUCCESS ? ERROR_INVALID_DATA : status);
+    const auto code = Variable(L"WixBundleProviderKey"), family = Variable(L"FolderRewindBundleFamily");
+    const auto path = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" + code;
+    const auto familyValue = Registry::Read(HKEY_CURRENT_USER, path.c_str(), L"BundleUpgradeCode", KEY_WOW64_32KEY);
+    if (familyValue.state != Registry::State::Present || familyValue.type != REG_MULTI_SZ || familyValue.bytes.size() % sizeof(wchar_t)) return E_ACCESSDENIED;
+    std::wstring families(familyValue.bytes.size()/sizeof(wchar_t), L'\0'); memcpy(families.data(), familyValue.bytes.data(), familyValue.bytes.size());
+    bool owns = false;
+    for (size_t offset = 0; offset < families.size();) {
+        const auto end = families.find(L'\0', offset); if (end == std::wstring::npos) return E_ACCESSDENIED;
+        if (_wcsicmp(families.substr(offset,end-offset).c_str(),family.c_str()) == 0) owns = true;
+        offset = end + 1;
+    }
+    if (!owns || Registry::Text(Registry::Read(HKEY_CURRENT_USER,path.c_str(),L"BundleProviderKey",KEY_WOW64_32KEY)) != code) return E_ACCESSDENIED;
+    const auto before = Registry::Read(HKEY_CURRENT_USER,path.c_str(),L"InstallLocation",KEY_WOW64_32KEY);
+    if (before.state == Registry::State::Failed) return HRESULT_FROM_WIN32(before.error);
+    HKEY key = nullptr;
+    status = RegOpenKeyExW(HKEY_CURRENT_USER,path.c_str(),0,KEY_SET_VALUE | KEY_WOW64_32KEY,&key);
+    if (status != ERROR_SUCCESS) return HRESULT_FROM_WIN32(status);
+    status = RegSetValueExW(key,L"InstallLocation",0,REG_SZ,reinterpret_cast<const BYTE*>(folder.data()),static_cast<DWORD>((wcslen(folder.data())+1)*sizeof(wchar_t)));
+    if (status == ERROR_SUCCESS && Registry::Text(Registry::Read(HKEY_CURRENT_USER,path.c_str(),L"InstallLocation",KEY_WOW64_32KEY)) != folder.data()) {
+        // Best-effort restoration of this value only; never create/delete a key.
+        if (before.state == Registry::State::Missing) RegDeleteValueW(key,L"InstallLocation");
+        else RegSetValueExW(key,L"InstallLocation",0,before.type,before.bytes.data(),static_cast<DWORD>(before.bytes.size()));
+        status = ERROR_WRITE_FAULT;
+    }
+    RegCloseKey(key);
+    engine->Log(status == ERROR_SUCCESS ? BOOTSTRAPPER_LOG_LEVEL_STANDARD : BOOTSTRAPPER_LOG_LEVEL_ERROR,
+        status == ERROR_SUCCESS ? L"FolderRewind committed user InstallLocation verified." : L"FolderRewind InstallLocation update failed; installation is committed.");
+    return HRESULT_FROM_WIN32(status);
+}
+static HRESULT PrepareUserStartupCleanup()
+{
+    userStartupOwned = false;
+    // Verify ownership while the MSI is still fully registered. Do not infer
+    // ownership from orphan directory markers or a command-line path.
+    const auto product = Variable(L"FolderRewindProductCode");
+    const auto preparing = L"FolderRewind BA startup-prepare: product-state=" + std::to_wstring(MsiQueryProductStateW(product.c_str()));
+    engine->Log(BOOTSTRAPPER_LOG_LEVEL_STANDARD, preparing.c_str());
+    if (MsiQueryProductStateW(product.c_str()) != INSTALLSTATE_DEFAULT) return S_OK;
+    DWORD length = 0;
+    auto status = MsiGetProductInfoExW(product.c_str(), nullptr, MSIINSTALLCONTEXT_USERUNMANAGED, INSTALLPROPERTY_INSTALLLOCATION, L"", &length);
+    if (status != ERROR_SUCCESS && status != ERROR_MORE_DATA) return HRESULT_FROM_WIN32(status);
+    std::vector<wchar_t> folder(static_cast<size_t>(length)+1); length = static_cast<DWORD>(folder.size());
+    status = MsiGetProductInfoExW(product.c_str(), nullptr, MSIINSTALLCONTEXT_USERUNMANAGED, INSTALLPROPERTY_INSTALLLOCATION, folder.data(), &length);
+    if (status != ERROR_SUCCESS || !folder[0]) return HRESULT_FROM_WIN32(status == ERROR_SUCCESS ? ERROR_INVALID_DATA : status);
+    std::wstring directory(folder.data()); while (!directory.empty() && directory.back() == L'\\') directory.pop_back();
+    userStartupCommand = Registry::Read(HKEY_CURRENT_USER, StartupRunKey, L"FolderRewind");
+    const auto reading = L"FolderRewind BA startup-read: open=" + std::to_wstring(userStartupCommand.openError) + L", query=" + std::to_wstring(userStartupCommand.error);
+    engine->Log(BOOTSTRAPPER_LOG_LEVEL_STANDARD, reading.c_str());
+    if (userStartupCommand.state == Registry::State::Failed) return HRESULT_FROM_WIN32(userStartupCommand.error);
+    const auto expected = L"\"" + directory + L"\\FolderRewind.exe\" --startup";
+    if (_wcsicmp(Registry::Text(userStartupCommand).c_str(), expected.c_str()) != 0) return S_OK;
+    userStartupApproval = Registry::Read(HKEY_CURRENT_USER, StartupApprovalKey, L"FolderRewind");
+    if (userStartupApproval.state == Registry::State::Failed) return HRESULT_FROM_WIN32(userStartupApproval.error);
+    userStartupOwned = true;
+    return S_OK;
+}
+static HRESULT FinishUserStartupCleanup()
+{
+    if (!userStartupOwned) return S_OK;
+    // Only after successful uninstall: failures/cancellation keep the original
+    // values without introducing another rollback transaction outside MSI.
+    if (MsiQueryProductStateW(Variable(L"FolderRewindProductCode").c_str()) != INSTALLSTATE_UNKNOWN) return E_UNEXPECTED;
+    auto current = Registry::Read(HKEY_CURRENT_USER, StartupRunKey, L"FolderRewind");
+    if (current.state == Registry::State::Failed) return HRESULT_FROM_WIN32(current.error);
+    if (current.state == Registry::State::Present) {
+        if (!Registry::Equal(current, userStartupCommand)) return S_OK; // A new writer owns it.
+        const auto status = Registry::Delete(HKEY_CURRENT_USER, StartupRunKey, L"FolderRewind");
+        if (status != ERROR_SUCCESS && status != ERROR_FILE_NOT_FOUND) return HRESULT_FROM_WIN32(status);
+        current = Registry::Read(HKEY_CURRENT_USER, StartupRunKey, L"FolderRewind");
+        if (current.state == Registry::State::Failed) return HRESULT_FROM_WIN32(current.error);
+        if (current.state == Registry::State::Present) return S_OK;
+        engine->Log(BOOTSTRAPPER_LOG_LEVEL_STANDARD, L"FolderRewind BA startup-delete-verified: Run after committed uninstall.");
+    }
+    const auto approval = Registry::Read(HKEY_CURRENT_USER, StartupApprovalKey, L"FolderRewind");
+    if (approval.state == Registry::State::Failed) return HRESULT_FROM_WIN32(approval.error);
+    if (Registry::Equal(approval, userStartupApproval)) {
+        const auto run = Registry::Read(HKEY_CURRENT_USER, StartupRunKey, L"FolderRewind");
+        if (run.state == Registry::State::Failed) return HRESULT_FROM_WIN32(run.error);
+        if (run.state == Registry::State::Present) return S_OK;
+        const auto status = Registry::Delete(HKEY_CURRENT_USER, StartupApprovalKey, L"FolderRewind");
+        if (status != ERROR_SUCCESS && status != ERROR_FILE_NOT_FOUND) return HRESULT_FROM_WIN32(status);
+        const auto remaining = Registry::Read(HKEY_CURRENT_USER, StartupApprovalKey, L"FolderRewind");
+        if (remaining.state == Registry::State::Failed) return HRESULT_FROM_WIN32(remaining.error);
+        if (remaining.state == Registry::State::Missing) engine->Log(BOOTSTRAPPER_LOG_LEVEL_STANDARD, L"FolderRewind BA startup-delete-verified: StartupApproved after committed uninstall.");
+    }
+    return S_OK;
+}
+static HRESULT PrepareSettingsCleanup()
+{
+    clearSettingsAfterUninstall = false;
+    const bool chosen = display == BOOTSTRAPPER_DISPLAY_FULL && clearSettingsCheckbox ?
+        SendMessageW(clearSettingsCheckbox,BM_GETCHECK,0,0) == BST_CHECKED : Number(L"ClearSettingsChosen") == 1;
+    if (!chosen) return S_OK;
+    if (MsiQueryProductStateW(Variable(L"FolderRewindProductCode").c_str()) != INSTALLSTATE_DEFAULT) return E_ACCESSDENIED;
+    // This variable exists only in isolated Bundle authoring. Production always
+    // resolves the account running the BA, never another admin/offline profile.
+    const auto testRoot = Variable(L"FolderRewindSettingsTestRoot");
+    settingsTestContext = !testRoot.empty() && Variable(L"FolderRewindRegistryKey").find(L"Software\\Leafuke\\FolderRewind.Msi.Validation.") == 0;
+    if (settingsTestContext)
+        settingsDirectory = testRoot + L"\\FolderRewind";
+    else {
+        PWSTR local = nullptr;
+        const auto result = SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&local);
+        if (FAILED(result)) return result;
+        settingsDirectory = std::wstring(local)+L"\\FolderRewind"; CoTaskMemFree(local);
+    }
+    clearSettingsAfterUninstall = true;
+    return S_OK;
+}
+static HRESULT FinishSettingsCleanup()
+{
+    if (!clearSettingsAfterUninstall) return S_OK;
+    if (MsiQueryProductStateW(Variable(L"FolderRewindProductCode").c_str()) != INSTALLSTATE_UNKNOWN) return E_UNEXPECTED;
+    if (!settingsTestContext) {
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+        if (snapshot == INVALID_HANDLE_VALUE) return HRESULT_FROM_WIN32(GetLastError());
+        DWORD currentSession = 0; ProcessIdToSessionId(GetCurrentProcessId(),&currentSession);
+        PROCESSENTRY32W entry = {}; entry.dwSize = sizeof(entry); bool running = false;
+        if (Process32FirstW(snapshot,&entry)) do {
+            DWORD session = 0;
+            if (_wcsicmp(entry.szExeFile,L"FolderRewind.exe") == 0 && ProcessIdToSessionId(entry.th32ProcessID,&session) && session == currentSession) { running = true; break; }
+        } while (Process32NextW(snapshot,&entry));
+        CloseHandle(snapshot);
+        if (running) return HRESULT_FROM_WIN32(ERROR_BUSY);
+    }
+    DWORD removed = 0;
+    const auto error = SettingsCleanup::Clear(settingsDirectory,removed);
+    const auto message = L"FolderRewind settings cleanup: removed=" + std::to_wstring(removed) + L", status=" + std::to_wstring(error) + L"; backup/history/plugin directories are never traversed.";
+    engine->Log(error == ERROR_SUCCESS ? BOOTSTRAPPER_LOG_LEVEL_STANDARD : BOOTSTRAPPER_LOG_LEVEL_ERROR,message.c_str());
+    return HRESULT_FROM_WIN32(error);
 }
 static std::wstring RegistryPath(HKEY root)
 {
@@ -110,6 +266,36 @@ static LRESULT CALLBACK ScopeWindowProc(HWND hwnd, UINT message, WPARAM wp, LPAR
 }
 static HRESULT WINAPI FunctionsProc(BA_FUNCTIONS_MESSAGE message, const LPVOID args, LPVOID results, LPVOID)
 {
+    if (message == BA_FUNCTIONS_MESSAGE_ONEXECUTEPACKAGEBEGIN) {
+        const auto package = static_cast<BA_ONEXECUTEPACKAGEBEGIN_ARGS*>(args);
+        if (package->fExecute && package->action == BOOTSTRAPPER_ACTION_STATE_UNINSTALL && package->wzPackageId &&
+            _wcsicmp(package->wzPackageId,L"FolderRewindMsi") == 0 && FAILED(PrepareSettingsCleanup())) {
+            static_cast<BA_ONEXECUTEPACKAGEBEGIN_RESULTS*>(results)->fCancel = TRUE;
+            ShowError(L"Cannot verify the settings cleanup target. Uninstall has not started.",L"无法安全核对设置清理位置，卸载尚未开始。");
+            return S_OK;
+        }
+        if (package->fExecute && package->action == BOOTSTRAPPER_ACTION_STATE_UNINSTALL &&
+            package->wzPackageId && _wcsicmp(package->wzPackageId, L"FolderRewindMsi") == 0 &&
+            Variable(L"WixStdBAScope") == L"PerUser" && FAILED(PrepareUserStartupCleanup())) {
+            static_cast<BA_ONEXECUTEPACKAGEBEGIN_RESULTS*>(results)->fCancel = TRUE;
+            ShowError(L"Cannot verify startup entry ownership. Uninstall has not started. Keep the Setup log for support.", L"无法核对自启动项归属，卸载尚未开始。请保留安装日志以便排查。");
+            return S_OK;
+        }
+        const auto path = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" + Variable(L"WixBundleProviderKey");
+        const auto root = Variable(L"WixStdBAScope") == L"PerMachine" ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
+        const auto family = Registry::Read(root, path.c_str(), L"BundleUpgradeCode", KEY_WOW64_32KEY);
+        const auto diagnostic = L"FolderRewind BA registration before MSI: path=" + path + L", open=" + std::to_wstring(family.openError) + L", query=" + std::to_wstring(family.error);
+        engine->Log(BOOTSTRAPPER_LOG_LEVEL_STANDARD, diagnostic.c_str());
+    }
+    if (message == BA_FUNCTIONS_MESSAGE_ONDETECTRELATEDBUNDLE) {
+        const auto related = static_cast<BA_ONDETECTRELATEDBUNDLE_ARGS*>(args);
+        // ProviderKey is the generated BundleCode: Bundle authoring deliberately
+        // does not override ProviderKey. Never adopt a different same-version EXE.
+        if (related->wzVersion && related->wzBundleCode &&
+            Variable(L"FolderRewindBundleVersion") == related->wzVersion &&
+            _wcsicmp(Variable(L"WixBundleProviderKey").c_str(), related->wzBundleCode) != 0)
+            duplicateVersion = true;
+    }
     if (message == BA_FUNCTIONS_MESSAGE_ONTHEMELOADED) {
         window = static_cast<BA_FUNCTIONS_ONTHEMELOADED_ARGS*>(args)->hWnd;
         if (!SetWindowSubclass(window, ScopeWindowProc, 0xF1901, 0)) return HRESULT_FROM_WIN32(GetLastError());
@@ -119,6 +305,7 @@ static HRESULT WINAPI FunctionsProc(BA_FUNCTIONS_MESSAGE message, const LPVOID a
     if (message == BA_FUNCTIONS_MESSAGE_ONTHEMECONTROLLOADED) {
         const auto control = static_cast<BA_FUNCTIONS_ONTHEMECONTROLLOADED_ARGS*>(args);
         if (control->wzName && _wcsicmp(control->wzName, L"LaunchAfterInstallChosen") == 0) launchCheckbox = control->hWnd;
+        if (control->wzName && _wcsicmp(control->wzName,L"ClearSettingsChosen") == 0) clearSettingsCheckbox = control->hWnd;
         if (control->wzName && _wcsicmp(control->wzName, L"InstallFolder") == 0) folderEdit = control->hWnd;
         if (control->wzName && _wcsicmp(control->wzName, L"ScopeCurrentUserButton") == 0) userScopeButton = control->hWnd;
         if (control->wzName && _wcsicmp(control->wzName, L"ScopeAllUsersButton") == 0) machineScopeButton = control->hWnd;
@@ -148,6 +335,12 @@ static HRESULT WINAPI FunctionsProc(BA_FUNCTIONS_MESSAGE message, const LPVOID a
     }
     if (message == BA_FUNCTIONS_MESSAGE_ONPLANBEGIN) {
         auto result = static_cast<BA_ONPLANBEGIN_RESULTS*>(results);
+        if (duplicateVersion && !Number(L"WixBundleInstalled")) {
+            ShowError(L"A different installer for the same version is already registered. Use the original Setup for maintenance or a newer version.",
+                L"此版本已登记另一个安装包。维护请使用原 Setup，更新请使用更高版本。");
+            result->fCancel = TRUE;
+            return S_OK;
+        }
         const auto scope = Variable(L"WixStdBAScope");
         if (!existingScope.empty() && scope != existingScope) {
             ShowError(L"Uninstall the existing installation before changing installation scope. Configuration, plugins and backups are preserved.", L"更改安装范围前，请先卸载原安装。配置、插件和备份会保留。");
@@ -184,7 +377,15 @@ static HRESULT WINAPI FunctionsProc(BA_FUNCTIONS_MESSAGE message, const LPVOID a
         if (Number(L"WixBundleAction") > BOOTSTRAPPER_ACTION_UNINSTALL && _wcsicmp(event->wzFeatureId, L"DesktopShortcutFeature") == 0)
             result->requestedState = Number(L"DesktopShortcutChosen") ? BOOTSTRAPPER_FEATURE_STATE_LOCAL : BOOTSTRAPPER_FEATURE_STATE_ABSENT;
     }
-    if (message == BA_FUNCTIONS_MESSAGE_ONAPPLYCOMPLETE) applied = SUCCEEDED(static_cast<BA_ONAPPLYCOMPLETE_ARGS*>(args)->hrStatus);
+    if (message == BA_FUNCTIONS_MESSAGE_ONAPPLYCOMPLETE) {
+        applied = SUCCEEDED(static_cast<BA_ONAPPLYCOMPLETE_ARGS*>(args)->hrStatus);
+        if (applied && Number(L"WixBundleAction") > BOOTSTRAPPER_ACTION_UNINSTALL && Variable(L"WixStdBAScope") == L"PerUser" && FAILED(RegisterUserLocation()))
+            ShowError(L"Installation completed, but the installed location could not be recorded. Keep the Setup log for support.", L"安装已完成，但安装位置登记失败。请保留安装日志以便排查。");
+        if (applied && Number(L"WixBundleAction") == BOOTSTRAPPER_ACTION_UNINSTALL && Variable(L"WixStdBAScope") == L"PerUser" && FAILED(FinishUserStartupCleanup()))
+            ShowError(L"Uninstall completed, but a startup entry could not be cleaned. Keep the Setup log for support.", L"卸载已完成，但自启动项清理失败。请保留安装日志以便排查。");
+        if (applied && Number(L"WixBundleAction") == BOOTSTRAPPER_ACTION_UNINSTALL && FAILED(FinishSettingsCleanup()))
+            ShowError(L"Uninstall completed, but some settings could not be cleared. Close other FolderRewind instances and keep the Setup log. Backups were not removed.",L"卸载已完成，但部分设置未能清除。请关闭其他 FolderRewind 实例并保留安装日志；备份未被删除。");
+    }
     if (message == BA_FUNCTIONS_MESSAGE_ONTHEMECONTROLWMCOMMAND) {
         const auto event = static_cast<BA_FUNCTIONS_ONTHEMECONTROLWMCOMMAND_ARGS*>(args);
         auto result = static_cast<BA_FUNCTIONS_ONTHEMECONTROLWMCOMMAND_RESULTS*>(results);

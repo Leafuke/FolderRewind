@@ -32,6 +32,8 @@
   <String Id="ModifyHeader" Value="Modify Setup" />
   <String Id="ModifyRepairButton" Value="&amp;Repair" />
   <String Id="ModifyUninstallButton" Value="&amp;Uninstall" />
+  <String Id="ClearSettingsOption" Value="Also clear this user's app settings on uninstall (keep backups)" />
+  <String Id="ClearSettingsExplanation" Value="Only configuration files and their recovery copies are removed. Backup files, history and plugin files are kept. Repair or cancelled uninstall keeps settings." />
   <String Id="ModifyCancelButton" Value="&amp;Cancel" />
   <String Id="SuccessHeader" Value="Setup Successful" />
   <String Id="SuccessCacheHeader" Value="Cache Successfully Completed" />

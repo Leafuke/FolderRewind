@@ -6,6 +6,9 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
+#include <set>
+#include "RegistryValue.h"
+#include "InstallerDiagnostics.h"
 
 static const wchar_t* RunKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 static const wchar_t* ApprovedKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run";
@@ -27,24 +30,30 @@ struct Hive
     HKEY key = nullptr;
     std::wstring mounted;
     bool absent = false;
+    LSTATUS error = ERROR_INVALID_SID;
     explicit Hive(const std::wstring& sid)
     {
-        if (sid == L"-") { RegOpenCurrentUser(KEY_READ | KEY_WRITE, &key); return; }
+        if (sid == L"-") { error = RegOpenCurrentUser(KEY_READ | KEY_WRITE, &key); return; }
         PSID parsed = nullptr;
         if (!ConvertStringSidToSidW(sid.c_str(), &parsed)) return;
         LocalFree(parsed);
         if (sid.find(L"S-1-5-21-") != 0 && sid.find(L"S-1-12-1-") != 0) return;
-        if (RegOpenKeyExW(HKEY_USERS, sid.c_str(), 0, KEY_READ | KEY_WRITE, &key) == ERROR_SUCCESS) return;
+        error = RegOpenKeyExW(HKEY_USERS, sid.c_str(), 0, KEY_READ | KEY_WRITE, &key);
+        if (error == ERROR_SUCCESS) return;
+        if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND) return;
         wchar_t profile[32768] = {}; DWORD bytes = sizeof(profile);
         const auto path = L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList\\" + sid;
-        if (RegGetValueW(HKEY_LOCAL_MACHINE, path.c_str(), L"ProfileImagePath", RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_SUBKEY_WOW6464KEY, nullptr, profile, &bytes) != ERROR_SUCCESS) return;
+        error = RegGetValueW(HKEY_LOCAL_MACHINE, path.c_str(), L"ProfileImagePath", RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_SUBKEY_WOW6464KEY, nullptr, profile, &bytes);
+        if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) { absent = true; return; }
+        if (error != ERROR_SUCCESS) return;
         const auto file = std::wstring(profile) + L"\\NTUSER.DAT";
         if (GetFileAttributesW(file.c_str()) == INVALID_FILE_ATTRIBUTES && (GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND)) { absent = true; return; }
         GUID guid; if (FAILED(CoCreateGuid(&guid))) return;
         wchar_t id[40] = {}; StringFromGUID2(guid, id, 40);
         mounted = L"FolderRewind-Uninstall-" + std::wstring(id);
-        if (RegLoadKeyW(HKEY_USERS, mounted.c_str(), file.c_str()) != ERROR_SUCCESS) { mounted.clear(); return; }
-        RegOpenKeyExW(HKEY_USERS, mounted.c_str(), 0, KEY_READ | KEY_WRITE, &key);
+        error = RegLoadKeyW(HKEY_USERS, mounted.c_str(), file.c_str());
+        if (error != ERROR_SUCCESS) { mounted.clear(); return; }
+        error = RegOpenKeyExW(HKEY_USERS, mounted.c_str(), 0, KEY_READ | KEY_WRITE, &key);
     }
     ~Hive() { if (key) RegCloseKey(key); if (!mounted.empty()) RegUnLoadKeyW(HKEY_USERS, mounted.c_str()); }
     Hive(const Hive&) = delete;
@@ -70,21 +79,6 @@ struct Privileges
     }
     ~Privileges() { if (token) { for (int i = 0; i < 2; ++i) AdjustTokenPrivileges(token, FALSE, &previous[i], 0, nullptr, nullptr); CloseHandle(token); } }
 };
-static std::wstring Command(HKEY root, LSTATUS* queryStatus = nullptr)
-{
-    wchar_t command[32768] = {}; DWORD bytes = sizeof(command);
-    const auto status = RegGetValueW(root, RunKey, L"FolderRewind", RRF_RT_REG_SZ | RRF_NOEXPAND | RRF_SUBKEY_WOW6464KEY, nullptr, command, &bytes);
-    if (queryStatus) *queryStatus = status;
-    return status == ERROR_SUCCESS ? command : L"";
-}
-static std::wstring Approval(HKEY root)
-{
-    BYTE bytes[1024] = {}; DWORD count = sizeof(bytes);
-    if (RegGetValueW(root, ApprovedKey, L"FolderRewind", RRF_RT_REG_BINARY | RRF_SUBKEY_WOW6464KEY, nullptr, bytes, &count) != ERROR_SUCCESS) return L"-";
-    const wchar_t* digits = L"0123456789ABCDEF"; std::wstring hex;
-    for (DWORD i = 0; i < count; ++i) { hex += digits[bytes[i] >> 4]; hex += digits[bytes[i] & 15]; }
-    return hex;
-}
 struct CleanupData { bool machine = false; std::wstring directory, journal, product, sid, name; };
 static bool Data(MSIHANDLE session, CleanupData& data)
 {
@@ -139,6 +133,13 @@ static bool ValidateCleanupContext(CleanupData& data)
 }
 extern "C" UINT __stdcall PrepareStartupCleanup(MSIHANDLE session)
 {
+    MsiSetPropertyW(session, L"FolderRewindCleanupAuthorized", L"");
+    // An advertised product has no trustworthy installation location. Let MSI
+    // remove its own registration, but never infer ownership of external values.
+    if (MsiQueryProductStateW(GetProperty(session, L"ProductCode").c_str()) == INSTALLSTATE_ADVERTISED) {
+        InstallerLog(session, L"FolderRewind advertised registration: external startup cleanup not authorized.");
+        return ERROR_SUCCESS;
+    }
     GUID guid; if (FAILED(CoCreateGuid(&guid))) return ERROR_INSTALL_FAILURE;
     wchar_t id[40] = {}; StringFromGUID2(guid, id, 40);
     const auto scope = GetProperty(session, L"ALLUSERS") == L"1" ? L"M|" : L"U|";
@@ -147,11 +148,12 @@ extern "C" UINT __stdcall PrepareStartupCleanup(MSIHANDLE session)
     verified.directory = GetProperty(session, L"INSTALLFOLDER");
     verified.product = GetProperty(session, L"ProductCode");
     verified.sid = GetProperty(session, L"UserSID");
+    LogInstallerContext(session, L"prepare-startup", verified.sid, verified.machine);
     if (!ValidateCleanupContext(verified)) return ERROR_INSTALL_FAILURE;
     const auto data = scope + verified.directory + L"|" + id + L"|" + verified.product + L"|" + verified.sid + L"|" + verified.name;
     for (const auto action : { L"CleanupStartupUser", L"RollbackStartupUser", L"CommitStartupUser", L"CleanupStartupMachine", L"RollbackStartupMachine", L"CommitStartupMachine" })
         if (MsiSetPropertyW(session, action, data.c_str()) != ERROR_SUCCESS) return ERROR_INSTALL_FAILURE;
-    return ERROR_SUCCESS;
+    return MsiSetPropertyW(session, L"FolderRewindCleanupAuthorized", L"1");
 }
 static std::vector<std::wstring> Users(const CleanupData& data)
 {
@@ -171,57 +173,58 @@ static std::vector<std::wstring> Users(const CleanupData& data)
     }
     RegCloseKey(profiles); return result;
 }
-struct Entry { std::wstring sid, command, approval; };
-static bool DeleteValue(HKEY root, const wchar_t* path)
+struct Entry { std::wstring sid; Registry::Value command, approval; };
+static bool Journal(const std::wstring& path, const std::wstring& text, bool create = false)
 {
-    HKEY key = nullptr;
-    auto status = RegOpenKeyExW(root, path, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, &key);
-    if (status == ERROR_FILE_NOT_FOUND) return true;
-    if (status != ERROR_SUCCESS) return false;
-    status = RegDeleteValueW(key, L"FolderRewind"); RegCloseKey(key);
-    return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;OW)", SDDL_REVISION_1, &descriptor, nullptr)) return false;
+    SECURITY_ATTRIBUTES security = {sizeof(security), descriptor, FALSE};
+    HANDLE file = CreateFileW(path.c_str(), create ? GENERIC_WRITE : FILE_APPEND_DATA, 0, &security,
+        create ? CREATE_NEW : OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY, nullptr);
+    LocalFree(descriptor);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    DWORD written = 0, size = static_cast<DWORD>(text.size() * sizeof(wchar_t));
+    const bool saved = WriteFile(file, text.data(), size, &written, nullptr) && written == size && FlushFileBuffers(file);
+    CloseHandle(file);
+    return saved;
+}
+static Registry::Value ReadStartup(MSIHANDLE session, HKEY root, const wchar_t* path, const std::wstring& sid)
+{
+    auto value = Registry::Read(root, path, L"FolderRewind");
+    InstallerLog(session, L"FolderRewind registry-read: hive=HKU\\" + sid + L", path=" + path + L", view=64, status=" +
+        std::to_wstring(value.error) + L", type=" + std::to_wstring(value.type) + L", bytes=" + std::to_wstring(value.bytes.size()));
+    return value;
 }
 #include "ShortcutCleanup.h"
 extern "C" UINT __stdcall CleanupStartup(MSIHANDLE session)
 {
     CleanupData data; if (!Data(session, data)) return ERROR_INSTALL_FAILURE;
+    LogInstallerContext(session, L"cleanup-startup", data.sid, data.machine);
     Privileges privileges(data.machine); if (!privileges.enabled) return ERROR_INSTALL_FAILURE;
     std::vector<Entry> entries;
     const auto users = Users(data);
     if (data.machine && users.empty()) return ERROR_INSTALL_FAILURE;
     for (const auto& sid : users) {
-        Hive hive(sid); if (!hive.key) { if (hive.absent) continue; return ERROR_INSTALL_FAILURE; }
-        LSTATUS status = ERROR_SUCCESS;
-        const auto command = Command(hive.key, &status);
-        const auto message = L"FolderRewind startup cleanup: query=" + std::to_wstring(status) + L", commandLength=" + std::to_wstring(command.size()) +
-            L", directoryLength=" + std::to_wstring(data.directory.size()) + L", owned=" + (Owned(command, data.directory) ? L"yes" : L"no");
-        MSIHANDLE record = MsiCreateRecord(1);
-        MsiRecordSetStringW(record, 0, L"[1]"); MsiRecordSetStringW(record, 1, message.c_str());
-        MsiProcessMessage(session, INSTALLMESSAGE_INFO, record); MsiCloseHandle(record);
-        if (status != ERROR_SUCCESS && status != ERROR_FILE_NOT_FOUND && status != ERROR_PATH_NOT_FOUND) return ERROR_INSTALL_FAILURE;
-        if (Owned(command, data.directory)) entries.push_back({sid, command, Approval(hive.key)});
+        Hive hive(sid);
+        if (!hive.key) { InstallerLog(session, L"FolderRewind hive-open failed: " + sid + L", status=" + std::to_wstring(hive.error)); if (hive.absent) continue; return ERROR_INSTALL_FAILURE; }
+        const auto command = ReadStartup(session, hive.key, RunKey, sid);
+        if (command.state == Registry::State::Failed) return ERROR_INSTALL_FAILURE;
+        if (!Owned(Registry::Text(command), data.directory)) continue;
+        const auto approval = ReadStartup(session, hive.key, ApprovedKey, sid);
+        if (approval.state == Registry::State::Failed) return ERROR_INSTALL_FAILURE;
+        entries.push_back({sid, command, approval});
     }
-    std::wstring snapshot = L"FolderRewind Startup Cleanup v1\n";
-    for (const auto& entry : entries) snapshot += entry.sid + L"\t" + entry.command + L"\t" + entry.approval + L"\n";
-    PSECURITY_DESCRIPTOR descriptor = nullptr;
-    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;OW)", SDDL_REVISION_1, &descriptor, nullptr)) return ERROR_INSTALL_FAILURE;
-    SECURITY_ATTRIBUTES security = {sizeof(security), descriptor, FALSE};
-    HANDLE file = CreateFileW(data.journal.c_str(), GENERIC_WRITE, 0, &security, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, nullptr);
-    LocalFree(descriptor); if (file == INVALID_HANDLE_VALUE) return ERROR_INSTALL_FAILURE;
-    DWORD written = 0, size = static_cast<DWORD>(snapshot.size() * sizeof(wchar_t));
-    bool saved = WriteFile(file, snapshot.data(), size, &written, nullptr) && written == size && FlushFileBuffers(file);
-    CloseHandle(file); if (!saved) return ERROR_INSTALL_FAILURE;
+    std::wstring snapshot = L"FolderRewind Startup Cleanup v2\n";
+    for (const auto& entry : entries) {
+        snapshot += L"S\t" + entry.sid + L"\tR\t" + std::to_wstring(entry.command.type) + L"\t" + Registry::Hex(entry.command.bytes) + L"\n";
+        if (entry.approval.state == Registry::State::Present)
+            snapshot += L"S\t" + entry.sid + L"\tA\t" + std::to_wstring(entry.approval.type) + L"\t" + Registry::Hex(entry.approval.bytes) + L"\n";
+    }
+    if (!Journal(data.journal, snapshot, true)) return ERROR_INSTALL_FAILURE;
     std::vector<ShortcutSnapshot> shortcuts;
-    if (!SnapshotShortcuts(data, users, shortcuts)) {
-        for (const auto& item : shortcuts) DeleteFileW(item.backup.c_str());
-        return ERROR_INSTALL_FAILURE;
-    }
-    if (!SaveShortcutMetadata(data, shortcuts)) {
-        for (const auto& item : shortcuts) DeleteFileW(item.backup.c_str());
-        return ERROR_INSTALL_FAILURE;
-    }
+    if (!SnapshotShortcuts(data, users, shortcuts) || !SaveShortcutMetadata(data, shortcuts)) return ERROR_INSTALL_FAILURE;
     for (const auto& item : shortcuts) {
-        if (item.owned) {
+        if (item.owned && IsInstallationShortcut(item.path, data)) {
             const auto attributes = GetFileAttributesW(item.path.c_str());
             if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_READONLY)) SetFileAttributesW(item.path.c_str(), attributes & ~FILE_ATTRIBUTE_READONLY);
             if (!DeleteFileW(item.path.c_str()) && GetLastError() != ERROR_FILE_NOT_FOUND) return ERROR_INSTALL_FAILURE;
@@ -229,49 +232,88 @@ extern "C" UINT __stdcall CleanupStartup(MSIHANDLE session)
     }
     for (const auto& entry : entries) {
         Hive hive(entry.sid); if (!hive.key) return ERROR_INSTALL_FAILURE;
-        if (Command(hive.key) != entry.command) continue;
-        if (!DeleteValue(hive.key, RunKey)) return ERROR_INSTALL_FAILURE;
-        if (Approval(hive.key) == entry.approval && entry.approval != L"-" && !DeleteValue(hive.key, ApprovedKey)) return ERROR_INSTALL_FAILURE;
+        auto current = ReadStartup(session, hive.key, RunKey, entry.sid);
+        if (current.state == Registry::State::Failed) return ERROR_INSTALL_FAILURE;
+        if (!Registry::Equal(current, entry.command)) continue;
+        for (int index = 0; index < 2; ++index) {
+            const auto path = index == 0 ? RunKey : ApprovedKey;
+            const auto& original = index == 0 ? entry.command : entry.approval;
+            const auto marker = index == 0 ? L"R" : L"A";
+            if (original.state != Registry::State::Present) continue;
+            if (index == 1) {
+                const auto run = ReadStartup(session, hive.key, RunKey, entry.sid);
+                if (run.state == Registry::State::Failed) return ERROR_INSTALL_FAILURE;
+                if (run.state == Registry::State::Present) break; // A concurrent writer owns the new entry.
+            }
+            current = ReadStartup(session, hive.key, path, entry.sid);
+            if (current.state == Registry::State::Failed) return ERROR_INSTALL_FAILURE;
+            if (!Registry::Equal(current, original)) continue;
+            const auto status = Registry::Delete(hive.key, path, L"FolderRewind");
+            InstallerLog(session, L"FolderRewind registry-delete: sid=" + entry.sid + L", value=" + marker + L", status=" + std::to_wstring(status));
+            if (status == ERROR_FILE_NOT_FOUND) continue; // Did not delete this value.
+            if (status != ERROR_SUCCESS) return ERROR_INSTALL_FAILURE;
+            // Record successful deletion durably before any later action may fail.
+            if (!Journal(data.journal, L"D\t" + entry.sid + L"\t" + marker + L"\n")) {
+                const auto remaining = Registry::Read(hive.key, path, L"FolderRewind");
+                if (remaining.state == Registry::State::Missing) Registry::Write(hive.key, path, L"FolderRewind", original);
+                return ERROR_INSTALL_FAILURE;
+            }
+            const auto remaining = ReadStartup(session, hive.key, path, entry.sid);
+            if (remaining.state == Registry::State::Failed) return ERROR_INSTALL_FAILURE;
+            if (remaining.state == Registry::State::Missing)
+                InstallerLog(session, L"FolderRewind startup-delete-verified: " + entry.sid + L"/" + marker);
+            else InstallerLog(session, L"FolderRewind startup-concurrent-write-preserved: " + entry.sid + L"/" + marker);
+        }
     }
     return ERROR_SUCCESS;
 }
 extern "C" UINT __stdcall RollbackStartup(MSIHANDLE session)
 {
     CleanupData data; if (!Data(session, data)) return ERROR_INSTALL_FAILURE;
+    LogInstallerContext(session, L"rollback-startup", data.sid, data.machine);
     Privileges privileges(data.machine); if (!privileges.enabled) return ERROR_INSTALL_FAILURE;
     HANDLE file = CreateFileW(data.journal.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) return GetLastError() == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : ERROR_INSTALL_FAILURE;
     const auto size = GetFileSize(file, nullptr);
-    if (size > 1024 * 1024 || size % sizeof(wchar_t)) { CloseHandle(file); return ERROR_INSTALL_FAILURE; }
+    if (size > 4 * 1024 * 1024 || size % sizeof(wchar_t)) { CloseHandle(file); return ERROR_INSTALL_FAILURE; }
     std::wstring snapshot(size / sizeof(wchar_t), L'\0'); DWORD read = 0;
     const bool loaded = ReadFile(file, snapshot.data(), size, &read, nullptr) && size == read; CloseHandle(file);
     if (!loaded) return ERROR_INSTALL_FAILURE;
+    struct Saved { std::wstring sid, marker; Registry::Value value; };
+    std::vector<Saved> saved;
+    std::set<std::wstring> deleted;
     std::wistringstream stream(snapshot); std::wstring line;
-    if (!std::getline(stream, line) || line != L"FolderRewind Startup Cleanup v1") return ERROR_INSTALL_FAILURE;
-    bool restored = true;
+    if (!std::getline(stream, line) || line != L"FolderRewind Startup Cleanup v2") return ERROR_INSTALL_FAILURE;
     while (std::getline(stream, line)) {
-        const auto first = line.find(L'\t'), second = line.find(L'\t', first == std::wstring::npos ? 0 : first + 1);
-        if (first == std::wstring::npos || second == std::wstring::npos) { restored = false; continue; }
-        const auto sid = line.substr(0, first), command = line.substr(first + 1, second - first - 1), approval = line.substr(second + 1);
-        if (!Owned(command, data.directory) || (!data.machine && sid != data.sid && sid != L"-")) { restored = false; continue; }
-        Hive hive(sid); if (!hive.key) { restored = false; continue; }
-        const auto existing = Command(hive.key);
-        if (!existing.empty()) continue; // Preserve any entry created after cleanup.
-        HKEY key = nullptr;
-        if (RegCreateKeyExW(hive.key, RunKey, 0, nullptr, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, nullptr, &key, nullptr) != ERROR_SUCCESS) { restored = false; continue; }
-        restored &= RegSetValueExW(key, L"FolderRewind", 0, REG_SZ, reinterpret_cast<const BYTE*>(command.c_str()), static_cast<DWORD>((command.size()+1)*sizeof(wchar_t))) == ERROR_SUCCESS;
-        RegCloseKey(key);
-        if (approval != L"-" && approval.size() <= 2048 && approval.size() % 2 == 0 && Approval(hive.key) == L"-") {
-            std::vector<BYTE> bytes;
-            for (size_t index = 0; index < approval.size(); index += 2) {
-                if (approval.find_first_not_of(L"0123456789ABCDEF") != std::wstring::npos) { restored = false; break; }
-                bytes.push_back(static_cast<BYTE>(wcstoul(approval.substr(index,2).c_str(), nullptr, 16)));
-            }
-            if (RegCreateKeyExW(hive.key, ApprovedKey, 0, nullptr, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, nullptr, &key, nullptr) == ERROR_SUCCESS) {
-                restored &= RegSetValueExW(key, L"FolderRewind", 0, REG_BINARY, bytes.data(), static_cast<DWORD>(bytes.size())) == ERROR_SUCCESS;
-                RegCloseKey(key);
-            } else restored = false;
+        std::wistringstream fields(line); std::vector<std::wstring> parts; std::wstring part;
+        while (std::getline(fields, part, L'\t')) parts.push_back(part);
+        if (parts.size() < 3 || (!data.machine && parts[1] != data.sid) || (parts[2] != L"R" && parts[2] != L"A")) return ERROR_INSTALL_FAILURE;
+        if (parts[0] == L"D" && parts.size() == 3) deleted.insert(parts[1] + L"/" + parts[2]);
+        else if (parts[0] == L"S" && parts.size() == 5) {
+            if (parts[3].empty() || parts[3].find_first_not_of(L"0123456789") != std::wstring::npos) return ERROR_INSTALL_FAILURE;
+            Registry::Value value; value.state = Registry::State::Present; value.error = ERROR_SUCCESS;
+            value.type = wcstoul(parts[3].c_str(), nullptr, 10);
+            if (!Registry::Unhex(parts[4], value.bytes)) return ERROR_INSTALL_FAILURE;
+            if (parts[2] == L"R" && !Owned(Registry::Text(value), data.directory)) return ERROR_INSTALL_FAILURE;
+            saved.push_back({parts[1], parts[2], value});
+        } else return ERROR_INSTALL_FAILURE;
+    }
+    bool restored = true;
+    for (const auto& entry : saved) {
+        if (!deleted.count(entry.sid + L"/" + entry.marker)) continue;
+        Hive hive(entry.sid); if (!hive.key) { restored = false; continue; }
+        const auto path = entry.marker == L"R" ? RunKey : ApprovedKey;
+        const auto existing = ReadStartup(session, hive.key, path, entry.sid);
+        if (existing.state == Registry::State::Failed) { restored = false; continue; }
+        if (existing.state == Registry::State::Present) continue; // Never overwrite another writer.
+        if (entry.marker == L"A") {
+            const auto run = ReadStartup(session, hive.key, RunKey, entry.sid);
+            if (run.state == Registry::State::Failed) { restored = false; continue; }
+            if (!Owned(Registry::Text(run), data.directory)) continue;
         }
+        const auto status = Registry::Write(hive.key, path, L"FolderRewind", entry.value);
+        if (status != ERROR_SUCCESS || !Registry::Equal(ReadStartup(session, hive.key, path, entry.sid), entry.value)) { restored = false; continue; }
+        InstallerLog(session, L"FolderRewind startup-restore-verified: " + entry.sid + L"/" + entry.marker);
     }
     restored &= FinishShortcuts(data, true);
     if (restored) DeleteFileW(data.journal.c_str());
@@ -283,6 +325,3 @@ extern "C" UINT __stdcall CommitStartup(MSIHANDLE session)
     if (!FinishShortcuts(data, false)) return ERROR_INSTALL_FAILURE;
     return DeleteFileW(data.journal.c_str()) || GetLastError() == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : ERROR_INSTALL_FAILURE;
 }
-
-// Referenced only by the isolated fault-injection MSI, never by production authoring.
-extern "C" UINT __stdcall FailForTesting(MSIHANDLE) { return ERROR_INSTALL_FAILURE; }

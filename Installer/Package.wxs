@@ -4,6 +4,9 @@
     ProductCode="$(var.ProductCode)" UpgradeCode="$(var.UpgradeCode)"
     Version="$(var.ProductVersion)" Language="$(var.PackageLanguage)" Scope="perUserOrMachine" Compressed="yes">
     <MajorUpgrade DowngradeErrorMessage="!(loc.NewerVersion)" Schedule="afterInstallInitialize" IgnoreLanguage="yes" />
+    <?if $(var.ValidationId) != "" ?>
+    <Property Id="FOLDERREWIND_TEST_ID" Value="$(var.ValidationId)" />
+    <?endif?>
     <MediaTemplate EmbedCab="yes" />
     <Property Id="PAYLOADARCH" Value="$(var.InstallerPlatform)" />
     <Property Id="ARPPRODUCTICON" Value="FolderRewindIcon" />
@@ -11,6 +14,19 @@
     <Property Id="ARPHELPLINK" Value="https://github.com/Leafuke/FolderRewind/issues" />
     <Icon Id="FolderRewindIcon" SourceFile="..\FolderRewind\Assets\MsiApp.ico" />
     <Binary Id="InstallerNative" SourceFile="$(var.NativeOutputDirectory)\FolderRewind.BAFunctions.dll" />
+    <CustomAction Id="PrepareShortcutIcons" BinaryRef="InstallerNative" DllEntry="PrepareShortcutIcons" Execute="immediate" Return="check" />
+    <CustomAction Id="FinalizeShortcutIconsUser" BinaryRef="InstallerNative" DllEntry="FinalizeShortcutIcons" Execute="deferred" Impersonate="yes" Return="check" />
+    <CustomAction Id="FinalizeShortcutIconsMachine" BinaryRef="InstallerNative" DllEntry="FinalizeShortcutIcons" Execute="deferred" Impersonate="no" Return="check" />
+    <Property Id="FOLDERREWIND_BUNDLECODE" Secure="yes" />
+    <Property Id="FOLDERREWIND_BUNDLEFAMILY" Secure="yes" />
+    <Property Id="ExpectedBundleFamily" Value="$(var.ExpectedBundleFamily)" />
+    <CustomAction Id="PrepareBundleLocation" BinaryRef="InstallerNative" DllEntry="PrepareBundleLocation" Execute="immediate" Return="check" />
+    <CustomAction Id="RollbackBundleUser" BinaryRef="InstallerNative" DllEntry="RollbackBundleLocation" Execute="rollback" Impersonate="yes" Return="check" />
+    <CustomAction Id="WriteBundleUser" BinaryRef="InstallerNative" DllEntry="WriteBundleLocation" Execute="deferred" Impersonate="yes" Return="check" />
+    <CustomAction Id="CommitBundleUser" BinaryRef="InstallerNative" DllEntry="CommitBundleLocation" Execute="commit" Impersonate="yes" Return="check" />
+    <CustomAction Id="RollbackBundleMachine" BinaryRef="InstallerNative" DllEntry="RollbackBundleLocation" Execute="rollback" Impersonate="no" Return="check" />
+    <CustomAction Id="WriteBundleMachine" BinaryRef="InstallerNative" DllEntry="WriteBundleLocation" Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="CommitBundleMachine" BinaryRef="InstallerNative" DllEntry="CommitBundleLocation" Execute="commit" Impersonate="no" Return="check" />
     <CustomAction Id="InstallerPreflight" BinaryRef="InstallerNative" DllEntry="InstallerPreflight" Execute="immediate" Return="check" />
     <CustomAction Id="PrepareStartupCleanup" BinaryRef="InstallerNative" DllEntry="PrepareStartupCleanup" Execute="immediate" Return="check" />
     <CustomAction Id="RollbackStartupUser" BinaryRef="InstallerNative" DllEntry="RollbackStartup" Execute="rollback" Impersonate="yes" Return="check" />
@@ -22,20 +38,35 @@
     <?if $(var.EnableFaultInjection) = 1 ?>
     <CustomAction Id="InjectUninstallFailure" BinaryRef="InstallerNative" DllEntry="FailForTesting" Execute="deferred" Impersonate="yes" Return="check" />
     <CustomAction Id="InjectUpgradeFailure" BinaryRef="InstallerNative" DllEntry="FailForTesting" Execute="deferred" Impersonate="yes" Return="check" />
+    <CustomAction Id="InjectCleanupFailure" BinaryRef="InstallerNative" DllEntry="FailForTesting" Execute="deferred" Impersonate="yes" Return="check" />
+    <CustomAction Id="InjectRegistrationFailure" BinaryRef="InstallerNative" DllEntry="FailForTesting" Execute="deferred" Impersonate="yes" Return="check" />
+    <Property Id="FOLDERREWIND_TEST_FAIL" Secure="yes" />
     <?endif?>
     <InstallUISequence><Custom Action="InstallerPreflight" Before="CostFinalize" /></InstallUISequence>
     <InstallExecuteSequence>
+      <Custom Action="PrepareShortcutIcons" After="CreateShortcuts" Condition="NOT REMOVE = &quot;ALL&quot;" />
+      <Custom Action="FinalizeShortcutIconsUser" After="PrepareShortcutIcons" Condition="NOT REMOVE = &quot;ALL&quot; AND NOT ALLUSERS = 1" />
+      <Custom Action="FinalizeShortcutIconsMachine" After="FinalizeShortcutIconsUser" Condition="NOT REMOVE = &quot;ALL&quot; AND ALLUSERS = 1" />
+      <Custom Action="PrepareBundleLocation" After="InstallFiles" Condition="FOLDERREWIND_BUNDLECODE AND NOT REMOVE = &quot;ALL&quot;" />
+      <Custom Action="RollbackBundleUser" After="PrepareBundleLocation" Condition="FOLDERREWIND_BUNDLECODE AND NOT REMOVE = &quot;ALL&quot; AND NOT ALLUSERS = 1" />
+      <Custom Action="WriteBundleUser" After="RollbackBundleUser" Condition="FOLDERREWIND_BUNDLECODE AND NOT REMOVE = &quot;ALL&quot; AND NOT ALLUSERS = 1" />
+      <Custom Action="CommitBundleUser" After="WriteBundleUser" Condition="FOLDERREWIND_BUNDLECODE AND NOT REMOVE = &quot;ALL&quot; AND NOT ALLUSERS = 1" />
+      <Custom Action="RollbackBundleMachine" After="CommitBundleUser" Condition="FOLDERREWIND_BUNDLECODE AND NOT REMOVE = &quot;ALL&quot; AND ALLUSERS = 1" />
+      <Custom Action="WriteBundleMachine" After="RollbackBundleMachine" Condition="FOLDERREWIND_BUNDLECODE AND NOT REMOVE = &quot;ALL&quot; AND ALLUSERS = 1" />
+      <Custom Action="CommitBundleMachine" After="WriteBundleMachine" Condition="FOLDERREWIND_BUNDLECODE AND NOT REMOVE = &quot;ALL&quot; AND ALLUSERS = 1" />
       <Custom Action="InstallerPreflight" Before="CostFinalize" />
       <Custom Action="PrepareStartupCleanup" After="InstallInitialize" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
-      <Custom Action="RollbackStartupUser" After="PrepareStartupCleanup" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
-      <Custom Action="CleanupStartupUser" After="RollbackStartupUser" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
-      <Custom Action="CommitStartupUser" After="CleanupStartupUser" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
-      <Custom Action="RollbackStartupMachine" After="CommitStartupUser" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
-      <Custom Action="CleanupStartupMachine" After="RollbackStartupMachine" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
-      <Custom Action="CommitStartupMachine" After="CleanupStartupMachine" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
+      <Custom Action="RollbackStartupUser" After="PrepareStartupCleanup" Condition="FolderRewindCleanupAuthorized = 1 AND REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
+      <Custom Action="CleanupStartupUser" After="RollbackStartupUser" Condition="FolderRewindCleanupAuthorized = 1 AND REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
+      <Custom Action="CommitStartupUser" After="CleanupStartupUser" Condition="FolderRewindCleanupAuthorized = 1 AND REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT ALLUSERS = 1" />
+      <Custom Action="RollbackStartupMachine" After="CommitStartupUser" Condition="FolderRewindCleanupAuthorized = 1 AND REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
+      <Custom Action="CleanupStartupMachine" After="RollbackStartupMachine" Condition="FolderRewindCleanupAuthorized = 1 AND REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
+      <Custom Action="CommitStartupMachine" After="CleanupStartupMachine" Condition="FolderRewindCleanupAuthorized = 1 AND REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND ALLUSERS = 1" />
       <?if $(var.EnableFaultInjection) = 1 ?>
-      <Custom Action="InjectUninstallFailure" After="RemoveFiles" Condition="REMOVE = &quot;ALL&quot; AND FOLDERREWIND_TEST_FAIL = 1" />
-      <Custom Action="InjectUpgradeFailure" After="InstallFiles" Condition="WIX_UPGRADE_DETECTED AND FOLDERREWIND_TEST_FAIL = 1" />
+      <Custom Action="InjectCleanupFailure" After="CommitStartupMachine" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND FOLDERREWIND_TEST_FAIL = &quot;cleanup&quot;" />
+      <Custom Action="InjectUninstallFailure" After="RemoveFiles" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND FOLDERREWIND_TEST_FAIL = &quot;files&quot;" />
+      <Custom Action="InjectUpgradeFailure" After="InstallFiles" Condition="WIX_UPGRADE_DETECTED AND FOLDERREWIND_TEST_FAIL = &quot;files&quot;" />
+      <Custom Action="InjectRegistrationFailure" After="PublishProduct" Condition="NOT UPGRADINGPRODUCTCODE AND FOLDERREWIND_TEST_FAIL = &quot;registration&quot;" />
       <?endif?>
     </InstallExecuteSequence>
     <Property Id="INSTALLFOLDER" Secure="yes" />
@@ -47,6 +78,9 @@
         <Component Id="StartMenuShortcutComponent" Guid="*">
           <Shortcut Id="StartMenuShortcut" Name="$(var.PackageDisplayName)" Target="[INSTALLFOLDER]FolderRewind.exe" WorkingDirectory="INSTALLFOLDER" Icon="FolderRewindIcon">
             <ShortcutProperty Key="System.AppUserModel.ID" Value="Leafuke.FolderRewind.Msi" />
+            <ShortcutProperty Key="System.AppUserModel.RelaunchCommand" Value="&quot;[INSTALLFOLDER]FolderRewind.exe&quot;" />
+            <ShortcutProperty Key="System.AppUserModel.RelaunchIconResource" Value="[INSTALLFOLDER]FolderRewind.exe,0" />
+            <ShortcutProperty Key="System.AppUserModel.RelaunchDisplayNameResource" Value="FolderRewind" />
           </Shortcut>
           <RemoveFolder Id="RemoveFolderRewindProgramsFolder" On="uninstall" />
           <RegistryValue Root="HKMU" Key="$(var.InstallerRegistryKey)" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
@@ -58,6 +92,9 @@
       <Component Id="DesktopShortcutComponent" Guid="*">
         <Shortcut Id="DesktopShortcut" Name="$(var.PackageDisplayName)" Target="[INSTALLFOLDER]FolderRewind.exe" WorkingDirectory="INSTALLFOLDER" Icon="FolderRewindIcon">
           <ShortcutProperty Key="System.AppUserModel.ID" Value="Leafuke.FolderRewind.Msi" />
+          <ShortcutProperty Key="System.AppUserModel.RelaunchCommand" Value="&quot;[INSTALLFOLDER]FolderRewind.exe&quot;" />
+          <ShortcutProperty Key="System.AppUserModel.RelaunchIconResource" Value="[INSTALLFOLDER]FolderRewind.exe,0" />
+          <ShortcutProperty Key="System.AppUserModel.RelaunchDisplayNameResource" Value="FolderRewind" />
         </Shortcut>
         <RegistryValue Root="HKMU" Key="$(var.InstallerRegistryKey)" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>

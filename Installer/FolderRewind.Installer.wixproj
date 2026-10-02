@@ -4,20 +4,22 @@
     <InstallerPlatform Condition="'$(InstallerPlatform)'==''">x64</InstallerPlatform>
     <!-- WiX 7 OSMF EULA: the project owner accepted this for the CI build channel. -->
     <AcceptEula>wix7</AcceptEula>
-    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.1.0</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.3.0</ProductVersion>
     <PackageLanguage Condition="'$(PackageLanguage)'==''">1033</PackageLanguage>
     <PackageIdentifier Condition="'$(PackageIdentifier)'==''">Leafuke.FolderRewind.Msi</PackageIdentifier>
     <PackageDisplayName Condition="'$(PackageDisplayName)'==''">FolderRewind</PackageDisplayName>
     <InstallerRegistryKey Condition="'$(InstallerRegistryKey)'==''">Software\Leafuke\FolderRewind</InstallerRegistryKey>
     <UpgradeCode Condition="'$(UpgradeCode)'==''">{6BCE6B1A-ADA1-5399-91BD-238EBF552F6E}</UpgradeCode>
     <EnableFaultInjection Condition="'$(EnableFaultInjection)'==''">0</EnableFaultInjection>
+    <ValidationId Condition="'$(ValidationId)'==''"></ValidationId>
+    <ExpectedBundleFamily Condition="'$(ExpectedBundleFamily)'==''">{A941C3B8-5D6F-4C0E-B62C-32F5FF9D7E8B}</ExpectedBundleFamily>
     <Cultures Condition="'$(Cultures)'==''">en-US</Cultures>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NativeOutputDirectory Condition="'$(NativeOutputDirectory)'==''">$(MSBuildThisFileDirectory)..\artifacts\installer-native</NativeOutputDirectory>
     <PublishDir Condition="'$(PublishDir)'==''">$(MSBuildThisFileDirectory)..\FolderRewind\bin\$(InstallerPlatform)\Release\net10.0-windows10.0.19041.0\win-$(InstallerPlatform)\publish</PublishDir>
     <OutputName Condition="'$(OutputName)'==''">FolderRewind_$(ProductVersion)_$(InstallerPlatform)</OutputName>
-    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);ProductCode=$(ProductCode);PackageLanguage=$(PackageLanguage);NativeOutputDirectory=$(NativeOutputDirectory);PackageIdentifier=$(PackageIdentifier);PackageDisplayName=$(PackageDisplayName);InstallerRegistryKey=$(InstallerRegistryKey);UpgradeCode=$(UpgradeCode);EnableFaultInjection=$(EnableFaultInjection)</DefineConstants>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);ProductCode=$(ProductCode);PackageLanguage=$(PackageLanguage);NativeOutputDirectory=$(NativeOutputDirectory);PackageIdentifier=$(PackageIdentifier);PackageDisplayName=$(PackageDisplayName);InstallerRegistryKey=$(InstallerRegistryKey);UpgradeCode=$(UpgradeCode);EnableFaultInjection=$(EnableFaultInjection);ValidationId=$(ValidationId);ExpectedBundleFamily=$(ExpectedBundleFamily)</DefineConstants>
     <!-- Generated file components use registry key paths and explicit directory cleanup. -->
     <SuppressValidation>false</SuppressValidation>
     <!-- ICE57 cannot model the context-dependent HKMU keypath and redirected
@@ -37,5 +39,8 @@
   </ItemGroup>
   <Target Name="ValidateFinalMsiMetadata" AfterTargets="Build">
     <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)..\.github\scripts\Repair-MsiMetadata.ps1&quot; -PackagePath &quot;$(TargetPath)&quot;" />
+  </Target>
+  <Target Name="RejectProductionFaultInjection" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(EnableFaultInjection)'=='1' and ('$(ValidationId)'=='' or '$(UpgradeCode)'=='{6BCE6B1A-ADA1-5399-91BD-238EBF552F6E}')" Text="Fault injection requires a separate validation identity." />
   </Target>
 </Project>

@@ -6,14 +6,8 @@ on:
       package_version:
         description: Package version from Package.appxmanifest
         required: true
-        default: 1.9.1.0
+        default: 1.9.3.0
         type: string
-      publish_release:
-        description: Explicitly publish the verified artifacts to GitHub Release
-        required: true
-        default: false
-        type: boolean
-
 permissions:
   contents: write
 
@@ -136,6 +130,7 @@ jobs:
             /warnaserror
 
       - name: Build Setup And Internal MSI Payload
+        id: package
         shell: pwsh
         run: |
           .\.github\scripts\Prepare-MsiPackage.ps1 `
@@ -144,6 +139,13 @@ jobs:
             -Version "${{ steps.version.outputs.manifest_version }}" `
             -Platform "${{ matrix.platform }}" `
             -OutputDirectory "$env:GITHUB_WORKSPACE\artifacts\installer-packages\${{ matrix.platform }}"
+
+      - name: Verify Native Registry Semantics And Release Policy
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          .\.github\scripts\Test-InstallerNative.ps1 -ResultDirectory artifacts/msi-validation/native
+          .\.github\scripts\Test-SetupReleaseAssets.ps1 -ResultDirectory artifacts/msi-validation/release-policy
 
       - name: Verify Missing Resources Block Packaging
         shell: pwsh
@@ -168,7 +170,7 @@ jobs:
 
           .\.github\scripts\Test-MsiBundleInstallation.ps1 `
             -FixtureMsi "$env:GITHUB_WORKSPACE\artifacts\msi-validation\base-fixture\FolderRewind_${{ steps.version.outputs.manifest_version }}_x64.msi" `
-            -ResultDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-validation\bundle"
+            -ResultDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-validation\bundle" -IncludeFailureProbe
 
       - name: Upload Installer Validation Evidence
         if: always() && matrix.platform == 'x64'
@@ -178,6 +180,7 @@ jobs:
           path: artifacts/msi-validation/**
 
       - name: Stage EXE-Only Public Release Assets
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         shell: pwsh
         run: |
           .\.github\scripts\Prepare-SetupReleaseAssets.ps1 `
@@ -187,59 +190,27 @@ jobs:
             -OutputDirectory "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}"
 
       - name: Upload Setup EXE And SHA-256
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: setup-${{ matrix.platform }}
           path: artifacts/release/${{ matrix.platform }}/*
 
-  publish-release:
-    if: inputs.publish_release
-    name: Publish GitHub Release Assets
-    runs-on: windows-latest
-    needs: build
+      - name: Record Candidate Identity And Incomplete Acceptance
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\New-InstallerCandidateManifest.ps1 `
+            -PackageDirectory artifacts/installer-packages `
+            -OutputDirectory artifacts/candidate-evidence `
+            -Version '${{ steps.version.outputs.manifest_version }}' `
+            -Architectures '${{ matrix.platform }}'
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download Release Assets
-        uses: actions/download-artifact@v4
+      - name: Upload Candidate Evidence
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
         with:
-          pattern: setup-*
-          path: artifacts/final
-          merge-multiple: true
-
-      - name: Read Package Version
-        id: version
-        shell: pwsh
-        run: |
-          [xml]$manifest = Get-Content 'FolderRewind/Package.appxmanifest'
-          $manifestVersion = $manifest.Package.Identity.Version
-          if ($manifestVersion -ne '${{ inputs.package_version }}') {
-            throw "The workflow input version does not match Package.appxmanifest."
-          }
-
-          $parts = $manifestVersion.Split('.')
-          $tagVersion = '{0}.{1}.{2}' -f $parts[0], $parts[1], $parts[2]
-
-          "manifest_version=$manifestVersion" >> $env:GITHUB_OUTPUT
-          "release_tag=v$tagVersion" >> $env:GITHUB_OUTPUT
-
-      - name: Publish Assets To Release
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $releaseNotesPath = "$env:GITHUB_WORKSPACE\.github\release-notes\${{ steps.version.outputs.release_tag }}.md"
-          $releaseNotesArguments = @{}
-          if (Test-Path -LiteralPath $releaseNotesPath) {
-            $releaseNotesArguments.ReleaseNotesPath = $releaseNotesPath
-          }
-
-          .\.github\scripts\Publish-ReleaseAssets.ps1 `
-            -Tag "${{ steps.version.outputs.release_tag }}" `
-            -ReleaseName "FolderRewind ${{ steps.version.outputs.manifest_version }}" `
-            -TargetCommit "$env:GITHUB_SHA" `
-            -Version "${{ steps.version.outputs.manifest_version }}" `
-            -AssetsDirectory "$env:GITHUB_WORKSPACE\artifacts\final" `
-            @releaseNotesArguments
+          name: candidate-${{ matrix.platform }}
+          path: |
+            artifacts/candidate-evidence/*.json
+            artifacts/candidate-evidence/*.log

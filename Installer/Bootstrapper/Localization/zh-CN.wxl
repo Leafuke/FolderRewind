@@ -32,6 +32,8 @@
   <String Id="ModifyHeader" Value="修改安装" />
   <String Id="ModifyRepairButton" Value="修复" />
   <String Id="ModifyUninstallButton" Value="卸载" />
+  <String Id="ClearSettingsOption" Value="卸载时同时清除当前用户的应用设置（备份保留）" />
+  <String Id="ClearSettingsExplanation" Value="仅删除配置文件及其恢复副本。备份文件、历史记录和插件文件会保留；修复或取消卸载不会清除设置。" />
   <String Id="ModifyCancelButton" Value="取消" />
   <String Id="SuccessHeader" Value="操作成功" />
   <String Id="SuccessCacheHeader" Value="缓存完成" />
