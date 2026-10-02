@@ -103,10 +103,11 @@ public sealed class HistoryPresentationQueryService
         bool includeSuppressed = false,
         CancellationToken cancellationToken = default)
     {
-        var timer = Stopwatch.StartNew();
+        // Only standalone profiling callers request timing; normal UI queries do not.
+        var timer = _measure is null ? null : Stopwatch.StartNew();
         await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
-        _measure?.Invoke("index-current", timer.Elapsed);
-        timer.Restart();
+        _measure?.Invoke("index-current", timer!.Elapsed);
+        timer?.Restart();
         var versions = await _runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false);
         var allRepresentations = await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
         var checkpoints = await _runtime.Query.GetAllCheckpointsAsync(cancellationToken).ConfigureAwait(false);
@@ -122,8 +123,8 @@ public sealed class HistoryPresentationQueryService
         var safetySnapshots = await _runtime.Query.GetSafetySnapshotProjectionsAsync(
             activeOnly: true,
             cancellationToken).ConfigureAwait(false);
-        _measure?.Invoke("index-query", timer.Elapsed);
-        timer.Restart();
+        _measure?.Invoke("index-query", timer!.Elapsed);
+        timer?.Restart();
         var policyGroups = policies.ToLookup(item => item.VersionId);
         var replicaGroups = replicas.ToLookup(item => item.RepresentationId);
         var activeReplicas = lifecycle.GroupBy(item => item.ReplicaId).Where(group =>
@@ -231,7 +232,7 @@ public sealed class HistoryPresentationQueryService
             safetySnapshots.ToImmutableArray(),
             sourceId is { } activeSource ? workspace?.GetSourceState(activeSource).ActiveBranchId : null,
             sourceId is { } updateSource ? workspace?.GetSourceState(updateSource).ActiveBranchUpdateId : null);
-        _measure?.Invoke("metadata-projection", timer.Elapsed);
+        _measure?.Invoke("metadata-projection", timer!.Elapsed);
         return snapshot;
     }
 

@@ -91,8 +91,6 @@ namespace FolderRewind
 
             ForceExitRequested = false;
 
-            var startupSw = System.Diagnostics.Stopwatch.StartNew();
-
             try
             {
                 Services.PluginRuntimeModeService.Initialize(Environment.GetCommandLineArgs());
@@ -100,12 +98,9 @@ namespace FolderRewind
                 // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
 
-                LogService.Log($"[Startup] Config loaded: {startupSw.ElapsedMilliseconds}ms");
-
                 if (Services.ConfigService.IsRecoveryMode)
                 {
                     LaunchRecoveryCenter();
-                    LogService.Log($"[Startup] Recovery Center active: {startupSw.ElapsedMilliseconds}ms");
                     return;
                 }
 
@@ -138,7 +133,6 @@ namespace FolderRewind
                 LogService.MarkSessionStart();
 
                 I18n.SetLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
-                LogService.Log($"[Startup] Language applied: {startupSw.ElapsedMilliseconds}ms");
                 Services.SponsorService.InitializeFromCache();
 
                 _window = new MainWindow();
@@ -161,7 +155,6 @@ namespace FolderRewind
                 }));
 #endif
 
-                LogService.Log($"[Startup] Window activated: {startupSw.ElapsedMilliseconds}ms");
                 StartHistoryWarmup();
 
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
@@ -248,8 +241,6 @@ namespace FolderRewind
                 _window.DispatcherQueue.TryEnqueue(
                     Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                     StartAutomation);
-
-                LogService.Log($"[Startup] App ready: {startupSw.ElapsedMilliseconds}ms");
 
                 // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
                 Task.Run(async () =>
@@ -690,8 +681,6 @@ namespace FolderRewind
             IReadOnlyList<Models.BackupConfig> configs,
             CancellationToken cancellationToken)
         {
-            LogService.LogInfo("[Startup] Native History warmup started.", nameof(App));
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 await Task.Run(
@@ -700,13 +689,9 @@ namespace FolderRewind
                         Services.ConfigService.ConfigDirectory,
                         cancellationToken),
                     cancellationToken).ConfigureAwait(false);
-                LogService.LogInfo(
-                    $"[Startup] Native History warmup completed in {stopwatch.ElapsedMilliseconds}ms.",
-                    nameof(App));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                LogService.LogInfo("[Startup] Native History warmup canceled.", nameof(App));
             }
             catch (Exception ex)
             {

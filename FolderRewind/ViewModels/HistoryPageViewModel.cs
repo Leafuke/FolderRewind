@@ -8,7 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -201,9 +200,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _currentFolder = folder;
         if (config is not null)
         {
-            var initialization = Stopwatch.StartNew();
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
-            LogService.LogInfo($"[HistoryLoad] runtime={initialization.Elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel));
             if (!request.IsCurrent) return;
             _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
         }
@@ -294,7 +291,6 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IsLoading = true;
         ErrorMessage = string.Empty;
         _branchAssessmentRequests.CancelCurrent();
-        var timer = Stopwatch.StartNew();
         try
         {
             if (config is null)
@@ -316,12 +312,9 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 return;
             }
             var sequence = runtime.ChangeFeed.CurrentSequence;
-            var snapshot = await new HistoryPresentationQueryService(runtime,
-                (stage, elapsed) => LogService.LogInfo($"[HistoryLoad] {stage}={elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel)))
+            var snapshot = await new HistoryPresentationQueryService(runtime)
                 .QueryAsync(sourceId, cancellationToken: token);
-            var projectionTimer = Stopwatch.StartNew();
             var presentation = await BuildPresentationAsync(config, snapshot, token);
-            LogService.LogInfo($"[HistoryLoad] list-projection={projectionTimer.Elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel));
             token.ThrowIfCancellationRequested();
             if (!request.IsCurrent || !_isActive) return;
             _cachedPresentation = presentation;
@@ -329,7 +322,6 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             _presentationSequence = sequence;
             _presentationSource = sourceId;
             ApplyPresentation(presentation, selectedBranchId);
-            LogService.LogInfo($"[HistoryLoad] first-screen={timer.Elapsed.TotalMilliseconds:F2}ms; mode={_presentationMode}", nameof(HistoryPageViewModel));
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -859,7 +851,6 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsAssessingBranch));
             return;
         }
-        var timer = Stopwatch.StartNew();
         try
         {
             IsAssessingBranch = true;
@@ -868,7 +859,6 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             if (!request.IsCurrent || !IsAdvancedHistory || !ReferenceEquals(SelectedBranch, branch)) return;
             branch.SetAssessment(plan);
             NotifyBranchSelectionChanged();
-            LogService.LogInfo($"[HistoryLoad] selected-branch={timer.Elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel));
         }
         catch (OperationCanceledException) when (request.Token.IsCancellationRequested) { }
         catch (Exception ex)

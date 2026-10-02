@@ -667,15 +667,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             "discovery-result-budget" => I18n.GetString("Setup_DiscoveryLimit"),
             _ => diagnostic?.Message ?? I18n.GetString("GameDiscovery_Status_Complete")
         };
-        var revisions = result.Candidates
-            .SelectMany(candidate => candidate.BackupSets)
-            .Select(set => set.DiscoveryRevision)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(value => value, StringComparer.Ordinal)
-            .ToList();
         LogService.LogInfo(
-            $"Discovery revisions=[{string.Join(",", revisions)}], games={Games.Count}, resources={Games.Sum(game => game.BackupSets.Sum(set => set.Resources.Count))}, diagnostics={result.Diagnostics.Count}, elapsedMs={stopwatch.ElapsedMilliseconds}",
+            $"Discovery games={Games.Count}, resources={Games.Sum(game => game.BackupSets.Sum(set => set.Resources.Count))}, diagnostics={result.Diagnostics.Count}",
             "GameDiscovery");
     }
 
