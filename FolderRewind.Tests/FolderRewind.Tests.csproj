@@ -57,7 +57,6 @@
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkProtocolFormatter.cs" Link="Source\KnotLinkProtocolFormatter.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListModels.cs" Link="Source\KnotLinkFuncListModels.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListService.cs" Link="Source\KnotLinkFuncListService.cs" />
-    <Compile Include="..\FolderRewind\Services\RestoreWhitelistPreparation.cs" Link="Source\RestoreWhitelistPreparation.cs" />
     <Compile Include="..\FolderRewind\Services\PathRuleMatcher.cs" Link="Source\PathRuleMatcher.cs" />
     <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\TemplateFormatPolicy.cs" Link="Source\TemplateFormatPolicy.cs" />

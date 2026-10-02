@@ -5869,4 +5869,10 @@ Pull Request：{1}</value>
   <data name="Startup_StateUnknown" xml:space="preserve">
     <value>无法读取启动状态，请稍后重新打开设置重试。</value>
   </data>
+  <data name="KnotLink_CurrentSavePluginUpgradeRequired" xml:space="preserve">
+    <value>{0} 未提供当前世界目标解析接口；请升级插件（MineRewind 需要 1.9.3 或更新版本）并重启。</value>
+  </data>
+  <data name="KnotLink_CurrentSavePluginUnavailable" xml:space="preserve">
+    <value>当前世界解析插件未激活或不可用；请检查 MineRewind 的安装、启用状态及插件启动日志。</value>
+  </data>
 </root>

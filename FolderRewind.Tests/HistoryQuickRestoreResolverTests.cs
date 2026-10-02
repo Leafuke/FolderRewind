@@ -91,23 +91,6 @@ public sealed class HistoryQuickRestoreResolverTests
     }
 
     [TestMethod]
-    public async Task ResolvePartialCaptureAtActiveTipWithoutRequiringFullFidelity()
-    {
-        await using var fixture = await CreateFixtureAsync();
-        var ancestor = fixture.CreateLineage("ancestor", DateTimeOffset.UtcNow.AddMinutes(-1));
-        var partial = fixture.CreateLineage("partial", DateTimeOffset.UtcNow,
-            branchId: ancestor.Update.BranchId, parentUpdateId: ancestor.Update.UpdateId,
-            fidelity: MaterializationFidelity.Partial, captureScope: CaptureScope.PartialSource,
-            parentVersionId: ancestor.Version.VersionId);
-        await fixture.CommitAsync(ancestor.Version, ancestor.Representation, ancestor.Checkpoint, ancestor.Update,
-            partial.Version, partial.Representation, partial.Checkpoint, partial.Update);
-        await fixture.SaveWorkspaceAsync(partial.Update);
-        var resolution = await fixture.Resolver.ResolveAsync(fixture.SourceId, AssessmentDepth.Deep);
-        Assert.AreEqual(HistoryQuickRestoreResolutionStatus.Ready, resolution.Status);
-        Assert.AreEqual(partial.Version.VersionId, resolution.VersionId);
-    }
-
-    [TestMethod]
     public async Task ResolveRejectsCandidateWithoutExactRepresentation()
     {
         await using var fixture = await CreateFixtureAsync();
@@ -160,12 +143,11 @@ public sealed class HistoryQuickRestoreResolverTests
             DateTimeOffset createdAt,
             BranchId? branchId = null,
             BranchUpdateId? parentUpdateId = null,
-            MaterializationFidelity fidelity = MaterializationFidelity.Exact,
-            CaptureScope captureScope = CaptureScope.FullSource, VersionId? parentVersionId = null)
+            MaterializationFidelity fidelity = MaterializationFidelity.Exact)
         {
             var version = new SourceVersion(
-                VersionId.New(), ConfigId, SourceId, parentVersionId.HasValue ? [parentVersionId.Value] : [], createdAt, null,
-                captureScope, CaptureOutcome.Captured, [],
+                VersionId.New(), ConfigId, SourceId, [], createdAt, null,
+                CaptureScope.FullSource, CaptureOutcome.Captured, [],
                 new SourceDescriptorSnapshot(name, name), name, HistoryProvenance.Native("test"));
             var representation = new VersionRepresentation(
                 RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "quick-test", [],

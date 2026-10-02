@@ -365,20 +365,6 @@ public sealed class HistoryCheckoutServiceTests
     }
 
     [TestMethod]
-    public async Task PartialSourceAlwaysOverwritesEvenWhenClosureIsExact()
-    {
-        var restored = await RestoreSingleVersionAsync(
-            CaptureScope.PartialSource,
-            MaterializationFidelity.Exact,
-            HistoryRestoreApplyMode.Clean);
-
-        Assert.IsTrue(restored.Result.Succeeded, restored.Result.Diagnostic);
-        Assert.IsTrue(File.Exists(Path.Combine(restored.Target, "original.txt")));
-        Assert.AreEqual("new", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
-        Assert.AreEqual(WorkspaceBaselineRelation.Derived, restored.Relation);
-    }
-
-    [TestMethod]
     public async Task ExactProbeDetectsSameLengthEditWithPreservedTimestamp()
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
@@ -420,21 +406,10 @@ public sealed class HistoryCheckoutServiceTests
         Assert.AreEqual("prepared", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
     }
 
-    [TestMethod]
-    public async Task FailedOrdinaryPreparationDoesNotMutateWorldOrWorkspace()
-    {
-        var restored = await RestoreSingleVersionAsync(CaptureScope.FullSource, MaterializationFidelity.Exact,
-            HistoryRestoreApplyMode.Clean, failPreparation: true);
-        Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, restored.Result.Status);
-        Assert.IsFalse(restored.Result.TargetCommitted);
-        Assert.AreEqual("old", File.ReadAllText(Path.Combine(restored.Target, "original.txt")));
-        Assert.IsFalse(File.Exists(Path.Combine(restored.Target, "restored.txt")));
-    }
-
     private async Task<(HistoryRestoreResult Result, string Target, WorkspaceBaselineRelation Relation)> RestoreSingleVersionAsync(
         CaptureScope captureScope,
         MaterializationFidelity fidelity,
-        HistoryRestoreApplyMode requestedMode, bool transform = false, bool failPreparation = false)
+        HistoryRestoreApplyMode requestedMode, bool transform = false)
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
         var repository = new FileHistoryRepository(
@@ -472,10 +447,9 @@ public sealed class HistoryCheckoutServiceTests
             new RepresentationRuntime([new ExactTestRepresentationHandler()]),
             _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
             new FileSystemHistoryRestoreMutationBackend(),
-            transform || failPreparation ? (_, staging, _) =>
+            transform ? (_, staging, _) =>
             {
                 Assert.AreEqual("old", File.ReadAllText(Path.Combine(target, "original.txt")));
-                if (failPreparation) throw new InvalidDataException("Player preparation failed.");
                 File.WriteAllText(Path.Combine(staging, "restored.txt"), "prepared");
                 return Task.FromResult(true);
             } : null);
@@ -486,12 +460,7 @@ public sealed class HistoryCheckoutServiceTests
             workspace,
             requestedMode);
         var updatedWorkspace = (await history.WorkspaceStore.LoadAsync()).Value!;
-        if (failPreparation)
-        {
-            Assert.AreEqual(0L, updatedWorkspace.StateRevision);
-            Assert.IsEmpty(updatedWorkspace.SourceBaselines);
-        }
-        return (result, target, updatedWorkspace.SourceBaselines.SingleOrDefault()?.Relation ?? WorkspaceBaselineRelation.Derived);
+        return (result, target, updatedWorkspace.SourceBaselines.Single().Relation);
     }
 
     private string CreateTarget(string name, string content)

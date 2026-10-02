@@ -111,6 +111,9 @@ public static class PluginV3PackageService
             await Installer.RecoverAsync(cancellationToken).ConfigureAwait(false);
             if (!PluginRuntimeModeService.IsSafeMode)
             {
+                // v2 migration may already be completed/suppressed. Existing official v3 packages
+                // still need the bundled update before any assembly is loaded.
+                await UpdateBundledOfficialBeforeActivationAsync(cancellationToken).ConfigureAwait(false);
                 foreach (var directory in Directory.EnumerateDirectories(PluginsRoot))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -135,6 +138,33 @@ public static class PluginV3PackageService
             _initialized = true;
         }
         finally { Gate.Release(); }
+    }
+
+    private static async ValueTask UpdateBundledOfficialBeforeActivationAsync(CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        try
+        {
+            var result = await PluginBundledPackageUpdater.UpdateAsync(
+                Installer,
+                new PluginId(PluginV3OfflineUpgradeService.MineRewindId),
+                PluginV3OfflineUpgradeService.ResolveBundledPackagePath(),
+                PluginV3OfflineUpgradeService.BundledSha256,
+                BuildInstallValidationFactsAsync,
+                timeout.Token).ConfigureAwait(false);
+            if (result is not null)
+                LogService.LogInfo(
+                    $"Bundled MineRewind updated before activation: {result.State.PreviousKnownGoodVersion} -> {result.State.CurrentVersion}. Plugin settings and Enabled Intent were preserved.",
+                    "PluginV3");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            LogService.LogError(
+                $"plugin.bundled_update_failed: MineRewind bundled update failed. Install MineRewind 1.9.3 or newer and restart. {ex.Message}",
+                "PluginV3", ex);
+        }
     }
 
     public static async ValueTask<PluginV3InstallOperationResult> InstallAsync(

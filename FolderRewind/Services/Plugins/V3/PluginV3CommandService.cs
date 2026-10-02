@@ -90,11 +90,22 @@ public static class PluginV3CommandService
     public static async ValueTask<KnotLinkTarget> ResolveKnotLinkTargetAsync(string command,
         IReadOnlyDictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
+        PluginService.Initialize();
+        await PluginService.Initialization.WaitAsync(cancellationToken).ConfigureAwait(false);
         KnotLinkTarget? target = null;
+        var incompatibleOwners = new List<string>();
         foreach (var pluginId in PluginV3RuntimeService.GetActivePlugins())
         {
             using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IKnotLinkIntegrationCapability>(pluginId, cancellationToken);
-            if (lease?.Capability is not IKnotLinkTargetResolver resolver || !lease.Capability.Commands.Any(
+            if (lease is null) continue;
+            if (lease.Capability is not IKnotLinkTargetResolver resolver)
+            {
+                if (pluginId.Value == PluginV3OfflineUpgradeService.MineRewindId
+                    || lease.Capability.Commands.Any(descriptor => KnotLinkCommandMatcher.Matches(descriptor, command, arguments)))
+                    incompatibleOwners.Add($"{pluginId.Value} v{PluginV3RuntimeService.FindManifest(pluginId)?.Version}");
+                continue;
+            }
+            if (!lease.Capability.Commands.Any(
                 descriptor => descriptor.IsTargetSelector && KnotLinkCommandMatcher.Matches(descriptor, command, arguments))) continue;
             var result = await resolver.ResolveTargetAsync(command, arguments, lease.Context).ConfigureAwait(false);
             if (result.Target is null) throw new InvalidOperationException(
@@ -102,7 +113,12 @@ public static class PluginV3CommandService
             if (target is not null) throw new InvalidOperationException("knotlink.ambiguous_target_resolver");
             target = result.Target;
         }
-        return target ?? throw new InvalidOperationException("knotlink.current_save_unavailable");
+        if (target is not null) return target;
+        if (incompatibleOwners.Count > 0)
+            throw new InvalidOperationException("knotlink.current_save_plugin_upgrade_required: "
+                + I18n.Format("KnotLink_CurrentSavePluginUpgradeRequired", string.Join(", ", incompatibleOwners)));
+        throw new InvalidOperationException("knotlink.current_save_unavailable: "
+            + I18n.GetString("KnotLink_CurrentSavePluginUnavailable"));
     }
 
     private static bool TryString(

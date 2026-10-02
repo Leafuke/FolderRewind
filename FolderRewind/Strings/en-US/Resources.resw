@@ -5869,4 +5869,10 @@ Only the new folder will be written.</value></data>
   <data name="Startup_StateUnknown" xml:space="preserve">
     <value>The startup state could not be read. Reopen settings to try again.</value>
   </data>
+  <data name="KnotLink_CurrentSavePluginUpgradeRequired" xml:space="preserve">
+    <value>{0} does not provide the current-world target resolver. Update the plugin (MineRewind requires 1.9.3 or newer) and restart.</value>
+  </data>
+  <data name="KnotLink_CurrentSavePluginUnavailable" xml:space="preserve">
+    <value>The current-world resolver plugin is inactive or unavailable. Check MineRewind installation, enabled state, and plugin startup logs.</value>
+  </data>
 </root>

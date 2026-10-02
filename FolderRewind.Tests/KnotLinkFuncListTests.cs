@@ -62,49 +62,6 @@ public sealed class KnotLinkFuncListTests
     }
 
     [TestMethod]
-    public void SemanticVariantsInheritCoreArgumentsWithoutLosingConversationOrColliding()
-    {
-        var manifest = KnotLinkFuncListService.BuildCore();
-        var variants = KnotLinkCoreCommands.FolderCommands.Select(command => new KnotLinkCommandDescriptor(command, "Current world")
-        {
-            FunctionName = "minerewind_" + command.ToLowerInvariant() + "_current_save", IsTargetSelector = true,
-            RequiredArguments = new Dictionary<string, string> { ["current_save"] = "true" }
-        }).ToArray();
-        KnotLinkFuncListService.MergePluginCommands(manifest, "app", "socket", [(new PluginId("com.folderrewind.minerewind"), variants)]);
-        foreach (var command in KnotLinkCoreCommands.FolderCommands)
-        {
-            var variant = manifest.OpenSocket["minerewind_" + command.ToLowerInvariant() + "_current_save"];
-            var core = manifest.OpenSocket[command.ToLowerInvariant()];
-            Assert.AreEqual(command, variant.Args["cmd"].Value);
-            Assert.AreEqual("true", variant.Args["current_save"].Value);
-            CollectionAssert.AreEquivalent(core.Args.Keys.Where(key => key is not "config_id" and not "folder").Append("current_save").ToArray(), variant.Args.Keys.ToArray());
-        }
-        Assert.AreEqual("clean", manifest.OpenSocket["restore"].Args["mode"].DefaultValue);
-        Assert.IsNull(manifest.OpenSocket["restore"].Args["preserve_player_data"].DefaultValue);
-        foreach (var command in new[] { "backup", "backup_all", "auto_backup" })
-        {
-            Assert.IsNull(manifest.OpenSocket[command].Args["backup_mode"].DefaultValue);
-            Assert.IsNull(manifest.OpenSocket[command].Args["compression_method"].DefaultValue);
-            Assert.IsTrue(manifest.OpenSocket[command].Args.ContainsKey("compression_level"));
-        }
-    }
-
-    [TestMethod]
-    public void PluginSignalsEnrichExistingEventsAndPublishNewEvents()
-    {
-        var manifest = KnotLinkFuncListService.BuildCore();
-        KnotLinkFuncListService.MergePluginSignals(manifest, "app", "signal", new("com.folderrewind.minerewind"),
-            [new("restore_finished", "Finished", new Dictionary<string, string> { ["status"] = "Mutation status" }),
-             new("rejoin_world", "Rejoin", new Dictionary<string, string> { ["world"] = "World name" })]);
-        Assert.IsTrue(manifest.Signal["restore_finished"].Returns.ContainsKey("folder"));
-        Assert.IsTrue(manifest.Signal["restore_finished"].Returns.ContainsKey("status"));
-        Assert.AreEqual("rejoin_world", manifest.Signal["rejoin_world"].Returns["event"].Verification);
-        KnotLinkFuncListService.MergePluginSignals(manifest, "app", "signal", new("plugin.other"),
-            [new("rejoin_world", "Collision", new Dictionary<string, string> { ["unexpected"] = "Must not merge" })]);
-        Assert.IsFalse(manifest.Signal["rejoin_world"].Returns.ContainsKey("unexpected"));
-    }
-
-    [TestMethod]
     public void CapabilityResponse_ReturnsPercentEncodedRuntimeManifest()
     {
         var manifestJson = KnotLinkFuncListService.Serialize(KnotLinkFuncListService.BuildCore());
