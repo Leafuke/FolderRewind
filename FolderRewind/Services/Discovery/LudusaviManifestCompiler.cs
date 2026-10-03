@@ -10,7 +10,7 @@ using YamlDotNet.RepresentationModel;
 
 namespace FolderRewind.Services.Discovery;
 
-public sealed class LudusaviManifestCompiler
+public sealed partial class LudusaviManifestCompiler
 {
     public LudusaviCompiledIndex Compile(
         Stream primaryManifest,

@@ -34,9 +34,19 @@ public sealed partial class LudusaviManifestCacheService
     public async Task<LudusaviGeneration?> PrepareGenerationAsync(string? secondaryPath, string? overridePath,
         IProgress<DiscoveryProgress>? progress, CancellationToken token)
     {
-        var current = await EnsureCurrentAsync(secondaryPath, overridePath, progress, token).ConfigureAwait(false);
-        if (current is null) return null;
-        return await AcquireGenerationAsync(current.Value.Metadata, token).ConfigureAwait(false);
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        var transferred = false;
+        try
+        {
+            var seed = await FindDiskSeedAsync(token).ConfigureAwait(false);
+            if (seed is null) return null;
+            var generation = await BuildDiskGenerationAsync(seed.Value.PrimaryPath, null, secondaryPath, overridePath,
+                seed.Value.Metadata.SourceKind, seed.Value.Metadata.SourceUri, seed.Value.Metadata.ETag,
+                progress, token, seed.Value.IndexValidated ? seed.Value.Metadata.GenerationId : null).ConfigureAwait(false);
+            transferred = true;
+            return generation;
+        }
+        finally { if (!transferred) _gate.Release(); }
     }
 
     internal async Task<LudusaviGeneration> AcquireGenerationAsync(LudusaviManifestCacheMetadata metadata, CancellationToken token)

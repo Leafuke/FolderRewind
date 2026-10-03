@@ -15,7 +15,7 @@ public sealed partial class LudusaviDiscoveryProvider
     {
         var stopwatch = Stopwatch.StartNew();
         await using var ownedGeneration = _generation is null
-            ? await _cacheService!.PrepareGenerationAsync(null, null, progress, token).ConfigureAwait(false) : null;
+            ? await _cacheService!.PrepareStoredGenerationAsync(progress, token).ConfigureAwait(false) : null;
         var generation = _generation ?? ownedGeneration;
         if (generation is null)
             return new DiscoveryProviderResult { ProviderId = ProviderId, Diagnostics = [Diagnostic(
@@ -30,7 +30,7 @@ public sealed partial class LudusaviDiscoveryProvider
                 .Select(value => value.DefinitionId).ToHashSet(StringComparer.Ordinal) : null;
         var matched = new Dictionary<LudusaviCompiledGame, List<InstallationMatch>>();
         var strongInstallations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var installationNames = installations.ToDictionary(InstallationKey, InstallationNames, StringComparer.OrdinalIgnoreCase);
+        var installationNames = installations.GroupBy(InstallationKey, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => InstallationNames(group.First()), StringComparer.OrdinalIgnoreCase);
         var namesPerInstallation = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         await foreach (var game in generation.ReadGamesAsync(token).ConfigureAwait(false))

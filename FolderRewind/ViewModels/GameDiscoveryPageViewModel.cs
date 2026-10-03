@@ -27,6 +27,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     private readonly CancellationTokenSource _sessionCts = new();
     private readonly List<SessionProgress> _progressSinks = new();
     private bool _disposed;
+    private bool _resourcesDisposed;
+    private int _initializing;
     public bool IsSessionActive => !_disposed && !_sessionCts.IsCancellationRequested;
     private bool _initialized;
     private bool _isBusy;
@@ -165,6 +167,14 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public async Task InitializeAsync(GameDiscoveryNavigationParameter? parameter = null)
     {
         if (!IsSessionActive) return;
+        _initializing++;
+        try { await InitializeCoreAsync(parameter); }
+        finally { _initializing--; ReleaseCompletedResources(); }
+    }
+
+    private async Task InitializeCoreAsync(GameDiscoveryNavigationParameter? parameter)
+    {
+        if (!IsSessionActive) return;
         ReturnDraftToSetup = parameter?.ReturnDraftToSetup == true;
         SetupReentry = ReturnDraftToSetup ? parameter : null;
         var requestedMode = parameter?.Mode ?? GameDiscoveryNavigationMode.FullMachine;
@@ -251,18 +261,20 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         }
         await RunOperationAsync(async token =>
         {
-            var update = await _cacheService.DownloadAndCompileAsync(
+            var update = await _cacheService.DownloadGenerationAsync(
                 _httpClient,
                 PrimaryManifestUri,
                 EmptyToNull(Settings.SecondaryManifestPath),
                 EmptyToNull(Settings.OverridePath),
                 CreateProgress(),
                 token);
-            ApplyCacheMetadata(update.Metadata);
+            ApplyCacheMetadata(update.Generation.Metadata);
             ProgressText = update.Status == LudusaviManifestUpdateStatus.NotModified
                 ? I18n.GetString("GameDiscovery_Status_NotModified")
                 : I18n.GetString("GameDiscovery_Status_Downloaded");
-            await ScanCoreAsync(token);
+            await using var generation = update.Generation;
+            token.ThrowIfCancellationRequested();
+            await ScanPreparedCoreAsync(token, generation);
         });
     }
 
@@ -270,14 +282,16 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         await RunOperationAsync(async token =>
         {
-            var update = await _cacheService.ImportAndCompileAsync(
+            var update = await _cacheService.ImportGenerationAsync(
                 manifestPath,
                 EmptyToNull(Settings.SecondaryManifestPath),
                 EmptyToNull(Settings.OverridePath),
                 CreateProgress(),
                 token);
-            ApplyCacheMetadata(update.Metadata);
-            await ScanCoreAsync(token);
+            ApplyCacheMetadata(update.Generation.Metadata);
+            await using var generation = update.Generation;
+            token.ThrowIfCancellationRequested();
+            await ScanPreparedCoreAsync(token, generation);
         });
     }
 
@@ -485,9 +499,17 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         ResetPluginBatchState();
         SetupReentry = null;
         _targetedPreset = null;
-        if (!IsBusy) _httpClient.Dispose();
+        ReleaseCompletedResources();
         OnPropertyChanged(nameof(HasResults));
         OnPropertyChanged(nameof(HasDrafts));
+    }
+
+    private void ReleaseCompletedResources()
+    {
+        if (!_disposed || IsBusy || _initializing != 0 || _resourcesDisposed) return;
+        _resourcesDisposed = true;
+        _httpClient.Dispose();
+        _sessionCts.Dispose();
     }
 
     private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -521,7 +543,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             _progressSinks.Clear();
             if (ReferenceEquals(_operationCts, request)) _operationCts = null;
             IsBusy = false;
-            if (_disposed) _httpClient.Dispose();
+            ReleaseCompletedResources();
         }
     }
 
@@ -532,6 +554,12 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             EmptyToNull(Settings.OverridePath),
             CreateProgress(),
             token);
+        await ScanPreparedCoreAsync(token, current);
+    }
+
+    private async Task ScanPreparedCoreAsync(CancellationToken token, LudusaviGeneration? current)
+    {
+        token.ThrowIfCancellationRequested();
         if (current == null)
         {
             HasCache = false;
@@ -774,6 +802,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         public void Detach() => Interlocked.Exchange(ref _owner, null);
         public void Report(DiscoveryProgress progress)
         {
+            if (_owner is null) return;
             var now = Environment.TickCount64;
             var previous = Interlocked.Read(ref _lastUpdate);
             if (now - previous < 100 || Interlocked.CompareExchange(ref _lastUpdate, now, previous) != previous) return;
@@ -782,7 +811,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         }
         private void Publish(DiscoveryProgress progress)
         {
-            if (_owner?.TryGetTarget(out var owner) != true || !owner.IsSessionActive
+            var reference = Volatile.Read(ref _owner);
+            if (reference is null || !reference.TryGetTarget(out var owner) || !owner.IsSessionActive
                 || !owner.IsBusy || !ReferenceEquals(_request, owner._operationCts)) return;
             var total = progress.Total is > 0 ? $" ({progress.Completed}/{progress.Total})" : string.Empty;
             owner.ProgressText = $"{progress.Message}{total}";

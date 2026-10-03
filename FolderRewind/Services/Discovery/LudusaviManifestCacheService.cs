@@ -19,7 +19,7 @@ namespace FolderRewind.Services.Discovery;
 public sealed partial class LudusaviManifestCacheService
 {
     public const long MaximumManifestBytes = 64L * 1024 * 1024;
-    public const string CompilerVersion = "ludusavi-compiler-v3.1-case-sensitive-identities";
+    public const string CompilerVersion = "ludusavi-compiler-v3.2-streaming";
     private const string ManifestFileName = "manifest.yaml";
     private const string SecondaryManifestFileName = ".ludusavi.yaml";
     private const string OverrideFileName = "folderrewind.override.json";
