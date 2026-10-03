@@ -866,7 +866,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             var now = Environment.TickCount64;
             var previous = Interlocked.Read(ref _lastUpdate);
             if (now - previous < 100 || Interlocked.CompareExchange(ref _lastUpdate, now, previous) != previous) return;
-            if (_context is null) Publish(progress);
+            if (_context is null) UiDispatcherService.Enqueue(() => Publish(progress));
             else _context.Post(_ => Publish(progress), null);
         }
         private void Publish(DiscoveryProgress progress)
