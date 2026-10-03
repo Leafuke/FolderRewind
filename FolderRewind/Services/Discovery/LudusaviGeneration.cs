@@ -15,6 +15,9 @@ namespace FolderRewind.Services.Discovery;
 public sealed class LudusaviGeneration : IAsyncDisposable
 {
     private SemaphoreSlim? _lease;
+    private readonly object _sync = new();
+    private int _readers;
+    private bool _disposed;
     internal LudusaviGeneration(LudusaviManifestCacheMetadata metadata, string indexPath, SemaphoreSlim lease)
     { Metadata = metadata; IndexPath = indexPath; _lease = lease; }
     public LudusaviManifestCacheMetadata Metadata { get; }
@@ -22,15 +25,26 @@ public sealed class LudusaviGeneration : IAsyncDisposable
     public List<LudusaviCompilerDiagnostic> Diagnostics { get; } = new();
     public async IAsyncEnumerable<LudusaviCompiledGame> ReadGamesAsync([EnumeratorCancellation] CancellationToken token)
     {
-        if (_lease is null) throw new ObjectDisposedException(nameof(LudusaviGeneration));
-        Diagnostics.Clear();
-        await using var file = new FileStream(IndexPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        await using var gzip = new GZipStream(file, CompressionMode.Decompress);
-        var reader = new LudusaviIndexReader(Metadata.SourceSha256, Diagnostics);
-        await foreach (var game in reader.ReadAsync(gzip, token).ConfigureAwait(false)) yield return game;
+        lock (_sync)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(LudusaviGeneration));
+            if (_readers != 0) throw new InvalidOperationException("A generation cannot be enumerated concurrently.");
+            _readers++;
+        }
+        try
+        {
+            Diagnostics.Clear();
+            await using var file = new FileStream(IndexPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            await using var gzip = new GZipStream(file, CompressionMode.Decompress);
+            var reader = new LudusaviIndexReader(Metadata.SourceSha256, Diagnostics);
+            await foreach (var game in reader.ReadAsync(gzip, token).ConfigureAwait(false)) yield return game;
+        }
+        finally { lock (_sync) { _readers--; ReleaseIfFinished(); } }
     }
     public ValueTask DisposeAsync()
-    { Interlocked.Exchange(ref _lease, null)?.Release(); return ValueTask.CompletedTask; }
+    { lock (_sync) { _disposed = true; ReleaseIfFinished(); } return ValueTask.CompletedTask; }
+    private void ReleaseIfFinished()
+    { if (_disposed && _readers == 0) Interlocked.Exchange(ref _lease, null)?.Release(); }
 }
 
 /// <summary>Consumes v3 JSON one game/diagnostic at a time, without a full JSON document.</summary>

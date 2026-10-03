@@ -160,6 +160,19 @@ public sealed partial class LudusaviManifestCacheService
                 && (validatedGenerationId == generationId || await ValidateDiskIndexAsync(Path.Combine(GetGenerationRoot(generationId), IndexFileName),
                 sourceHash, token).ConfigureAwait(false)))
             {
+                if (existing.SourceKind != sourceKind || existing.SourceUri != sourceUri || existing.ETag != etag)
+                {
+                    existing = new LudusaviManifestCacheMetadata
+                    {
+                        GenerationId = existing.GenerationId, CompilerVersion = existing.CompilerVersion,
+                        SourceSha256 = existing.SourceSha256, PrimarySha256 = existing.PrimarySha256,
+                        SecondarySha256 = existing.SecondarySha256, OverrideSha256 = existing.OverrideSha256,
+                        SourceKind = sourceKind, SourceUri = sourceUri, ETag = etag,
+                        UpdatedAtUtc = DateTime.UtcNow, Warnings = warnings
+                    };
+                    AtomicFileService.Write(Path.Combine(GetGenerationRoot(generationId), MetadataFileName),
+                        stream => JsonSerializer.Serialize(stream, existing, JsonOptions));
+                }
                 var previous = oldPointer?.PreviousGenerationId == generationId ? null
                     : oldPointer?.CurrentGenerationId == generationId ? oldPointer.PreviousGenerationId : oldPointer?.CurrentGenerationId;
                 if (oldPointer?.CurrentGenerationId != generationId)
