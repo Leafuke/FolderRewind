@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services.Discovery;
 
-public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
+public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
 {
     public const string ProviderId = "ludusavi";
 
@@ -21,16 +21,21 @@ public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         LudusaviCompiledIndex Index)?>> _indexLoader;
     private readonly ILauncherInstallationDiscoveryService _installationDiscovery;
     private readonly LudusaviPathExpressionResolver _resolver;
+    private readonly LudusaviManifestCacheService? _cacheService;
+    private readonly LudusaviGeneration? _generation;
 
     public LudusaviDiscoveryProvider(
         LudusaviManifestCacheService cacheService,
         ILauncherInstallationDiscoveryService? installationDiscovery = null,
-        LudusaviPathExpressionResolver? resolver = null)
+        LudusaviPathExpressionResolver? resolver = null,
+        LudusaviGeneration? generation = null)
         : this(
             cacheService.LoadCurrentAsync,
             installationDiscovery,
             resolver)
     {
+        _cacheService = cacheService;
+        _generation = generation;
     }
 
     public LudusaviDiscoveryProvider(
@@ -59,6 +64,8 @@ public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (_cacheService is not null)
+            return await Task.Run(() => DiscoverStreamingAsync(request, progress, cancellationToken), cancellationToken).ConfigureAwait(false);
         var stopwatch = Stopwatch.StartNew();
         var current = await _indexLoader(cancellationToken).ConfigureAwait(false);
         if (current == null)

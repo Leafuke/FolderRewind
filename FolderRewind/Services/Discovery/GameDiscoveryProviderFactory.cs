@@ -25,12 +25,12 @@ public sealed class PluginBatchProviderAvailability
 
 public static class GameDiscoveryProviderFactory
 {
-    public static GameDiscoveryProviderComposition Create(LudusaviManifestCacheService cacheService)
+    public static GameDiscoveryProviderComposition Create(LudusaviManifestCacheService cacheService, LudusaviGeneration? generation = null)
     {
         ArgumentNullException.ThrowIfNull(cacheService);
         var providers = new List<IGameDiscoveryProvider>
         {
-            new LudusaviDiscoveryProvider(cacheService)
+            new LudusaviDiscoveryProvider(cacheService, generation: generation)
         };
         var diagnostics = new List<DiscoveryDiagnostic>();
         foreach (var pluginId in PluginV3RuntimeService.GetActivePlugins())

@@ -527,7 +527,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     private async Task ScanCoreAsync(CancellationToken token)
     {
-        var current = await _cacheService.EnsureCurrentAsync(
+        await using var current = await _cacheService.PrepareGenerationAsync(
             EmptyToNull(Settings.SecondaryManifestPath),
             EmptyToNull(Settings.OverridePath),
             CreateProgress(),
@@ -540,9 +540,9 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         }
         else
         {
-            ApplyCacheMetadata(current.Value.Metadata);
+            ApplyCacheMetadata(current.Metadata);
         }
-        var composition = GameDiscoveryProviderFactory.Create(_cacheService);
+        var composition = GameDiscoveryProviderFactory.Create(_cacheService, current);
         var discoveryService = new GameDiscoveryService(composition.Providers, composition.Diagnostics);
         var stopwatch = Stopwatch.StartNew();
         var result = await discoveryService.DiscoverAsync(BuildRequest(), CreateProgress(), token,
