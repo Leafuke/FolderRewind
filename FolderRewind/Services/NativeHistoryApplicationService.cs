@@ -400,34 +400,19 @@ internal static partial class NativeHistoryApplicationService
             => await BuildEnvironmentAsync(runtime, token).ConfigureAwait(false);
         var payloads = new FileSystemHistoryLocalPayloadStore();
         var planner = new HistoryRetentionPlanner(runtime, representations, Environment, payloads);
-        var plan = await planner.PlanAsync(
-            new HistoryRetentionRequest(
-                config.Archive.KeepCount,
-                HistoryRetentionOperationRoots.Empty,
-                allowPostMigrationCleanup: true),
-            cancellationToken).ConfigureAwait(false);
-        if (!plan.CanExecute)
+        var elapsed = Stopwatch.StartNew();
+        try
         {
-            LogService.LogWarning(
-                "[Retention] " + string.Join(" ", plan.Blockers),
-                nameof(NativeHistoryApplicationService));
-            return;
+            var result = await new HistoryChainRewriteRetentionService(runtime, representations, archive, planner)
+                .ExecuteAsync(config.Archive.KeepCount, config.Archive.MaxSmartBackupsPerFull, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(result.Diagnostic))
+                LogService.LogWarning("[Retention] " + result.Diagnostic, nameof(NativeHistoryApplicationService));
+            if (result.Committed)
+                LogService.LogInfo($"[Retention] Rebuilt {result.RewrittenVersions} versions; created {result.CreatedBytes} bytes; "
+                    + $"reclaimed {result.ReclaimedBytes} bytes; elapsed {elapsed.Elapsed.TotalSeconds:F1}s.", nameof(NativeHistoryApplicationService));
         }
-        var executor = new HistoryRetentionExecutor(
-            runtime,
-            planner,
-            representations,
-            Environment,
-            archive,
-            payloads,
-            new ArtifactLedgerGarbageCollector(config));
-        var result = await executor.ExecuteAsync(plan, cancellationToken).ConfigureAwait(false);
-        if (!result.Succeeded)
-        {
-            LogService.LogWarning(
-                "[Retention] " + result.Diagnostic,
-                nameof(NativeHistoryApplicationService));
-        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex) { LogService.LogWarning("[Retention] Safe cleanup skipped: " + ex.Message, nameof(NativeHistoryApplicationService)); }
     }
 
     public static async Task ReleaseVersionAsync(

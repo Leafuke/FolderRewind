@@ -20,6 +20,13 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
     public async Task<HistoryChainRewritePlan> PlanAsync(HistoryChainRewriteRequest request,
         CancellationToken token = default)
     {
+        await using var lease = await history.MutationGate.EnterAsync(token).ConfigureAwait(false);
+        return await PlanInsideGateAsync(request, token).ConfigureAwait(false);
+    }
+
+    internal async Task<HistoryChainRewritePlan> PlanInsideGateAsync(HistoryChainRewriteRequest request,
+        CancellationToken token)
+    {
         await history.EnsureIndexCurrentAsync(token).ConfigureAwait(false);
         var load = await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false);
         if (load.Status != DeviceLocalStateStatus.Valid || load.Value is null)

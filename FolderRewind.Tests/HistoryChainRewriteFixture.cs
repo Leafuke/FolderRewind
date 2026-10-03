@@ -83,6 +83,28 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
     public HistoryChainRewriteRequest Delete(params Node[] nodes) => new(HistoryChainRewriteOrigin.Manual,
         [.. nodes.Select(n => n.Entry.LocalReplicaId)], [.. nodes.Select(n => n.Version.VersionId)], [], 5, true, true);
 
+    public async Task RecordBackupAsync(Node node)
+    {
+        var runId = RunId.New();
+        var checkpoint = new SourceCheckpoint(CheckpointId.New(), Config, node.Version.CreatedAtUtc, runId,
+            HistoryProvenance.Native("test"), [new CheckpointSource(Source, node.Version.SourceDescriptorSnapshot,
+                node.Version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var run = new BackupRun(runId, Config, node.Version.CreatedAtUtc, node.Version.CreatedAtUtc,
+            BackupInvocationKind.Manual, BackupRunOutcome.Completed,
+            [new BackupRunSourceResult(Source, BackupRunSourceOutcome.Captured, node.Version.VersionId, [], checkpoint.CheckpointId)], []);
+        var codec = new HistoryPackCodec();
+        await History.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { checkpoint, run }.Select(o => codec.CreateObject(o))));
+        await History.EnsureIndexCurrentAsync();
+    }
+
+    public HistoryChainRewriteRetentionService Retention()
+    {
+        async Task<IRepresentationEnvironment> Environment(CancellationToken token)
+            => new RepresentationEnvironment((await History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []);
+        return new(History, Engine, Archive, new(History, Engine, Environment, new FileSystemHistoryLocalPayloadStore()));
+    }
+
     public async Task AssertRestoresAsync(params Node[] nodes)
     {
         var graph = await History.Query.GetAllRepresentationsAsync();
