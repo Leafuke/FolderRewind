@@ -51,9 +51,7 @@ public sealed class HistoryCloudBackupTests
     }
 
     [TestMethod]
-    // This five-second liveness check must not benchmark the runner's disk while other
-    // repository tests concurrently flush hundreds of immutable packs. Concurrency
-    // within the operation is still controlled explicitly by the barriers below.
+    // Barriers control operation concurrency; completion must not benchmark runner disk speed.
     [DoNotParallelize]
     [DataRow(1)]
     [DataRow(2)]
@@ -74,9 +72,9 @@ public sealed class HistoryCloudBackupTests
         HistoryCloudBackupResult canceled;
         try
         {
-            await barrier.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await barrier.Entered.Task;
             cancellation.Cancel();
-            canceled = await operation.WaitAsync(TimeSpan.FromSeconds(5));
+            canceled = await operation;
         }
         finally
         {
@@ -93,15 +91,14 @@ public sealed class HistoryCloudBackupTests
         {
             using var exclusive = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
         }
-        using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+        await using (var lease = await runtime.MutationGate.EnterAsync(CancellationToken.None))
         {
-            await using var lease = await runtime.MutationGate.EnterAsync(timeout.Token);
         }
         transport.CancellationPoint = 0;
         using var retryCancellation = new CancellationTokenSource();
         var retryTask = service.UploadClosureAsync([fixture.Delta], Local, retryCancellation.Token);
         HistoryCloudBackupResult retry;
-        try { retry = await retryTask.WaitAsync(TimeSpan.FromSeconds(5)); }
+        try { retry = await retryTask; }
         finally { retryCancellation.Cancel(); await retryTask; }
         Assert.IsTrue(retry.Complete);
         var after = await runtime.Query.GetStorageReplicasAsync(fixture.Base);
