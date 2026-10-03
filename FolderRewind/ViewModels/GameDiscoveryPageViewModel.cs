@@ -793,18 +793,15 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var current = await _cacheService.EnsureCurrentAsync(
-                EmptyToNull(Settings.SecondaryManifestPath),
-                EmptyToNull(Settings.OverridePath),
-                progress: null,
-                cancellationToken: token);
+            var current = await _cacheService.ReadStatusAsync(token);
+            if (!IsSessionActive) return;
             if (current == null)
             {
                 HasCache = false;
                 CacheStatus = I18n.GetString("GameDiscovery_Cache_Missing");
                 return;
             }
-            ApplyCacheMetadata(current.Value.Metadata);
+            ApplyCacheMetadata(current);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex)
@@ -847,7 +844,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         HasCache = true;
         CacheStatus = I18n.Format(
-            "GameDiscovery_Cache_Ready",
+            "GameDiscovery_Cache_Present",
             metadata.UpdatedAtUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
             ShortRevision(metadata.SourceSha256),
             metadata.SourceKind);

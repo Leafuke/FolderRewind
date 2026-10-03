@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services.Discovery;
 
-public sealed class LudusaviManifestCacheService
+public sealed partial class LudusaviManifestCacheService
 {
     public const long MaximumManifestBytes = 64L * 1024 * 1024;
     public const string CompilerVersion = "ludusavi-compiler-v3.1-case-sensitive-identities";
@@ -38,12 +38,14 @@ public sealed class LudusaviManifestCacheService
     private readonly string _cacheRoot;
     private readonly string _generationsRoot;
     private readonly LudusaviManifestCompiler _compiler;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _gate;
 
     public LudusaviManifestCacheService(string cacheRoot, LudusaviManifestCompiler? compiler = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cacheRoot);
         _cacheRoot = Path.GetFullPath(cacheRoot);
+        _gate = Gates.GetOrAdd(_cacheRoot, _ => new SemaphoreSlim(1, 1));
         _generationsRoot = Path.Combine(_cacheRoot, "generations");
         _compiler = compiler ?? new LudusaviManifestCompiler();
     }
