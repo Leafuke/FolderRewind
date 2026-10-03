@@ -184,7 +184,7 @@ public sealed partial class LudusaviManifestCompiler
             _file.Position = offset;
             using var header = new BinaryReader(_file, Encoding.UTF8, true);
             var bytes = header.ReadBytes(header.ReadInt32());
-            using var document = JsonDocument.Parse(bytes);
+            using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 256 });
             return ReadNode(document.RootElement);
         }
         private static void WriteNode(Utf8JsonWriter writer, YamlNode node)

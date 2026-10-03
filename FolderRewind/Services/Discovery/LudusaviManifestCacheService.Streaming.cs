@@ -116,8 +116,14 @@ public sealed partial class LudusaviManifestCacheService
                 fallback ??= (metadata, primary, false);
                 if (metadata.CompilerVersion == CompilerVersion && await ValidateDiskIndexAsync(
                     Path.Combine(root, IndexFileName), metadata.SourceSha256, token).ConfigureAwait(false))
-                    return (id == pointer.CurrentGenerationId ? metadata : WithWarnings(metadata,
-                        ["The current cache was invalid; the previous generation was restored."]), primary, true);
+                {
+                    if (id != pointer.CurrentGenerationId)
+                    {
+                        WritePointer(new LudusaviManifestPointer { CurrentGenerationId = id, PreviousGenerationId = string.Empty });
+                        metadata = WithWarnings(metadata, ["The current cache was invalid; the previous generation was restored."]);
+                    }
+                    return (metadata, primary, true);
+                }
             }
             catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         }
