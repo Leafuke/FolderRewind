@@ -4304,13 +4304,13 @@ Pull Request：{1}</value>
     <value>当前备份项目使用自定义云命令，历史页上传/下载仅支持 rclone 模式。</value>
   </data>
   <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
-    <value>仅删除历史记录</value>
+    <value>仅隐藏历史记录</value>
   </data>
   <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
     <value>仅删除本地备份文件</value>
   </data>
   <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
-    <value>删除本地备份文件和历史记录</value>
+    <value>删除本地备份并隐藏记录（保留后续版本）</value>
   </data>
   <data name="History_Delete_InvalidRequest" xml:space="preserve">
     <value>删除请求无效。</value>
@@ -6072,4 +6072,20 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_Cache_PreviousRestored" xml:space="preserve"><value>当前缓存无效，已恢复上一版本缓存。</value></data>
   <data name="GameDiscovery_Cache_SecondaryMissing" xml:space="preserve"><value>配置的附加清单已不存在，已跳过：{0}</value></data>
   <data name="GameDiscovery_Cache_OverrideMissing" xml:space="preserve"><value>配置的 FolderRewind 本地覆盖文件已不存在，已跳过：{0}</value></data>
+  <data name="History_Rewrite_Continue" xml:space="preserve"><value>继续</value></data>
+  <data name="History_Rewrite_Analyzing" xml:space="preserve"><value>正在分析备份依赖…</value></data>
+  <data name="History_Rewrite_Preparing" xml:space="preserve"><value>正在重建备份链，原备份仍然保留…</value></data>
+  <data name="History_Rewrite_Verifying" xml:space="preserve"><value>正在验证保留版本的文件内容…</value></data>
+  <data name="History_Rewrite_Ready" xml:space="preserve"><value>备份链已验证，等待删除确认。</value></data>
+  <data name="History_Rewrite_Confirm" xml:space="preserve"><value>删除“{0}”的本地备份？
+已验证 {1} 个重建版本，其他保留版本仍可精确恢复。
+新增归档：{2} MiB
+可回收：{3} MiB
+净释放：{4} MiB（负数表示占用增加）
+确认后提交删除；取消会保留原备份。</value></data>
+  <data name="History_Rewrite_CleanupPending" xml:space="preserve"><value>备份链重建已提交，部分文件或本地状态仍待恢复处理。重新打开配置后会继续处理，请暂勿手动移除归档。</value></data>
+  <data name="History_Rewrite_Unsupported" xml:space="preserve"><value>此备份格式或历史边界暂不支持安全重建，可以选择仅隐藏记录。</value></data>
+  <data name="History_Rewrite_PreparationRequired" xml:space="preserve"><value>后续版本无法精确恢复，请先下载缺失的归档或修复备份链。</value></data>
+  <data name="History_Rewrite_Changed" xml:space="preserve"><value>历史记录已发生变化，请重新准备删除。</value></data>
+  <data name="History_Rewrite_Shared" xml:space="preserve"><value>所选归档文件仍被另一个保留副本使用，无法删除。</value></data>
 </root>

@@ -451,46 +451,12 @@ internal static partial class NativeHistoryApplicationService
         bool releaseVersion,
         CancellationToken cancellationToken = default)
     {
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        await runtime.MaterializationPolicies.EnsureCanReleaseAsync(versionId, cancellationToken)
-            .ConfigureAwait(false);
-
-        var releaseCommitted = false;
-        try
-        {
-            if (releaseVersion)
-            {
-                await ReleaseVersionAsync(config, versionId, cancellationToken).ConfigureAwait(false);
-                releaseCommitted = true;
-            }
-
-            return await new HistoryLocalReplicaMaintenanceService(runtime)
-                .DeleteControlledReplicaAsync(
-                    versionId,
-                    representationId,
-                    localPath,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception deleteError) when (releaseCommitted)
-        {
-            try
-            {
-                await runtime.MaterializationPolicies.SetAsync(
-                    versionId,
-                    MaterializationPolicyState.Retained,
-                    "Compensate failed targeted local deletion",
-                    CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception compensationError)
-            {
-                throw new AggregateException(
-                    "Targeted local deletion failed and the Version release could not be compensated.",
-                    deleteError,
-                    compensationError);
-            }
-            throw;
-        }
+        var existed = File.Exists(localPath);
+        await using var prepared = await PrepareVersionDeletionAsync(config, versionId, representationId,
+            localPath, hideRecord: false, releaseVersion, token: cancellationToken).ConfigureAwait(false);
+        var result = await CommitVersionDeletionAsync(config, prepared, cancellationToken).ConfigureAwait(false);
+        if (!result.Committed) throw new InvalidOperationException(result.Diagnostic);
+        return new(existed, existed && !File.Exists(localPath), prepared.Plan.Request.TargetReplicaIds.Length);
     }
 
     public static async Task<HistoryRestoreService> CreateRestoreServiceAsync(

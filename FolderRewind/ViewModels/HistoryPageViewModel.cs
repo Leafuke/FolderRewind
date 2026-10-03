@@ -567,7 +567,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             item.VersionId,
             mode).ConfigureAwait(false);
     }
-    public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
+    public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode,
+        Func<FolderRewind.History.Retention.PreparedHistoryChainRewrite, CancellationToken, Task<bool>>? confirm = null,
+        IProgress<FolderRewind.History.Retention.HistoryChainRewriteProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         var config = _currentConfig;
         if (config is null)
@@ -580,11 +583,11 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         try
         {
             await using var operationLease = await NativeHistoryConfigurationOperationGate
-                .EnterAsync(config.Id).ConfigureAwait(false);
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
+                .EnterAsync(config.Id, cancellationToken);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
             var deletesLocalPayload = mode is BackupDeleteMode.LocalArchiveOnly
                 or BackupDeleteMode.LocalArchiveAndRecord;
-            HistoryTargetedReplicaDeletionResult? deletion = null;
+            FolderRewind.History.Retention.HistoryChainRewriteResult? deletion = null;
             if (deletesLocalPayload)
             {
                 if (item.RepresentationId is not { } representationId
@@ -597,19 +600,19 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                     };
                 }
 
-                // 手动删除只作用于用户选中的本地副本；不能借机运行配置级 Retention GC。
-                deletion = await NativeHistoryApplicationService.DeleteVersionLocalPayloadAsync(
-                        config,
-                        item.VersionId,
-                        representationId,
-                        item.LocalPath,
-                        releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord)
-                    .ConfigureAwait(false);
+                await using var prepared = await NativeHistoryApplicationService.PrepareVersionDeletionAsync(
+                    config, item.VersionId, representationId, item.LocalPath,
+                    hideRecord: mode == BackupDeleteMode.LocalArchiveAndRecord,
+                    releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord, progress, cancellationToken);
+                if (confirm is not null && !await confirm(prepared, cancellationToken))
+                    return new() { Success = true };
+                deletion = await NativeHistoryApplicationService.CommitVersionDeletionAsync(config, prepared, cancellationToken);
+                if (!deletion.Committed) return new() { Success = false, Message = deletion.Diagnostic };
             }
 
             var suppressesRecord = mode is BackupDeleteMode.RecordOnly
                 or BackupDeleteMode.LocalArchiveAndRecord;
-            if (suppressesRecord)
+            if (suppressesRecord && deletion is null)
             {
                 await runtime.Annotations.SetSuppressionAsync(
                     new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
@@ -618,10 +621,12 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             return new()
             {
                 Success = true,
-                ArchiveDeleted = deletion?.PayloadDeleted == true,
-                HistoryUpdated = suppressesRecord || deletion is not null
+                ArchiveDeleted = deletion is { Committed: true, CleanupPending: false },
+                HistoryUpdated = suppressesRecord || deletion is not null,
+                Message = deletion?.CleanupPending == true ? I18n.GetString("History_Rewrite_CleanupPending") : string.Empty
             };
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             return new() { Success = false, Message = LocalizeDeleteError(ex.Message) };
@@ -673,6 +678,14 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 I18n.GetString("History_Delete_PinProtected"),
             "The selected local backup is required by another Version Representation." =>
                 I18n.GetString("History_Delete_DependencyProtected"),
+            "This archive format or historical boundary does not support safe chain rewriting." =>
+                I18n.GetString("History_Rewrite_Unsupported"),
+            "A dependent version cannot be restored exactly. Download missing archives or repair the chain first." =>
+                I18n.GetString("History_Rewrite_PreparationRequired"),
+            "History changed; prepare the deletion again." or "History changed after preparation; prepare the deletion again." =>
+                I18n.GetString("History_Rewrite_Changed"),
+            "The selected archive path is shared by another retained local replica." =>
+                I18n.GetString("History_Rewrite_Shared"),
             _ => message
         };
 

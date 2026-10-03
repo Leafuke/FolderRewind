@@ -4304,13 +4304,13 @@ Pull request: {1}</value>
     <value>This backup project uses a custom cloud command. History page upload/download currently supports rclone mode only.</value>
   </data>
   <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
-    <value>Delete record only</value>
+    <value>Hide record only</value>
   </data>
   <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
     <value>Delete local backup only</value>
   </data>
   <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
-    <value>Delete local backup and record</value>
+    <value>Delete local backup and hide record (preserve later versions)</value>
   </data>
   <data name="History_Delete_InvalidRequest" xml:space="preserve">
     <value>Invalid delete request.</value>
@@ -6072,4 +6072,20 @@ Branch at backup: {2}
   <data name="GameDiscovery_Cache_PreviousRestored" xml:space="preserve"><value>The current cache was invalid; the previous generation was restored.</value></data>
   <data name="GameDiscovery_Cache_SecondaryMissing" xml:space="preserve"><value>The configured secondary manifest no longer exists and was omitted: {0}</value></data>
   <data name="GameDiscovery_Cache_OverrideMissing" xml:space="preserve"><value>The configured FolderRewind override no longer exists and was omitted: {0}</value></data>
+  <data name="History_Rewrite_Continue" xml:space="preserve"><value>Continue</value></data>
+  <data name="History_Rewrite_Analyzing" xml:space="preserve"><value>Analyzing backup dependencies…</value></data>
+  <data name="History_Rewrite_Preparing" xml:space="preserve"><value>Rebuilding the backup chain; original backups are still retained…</value></data>
+  <data name="History_Rewrite_Verifying" xml:space="preserve"><value>Verifying the contents of retained versions…</value></data>
+  <data name="History_Rewrite_Ready" xml:space="preserve"><value>The replacement chain is verified and ready for confirmation.</value></data>
+  <data name="History_Rewrite_Confirm" xml:space="preserve"><value>Delete the local backup “{0}”?
+{1} rebuilt versions have been verified. Other retained versions remain exactly restorable.
+New archives: {2} MiB
+Reclaimable: {3} MiB
+Net released: {4} MiB (negative means more space is used)
+Confirm to commit deletion, or cancel to keep the original backups.</value></data>
+  <data name="History_Rewrite_CleanupPending" xml:space="preserve"><value>The backup chain commit is durable. Some files or local state still require recovery. Reopen the configuration to continue recovery; keep the archive files in place.</value></data>
+  <data name="History_Rewrite_Unsupported" xml:space="preserve"><value>This archive format or historical boundary does not support safe rewriting yet. You can hide the record instead.</value></data>
+  <data name="History_Rewrite_PreparationRequired" xml:space="preserve"><value>A dependent version cannot be restored exactly. Download missing archives or repair the backup chain first.</value></data>
+  <data name="History_Rewrite_Changed" xml:space="preserve"><value>History changed. Prepare the deletion again.</value></data>
+  <data name="History_Rewrite_Shared" xml:space="preserve"><value>The selected archive file is still used by another retained replica and cannot be deleted.</value></data>
 </root>
