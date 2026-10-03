@@ -5937,4 +5937,12 @@ Pull Request：{1}</value>
   <data name="Config_MutationDisabledInRecovery" xml:space="preserve"><value>恢复中心启用期间不能修改配置。</value></data>
   <data name="Config_CompensationFailed" xml:space="preserve"><value>配置保存及补偿均失败，磁盘状态尚未确认：{0}</value></data>
   <data name="GameDiscovery_Cache_Present" xml:space="preserve"><value>本地规则存在：{0} · {1} · {2}。扫描时将校验规则。</value></data>
+  <data name="GameDiscovery_ConfigType" xml:space="preserve"><value>配置类型：{0}</value></data>
+  <data name="GameDiscovery_ManagedBy" xml:space="preserve"><value>管理插件：{0}</value></data>
+  <data name="GameDiscovery_BackupSettings" xml:space="preserve"><value>备份设置：{0}</value></data>
+  <data name="GameDiscovery_UseExisting" xml:space="preserve"><value>沿用现有配置：{0}</value></data>
+  <data name="GameDiscovery_DefaultSettings" xml:space="preserve"><value>默认设置</value></data>
+  <data name="GameDiscovery_NoCompatiblePreset" xml:space="preserve"><value>没有兼容的预设</value></data>
+  <data name="GameDiscovery_SetSelection" xml:space="preserve"><value>已选 {0}/{1} 项</value></data>
+  <data name="GameDiscovery_TotalSelection" xml:space="preserve"><value>已选 {0} 个实例、{1} 项资源</value></data>
 </root>

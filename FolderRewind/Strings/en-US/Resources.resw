@@ -5937,4 +5937,12 @@ Branch at backup: {2}
   <data name="Config_MutationDisabledInRecovery" xml:space="preserve"><value>Configuration changes are disabled while Recovery Center is active.</value></data>
   <data name="Config_CompensationFailed" xml:space="preserve"><value>Saving and compensation both failed; persisted state is uncertain: {0}</value></data>
   <data name="GameDiscovery_Cache_Present" xml:space="preserve"><value>Local rules available: {0} · {1} · {2}. Rules will be validated when scanning.</value></data>
+  <data name="GameDiscovery_ConfigType" xml:space="preserve"><value>Configuration type: {0}</value></data>
+  <data name="GameDiscovery_ManagedBy" xml:space="preserve"><value>Managed by: {0}</value></data>
+  <data name="GameDiscovery_BackupSettings" xml:space="preserve"><value>Backup settings: {0}</value></data>
+  <data name="GameDiscovery_UseExisting" xml:space="preserve"><value>Use existing configuration: {0}</value></data>
+  <data name="GameDiscovery_DefaultSettings" xml:space="preserve"><value>Default settings</value></data>
+  <data name="GameDiscovery_NoCompatiblePreset" xml:space="preserve"><value>No compatible preset</value></data>
+  <data name="GameDiscovery_SetSelection" xml:space="preserve"><value>Selected {0}/{1} items</value></data>
+  <data name="GameDiscovery_TotalSelection" xml:space="preserve"><value>Selected {0} sets and {1} resources</value></data>
 </root>

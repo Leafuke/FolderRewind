@@ -29,6 +29,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     private bool _disposed;
     private bool _resourcesDisposed;
     private int _initializing;
+    private long _selectionRevision;
+    private long _draftRevision;
     public bool IsSessionActive => !_disposed && !_sessionCts.IsCancellationRequested;
     private bool _initialized;
     private bool _isBusy;
@@ -89,6 +91,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             if (!SetProperty(ref _isBusy, value)) return;
             OnPropertyChanged(nameof(CanStart));
             OnPropertyChanged(nameof(CanCancel));
+            OnPropertyChanged(nameof(CanReview));
             OnPropertyChanged(nameof(CanCommitPluginBatch));
         }
     }
@@ -101,6 +104,34 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public string ResultSummary { get => _resultSummary; private set => SetProperty(ref _resultSummary, value); }
     public bool HasResults => VisibleGames.Count > 0;
     public bool HasDrafts => Drafts.Count > 0;
+    public bool ShowResults => !HasDrafts && !IsPluginBatchMode;
+    public int SelectedResourceCount => Games.Sum(game => game.BackupSets.Sum(set => set.SelectedResourceCount));
+    public string SelectionSummary => I18n.Format("GameDiscovery_TotalSelection",
+        Games.Sum(game => game.BackupSets.Count(set => set.IsSelected)), SelectedResourceCount);
+    public bool CanReview => IsSessionActive && !IsBusy && SelectedResourceCount > 0;
+    public string CommitLabel => I18n.GetString(ReturnDraftToSetup ? "GameDiscovery_ContinueSetup" : "GameDiscoveryPage_Commit.Content");
+    public void ReturnToResults() { Drafts.Clear(); NotifyReview(); }
+    private void NotifyReview()
+    { OnPropertyChanged(nameof(HasDrafts)); OnPropertyChanged(nameof(ShowResults)); OnPropertyChanged(nameof(CanReview)); }
+    private void NotifySelectionSummary()
+    {
+        OnPropertyChanged(nameof(SelectionSummary)); OnPropertyChanged(nameof(CanReview));
+        OnPropertyChanged(nameof(HiddenSelectedCount)); OnPropertyChanged(nameof(HiddenSelectionSummary));
+    }
+    private void OnCandidateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is not (nameof(GameDiscoveryCandidateItem.SelectionState) or nameof(GameDiscoveryBackupSetItem.SelectedPreset))) return;
+        _selectionRevision++;
+        if (HasDrafts) ReturnToResults();
+        NotifySelectionSummary();
+    }
+    private void ClearGames()
+    {
+        foreach (var game in Games) { game.PropertyChanged -= OnCandidateChanged; game.Dispose(); }
+        Games.Clear();
+        SelectedGame = null;
+        NotifySelectionSummary();
+    }
     public bool IsTargetedMode => _navigationMode == GameDiscoveryNavigationMode.PresetTargeted;
     public bool IsPluginBatchMode => _navigationMode == GameDiscoveryNavigationMode.PluginBatch;
     public bool IsStandardDiscoveryMode => !IsPluginBatchMode;
@@ -231,7 +262,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             if (_targetedPreset == null)
             {
                 ProgressText = I18n.GetString("GameDiscovery_TargetedPresetUnavailable");
-                Games.Clear();
+                ClearGames();
                 VisibleGames.Clear();
                 Drafts.Clear();
                 return;
@@ -335,6 +366,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public async Task<ConfigSaveResult> SaveSettingsAsync()
     {
         if (IsBusy) return new() { ErrorMessage = I18n.GetString("GameDiscovery_OperationRunning") };
+        ReturnToResults();
         IsBusy = true;
         try
         {
@@ -380,7 +412,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                 Drafts.Add(new GameDiscoveryDraftItem(draft));
             }
         }
-        OnPropertyChanged(nameof(HasDrafts));
+        _draftRevision = _selectionRevision;
+        NotifyReview();
         if (_targetedPreset != null
             && Drafts.Count == 1
             && !string.IsNullOrWhiteSpace(_targetedConfigName))
@@ -408,7 +441,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                 ErrorMessage = I18n.GetString("GameDiscovery_OperationRunning")
             };
         }
-        if (Drafts.Count == 0 || Drafts.All(item => !item.IsSelected))
+        if (_draftRevision != _selectionRevision || Drafts.Count == 0 || Drafts.All(item => !item.IsSelected))
         {
             return new BackupConfigDraftCommitResult
             {
@@ -425,7 +458,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         if (result.Success)
         {
             Drafts.Clear();
-            OnPropertyChanged(nameof(HasDrafts));
+            NotifyReview();
             RefreshStatuses();
         }
         return result;
@@ -469,6 +502,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         if (!IsPluginBatchMode)
         {
+            if (_draftRevision != _selectionRevision) throw new InvalidOperationException(I18n.GetString("GameDiscovery_SelectDraft"));
             var drafts = Drafts.Where(item => item.IsSelected).ToArray();
             if (drafts.Length == 0) throw new InvalidOperationException(I18n.GetString("GameDiscovery_SelectDraft"));
             foreach (var item in drafts)
@@ -493,7 +527,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         foreach (var sink in _progressSinks) sink.Detach();
         _progressSinks.Clear();
         SelectedGame = null;
-        Games.Clear();
+        ClearGames();
         VisibleGames.Clear();
         Drafts.Clear();
         ResetPluginBatchState();
@@ -523,6 +557,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         if (IsBusy || !IsSessionActive) return;
         using var request = CancellationTokenSource.CreateLinkedTokenSource(_sessionCts.Token);
         _operationCts = request;
+        ReturnToResults();
         IsBusy = true;
         try
         {
@@ -724,7 +759,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         BackupPreset? lockedPreset)
     {
         if (!IsSessionActive) return;
-        Games.Clear();
+        ClearGames();
         foreach (var game in result.Candidates.OrderBy(candidate => candidate.Definition.DisplayName, StringComparer.CurrentCultureIgnoreCase))
         {
             var item = new GameDiscoveryCandidateItem(
@@ -737,16 +772,11 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             if (ReturnDraftToSetup)
                 foreach (var set in item.BackupSets)
                     foreach (var resource in set.Resources) resource.IsSelected = false;
-            item.PropertyChanged += (_, args) =>
-            {
-                if (args.PropertyName == nameof(GameDiscoveryCandidateItem.IsSelected))
-                {
-                    OnPropertyChanged(nameof(HiddenSelectedCount));
-                    OnPropertyChanged(nameof(HiddenSelectionSummary));
-                }
-            };
+            item.PropertyChanged += OnCandidateChanged;
             Games.Add(item);
         }
+        NotifyReview();
+        NotifySelectionSummary();
         RefreshVisibleGames();
         ResultSummary = I18n.Format(
             "GameDiscovery_ResultSummary",
@@ -916,7 +946,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     private void ResetPluginBatchState()
     {
-        Games.Clear();
+        ClearGames();
         VisibleGames.Clear();
         Drafts.Clear();
         PluginBatchItems.Clear();
@@ -964,37 +994,33 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     };
 }
 
-public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableObject
+public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableObject, IDisposable
 {
-    private bool _isSelected = true;
     private DiscoveryCandidateStatus _status;
-
-    public GameDiscoveryCandidateItem(
-        DiscoveredGameCandidate candidate,
-        IEnumerable<BackupPreset> presets,
-        IEnumerable<BackupConfig> existingConfigs,
-        BackupPreset? lockedPreset = null)
+    private bool _changingSelection;
+    public GameDiscoveryCandidateItem(DiscoveredGameCandidate candidate, IEnumerable<BackupPreset> presets,
+        IEnumerable<BackupConfig> existingConfigs, BackupPreset? lockedPreset = null)
     {
         Candidate = candidate;
         var configs = existingConfigs.ToList();
         _status = DiscoveryPresentationService.GetStatus(candidate, configs.Select(config => config.DiscoveryOrigin));
-        var availablePresets = presets.ToList();
+        var available = presets.ToList();
         foreach (var set in candidate.BackupSets)
         {
             var standard = set.PluginDraftContext is { } context
                 ? BackupPresetService.CreateStandardPluginPreset(context.PluginId, context.Kind)
                 : BackupPresetService.CreateStandardGamePreset();
-            var presetItems = (lockedPreset == null ? new[] { standard }.Concat(availablePresets) : availablePresets)
+            var options = (lockedPreset is null ? new[] { standard }.Concat(available) : available)
+                .Where(preset => string.Equals(preset.Kind.OwnerId, standard.Kind.OwnerId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(preset.Kind.KindId, standard.Kind.KindId, StringComparison.Ordinal))
                 .GroupBy(preset => preset.ShareId, StringComparer.OrdinalIgnoreCase)
                 .Select(group => new GameDiscoveryPresetItem(group.First())).ToList();
-            BackupSets.Add(new GameDiscoveryBackupSetItem(
-                set,
-                presetItems,
-                DiscoverySetIdentityMatcher.FindUnique(set.Identity, configs, config => config.DiscoveryOrigin) != null,
-                lockedPreset != null));
+            var item = new GameDiscoveryBackupSetItem(set, options,
+                DiscoverySetIdentityMatcher.FindUnique(set.Identity, configs, config => config.DiscoveryOrigin), lockedPreset is not null);
+            item.PropertyChanged += OnSetChanged;
+            BackupSets.Add(item);
         }
     }
-
     public DiscoveredGameCandidate Candidate { get; }
     public string Name => Candidate.Definition.DisplayName;
     public string Stores => string.Join(", ", Candidate.Installations.Select(item => item.Store).Distinct());
@@ -1004,54 +1030,114 @@ public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableO
         DiscoveryCandidateStatus.NewResources => I18n.GetString("GameDiscovery_Status_NewResources"),
         _ => I18n.GetString("GameDiscovery_Status_New")
     };
-    public string InstallationSummary => string.Join(Environment.NewLine, Candidate.Installations.Select(installation =>
-        $"{installation.Store}: {installation.BasePath}"));
+    public string InstallationSummary => string.Join(Environment.NewLine, Candidate.Installations.Select(item => $"{item.Store}: {item.BasePath}"));
     public string Notes => string.Join(Environment.NewLine, Candidate.Definition.Notes);
     public string NativeCloud => string.Join(Environment.NewLine, Candidate.Definition.NativeCloud.Select(item => $"{item.Key}: {item.Value}"));
     public ObservableCollection<GameDiscoveryBackupSetItem> BackupSets { get; } = new();
-    public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
+    public bool CanSelect => BackupSets.Any(set => set.CanSelect);
+    public bool? SelectionState => GameDiscoverySelection.State(BackupSets.SelectMany(set => set.Resources));
+    public bool IsSelected
+    {
+        get => BackupSets.Any(set => set.IsSelected);
+        set
+        {
+            _changingSelection = true;
+            try { foreach (var set in BackupSets) set.IsSelected = value; }
+            finally { _changingSelection = false; NotifySelection(); }
+        }
+    }
+    public void ToggleSelection() => IsSelected = SelectionState != true;
+    private void NotifySelection() { OnPropertyChanged(nameof(IsSelected)); OnPropertyChanged(nameof(SelectionState)); }
+    private void OnSetChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (_changingSelection) return;
+        if (args.PropertyName == nameof(GameDiscoveryBackupSetItem.SelectionState)) NotifySelection();
+        if (args.PropertyName == nameof(GameDiscoveryBackupSetItem.SelectedPreset)) OnPropertyChanged(nameof(GameDiscoveryBackupSetItem.SelectedPreset));
+    }
     public DiscoveryCandidateStatus Status { get => _status; private set { if (SetProperty(ref _status, value)) OnPropertyChanged(nameof(StatusText)); } }
-
     public void RefreshStatus(IEnumerable<DiscoveryOrigin?> origins) => Status = DiscoveryPresentationService.GetStatus(Candidate, origins);
+    public void Dispose() { foreach (var set in BackupSets) { set.PropertyChanged -= OnSetChanged; set.Dispose(); } }
 }
 
-public sealed class GameDiscoveryBackupSetItem : FolderRewind.Models.ObservableObject
+internal static class GameDiscoverySelection
 {
-    private bool _isSelected = true;
+    public static bool? State(IEnumerable<GameDiscoveryResourceItem> resources)
+    {
+        var eligible = resources.Where(resource => resource.CanSelect).ToList();
+        var selected = eligible.Count(resource => resource.IsSelected);
+        return selected == 0 ? false : selected == eligible.Count ? true : null;
+    }
+}
+
+public sealed class GameDiscoveryBackupSetItem : FolderRewind.Models.ObservableObject, IDisposable
+{
     private GameDiscoveryPresetItem? _selectedPreset;
     private readonly bool _isPresetLocked;
-
-    public GameDiscoveryBackupSetItem(
-        BackupSetCandidate candidate,
-        IReadOnlyList<GameDiscoveryPresetItem> presets,
-        bool hasExistingConfiguration,
-        bool isPresetLocked = false)
+    private bool _changingSelection;
+    public GameDiscoveryBackupSetItem(BackupSetCandidate candidate, IReadOnlyList<GameDiscoveryPresetItem> presets,
+        BackupConfig? existingConfig, bool isPresetLocked = false)
     {
         Candidate = candidate;
-        HasExistingConfiguration = hasExistingConfiguration;
+        ExistingConfig = existingConfig;
         _isPresetLocked = isPresetLocked;
         foreach (var resource in candidate.Resources)
         {
-            Resources.Add(new GameDiscoveryResourceItem(resource));
+            var item = new GameDiscoveryResourceItem(resource);
+            item.PropertyChanged += OnResourceChanged;
+            Resources.Add(item);
         }
-        foreach (var preset in presets)
-        {
-            Presets.Add(preset);
-        }
-        SelectedPreset = Presets.Count(item => item.Preset.IsRecommended) == 1
-            ? Presets.Single(item => item.Preset.IsRecommended)
-            : Presets.FirstOrDefault();
-        _isSelected = hasExistingConfiguration || Resources.Any(item => item.IsSelected);
+        foreach (var preset in presets) Presets.Add(preset);
+        SelectedPreset = HasExistingConfiguration ? null : Presets.Count(item => item.Preset.IsRecommended) == 1
+            ? Presets.Single(item => item.Preset.IsRecommended) : Presets.FirstOrDefault();
+        var kind = existingConfig?.Kind ?? candidate.PluginDraftContext?.Kind ?? SelectedPreset?.Preset.Kind ?? new ConfigKindReference();
+        var option = PluginService.GetAllSupportedConfigKinds(includeEncrypted: true).FirstOrDefault(item =>
+            string.Equals(item.Kind.OwnerId, kind.OwnerId, StringComparison.OrdinalIgnoreCase) && item.Kind.KindId == kind.KindId);
+        KindText = I18n.Format("GameDiscovery_ConfigType", option?.DisplayName ?? kind.KindId);
+        var pluginId = candidate.PluginDraftContext?.PluginId ?? existingConfig?.RequiredPluginId ?? option?.RequiredPluginId;
+        var pluginName = PluginService.InstalledPlugins.FirstOrDefault(item => item.Id == pluginId)?.Name;
+        PluginText = I18n.Format("GameDiscovery_ManagedBy", string.IsNullOrEmpty(pluginId) ? "FolderRewind" : pluginName ?? pluginId);
     }
-
     public BackupSetCandidate Candidate { get; }
-    public bool HasExistingConfiguration { get; }
-    public bool CanChoosePreset => !HasExistingConfiguration && !_isPresetLocked;
+    public BackupConfig? ExistingConfig { get; }
+    public bool HasExistingConfiguration => ExistingConfig is not null;
+    public bool CanChoosePreset => !HasExistingConfiguration && !_isPresetLocked && Presets.Count > 1;
+    public bool HasPresetPicker => CanChoosePreset;
+    public string SettingsSummary => HasExistingConfiguration
+        ? I18n.Format("GameDiscovery_UseExisting", ExistingConfig!.Name)
+        : I18n.Format("GameDiscovery_BackupSettings", SelectedPreset?.Name ?? I18n.GetString("GameDiscovery_NoCompatiblePreset"));
+    public string KindText { get; }
+    public string PluginText { get; }
     public string Name => Candidate.DisplayName;
     public ObservableCollection<GameDiscoveryResourceItem> Resources { get; } = new();
     public ObservableCollection<GameDiscoveryPresetItem> Presets { get; } = new();
-    public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
-    public GameDiscoveryPresetItem? SelectedPreset { get => _selectedPreset; set => SetProperty(ref _selectedPreset, value); }
+    public bool CanSelect => Resources.Any(resource => resource.CanSelect);
+    public int SelectedResourceCount => Resources.Count(resource => resource.CanSelect && resource.IsSelected);
+    public string SelectionSummary => I18n.Format("GameDiscovery_SetSelection", SelectedResourceCount, Resources.Count(resource => resource.CanSelect));
+    public bool? SelectionState => GameDiscoverySelection.State(Resources);
+    public bool IsSelected
+    {
+        get => SelectedResourceCount > 0;
+        set
+        {
+            _changingSelection = true;
+            try { foreach (var resource in Resources.Where(resource => resource.CanSelect)) resource.IsSelected = value; }
+            finally { _changingSelection = false; NotifySelection(); }
+        }
+    }
+    public void ToggleSelection() => IsSelected = SelectionState != true;
+    public GameDiscoveryPresetItem? SelectedPreset
+    {
+        get => _selectedPreset;
+        set { if (SetProperty(ref _selectedPreset, value)) OnPropertyChanged(nameof(SettingsSummary)); }
+    }
+    private void OnResourceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    { if (!_changingSelection && args.PropertyName == nameof(GameDiscoveryResourceItem.IsSelected)) NotifySelection(); }
+    private void NotifySelection()
+    {
+        OnPropertyChanged(nameof(IsSelected)); OnPropertyChanged(nameof(SelectionState));
+        OnPropertyChanged(nameof(SelectedResourceCount)); OnPropertyChanged(nameof(SelectionSummary));
+    }
+    public void Dispose() { foreach (var resource in Resources) resource.PropertyChanged -= OnResourceChanged; }
 }
 
 public sealed class GameDiscoveryResourceItem : FolderRewind.Models.ObservableObject
@@ -1094,7 +1180,9 @@ public sealed class GameDiscoveryPresetItem
 {
     public GameDiscoveryPresetItem(BackupPreset preset) => Preset = preset;
     public BackupPreset Preset { get; }
-    public string Name => Preset.IsRecommended
+    public string Name => Preset.IsBuiltIn && Preset.ShareId.StartsWith("builtin.", StringComparison.OrdinalIgnoreCase)
+        ? I18n.GetString("GameDiscovery_DefaultSettings")
+        : Preset.IsRecommended
         ? I18n.Format("GameDiscovery_Preset_Recommended", Preset.Name)
         : Preset.Name;
 }
