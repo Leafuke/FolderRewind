@@ -6083,9 +6083,12 @@ Pull Request：{1}</value>
 可回收：{3} MiB
 净释放：{4} MiB（负数表示占用增加）
 确认后提交删除；取消会保留原备份。</value></data>
-  <data name="History_Rewrite_CleanupPending" xml:space="preserve"><value>备份链重建已提交，部分文件或本地状态仍待恢复处理。重新打开配置后会继续处理，请暂勿手动移除归档。</value></data>
+  <data name="History_Rewrite_CleanupPending" xml:space="preserve"><value>备份链重建已提交，部分文件或本地状态仍待恢复处理。重新启动应用后会继续处理，请暂勿手动移除归档。</value></data>
   <data name="History_Rewrite_Unsupported" xml:space="preserve"><value>此备份格式或历史边界暂不支持安全重建，可以选择仅隐藏记录。</value></data>
   <data name="History_Rewrite_PreparationRequired" xml:space="preserve"><value>后续版本无法精确恢复，请先下载缺失的归档或修复备份链。</value></data>
   <data name="History_Rewrite_Changed" xml:space="preserve"><value>历史记录已发生变化，请重新准备删除。</value></data>
   <data name="History_Rewrite_Shared" xml:space="preserve"><value>所选归档文件仍被另一个保留副本使用，无法删除。</value></data>
+  <data name="HistoryCancelOperation.Content" xml:space="preserve"><value>取消</value></data>
+  <data name="History_Rewrite_InsufficientSpace" xml:space="preserve"><value>临时空间不足，无法安全重建备份链。原备份已保留，请释放空间后重试。</value></data>
+  <data name="History_Rewrite_Failed" xml:space="preserve"><value>暂时无法安全删除此备份。请检查备份完整性、密码及运行中的操作后重试，详细原因已记录到日志。</value></data>
 </root>

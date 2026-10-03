@@ -23,11 +23,13 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
     public sealed record Node(SourceVersion Version, VersionRepresentation Representation, LocalReplicaCatalogEntry Entry,
         string StateDirectory, HistoryRewriteTree Tree);
 
-    public HistoryChainRewriteFixture()
+    public string? Password { get; set; }
+    public HistoryChainRewriteFixture(bool encrypted = false)
     {
         var exe = SevenZipExecutableLocator.Resolve(Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z"));
         Assert.IsNotNull(exe, "Real 7-Zip is required; set FOLDERREWIND_TEST_7Z.");
-        Archive = new(() => exe, () => null, false, ".restore-marker");
+        Password = encrypted ? "rewrite-test-password" : null;
+        Archive = new(() => exe, () => Password, encrypted, ".restore-marker");
         Engine = new([new CoreArchiveRepresentationHandler(Archive), new SmartDeltaRepresentationHandler(Archive)]);
     }
 
@@ -39,7 +41,8 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
         await History.LocalReplicaCatalogStore.SaveAsync(new(Config, 0, []), -1);
     }
 
-    public async Task<Node> AddAsync(Node? parent, Action<string> change, bool full = false)
+    public async Task<Node> AddAsync(Node? parent, Action<string> change, bool full = false,
+        CaptureScope scope = CaptureScope.FullSource, HistoryProvenance? provenance = null)
     {
         var directory = Path.Combine(Root, "states", Nodes.Count.ToString());
         Directory.CreateDirectory(directory);
@@ -57,7 +60,7 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
         change(directory);
         var tree = await HistoryRewriteTree.ReadAsync(directory);
         var version = new SourceVersion(VersionId.New(), Config, Source, parent is null ? [] : [parent.Version.VersionId],
-            DateTimeOffset.UtcNow, null, CaptureScope.FullSource, CaptureOutcome.Captured, [], new("source", directory), null, HistoryProvenance.Native("test"));
+            DateTimeOffset.UtcNow, null, scope, CaptureOutcome.Captured, [], new("source", directory), null, provenance ?? HistoryProvenance.Native("test"));
         var id = RepresentationId.New();
         full |= parent is null;
         var output = Path.Combine(Root, "archives", id.ToString());

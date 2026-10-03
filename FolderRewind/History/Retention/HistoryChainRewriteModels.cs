@@ -20,7 +20,8 @@ public sealed record HistoryChainRewriteStep(
     VersionRepresentation Original,
     RepresentationId ReplacementId,
     RepresentationId? BaseRepresentationId,
-    bool ReusePayload);
+    bool ReusePayload,
+    RepresentationId? ExistingAlternativeId = null);
 
 public sealed record HistoryChainRewritePlan(
     HistoryTransactionId OperationId,

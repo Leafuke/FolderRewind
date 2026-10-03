@@ -582,9 +582,9 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
         try
         {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
             await using var operationLease = await NativeHistoryConfigurationOperationGate
                 .EnterAsync(config.Id, cancellationToken);
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
             var deletesLocalPayload = mode is BackupDeleteMode.LocalArchiveOnly
                 or BackupDeleteMode.LocalArchiveAndRecord;
             FolderRewind.History.Retention.HistoryChainRewriteResult? deletion = null;
@@ -629,6 +629,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            LogService.LogWarning("[History deletion] " + ex.Message, nameof(HistoryPageViewModel));
             return new() { Success = false, Message = LocalizeDeleteError(ex.Message) };
         }
         finally
@@ -686,7 +687,14 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 I18n.GetString("History_Rewrite_Changed"),
             "The selected archive path is shared by another retained local replica." =>
                 I18n.GetString("History_Rewrite_Shared"),
-            _ => message
+            var detail when detail.Contains("Insufficient temporary space", StringComparison.Ordinal) =>
+                I18n.GetString("History_Rewrite_InsufficientSpace"),
+            var detail when detail.Contains("unsupported", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("does not support", StringComparison.Ordinal) =>
+                I18n.GetString("History_Rewrite_Unsupported"),
+            var detail when detail.Contains("Download missing archives", StringComparison.Ordinal) =>
+                I18n.GetString("History_Rewrite_PreparationRequired"),
+            _ => I18n.GetString("History_Rewrite_Failed")
         };
 
     public async Task<bool> CreateBranchAsync(CheckpointId checkpointId, string name)

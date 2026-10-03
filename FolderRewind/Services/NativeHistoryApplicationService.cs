@@ -436,6 +436,8 @@ internal static partial class NativeHistoryApplicationService
         bool releaseVersion,
         CancellationToken cancellationToken = default)
     {
+        _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+        await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var existed = File.Exists(localPath);
         await using var prepared = await PrepareVersionDeletionAsync(config, versionId, representationId,
             localPath, hideRecord: false, releaseVersion, token: cancellationToken).ConfigureAwait(false);

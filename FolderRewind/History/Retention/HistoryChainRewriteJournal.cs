@@ -16,11 +16,13 @@ namespace FolderRewind.History.Retention;
 public sealed record HistoryRewriteRetiredFile(string Path, long Size, string StorageSha256,
     ImmutableArray<RepresentationId> Representations);
 public sealed record HistoryRewriteMapping(RepresentationId PreviousId, VersionRepresentation Replacement, string Path, int DeltaDepth);
+public sealed record HistoryRewriteFileWitness(string Path, long Size, string StorageSha256);
 public sealed record HistoryChainRewriteJournal(HistoryTransactionId OperationId, PackId? PackId,
     bool StateApplied, bool Complete, ImmutableArray<HistoryRewriteRetiredFile> RetiredFiles,
-    ImmutableArray<HistoryRewriteMapping> Mappings);
+    ImmutableArray<HistoryRewriteMapping> Mappings,
+    ImmutableArray<HistoryRewriteFileWitness> VerifiedFiles = default);
 
-public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history)
+public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Action<string>? checkpoint = null)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private string Root => Path.Combine(history.Repository.Paths.LocalStateRoot, "chain-rewrites");
@@ -28,7 +30,8 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history)
     public string PayloadRoot(HistoryTransactionId id) => Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads", "rewrite-" + id);
     private string PathFor(HistoryTransactionId id) => Path.Combine(Root, id + ".json");
     public void Save(HistoryChainRewriteJournal journal)
-        => AtomicFileService.Write(PathFor(journal.OperationId), stream => JsonSerializer.Serialize(stream, journal, Json));
+        => AtomicFileService.Write(PathFor(journal.OperationId), stream => JsonSerializer.Serialize(stream,
+            journal with { VerifiedFiles = journal.VerifiedFiles.IsDefault ? [] : journal.VerifiedFiles }, Json));
 
     public static void RequireRecovered(string localStateRoot)
     {
@@ -40,6 +43,12 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history)
             if (journal.PackId is not null && !journal.StateApplied && !journal.Complete)
                 throw new InvalidOperationException("An interrupted backup chain rewrite requires recovery.");
         }
+    }
+
+    internal static bool HasPending(string localStateRoot)
+    {
+        var root = Path.Combine(localStateRoot, "chain-rewrites");
+        return Directory.Exists(root) && Directory.EnumerateFiles(root, "*.json").Any(path => !Read(path).Complete);
     }
 
     public async Task<bool> RecoverAsync(CancellationToken token = default)
@@ -70,18 +79,33 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history)
         if (!journal.StateApplied)
         {
             await RepairBaselinesAsync(journal, token).ConfigureAwait(false);
+            checkpoint?.Invoke("cache-repaired");
             journal = journal with { StateApplied = true };
             Save(journal);
         }
         var catalog = (await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false));
         if (catalog.Status != DeviceLocalStateStatus.Valid || catalog.Value is null)
             throw new InvalidDataException("Cannot reclaim archives while Catalog requires recovery.");
+        // A crash can be followed by external damage. Never reclaim the fallback bytes if a
+        // previously verified retained chain has changed or disappeared since preparation.
+        foreach (var witness in journal.VerifiedFiles.IsDefault ? [] : journal.VerifiedFiles)
+        {
+            if (!Path.IsPathFullyQualified(witness.Path) || !File.Exists(witness.Path)) return false;
+            try
+            {
+                if (new FileInfo(witness.Path).Length != witness.Size
+                    || await HashAsync(witness.Path, token).ConfigureAwait(false) != witness.StorageSha256) return false;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
+        }
         var graph = await history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var protectedIds = history.MergeSessions.ProtectedRepresentations(graph);
         var complete = true;
+        checkpoint?.Invoke("before-reclamation");
         foreach (var file in journal.RetiredFiles)
         {
             token.ThrowIfCancellationRequested();
+            if (!Path.IsPathFullyQualified(file.Path)) throw new InvalidDataException("Archive reclamation requires an absolute path.");
             // Stable-root registrations cannot be resolved here; conservatively defer reclamation.
             if (catalog.Value.Entries.Any(e => e.Locator.Kind != LocalReplicaLocatorKind.ControlledAbsolutePath
                     || StringComparer.OrdinalIgnoreCase.Equals(e.Locator.AbsolutePath, file.Path))
@@ -95,6 +119,7 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history)
                 { complete = false; continue; }
                 File.SetAttributes(file.Path, FileAttributes.Normal);
                 File.Delete(file.Path);
+                checkpoint?.Invoke("file-reclaimed");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { complete = false; }
         }

@@ -18,7 +18,8 @@ public static class HistoryCaptureBaselineRepair
     {
         var graph = (await history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).ToDictionary(r => r.RepresentationId);
         var catalog = (await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
-        if (catalog is null || !graph.TryGetValue(baseline.BaseRepresentationId, out var root) || root.VersionId != baseline.BaseVersionId)
+        if (catalog is null || !File.Exists(baseline.PayloadPath)
+            || !graph.TryGetValue(baseline.BaseRepresentationId, out var root) || root.VersionId != baseline.BaseVersionId)
             return false;
         if (!catalog.Entries.Any(e => e.RepresentationId == root.RepresentationId
                 && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath

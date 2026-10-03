@@ -38,6 +38,8 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
         var targets = request.TargetReplicaIds.ToHashSet();
         var removedVersions = request.TargetVersionIds.ToHashSet();
         var blockers = new List<string>();
+        if (!Enum.IsDefined(request.Origin)) blockers.Add("Unknown chain rewrite operation.");
+        if (targets.Count == 0 || removedVersions.Count == 0) blockers.Add("Select at least one local backup to delete.");
         if (!targets.IsSubsetOf(catalog.Entries.Select(e => e.LocalReplicaId).ToHashSet()))
             blockers.Add("A selected local backup is no longer registered.");
         if (request.MaximumDeltaDepth < 0) blockers.Add("Invalid maximum delta depth.");
@@ -50,6 +52,9 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
             else if (!removedVersions.Contains(r.VersionId))
                 blockers.Add("The selected archive does not belong to a deletion target.");
         }
+        if (!removedVersions.SetEquals(catalog.Entries.Where(e => targets.Contains(e.LocalReplicaId))
+                .Select(e => graph.TryGetValue(e.RepresentationId, out var r) ? r.VersionId : default)))
+            blockers.Add("Deletion versions must match the selected local archives.");
         var mergeProtected = history.MergeSessions.ProtectedRepresentations(representations);
         if (catalog.Entries.Any(e => targets.Contains(e.LocalReplicaId) && mergeProtected.Contains(e.RepresentationId)))
             blockers.Add("Representation is protected by an unfinished Merge Session.");
@@ -85,6 +90,14 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
             var original = graph[id];
             if (!Supported(original)) throw new InvalidOperationException("A dependent version uses an unsupported archive or historical boundary.");
             if (mergeProtected.Contains(id)) throw new InvalidOperationException("Representation is protected by an unfinished Merge Session.");
+            var alternatives = await engine.AssessVersionAsync(original.VersionId, representations, after,
+                AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
+            if (alternatives.Readiness == HistoryReadiness.Ready && alternatives.Selected is { } alternate)
+            {
+                planned.Add(id);
+                steps.Add(new(original, alternate.RepresentationId, null, false, alternate.RepresentationId));
+                return;
+            }
             RepresentationId? parent = original.DependencyRepresentationIds.IsEmpty ? null : original.DependencyRepresentationIds[0];
             var skipped = false;
             while (parent is { } p && removedVersions.Contains(graph[p].VersionId))

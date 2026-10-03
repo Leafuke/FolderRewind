@@ -61,6 +61,7 @@ public sealed class HistoryRestoreService
             _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
         }
         await _history.CleanupMergeArtifactsAsync().ConfigureAwait(false);
+        await _history.RecoverChainRewritesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<HistoryRestoreResult> RestoreCheckpointAsync(

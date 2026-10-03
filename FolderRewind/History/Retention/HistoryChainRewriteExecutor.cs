@@ -20,6 +20,7 @@ public sealed class PreparedHistoryChainRewrite : IAsyncDisposable
     public HistoryChainRewritePlan Plan { get; }
     public ImmutableArray<HistoryRewriteMapping> Mappings { get; internal set; } = [];
     public ImmutableArray<HistoryRewriteRetiredFile> RetiredFiles { get; internal set; } = [];
+    internal ImmutableArray<HistoryRewriteFileWitness> VerifiedFiles { get; set; } = [];
     public LocalReplicaCatalog Catalog { get; internal set; } = null!;
     public long CreatedBytes { get; internal set; }
     public long ReclaimedBytes => RetiredFiles.Sum(f => f.Size);
@@ -42,7 +43,8 @@ public sealed class PreparedHistoryChainRewrite : IAsyncDisposable
 }
 
 public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, RepresentationRuntime engine,
-    IHistoryChainRewriteArchiveBackend archives)
+    IHistoryChainRewriteArchiveBackend archives, Action<string>? checkpoint = null,
+    Func<string, long>? availableSpace = null)
 {
     public async Task<PreparedHistoryChainRewrite> PrepareAsync(HistoryChainRewritePlan plan,
         IProgress<HistoryChainRewriteProgress>? progress = null, CancellationToken token = default)
@@ -50,13 +52,17 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         if (!plan.CanExecute) throw new InvalidOperationException(string.Join(" ", plan.Blockers));
         if (await HistoryChainRewritePlanner.FingerprintAsync(history, token).ConfigureAwait(false) != plan.StateFingerprint)
             throw new InvalidOperationException("History changed; prepare the deletion again.");
-        var journals = new HistoryChainRewriteJournalStore(history);
+        var journals = new HistoryChainRewriteJournalStore(history, checkpoint);
         var prepared = new PreparedHistoryChainRewrite(plan, journals);
         journals.Save(new(plan.OperationId, null, false, false, [], []));
         try
         {
+            RequireSpace(journals.WorkRoot(plan.OperationId), 1024 * 1024);
             var inputIds = plan.Steps.SelectMany(s => HistoryChainRewritePlanner.Closure(s.Original.RepresentationId,
                 plan.Representations.ToDictionary(r => r.RepresentationId))).ToHashSet();
+            foreach (var alternate in plan.Steps.Where(s => s.ExistingAlternativeId is not null))
+                inputIds.UnionWith(HistoryChainRewritePlanner.Closure(alternate.ExistingAlternativeId!.Value,
+                    plan.Representations.ToDictionary(r => r.RepresentationId)));
             var targets = plan.Request.TargetReplicaIds.ToHashSet();
             foreach (var path in plan.Catalog.Entries.Where(e => inputIds.Contains(e.RepresentationId) || targets.Contains(e.LocalReplicaId))
                          .Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
@@ -71,6 +77,14 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
             }
             if (plan.Request.Origin == HistoryChainRewriteOrigin.Retention && prepared.NetReleasedBytes <= 0)
             { prepared.CanCommit = false; prepared.Diagnostic = "Safe chain rewriting would not release disk space."; }
+            if (prepared.CanCommit)
+                foreach (var witness in prepared.VerifiedFiles)
+                {
+                    if (!prepared.Reads.Any(read => StringComparer.OrdinalIgnoreCase.Equals(read.Name, witness.Path)))
+                        prepared.Reads.Add(new FileStream(witness.Path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true));
+                    if (await HistoryChainRewriteJournalStore.HashAsync(witness.Path, token).ConfigureAwait(false) != witness.StorageSha256)
+                        throw new IOException("A verified archive changed during preparation.");
+                }
             return prepared;
         }
         catch { await prepared.DisposeAsync().ConfigureAwait(false); throw; }
@@ -103,13 +117,23 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
             token.ThrowIfCancellationRequested();
             progress?.Report(new("rebuild", mappings.Count, plan.Steps.Length));
             var original = await OriginalAsync(step.Original.RepresentationId).ConfigureAwait(false);
+            RequireSpace(outputs, checked(original.Tree.TotalBytes * 3 + 1024 * 1024));
             var parent = step.BaseRepresentationId is { } oldParent
                 ? mappings.GetValueOrDefault(oldParent)?.Replacement.RepresentationId ?? oldParent : (RepresentationId?)null;
             var depth = parent is { } p ? DeltaDepth(p, graph) + 1 : 0;
             var reuse = step.ReusePayload && (plan.Request.MaximumDeltaDepth <= 0 || depth <= plan.Request.MaximumDeltaDepth);
             string path;
             VersionRepresentation replacement;
-            if (reuse)
+            if (step.ExistingAlternativeId is { } alternateId)
+            {
+                replacement = graph[alternateId];
+                var assessment = await engine.AssessVersionAsync(replacement.VersionId, plan.Representations,
+                    new RepresentationEnvironment(plan.Catalog.Entries.Where(e => !plan.Request.TargetReplicaIds.Contains(e.LocalReplicaId)), [], []),
+                    AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
+                path = assessment.Candidates.Single(a => a.RepresentationId == alternateId).SelectedLocalPath
+                    ?? throw new InvalidDataException("Alternative archive is unavailable.");
+            }
+            else if (reuse)
             {
                 var assessment = await engine.AssessVersionAsync(step.Original.VersionId, plan.Representations, originals,
                     AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
@@ -131,6 +155,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                     ? await archives.CreateFullAsync(versions[step.Original.VersionId], original.Directory, step.ReplacementId, output, token).ConfigureAwait(false)
                     : await archives.CreateDeltaAsync(versions[step.Original.VersionId], original.Directory, changed, step.ReplacementId, output, token).ConfigureAwait(false);
                 path = Path.GetFullPath(payload.PayloadPath);
+                checkpoint?.Invoke("payload-created");
                 var relative = Path.GetRelativePath(output, path);
                 if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar)
                     || !File.Exists(path) || new FileInfo(path).Length != payload.Size)
@@ -150,14 +175,18 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                 if (!verified.Success) throw new InvalidDataException(verified.Diagnostic);
                 created += payload.Size;
             }
-            graph.Add(replacement.RepresentationId, replacement);
-            entries.Add(new(replacement.RepresentationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(path), DateTimeOffset.UtcNow));
+            graph.TryAdd(replacement.RepresentationId, replacement);
+            if (!entries.Any(e => e.RepresentationId == replacement.RepresentationId
+                    && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath
+                    && StringComparer.OrdinalIgnoreCase.Equals(e.Locator.AbsolutePath, path)))
+                entries.Add(new(replacement.RepresentationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(path), DateTimeOffset.UtcNow));
             var verifyDirectory = Path.Combine(work, "verify", replacement.RepresentationId.ToString());
             progress?.Report(new("verify", mappings.Count, plan.Steps.Length));
             await engine.MaterializeAsync(replacement.RepresentationId, graph.Values.ToArray(),
                 new RepresentationEnvironment(entries, [], []), MaterializationFidelity.Exact, verifyDirectory, token).ConfigureAwait(false);
             if (!original.Tree.EquivalentTo(await HistoryRewriteTree.ReadAsync(verifyDirectory, token).ConfigureAwait(false)))
                 throw new InvalidDataException("Rewritten chain does not reproduce the original file state.");
+            checkpoint?.Invoke("replacement-verified");
             mappings.Add(step.Original.RepresentationId, new(step.Original.RepresentationId, replacement, path, DeltaDepth(replacement.RepresentationId, graph)));
         }
         var targetIds = plan.Request.TargetReplicaIds.ToHashSet();
@@ -180,13 +209,25 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                 [.. group.Select(e => e.RepresentationId).Distinct()]));
         }
         var finalEnvironment = new RepresentationEnvironment(finalEntries, [], []);
+        var verifiedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var id in plan.ProtectedVersions)
         {
             var assessment = await engine.AssessVersionAsync(id, graph.Values.ToArray(), finalEnvironment,
                 AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
             if (assessment.Readiness != HistoryReadiness.Ready)
                 throw new InvalidOperationException("A retained version would lose its Exact local restoration path.");
+            foreach (var dependency in HistoryChainRewritePlanner.Closure(assessment.Selected!.RepresentationId, graph))
+            {
+                var dependencyAssessment = await engine.AssessVersionAsync(graph[dependency].VersionId, graph.Values.ToArray(),
+                    finalEnvironment, AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
+                verifiedPaths.Add(dependencyAssessment.Candidates.Single(a => a.RepresentationId == dependency).SelectedLocalPath
+                    ?? throw new InvalidDataException("A verified dependency is no longer local."));
+            }
         }
+        var witnesses = new List<HistoryRewriteFileWitness>();
+        foreach (var path in verifiedPaths)
+            witnesses.Add(new(path, new FileInfo(path).Length, await HistoryChainRewriteJournalStore.HashAsync(path, token).ConfigureAwait(false)));
+        prepared.VerifiedFiles = [.. witnesses];
         prepared.Mappings = [.. mappings.Values];
         prepared.RetiredFiles = [.. deletions];
         prepared.CreatedBytes = created;
@@ -226,15 +267,19 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         var pack = new HistoryCommitPack(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow, facts.Select(f => codec.CreateObject(f)));
         var journal = HistoryTransactionJournal.Prepared(pack.TransactionId, pack.PackId,
             [HistoryLocalStateJournalRecovery.CreateCatalogIntent(prepared.Catalog, plan.Catalog.CatalogRevision)]);
-        var rewrite = new HistoryChainRewriteJournal(plan.OperationId, pack.PackId, false, false, prepared.RetiredFiles, prepared.Mappings);
+        var rewrite = new HistoryChainRewriteJournal(plan.OperationId, pack.PackId, false, false,
+            prepared.RetiredFiles, prepared.Mappings, prepared.VerifiedFiles);
         token.ThrowIfCancellationRequested();
         prepared.Journals.Save(rewrite);
         prepared.CommitStarted = true;
         try
         {
+            checkpoint?.Invoke("before-pack");
             await history.Repository.CommitAsync(pack, journal, CancellationToken.None).ConfigureAwait(false);
+            checkpoint?.Invoke("pack-installed");
             await new HistoryLocalStateJournalRecovery(history.WorkspaceStore, history.LocalReplicaCatalogStore)
                 .ApplyCommittedStateAsync(journal, CancellationToken.None).ConfigureAwait(false);
+            checkpoint?.Invoke("catalog-applied");
             history.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.Complete });
             await history.EnsureIndexCurrentAsync(CancellationToken.None).ConfigureAwait(false);
             prepared.ReleaseReads();
@@ -262,5 +307,12 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         var current = graph[id];
         return current.Kind != RepresentationKind.CoreSmartDelta ? 0
             : 1 + (current.DependencyRepresentationIds.IsEmpty ? 0 : current.DependencyRepresentationIds.Max(p => DeltaDepth(p, graph)));
+    }
+
+    private void RequireSpace(string path, long required)
+    {
+        var available = availableSpace?.Invoke(path) ?? new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))!).AvailableFreeSpace;
+        if (available < required)
+            throw new IOException("Insufficient temporary space to rebuild the backup chain. Original archives have been retained.");
     }
 }

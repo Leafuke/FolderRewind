@@ -144,21 +144,19 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             Directory.CreateDirectory(Path.GetDirectoryName(emptyMarker)!);
             await File.WriteAllTextAsync(emptyMarker, string.Empty, cancellationToken).ConfigureAwait(false);
         }
-        var result = await RunAsync(
-            "a",
-            path,
-            outputDirectory: null,
-            workingDirectory: materializedDirectory,
-            cancellationToken).ConfigureAwait(false);
-        if (emptyMarker is not null) Directory.Delete(Path.GetDirectoryName(emptyMarker)!, recursive: true);
-        if (!result.Success) throw new InvalidDataException(result.Diagnostic);
-        return new(
-            "7z",
-            path,
-            new FileInfo(path).Length,
-            null,
-            version.StateFingerprint,
-            ImmutableDictionary<string, string>.Empty);
+        try
+        {
+            var result = await RunAsync("a", path, outputDirectory: null,
+                workingDirectory: materializedDirectory, cancellationToken).ConfigureAwait(false);
+            if (!result.Success) throw new InvalidDataException(result.Diagnostic);
+            return new("7z", path, new FileInfo(path).Length, null, version.StateFingerprint,
+                ImmutableDictionary<string, string>.Empty);
+        }
+        finally
+        {
+            if (emptyMarker is not null && Directory.Exists(Path.GetDirectoryName(emptyMarker)))
+                Directory.Delete(Path.GetDirectoryName(emptyMarker)!, recursive: true);
+        }
     }
 
     public ValueTask<PayloadVerificationResult> DeepVerifyAsync(

@@ -46,6 +46,7 @@ public sealed partial class HistoryPageViewModel
         ExportVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>((item, token) => item is null ? Task.CompletedTask
             : ExecuteOperationAsync("version export", ct => ExportVersionCoreAsync(item, ct), token), CanExecuteItemOperation);
         DeleteVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(DeleteVersionCommandAsync, CanExecuteItemOperation);
+        CancelOperationCommand = new RelayCommand(CancelCurrentOperationCommands, () => IsOperationBusy);
 
         EditRunCommentCommand = new AsyncRelayCommand<BackupRunViewItem>(EditRunCommentCommandAsync, CanExecuteItemOperation);
         ToggleRunImportantCommand = new AsyncRelayCommand<BackupRunViewItem>(ToggleRunImportantCommandAsync, CanExecuteItemOperation);
@@ -85,6 +86,7 @@ public sealed partial class HistoryPageViewModel
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> RestoreVersionCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> ExportVersionCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> DeleteVersionCommand { get; }
+    public IRelayCommand CancelOperationCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> EditRunCommentCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> ToggleRunImportantCommand { get; }
     public IAsyncRelayCommand<BackupRunSourceViewItem> CreateBranchFromRunSourceCommand { get; }
@@ -1043,6 +1045,7 @@ public sealed partial class HistoryPageViewModel
 
     private void NotifyCommandStateChanged()
     {
+        CancelOperationCommand.NotifyCanExecuteChanged();
         RetryCommand.NotifyCanExecuteChanged();
         EditVersionCommentCommand.NotifyCanExecuteChanged();
         ToggleVersionImportantCommand.NotifyCanExecuteChanged();

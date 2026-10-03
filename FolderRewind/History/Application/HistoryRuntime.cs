@@ -128,8 +128,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
                 rebuilt = true;
             }
 
-            if (!await new Retention.HistoryChainRewriteJournalStore(this).RecoverAsync(cancellationToken).ConfigureAwait(false))
-                MaintenanceDiagnostic = "Backup chain rebuilt; some archive files await reclamation.";
+            await RecoverChainRewritesAsync(cancellationToken).ConfigureAwait(false);
             await RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
 
             _initialized = true;
@@ -161,12 +160,26 @@ public sealed class HistoryRuntime : IAsyncDisposable
 
     internal void ObservePendingRecovery()
     {
-        try { HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot); }
+        try
+        {
+            HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot);
+            Retention.HistoryChainRewriteJournalStore.RequireRecovered(Repository.Paths.LocalStateRoot);
+        }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
         {
             Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
             HealthDiagnostic = $"Config {ConfigId}: transactions ({Repository.Paths.TransactionsRoot}): {ex.Message}";
         }
+    }
+
+    internal async Task RecoverChainRewritesAsync(CancellationToken token)
+    {
+        if (!Retention.HistoryChainRewriteJournalStore.HasPending(Repository.Paths.LocalStateRoot)) return;
+        await EnsureIndexCurrentAsync(token).ConfigureAwait(false);
+        var completed = await new Retention.HistoryChainRewriteJournalStore(this).RecoverAsync(token).ConfigureAwait(false);
+        MaintenanceDiagnostic = completed ? null : "Backup chain recovery or archive reclamation needs attention; original archive bytes have been retained.";
+        await RefreshLocalStateHealthAsync(token).ConfigureAwait(false);
+        ChangeFeed.Publish(ConfigId, HistoryChangeKind.LocalStateChanged);
     }
 
     internal async Task RefreshLocalStateHealthAsync(CancellationToken cancellationToken = default)

@@ -217,6 +217,8 @@
             <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsOperationBusy, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.LiveSetting="Polite">
                 <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.IsOperationBusy, Mode=OneWay}"/>
                 <TextBlock Text="{x:Bind ViewModel.OperationStatus, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <Button x:Uid="HistoryCancelOperation" AutomationProperties.AutomationId="HistoryCancelOperation"
+                        Command="{x:Bind ViewModel.CancelOperationCommand}"/>
             </StackPanel>
             <Grid Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
                   AutomationProperties.LiveSetting="Polite">
