@@ -1,0 +1,11 @@
+{
+  "files": {
+    "a.txt": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8",
+    "switch": "eb6832b34ca2adb7cbf8e5b8b5970f9ce348d46dbd6351237f8ce98bb1dcbb55",
+    "deleted.txt": "e569dbda12a505b3a8ffb7e15e568b1569574c0c364c430bc132355d0a07162a"
+  },
+  "absent": [
+    "switch/child.txt",
+    "\u4E2D\u6587.txt"
+  ]
+}

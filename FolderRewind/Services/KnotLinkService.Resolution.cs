@@ -29,14 +29,16 @@ namespace FolderRewind.Services
             config = null;
             error = string.Empty;
 
-            var configId = GetConfigOption(request);
+            var configId = request.ResolvedTarget?.ConfigId ?? GetConfigOption(request);
             if (string.IsNullOrWhiteSpace(configId))
             {
                 error = "ERROR:" + I18n.GetString("KnotLink_Error_MissingConfigId");
                 return false;
             }
 
-            config = FindConfigById(configId);
+            config = request.ResolvedTarget is not null
+                ? ConfigService.CurrentConfig?.BackupConfigs.FirstOrDefault(value => value.Id == configId)
+                : FindConfigById(configId);
             if (config == null)
             {
                 error = $"ERROR:Config not found: {configId}";
@@ -51,7 +53,7 @@ namespace FolderRewind.Services
             folder = null;
             error = string.Empty;
 
-            var folderArg = GetFolderOption(request);
+            var folderArg = request.ResolvedTarget?.FolderId.ToString("D") ?? GetFolderOption(request);
             if (string.IsNullOrWhiteSpace(folderArg))
             {
                 error = "ERROR:" + I18n.GetString("KnotLink_Error_MissingFolderName");
@@ -91,10 +93,10 @@ namespace FolderRewind.Services
 
         private static bool TryResolveRestoreMode(KnotLinkCommandRequest request, out BackupService.RestoreMode mode, out string error)
         {
-            mode = BackupService.RestoreMode.Overwrite;
+            mode = BackupService.RestoreMode.Clean;
             error = string.Empty;
 
-            var modeText = request.GetString("mode");
+            var modeText = request.GetString("mode")?.Trim();
             if (string.IsNullOrWhiteSpace(modeText))
             {
                 return true;
@@ -114,6 +116,21 @@ namespace FolderRewind.Services
 
             error = $"ERROR:{I18n.Format("KnotLink_Error_InvalidRestoreMode", modeText)}";
             return false;
+        }
+
+        private static bool TryCreateBackupOperationConfig(KnotLinkCommandRequest request, BackupConfig source,
+            out BackupConfig effectiveConfig, out string error)
+        {
+            if (!KnotLinkBackupOverrideService.TryCreateEffectiveConfig(request, source, out effectiveConfig, out error)) return false;
+            effectiveConfig = CreateConfigWithOneShotOverrides(effectiveConfig,
+                request.GetList("backup_blacklist"), GetBackupWhitelistOptions(request), [],
+                request.GetString("backup_scope"), GetScopeParameters(request));
+            var validation = PluginService.ValidateBackupScope(effectiveConfig);
+            if (!validation.Success) { error = $"{validation.ErrorCode}:{validation.ErrorMessage}"; return false; }
+            if (!BackupService.TryValidateBackupFilterRules(effectiveConfig.Filters, out error)) return false;
+            if (ReferenceEquals(effectiveConfig, source))
+                effectiveConfig = BackupConfigCloneService.CloneForRuntimeMutation(source, "Could not snapshot backup options.");
+            return true;
         }
 
         private static BackupConfig CreateConfigWithOneShotOverrides(
@@ -142,7 +159,7 @@ namespace FolderRewind.Services
             {
                 foreach (var rule in backupBlacklist.Where(rule => !string.IsNullOrWhiteSpace(rule)))
                 {
-                    clone.Filters.Blacklist.Add(rule.Trim());
+                    BackupFilterRulePolicy.AddDistinct(clone.Filters.Blacklist, rule);
                 }
             }
 
@@ -165,9 +182,12 @@ namespace FolderRewind.Services
 
             if (!string.IsNullOrWhiteSpace(backupScopeId))
             {
-                clone.BackupScope.PluginScopeId = IsFullScopeAlias(backupScopeId)
+                clone.BackupScope.ScopeId = IsFullScopeAlias(backupScopeId)
                     ? string.Empty
                     : backupScopeId.Trim();
+                clone.BackupScope.OwnerId = string.IsNullOrWhiteSpace(clone.BackupScope.ScopeId)
+                    ? string.Empty
+                    : clone.Kind.OwnerId;
             }
 
             if (backupScopeParameters != null && backupScopeParameters.Count > 0)
@@ -210,11 +230,6 @@ namespace FolderRewind.Services
         private static IReadOnlyList<string> GetBackupWhitelistOptions(KnotLinkCommandRequest request)
         {
             return request.GetList("backup_whitelist");
-        }
-
-        private static bool IsPartialBackup(BackupConfig config, ManagedFolder folder, string backupFile)
-        {
-            return HistoryService.TryGetEntry(config.Id, folder.Path, backupFile)?.IsPartialBackup == true;
         }
 
         private static ManagedFolder ResolveEquivalentFolder(BackupConfig effectiveConfig, ManagedFolder originalFolder)
@@ -263,6 +278,8 @@ namespace FolderRewind.Services
         /// </summary>
         private static ManagedFolder? FindFolderByIndexOrName(BackupConfig config, string indexOrName)
         {
+            if (Guid.TryParse(indexOrName, out var stableId))
+                return config.SourceFolders.FirstOrDefault(folder => Guid.TryParse(folder.Id, out var id) && id == stableId);
             // 先尝试按索引查找
             if (int.TryParse(indexOrName, out var index) && index >= 0 && index < config.SourceFolders.Count)
             {

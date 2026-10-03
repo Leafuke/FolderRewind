@@ -122,7 +122,12 @@ internal sealed class PathRuleMatcher
         }
     }
 
-    public static PathRuleMatcher CreateForBackup(
+        /// <summary>
+        /// 构建备份用的匹配器：识别 regex: 前缀规则（可按设置禁用），通配符规则同时
+        /// 匹配文件名与相对路径。backupSourceRoot 与 originalSourceRoot 分离用于快照源路径
+        /// （插件热备份把源替换为快照目录后仍按原路径规则匹配）。
+        /// </summary>
+        public static PathRuleMatcher CreateForBackup(
         IEnumerable<string>? rules,
         string backupSourceRoot,
         string originalSourceRoot,
@@ -135,7 +140,10 @@ internal sealed class PathRuleMatcher
             enableRegexRules,
             matchWildcardAgainstRelativePath: true);
 
-    public static PathRuleMatcher CreateForRestore(
+        /// <summary>
+        /// 构建恢复白名单用的匹配器：不识别正则规则，通配符只匹配完整路径段（不匹配相对路径）。
+        /// </summary>
+        public static PathRuleMatcher CreateForRestore(
         IEnumerable<string>? rules,
         string comparisonRoot)
         => new(
@@ -157,7 +165,12 @@ internal sealed class PathRuleMatcher
     public static void ValidateRestoreRules(IEnumerable<string>? rules)
         => _ = CreateForRestore(rules, string.Empty);
 
-    public bool IsMatch(string candidatePath)
+        /// <summary>
+        /// 判断候选路径是否命中任一规则，按字面量 → 通配符 → 正则的顺序匹配。
+        /// 候选先换算为相对源根的路径再参与匹配；正则规则的执行带 250ms 超时
+        /// （<see cref="RegexTimeout"/>），防止病态模式拖垮备份。
+        /// </summary>
+        public bool IsMatch(string candidatePath)
     {
         if (string.IsNullOrWhiteSpace(candidatePath))
         {
@@ -257,7 +270,10 @@ internal sealed class PathRuleMatcher
         return false;
     }
 
-    private static string TryGetRelativePath(string root, string candidate)
+        /// <summary>
+        /// 计算候选路径相对根的规范化路径；候选不在根内（结果为根路径或以 ../ 开头）时返回空串。
+        /// </summary>
+        private static string TryGetRelativePath(string root, string candidate)
     {
         if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(candidate))
         {

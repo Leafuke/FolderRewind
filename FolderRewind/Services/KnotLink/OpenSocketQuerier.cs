@@ -22,6 +22,8 @@ namespace FolderRewind.Services.KnotLink
 
         private string _appId;
         private string _openSocketId;
+        private readonly string _host;
+        private readonly int _port;
         private Action<string>? _recvCallback;
         private string? _queryResult;
         private bool _isQuerying;
@@ -37,12 +39,16 @@ namespace FolderRewind.Services.KnotLink
         {
             _appId = appId;
             _openSocketId = openSocketId;
+            _host = host;
+            _port = port;
 
             _client = new KlTcpClient();
             _client.OnDataReceivedAsync = OnDataReceivedAsync;
+        }
 
-            // 同步连接（构造函数中不能使用 await）
-            _client.ConnectAsync(host, port).GetAwaiter().GetResult();
+        public Task InitializeAsync()
+        {
+            return _client.ConnectAsync(_host, _port);
         }
 
         /// <summary>
@@ -85,7 +91,7 @@ namespace FolderRewind.Services.KnotLink
 
             try
             {
-                SendQuery(question);
+                SendQueryAsync(question).GetAwaiter().GetResult();
 
                 // 等待回复或超时
                 if (!_queryEvent.Wait(timeoutMs < 0 ? System.Threading.Timeout.Infinite : timeoutMs))
@@ -115,21 +121,20 @@ namespace FolderRewind.Services.KnotLink
         /// <param name="question">问题内容</param>
         public void QueryAsync(string question)
         {
-            SendQuery(question);
+            _ = SendQueryAsync(question);
         }
 
         /// <summary>
         /// 发送查询数据到服务器（内部方法）。
         /// </summary>
-        private void SendQuery(string question)
+        private async Task SendQueryAsync(string question)
         {
             string packet;
             lock (_lock)
             {
                 packet = $"{_appId}-{_openSocketId}&*&{question}";
             }
-            // 同步发送（使用异步方法的同步等待）
-            _client.SendAsync(packet).ConfigureAwait(false).GetAwaiter().GetResult();
+            await _client.SendAsync(packet).ConfigureAwait(false);
         }
 
         /// <summary>

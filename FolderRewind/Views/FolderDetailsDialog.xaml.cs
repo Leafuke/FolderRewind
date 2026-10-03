@@ -27,7 +27,7 @@ public sealed partial class FolderDetailsDialog : ContentDialog
     public Task InitializeAsync(BackupConfig config, ManagedFolder folder)
     {
         Title = string.IsNullOrWhiteSpace(folder.DisplayName)
-            ? I18n.GetString("FolderManager_Details.Text")
+            ? I18n.GetString("FolderManager_DetailsTitle")
             : folder.DisplayName;
 
         return ViewModel.LoadAsync(config, folder, _loadCts.Token);

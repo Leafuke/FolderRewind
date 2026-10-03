@@ -28,12 +28,12 @@ namespace FolderRewind.Models
     {
         private BackupFilterMode _backupFilterMode = BackupFilterMode.Blacklist;
         // 这里的黑名单是相对于 Config 的，应用于所有 SourceFolder
-        private ObservableCollection<string> _blacklist = new();
-        private ObservableCollection<string> _backupWhitelist = new();
+        private ObservableCollection<string> _blacklist = new GuardedObservableCollection<string>();
+        private ObservableCollection<string> _backupWhitelist = new GuardedObservableCollection<string>();
         public ObservableCollection<string> Blacklist
         {
             get => _blacklist;
-            set => SetProperty(ref _blacklist, value ?? new ObservableCollection<string>());
+            set => SetProperty(ref _blacklist, GuardedObservableCollection<string>.Wrap(value));
         }
 
         /// <summary>
@@ -51,19 +51,20 @@ namespace FolderRewind.Models
         public ObservableCollection<string> BackupWhitelist
         {
             get => _backupWhitelist;
-            set => SetProperty(ref _backupWhitelist, value ?? new ObservableCollection<string>());
+            set => SetProperty(ref _backupWhitelist, GuardedObservableCollection<string>.Wrap(value));
         }
 
-        public bool UseRegex { get; set; } = false;
+        private bool _useRegex;
+        public bool UseRegex { get => _useRegex; set => SetProperty(ref _useRegex, value); }
 
         /// <summary>
         /// 还原白名单：Clean 还原时不会清除的文件/文件夹
         /// </summary>
-        private ObservableCollection<string> _restoreWhitelist = new();
+        private ObservableCollection<string> _restoreWhitelist = new GuardedObservableCollection<string>();
         public ObservableCollection<string> RestoreWhitelist
         {
             get => _restoreWhitelist;
-            set => SetProperty(ref _restoreWhitelist, value ?? new ObservableCollection<string>());
+            set => SetProperty(ref _restoreWhitelist, GuardedObservableCollection<string>.Wrap(value));
         }
     }
 }

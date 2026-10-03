@@ -18,14 +18,14 @@ namespace FolderRewind.Services
     {
         public static async Task RunAsync(XamlRoot? xamlRoot, CancellationToken ct = default)
         {
-            if (!TemplateService.GetTemplates().Any())
+            if (!BackupPresetService.GetTemplates().Any())
             {
                 NotificationService.ShowWarning(I18n.GetString("Settings_Template_Export_NoTemplates"));
                 return;
             }
 
             var dialog = new TemplateSubmissionDialog();
-            var dialogResult = await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot, ct);
+            var dialogResult = await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot, ct);
             if (dialogResult == ContentDialogResult.None
                 || dialog.SelectedTemplate == null
                 || dialog.RequestedAction == TemplateSubmissionDialogAction.None)
@@ -44,27 +44,35 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void ApplySubmissionMetadata(ConfigTemplate template, string gameName, bool clearSteamAppId)
+        private static async Task<bool> ApplySubmissionMetadataAsync(BackupPreset template, string gameName, bool clearSteamAppId)
         {
-            // 元数据先落地，后面的导出/提交都基于这份一致状态运行。
-            template.GameName = gameName?.Trim() ?? string.Empty;
-            if (clearSteamAppId)
+            var previousName = template.GameName;
+            var previousAppId = template.SteamAppId;
+            try
             {
-                template.SteamAppId = null;
+                await ConfigEditTransaction.ApplyAsync(
+                    () => { template.GameName = gameName?.Trim() ?? string.Empty; if (clearSteamAppId) template.SteamAppId = null; },
+                    () => { template.GameName = previousName; template.SteamAppId = previousAppId; },
+                    () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+                return true;
             }
-
-            ConfigService.Save();
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(ex is ConfigEditRollbackException
+                    ? I18n.Format("Config_CompensationFailed", ex.Message) : ex.Message);
+                return false;
+            }
         }
 
         private static async Task ExportTemplateSubmissionPackageAsync(
-            ConfigTemplate selected,
+            BackupPreset selected,
             string gameName,
             XamlRoot? xamlRoot,
             CancellationToken ct)
         {
-            ApplySubmissionMetadata(selected, gameName, clearSteamAppId: true);
+            if (!await ApplySubmissionMetadataAsync(selected, gameName, clearSteamAppId: true)) return;
 
-            var validation = TemplateService.ValidateTemplateForOfficialSharing(selected);
+            var validation = BackupPresetService.ValidateTemplateForOfficialSharing(selected);
             if (!validation.Success)
             {
                 var validationMessage = validation.Errors.Count > 0 ? string.Join(Environment.NewLine, validation.Errors) : validation.Message;
@@ -85,7 +93,7 @@ namespace FolderRewind.Services
                 "FolderRewind.TemplateSubmission.ExportPackage",
                 new Dictionary<string, IReadOnlyList<string>>
                 {
-                    ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { TemplateService.ShareFileExtension })
+                    ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { BackupPresetService.ShareFileExtension })
                 },
                 $"FolderRewind_submission_{SanitizeFileName(selected.Name)}",
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
@@ -94,7 +102,7 @@ namespace FolderRewind.Services
                 return;
             }
 
-            var ok = TemplateService.ExportTemplateSubmissionPackage(selected.Id, filePath, out var summary, out var message);
+            var ok = BackupPresetService.ExportTemplateSubmissionPackage(selected.Id, filePath, out var summary, out var message);
             if (!ok)
             {
                 LogService.LogWarning(message, nameof(TemplateSubmissionWorkflowService));
@@ -122,16 +130,16 @@ namespace FolderRewind.Services
                 CloseButtonText = I18n.GetString("Common_Ok")
             };
 
-            await TemplateDialogCoordinatorService.ShowAsync(successDialog, xamlRoot, ct);
+            await AppDialogService.Default.ShowCustomAsync(successDialog, xamlRoot, ct);
         }
 
         private static async Task SubmitOfficialTemplateAsync(
-            ConfigTemplate selected,
+            BackupPreset selected,
             string gameName,
             XamlRoot? xamlRoot,
             CancellationToken ct)
         {
-            ApplySubmissionMetadata(selected, gameName, clearSteamAppId: false);
+            if (!await ApplySubmissionMetadataAsync(selected, gameName, clearSteamAppId: false)) return;
 
             var authState = await GitHubOAuthService.GetAuthenticationStateAsync(true, ct);
             if (!authState.IsAuthenticated)
@@ -191,11 +199,11 @@ namespace FolderRewind.Services
                 finally
                 {
                     completedByWorkflow = true;
-                    await TemplateDialogCoordinatorService.HideAsync(progressDialog);
+                    await AppDialogService.Default.HideCustomAsync(progressDialog);
                 }
             }, CancellationToken.None);
 
-            var progressResult = await TemplateDialogCoordinatorService.ShowAsync(progressDialog, xamlRoot, ct);
+            var progressResult = await AppDialogService.Default.ShowCustomAsync(progressDialog, xamlRoot, ct);
             var canceledByUser = progressResult == ContentDialogResult.None && !completedByWorkflow;
             if (canceledByUser)
             {
@@ -251,7 +259,7 @@ namespace FolderRewind.Services
                 CloseButtonText = I18n.GetString("Common_Ok")
             };
 
-            var result = await TemplateDialogCoordinatorService.ShowAsync(resultDialog, xamlRoot, ct);
+            var result = await AppDialogService.Default.ShowCustomAsync(resultDialog, xamlRoot, ct);
             if (result == ContentDialogResult.Primary)
             {
                 _ = Launcher.LaunchUriAsync(new Uri(submitResult.PullRequestUrl));

@@ -59,14 +59,15 @@ namespace FolderRewind.Services
                 return string.Empty;
             }
 
-            if (!string.IsNullOrWhiteSpace(_languageOverride)
-                && _mrtCoreManager != null
-                && _mrtCoreResourceMap != null)
+            if (_mrtCoreManager != null && _mrtCoreResourceMap != null)
             {
                 try
                 {
                     var context = _mrtCoreManager.CreateResourceContext();
-                    context.QualifierValues["Language"] = _languageOverride;
+                    if (!string.IsNullOrWhiteSpace(_languageOverride))
+                    {
+                        context.QualifierValues["Language"] = _languageOverride;
+                    }
                     var candidate = _mrtCoreResourceMap.TryGetValue(key, context);
                     if (!string.IsNullOrWhiteSpace(candidate?.ValueAsString))
                     {

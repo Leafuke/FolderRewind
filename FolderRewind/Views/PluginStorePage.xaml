@@ -10,27 +10,25 @@
 
     <ScrollViewer Padding="28">
         <StackPanel Spacing="12">
-            <TextBlock x:Uid="PluginStorePage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            <TextBlock x:Uid="PluginStorePage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <TextBlock x:Uid="PluginStorePage_Desc" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
-            <Grid ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBox x:Uid="PluginStorePage_RepoBox" Text="{x:Bind ViewModel.StoreRepo, Mode=TwoWay}"/>
-                <Button x:Uid="PluginStorePage_Load" Grid.Column="1" VerticalAlignment="Bottom" Command="{x:Bind ViewModel.LoadCommand}" IsEnabled="{x:Bind ViewModel.CanLoad, Mode=OneWay}"/>
-            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Uid="PluginStorePage_Load" Command="{x:Bind ViewModel.LoadCommand}" IsEnabled="{x:Bind ViewModel.CanLoad, Mode=OneWay}"/>
+                <Button x:Uid="PluginStorePage_InstallManual" Command="{x:Bind ViewModel.InstallManualCommand}" IsEnabled="{x:Bind ViewModel.CanLoad, Mode=OneWay}"/>
+            </StackPanel>
 
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Width="28" Height="28"/>
 
-            <TextBlock Text="{x:Bind ViewModel.ReleaseSummary, Mode=OneWay}" Visibility="{x:Bind ViewModel.ReleaseSummaryVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <TextBlock Text="{x:Bind ViewModel.ReleaseSummary, Mode=OneWay}" Visibility="{x:Bind ViewModel.HasReleaseSummary, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
-            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" Visibility="{x:Bind ViewModel.StatusVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" Visibility="{x:Bind ViewModel.HasStatus, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+            <Button x:Uid="PluginStorePage_Enable"
+                    Command="{x:Bind ViewModel.EnableManualCommand}"
+                    Visibility="{x:Bind ViewModel.CanEnableManualNow, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                    HorizontalAlignment="Left" />
 
-            <TextBlock x:Uid="PluginStorePage_EmptyRepoHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.EmptyRepoHintVisibility, Mode=OneWay}"/>
-
-            <TextBlock x:Uid="PluginStorePage_NoAssets" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.EmptyListVisibility, Mode=OneWay}"/>
+            <TextBlock x:Uid="PluginStorePage_NoAssets" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.IsEmptyList, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
 
             <ListView ItemsSource="{x:Bind ViewModel.Assets, Mode=OneWay}">
                 <ListView.ItemTemplate>
@@ -42,11 +40,11 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <TextBlock Text="{x:Bind SizeDisplay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{x:Bind SizeDisplay, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
-                                <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind Status, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -58,6 +56,15 @@
                                               Height="20"
                                               IsActive="{x:Bind IsBusy, Mode=OneWay}"
                                               Visibility="{x:Bind IsBusy, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"/>
+                                <TextBlock x:Uid="PluginStorePage_RestartRequired"
+                                           Visibility="{x:Bind RequiresRestart, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Button x:Uid="PluginStorePage_Enable"
+                                        Click="OnEnableClick"
+                                        Tag="{x:Bind}"
+                                        Visibility="{x:Bind CanEnableNow, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                        IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
                                 <Button x:Uid="PluginStorePage_Install" Click="OnInstallClick" Tag="{x:Bind}" IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
                             </StackPanel>
                         </Grid>

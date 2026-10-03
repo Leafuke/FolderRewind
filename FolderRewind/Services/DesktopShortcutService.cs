@@ -65,10 +65,12 @@ namespace FolderRewind.Services
                     link.TargetPath = executablePath;
                     link.Arguments = string.Empty;
                     link.WorkingDirectory = AppRuntimeInfo.ApplicationBaseDirectory;
-                    link.IconLocation = $"{Path.Combine(AppRuntimeInfo.ApplicationBaseDirectory, "Assets", "logo.ico")},0";
+                    link.IconLocation = $"{executablePath},0";
                 }
                 link.Description = "FolderRewind";
                 link.Save();
+                if (AppRuntimeInfo.IsMsiDistribution)
+                    ShellShortcutIdentity.SetShortcutIdentity(shortcutPath, ShellShortcutIdentity.MsiAppId, AppRuntimeInfo.ExecutablePath);
 
                 return true;
             }

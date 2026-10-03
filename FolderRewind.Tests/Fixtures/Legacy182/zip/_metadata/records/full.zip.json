@@ -1,0 +1,19 @@
+{
+  "ArchiveFileName": "full.zip",
+  "BackupType": "Full",
+  "BasedOnFullBackup": "full.zip",
+  "PreviousBackupFileName": "",
+  "CreatedAtUtc": "2026-10-02T13:31:09.5105329Z",
+  "AddedFiles": [
+    "a.txt",
+    "deleted.txt",
+    "switch"
+  ],
+  "ModifiedFiles": [],
+  "DeletedFiles": [],
+  "FullFileList": [
+    "a.txt",
+    "deleted.txt",
+    "switch"
+  ]
+}

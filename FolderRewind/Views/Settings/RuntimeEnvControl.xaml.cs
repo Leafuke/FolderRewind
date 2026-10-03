@@ -10,6 +10,11 @@ namespace FolderRewind.Views.Settings
     public sealed partial class RuntimeEnvControl : UserControl
     {
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
+        public void ShowOpenList()
+        {
+            RuntimeEnvironmentExpander.IsExpanded = true;
+            OpenListEnvironment.ShowRepairTarget();
+        }
 
         public RuntimeEnvControl()
         {

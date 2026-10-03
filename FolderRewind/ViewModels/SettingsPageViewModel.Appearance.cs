@@ -84,9 +84,9 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public void ClearSponsorBackground()
+        public async Task ClearSponsorBackgroundAsync()
         {
-            if (SponsorPersonalizationService.ClearBackgroundImage())
+            if (await SponsorPersonalizationService.ClearBackgroundImageAsync())
             {
                 OnPropertyChanged(nameof(Settings));
             }
@@ -166,9 +166,9 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public void ClearCustomCompletionSound()
+        public async Task ClearCustomCompletionSoundAsync()
         {
-            if (CompletionSoundService.ClearCustomSound())
+            if (await CompletionSoundService.ClearCustomSoundAsync())
             {
                 OnPropertyChanged(nameof(Settings));
             }
@@ -220,9 +220,19 @@ namespace FolderRewind.ViewModels
                     }
                 }
 
-                await UiDispatcherService.RunOnUiAsync(() =>
+                await UiDispatcherService.RunOnUiAsync(async () =>
                 {
+                    var previous = Settings.FontFamily;
                     ApplyFontFamilies(cached ?? GetFallbackFontFamilies(), persistWhenEmpty: true);
+                    if (Settings.FontFamily != previous)
+                    {
+                        try
+                        {
+                            await ConfigEditTransaction.ApplyAsync(() => { }, () => Settings.FontFamily = previous,
+                                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+                        }
+                        catch (Exception ex) { LogService.LogError(ex.Message, nameof(SettingsPageViewModel), ex); }
+                    }
                 });
             }
             finally
@@ -273,7 +283,6 @@ namespace FolderRewind.ViewModels
             if (!string.IsNullOrWhiteSpace(preferred))
             {
                 Settings.FontFamily = preferred;
-                ConfigService.Save();
             }
         }
 

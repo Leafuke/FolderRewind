@@ -7,10 +7,17 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
 {
+    public enum HistoryViewMode
+    {
+        PerSource = 0,
+        ByRun = 1
+    }
+
 
     public enum CloseBehavior
     {
@@ -23,14 +30,17 @@ namespace FolderRewind.Models
     public class ObservableObject : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement> SchemaExtensions { get; set; } = new();
+
         public void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
         protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-            field = value;
+            if (!ConfigMutationProtection.Set(this, ref field, value)) return false;
             OnPropertyChanged(propertyName);
             return true;
         }
@@ -41,9 +51,18 @@ namespace FolderRewind.Models
     /// </summary>
     public class AppConfig : ObservableObject
     {
+        public bool Legacy182UpgradePending { get; set; }
+        private int _schemaVersion = 1;
         private GlobalSettings _globalSettings = new();
-        private ObservableCollection<BackupConfig> _backupConfigs = new();
-        private ObservableCollection<ConfigTemplate> _templates = new();
+        private ObservableCollection<BackupConfig> _backupConfigs = new GuardedObservableCollection<BackupConfig>();
+        private ObservableCollection<BackupPreset> _backupPresets = new();
+
+        [JsonPropertyName("schemaVersion")]
+        public int SchemaVersion
+        {
+            get => _schemaVersion;
+            set => SetProperty(ref _schemaVersion, value);
+        }
 
         public GlobalSettings GlobalSettings
         {
@@ -54,13 +73,14 @@ namespace FolderRewind.Models
         public ObservableCollection<BackupConfig> BackupConfigs
         {
             get => _backupConfigs;
-            set => SetProperty(ref _backupConfigs, value ?? new ObservableCollection<BackupConfig>());
+            set => SetProperty(ref _backupConfigs, GuardedObservableCollection<BackupConfig>.Wrap(value));
         }
 
-        public ObservableCollection<ConfigTemplate> Templates
+        [JsonPropertyName("Templates")]
+        public ObservableCollection<BackupPreset> BackupPresets
         {
-            get => _templates;
-            set => SetProperty(ref _templates, value ?? new ObservableCollection<ConfigTemplate>());
+            get => _backupPresets;
+            set => SetProperty(ref _backupPresets, value ?? new ObservableCollection<BackupPreset>());
         }
     }
 
@@ -70,7 +90,7 @@ namespace FolderRewind.Models
     public class GlobalSettings : ObservableObject
     {
         private string _language = "system";
-        private int _themeIndex = 1; // 0: Dark, 1: Light, 2: System
+        private int _themeIndex = ThemeSettingPolicy.DefaultIndex; // 0: Dark, 1: Light, 2: System
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private string _rcloneExecutablePath = "";
         private string _defaultCloudRemoteBasePath = "remote:FolderRewind";
@@ -92,6 +112,8 @@ namespace FolderRewind.Models
         private string _lastManagerFolderPath = "";
         private string _lastHistoryConfigId = "";
         private string _lastHistoryFolderPath = "";
+        private HistoryViewMode _lastHistoryViewMode = HistoryViewMode.PerSource;
+        private HistoryPresentationMode _lastHistoryPresentationMode = HistoryPresentationMode.Normal;
         private int _sponsorAccentColorIndex = 0;
         private int _sponsorBackdropIndex = 0;
         private string _sponsorTitleText = "";
@@ -114,6 +136,7 @@ namespace FolderRewind.Models
 
         // 插件系统设置（集中管理，避免散落在 GlobalSettings 顶层）
         private PluginHostSettings _plugins = new();
+        private GameDiscoverySettings _gameDiscovery = new();
 
         // KnotLink 互联设置
         private bool _enableKnotLink = false;
@@ -155,6 +178,7 @@ namespace FolderRewind.Models
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
         public string RcloneExecutablePath { get => _rcloneExecutablePath; set => SetProperty(ref _rcloneExecutablePath, value ?? string.Empty); }
+        public OpenListRuntimeSettings OpenListRuntime { get; set; } = new();
         public string DefaultCloudRemoteBasePath { get => _defaultCloudRemoteBasePath; set => SetProperty(ref _defaultCloudRemoteBasePath, value ?? string.Empty); }
         public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
         public bool AutoDownloadMissingCloudBackupsBeforeRestore { get => _autoDownloadMissingCloudBackupsBeforeRestore; set => SetProperty(ref _autoDownloadMissingCloudBackupsBeforeRestore, value); }
@@ -176,6 +200,8 @@ namespace FolderRewind.Models
         public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value ?? string.Empty); }
         public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value ?? string.Empty); }
         public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value ?? string.Empty); }
+        public HistoryPresentationMode LastHistoryPresentationMode { get => _lastHistoryPresentationMode; set => SetProperty(ref _lastHistoryPresentationMode, value); }
+        public HistoryViewMode LastHistoryViewMode { get => _lastHistoryViewMode; set => SetProperty(ref _lastHistoryViewMode, value); }
 
         /// <summary>
         /// 赞助版主题色预设。0 表示继续跟随系统 Accent，避免免费版被新字段影响。
@@ -261,6 +287,8 @@ namespace FolderRewind.Models
         /// 插件系统设置。
         /// </summary>
         public PluginHostSettings Plugins { get => _plugins; set => SetProperty(ref _plugins, value ?? new PluginHostSettings()); }
+
+        public GameDiscoverySettings GameDiscovery { get => _gameDiscovery; set => SetProperty(ref _gameDiscovery, value ?? new GameDiscoverySettings()); }
 
         // KnotLink 互联设置属性
         /// <summary>
@@ -355,6 +383,7 @@ namespace FolderRewind.Models
         /// 是否已经展示过首次启动引导。
         /// </summary>
         public bool HasShownFirstLaunchGuide { get => _hasShownFirstLaunchGuide; set => SetProperty(ref _hasShownFirstLaunchGuide, value); }
+        public bool MsiShellIdentityNoticeShown { get; set; }
 
         /// <summary>
         /// 是否已经执行过首次核心功能自动校验。

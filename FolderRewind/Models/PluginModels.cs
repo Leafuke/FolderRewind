@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
@@ -9,49 +11,8 @@ namespace FolderRewind.Models
     /// </summary>
     public class PluginHostSettings : ObservableObject
     {
-        private bool _enabled = false;
-        private string _storeRepo = string.Empty;
-        private Dictionary<string, bool> _pluginEnabled = new();
-        private Dictionary<string, Dictionary<string, string>> _pluginSettings = new();
-
-        /// <summary>
-        /// 插件系统总开关。关闭后：不执行插件逻辑、商店入口禁用。
-        /// </summary>
-        public bool Enabled
-        {
-            get => _enabled;
-            set => SetProperty(ref _enabled, value);
-        }
-
-        /// <summary>
-        /// 插件商店 GitHub 仓库："owner/repo"。
-        /// 为空时表示未配置商店来源。
-        /// </summary>
-        public string StoreRepo
-        {
-            get => _storeRepo;
-            set => SetProperty(ref _storeRepo, value ?? string.Empty);
-        }
-
-        /// <summary>
-        /// 每个插件的启用状态。
-        /// Key: PluginId
-        /// </summary>
-        public Dictionary<string, bool> PluginEnabled
-        {
-            get => _pluginEnabled;
-            set => _pluginEnabled = value ?? new Dictionary<string, bool>();
-        }
-
-        /// <summary>
-        /// 每个插件的设置值（由插件定义键名，Host 负责保存与回传）。
-        /// Key: PluginId -> (SettingKey -> stringValue)
-        /// </summary>
-        public Dictionary<string, Dictionary<string, string>> PluginSettings
-        {
-            get => _pluginSettings;
-            set => _pluginSettings = value ?? new Dictionary<string, Dictionary<string, string>>();
-        }
+        private Dictionary<string, bool> _enabledIntent = new(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, Dictionary<string, JsonElement>> _typedSettings = new(StringComparer.OrdinalIgnoreCase);
 
         private bool _autoCheckUpdates = true;
         /// <summary>
@@ -62,75 +23,28 @@ namespace FolderRewind.Models
             get => _autoCheckUpdates;
             set => SetProperty(ref _autoCheckUpdates, value);
         }
-    }
-
-    /// <summary>
-    /// 插件包 Manifest（用于 Host 扫描安装目录；通常来自插件 zip 内的 manifest.json）。
-    /// </summary>
-    public class PluginInstallManifest
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string Version { get; set; } = string.Empty;
-        public string Author { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
 
         /// <summary>
-        /// 可选：多语言名称（key: BCP-47 tag，例如 "en-US" / "zh-CN"）。
+        /// v3 user intent, independent from installed and runtime state.
         /// </summary>
-        public Dictionary<string, string>? LocalizedName { get; set; }
+        public Dictionary<string, bool> EnabledIntent
+        {
+            get => _enabledIntent;
+            set => _enabledIntent = value == null
+                ? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, bool>(value, StringComparer.OrdinalIgnoreCase);
+        }
 
         /// <summary>
-        /// 可选：多语言描述（key: BCP-47 tag，例如 "en-US" / "zh-CN"）。
+        /// Typed JSON settings declared by each plugin's static settings schema.
         /// </summary>
-        public Dictionary<string, string>? LocalizedDescription { get; set; }
-
-        /// <summary>
-        /// 插件入口程序集文件名（相对插件目录），例如 "MyPlugin.dll"。
-        /// </summary>
-        public string EntryAssembly { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 插件入口类型全名，例如 "MyPlugin.MainPlugin"。
-        /// </summary>
-        public string EntryType { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 最低 Host 版本（可选）。
-        /// </summary>
-        public string? MinHostVersion { get; set; }
-
-        /// <summary>
-        /// 备注/主页等（可选）。
-        /// </summary>
-        public string? Homepage { get; set; }
-
-        /// <summary>
-        /// GitHub 仓库地址（可选），格式为 "owner/repo"，用于检查更新。
-        /// </summary>
-        public string? Repository { get; set; }
-    }
-
-    public enum PluginSettingType
-    {
-        String = 0,
-        Boolean = 1,
-        Integer = 2,
-        Path = 3,
-        MultilineString = 4
-    }
-
-    /// <summary>
-    /// 插件设置项定义。Host 根据定义渲染简单设置 UI。
-    /// </summary>
-    public class PluginSettingDefinition
-    {
-        public string Key { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public PluginSettingType Type { get; set; } = PluginSettingType.String;
-        public string? DefaultValue { get; set; }
-        public bool IsRequired { get; set; } = false;
+        public Dictionary<string, Dictionary<string, JsonElement>> TypedSettings
+        {
+            get => _typedSettings;
+            set => _typedSettings = value == null
+                ? new Dictionary<string, Dictionary<string, JsonElement>>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, Dictionary<string, JsonElement>>(value, StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     /// <summary>
@@ -139,6 +53,7 @@ namespace FolderRewind.Models
     public class InstalledPluginInfo : ObservableObject
     {
         private bool _isEnabled;
+        private bool _requiresRestart;
 
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
@@ -156,6 +71,16 @@ namespace FolderRewind.Models
         {
             get => _isEnabled;
             set => SetProperty(ref _isEnabled, value);
+        }
+
+        /// <summary>
+        /// Runtime cleanup 或物理卸载尚未安全完成，请求的插件状态需在 Host 重启后最终生效。
+        /// </summary>
+        [JsonIgnore]
+        public bool RequiresRestart
+        {
+            get => _requiresRestart;
+            set => SetProperty(ref _requiresRestart, value);
         }
 
         /// <summary>
@@ -200,5 +125,29 @@ namespace FolderRewind.Models
             get => _updateDownloadUrl;
             set => SetProperty(ref _updateDownloadUrl, value);
         }
+    }
+
+    /// <summary>
+    /// Host 投影到配置类型选择器的稳定选项。显示文本可以随语言变化，
+    /// 持久化时始终使用 Config Kind 身份，避免把本地化名称误当成标识符。
+    /// </summary>
+    public sealed class PluginConfigKindOption
+    {
+        public string DisplayName { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public ConfigKindReference Kind { get; init; } = new();
+        public string RequiredPluginId { get; init; } = string.Empty;
+        public bool IsEncrypted { get; init; }
+
+        public string SelectionValue => StableKey;
+
+        public string StableKey => IsEncrypted
+            ? "folderrewind.core/encrypted"
+            : $"{Kind.OwnerId}/{Kind.KindId}";
+
+        public ConfigKindReference CreateReference()
+            => new() { OwnerId = Kind.OwnerId, KindId = Kind.KindId };
+
+        public override string ToString() => DisplayName;
     }
 }

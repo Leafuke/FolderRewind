@@ -14,6 +14,7 @@ namespace FolderRewind.Views
         public SponsorWindow()
         {
             InitializeComponent();
+            WindowIconHelper.ApplyBeforeShow(this);
             ConfigureSystemTitleBar();
             ThemeService.ApplyThemeToWindow(this);
             ThemeService.ApplyPersonalizationToWindow(this);

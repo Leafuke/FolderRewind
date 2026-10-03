@@ -1,7 +1,6 @@
 using FolderRewind.Services.KnotLink;
-using FolderRewind.Services.Plugins;
+using FolderRewind.Plugin.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using MineRewind;
 using System.Text.Json;
 
 namespace FolderRewind.Tests;
@@ -14,12 +13,12 @@ public sealed class KnotLinkFuncListTests
     {
         var manifest = KnotLinkFuncListService.BuildCore();
         Assert.AreEqual("1.0", manifest.SpecVersion);
-        Assert.AreEqual("2.0.0", manifest.ManifestVersion);
+        Assert.AreEqual("3.0.0", manifest.ManifestVersion);
         Assert.AreEqual(KnotLinkFuncListService.DefaultAppId, manifest.OpenSocket["backup"].AppId);
         Assert.AreEqual("static", manifest.OpenSocket["backup"].Args["cmd"].Type);
         Assert.AreEqual("BACKUP", manifest.OpenSocket["backup"].Args["cmd"].Value);
         CollectionAssert.AreEquivalent(
-            new[] { "full", "incremental" },
+            new[] { "full", "smart" },
             manifest.OpenSocket["backup"].Args["backup_mode"].Options!.Select(option => option[1]).ToArray());
         CollectionAssert.AreEquivalent(
             new[] { "LZMA2", "Deflate", "BZip2", "zstd" },
@@ -35,41 +34,31 @@ public sealed class KnotLinkFuncListTests
     }
 
     [TestMethod]
-    public void PluginMerge_IsDeterministicAndCoreWinsCollisions()
+    public void V3CommandMerge_IsDeterministicAndCoreWinsCollisions()
     {
         var manifest = KnotLinkFuncListService.BuildCore();
-        var contribution = new PluginKnotLinkCapabilityContribution
-        {
-            OpenSocket = new[]
-            {
-                new PluginKnotLinkOpenSocketCapability { Name = "backup" },
-                new PluginKnotLinkOpenSocketCapability { Name = "z_plugin_function", Description = "Plugin function" }
-            }
-        };
-
-        KnotLinkFuncListService.MergePluginContributions(
+        KnotLinkFuncListService.MergePluginCommands(
             manifest,
             "app",
             "socket",
-            "signal",
-            new[] { ("plugin.test", contribution) });
+            [
+                (new PluginId("plugin.z"), new KnotLinkCommandDescriptor[]
+                {
+                    new("Z_PLUGIN_FUNCTION", "Plugin function")
+                }),
+                (new PluginId("plugin.a"), new KnotLinkCommandDescriptor[]
+                {
+                    new("BACKUP", "Must not replace core"),
+                    new("A_PLUGIN_FUNCTION", "First plugin function")
+                })
+            ]);
 
         Assert.AreEqual("Start a backup for one managed folder.", manifest.OpenSocket["backup"].Description);
-        Assert.AreEqual("app", manifest.OpenSocket["z_plugin_function"].AppId);
+        Assert.AreEqual("app", manifest.OpenSocket["a_plugin_function"].AppId);
+        Assert.AreEqual("socket", manifest.OpenSocket["z_plugin_function"].OpenSocketId);
         CollectionAssert.AreEqual(
             manifest.OpenSocket.Keys.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
             manifest.OpenSocket.Keys.ToArray());
-    }
-
-    [TestMethod]
-    public void MineRewind_DeclaresPureV2Capabilities()
-    {
-        var contribution = new MinecraftSavesPlugin().GetKnotLinkCapabilities();
-        var names = contribution.OpenSocket.Select(item => item.Name).ToArray();
-
-        CollectionAssert.IsSubsetOf(
-            new[] { "backup_current", "list_backups_current", "restore_current_latest", "restore_current", "restore_current_with_data", "handshake_response", "world_saved", "world_save_and_exit_complete", "rejoin_result" },
-            names);
     }
 
     [TestMethod]

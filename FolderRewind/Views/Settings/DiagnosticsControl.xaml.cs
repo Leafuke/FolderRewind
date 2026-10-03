@@ -74,18 +74,12 @@ namespace FolderRewind.Views.Settings
             _ = NavigationService.NavigateTo("Logs");
         }
 
-        private async System.Threading.Tasks.Task ShowSimpleMessageAsync(string message)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Tip"),
-                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-                CloseButtonText = I18n.GetString("Common_Close"),
-                XamlRoot = this.XamlRoot,
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
-        }
+        private System.Threading.Tasks.Task ShowSimpleMessageAsync(string message) =>
+            AppDialogService.Default.ShowMessageAsync(
+                I18n.GetString("Common_Tip"),
+                message,
+                this.XamlRoot,
+                I18n.GetString("Common_Close"));
 
         private async System.Threading.Tasks.Task ShowTextDialogAsync(string title, string content)
         {
@@ -111,8 +105,7 @@ namespace FolderRewind.Views.Settings
                 CloseButtonText = I18n.GetString("Common_Close"),
                 XamlRoot = this.XamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
         }
     }
 }

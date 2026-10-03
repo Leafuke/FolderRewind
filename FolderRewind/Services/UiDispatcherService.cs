@@ -49,7 +49,7 @@ namespace FolderRewind.Services
                 return Task.CompletedTask;
             }
 
-            var tcs = new TaskCompletionSource<object?>();
+            var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             if (!queue.TryEnqueue(() =>
             {
@@ -70,6 +70,20 @@ namespace FolderRewind.Services
             return tcs.Task;
         }
 
+        public static Task<T> RunOnUiAsync<T>(Func<T> action)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            var queue = _dispatcherQueue;
+            if (queue == null || queue.HasThreadAccess) return Task.FromResult(action());
+            var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!queue.TryEnqueue(() =>
+            {
+                try { completion.SetResult(action()); }
+                catch (Exception ex) { completion.SetException(ex); }
+            })) completion.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
+            return completion.Task;
+        }
+
         public static Task<T> RunOnUiAsync<T>(Func<Task<T>> action)
         {
             if (action == null)
@@ -83,9 +97,16 @@ namespace FolderRewind.Services
                 return action();
             }
 
-            var tcs = new TaskCompletionSource<T>();
+            var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            if (!queue.TryEnqueue(async () =>
+            if (!queue.TryEnqueue(() => _ = InvokeAsync()))
+            {
+                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
+            }
+
+            return tcs.Task;
+
+            async Task InvokeAsync()
             {
                 try
                 {
@@ -96,12 +117,43 @@ namespace FolderRewind.Services
                 {
                     tcs.SetException(ex);
                 }
-            }))
+            }
+        }
+
+        public static Task RunOnUiAsync(Func<Task> action)
+        {
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
+
+            var queue = _dispatcherQueue;
+            if (queue == null || queue.HasThreadAccess)
+            {
+                return action();
+            }
+
+            var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            if (!queue.TryEnqueue(() => _ = InvokeAsync()))
             {
                 tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
             }
 
             return tcs.Task;
+
+            async Task InvokeAsync()
+            {
+                try
+                {
+                    await action().ConfigureAwait(false);
+                    tcs.SetResult(null);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            }
         }
     }
 }

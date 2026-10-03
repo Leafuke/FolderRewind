@@ -1,26 +1,41 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
+using FolderRewind.History.Capture;
+using FolderRewind.History.Domain;
+using FolderRewind.History.LocalState;
+using FolderRewind.History.Application;
 using FolderRewind.Services.KnotLink;
+using FolderRewind.Services.Plugins.V3;
+using FolderRewind.Plugin.Abstractions;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {
+    /// <summary>
+    /// 备份引擎核心：编排单个备份源的完整生命周期——插件 v3 一致性会话、过滤校验、
+    /// 源/目标路径重叠检查、按压缩模式分发、Native History 事务提交与云端同步排队，
+    /// 以及备份后的保留期清理（KeepCount）。全部为静态成员，由 UI、自动化调度、
+    /// KnotLink 远程命令和插件宿主共同调用。
+    /// </summary>
     public static partial class BackupService
     {
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
 
         // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
-        private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
-        private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
-        private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
+        internal const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
+        internal const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
+        private static string MissingEncryptionPasswordMessage =>
+            I18n.GetString("BackupService_MissingEncryptionPassword");
 
         // 变更集是增量备份/删除标记/元数据写入的统一输入。
         private sealed class BackupChangeSet
@@ -73,11 +88,22 @@ namespace FolderRewind.Services
             public string Message { get; set; } = string.Empty;
         }
 
-        private sealed class PruneArchivesResult
+        // 单个备份源的执行结果：同时供 Native RunVersion、插件结果映射与 UI 状态展示消费。
+        internal sealed class BackupSourceExecutionOutcome
         {
-            public bool Success { get; set; } = true;
-            public int DeletedCount { get; set; }
-            public string Message { get; set; } = string.Empty;
+            public BackupSourceExecutionStatus Status { get; init; }
+            public Guid? FolderId { get; init; }
+            public string FolderPath { get; init; } = string.Empty;
+            public string FolderName { get; init; } = string.Empty;
+            public string ErrorMessage { get; init; } = string.Empty;
+            public OperationOutcome OperationOutcome { get; init; } = OperationOutcome.Failed;
+            public SourceCaptureResult? CaptureResult { get; init; }
+            public string? GeneratedFileName { get; init; }
+            public BackupTask? Task { get; init; }
+            public bool CreatedNewArchive => Status == BackupSourceExecutionStatus.NewArchive;
+
+            public PluginBackupRequestResult ToPluginResult()
+                => PluginBackupRequestResult.FromSource(Status, OperationOutcome);
         }
 
         private static void BroadcastBackupEvent(
@@ -114,81 +140,169 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void BroadcastRestoreEvent(
-            int configIndex,
-            BackupConfig config,
-            ManagedFolder folder,
-            string eventName,
-            IReadOnlyDictionary<string, string?>? fields = null)
-        {
-            var context = KnotLinkService.CurrentCommandContext;
-            var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["config"] = config.Id,
-                ["folder"] = folder.DisplayName
-            };
-            if (fields != null)
-            {
-                foreach (var pair in fields)
-                {
-                    merged[pair.Key] = pair.Value;
-                }
-            }
-
-            KnotLinkService.BroadcastEvent(context, eventName, merged);
-        }
-
-        private static void BroadcastRestoreLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
-        {
-            var context = KnotLinkService.CurrentCommandContext;
-            if (context?.Metadata.HasConversation == true
-                && string.Equals(context.Command, "RESTORE", StringComparison.OrdinalIgnoreCase))
-            {
-                KnotLinkService.BroadcastCommandLifecycle(context, lifecycleEvent, fields);
-            }
-        }
-
-
-        // 主备份编排保留在入口文件中；压缩、过滤、元数据和还原细节拆到同名 partial 文件。
-
 
 
         /// <summary>
         /// 备份配置下的所有文件夹
         /// </summary>
-        /// <returns>true 表示至少有一个文件夹产生了新的备份文件；false 表示所有文件夹均未检测到变更。</returns>
-        public static async Task<bool> BackupConfigAsync(
+        /// <returns>保留事务状态、新归档标志与恢复待处理状态。</returns>
+        public static async Task<BackupOperationResult> BackupConfigAsync(
             BackupConfig config,
             BackupInvocationOptions? invocationOptions = null)
         {
-            if (config == null) return false;
+            if (config == null) return new(OperationOutcome.Blocked, false);
             invocationOptions ??= BackupInvocationOptions.Default;
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
-            bool anyChanges = false;
-            foreach (var folder in config.SourceFolders)
-            {
-                var hadChanges = await BackupFolderAsync(config, folder, invocationOptions: invocationOptions);
-                if (hadChanges) anyChanges = true;
-            }
+            var result = await ExecuteBackupTransactionAsync(
+                config,
+                config.SourceFolders,
+                invocationOptions,
+                HistoryCommitIntent.AdvanceBranch,
+                safetySnapshotIntent: null,
+                CancellationToken.None).ConfigureAwait(false);
 
             Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
-            return anyChanges;
+            return new(result.Outcome, result.CreatedNewArchive, result.HistoryRecoveryRequired);
+        }
+
+        internal static async Task<SafetySnapshot> CreateSafetySnapshotAsync(
+            BackupConfig config,
+            SafetySnapshotReason reason,
+            CancellationToken cancellationToken = default,
+            NativeHistoryConfigurationOperationGate.Lease? existingOperation = null,
+            System.Collections.Generic.IReadOnlyCollection<SourceId>? affectedSources = null)
+        {
+            ArgumentNullException.ThrowIfNull(config);
+            var options = BackupInvocationOptions.ForInternal();
+            var result = await ExecuteBackupTransactionAsync(
+                config,
+                config.SourceFolders.Where(f => affectedSources is null || affectedSources.Contains(new SourceId(Guid.Parse(f.Id)))).ToArray(),
+                options,
+                HistoryCommitIntent.IndependentRecoveryPoint,
+                new HistorySafetySnapshotIntent(reason),
+                cancellationToken, existingOperation).ConfigureAwait(false);
+
+            return result.SafetySnapshot
+                ?? result.CommittedBatch?.NewSafetySnapshot
+                ?? throw new InvalidOperationException("Independent recovery commit did not create a SafetySnapshot.");
         }
 
         /// <summary>
         /// 备份单个文件夹
         /// </summary>
-        /// <returns>true 表示产生了新的备份文件；false 表示未检测到变更或备份失败。</returns>
-        public static async Task<bool> BackupFolderAsync(
+        /// <returns>保留事务状态、新归档标志与恢复待处理状态。</returns>
+        public static async Task<BackupOperationResult> BackupFolderAsync(
             BackupConfig config,
             ManagedFolder folder,
-            string? comment = "",
             BackupInvocationOptions? invocationOptions = null)
         {
-            if (config == null || folder == null) return false;
+            if (config is null || folder is null || NativeHostMutationContext.IsNestedMutationBlocked)
+                return new(OperationOutcome.Blocked, false);
+            var result = await ExecuteBackupTransactionAsync(
+                config, [folder], invocationOptions ?? BackupInvocationOptions.Default,
+                HistoryCommitIntent.AdvanceBranch, safetySnapshotIntent: null,
+                CancellationToken.None).ConfigureAwait(false);
+            return new(result.Outcome, result.CreatedNewArchive, result.HistoryRecoveryRequired);
+        }
+
+        /// <summary>
+        /// 插件备份请求入口：包装统一备份事务编排并把结果映射为插件的
+        /// <see cref="OperationOutcome"/>，仅在产生新归档时触发保留期清理；
+        /// 取消与异常均转换为 Canceled/Failed 结果返回，不向插件抛出。
+        /// </summary>
+        internal static async Task<PluginBackupRequestResult> BackupFolderForPluginAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            BackupInvocationOptions invocationOptions,
+            CancellationToken cancellationToken)
+        {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
+            if (config is null || folder is null)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
+
+            try
+            {
+                var result = await ExecuteBackupTransactionAsync(
+                    config,
+                    [folder],
+                    invocationOptions,
+                    HistoryCommitIntent.AdvanceBranch,
+                    safetySnapshotIntent: null,
+                    cancellationToken).ConfigureAwait(false);
+
+                return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new PluginBackupRequestResult(OperationOutcome.Canceled, CreatedNewArchive: false);
+            }
+            catch (Exception ex)
+            {
+                Log($"Plugin folder backup request failed: {ex.Message}", LogLevel.Error);
+                return new PluginBackupRequestResult(OperationOutcome.Failed, CreatedNewArchive: false);
+            }
+        }
+
+        internal static async Task<PluginBackupRequestResult> BackupConfigurationForPluginAsync(
+            BackupConfig config,
+            IReadOnlyList<ManagedFolder> requestedFolders,
+            BackupInvocationOptions invocationOptions,
+            CancellationToken cancellationToken)
+        {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
+            if (config is null || requestedFolders is null || requestedFolders.Count == 0)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
+
+            try
+            {
+                var result = await ExecuteBackupTransactionAsync(
+                    config,
+                    requestedFolders,
+                    invocationOptions,
+                    HistoryCommitIntent.AdvanceBranch,
+                    safetySnapshotIntent: null,
+                    cancellationToken).ConfigureAwait(false);
+
+                return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new PluginBackupRequestResult(OperationOutcome.Canceled, CreatedNewArchive: false);
+            }
+            catch (Exception ex)
+            {
+                Log($"Plugin config backup request failed: {ex.Message}", LogLevel.Error);
+                return new PluginBackupRequestResult(OperationOutcome.Failed, CreatedNewArchive: false);
+            }
+        }
+
+        /// <summary>
+        /// 执行单个备份源的捕获阶段（Capture）：
+        /// 消费已解析的有效策略，获取 consistency lease、校验路径、差异计算、归档生成及校验与元数据捕获。
+        /// 关键设计：本阶段只负责捕获产物，严禁在 Native History 提交前广播成功或更新 LastBackupTime。
+        /// </summary>
+        private static async Task<BackupSourceExecutionOutcome> CaptureBackupSourceAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            PluginV3BackupSourceResolution resolution,
+            string? comment,
+            BackupInvocationOptions? invocationOptions,
+            CancellationToken cancellationToken = default)
+        {
+            if (config == null || folder == null)
+            {
+                return new BackupSourceExecutionOutcome
+                {
+                    Status = BackupSourceExecutionStatus.Failed,
+                    ErrorMessage = I18n.GetString("BackupService_InvalidConfigurationOrSource")
+                };
+            }
             comment ??= string.Empty;
             invocationOptions ??= BackupInvocationOptions.Default;
+            cancellationToken.ThrowIfCancellationRequested();
 
             int configIndex = GetConfigIndex(config);
 
@@ -202,37 +316,37 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
-            var scopeResolution = Services.Plugins.PluginService.ResolveConfigWithBackupFilterContributions(config, folder);
-            if (!scopeResolution.Success)
+            await using var v3Session = PluginV3BackupSession.Create(resolution);
+            if (v3Session.IsBlocked)
             {
-                string scopeError = string.IsNullOrWhiteSpace(scopeResolution.ErrorMessage)
-                    ? I18n.Format("PluginService_BackupScope_Invalid")
-                    : scopeResolution.ErrorMessage;
-                Log($"[PluginScope] {scopeResolution.ErrorCode}: {scopeError}", LogLevel.Error);
+                var diagnostic = v3Session.Diagnostics.LastOrDefault();
+                var message = diagnostic is null
+                    ? "The v3 plugin policy blocked this backup."
+                    : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
+                        ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
+                        : $"{diagnostic.Code} ({diagnostic.Owner})";
+                Log($"[PluginV3] {message}", LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
-                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
                     task.IsIndeterminate = false;
                     task.IsSuccess = false;
-                    task.ErrorMessage = scopeError;
+                    task.ErrorMessage = message;
                 });
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
-                {
-                    ["reason"] = scopeResolution.ErrorCode,
-                    ["error"] = scopeError
-                });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-                {
-                    ["error"] = scopeResolution.ErrorCode,
-                    ["message"] = scopeError
-                });
-                return false;
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: message,
+                    operationOutcome: OperationOutcome.Blocked,
+                    task: task);
             }
 
-            config = scopeResolution.EffectiveConfig;
-            if (!TryValidateBackupFilterRules(config.Filters, out string filterValidationError))
+            var runtimeConfig = v3Session.EffectiveConfig;
+            var runtimeFolder = v3Session.EffectiveFolder;
+
+            if (!TryValidateBackupFilterRules(runtimeConfig.Filters, out string filterValidationError))
             {
                 Log($"[Filter] Backup filter validation failed: {filterValidationError}", LogLevel.Error);
                 await RunOnUIAsync(() =>
@@ -244,59 +358,12 @@ namespace FolderRewind.Services
                     task.IsSuccess = false;
                     task.ErrorMessage = filterValidationError;
                 });
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
-                {
-                    ["reason"] = "invalid_filter_rule",
-                    ["error"] = filterValidationError
-                });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-                {
-                    ["error"] = "invalid_filter_rule",
-                    ["message"] = filterValidationError
-                });
-                return false;
+                return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: filterValidationError, task: task);
             }
 
-            // 插件接管同样只能收到已经解析并验证过的运行配置，不能绕过范围的失败关闭策略。
-            var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
-            if (shouldHandle && handlerPlugin != null)
-            {
-                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
-            }
+            var effectiveBoundary = resolution.EffectiveBoundary;
 
-            // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
-            string sourcePath = folder.Path;
-            try
-            {
-                var pluginOverride = Services.Plugins.PluginService.InvokeBeforeBackupFolder(config, folder, invocationOptions);
-                if (!string.IsNullOrWhiteSpace(pluginOverride))
-                {
-                    sourcePath = pluginOverride;
-                }
-            }
-            catch
-            {
-                // 插件异常不会影响核心备份流程（具体异常会在 PluginService 内记录）
-            }
-            if (!Directory.Exists(sourcePath))
-            {
-                Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
-                await RunOnUIAsync(() =>
-                {
-                    folder.StatusText = I18n.Format("BackupService_Folder_SourceNotFound");
-                    task.Status = I18n.Format("BackupService_Task_Failed");
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = false;
-                    task.ErrorMessage = I18n.Format("BackupService_Folder_SourceNotFound");
-                });
-
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(config.DestinationPath))
+            if (string.IsNullOrEmpty(runtimeConfig.DestinationPath))
             {
                 Log(I18n.Format("BackupService_Log_DestinationNotSet"), LogLevel.Error);
                 await RunOnUIAsync(() =>
@@ -309,13 +376,15 @@ namespace FolderRewind.Services
                     task.ErrorMessage = I18n.Format("BackupService_Folder_TargetNotSet");
                 });
 
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
-                return false;
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: I18n.Format("BackupService_Folder_TargetNotSet"),
+                    task: task);
             }
 
             if (!TryResolveBackupStoragePaths(
-                config.DestinationPath,
+                runtimeConfig.DestinationPath,
                 folder.DisplayName,
                 folder.Path,
                 out var storageFolderName,
@@ -334,62 +403,187 @@ namespace FolderRewind.Services
                     task.ErrorMessage = invalidFolderNameMessage;
                 });
 
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "invalid_folder_name" });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "invalid_folder_name" });
-                return false;
+                return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: invalidFolderNameMessage, task: task);
             }
 
-            // 创建必要的目录
+            async Task<BackupSourceExecutionOutcome?> RejectOverlappingPathAsync(string candidateSourcePath)
+            {
+                var overlap = BackupPathOverlapPolicy.Validate(candidateSourcePath, backupSubDir, metadataDir);
+                if (overlap.IsSafe)
+                {
+                    return null;
+                }
+
+                var overlapMessage = I18n.Format(
+                    "BackupService_Folder_SourceDestinationOverlap",
+                    overlap.SourcePath,
+                    overlap.TargetPath);
+                Log(I18n.Format("BackupService_Log_SourceDestinationOverlap", overlap.SourcePath, overlap.TargetPath), LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = overlapMessage;
+                });
+                return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: overlapMessage, task: task);
+            }
+
+            var configuredPathFailure = await RejectOverlappingPathAsync(folder.Path);
+            if (configuredPathFailure != null)
+            {
+                return configuredPathFailure;
+            }
+
+            try
+            {
+                await v3Session.AcquireConsistencyAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: I18n.GetString("Common_Canceled"),
+                    operationOutcome: OperationOutcome.Canceled,
+                    task: task);
+            }
+            catch (Exception ex)
+            {
+                Log($"[PluginV3] Consistency acquisition failed: {ex.Message}", LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = ex.Message;
+                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+                });
+                return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: ex.Message, task: task);
+            }
+
+            string sourcePath = v3Session.SourcePath;
+            if (!string.Equals(sourcePath, folder.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                var overridePathFailure = await RejectOverlappingPathAsync(sourcePath);
+                if (overridePathFailure != null)
+                {
+                    return overridePathFailure;
+                }
+            }
+            if (!Directory.Exists(sourcePath))
+            {
+                Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Folder_SourceNotFound");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = I18n.Format("BackupService_Folder_SourceNotFound");
+                });
+
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Unavailable,
+                    errorMessage: I18n.Format("BackupService_Folder_SourceNotFound"),
+                    task: task);
+            }
+
             if (!Directory.Exists(backupSubDir)) Directory.CreateDirectory(backupSubDir);
-            if (!Directory.Exists(metadataDir)) Directory.CreateDirectory(metadataDir);
 
             Log(I18n.Format("BackupService_Log_ProcessingFolder", folder.DisplayName), LogLevel.Info);
             await RunOnUIAsync(() => folder.StatusText = I18n.Format("BackupService_Folder_BackupInProgress"));
 
-            // 与 MineBackup 保持一致：备份开始事件
-            BroadcastBackupLifecycle("command_started");
-            BroadcastBackupLifecycle("command_progress", new Dictionary<string, string?> { ["progress"] = "0" });
             BroadcastBackupEvent(configIndex, config, folder, "backup_started");
 
             bool success = false;
+            bool canceled = false;
+            bool sourceUnavailable = false;
             string? generatedFileName = null;
+            SourceCaptureResult? captureResult = null;
+            var sourceId = new SourceId(Guid.Parse(folder.Id));
+            SourceCaptureBaseline? captureBaseline;
             try
             {
-
+                captureBaseline = await NativeHistoryCoreGateway.LoadCaptureBaselineAsync(
+                    config.Id,
+                    sourceId,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: I18n.GetString("Common_Canceled"),
+                    operationOutcome: OperationOutcome.Canceled,
+                    task: task);
+            }
+            if (captureBaseline is not null
+                && !StringComparer.Ordinal.Equals(
+                    captureBaseline.BoundaryFingerprint,
+                    effectiveBoundary.Fingerprint))
+            {
+                captureBaseline = null;
+            }
+            var captureScope = CaptureScopePolicy.Determine(effectiveBoundary, effectiveBoundary);
+            try
+            {
                 await RunOnUIAsync(() =>
                 {
                     task.Status = I18n.Format("BackupService_Task_Processing");
                     folder.StatusText = I18n.Format("BackupService_Folder_BackupRunning");
                 });
 
-                // 调用核心逻辑，传入 task 以便更新进度
-
-                // 根据模式分发逻辑
                 switch (config.Archive.Mode)
                 {
-                    case BackupMode.Incremental:
+                    case BackupMode.Smart:
                         {
-                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            var res = await DoSmartBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
+                            sourceUnavailable = res.IsUnavailable;
                             break;
                         }
-                    case BackupMode.Overwrite:
+                    case BackupMode.Rolling:
                         {
-                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            var res = await DoRollingBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
+                            sourceUnavailable = res.IsUnavailable;
                             break;
                         }
                     case BackupMode.Full:
                     default:
                         {
-                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            var res = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
+                            sourceUnavailable = res.IsUnavailable;
                             break;
                         }
                 }
+                captureResult = captureResult?.WithEffectiveSourceBoundary(effectiveBoundary);
+                if (captureResult?.Outcome == SourceCaptureOutcome.Captured)
+                {
+                    var metadata = await v3Session.CaptureVersionMetadataAsync(cancellationToken).ConfigureAwait(false);
+                    captureResult = captureResult.WithVersionMetadata(
+                        metadata.Candidates,
+                        metadata.Diagnostics);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                canceled = true;
+                success = false;
             }
             catch (Exception ex)
             {
@@ -398,438 +592,190 @@ namespace FolderRewind.Services
                 await RunOnUIAsync(() => { if (string.IsNullOrEmpty(task.ErrorMessage)) task.ErrorMessage = ex.Message; });
             }
 
-            if (success)
-            {
-                var completedFileName = string.IsNullOrWhiteSpace(generatedFileName) ? null : generatedFileName;
-                bool hasNewFile = completedFileName != null;
-
-                if (completedFileName != null)
-                {
-                    ConfigService.Save();
-
-                    // 增量模式下，根据实际生成的文件名区分 Full 和 Smart
-                    string typeStr;
-                    if (config.Archive.Mode == BackupMode.Incremental)
-                    {
-                        typeStr = completedFileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase) ? "Full" : "Smart";
-                    }
-                    else
-                    {
-                        typeStr = config.Archive.Mode.ToString();
-                    }
-                    HistoryService.AddEntry(
-                        config,
-                        folder,
-                        completedFileName,
-                        typeStr,
-                        comment,
-                        storageFolderName,
-                        IsPartialBackupFilter(config.Filters));
-
-                    var pruneResult = await Task.Run(() => PruneOldArchives(
-                        backupSubDir,
-                        config.Archive.Format,
-                        config.Archive.KeepCount,
-                        config.Archive.Mode,
-                        config.Archive.SafeDeleteEnabled,
-                        config,
-                        folder.DisplayName)).ConfigureAwait(false);
-
-                    if (!pruneResult.Success)
-                    {
-                        string pruneWarning = I18n.Format("BackupService_Warning_PostBackupCleanupFailed", folder.DisplayName, pruneResult.Message);
-                        Log(I18n.Format("BackupService_Log_PostBackupCleanupFailed", folder.DisplayName, pruneResult.Message), LogLevel.Warning);
-                        NotificationService.ShowWarning(pruneWarning);
-                    }
-                    else if (pruneResult.DeletedCount > 0)
-                    {
-                        CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "automatic archive pruning");
-                    }
-
-                    // 备份完成后检查文件大小，过小时发出警告
-                    try
-                    {
-                        var archiveFile = Path.Combine(backupSubDir, completedFileName);
-                        if (File.Exists(archiveFile))
-                        {
-                            var fileSizeKB = new FileInfo(archiveFile).Length / 1024.0;
-                            var thresholdKB = ConfigService.CurrentConfig?.GlobalSettings?.FileSizeWarningThresholdKB ?? 5;
-                            if (thresholdKB > 0 && fileSizeKB < thresholdKB)
-                            {
-                                Log(I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()), LogLevel.Warning);
-                                NotificationService.ShowWarning(
-                                    I18n.Format("BackupService_Warning_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
-                                BroadcastBackupEvent(configIndex, config, folder, "backup_warning", new Dictionary<string, string?>
-                                {
-                                    ["type"] = "file_too_small",
-                                    ["size_kb"] = fileSizeKB.ToString("F1")
-                                });
-                            }
-                        }
-                    }
-                    catch
-                    {
-                    }
-
-                    // 与 MineBackup 保持一致：备份成功事件
-                    BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
-                    {
-                        ["file"] = completedFileName
-                    });
-                    BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-                    {
-                        ["result"] = "created",
-                        ["file"] = completedFileName
-                    });
-
-                    CloudSyncService.QueueUploadAfterBackup(config, folder, completedFileName, comment);
-                }
-
-                await RunOnUIAsync(() =>
-                {
-                    task.Status = hasNewFile
-                        ? I18n.Format("BackupService_Task_Completed")
-                        : I18n.Format("BackupService_Task_NoChanges");
-                    task.Progress = 100;
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = true;
-
-                    folder.StatusText = hasNewFile
-                        ? I18n.Format("BackupService_Folder_BackupCompleted")
-                        : I18n.Format("BackupService_Task_NoChanges");
-                    if (hasNewFile)
-                    {
-                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                    }
-                });
-
-                if (!hasNewFile)
-                {
-                    BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-                    {
-                        ["result"] = "no_changes"
-                    });
-                }
-
-                Log(
-                    hasNewFile
-                        ? I18n.Format("BackupService_Log_BackupSucceeded", folder.DisplayName)
-                        : I18n.Format("BackupService_Log_BackupSkippedNoChanges", folder.DisplayName),
-                    LogLevel.Info);
-            }
-            else
-            {
-                await RunOnUIAsync(() =>
-                {
-                    task.Status = I18n.Format("BackupService_Task_Failed");
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = false;
-                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
-                });
-                Log(I18n.Format("BackupService_Log_BackupFailed", folder.DisplayName), LogLevel.Error);
-
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
-
-                // 发送失败通知
-                NotificationService.NotifyBackupCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Task_Failed"));
-            }
-
-            // 备份后回调（用于清理快照等）
+            var operationDiagnostics = v3Session.Diagnostics.ToList();
+            var completionOutcome = operationDiagnostics.Any(value => value.Severity == DiagnosticSeverity.Warning)
+                ? OperationOutcome.SuccessWithWarnings
+                : OperationOutcome.Success;
             try
             {
-                Services.Plugins.PluginService.InvokeAfterBackupFolder(config, folder, success, generatedFileName);
-            }
-            catch
-            {
-            }
-
-            // 注意：这里返回“是否真的产出新归档”，会影响自动化里的无变更计数策略。
-            return success && !string.IsNullOrWhiteSpace(generatedFileName);
-        }
-
-        /// <summary>
-        /// 由插件完全接管的备份流程
-        /// </summary>
-        private static async Task<bool> HandlePluginBackupAsync(
-            BackupConfig config,
-            ManagedFolder folder,
-            BackupTask task,
-            Services.Plugins.IFolderRewindPlugin plugin,
-            string comment)
-        {
-            Log(I18n.Format("BackupService_Log_PluginTakeover", plugin.Manifest.Name, folder.DisplayName), LogLevel.Info);
-            var configIndex = GetConfigIndex(config);
-
-            BroadcastBackupLifecycle("command_started");
-            BroadcastBackupLifecycle("command_progress", new Dictionary<string, string?> { ["progress"] = "0" });
-            if (KnotLinkService.CurrentCommandContext?.Metadata.HasConversation == true)
-            {
-                BroadcastBackupEvent(configIndex, config, folder, "backup_started");
-            }
-
-            await RunOnUIAsync(() =>
-            {
-                task.Status = I18n.Format("BackupService_Task_PluginProcessing");
-                folder.StatusText = I18n.Format("BackupService_Folder_PluginBackingUp");
-            });
-
-            try
-            {
-                var result = await Services.Plugins.PluginService.InvokePluginBackupAsync(
-                    plugin, config, folder, comment,
-                    async (progress, status) =>
-                    {
-                        await RunOnUIAsync(() =>
-                        {
-                            task.Progress = progress;
-                            task.Status = status;
-                        });
-                    });
-
-                if (result.Success)
-                {
-                    bool hasNewFile = !string.IsNullOrWhiteSpace(result.GeneratedFileName);
-
-                    await RunOnUIAsync(() =>
-                    {
-                        task.Status = hasNewFile
-                            ? I18n.Format("BackupService_Task_Completed")
-                            : I18n.Format("BackupService_Task_NoChanges");
-                        task.Progress = 100;
-                        task.IsCompleted = true;
-                        task.IsIndeterminate = false;
-                        task.IsSuccess = true;
-
-                        folder.StatusText = hasNewFile
-                            ? I18n.Format("BackupService_Folder_BackupCompleted")
-                            : I18n.Format("BackupService_Task_NoChanges");
-                        if (hasNewFile)
-                        {
-                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                        }
-                    });
-
-                    if (hasNewFile)
-                    {
-                        ConfigService.Save();
-                        if (!TryResolveStorageFolderName(folder.DisplayName, folder.Path, out var storageFolderName))
-                        {
-                            throw new InvalidOperationException(I18n.GetString("BackupService_Log_InvalidStorageFolderName"));
-                        }
-
-                        HistoryService.AddEntry(
-                            config,
-                            folder,
-                            result.GeneratedFileName!,
-                            "Plugin",
-                            comment,
-                            storageFolderName,
-                            IsPartialBackupFilter(config.Filters));
-                        CloudSyncService.QueueUploadAfterBackup(config, folder, result.GeneratedFileName, comment);
-                    }
-
-                    Log(
-                        hasNewFile
-                            ? I18n.Format("BackupService_Log_PluginBackupSucceeded", folder.DisplayName)
-                            : I18n.Format("BackupService_Log_PluginBackupSkippedNoChanges", folder.DisplayName),
-                        LogLevel.Info);
-
-                    if (hasNewFile)
-                    {
-                        BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
-                        {
-                            ["file"] = result.GeneratedFileName
-                        });
-                        BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-                        {
-                            ["result"] = "created",
-                            ["file"] = result.GeneratedFileName
-                        });
-                    }
-                    else
-                    {
-                        BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-                        {
-                            ["result"] = "no_changes"
-                        });
-                    }
-
-                    return hasNewFile;
-                }
-                else
-                {
-                    await RunOnUIAsync(() =>
-                    {
-                        task.Status = I18n.Format("BackupService_Task_Failed");
-                        task.IsCompleted = true;
-                        task.IsIndeterminate = false;
-                        task.IsSuccess = false;
-                        task.ErrorMessage = result.Message ?? string.Empty;
-                        folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
-                    });
-
-                    Log(I18n.Format("BackupService_Log_PluginBackupFailed", folder.DisplayName, result.Message ?? string.Empty), LogLevel.Error);
-                    BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "plugin_failed" });
-                    BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-                    {
-                        ["error"] = result.Message ?? "plugin_failed"
-                    });
-                    return false;
-                }
+                await v3Session.CompleteCaptureAsync();
             }
             catch (Exception ex)
             {
-                await RunOnUIAsync(() =>
-                {
-                    task.Status = I18n.Format("BackupService_Task_Exception");
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = false;
-                    task.ErrorMessage = ex.Message;
-                    folder.StatusText = I18n.Format("BackupService_Folder_PluginException");
-                });
-
-                Log(I18n.Format("BackupService_Log_PluginException", folder.DisplayName, ex.Message), LogLevel.Error);
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
-                {
-                    ["reason"] = "plugin_exception",
-                    ["error"] = ex.Message
-                });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-                {
-                    ["error"] = ex.Message
-                });
-                return false;
+                completionOutcome = OperationOutcome.SuccessWithWarnings;
+                Log($"[PluginV3] Consistency cleanup failed: {ex.Message}", LogLevel.Warning);
+                operationDiagnostics.Add(new PluginDiagnostic(
+                    "plugin.backup_consistency_cleanup_failed",
+                    DiagnosticSeverity.Warning,
+                    "BackupConsistency",
+                    v3Session.EffectiveConfig.Kind.OwnerId,
+                    new Dictionary<string, string> { ["message"] = ex.Message }));
             }
-        }
 
-        /// <summary>
-        /// 由插件完全接管的还原流程
-        /// </summary>
-        private static async Task HandlePluginRestoreAsync(
-            BackupConfig config,
-            ManagedFolder folder,
-            HistoryItem historyItem,
-            BackupTask task,
-            Services.Plugins.IFolderRewindPlugin plugin,
-            int configIndex)
-        {
-            Log(I18n.Format("BackupService_Log_PluginRestoreTakeover", plugin.Manifest.Name, folder.DisplayName), LogLevel.Info);
-
-            await RunOnUIAsync(() =>
+            if (sourceUnavailable)
             {
-                task.Status = I18n.Format("BackupService_Task_PluginProcessing");
-                task.Progress = 0;
-                task.IsIndeterminate = true;
-            });
-
-            bool restoreStarted = false;
-
-            try
-            {
-                BroadcastRestoreLifecycle("command_started");
-                BroadcastRestoreEvent(configIndex, config, folder, "restore_started");
-                restoreStarted = true;
-
-                var result = await Services.Plugins.PluginService.InvokePluginRestoreAsync(
-                    plugin,
-                    config,
+                return CreateSourceOutcome(
                     folder,
-                    historyItem.FileName,
-                    async (progress, status) =>
-                    {
-                        await RunOnUIAsync(() =>
-                        {
-                            task.Progress = progress;
-                            task.Status = string.IsNullOrWhiteSpace(status)
-                                ? I18n.Format("BackupService_Task_PluginProcessing")
-                                : status;
-                            task.IsIndeterminate = false;
-                        });
-                    });
-
-                if (result.Success)
-                {
-                    await RunOnUIAsync(() =>
-                    {
-                        task.Status = I18n.GetString("BackupService_Task_RestoreCompleted");
-                        task.Progress = 100;
-                        task.IsCompleted = true;
-                        task.IsIndeterminate = false;
-                        task.IsSuccess = true;
-                        task.ErrorMessage = string.Empty;
-                    });
-
-                    Log(I18n.Format("BackupService_Log_PluginRestoreSucceeded", folder.DisplayName), LogLevel.Info);
-                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, true, I18n.GetString("BackupService_Task_RestoreCompleted"));
-
-                    BroadcastRestoreEvent(configIndex, config, folder, "restore_success", new Dictionary<string, string?>
-                    {
-                        ["backup"] = historyItem.FileName
-                    });
-                    BroadcastRestoreLifecycle("command_completed", new Dictionary<string, string?>
-                    {
-                        ["backup"] = historyItem.FileName
-                    });
-
-                    return;
-                }
-
-                string failureMessage = string.IsNullOrWhiteSpace(result.Message)
-                    ? I18n.GetString("BackupService_Task_RestoreFailed")
-                    : result.Message!;
-
-                await RunOnUIAsync(() =>
-                {
-                    task.Status = I18n.GetString("BackupService_Task_RestoreFailed");
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = false;
-                    task.ErrorMessage = failureMessage;
-                });
-
-                Log(I18n.Format("BackupService_Log_PluginRestoreFailed", folder.DisplayName, failureMessage), LogLevel.Error);
-
-                if (restoreStarted)
-                {
-                    BroadcastRestoreLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "plugin_restore_failed" });
-                    BroadcastRestoreEvent(configIndex, config, folder, "restore_finished", new Dictionary<string, string?>
-                    {
-                        ["status"] = "failure",
-                        ["reason"] = "plugin_restore_failed"
-                    });
-                }
-
-                NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, failureMessage);
+                    BackupSourceExecutionStatus.Unavailable,
+                    errorMessage: I18n.GetString("BackupService_Folder_NoMatchingFiles"),
+                    captureResult: captureResult,
+                    task: task);
             }
-            catch (Exception ex)
+            if (!success)
             {
-                await RunOnUIAsync(() =>
-                {
-                    task.Status = I18n.GetString("BackupService_Task_RestoreFailed");
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = false;
-                    task.ErrorMessage = ex.Message;
-                });
-
-                Log(I18n.Format("BackupService_Log_PluginException", folder.DisplayName, ex.Message), LogLevel.Error);
-
-                if (restoreStarted)
-                {
-                    BroadcastRestoreLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "plugin_restore_exception" });
-                    BroadcastRestoreEvent(configIndex, config, folder, "restore_finished", new Dictionary<string, string?>
-                    {
-                        ["status"] = "failure",
-                        ["reason"] = "plugin_restore_exception"
-                    });
-                }
-
-                NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, ex.Message);
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: task.ErrorMessage,
+                    captureResult: captureResult,
+                    operationOutcome: canceled ? OperationOutcome.Canceled : OperationOutcome.Failed,
+                    task: task);
             }
+            if (!string.IsNullOrWhiteSpace(generatedFileName))
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.NewArchive,
+                    captureResult: captureResult,
+                    operationOutcome: completionOutcome,
+                    generatedFileName: generatedFileName,
+                    task: task);
+            }
+
+            return CreateSourceOutcome(
+                folder,
+                BackupSourceExecutionStatus.Reused,
+                captureResult: captureResult,
+                task: task);
+        }
+
+        private static BackupSourceExecutionOutcome CreateSourceOutcome(
+            ManagedFolder folder,
+            BackupSourceExecutionStatus status,
+            string? errorMessage = null,
+            SourceCaptureResult? captureResult = null,
+            OperationOutcome? operationOutcome = null,
+            string? generatedFileName = null,
+            BackupTask? task = null) => new()
+        {
+            Status = status,
+            FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
+            FolderPath = folder.Path ?? string.Empty,
+            FolderName = folder.DisplayName ?? string.Empty,
+            ErrorMessage = errorMessage ?? string.Empty,
+            CaptureResult = captureResult,
+            OperationOutcome = operationOutcome ?? PluginBackupRequestResult.FromSource(status).Outcome,
+            GeneratedFileName = generatedFileName,
+            Task = task
+        };
+
+        private static SourceCaptureResult EnsureCaptureResult(
+            ManagedFolder folder,
+            EffectiveSourceBoundarySnapshot authoritativeBoundary,
+            BackupSourceExecutionOutcome outcome)
+        {
+            if (outcome.CaptureResult is not null) return outcome.CaptureResult;
+            var sourceId = Guid.TryParse(folder.Id, out var parsed) && parsed != Guid.Empty
+                ? new SourceId(parsed)
+                : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
+            var scope = FolderRewind.History.Domain.CaptureScope.FullSource;
+            if (outcome.Status == BackupSourceExecutionStatus.Unavailable)
+                return SourceCaptureResult.Unavailable(sourceId, scope, outcome.ErrorMessage)
+                    .WithEffectiveSourceBoundary(authoritativeBoundary);
+            var captureOutcome = outcome.OperationOutcome switch
+            {
+                OperationOutcome.Blocked => SourceCaptureOutcome.Blocked,
+                OperationOutcome.Canceled => SourceCaptureOutcome.Canceled,
+                _ => SourceCaptureOutcome.Failed
+            };
+            var diagnostic = string.IsNullOrWhiteSpace(outcome.ErrorMessage)
+                ? Array.Empty<HistoryDiagnostic>()
+                : [new HistoryDiagnostic(
+                    "capture.failed",
+                    HistoryDiagnosticSeverity.Error,
+                    outcome.ErrorMessage)];
+            return new SourceCaptureResult(
+                sourceId,
+                captureOutcome,
+                scope,
+                stateFingerprint: null,
+                existingVersionId: null,
+                representationCandidate: null,
+                localReplicaCandidate: null,
+                payloadCandidate: null,
+                expectedWorkspaceRevision: -1,
+                expectedBaseVersionId: null,
+                cleanupHandle: null,
+                diagnostics: diagnostic,
+                effectiveSourceBoundary: authoritativeBoundary);
+        }
+
+        private static async Task CleanupUncommittedOutcomesAsync(
+            IEnumerable<BackupSourceExecutionOutcome> outcomes)
+        {
+            foreach (var cleanup in outcomes
+                         .Select(item => item.CaptureResult?.CleanupHandle)
+                         .Where(item => item is not null))
+            {
+                try { await cleanup!.CleanupAsync(CancellationToken.None).ConfigureAwait(false); }
+                catch { }
+            }
+        }
+
+        private static SourceCaptureResult CreateArchiveCapture(
+            SourceId sourceId,
+            FolderRewind.History.Domain.CaptureScope captureScope,
+            string destinationDirectory,
+            string fileName,
+            RepresentationKind kind,
+            string format,
+            IReadOnlyDictionary<string, SourceCaptureFileState> currentStates,
+            SourceCaptureBaseline? baseline,
+            IEnumerable<RepresentationId> dependencies,
+            int consecutiveSmartCaptures,
+            VersionId? expectedBaseVersionId = null,
+            IEnumerable<string>? deletedFiles = null)
+            => VerifiedArchiveCaptureFactory.Create(
+                sourceId,
+                captureScope,
+                Path.Combine(destinationDirectory, fileName),
+                kind,
+                format,
+                currentStates,
+                baseline,
+                dependencies,
+                consecutiveSmartCaptures,
+                captureScope == FolderRewind.History.Domain.CaptureScope.FullSource
+                    || (kind == RepresentationKind.CoreSmartDelta && expectedBaseVersionId is not null)
+                    ? MaterializationFidelity.Exact
+                    : MaterializationFidelity.Partial,
+                expectedBaseVersionId,
+                deletedFiles);
+
+        public enum RestoreMode
+        {
+            Clean = 0,
+            Overwrite = 1
+        }
+
+        private static BackupInvocationKind MapInvocationKind(BackupInvocationSource source) => source switch
+        {
+            BackupInvocationSource.Automatic => BackupInvocationKind.Automatic,
+            BackupInvocationSource.Remote => BackupInvocationKind.Remote,
+            BackupInvocationSource.PluginHotkey => BackupInvocationKind.PluginHotkey,
+            BackupInvocationSource.Internal => BackupInvocationKind.Internal,
+            _ => BackupInvocationKind.Manual
+        };
+
+
+
+        private static async Task PruneRetainedSourceArchivesAsync(BackupConfig config)
+        {
+            if (config.Archive.KeepCount <= 0)
+            {
+                return;
+            }
+            await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config);
         }
 
     }

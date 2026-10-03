@@ -23,9 +23,10 @@ namespace FolderRewind.Services.KnotLink
                 throw new ArgumentOutOfRangeException(nameof(timeoutMs));
             }
 
-            return Task.Run(() =>
+            return Task.Run(async () =>
             {
                 using var querier = new OpenSocketQuerier(appId, openSocketId, host, port);
+                await querier.InitializeAsync().ConfigureAwait(false);
                 return querier.Query(question, timeoutMs);
             });
         }

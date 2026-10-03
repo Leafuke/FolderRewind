@@ -13,6 +13,13 @@ public sealed class TemplateFormatPolicyTests
     }
 
     [TestMethod]
+    public void BackupPresetEnvelopeIsAccepted()
+    {
+        Assert.IsTrue(TemplateFormatPolicy.IsBackupPresetEnvelope("FolderRewindBackupPreset", "2.0"));
+        Assert.IsFalse(TemplateFormatPolicy.IsBackupPresetEnvelope("FolderRewindTemplate", "1.0"));
+    }
+
+    [TestMethod]
     [DataRow(null, "1.0")]
     [DataRow("", "1.0")]
     [DataRow("FolderRewindTemplate", null)]
@@ -43,5 +50,25 @@ public sealed class TemplateFormatPolicyTests
         using var document = JsonDocument.Parse(json);
 
         Assert.IsFalse(TemplateFormatPolicy.IsCurrentOfficialIndex(document.RootElement));
+    }
+
+    [TestMethod]
+    public void CurrentBackupPresetIndexIsAccepted()
+    {
+        using var document = JsonDocument.Parse(
+            """{"magic":"FolderRewindBackupPresetIndex","schemaVersion":"2.0","presets":[]}""");
+
+        Assert.IsTrue(TemplateFormatPolicy.IsCurrentBackupPresetIndex(document.RootElement));
+    }
+
+    [TestMethod]
+    [DataRow("""{"magic":"FolderRewindBackupPresetIndex","schemaVersion":"1.0","presets":[]}""")]
+    [DataRow("""{"magic":"FolderRewindBackupPresetIndex","schemaVersion":"2.0","presets":{}}""")]
+    [DataRow("""{"schemaVersion":"2.0","presets":[]}""")]
+    public void NonCanonicalBackupPresetIndexIsRejected(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+
+        Assert.IsFalse(TemplateFormatPolicy.IsCurrentBackupPresetIndex(document.RootElement));
     }
 }

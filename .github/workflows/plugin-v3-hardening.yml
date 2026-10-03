@@ -1,0 +1,309 @@
+name: Plugin v3 Hardening
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_api:
+        description: Publish the verified API package to nuget.org (default branch only)
+        type: boolean
+        default: false
+      plugin_ref:
+        description: Plugin source branch, tag or commit to validate against the API candidate
+        type: string
+      cancellation_iterations:
+        description: Number of cancellation stress-test rounds
+        type: string
+        default: '20'
+  pull_request:
+  push:
+    branches:
+      - master
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-runtime-host:
+    name: Contracts, Runtime, Host policies
+    runs-on: windows-latest
+    env:
+      CANCELLATION_ITERATIONS: ${{ inputs.cancellation_iterations || vars.CANCELLATION_ITERATIONS || '20' }}
+
+    steps:
+      - name: Clean checkout without submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Assert repository boundary
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath '.gitmodules') {
+            throw 'The Host repository must not declare source submodules.'
+          }
+          if (Test-Path -LiteralPath 'FolderRewind-Plugin-Minecraft') {
+            throw 'MineRewind source must not be present in the Host checkout.'
+          }
+          if (Select-String -Path 'FolderRewind.slnx','FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj' -Pattern 'FolderRewind-Plugin-Minecraft|MineRewind.csproj' -Quiet) {
+            throw 'A Host build input still references MineRewind source.'
+          }
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore Host solution
+        shell: pwsh
+        run: dotnet restore FolderRewind.slnx -p:Platform=x64
+
+      - name: Require real 7-Zip for archive integration tests
+        shell: pwsh
+        run: |
+          $sevenZip = (Get-Command '7z.exe' -ErrorAction Stop).Source
+          & $sevenZip i
+          if ($LASTEXITCODE -ne 0) { throw 'Real 7-Zip is required; archive tests must not be skipped.' }
+          "FOLDERREWIND_TEST_7Z=$sevenZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Test approved Plugin API contract
+        shell: pwsh
+        run: dotnet test FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj -c Release --no-restore --logger trx --results-directory artifacts/test-results/abstractions
+
+      - name: Test Runtime and Fake plugin behavior
+        shell: pwsh
+        run: dotnet test FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj -c Release --no-restore --logger trx --results-directory artifacts/test-results/runtime
+
+      - name: Test Host policies
+        shell: pwsh
+        run: dotnet test FolderRewind.Tests/FolderRewind.Tests.csproj -c Release --no-restore --logger trx --results-directory artifacts/test-results/host --blame-hang-timeout 2m --blame-hang-dump-type none
+
+      - name: Repeat upload cancellation at all three boundaries
+        shell: pwsh
+        run: ./scripts/tests/Test-HistoryUploadCancellation.ps1 -ResultsDirectory artifacts/test-results/cloud-cancellation -Iterations ([int]$env:CANCELLATION_ITERATIONS)
+
+      - name: Require complete test evidence without skipped cases
+        shell: pwsh
+        run: |
+          $reports = @(Get-ChildItem -LiteralPath artifacts/test-results -Recurse -Filter '*.trx')
+          $suites = @('abstractions','runtime','host')
+          $iterations = [int]$env:CANCELLATION_ITERATIONS
+          if ($reports.Count -ne ($suites.Count + $iterations)) { throw "Missing full-suite or cancellation reports: $($reports.Count)." }
+          foreach ($suite in $suites) {
+            if (-not @($reports | Where-Object { $_.Directory.Name -ceq $suite }).Count) { throw "Missing test suite: $suite" }
+          }
+          foreach ($report in $reports) {
+            [xml]$result = Get-Content -LiteralPath $report.FullName
+            $counters = $result.TestRun.ResultSummary.Counters
+            if ([int]$counters.total -eq 0 -or [int]$counters.passed -ne [int]$counters.total) {
+              throw "Failed, skipped or missing tests in $($report.Name)."
+            }
+          }
+          $evidence = @(
+            '# Stage A automated acceptance',
+            "Commit: $env:GITHUB_SHA",
+            "SDK: $(dotnet --version)",
+            'Configuration: Release',
+            "Cancellation: $iterations rounds, all enumerated boundaries passed, zero skipped",
+            "Run: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          )
+          foreach ($report in $reports | Where-Object { $_.Name -notlike 'cloud-cancellation-*' }) {
+            [xml]$result = Get-Content -LiteralPath $report.FullName
+            $counters = $result.TestRun.ResultSummary.Counters
+            $evidence += "$($report.Directory.Name): total=$($counters.total), passed=$($counters.passed), failed=$($counters.failed), skipped=$($counters.notExecuted)"
+          }
+          $evidence | Set-Content -LiteralPath artifacts/test-results/stage-a-acceptance.md -Encoding utf8
+          $evidence | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+
+      - name: Preserve test results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-a-test-results
+          path: artifacts/test-results/
+          if-no-files-found: warn
+
+      - name: Preserve released migration fixture provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy182-fixture-evidence
+          path: |
+            FolderRewind.Tests/Fixtures/Legacy182/
+            docs/plans/Upgrade_1.8.2_to_1.9_Manual_Acceptance.md
+          if-no-files-found: error
+
+      - name: Pack Plugin API
+        shell: pwsh
+        run: dotnet pack FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj -c Release --no-restore -o artifacts/nuget
+
+      - name: Verify Plugin API package boundary
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $packages = @(
+            Get-ChildItem -LiteralPath 'artifacts/nuget' -Filter 'FolderRewind.Plugin.Abstractions.*.nupkg' |
+              Where-Object { $_.Name -notlike '*.snupkg' }
+          )
+          if ($packages.Count -ne 1) {
+            throw "Expected exactly one Plugin API package, but found $($packages.Count)."
+          }
+          $package = $packages[0]
+          $archive = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+          try {
+            $entries = @($archive.Entries.FullName)
+            foreach ($required in @(
+              'lib/net10.0/FolderRewind.Plugin.Abstractions.dll',
+              'lib/net10.0/FolderRewind.Plugin.Abstractions.xml',
+              'README.md'
+            )) {
+              if ($entries -notcontains $required) { throw "Plugin API package is missing $required" }
+            }
+            if ($entries -match 'FolderRewind.Plugin.Runtime|FolderRewind.exe|Microsoft.UI.Xaml') {
+              throw 'Plugin API package leaked Host or UI implementation files.'
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+      - name: Preserve verified Plugin API candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-api-candidate
+          path: artifacts/nuget/*.nupkg
+          if-no-files-found: error
+
+  plugin-candidate:
+    name: Verify MineRewind against the same API candidate
+    if: github.event_name == 'workflow_dispatch' && (inputs.publish_api || inputs.plugin_ref != '')
+    needs: contracts-runtime-host
+    runs-on: windows-latest
+    steps:
+      - name: Require an explicit plugin source revision
+        shell: pwsh
+        env:
+          PLUGIN_REF: ${{ inputs.plugin_ref }}
+        run: |
+          if (-not $env:PLUGIN_REF) { throw 'plugin_ref is required for API publication.' }
+      - uses: actions/checkout@v4
+        with:
+          repository: Leafuke/FolderRewind-Plugin-Minecraft
+          ref: ${{ inputs.plugin_ref }}
+          path: plugin
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-api-candidate
+          path: feed
+      - name: Restore, build and test the independent plugin
+        shell: pwsh
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/api-candidate-packages
+        run: |
+          $feed = [IO.Path]::GetFullPath('feed')
+          "<configuration><packageSources><clear/><add key='candidate' value='$feed'/><add key='nuget.org' value='https://api.nuget.org/v3/index.json'/></packageSources></configuration>" | Set-Content candidate.config
+          dotnet restore plugin/FolderRewind-Plugin-Minecraft.slnx -p:Platform=x64 --configfile candidate.config --no-http-cache
+          if ($LASTEXITCODE) { throw 'Candidate plugin restore failed.' }
+          dotnet build plugin/FolderRewind-Plugin-Minecraft.slnx -c Release -p:Platform=x64 --no-restore
+          if ($LASTEXITCODE) { throw 'Candidate plugin build failed.' }
+          dotnet test plugin/MineRewind.Tests/MineRewind.Tests.csproj -c Release -p:Platform=x64 --no-restore --no-build --logger trx --results-directory artifacts/plugin-tests
+          if ($LASTEXITCODE) { throw 'Candidate plugin tests failed.' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-candidate-plugin-tests
+          path: artifacts/plugin-tests
+
+  publish-api:
+    name: Explicitly publish the verified API package
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_api && github.ref_name == github.event.repository.default_branch
+    needs: [contracts-runtime-host, plugin-candidate, release-build]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-api-candidate
+          path: feed
+      - name: Push the tested package without replacing existing versions
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if (-not $env:NUGET_API_KEY) { throw 'NUGET_API_KEY is not configured.' }
+          $packages = @(Get-ChildItem feed -Filter '*.nupkg' -File)
+          if ($packages.Count -ne 1) { throw 'Expected one verified API package.' }
+          $package = $packages[0]
+          $archive = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+          try {
+            $reader = [IO.StreamReader]::new(($archive.Entries | Where-Object FullName -Like '*.nuspec').Open())
+            try { [xml]$spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            $metadata = $spec.SelectSingleNode('//*[local-name()="metadata"]')
+            $packageId = $metadata.id.ToLowerInvariant()
+            $version = [string]$metadata.version
+          } finally { $archive.Dispose() }
+          $index = Invoke-RestMethod "https://api.nuget.org/v3-flatcontainer/$packageId/index.json"
+          if ($index.versions -contains $version) { throw "API $version already exists; verify it before retrying." }
+          dotnet nuget push $package.FullName --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_API_KEY
+          if ($LASTEXITCODE) { throw 'NuGet publication failed.' }
+
+  release-build:
+    name: Host Release ${{ matrix.platform }}
+    runs-on: windows-latest
+    needs: contracts-runtime-host
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x86
+          - x64
+          - ARM64
+
+    steps:
+      - name: Clean checkout without submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Stage build-time 7-Zip executable
+        shell: pwsh
+        run: |
+          $sevenZip = (Get-Command '7z.exe' -ErrorAction Stop).Source
+          Copy-Item -LiteralPath $sevenZip -Destination '7za.exe'
+      
+      - name: Build architecture
+        shell: pwsh
+        run: |
+          dotnet build FolderRewind/FolderRewind.csproj `
+            -c Release `
+            -p:Platform=${{ matrix.platform }} `
+            -p:CETCompat=false `
+            -p:GenerateAppxPackageOnBuild=false `
+            -warnaserror
+
+      - name: Verify bundled legacy upgrade plugin in build output
+        shell: pwsh
+        run: |
+          $platform = '${{ matrix.platform }}'
+          $rid = 'win-' + $platform.ToLowerInvariant()
+          ./scripts/tests/Test-Legacy182ReleasePayload.ps1 `
+            -PayloadDirectory "FolderRewind/bin/$platform/Release/net10.0-windows10.0.19041.0/$rid" `
+            -ReportPath "artifacts/migration-payload-$platform.json"
+
+      - name: Preserve migration payload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-payload-${{ matrix.platform }}
+          path: artifacts/migration-payload-*.json
+          if-no-files-found: warn

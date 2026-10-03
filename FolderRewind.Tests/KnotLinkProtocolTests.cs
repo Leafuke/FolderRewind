@@ -92,9 +92,25 @@ public sealed class KnotLinkProtocolTests
             out var error);
 
         Assert.IsTrue(success, error);
-        Assert.AreEqual("Incremental", overrides.BackupMode);
+        Assert.AreEqual("Smart", overrides.BackupMode);
         Assert.AreEqual("LZMA2", overrides.CompressionMethod);
         Assert.AreEqual(7, overrides.CompressionLevel);
+    }
+
+    [TestMethod]
+    public void BackupOverrides_AcceptLegacyIncrementalSpellingButNormalizeToSmart()
+    {
+        var request = KnotLinkCommandParser.Parse("cmd=BACKUP;backup_mode=incremental");
+
+        var success = KnotLinkBackupOverrideResolver.TryResolve(
+            request,
+            "LZMA2",
+            5,
+            out var overrides,
+            out var error);
+
+        Assert.IsTrue(success, error);
+        Assert.AreEqual("Smart", overrides.BackupMode);
     }
 
     [TestMethod]

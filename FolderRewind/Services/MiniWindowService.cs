@@ -59,8 +59,10 @@ namespace FolderRewind.Services
                 var mini = new Views.MiniWindow(context);
                 _windows[windowKey] = mini;
 
-                mini.Closed += (_, __) =>
+                void OnClosed(object sender, Microsoft.UI.Xaml.WindowEventArgs args)
                 {
+                    mini.Closed -= OnClosed;
+                    mini.Activated -= OnActivated;
                     if (_windows.TryGetValue(windowKey, out var tracked)
                         && ReferenceEquals(tracked, mini))
                     {
@@ -70,15 +72,17 @@ namespace FolderRewind.Services
 
                     if (_lastFocused == mini)
                         _lastFocused = _windows.Values.LastOrDefault();
-                };
+                }
 
-                mini.Activated += (_, args) =>
+                void OnActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
                 {
                     if (args.WindowActivationState != Microsoft.UI.Xaml.WindowActivationState.Deactivated)
                     {
                         _lastFocused = mini;
                     }
-                };
+                }
+                mini.Closed += OnClosed;
+                mini.Activated += OnActivated;
 
                 // 启动 FileSystemWatcher
                 FolderWatcherService.StartWatching(folder.Path);

@@ -37,14 +37,12 @@ namespace FolderRewind.Services.KnotLink
             OnQuestionAsync = onQuestionAsync;
             _client = new KlTcpClient();
             _client.OnDataReceivedAsync = HandleDataAsync;
-
-            ConnectAndRegister();
         }
 
-        private void ConnectAndRegister()
+        public async Task InitializeAsync()
         {
-            _client.ConnectAsync(_host, _port).GetAwaiter().GetResult();
-            RegisterAsync().GetAwaiter().GetResult();
+            await _client.ConnectAsync(_host, _port).ConfigureAwait(false);
+            await RegisterAsync().ConfigureAwait(false);
         }
 
         private async Task RegisterAsync()

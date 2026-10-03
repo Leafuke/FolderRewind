@@ -10,7 +10,7 @@ namespace FolderRewind.Services;
 
 public static partial class FolderRenameService
 {
-    public static FolderRenameResult ExecuteMovePlan(
+    public static async Task<FolderRenameResult> ExecuteMovePlanAsync(
         IReadOnlyList<FolderMoveOperation> operations,
         CancellationToken cancellationToken = default)
     {
@@ -25,10 +25,11 @@ public static partial class FolderRenameService
             };
         }
 
-        return ExecuteMovePlanCore(operations, cancellationToken).Result;
+        var moveExecution = await ExecuteMovePlanCore(operations, cancellationToken);
+        return moveExecution.Result;
     }
 
-    private static MoveExecutionResult ExecuteMovePlanCore(
+    private static async Task<MoveExecutionResult> ExecuteMovePlanCore(
         IReadOnlyList<FolderMoveOperation> operations,
         CancellationToken cancellationToken)
     {
@@ -36,12 +37,15 @@ public static partial class FolderRenameService
 
         try
         {
-            foreach (var operation in operations ?? Array.Empty<FolderMoveOperation>())
+            await Task.Run(() =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                Directory.Move(operation.SourcePath, operation.DestinationPath);
-                completed.Add(operation);
-            }
+                foreach (var operation in operations ?? Array.Empty<FolderMoveOperation>())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Directory.Move(operation.SourcePath, operation.DestinationPath);
+                    completed.Add(operation);
+                }
+            }, cancellationToken);
 
             return new MoveExecutionResult(
                 new FolderRenameResult

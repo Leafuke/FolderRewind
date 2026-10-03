@@ -1,489 +1,1287 @@
+using FolderRewind.History.Application;
+using FolderRewind.History.Domain;
+using FolderRewind.History.Representation;
+using FolderRewind.History.Legacy;
 using FolderRewind.Models;
 using FolderRewind.Services;
-using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
-namespace FolderRewind.ViewModels
+namespace FolderRewind.ViewModels;
+
+public sealed partial class HistoryPageViewModel : ViewModelBase
 {
-    public sealed class HistoryPageViewModel : ViewModelBase
+    private static readonly TimeSpan ChangeRefreshDebounce = TimeSpan.FromMilliseconds(200);
+    private readonly List<NativeHistoryVersionViewItem> _allVersions = [];
+    private readonly List<BackupRunViewItem> _allRuns = [];
+    private readonly HashSet<VersionId> _deletingVersions = [];
+    private readonly object _deleteSync = new();
+    private readonly object _changeRefreshSync = new();
+    private readonly LatestRequestCoordinator _selectionRequests = new();
+    private readonly LatestRequestCoordinator _refreshRequests = new();
+    private IDisposable? _changeSubscription;
+    private CancellationTokenSource? _changeRefreshSource;
+    private BackupConfig? _currentConfig;
+    private ManagedFolder? _currentFolder;
+    private bool _isEmpty = true;
+    private bool _isLoading;
+    private string _errorMessage = string.Empty;
+    private int _missingCount;
+    private string _commentFilterText = string.Empty;
+    private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
+    private BranchViewItem? _selectedBranch;
+    private HistoryPresentationMode _presentationMode = HistoryPresentationMode.Normal;
+    private readonly LatestRequestCoordinator _branchAssessmentRequests = new();
+    private HistoryRuntime? _presentationRuntime;
+    private long _presentationSequence = -1;
+    private SourceId? _presentationSource;
+    private HistoryPresentationResult? _cachedPresentation;
+    private bool _refreshingBranches;
+    private volatile bool _isActive;
+
+    public BatchObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
+    public BatchObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
+    public BatchObservableCollection<BranchViewItem> Branches { get; } = [];
+    public bool ShowBranchTools => IsAdvancedHistory && !IsGroupedRunView;
+    public bool IsAdvancedHistory => _presentationMode == HistoryPresentationMode.Advanced;
+    public bool HasBranchDivergence => !IsAdvancedHistory && !IsGroupedRunView && Branches.Any(branch => branch.IsMultiTip);
+    public bool IsAssessingBranch { get; private set; }
+
+    public async Task SetPresentationModeAsync(HistoryPresentationMode mode, CancellationToken cancellationToken = default)
     {
-        private readonly List<HistoryItem> _currentAllItems = new();
-        private bool _historyEventsSubscribed;
-        private int _missingCount;
-        private bool _isEmpty = true;
-        private string _commentFilterText = string.Empty;
-
-        private BackupConfig? _currentConfig;
-        private ManagedFolder? _currentFolder;
-
-        public ObservableCollection<HistoryItem> FilteredHistory { get; } = new();
-
-        public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
-
-        private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
-
-        public bool IsEmpty
+        if (_presentationMode == mode) return;
+        _presentationMode = mode;
+        _branchAssessmentRequests.CancelCurrent();
+        if (!IsAdvancedHistory) SelectedBranch = Branches.FirstOrDefault(branch => branch.IsActive);
+        OnPropertyChanged(nameof(IsAdvancedHistory));
+        OnPropertyChanged(nameof(ShowBranchTools));
+        OnPropertyChanged(nameof(HasBranchDivergence));
+        foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
+        foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
+        ApplyFilter();
+        if (IsAdvancedHistory) _ = AssessSelectedBranchAsync();
+        if (Settings is not null)
         {
-            get => _isEmpty;
-            private set => SetProperty(ref _isEmpty, value);
+            Settings.LastHistoryPresentationMode = mode;
+            _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
         }
-
-        public bool HasMissing => _missingCount > 0;
-
-        public bool CanUseCloudHistoryActions => CloudSyncService.CanUseManualCloudActions(_currentConfig);
-
-        public bool CanOpenConfigCloudSync => _currentConfig != null && CloudSyncService.CanUseManualCloudActions(_currentConfig);
-
-        public string CommentFilterText
+    }
+    public BatchObservableCollection<SafetySnapshotViewItem> ActiveSafetySnapshots { get; } = [];
+    public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? [];
+    private GlobalSettings? _observedSettings;
+    private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
+    public bool IsEmpty { get => _isEmpty; private set => SetProperty(ref _isEmpty, value); }
+    public bool IsLoading
+    {
+        get => _isLoading;
+        private set
         {
-            get => _commentFilterText;
-            set
+            if (SetProperty(ref _isLoading, value)) OnPropertyChanged(nameof(ShowEmptyState));
+        }
+    }
+    public string ErrorMessage
+    {
+        get => _errorMessage;
+        private set
+        {
+            if (!SetProperty(ref _errorMessage, value ?? string.Empty)) return;
+            OnPropertyChanged(nameof(HasError));
+            OnPropertyChanged(nameof(ShowEmptyState));
+        }
+    }
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool ShowEmptyState => IsEmpty && !IsLoading && !HasError;
+    public bool HasMissing => _missingCount > 0;
+    public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
+    public bool ShowGroupedRunHistory => IsGroupedRunView;
+    public bool ShowPerSourceHistory => !IsGroupedRunView;
+    public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder is not null;
+    public bool CanUseCloudHistoryActions => _currentConfig is not null
+        && CloudSyncService.CanUseHistoryCloudActions(_currentConfig);
+    public bool CanOpenConfigCloudSync => CanUseCloudHistoryActions;
+    public BranchViewItem? SelectedBranch
+    {
+        get => _selectedBranch;
+        set
+        {
+            if (!SetProperty(ref _selectedBranch, value)) return;
+            NotifyBranchSelectionChanged();
+            if (!_refreshingBranches)
             {
-                if (!SetProperty(ref _commentFilterText, value ?? string.Empty))
-                {
-                    return;
-                }
-
-                ApplyCommentFilter();
+                ApplyFilter();
+                _ = AssessSelectedBranchAsync();
             }
         }
-
-        public bool UseHistoryStatusColors
+    }
+    public string CurrentBranchDisplay
+    {
+        get
         {
-            get => Settings?.UseHistoryStatusColors ?? true;
-            set
-            {
-                if (Settings != null)
-                {
-                    Settings.UseHistoryStatusColors = value;
-                    ConfigService.Save();
-                }
-
-                UpdateTimelineVisuals(FilteredHistory);
-                OnPropertyChanged();
-            }
+            var active = Branches.FirstOrDefault(branch => branch.IsActive);
+            return active is null
+                ? I18n.GetString("History_Branch_CurrentNotEstablished")
+                : I18n.Format("History_Branch_CurrentFormat", active.Name);
         }
+    }
+    public bool CanStartCheckoutSelectedBranch => SelectedBranch?.CanStartCheckout == true;
+    public bool CanReconcileSelectedBranch => SelectedBranch?.CanReconcile == true;
+    public string SelectedBranchCheckoutStatusText => SelectedBranch?.CheckoutStatusText ?? string.Empty;
+    public string SelectedBranchCheckoutDiagnostic => SelectedBranch?.CheckoutDiagnostic ?? string.Empty;
+    public bool CanRenameSelectedBranch => SelectedBranch?.CanRename == true;
+    public bool CanDeleteSelectedBranch => SelectedBranch?.CanDelete == true;
 
-        public void Initialize()
+    public string CommentFilterText
+    {
+        get => _commentFilterText;
+        set { if (SetProperty(ref _commentFilterText, value ?? string.Empty)) ApplyFilter(); }
+    }
+
+    public bool UseHistoryStatusColors
+    {
+        get => Settings?.UseHistoryStatusColors ?? true;
+        set
         {
-            HistoryService.Initialize();
-
-            if (_historyEventsSubscribed)
+            if (Settings is not null)
             {
+                Settings.UseHistoryStatusColors = value;
+                ObservePreferenceSave(ConfigService.SaveAsync());
+            }
+            UpdateSemanticStatusPreferences(_allVersions); OnPropertyChanged();
+        }
+    }
+
+    private static void ObservePreferenceSave(Task saveTask)
+    {
+        _ = saveTask.ContinueWith(
+            task => LogService.LogError(
+                $"[HistoryPageViewModel] Saving history preferences failed: {task.Exception?.GetBaseException().Message}",
+                nameof(HistoryPageViewModel),
+                task.Exception?.GetBaseException()),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
+    }
+
+    public void Initialize()
+    {
+        _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource;
+        _presentationMode = Settings?.LastHistoryPresentationMode == HistoryPresentationMode.Advanced
+            ? HistoryPresentationMode.Advanced : HistoryPresentationMode.Normal;
+        NotifyViewModeChanged();
+        OnPropertyChanged(nameof(IsAdvancedHistory));
+        OnPropertyChanged(nameof(ShowBranchTools));
+    }
+
+    public async Task SetCurrentSelectionAsync(
+        BackupConfig? config,
+        ManagedFolder? folder,
+        bool refreshHistoryIfFolder,
+        bool persistSelection,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = _selectionRequests.Begin(cancellationToken);
+        _isActive = true;
+        ObserveSettings();
+        _refreshRequests.CancelCurrent();
+        _branchAssessmentRequests.CancelCurrent();
+        CancelScheduledChangeRefresh();
+        DisposeChangeSubscription();
+        ErrorMessage = string.Empty;
+        var shouldRefresh = config is not null
+            && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null));
+        IsLoading = shouldRefresh;
+        if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id) SelectedBranch = null;
+        _currentConfig = config;
+        _currentFolder = folder;
+        if (config is not null)
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
+            if (!request.IsCurrent) return;
+            _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
+        }
+        if (!request.IsCurrent) return;
+        NotifyContextChanged();
+        if (shouldRefresh)
+            await RefreshCurrentHistoryAsync(request.Token);
+        else
+        {
+            ClearPresentation();
+            IsLoading = false;
+        }
+        if (request.IsCurrent && persistSelection)
+            await PersistSelectionAsync(config, folder, request.Token);
+    }
+
+    public void ClearCurrentSelection()
+    {
+        Suspend();
+        _currentConfig = null;
+        _currentFolder = null;
+        ClearPresentation();
+        ErrorMessage = string.Empty;
+        NotifyContextChanged();
+    }
+
+    public void Suspend()
+    {
+        _isActive = false;
+        if (_observedSettings is not null) _observedSettings.PropertyChanged -= OnSettingsChanged;
+        _observedSettings = null;
+        CancelHistoryCommands();
+        _selectionRequests.CancelCurrent();
+        _refreshRequests.CancelCurrent();
+        _branchAssessmentRequests.CancelCurrent();
+        CancelScheduledChangeRefresh();
+        DisposeChangeSubscription();
+        IsLoading = false;
+    }
+
+    public void ReportLoadFailure(string message)
+    {
+        ErrorMessage = message ?? string.Empty;
+        IsLoading = false;
+    }
+
+    private void ReportOperationFailure(string operation, Exception exception)
+    {
+        ErrorMessage = exception.Message;
+        LogService.LogError(
+            $"[HistoryPageViewModel] History {operation} failed: {exception.Message}",
+            nameof(HistoryPageViewModel),
+            exception);
+    }
+
+    public bool TryGetCurrentSelection(out BackupConfig? config, out ManagedFolder? folder)
+    { config = _currentConfig; folder = _currentFolder; return config is not null && folder is not null; }
+    public bool TryGetCurrentConfig(out BackupConfig? config) { config = _currentConfig; return config is not null; }
+
+    public bool TryResolveSelection(string? configId, string? folderPath, out BackupConfig? config, out ManagedFolder? folder)
+    {
+        config = !string.IsNullOrWhiteSpace(configId) ? Configs.FirstOrDefault(item => item.Id == configId) : null;
+        config ??= !string.IsNullOrWhiteSpace(folderPath) ? Configs.FirstOrDefault(item => item.SourceFolders.Any(source => source.Path == folderPath)) : null;
+        folder = config?.SourceFolders.FirstOrDefault(item => item.Path == folderPath); return config is not null;
+    }
+
+    public bool TryResolveLastSelection(out BackupConfig? config, out ManagedFolder? folder)
+    {
+        config = Configs.FirstOrDefault(item => item.Id == Settings?.LastHistoryConfigId) ?? Configs.FirstOrDefault();
+        folder = config?.SourceFolders.FirstOrDefault(item => item.Path == Settings?.LastHistoryFolderPath) ?? config?.SourceFolders.FirstOrDefault();
+        return config is not null;
+    }
+
+    public Task RefreshCurrentHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        CancelScheduledChangeRefresh();
+        return RefreshCurrentHistoryCoreAsync(cancellationToken, force: true);
+    }
+
+    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken, bool force = false)
+    {
+        if (!_isActive) return;
+        using var request = _refreshRequests.Begin(cancellationToken);
+        var token = request.Token;
+        var selectedBranchId = SelectedBranch?.BranchId;
+        var config = _currentConfig;
+        var folder = _currentFolder;
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+        _branchAssessmentRequests.CancelCurrent();
+        try
+        {
+            if (config is null)
+            {
+                if (request.IsCurrent) ClearPresentation();
                 return;
             }
 
-            HistoryService.HistoryChanged += OnHistoryChanged;
-            _historyEventsSubscribed = true;
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
+            SourceId? sourceId = !IsGroupedRunView && folder is not null
+                && Guid.TryParse(folder.Id, out var id)
+                && id != Guid.Empty
+                    ? new SourceId(id)
+                    : null;
+            if (!force && ReferenceEquals(runtime, _presentationRuntime) && sourceId == _presentationSource
+                && runtime.ChangeFeed.CurrentSequence == _presentationSequence && _cachedPresentation is not null)
+            {
+                ApplyPresentation(_cachedPresentation, selectedBranchId);
+                return;
+            }
+            var sequence = runtime.ChangeFeed.CurrentSequence;
+            var snapshot = await new HistoryPresentationQueryService(runtime)
+                .QueryAsync(sourceId, cancellationToken: token);
+            var presentation = await BuildPresentationAsync(config, snapshot, token);
+            token.ThrowIfCancellationRequested();
+            if (!request.IsCurrent || !_isActive) return;
+            _cachedPresentation = presentation;
+            _presentationRuntime = runtime;
+            _presentationSequence = sequence;
+            _presentationSource = sourceId;
+            ApplyPresentation(presentation, selectedBranchId);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (!request.IsCurrent || !_isActive) return;
+            ErrorMessage = ex.Message;
+            LogService.LogError(
+                $"[HistoryPageViewModel] History refresh failed: {ex.Message}",
+                nameof(HistoryPageViewModel),
+                ex);
+        }
+        finally
+        {
+            if (request.IsCurrent) IsLoading = false;
+        }
+    }
+
+    public async Task SetHistoryViewModeAsync(HistoryViewMode mode, CancellationToken cancellationToken = default)
+    {
+        if (_viewMode == mode) return;
+        _viewMode = mode;
+        if (Settings is not null)
+        {
+            Settings.LastHistoryViewMode = mode;
+            _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
+        }
+        NotifyViewModeChanged();
+        SelectedBranch = null;
+        await RefreshCurrentHistoryAsync(cancellationToken);
+    }
+
+    public int GetMissingCount() => _missingCount;
+    public async Task<int> ClearMissingEntriesAsync()
+    {
+        if (_currentConfig is null)
+            return 0;
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        return await new HistoryLocalReplicaMaintenanceService(runtime)
+            .RemoveMissingControlledReplicasAsync()
+            .ConfigureAwait(false);
+    }
+    public async Task<int> ScanAndRecoverHistoryAsync(string scanPath)
+    {
+        if (_currentConfig is null
+            || _currentFolder is null
+            || !Guid.TryParse(_currentFolder.Id, out var sourceGuid)
+            || sourceGuid == Guid.Empty
+            || string.IsNullOrWhiteSpace(scanPath)
+            || !Directory.Exists(scanPath))
+        {
+            return 0;
         }
 
-        public void SetCurrentSelection(BackupConfig? config, ManagedFolder? folder, bool refreshHistoryIfFolder, bool persistSelection)
+        var sourceId = new SourceId(sourceGuid);
+        var displayName = string.IsNullOrWhiteSpace(_currentFolder.DisplayName)
+            ? Path.GetFileName(_currentFolder.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            : _currentFolder.DisplayName.Trim();
+        var descriptor = new SourceDescriptorSnapshot(displayName, _currentFolder.Path);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        var recovery = new HistoryArchiveRecoveryService(runtime);
+        var recovered = 0;
+        foreach (var path in Directory.EnumerateFiles(scanPath, "*.*", SearchOption.TopDirectoryOnly)
+                     .OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
         {
-            _currentConfig = config;
-            _currentFolder = folder;
-            OnPropertyChanged(nameof(CanUseCloudHistoryActions));
-            OnPropertyChanged(nameof(CanOpenConfigCloudSync));
-
-            // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
-            if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
+            if (!LegacyArchiveNameParser.TryParse(Path.GetFileName(path), out var parsed)
+                || !string.Equals(parsed!.SourceDisplayName, displayName, StringComparison.OrdinalIgnoreCase))
             {
-                RefreshHistory(_currentConfig, _currentFolder);
+                continue;
             }
 
-            if (persistSelection)
+            var result = await recovery.RecoverAsync(
+                sourceId,
+                descriptor,
+                path,
+                overlay: string.Equals(parsed.BackupType, "Smart", StringComparison.OrdinalIgnoreCase))
+                .ConfigureAwait(false);
+            if (result.Created)
             {
-                PersistHistorySelection(_currentConfig, _currentFolder);
+                recovered++;
             }
         }
+        return recovered;
+    }
+    public string? GetBackupFilePath(NativeHistoryVersionViewItem item) => item.LocalPath;
+    public bool TryRevealBackupFile(NativeHistoryVersionViewItem item, out string? errorMessage)
+    {
+        errorMessage = null;
+        if (string.IsNullOrWhiteSpace(item.LocalPath) || !File.Exists(item.LocalPath)) { errorMessage = I18n.GetString("History_ViewFile_NotFound"); return false; }
+        return ShellPathService.TryRevealPathInExplorer(item.LocalPath, out errorMessage);
+    }
 
-        public bool TryGetCurrentSelection(out BackupConfig? config, out ManagedFolder? folder)
+    public async Task<bool> UpdateCommentAsync(
+        NativeHistoryVersionViewItem item,
+        string comment,
+        CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig is null) return false;
+        try
         {
-            config = _currentConfig;
-            folder = _currentFolder;
-            return config != null && folder != null;
-        }
-
-        public bool TryResolveSelection(string? configId, string? folderPath, out BackupConfig? config, out ManagedFolder? folder)
-        {
-            config = null;
-            folder = null;
-
-            if (!string.IsNullOrWhiteSpace(configId))
-            {
-                config = Configs.FirstOrDefault(c => c.Id == configId);
-            }
-
-            if (config == null && !string.IsNullOrWhiteSpace(folderPath))
-            {
-                config = Configs.FirstOrDefault(c => c.SourceFolders.Any(f => f.Path == folderPath));
-            }
-
-            if (config == null)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(folderPath))
-            {
-                folder = config.SourceFolders.FirstOrDefault(f => f.Path == folderPath);
-            }
-
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+            await runtime.Annotations.SetCommentAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+                comment,
+                cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
             return true;
         }
-
-        public bool TryResolveLastSelection(out BackupConfig? config, out ManagedFolder? folder)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            config = null;
-            folder = null;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportOperationFailure("version comment", ex);
+            return false;
+        }
+    }
 
-            var settings = Settings;
-            if (settings == null || Configs.Count == 0)
-            {
-                return false;
-            }
-
-            config = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(settings.LastHistoryConfigId) && c.Id == settings.LastHistoryConfigId)
-                     ?? Configs.FirstOrDefault();
-
-            if (config == null)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(settings.LastHistoryFolderPath))
-            {
-                folder = config.SourceFolders.FirstOrDefault(f => f.Path == settings.LastHistoryFolderPath);
-            }
-
-            if (folder == null && config.SourceFolders.Count > 0)
-            {
-                // 历史路径失效时兜底到首项，保证页面总有可展示目标。
-                folder = config.SourceFolders[0];
-            }
-
+    public async Task<bool> ToggleImportantAsync(
+        NativeHistoryVersionViewItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig is null) return false;
+        try
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+            await runtime.Annotations.SetPinAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+                !item.IsImportant,
+                cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
             return true;
         }
-
-        public void RefreshCurrentHistory()
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            if (_currentConfig == null || _currentFolder == null)
-            {
-                return;
-            }
-
-            RefreshHistory(_currentConfig, _currentFolder);
+            throw;
         }
-
-        public void RefreshHistory(BackupConfig config, ManagedFolder folder)
+        catch (Exception ex)
         {
-            _currentAllItems.Clear();
-            FilteredHistory.Clear();
-
-            var items = HistoryService.GetHistoryForFolder(config, folder);
-            foreach (var item in items)
-            {
-                _currentAllItems.Add(item);
-            }
-
-            ApplyCommentFilter();
+            ReportOperationFailure("version pin", ex);
+            return false;
         }
+    }
 
-        public int GetMissingCount()
+    public async Task<bool> UpdateRunCommentAsync(
+        BackupRunViewItem item,
+        string comment,
+        CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig is null) return false;
+        try
         {
-            return _currentAllItems.Count(i => i.IsMissing);
-        }
-
-        public void ClearMissingEntries()
-        {
-            if (_currentConfig == null || _currentFolder == null)
-            {
-                return;
-            }
-
-            try
-            {
-                HistoryService.RemoveMissingEntries(_currentConfig, _currentFolder);
-            }
-            catch
-            {
-            }
-        }
-
-        public int ScanAndRecoverHistory(string scanPath)
-        {
-            if (_currentConfig == null || _currentFolder == null || string.IsNullOrWhiteSpace(scanPath))
-            {
-                return 0;
-            }
-
-            return HistoryService.ScanAndRecoverHistory(scanPath, _currentConfig, _currentFolder);
-        }
-
-        public string? GetBackupFilePath(HistoryItem item)
-        {
-            if (_currentConfig == null || _currentFolder == null)
-            {
-                return null;
-            }
-
-            return HistoryService.GetBackupFilePath(_currentConfig, _currentFolder, item);
-        }
-
-        public bool TryRevealBackupFile(HistoryItem item, out string? errorMessage)
-        {
-            errorMessage = null;
-
-            var filePath = GetBackupFilePath(item);
-            if (string.IsNullOrWhiteSpace(filePath))
-            {
-                errorMessage = I18n.GetString("History_ViewFile_PathEmpty");
-                return false;
-            }
-
-            if (!File.Exists(filePath))
-            {
-                errorMessage = I18n.Format("History_ViewFile_NotFound", Path.GetFileName(filePath));
-                return false;
-            }
-
-            if (!ShellPathService.TryRevealPathInExplorer(filePath, out var revealError))
-            {
-                errorMessage = I18n.Format("History_ViewFile_Failed", revealError ?? string.Empty);
-                return false;
-            }
-
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+            await runtime.Annotations.SetCommentAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+                comment,
+                cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
             return true;
         }
-
-        public void UpdateComment(HistoryItem item, string newComment)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            HistoryService.UpdateComment(item, newComment);
-            item.OnPropertyChanged(nameof(item.Message));
+            throw;
         }
-
-        public void ToggleImportant(HistoryItem item)
+        catch (Exception ex)
         {
-            HistoryService.ToggleImportant(item);
-            UpdateTimelineVisuals(FilteredHistory);
+            ReportOperationFailure("run comment", ex);
+            return false;
         }
+    }
 
-        public async Task<bool> UploadToCloudAsync(HistoryItem item)
+    public async Task<bool> ToggleRunImportantAsync(
+        BackupRunViewItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig is null) return false;
+        try
         {
-            if (_currentConfig == null || _currentFolder == null || item == null)
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+            await runtime.Annotations.SetRunImportantAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+                !item.IsImportant,
+                cancellationToken);
+            foreach (var checkpointId in item.Sources.Where(s => s.CheckpointId is not null).Select(s => s.CheckpointId!.Value))
+                await runtime.Annotations.SetPinAsync(
+                    new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpointId.Value),
+                    !item.IsImportant,
+                    cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportOperationFailure("run pin", ex);
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteRunAsync(BackupRunViewItem item)
+    {
+        if (_currentConfig is null) return false;
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await runtime.Annotations.SetSuppressionAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+            suppressed: true).ConfigureAwait(false);
+        return true;
+    }
+    public async Task<bool> UploadToCloudAsync(NativeHistoryVersionViewItem item)
+    {
+        if (_currentConfig is null
+            || item.RepresentationId is not { } representationId
+            || string.IsNullOrWhiteSpace(item.LocalPath)) return false;
+        return await CloudSyncService.UploadRepresentationAsync(
+            _currentConfig,
+            representationId,
+            item.LocalPath).ConfigureAwait(false);
+    }
+    public async Task<bool> DownloadFromCloudAsync(NativeHistoryVersionViewItem item)
+    {
+        if (_currentConfig is null
+            || _currentFolder is null
+            || item.RepresentationId is not { } representationId) return false;
+        return await CloudSyncService.DownloadRepresentationAsync(
+            _currentConfig,
+            _currentFolder,
+            representationId,
+            item.FileName).ConfigureAwait(false);
+    }
+    public async Task<HistoryRestoreResult?> RestoreVersionAsync(
+        NativeHistoryVersionViewItem item,
+        BackupService.RestoreMode mode)
+    {
+        if (_currentConfig is null || _currentFolder is null) return null;
+        return await NativeHistoryApplicationService.RestoreVersionAsync(
+            _currentConfig,
+            _currentFolder,
+            item.VersionId,
+            mode).ConfigureAwait(false);
+    }
+    public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
+    {
+        var config = _currentConfig;
+        if (config is null)
+            return new() { Success = false, Message = I18n.GetString("History_NoActiveConfiguration") };
+        lock (_deleteSync)
+        {
+            if (!_deletingVersions.Add(item.VersionId))
+                return new() { Success = false, Message = I18n.GetString("History_Delete_InProgress") };
+        }
+        try
+        {
+            await using var operationLease = await NativeHistoryConfigurationOperationGate
+                .EnterAsync(config.Id).ConfigureAwait(false);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
+            var deletesLocalPayload = mode is BackupDeleteMode.LocalArchiveOnly
+                or BackupDeleteMode.LocalArchiveAndRecord;
+            HistoryTargetedReplicaDeletionResult? deletion = null;
+            if (deletesLocalPayload)
             {
-                return false;
-            }
-
-            bool success = await CloudSyncService.UploadHistoryItemAsync(_currentConfig, _currentFolder, item).ConfigureAwait(true);
-            RefreshCurrentHistory();
-            return success;
-        }
-
-        public async Task<bool> DownloadFromCloudAsync(HistoryItem item)
-        {
-            if (_currentConfig == null || _currentFolder == null || item == null)
-            {
-                return false;
-            }
-
-            bool success = await CloudSyncService.DownloadHistoryItemAsync(_currentConfig, _currentFolder, item).ConfigureAwait(true);
-            RefreshCurrentHistory();
-            return success;
-        }
-
-        public async Task<BackupService.DeleteBackupResult> DeleteHistoryItemAsync(HistoryItem item, BackupDeleteMode deleteMode)
-        {
-            if (_currentConfig == null || _currentFolder == null || item == null)
-            {
-                return new BackupService.DeleteBackupResult
+                if (item.RepresentationId is not { } representationId
+                    || string.IsNullOrWhiteSpace(item.LocalPath))
                 {
-                    Success = false,
-                    Message = I18n.GetString("History_Delete_InvalidRequest")
-                };
-            }
-
-            var result = await BackupService.DeleteBackupAsync(_currentConfig, _currentFolder, item, deleteMode).ConfigureAwait(true);
-            RefreshCurrentHistory();
-            return result;
-        }
-
-        private void OnHistoryChanged()
-        {
-            _ = UiDispatcherService.RunOnUiAsync(() =>
-            {
-                RefreshCurrentHistory();
-            });
-        }
-
-        private void ApplyCommentFilter()
-        {
-            UpdateCloudPresentation(_currentAllItems);
-            FilteredHistory.Clear();
-
-            IEnumerable<HistoryItem> query = _currentAllItems;
-            var needle = (CommentFilterText ?? string.Empty).Trim();
-
-            if (!string.IsNullOrWhiteSpace(needle))
-            {
-                query = query.Where(i => (i.Comment ?? string.Empty).IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0);
-            }
-
-            foreach (var item in query)
-            {
-                FilteredHistory.Add(item);
-            }
-
-            // 缺失统计基于完整历史，不受当前筛选词影响。
-            _missingCount = _currentAllItems.Count(i => i.IsMissing);
-            OnPropertyChanged(nameof(HasMissing));
-
-            IsEmpty = FilteredHistory.Count == 0;
-            UpdateTimelineVisuals(FilteredHistory);
-            OnPropertyChanged(nameof(CanUseCloudHistoryActions));
-            OnPropertyChanged(nameof(CanOpenConfigCloudSync));
-        }
-
-        private static Brush TryGetThemeBrush(string key, Windows.UI.Color fallback)
-        {
-            try
-            {
-                if (Application.Current?.Resources != null && Application.Current.Resources.TryGetValue(key, out var v) && v is Brush b)
-                {
-                    return b;
-                }
-            }
-            catch
-            {
-            }
-
-            return new SolidColorBrush(fallback);
-        }
-
-        private void UpdateTimelineVisuals(IEnumerable<HistoryItem> items)
-        {
-            var use = UseHistoryStatusColors;
-
-            var offLine = TryGetThemeBrush("SystemControlForegroundBaseLowBrush", Colors.Gray);
-            var offFill = TryGetThemeBrush("SystemControlBackgroundChromeMediumBrush", Colors.Transparent);
-            var offBorder = TryGetThemeBrush("SystemControlForegroundBaseHighBrush", Colors.Gray);
-
-            var ok = new SolidColorBrush(Colors.DodgerBlue);
-            var cloudOnly = new SolidColorBrush(Colors.LightSkyBlue);
-            var bad = new SolidColorBrush(Colors.OrangeRed);
-            var warn = new SolidColorBrush(Colors.Gold);
-            var importantFill = new SolidColorBrush(Colors.Gold);
-
-            foreach (var item in items)
-            {
-                if (!use)
-                {
-                    item.TimelineLineBrush = offLine;
-                    item.TimelineNodeFillBrush = offFill;
-                    item.TimelineNodeBorderBrush = offBorder;
-                    continue;
+                    return new()
+                    {
+                        Success = false,
+                        Message = I18n.GetString("History_Delete_InvalidRequest")
+                    };
                 }
 
-                // 状态优先级：缺失 > 文件过小 > 正常，保持和旧版一致，避免视觉语义变化。
-                if (item.IsMissing)
-                {
-                    item.TimelineLineBrush = bad;
-                    item.TimelineNodeBorderBrush = bad;
-                }
-                else if (item.IsCloudOnly)
-                {
-                    item.TimelineLineBrush = cloudOnly;
-                    item.TimelineNodeBorderBrush = cloudOnly;
-                }
-                else if (item.IsSmallFile)
-                {
-                    item.TimelineLineBrush = warn;
-                    item.TimelineNodeBorderBrush = warn;
-                }
-                else
-                {
-                    item.TimelineLineBrush = ok;
-                    item.TimelineNodeBorderBrush = ok;
-                }
+                // 手动删除只作用于用户选中的本地副本；不能借机运行配置级 Retention GC。
+                deletion = await NativeHistoryApplicationService.DeleteVersionLocalPayloadAsync(
+                        config,
+                        item.VersionId,
+                        representationId,
+                        item.LocalPath,
+                        releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord)
+                    .ConfigureAwait(false);
+            }
 
-                // 重要标记只影响节点填充，不改变线条颜色，便于一眼看出“时间状态 + 收藏状态”。
-                item.TimelineNodeFillBrush = item.IsImportant ? importantFill : offFill;
+            var suppressesRecord = mode is BackupDeleteMode.RecordOnly
+                or BackupDeleteMode.LocalArchiveAndRecord;
+            if (suppressesRecord)
+            {
+                await runtime.Annotations.SetSuppressionAsync(
+                    new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+                    suppressed: true).ConfigureAwait(false);
+            }
+            return new()
+            {
+                Success = true,
+                ArchiveDeleted = deletion?.PayloadDeleted == true,
+                HistoryUpdated = suppressesRecord || deletion is not null
+            };
+        }
+        catch (Exception ex)
+        {
+            return new() { Success = false, Message = LocalizeDeleteError(ex.Message) };
+        }
+        finally
+        {
+            lock (_deleteSync)
+            {
+                _deletingVersions.Remove(item.VersionId);
             }
         }
+    }
 
-        private void PersistHistorySelection(BackupConfig? config, ManagedFolder? folder)
+    public async Task<string?> GetLocalDeletionBlockerAsync(NativeHistoryVersionViewItem item)
+    {
+        var config = _currentConfig;
+        if (config is null
+            || item.RepresentationId is null
+            || string.IsNullOrWhiteSpace(item.LocalPath))
         {
-            var settings = Settings;
-            if (settings == null)
+            return I18n.GetString("History_Delete_InvalidRequest");
+        }
+
+        try
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
+            await runtime.MaterializationPolicies
+                .EnsureCanReleaseAsync(item.VersionId, default).ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return LocalizeDeleteError(ex.Message);
+        }
+    }
+
+    private static string LocalizeDeleteError(string message)
+        => message switch
+        {
+            "Version is protected by the current Workspace baseline." =>
+                I18n.GetString("History_Delete_WorkspaceProtected"),
+            "Version is protected by a Branch tip." =>
+                I18n.GetString("History_Delete_BranchProtected"),
+            "Version is protected by an active Safety Snapshot." =>
+                I18n.GetString("History_Delete_SafetySnapshotProtected"),
+            "Version is pinned and cannot be released." =>
+                I18n.GetString("History_Delete_PinProtected"),
+            "Version is protected by a pinned Checkpoint and cannot be released." =>
+                I18n.GetString("History_Delete_PinProtected"),
+            "The selected local backup is required by another Version Representation." =>
+                I18n.GetString("History_Delete_DependencyProtected"),
+            _ => message
+        };
+
+    public async Task<bool> CreateBranchAsync(CheckpointId checkpointId, string name)
+    {
+        if (_currentConfig is null) return false;
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await runtime.Branches
+            .CreateFromCheckpointAsync(checkpointId, name).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> RenameBranchAsync(BranchViewItem branch, string name)
+    {
+        if (_currentConfig is null || !branch.CanRename) return false;
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await runtime.Branches
+            .RenameAsync(branch.BranchId, name, sourceId: branch.SourceId).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> DeleteBranchAsync(BranchViewItem branch)
+    {
+        if (_currentConfig is null || !branch.CanDelete) return false;
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await runtime.Branches
+            .DeleteAsync(branch.BranchId, sourceId: branch.SourceId).ConfigureAwait(false);
+        return true;
+    }
+
+    public Task<HistoryCheckoutPlan?> PlanCheckoutBranchTipAsync(BranchViewItem branch)
+    {
+        if (_currentConfig is null || branch.Tips.Count != 1)
+            return Task.FromResult<HistoryCheckoutPlan?>(null);
+        return PlanAsync(_currentConfig, branch.Tips[0].UpdateId);
+
+        static async Task<HistoryCheckoutPlan?> PlanAsync(BackupConfig config, BranchUpdateId tipId)
+            => await NativeHistoryApplicationService.PlanCheckoutAsync(config, tipId).ConfigureAwait(false);
+    }
+
+    public async Task<HistoryCheckoutPlan?> PrepareCheckoutBranchTipAsync(BranchViewItem branch)
+    {
+        if (_currentConfig is null || branch.Tips.Count != 1) return null;
+        return await NativeHistoryApplicationService.PrepareCheckoutAsync(
+            _currentConfig,
+            branch.Tips[0].UpdateId).ConfigureAwait(false);
+    }
+
+    public async Task<HistoryRestoreResult?> CheckoutBranchTipAsync(BranchViewItem branch)
+    {
+        if (_currentConfig is null || branch.Tips.Count != 1) return null;
+        return await NativeHistoryApplicationService.CheckoutAsync(
+            _currentConfig,
+            branch.Tips[0].UpdateId).ConfigureAwait(false);
+    }
+
+    internal HistoryConfigurationRepairResult RepairMissingSource(
+        MissingHistoricalSource missing,
+        string confirmedPath,
+        string expectedConfigRevision)
+        => _currentConfig is null
+            ? new(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected.")
+            : HistorySourceBindingRepairService.RestoreMissingBinding(
+                _currentConfig,
+                missing,
+                confirmedPath,
+                expectedConfigRevision);
+
+    internal HistoryConfigurationRepairResult RepairHistoricalBoundary(
+        HistorySourceBoundaryMismatch mismatch,
+        string expectedConfigRevision)
+        => _currentConfig is null
+            ? new(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected.")
+            : HistorySourceBindingRepairService.RestoreHistoricalBoundary(
+                _currentConfig,
+                mismatch,
+                expectedConfigRevision,
+                acceptConfigWideFilterImpact: true);
+
+    public string? CurrentConfigRevision => _currentConfig?.ConfigRevision;
+
+    public async Task<bool> ReconcileBranchAsync(BranchViewItem branch, BranchUpdateId winnerTipId)
+    {
+        if (_currentConfig is null || !branch.IsMultiTip) return false;
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await new HistoryBranchReconciliationService(runtime)
+            .ReconcileAsync(
+                branch.BranchId,
+                branch.Tips.Select(item => item.UpdateId),
+                winnerTipId).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<HistoryRestoreResult?> RestoreSafetySnapshotAsync(SafetySnapshotViewItem item)
+    {
+        if (_currentConfig is null) return null;
+        return await NativeHistoryApplicationService.RestoreSafetySnapshotAsync(
+            _currentConfig,
+            item.SnapshotId,
+            BackupService.RestoreMode.Clean).ConfigureAwait(false);
+    }
+
+    public async Task<bool> ReleaseSafetySnapshotAsync(SafetySnapshotViewItem item)
+    {
+        if (_currentConfig is null) return false;
+        return await NativeHistoryApplicationService.ReleaseSafetySnapshotAsync(
+            _currentConfig,
+            item.SnapshotId).ConfigureAwait(false);
+    }
+
+    private static Task<HistoryPresentationResult> BuildPresentationAsync(
+        BackupConfig config,
+        HistoryPresentationSnapshot snapshot,
+        CancellationToken cancellationToken)
+        => Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var branchNames = snapshot.Branches.ToDictionary(branch => branch.BranchId, branch => branch.Name);
+            var sourceNames = config.SourceFolders.Where(folder => Guid.TryParse(folder.Id, out _))
+                .ToDictionary(folder => new SourceId(Guid.Parse(folder.Id)), folder => folder.DisplayName);
+            foreach (var entry in snapshot.Timeline) sourceNames.TryAdd(entry.SourceId, entry.DisplayName);
+            var versions = snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item, branchNames)).ToArray();
+            var runs = snapshot.Runs.Select(item => new BackupRunViewItem(item, sourceNames)).ToArray();
+            var branches = snapshot.Branches.Select(branch => new BranchViewItem(branch, null)).ToArray();
+            var safetySnapshots = snapshot.ActiveSafetySnapshots
+                .Select(item => new SafetySnapshotViewItem(item))
+                .ToArray();
+            return new HistoryPresentationResult(versions, runs, branches, safetySnapshots);
+        }, cancellationToken);
+
+    private void ApplyPresentation(HistoryPresentationResult presentation, BranchId? selectedBranchId)
+    {
+        _allVersions.Clear();
+        _allVersions.AddRange(presentation.Versions);
+        _allRuns.Clear();
+        _allRuns.AddRange(presentation.Runs);
+        _refreshingBranches = true;
+        try
+        {
+            Branches.ReplaceAll(presentation.Branches);
+            ActiveSafetySnapshots.ReplaceAll(presentation.SafetySnapshots);
+            var branchId = HistoryPresentationPolicy.ResolveBranch(_presentationMode, presentation.Branches.Select(branch => branch.Summary), selectedBranchId);
+            SelectedBranch = Branches.FirstOrDefault(branch => branch.BranchId == branchId);
+        }
+        finally
+        {
+            _refreshingBranches = false;
+        }
+
+        OnPropertyChanged(nameof(CurrentBranchDisplay));
+        OnPropertyChanged(nameof(HasBranchDivergence));
+        foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
+        foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
+        NotifyBranchSelectionChanged();
+        ApplyFilter();
+        _ = AssessSelectedBranchAsync();
+    }
+
+    private async Task AssessSelectedBranchAsync()
+    {
+        using var request = _branchAssessmentRequests.Begin();
+        var branch = SelectedBranch;
+        var config = _currentConfig;
+        if (!_isActive || !IsAdvancedHistory || IsGroupedRunView || config is null || branch is null || branch.IsAssessed
+            || branch.IsMultiTip || !branch.HasCheckoutTarget || branch.Tips.Count != 1)
+        {
+            IsAssessingBranch = false;
+            OnPropertyChanged(nameof(IsAssessingBranch));
+            return;
+        }
+        try
+        {
+            IsAssessingBranch = true;
+            OnPropertyChanged(nameof(IsAssessingBranch));
+            var plan = await NativeHistoryApplicationService.PlanCheckoutAsync(config, branch.Tips[0].UpdateId, AssessmentDepth.Fast, request.Token);
+            if (!request.IsCurrent || !IsAdvancedHistory || !ReferenceEquals(SelectedBranch, branch)) return;
+            branch.SetAssessment(plan);
+            NotifyBranchSelectionChanged();
+        }
+        catch (OperationCanceledException) when (request.Token.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (request.IsCurrent) { branch.SetAssessment(null); ReportOperationFailure("branch assessment", ex); }
+        }
+        finally
+        {
+            if (request.IsCurrent) { IsAssessingBranch = false; OnPropertyChanged(nameof(IsAssessingBranch)); }
+        }
+    }
+
+    private void ClearPresentation()
+    {
+        _cachedPresentation = null;
+        _presentationRuntime = null;
+        _presentationSequence = -1;
+        _allVersions.Clear();
+        _allRuns.Clear();
+        FilteredHistory.ReplaceAll([]);
+        FilteredRuns.ReplaceAll([]);
+        _refreshingBranches = true;
+        try
+        {
+            Branches.ReplaceAll([]);
+            ActiveSafetySnapshots.ReplaceAll([]);
+            SelectedBranch = null;
+        }
+        finally
+        {
+            _refreshingBranches = false;
+        }
+        _missingCount = 0;
+        IsEmpty = true;
+        OnPropertyChanged(nameof(HasMissing));
+        OnPropertyChanged(nameof(CurrentBranchDisplay));
+        OnPropertyChanged(nameof(HasBranchDivergence));
+        NotifyBranchSelectionChanged();
+    }
+
+    private void ApplyFilter()
+    {
+        var needle = CommentFilterText.Trim();
+        var branchId = (IsAdvancedHistory ? SelectedBranch : Branches.FirstOrDefault(branch => branch.IsActive))?.BranchId;
+        if (IsGroupedRunView)
+        {
+            var runs = _allRuns.Where(item => (needle.Length == 0
+                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+            FilteredRuns.ReplaceAll(runs);
+            FilteredHistory.ReplaceAll([]);
+            _missingCount = 0; IsEmpty = FilteredRuns.Count == 0;
+        }
+        else
+        {
+            var versions = _allVersions.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
+                         && (needle.Length == 0
+                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.FileName.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.BranchDisplay.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+            FilteredHistory.ReplaceAll(versions);
+            FilteredRuns.ReplaceAll([]);
+            _missingCount = FilteredHistory.Count(item => item.IsLocalPayloadMissing);
+            IsEmpty = FilteredHistory.Count == 0; UpdateSemanticStatusPreferences(_allVersions);
+        }
+        OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
+    }
+
+    private void ScheduleChangeRefresh()
+    {
+        if (!_isActive) return;
+        var source = new CancellationTokenSource();
+        CancellationTokenSource? previous;
+        lock (_changeRefreshSync)
+        {
+            if (!_isActive)
             {
+                source.Dispose();
                 return;
             }
-
-            var updated = false;
-
-            if (config != null && settings.LastHistoryConfigId != config.Id)
-            {
-                settings.LastHistoryConfigId = config.Id;
-                updated = true;
-            }
-
-            if (folder != null && settings.LastHistoryFolderPath != folder.Path)
-            {
-                settings.LastHistoryFolderPath = folder.Path;
-                updated = true;
-            }
-
-            if (updated)
-            {
-                // 仅在值变化时写盘，避免切换列表时产生多余 I/O。
-                ConfigService.Save();
-            }
+            previous = _changeRefreshSource;
+            _changeRefreshSource = source;
         }
 
-        private void UpdateCloudPresentation(IEnumerable<HistoryItem> items)
+        CancelAndDispose(previous);
+        _ = RefreshAfterChangeDelayAsync(source, source.Token);
+    }
+
+    private async Task RefreshAfterChangeDelayAsync(
+        CancellationTokenSource source,
+        CancellationToken cancellationToken)
+    {
+        try
         {
-            string availabilityHint = GetCloudAvailabilityHint();
-            bool cloudActionsEnabled = CanUseCloudHistoryActions;
-
-            foreach (var item in items)
-            {
-                item.CloudStatusText = item.HasCloudCopy
-                    ? item.IsCloudOnly
-                        ? I18n.GetString("History_CloudStatus_CloudOnly")
-                        : I18n.GetString("History_CloudStatus_CloudAvailable")
-                    : string.Empty;
-
-                item.CanUploadToCloud = cloudActionsEnabled && item.HasLocalFile;
-                item.CanDownloadFromCloud = cloudActionsEnabled && item.HasCloudCopy;
-
-                item.CloudActionHintText = item.CanUploadToCloud
-                    ? I18n.GetString("History_CloudUpload_Action")
-                    : !string.IsNullOrWhiteSpace(availabilityHint)
-                        ? availabilityHint
-                        : I18n.GetString("History_CloudUpload_NoLocalFile");
-
-                item.DownloadFromCloudHintText = item.CanDownloadFromCloud
-                    ? I18n.GetString("History_CloudDownload_Action")
-                    : !string.IsNullOrWhiteSpace(availabilityHint)
-                        ? availabilityHint
-                        : I18n.GetString("History_CloudDownload_NoCloudCopy");
-            }
+            await Task.Delay(ChangeRefreshDebounce, cancellationToken).ConfigureAwait(false);
+            await UiDispatcherService.RunOnUiAsync(
+                () => RefreshCurrentHistoryCoreAsync(cancellationToken)).ConfigureAwait(false);
         }
-
-        private string GetCloudAvailabilityHint()
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            if (!CloudSyncService.CanUseManualCloudActions(_currentConfig))
+        }
+        catch (Exception ex)
+        {
+            LogService.LogError(
+                $"[HistoryPageViewModel] Debounced history refresh failed: {ex.Message}",
+                nameof(HistoryPageViewModel),
+                ex);
+        }
+        finally
+        {
+            lock (_changeRefreshSync)
             {
-                return I18n.GetString("History_CloudAction_CustomModeOnly");
+                if (ReferenceEquals(_changeRefreshSource, source))
+                    _changeRefreshSource = null;
             }
+            source.Dispose();
+        }
+    }
 
+    private void CancelScheduledChangeRefresh()
+    {
+        CancellationTokenSource? source;
+        lock (_changeRefreshSync)
+        {
+            source = _changeRefreshSource;
+            _changeRefreshSource = null;
+        }
+        CancelAndDispose(source);
+    }
+
+    private static void CancelAndDispose(CancellationTokenSource? source)
+    {
+        if (source is null) return;
+        try
+        {
+            source.Cancel(throwOnFirstException: false);
+        }
+        catch (AggregateException ex)
+        {
+            LogService.LogWarning(
+                $"[HistoryPageViewModel] A history refresh cancellation callback failed: {ex.Message}",
+                nameof(HistoryPageViewModel));
+        }
+        finally
+        {
+            source.Dispose();
+        }
+    }
+
+    private void DisposeChangeSubscription()
+    {
+        _changeSubscription?.Dispose();
+        _changeSubscription = null;
+    }
+
+    private void NotifyViewModeChanged()
+    { OnPropertyChanged(nameof(IsGroupedRunView)); OnPropertyChanged(nameof(ShowBranchTools)); OnPropertyChanged(nameof(ShowGroupedRunHistory)); OnPropertyChanged(nameof(ShowPerSourceHistory)); OnPropertyChanged(nameof(CanUsePerSourceActions)); NotifyCommandStateChanged(); }
+    private void NotifyContextChanged()
+    { OnPropertyChanged(nameof(CanUseCloudHistoryActions)); OnPropertyChanged(nameof(CanOpenConfigCloudSync)); OnPropertyChanged(nameof(CanUsePerSourceActions)); NotifyCommandStateChanged(); }
+    private void NotifyBranchSelectionChanged()
+    {
+        OnPropertyChanged(nameof(CanStartCheckoutSelectedBranch));
+        OnPropertyChanged(nameof(CanReconcileSelectedBranch));
+        OnPropertyChanged(nameof(SelectedBranchCheckoutStatusText));
+        OnPropertyChanged(nameof(SelectedBranchCheckoutDiagnostic));
+        OnPropertyChanged(nameof(CanRenameSelectedBranch));
+        OnPropertyChanged(nameof(CanDeleteSelectedBranch));
+        NotifyCommandStateChanged();
+    }
+    private async Task PersistSelectionAsync(
+        BackupConfig? config,
+        ManagedFolder? folder,
+        CancellationToken cancellationToken)
+    {
+        if (Settings is null) return; bool changed = false;
+        if (config is not null && Settings.LastHistoryConfigId != config.Id) { Settings.LastHistoryConfigId = config.Id; changed = true; }
+        if (folder is not null && Settings.LastHistoryFolderPath != folder.Path) { Settings.LastHistoryFolderPath = folder.Path; changed = true; }
+        if (changed) _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
+    }
+
+    private sealed record HistoryPresentationResult(
+        IReadOnlyList<NativeHistoryVersionViewItem> Versions,
+        IReadOnlyList<BackupRunViewItem> Runs,
+        IReadOnlyList<BranchViewItem> Branches,
+        IReadOnlyList<SafetySnapshotViewItem> SafetySnapshots);
+
+    private void ObserveSettings()
+    {
+        if (_observedSettings is not null) _observedSettings.PropertyChanged -= OnSettingsChanged;
+        _observedSettings = Settings;
+        if (_observedSettings is not null) _observedSettings.PropertyChanged += OnSettingsChanged;
+        UpdateSemanticStatusPreferences(_allVersions);
+        OnPropertyChanged(nameof(UseHistoryStatusColors));
+    }
+
+    private void OnSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(GlobalSettings.UseHistoryStatusColors)) return;
+        UiDispatcherService.Enqueue(() => {
+            UpdateSemanticStatusPreferences(_allVersions);
+            OnPropertyChanged(nameof(UseHistoryStatusColors));
+        });
+    }
+
+    private void UpdateSemanticStatusPreferences(IEnumerable<NativeHistoryVersionViewItem> items)
+    {
+        foreach (var item in items)
+        {
+            item.ApplySemanticColorPreference(UseHistoryStatusColors);
+        }
+    }
+}
+
+public sealed class NativeHistoryVersionViewItem(
+    TimelineEntrySummary summary,
+    IReadOnlyDictionary<BranchId, string>? branchNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    private readonly bool _hasLocalFile = summary.LocalPath is not null && File.Exists(summary.LocalPath);
+    private readonly bool _isLocalPayloadMissing = summary.LocalPath is not null
+        && !File.Exists(summary.LocalPath)
+        && !Directory.Exists(summary.LocalPath);
+    private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
+    private SemanticStatus _readinessStatus = MapReadiness(summary.Readiness);
+
+    private bool _isAdvanced;
+    public bool IsAdvanced { get => _isAdvanced; set { if (SetProperty(ref _isAdvanced, value)) OnPropertyChanged(nameof(ShowBranchDisplay)); } }
+    public bool ShowBranchDisplay => IsAdvanced && HasBranchDisplay;
+    public SourceId SourceId => summary.SourceId;
+    public CheckpointId? CheckpointId => summary.CheckpointId;
+    public string AutomationIdentity => (CheckpointId?.ToString() ?? VersionId.ToString());
+    public VersionId VersionId => summary.VersionId;
+    public RepresentationId? RepresentationId => summary.RepresentationId;
+    public string TimeDisplay => UserDisplayFormatter.LongTime(summary.CreatedAtUtc.ToLocalTime());
+    public string DateDisplay => UserDisplayFormatter.Date(summary.CreatedAtUtc.ToLocalTime());
+    public string CreationKindText => I18n.GetString("History_Creation_" + summary.CreationKind);
+    public bool ShowCreationKind => summary.CreationKind != SourceVersionCreationKind.Capture;
+    public string Comment => summary.Comment;
+    public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.DisplayName : Comment;
+    public string FileName => summary.FileName ?? summary.DisplayName;
+    public string? LocalPath => summary.LocalPath;
+    public bool IsImportant => summary.IsPinned;
+    public bool IsPartialBackup => summary.CaptureScope == CaptureScope.PartialSource || summary.Fidelity == MaterializationFidelity.Partial;
+    public bool IsMissing => summary.Readiness is HistoryPresentationReadiness.Unavailable or HistoryPresentationReadiness.PayloadReleased or HistoryPresentationReadiness.MetadataOnly;
+    public bool HasLocalFile => _hasLocalFile;
+    public bool IsLocalPayloadMissing => _isLocalPayloadMissing;
+    public bool HasCloudCopy => summary.Readiness == HistoryPresentationReadiness.PreparationRequired;
+    public bool IsCloudOnly => HasCloudCopy && !HasLocalFile;
+    public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
+    public CheckpointId? BranchableCheckpointId => summary.BranchableCheckpointId;
+    public bool CanCreateBranch => summary.BranchableCheckpointCount == 1;
+    public string CreateBranchHintText => summary.BranchableCheckpointCount switch
+    {
+        0 => I18n.GetString("History_Branch_CreateUnavailableNoCheckpoint"),
+        1 => I18n.GetString("History_Branch_CreateFromHereHint"),
+        _ => I18n.GetString("History_Branch_CreateUnavailableAmbiguousCheckpoint")
+    };
+    public string FileSizeDisplay => _fileSizeDisplay;
+    public string BranchDisplay => string.Join(" · ", summary.BranchIds
+        .Select(branchId => branchNames?.GetValueOrDefault(branchId))
+        .Where(name => !string.IsNullOrWhiteSpace(name)));
+    public bool HasBranchDisplay => BranchDisplay.Length > 0;
+    public string CloudStatusText => HasCloudCopy ? I18n.GetString("History_CloudStatus_CloudAvailable") : string.Empty;
+    public bool CanUploadToCloud => RepresentationId is not null && HasLocalFile && !HasCloudCopy;
+    public bool CanDownloadFromCloud => RepresentationId is not null && HasCloudCopy && !HasLocalFile;
+    public string CloudActionHintText => ReadinessText;
+    public string DownloadFromCloudHintText => ReadinessText;
+    public HistoryPresentationReadiness Readiness => summary.Readiness;
+    public string ReadinessText => summary.Readiness switch
+    {
+        HistoryPresentationReadiness.Ready => I18n.GetString("History_NativeReadiness_Ready"),
+        HistoryPresentationReadiness.PreparationRequired => I18n.GetString("History_NativeReadiness_PreparationRequired"),
+        HistoryPresentationReadiness.PluginOrCredentialRequired => I18n.GetString("History_NativeReadiness_PluginRequired"),
+        HistoryPresentationReadiness.PayloadReleased => I18n.GetString("History_NativeReadiness_Released"),
+        HistoryPresentationReadiness.MetadataOnly => I18n.GetString("History_NativeReadiness_MetadataOnly"),
+        _ => I18n.GetString("History_NativeReadiness_Unavailable")
+    };
+    public SemanticStatus ReadinessStatus
+    {
+        get => _readinessStatus;
+        private set
+        {
+            SetProperty(ref _readinessStatus, value);
+        }
+    }
+    public string ReadinessGlyph => SemanticStatusGlyphs.GetGlyph(MapReadiness(Readiness));
+
+    public void ApplySemanticColorPreference(bool useStatusColors)
+        => ReadinessStatus = useStatusColors ? MapReadiness(Readiness) : SemanticStatus.Neutral;
+
+    private static SemanticStatus MapReadiness(HistoryPresentationReadiness readiness) => readiness switch
+    {
+        HistoryPresentationReadiness.Ready => SemanticStatus.Success,
+        HistoryPresentationReadiness.PreparationRequired => SemanticStatus.Info,
+        HistoryPresentationReadiness.PluginOrCredentialRequired => SemanticStatus.Warning,
+        _ => SemanticStatus.Error
+    };
+
+    private static string GetFileSizeDisplay(string? localPath)
+    {
+        if (string.IsNullOrWhiteSpace(localPath) || !File.Exists(localPath)) return string.Empty;
+        try
+        {
+            var bytes = new FileInfo(localPath).Length;
+            if (bytes < 1024) return $"{UserDisplayFormatter.Number(bytes)} B";
+            if (bytes < 1024L * 1024) return $"{UserDisplayFormatter.Number(bytes / 1024d, 1)} KB";
+            if (bytes < 1024L * 1024 * 1024) return $"{UserDisplayFormatter.Number(bytes / 1024d / 1024d, 1)} MB";
+            return $"{UserDisplayFormatter.Number(bytes / 1024d / 1024d / 1024d, 2)} GB";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
             return string.Empty;
         }
     }
+}
+
+public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<SourceId, string>? sourceNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    private bool _isAdvanced;
+    public bool IsAdvanced { get => _isAdvanced; set { if (SetProperty(ref _isAdvanced, value)) foreach (var source in Sources) source.IsAdvanced = value; } }
+    public RunId RunId => summary.RunId;
+    public string Comment => summary.Comment;
+    public string TimeDisplay => UserDisplayFormatter.ShortTime(summary.CompletedAtUtc.ToLocalTime());
+    public string DateDisplay => UserDisplayFormatter.Date(summary.CompletedAtUtc.ToLocalTime());
+    public string Message => string.IsNullOrWhiteSpace(Comment) ? GetRunOutcomeText(summary.Outcome) : Comment;
+    public string SourceSummary => I18n.Format("History_Run_SourceCount", summary.Sources.Length);
+    public bool IsImportant => summary.IsImportant;
+    public bool CanRestore => summary.Sources.Any(s => s.VersionId is not null && s.Outcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused);
+    public bool HasPartialBackup => summary.HasPartialCapture;
+    public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
+    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(summary.RunId, item, sourceNames?.GetValueOrDefault(item.SourceId), summary.HistoricalBranchNames?.GetValueOrDefault(item.BranchUpdateId ?? default), summary.BranchableCheckpointIds?.Contains(item.CheckpointId ?? default) == true)).ToArray();
+
+    private static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
+    {
+        BackupRunOutcome.Completed => I18n.GetString("History_Run_OutcomeCompleted"),
+        BackupRunOutcome.Partial => I18n.GetString("History_Run_OutcomePartial"),
+        BackupRunOutcome.Failed => I18n.GetString("History_Run_OutcomeFailed"),
+        BackupRunOutcome.NoChange => I18n.GetString("History_Run_OutcomeNoChange"),
+        _ => outcome.ToString()
+    };
+}
+
+public sealed class BackupRunSourceViewItem(RunId runId, BackupRunSourceResult result, string? sourceName = null, string? branchName = null, bool canCreateBranch = false)
+    : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    private bool _isAdvanced;
+    public bool IsAdvanced { get => _isAdvanced; set => SetProperty(ref _isAdvanced, value); }
+    public RunId RunId => runId;
+    public SourceId SourceId => result.SourceId;
+    public VersionId? VersionId => result.VersionId;
+    public CheckpointId? CheckpointId => result.CheckpointId;
+    public bool CanRestore => VersionId is not null && result.Outcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused;
+    public bool CanCreateBranch => canCreateBranch;
+    public string BranchName => branchName ?? I18n.GetString("History_Branch_None");
+    public string VersionDisplay => VersionId is { } version ? I18n.Format("History_Run_Version", version.ToString()[..8]) : string.Empty;
+    public string BranchDisplay => I18n.Format("History_Run_HistoricalBranch", BranchName);
+    public string Name => sourceName ?? I18n.GetString("History_SourceUnavailable");
+    public string StatusText => result.Outcome switch
+    {
+        BackupRunSourceOutcome.Captured => I18n.GetString("History_Run_SourceNewArchive"),
+        BackupRunSourceOutcome.Reused => I18n.GetString("History_Run_SourceReused"),
+        BackupRunSourceOutcome.Failed => I18n.GetString("History_Run_SourceFailed"),
+        BackupRunSourceOutcome.Unavailable => I18n.GetString("History_Run_SourceUnavailable"),
+        BackupRunSourceOutcome.CarriedForward => I18n.GetString("History_Run_SourceCarriedForward"),
+        _ => result.Outcome.ToString()
+    };
+    public string Detail => result.Outcome is BackupRunSourceOutcome.Failed or BackupRunSourceOutcome.Unavailable
+        ? I18n.GetString("History_SourceNeedsAttention") : string.Empty;
+}
+
+public sealed class BranchViewItem(BranchSummary summary, HistoryCheckoutPlan? checkoutPlan)
+{
+    public BranchSummary Summary => summary;
+    private HistoryCheckoutPlan? _checkoutPlan = checkoutPlan;
+    public bool IsAssessed { get; private set; } = checkoutPlan is not null;
+    public bool HasCheckoutTarget => summary.HasCheckoutTarget;
+    public void SetAssessment(HistoryCheckoutPlan? plan) { _checkoutPlan = plan; IsAssessed = true; }
+    public SourceId SourceId => summary.SourceId;
+    public BranchId BranchId => summary.BranchId;
+    public string Name => summary.Name;
+    public string DisplayName => summary.IsActive
+        ? I18n.Format("History_Branch_ActiveNameFormat", summary.Name)
+        : summary.Name;
+    public bool IsActive => summary.IsActive;
+    public bool IsDeleted => summary.IsDeleted;
+    public bool IsMultiTip => summary.IsMultiTip;
+    public bool IsUnborn => summary.IsUnborn;
+    public HistoryCheckoutReadiness CheckoutReadiness => summary.IsMultiTip
+        ? HistoryCheckoutReadiness.BranchReconciliationRequired
+        : _checkoutPlan?.Readiness ?? HistoryCheckoutReadiness.Blocked;
+    public string CheckoutStatusText => !HasCheckoutTarget ? I18n.GetString("History_BranchEmpty") : !IsAssessed && !IsMultiTip ? I18n.GetString("History_BranchAssessing") : CheckoutReadiness switch
+    {
+        HistoryCheckoutReadiness.Ready => I18n.GetString("History_CheckoutReadiness_Ready"),
+        HistoryCheckoutReadiness.PreparationRequired => I18n.GetString("History_CheckoutReadiness_PreparationRequired"),
+        HistoryCheckoutReadiness.ProtectionRequired => I18n.GetString("History_CheckoutReadiness_ProtectionRequired"),
+        HistoryCheckoutReadiness.ConfigurationMappingRequired => I18n.GetString("History_CheckoutReadiness_ConfigurationMappingRequired"),
+        HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired => I18n.GetString("History_CheckoutReadiness_ConfigurationBoundaryChangeRequired"),
+        HistoryCheckoutReadiness.ExactRepresentationUnavailable => I18n.GetString("History_CheckoutReadiness_ExactRepresentationUnavailable"),
+        HistoryCheckoutReadiness.BranchReconciliationRequired => I18n.GetString("History_CheckoutReadiness_BranchReconciliationRequired"),
+        HistoryCheckoutReadiness.StalePlan => I18n.GetString("History_CheckoutReadiness_StalePlan"),
+        HistoryCheckoutReadiness.CoordinatorUnavailable => I18n.GetString("History_CheckoutReadiness_CoordinatorUnavailable"),
+        _ => I18n.GetString("History_CheckoutReadiness_Blocked")
+    };
+    public string CheckoutDiagnostic => _checkoutPlan?.Diagnostic ?? CheckoutStatusText;
+    public bool CanStartCheckout => IsAssessed && !(summary.IsActive && summary.IsWorkspaceAnchoredAtTip)
+        && summary.HasCheckoutTarget
+        && CheckoutReadiness is HistoryCheckoutReadiness.Ready
+            or HistoryCheckoutReadiness.PreparationRequired
+            or HistoryCheckoutReadiness.ProtectionRequired
+            or HistoryCheckoutReadiness.ConfigurationMappingRequired
+            or HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired
+            or HistoryCheckoutReadiness.StalePlan;
+    public bool CanReconcile => summary.IsMultiTip;
+    public bool CanRename => summary.CanRename;
+    public bool CanDelete => summary.CanDelete;
+    public IReadOnlyList<BranchUpdate> Tips => summary.Tips;
+}
+
+public sealed class SafetySnapshotViewItem(SafetySnapshotProjection projection)
+{
+    public SafetySnapshotId SnapshotId => projection.Snapshot.SnapshotId;
+
+    public string DisplayName => $"{UserDisplayFormatter.LongDateTime(projection.Snapshot.CreatedAtUtc.ToLocalTime())} · {I18n.GetString("History_SafetyReason_" + projection.Snapshot.Reason)}";
 }

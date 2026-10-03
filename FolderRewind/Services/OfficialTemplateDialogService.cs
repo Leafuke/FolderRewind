@@ -14,7 +14,7 @@ namespace FolderRewind.Services
             string title,
             string? initialSearch = null)
         {
-            var fetchResult = await OfficialTemplateService.GetIndexAsync();
+            var fetchResult = await OfficialBackupPresetService.GetIndexAsync();
             if (!fetchResult.Success || fetchResult.Templates.Count == 0)
             {
                 await ShowMessageAsync(
@@ -143,7 +143,7 @@ namespace FolderRewind.Services
                 XamlRoot = xamlRoot
             };
 
-            if (await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
@@ -182,19 +182,19 @@ namespace FolderRewind.Services
                     XamlRoot = xamlRoot
                 };
 
-                if (await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
+                if (await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
                 {
                     return null;
                 }
 
                 var shareCode = (inputBox.Text ?? string.Empty).Trim().ToUpperInvariant();
-                if (!OfficialTemplateService.IsValidShareCode(shareCode))
+                if (!OfficialBackupPresetService.IsValidShareCode(shareCode))
                 {
                     await ShowMessageAsync(xamlRoot, I18n.GetString("OfficialTemplates_UseByShareCodeTitle"), I18n.GetString("OfficialTemplates_InvalidShareCode"));
                     continue;
                 }
 
-                var fetchResult = await OfficialTemplateService.GetIndexAsync();
+                var fetchResult = await OfficialBackupPresetService.GetIndexAsync();
                 if (!fetchResult.Success)
                 {
                     await ShowMessageAsync(xamlRoot, I18n.GetString("OfficialTemplates_UseByShareCodeTitle"), fetchResult.Message);
@@ -280,7 +280,7 @@ namespace FolderRewind.Services
                 CloseButtonText = I18n.GetString("Common_Ok"),
                 XamlRoot = xamlRoot
             };
-            await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot);
+            await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot);
         }
     }
 }

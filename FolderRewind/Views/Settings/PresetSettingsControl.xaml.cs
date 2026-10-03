@@ -31,25 +31,14 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("CloudOnboarding_ConfirmTitle"),
-                Content = new TextBlock
-                {
-                    Text = I18n.Format(
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("CloudOnboarding_ConfirmTitle"),
+                    I18n.Format(
                         "CloudOnboarding_ConfirmContent",
                         provider.DisplayName,
                         provider.Description),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("CloudOnboarding_ConfirmPrimary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-
-            var result = await TemplateDialogCoordinatorService.ShowAsync(dialog, this.XamlRoot);
-            if (result != ContentDialogResult.Primary)
+                    I18n.GetString("CloudOnboarding_ConfirmPrimary"),
+                    this.XamlRoot))
             {
                 return;
             }
@@ -58,17 +47,11 @@ namespace FolderRewind.Views.Settings
             Bindings.Update();
         }
 
-        private async Task ShowSimpleMessageAsync(string message)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Tip"),
-                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-                CloseButtonText = I18n.GetString("Common_Close"),
-                XamlRoot = this.XamlRoot,
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
-        }
+        private Task ShowSimpleMessageAsync(string message) =>
+            AppDialogService.Default.ShowMessageAsync(
+                I18n.GetString("Common_Tip"),
+                message,
+                this.XamlRoot,
+                I18n.GetString("Common_Close"));
     }
 }

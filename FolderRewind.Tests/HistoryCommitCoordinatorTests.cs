@@ -1,0 +1,988 @@
+using FolderRewind.History.Application;
+using FolderRewind.History.Capture;
+using FolderRewind.History.Domain;
+using FolderRewind.History.LocalState;
+using FolderRewind.History.Storage;
+using System.Security.Cryptography;
+
+namespace FolderRewind.Tests;
+
+[TestClass]
+public sealed class HistoryCommitCoordinatorTests
+{
+    private string _root = null!;
+    private HistoryConfigId _configId;
+
+    [TestInitialize]
+    public void Initialize()
+    {
+        _root = Path.Combine(Path.GetTempPath(), "FolderRewindCommitCoordinatorTests", Guid.NewGuid().ToString("N"));
+        _configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task FirstCaptureCommitsAllAuthoritativeFactsInOnePack()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var capture = CreateCapture(sourceId, "first", -1, null);
+
+        var batch = await runtime.Commit.CommitAsync(Request(snapshot, null, capture));
+
+        Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+        Assert.HasCount(5, batch.Pack.Objects);
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                HistoryObjectKinds.BackupRun,
+                HistoryObjectKinds.BranchUpdate,
+                HistoryObjectKinds.SourceCheckpoint,
+                HistoryObjectKinds.SourceVersion,
+                HistoryObjectKinds.VersionRepresentation
+            },
+            batch.Pack.Objects.Select(item => item.Kind).ToArray());
+        Assert.HasCount(1, batch.NewVersions);
+        Assert.HasCount(1, batch.NewRepresentations);
+        Assert.IsNotNull(batch.NewCheckpoints.FirstOrDefault()!);
+        Assert.IsTrue(batch.NewCheckpoints.FirstOrDefault()!.IsStructurallyComplete);
+        Assert.AreEqual(BranchUpdateReason.Created, batch.NewBranchUpdates.FirstOrDefault()!.Reason);
+        Assert.AreEqual(batch.NewCheckpoints.FirstOrDefault()!.CheckpointId, batch.Run.SourceResults.FirstOrDefault()?.CheckpointId);
+        Assert.IsTrue(batch.IndexRefreshSucceeded);
+
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.AreEqual(0, workspace.StateRevision);
+        Assert.AreEqual(batch.NewBranchUpdates.FirstOrDefault()!.UpdateId, workspace.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
+        Assert.AreEqual(batch.NewVersions[0].VersionId, workspace.SourceBaselines[0].BaseVersionId);
+        Assert.AreEqual(WorkspaceBaselineRelation.Exact, workspace.SourceBaselines[0].Relation);
+        var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync()).Value!;
+        Assert.AreEqual(0, catalog.CatalogRevision);
+        Assert.AreEqual(capture.LocalReplicaCandidate!.LocalReplicaId, catalog.Entries.Single().LocalReplicaId);
+        Assert.AreEqual(HistoryRuntimeHealth.Ready, runtime.Health);
+    }
+
+    [TestMethod]
+    public async Task CapturedResultMayOmitStateFingerprintWhenBothFactsAgree()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var payloadPath = Path.Combine(_root, "verified-factory.7z");
+        await File.WriteAllTextAsync(payloadPath, "verified archive bytes");
+        var capture = VerifiedArchiveCaptureFactory.Create(
+            sourceId,
+            CaptureScope.FullSource,
+            payloadPath,
+            RepresentationKind.CoreFull,
+            "7z",
+            new Dictionary<string, SourceCaptureFileState>
+            {
+                ["file.txt"] = new(4, DateTime.UnixEpoch)
+            },
+            baseline: null,
+            dependencies: [],
+            consecutiveSmartCaptures: 0,
+            fidelity: MaterializationFidelity.Exact);
+
+        var batch = await runtime.Commit.CommitAsync(Request(
+            Snapshot(Source(sourceId, "source-a")),
+            workspace: null,
+            capture));
+
+        Assert.IsNull(batch.NewVersions.Single().StateFingerprint);
+        Assert.IsNull(batch.NewRepresentations.Single().StateFingerprint);
+        Assert.IsTrue(File.Exists(payloadPath), "A durable Commit Pack owns the archive; cleanup must not run.");
+    }
+
+    [TestMethod]
+    public async Task IndependentRecoveryPointCommitsSourceCheckpointsWithoutAdvancingBranches()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var first = SourceId.New();
+        var second = SourceId.New();
+        var snapshot = Snapshot(Source(first, "first"), Source(second, "second"));
+
+        var batch = await runtime.Commit.CommitAsync(SafetyRequest(
+            snapshot,
+            null,
+            SafetySnapshotReason.BeforeCheckout,
+            CreateCapture(first, "first-state", -1, null),
+            CreateCapture(second, "second-state", -1, null)));
+
+        Assert.HasCount(2, batch.NewCheckpoints);
+        Assert.IsNull(batch.NewBranchUpdates.FirstOrDefault()!);
+        Assert.IsNotNull(batch.NewSafetySnapshot);
+        Assert.AreEqual(SafetySnapshotReason.BeforeCheckout, batch.NewSafetySnapshot.Reason);
+        Assert.HasCount(2, batch.NewVersions);
+        Assert.IsNotNull(batch.UpdatedWorkspace);
+        Assert.IsNull(batch.UpdatedWorkspace.SourceBaselines.FirstOrDefault()?.ActiveBranchId);
+        Assert.IsNull(batch.UpdatedWorkspace.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
+        Assert.IsTrue(batch.UpdatedWorkspace.SourceBaselines.All(item =>
+            item.Relation == WorkspaceBaselineRelation.Exact));
+
+        var snapshots = new SafetySnapshotService(runtime);
+        Assert.HasCount(1, await snapshots.QueryAsync());
+        Assert.IsTrue(await snapshots.ReleaseAsync(batch.NewSafetySnapshot.SnapshotId));
+        Assert.IsFalse(await snapshots.ReleaseAsync(batch.NewSafetySnapshot.SnapshotId));
+        Assert.IsEmpty(await snapshots.QueryAsync());
+        Assert.HasCount(1, await snapshots.QueryAsync(activeOnly: false));
+    }
+
+    [TestMethod]
+    public async Task FinalUnverifiedPayloadIsRejectedBeforePackCommit()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var capture = CreateCapture(
+            sourceId,
+            "unverified",
+            HistoryWorkspaceStore.MissingRevision,
+            expectedBaseVersionId: null,
+            payloadState: CapturePayloadState.FinalUnverified);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(Request(
+            Snapshot(Source(sourceId, "source-a")),
+            workspace: null,
+            capture)));
+        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task OperationCommentIsCommittedForRunAndNewSourceVersion()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var request = Request(snapshot, null, CreateCapture(sourceId, "first", -1, null));
+        request = new HistoryCommitRequest(
+            request.ConfigSnapshot,
+            request.Invocation with { Comment = " before update " },
+            request.ExpectedWorkspace,
+            request.SourceCaptureResults);
+
+        var batch = await runtime.Commit.CommitAsync(request);
+
+        var runComments = await runtime.Query.GetAnnotationUpdatesAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, batch.Run.RunId.Value),
+            HistoryAnnotationKind.Comment);
+        var versionComments = await runtime.Query.GetAnnotationUpdatesAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, batch.NewVersions.Single().VersionId.Value),
+            HistoryAnnotationKind.Comment);
+        Assert.AreEqual("before update", runComments.Single().Value);
+        Assert.AreEqual("before update", versionComments.Single().Value);
+    }
+
+    [TestMethod]
+    public async Task ExactWorkspaceBaselineBecomesVersionParentAndBranchUpdateHasOnlyRefParent()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+
+        var second = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            workspace,
+            CreateCapture(sourceId, "second", workspace.StateRevision, first.NewVersions[0].VersionId)));
+
+        CollectionAssert.AreEqual(
+            new[] { first.NewVersions[0].VersionId },
+            second.NewVersions[0].ParentVersionIds.ToArray());
+        CollectionAssert.AreEqual(
+            new[] { first.NewBranchUpdates.FirstOrDefault()!.UpdateId },
+            second.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.ToArray());
+        Assert.AreEqual(BranchUpdateReason.Backup, second.NewBranchUpdates.FirstOrDefault()!.Reason);
+    }
+
+    [TestMethod]
+    public async Task UnbornBranchFirstBackupTargetsCheckpointAndParentsInitializationUpdate()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var branchId = BranchId.New();
+        var unborn = new BranchUpdate(
+            BranchUpdateId.New(),
+            branchId,
+            [],
+            "prepared",
+            targetCheckpointId: null,
+            isDeleted: false,
+            DateTimeOffset.UtcNow,
+            BranchUpdateReason.Created, sourceId: sourceId);
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(),
+            HistoryTransactionId.New(),
+            DateTimeOffset.UtcNow,
+            [codec.CreateObject(unborn)]));
+        var workspace = new HistoryWorkspace(
+            _configId,
+            0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, null, WorkspaceBaselineRelation.Unknown)], branchId, unborn.UpdateId, null));
+        await runtime.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+
+        var committed = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            workspace,
+            CreateCapture(sourceId, "first", workspace.StateRevision, null)));
+
+        Assert.AreEqual(branchId, committed.NewBranchUpdates.FirstOrDefault()!.BranchId);
+        Assert.AreEqual("prepared", committed.NewBranchUpdates.FirstOrDefault()!.Name);
+        Assert.AreEqual(unborn.UpdateId, committed.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.Single());
+        Assert.AreEqual(committed.NewCheckpoints.FirstOrDefault()!.CheckpointId, committed.NewBranchUpdates.FirstOrDefault()!.TargetCheckpointId);
+    }
+
+    [TestMethod]
+    public async Task NoChangeCommitsOnlyRunAndDoesNotAdvanceWorkspaceOrBranch()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var before = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var noChange = SourceCaptureResult.NoChanges(
+            sourceId,
+            CaptureScope.FullSource,
+            before.StateRevision,
+            first.NewVersions[0].VersionId,
+            "state-first");
+
+        var second = await runtime.Commit.CommitAsync(Request(snapshot, before, noChange));
+
+        Assert.HasCount(1, second.Pack.Objects);
+        Assert.AreEqual(HistoryObjectKinds.BackupRun, second.Pack.Objects[0].Kind);
+        Assert.AreEqual(BackupRunOutcome.NoChange, second.Run.Outcome);
+        Assert.AreEqual(first.NewCheckpoints.FirstOrDefault()!.CheckpointId, second.Run.SourceResults.FirstOrDefault()?.CheckpointId);
+        Assert.IsNull(second.NewCheckpoints.FirstOrDefault()!);
+        Assert.IsNull(second.NewBranchUpdates.FirstOrDefault()!);
+        var after = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.AreEqual(before.StateRevision, after.StateRevision);
+        Assert.AreEqual(before.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, after.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
+    }
+
+    [TestMethod]
+    public async Task BackupExtendsWorkspaceCheckpointAnchor()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var firstWorkspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+
+        var second = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            firstWorkspace,
+            CreateCapture(
+                sourceId,
+                "second",
+                firstWorkspace.StateRevision,
+                first.NewVersions.Single().VersionId)));
+
+        Assert.AreEqual(
+            first.NewCheckpoints.FirstOrDefault()!.CheckpointId,
+            second.NewCheckpoints.FirstOrDefault()!.ParentCheckpointIds.Single());
+        Assert.AreEqual(
+            second.NewCheckpoints.FirstOrDefault()!.CheckpointId,
+            second.UpdatedWorkspace!.SourceBaselines.FirstOrDefault()?.CheckpointAncestryAnchorId);
+    }
+
+    [TestMethod]
+    public async Task PartialRunPreservesFailedSourceAndAdvancesOnlySuccessfulSource()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var firstSource = SourceId.New();
+        var secondSource = SourceId.New();
+        var snapshot = Snapshot(Source(firstSource, "source-a"), Source(secondSource, "source-b"));
+        var initial = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(firstSource, "first-a", -1, null),
+            CreateCapture(secondSource, "first-b", -1, null)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var firstBaseline = workspace.SourceBaselines.Single(item => item.SourceId == firstSource).BaseVersionId;
+        var secondBaseline = workspace.SourceBaselines.Single(item => item.SourceId == secondSource).BaseVersionId;
+        var failed = SourceCaptureResult.Failed(
+            secondSource,
+            CaptureScope.FullSource,
+            "source unavailable during capture",
+            workspace.StateRevision,
+            secondBaseline);
+
+        var partial = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            workspace,
+            CreateCapture(firstSource, "second-a", workspace.StateRevision, firstBaseline),
+            failed));
+
+        Assert.AreEqual(BackupRunOutcome.Partial, partial.Run.Outcome);
+        Assert.IsNotNull(partial.NewCheckpoints.FirstOrDefault()!);
+        Assert.IsTrue(partial.NewCheckpoints.FirstOrDefault()!.IsStructurallyComplete);
+        Assert.IsNull(partial.Run.SourceResults.Single(item => item.SourceId == secondSource).VersionId);
+        Assert.AreEqual(workspace.GetSourceState(secondSource), partial.UpdatedWorkspace!.GetSourceState(secondSource));
+        Assert.AreEqual(initial.NewBranchUpdates.Single(u => u.SourceId == firstSource).UpdateId,
+            partial.NewBranchUpdates.Single().ParentUpdateIds.Single());
+    }
+
+    [TestMethod]
+    public async Task SuccessfulInitialSourceCreatesBranchDespiteAnotherUnavailableSource()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var capturedSource = SourceId.New();
+        var unavailableSource = SourceId.New();
+        var snapshot = Snapshot(
+            Source(capturedSource, "captured"),
+            Source(unavailableSource, "unavailable"));
+
+        var result = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(capturedSource, "state", -1, null),
+            SourceCaptureResult.Unavailable(
+                unavailableSource,
+                CaptureScope.FullSource,
+                "not available")));
+
+        Assert.AreEqual(BackupRunOutcome.Partial, result.Run.Outcome);
+        Assert.HasCount(1, result.NewCheckpoints);
+        Assert.HasCount(1, result.NewBranchUpdates);
+        Assert.AreEqual(capturedSource, result.NewBranchUpdates.Single().SourceId);
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.AreEqual(result.NewVersions.Single().VersionId, workspace.GetSourceState(capturedSource).BaseVersionId);
+        Assert.IsNull(workspace.GetSourceState(unavailableSource).ActiveBranchId);
+    }
+
+    [TestMethod]
+    public async Task BoundaryDriftRequiresSelfContainedRecaptureBeforeBranchAdvance()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var originalBoundary = EffectiveSourceBoundarySnapshot.All;
+        var changedBoundary = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(Source(sourceId, "world", originalBoundary));
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null, boundary: originalBoundary)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var changedSnapshot = Snapshot(Source(sourceId, "world", changedBoundary));
+        var failed = SourceCaptureResult.Failed(
+                sourceId,
+                CaptureScope.FullSource,
+                "capture failed",
+                workspace.StateRevision,
+                workspace.SourceBaselines.Single().BaseVersionId)
+            .WithEffectiveSourceBoundary(changedBoundary);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(
+            () => runtime.Commit.CommitAsync(Request(changedSnapshot, workspace, failed)));
+
+        var committed = await runtime.Commit.CommitAsync(Request(
+            changedSnapshot,
+            workspace,
+            CreateCapture(
+                sourceId,
+                "second",
+                workspace.StateRevision,
+                workspace.SourceBaselines.Single().BaseVersionId,
+                boundary: changedBoundary)));
+        Assert.AreEqual(changedBoundary.Fingerprint, committed.NewVersions.Single().EffectiveSourceBoundaryFingerprint);
+        Assert.IsEmpty(committed.NewRepresentations.Single().DependencyRepresentationIds);
+    }
+
+    [TestMethod]
+    public async Task SingleSourceBackupPreservesUnrequestedSourceWorkspace()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var selectedSource = SourceId.New();
+        var otherSource = SourceId.New();
+        var snapshot = Snapshot(Source(selectedSource, "selected"), Source(otherSource, "other"));
+        _ = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(selectedSource, "first-selected", -1, null),
+            CreateCapture(otherSource, "first-other", -1, null)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var selectedBase = workspace.SourceBaselines.Single(item => item.SourceId == selectedSource).BaseVersionId;
+        var otherBase = workspace.SourceBaselines.Single(item => item.SourceId == otherSource).BaseVersionId;
+
+        var committed = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            workspace,
+            CreateCapture(selectedSource, "second-selected", workspace.StateRevision, selectedBase)));
+
+        Assert.HasCount(1, committed.Run.SourceResults);
+        Assert.AreEqual(selectedSource, committed.NewCheckpoints.Single().SourceId);
+        Assert.AreEqual(workspace.GetSourceState(otherSource), committed.UpdatedWorkspace!.GetSourceState(otherSource));
+    }
+
+    [TestMethod]
+    public async Task FirstSingleSourceBackupCreatesCompleteSourceCheckpoint()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var selectedSource = SourceId.New();
+        var unknownSource = SourceId.New();
+        var snapshot = Snapshot(Source(selectedSource, "selected"), Source(unknownSource, "unknown"));
+
+        var committed = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(selectedSource, "selected", HistoryWorkspaceStore.MissingRevision, null)));
+
+        Assert.HasCount(1, committed.NewCheckpoints);
+        Assert.AreEqual(selectedSource, committed.NewCheckpoints.Single().SourceId);
+        Assert.IsTrue(committed.NewCheckpoints.Single().IsStructurallyComplete);
+        Assert.AreEqual(BackupRunOutcome.Completed, committed.Run.Outcome);
+        Assert.HasCount(1, committed.NewBranchUpdates);
+    }
+
+    [TestMethod]
+    public async Task BackupAfterHistoricalCheckoutForksSourceDagWithoutAutoCreatingBranch()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var workspaceOne = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var second = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            workspaceOne,
+            CreateCapture(sourceId, "second", workspaceOne.StateRevision, first.NewVersions[0].VersionId)));
+        var workspaceTwo = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var restoredWorkspace = new HistoryWorkspace(
+            _configId,
+            workspaceTwo.StateRevision + 1, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, first.NewVersions[0].VersionId, WorkspaceBaselineRelation.Exact)], workspaceTwo.SourceBaselines.FirstOrDefault()?.ActiveBranchId, workspaceTwo.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, null));
+        await runtime.WorkspaceStore.SaveAsync(restoredWorkspace, workspaceTwo.StateRevision);
+
+        var fork = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            restoredWorkspace,
+            CreateCapture(sourceId, "fork", restoredWorkspace.StateRevision, first.NewVersions[0].VersionId)));
+
+        Assert.AreEqual(restoredWorkspace.SourceBaselines.FirstOrDefault()?.ActiveBranchId, fork.NewBranchUpdates.FirstOrDefault()!.BranchId);
+        Assert.AreEqual(BranchUpdateReason.BackupFromHistoricalState, fork.NewBranchUpdates.FirstOrDefault()!.Reason);
+        Assert.AreEqual(second.NewBranchUpdates.FirstOrDefault()!.UpdateId, fork.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.Single());
+        Assert.AreEqual(first.NewVersions[0].VersionId, fork.NewVersions[0].ParentVersionIds.Single());
+        Assert.AreNotEqual(second.NewVersions[0].VersionId, fork.NewVersions[0].ParentVersionIds.Single());
+    }
+
+    [TestMethod]
+    public async Task CaptureCurrentStateForNewBranchDoesNotAdvanceOldBranch()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var dirtyCapture = CreateCapture(
+            sourceId,
+            "dirty-working-state",
+            workspace.StateRevision,
+            first.NewVersions[0].VersionId);
+
+        var created = await runtime.Branches.CaptureCurrentStateForBranchAsync(
+            Request(snapshot, workspace, dirtyCapture),
+            "experiment");
+
+        Assert.AreNotEqual(first.NewBranchUpdates.FirstOrDefault()!.BranchId, created.NewBranchUpdates.FirstOrDefault()!.BranchId);
+        Assert.AreEqual(first.NewBranchUpdates.FirstOrDefault()!.UpdateId, created.NewBranchUpdates.FirstOrDefault()!.ParentUpdateIds.Single());
+        Assert.AreEqual(BranchUpdateReason.Created, created.NewBranchUpdates.FirstOrDefault()!.Reason);
+        Assert.AreEqual(first.NewVersions[0].VersionId, created.NewVersions[0].ParentVersionIds.Single());
+        var oldTips = await runtime.Query.GetBranchTipsAsync(first.NewBranchUpdates.FirstOrDefault()!.BranchId);
+        Assert.HasCount(1, oldTips);
+        Assert.AreEqual(first.NewBranchUpdates.FirstOrDefault()!.UpdateId, oldTips[0].UpdateId);
+        var current = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.AreEqual(created.NewBranchUpdates.FirstOrDefault()!.BranchId, current.SourceBaselines.FirstOrDefault()?.ActiveBranchId);
+        Assert.AreEqual(created.NewBranchUpdates.FirstOrDefault()!.UpdateId, current.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId);
+    }
+
+    [TestMethod]
+    public async Task UnknownWorkspaceRelationCreatesParentlessVersion()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var current = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var unknown = new HistoryWorkspace(
+            _configId,
+            current.StateRevision + 1, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, first.NewVersions[0].VersionId, WorkspaceBaselineRelation.Unknown)], current.SourceBaselines.FirstOrDefault()?.ActiveBranchId, current.SourceBaselines.FirstOrDefault()?.ActiveBranchUpdateId, null));
+        await runtime.WorkspaceStore.SaveAsync(unknown, current.StateRevision);
+
+        var committed = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            unknown,
+            CreateCapture(sourceId, "unknown-base", unknown.StateRevision, first.NewVersions[0].VersionId)));
+
+        Assert.IsEmpty(committed.NewVersions[0].ParentVersionIds);
+    }
+
+    [TestMethod]
+    public async Task WorkspaceConflictCommitsNoPackAndInvokesCaptureCleanup()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        _ = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var stalePayload = Path.Combine(_root, "payload-stale.bin");
+        var cleanup = new DeleteFileCleanup(stalePayload);
+        var stale = CreateCapture(sourceId, "stale", -1, null, stalePayload, cleanup);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(
+            () => runtime.Commit.CommitAsync(Request(snapshot, null, stale)));
+
+        Assert.IsTrue(cleanup.WasCalled);
+        Assert.IsFalse(File.Exists(stalePayload));
+        Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task FailedRunWithoutReliableVersionsCommitsOnlyActivityFact()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var failed = SourceCaptureResult.Failed(
+            sourceId,
+            CaptureScope.FullSource,
+            "capture failed",
+            HistoryWorkspaceStore.MissingRevision,
+            expectedBaseVersionId: null);
+
+        var committed = await runtime.Commit.CommitAsync(Request(snapshot, null, failed));
+
+        Assert.HasCount(1, committed.Pack.Objects);
+        Assert.AreEqual(HistoryObjectKinds.BackupRun, committed.Pack.Objects[0].Kind);
+        Assert.AreEqual(BackupRunOutcome.Failed, committed.Run.Outcome);
+        Assert.IsNull(committed.NewCheckpoints.FirstOrDefault()!);
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.HasCount(1, workspace.SourceBaselines);
+        var state = workspace.GetSourceState(sourceId);
+        Assert.AreEqual(WorkspaceBaselineRelation.Unknown, state.Relation);
+        Assert.IsNull(state.BaseVersionId);
+        Assert.IsNull(state.ActiveBranchId);
+        Assert.IsNull(state.ActiveBranchUpdateId);
+        Assert.IsNull(state.CheckpointAncestryAnchorId);
+        Assert.IsEmpty(committed.NewVersions);
+        Assert.IsEmpty(committed.NewRepresentations);
+        Assert.IsEmpty(committed.NewBranchUpdates);
+    }
+
+    [TestMethod]
+    public async Task FailedRunPreservesExistingAndUnrequestedSourceStates()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var other = SourceId.New();
+        var snapshot = Snapshot(Source(source, "source"), Source(other, "other"));
+        await runtime.Commit.CommitAsync(Request(snapshot, null,
+            CreateCapture(source, "one", -1, null), CreateCapture(other, "two", -1, null)));
+        var before = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var failed = SourceCaptureResult.Failed(source, CaptureScope.FullSource, "failed",
+            before.StateRevision, before.GetSourceState(source).BaseVersionId);
+        var result = await runtime.Commit.CommitAsync(Request(snapshot, before, failed));
+        Assert.HasCount(1, result.Pack.Objects);
+        Assert.AreEqual(HistoryObjectKinds.BackupRun, result.Pack.Objects.Single().Kind);
+        Assert.IsTrue(HistoryWorkspace.StateEquals(before, (await runtime.WorkspaceStore.LoadAsync()).Value!));
+    }
+
+    [TestMethod]
+    public async Task ChangedMaterializationPolicyTipsRejectPreparedCapture()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var policy = new MaterializationPolicyUpdate(
+            MaterializationPolicyUpdateId.New(),
+            first.NewVersions[0].VersionId,
+            [],
+            MaterializationPolicyState.Released,
+            DateTimeOffset.UtcNow,
+            "concurrent release");
+        var codec = new HistoryPackCodec();
+        var policyPack = new HistoryCommitPack(
+            PackId.New(),
+            HistoryTransactionId.New(),
+            DateTimeOffset.UtcNow,
+            [codec.CreateObject(policy)]);
+        await runtime.Repository.CommitAsync(policyPack);
+        var payload = Path.Combine(_root, "policy-conflict.bin");
+        var cleanup = new DeleteFileCleanup(payload);
+        var capture = CreateCapture(
+            sourceId,
+            "stale-policy",
+            workspace.StateRevision,
+            first.NewVersions[0].VersionId,
+            payload,
+            cleanup);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(
+            () => runtime.Commit.CommitAsync(Request(snapshot, workspace, capture)));
+
+        Assert.IsTrue(cleanup.WasCalled);
+        Assert.HasCount(2, await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task PreflightDoesNotReportUnrequestedSourceWhenBoundaryIsUnchanged()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceA = SourceId.New();
+        var sourceB = SourceId.New();
+        var boundaryA = EffectiveSourceBoundarySnapshot.All;
+        var boundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", boundaryB));
+
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceA, "a1", -1, null, boundary: boundaryA),
+            CreateCapture(sourceB, "b1", -1, null, boundary: boundaryB)));
+
+        var nextSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", boundaryB));
+
+        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            nextSnapshot,
+            [sourceA]);
+
+        Assert.IsEmpty(requirements);
+    }
+
+    [TestMethod]
+    public async Task PreflightIgnoresUnrequestedSourceBoundaryDrift()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceA = SourceId.New();
+        var sourceB = SourceId.New();
+        var boundaryA = EffectiveSourceBoundarySnapshot.All;
+        var boundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", boundaryB));
+
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceA, "a1", -1, null, boundary: boundaryA),
+            CreateCapture(sourceB, "b1", -1, null, boundary: boundaryB)));
+
+        var changedBoundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.All,
+            [],
+            EffectiveBoundaryFilterMode.Blacklist,
+            ["session.lock"],
+            false);
+        var driftSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", changedBoundaryB));
+
+        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            driftSnapshot,
+            [sourceA]);
+
+        Assert.IsEmpty(requirements);
+    }
+
+    [TestMethod]
+    public async Task PreflightDoesNotReportPlannedSourceWhenBoundaryDriftOccurs()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceB = SourceId.New();
+        var boundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(Source(sourceB, "source-b", boundaryB));
+
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceB, "b1", -1, null, boundary: boundaryB)));
+
+        var changedBoundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.All,
+            [],
+            EffectiveBoundaryFilterMode.Blacklist,
+            ["session.lock"],
+            false);
+        var driftSnapshot = Snapshot(Source(sourceB, "source-b", changedBoundaryB));
+
+        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            driftSnapshot,
+            [sourceB]);
+
+        Assert.IsEmpty(requirements);
+    }
+
+    private async Task<HistoryRuntime> CreateRuntimeAsync()
+    {
+        var repository = new FileHistoryRepository(
+            _configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "repository")));
+        var runtime = new HistoryRuntime(repository);
+        await runtime.InitializeAsync();
+        return runtime;
+    }
+
+    private HistoryConfigSnapshot Snapshot(params HistoryConfigSourceSnapshot[] sources)
+        => new(_configId, sources, "main");
+
+    private static HistoryConfigSourceSnapshot Source(
+        SourceId sourceId,
+        string displayName,
+        EffectiveSourceBoundarySnapshot? boundary = null)
+        => new(sourceId, new SourceDescriptorSnapshot(displayName, $"C:\\{displayName}"), boundary);
+
+    private HistoryCommitRequest Request(
+        HistoryConfigSnapshot snapshot,
+        HistoryWorkspace? workspace,
+        params SourceCaptureResult[] captures)
+        => Request(snapshot, workspace, HistoryCommitIntent.AdvanceBranch, captures);
+
+    private HistoryCommitRequest Request(
+        HistoryConfigSnapshot snapshot,
+        HistoryWorkspace? workspace,
+        HistoryCommitIntent intent,
+        params SourceCaptureResult[] captures)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new HistoryCommitRequest(
+            snapshot,
+            new HistoryBackupInvocation(
+                RunId.New(),
+                now.AddSeconds(-1),
+                now,
+                BackupInvocationKind.Manual,
+                HistoryProvenance.Native("test-device")),
+            workspace,
+            captures,
+            intent: intent,
+            affectedSourceIds: captures.Select(item => item.SourceId));
+    }
+
+    private HistoryCommitRequest SafetyRequest(
+        HistoryConfigSnapshot snapshot,
+        HistoryWorkspace? workspace,
+        SafetySnapshotReason reason,
+        params SourceCaptureResult[] captures)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new HistoryCommitRequest(
+            snapshot,
+            new HistoryBackupInvocation(
+                RunId.New(),
+                now.AddSeconds(-1),
+                now,
+                BackupInvocationKind.Internal,
+                HistoryProvenance.Native("test-device")),
+            workspace,
+            captures,
+            intent: HistoryCommitIntent.IndependentRecoveryPoint,
+            affectedSourceIds: captures.Select(item => item.SourceId),
+            safetySnapshotIntent: new HistorySafetySnapshotIntent(reason));
+    }
+
+    private SourceCaptureResult CreateCapture(
+        SourceId sourceId,
+        string content,
+        long expectedRevision,
+        VersionId? expectedBaseVersionId,
+        string? payloadPath = null,
+        ICaptureCleanupHandle? cleanup = null,
+        CapturePayloadState payloadState = CapturePayloadState.VerifiedFinal,
+        EffectiveSourceBoundarySnapshot? boundary = null)
+    {
+        payloadPath ??= Path.Combine(_root, $"payload-{Guid.NewGuid():N}.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(payloadPath)!);
+        File.WriteAllText(payloadPath, content);
+        var bytes = File.ReadAllBytes(payloadPath);
+        var representationId = RepresentationId.New();
+        var fingerprint = $"state-{content}";
+        return new SourceCaptureResult(
+            sourceId,
+            SourceCaptureOutcome.Captured,
+            CaptureScope.FullSource,
+            fingerprint,
+            existingVersionId: null,
+            new RepresentationCandidate(
+                representationId,
+                RepresentationKind.CoreFull,
+                "7z",
+                dependencyRepresentationIds: [],
+                MaterializationFidelity.Exact,
+                logicalSha256: null,
+                stateFingerprint: fingerprint,
+                metadata: null),
+            new LocalReplicaCandidate(
+                LocalReplicaId.New(),
+                representationId,
+                LocalReplicaLocator.ControlledAbsolute(payloadPath),
+                payloadState,
+                DateTimeOffset.UtcNow),
+            new CapturePayloadCandidate(
+                payloadPath,
+                payloadState,
+                bytes.LongLength,
+                Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant()),
+            expectedRevision,
+            expectedBaseVersionId,
+            cleanup,
+            diagnostics: [],
+            effectiveSourceBoundary: boundary);
+    }
+
+    [TestMethod]
+    public async Task PreflightThrowsWhenWorkspaceIsCorrupt()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+
+        // Corrupt workspace file by writing non-json text directly
+        var workspacePath = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(workspacePath)!);
+        await File.WriteAllTextAsync(workspacePath, "{ not-valid-json");
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: []));
+    }
+
+    [TestMethod]
+    public async Task PreflightThrowsWhenBaselineVersionIsMissing()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+
+        // Save a workspace referencing a nonexistent version id
+        var missingVersionId = VersionId.New();
+        var workspace = new HistoryWorkspace(
+            _configId,
+            0, HistoryFixture.SourceStates([new WorkspaceSourceBaseline(sourceId, missingVersionId, WorkspaceBaselineRelation.Exact)], BranchId.New(), BranchUpdateId.New(), null));
+        await runtime.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: [sourceId]));
+        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, []));
+        var other = SourceId.New();
+        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            Snapshot(Source(sourceId, "source-a"), Source(other, "source-b")), [other]));
+        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task PreflightAndCommitRejectBaselineOwnedByAnotherSource()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var owner = SourceId.New(); var requested = SourceId.New();
+        var first = await runtime.Commit.CommitAsync(Request(Snapshot(Source(owner, "owner")), null,
+            CreateCapture(owner, "first", -1, null)));
+        var before = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var invalid = before.WithSourceStates([new(requested, first.NewVersions.Single().VersionId,
+            WorkspaceBaselineRelation.Unknown)]);
+        await runtime.WorkspaceStore.SaveAsync(invalid, before.StateRevision);
+        var snapshot = Snapshot(Source(requested, "requested"));
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, [requested]));
+        var cleanup = new DeleteFileCleanup(Path.Combine(_root, "cross-source.bin"));
+        var capture = CreateCapture(requested, "captured", invalid.StateRevision,
+            first.NewVersions.Single().VersionId, Path.Combine(_root, "cross-source.bin"), cleanup);
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.CommitAsync(Request(snapshot, invalid, capture)));
+        Assert.IsTrue(cleanup.WasCalled);
+        Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task CommitRechecksBaselineAfterSuccessfulPreflight()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, [source]));
+        var workspace = new HistoryWorkspace(_configId, 0,
+            [new(source, VersionId.New(), WorkspaceBaselineRelation.Unknown)]);
+        await runtime.WorkspaceStore.SaveAsync(workspace, -1);
+        var path = Path.Combine(_root, "missing-baseline.bin");
+        var cleanup = new DeleteFileCleanup(path);
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(
+            Request(snapshot, workspace, CreateCapture(source, "new", 0,
+                workspace.GetSourceState(source).BaseVersionId, path, cleanup))));
+        Assert.IsTrue(cleanup.WasCalled);
+        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public void HistoryCommitRecoveryRequiredExceptionPreservesCommittedPackIdAndMessage()
+    {
+        var packId = PackId.New();
+        var inner = new InvalidOperationException("disk write error");
+        var ex = new HistoryCommitRecoveryRequiredException(packId, "local state recovery required", inner);
+
+        Assert.AreEqual(packId, ex.CommittedPackId);
+        Assert.AreEqual("local state recovery required", ex.Message);
+        Assert.AreSame(inner, ex.InnerException);
+    }
+
+    private sealed class DeleteFileCleanup(string path) : ICaptureCleanupHandle
+    {
+        public bool WasCalled { get; private set; }
+
+        public ValueTask CleanupAsync(CancellationToken cancellationToken)
+        {
+            WasCalled = true;
+            if (File.Exists(path)) File.Delete(path);
+            return ValueTask.CompletedTask;
+        }
+    }
+}

@@ -1,0 +1,348 @@
+using FolderRewind.History.Domain;
+using FolderRewind.History.Application;
+using FolderRewind.History.Index;
+using FolderRewind.History.LocalState;
+using FolderRewind.History.Representation;
+
+namespace FolderRewind.Tests;
+
+[TestClass]
+public sealed class RepresentationRuntimeTests
+{
+    private string _root = null!;
+    private VersionId _versionId;
+    private FakeArchiveBackend _archive = null!;
+    private FakePluginBackend _plugin = null!;
+    private RepresentationRuntime _runtime = null!;
+
+    [TestInitialize]
+    public void Initialize()
+    {
+        _root = Path.Combine(Path.GetTempPath(), "FolderRewindRepresentationTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_root);
+        _versionId = VersionId.New();
+        _archive = new FakeArchiveBackend();
+        _plugin = new FakePluginBackend();
+        _runtime = new RepresentationRuntime(
+        [
+            new CoreArchiveRepresentationHandler(_archive),
+            new SmartDeltaRepresentationHandler(_archive),
+            new PluginArtifactRepresentationHandler(_plugin)
+        ]);
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task LightweightPreviewDoesNotVerifyPayloadButExportRejectsCorruption()
+    {
+        var full = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var path = CreateFile("corrupt-preview.7z", "invalid archive");
+        _archive.CorruptPaths.Add(path);
+        var environment = Environment(Local(full.RepresentationId, path));
+        var preview = await _runtime.AssessVersionAsync(_versionId, [full], environment, AssessmentDepth.Fast, MaterializationFidelity.Exact, CancellationToken.None);
+        Assert.AreEqual(HistoryReadiness.Ready, preview.Readiness);
+        Assert.AreEqual(0, _archive.VerificationCount);
+        var target = Path.Combine(_root, "rejected-export");
+        await Assert.ThrowsAsync<Exception>(() => new HistoryVersionExportService(_runtime)
+            .ExportAsync(_versionId, [full], environment, target, [path]));
+        Assert.IsGreaterThan(0, _archive.VerificationCount);
+        Assert.IsFalse(Directory.Exists(target));
+        Assert.IsEmpty(_archive.LastMaterialization);
+    }
+
+    [TestMethod]
+    public async Task ExportPublishesNewDirectoryWithoutChangingOriginalPayload()
+    {
+        var full = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var path = CreateFile("original.7z", "original");
+        var target = Path.Combine(_root, "exported");
+        await new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [full], Environment(Local(full.RepresentationId, path)), target, [path]);
+        Assert.AreEqual("restored", File.ReadAllText(Path.Combine(target, "content.txt")));
+        Assert.AreEqual("original", File.ReadAllText(path));
+        Assert.IsEmpty(Directory.GetDirectories(_root, ".folderrewind-export-*"));
+    }
+
+    [TestMethod]
+    public async Task ExportRefusesOccupiedTargetWithoutOverwriting()
+    {
+        var target = Path.Combine(_root, "occupied");
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, "keep.txt"), "keep");
+        await Assert.ThrowsExactlyAsync<IOException>(() => new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [], Environment(), target, []));
+        Assert.AreEqual("keep", File.ReadAllText(Path.Combine(target, "keep.txt")));
+        Assert.IsEmpty(_archive.LastMaterialization);
+    }
+
+    [TestMethod]
+    public async Task PartialExportRequiresExplicitFidelityAndNeverChangesOriginal()
+    {
+        var partial = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Partial);
+        var path = CreateFile("partial.7z", "partial");
+        var target = Path.Combine(_root, "partial-export");
+        var service = new HistoryVersionExportService(_runtime);
+        await Assert.ThrowsExactlyAsync<FolderRewind.History.Merge.HistoryMergeBlockedException>(() =>
+            service.ExportAsync(_versionId, [partial], Environment(Local(partial.RepresentationId, path)), target, [path]));
+        Assert.IsFalse(Directory.Exists(target));
+        await service.ExportAsync(_versionId, [partial], Environment(Local(partial.RepresentationId, path)), target, [path],
+            requiredFidelity: MaterializationFidelity.Partial);
+        Assert.IsTrue(File.Exists(Path.Combine(target, "content.txt")));
+        Assert.AreEqual("partial", File.ReadAllText(path));
+    }
+
+    [TestMethod]
+    public async Task ExportMissingDependencyDoesNotPublishTarget()
+    {
+        var delta = new VersionRepresentation(RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "smart-v1",
+            [RepresentationId.New()], MaterializationFidelity.Exact, null, null, null);
+        var target = Path.Combine(_root, "missing");
+        await Assert.ThrowsAsync<Exception>(() => new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [delta], Environment(), target, []));
+        Assert.IsFalse(Directory.Exists(target));
+        Assert.IsEmpty(Directory.GetDirectories(_root, ".folderrewind-export-*"));
+    }
+
+    [TestMethod]
+    public async Task DeepAssessment_SelectsAlternateExactRepresentationWhenFirstIsCorrupt()
+    {
+        var corrupt = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var good = CreateRepresentation(RepresentationKind.CoreRolling, MaterializationFidelity.Exact);
+        var corruptPath = CreateFile("corrupt.7z", "bad");
+        var goodPath = CreateFile("good.7z", "good");
+        _archive.CorruptPaths.Add(corruptPath);
+        var environment = Environment(
+            Local(corrupt.RepresentationId, corruptPath),
+            Local(good.RepresentationId, goodPath));
+
+        var assessment = await _runtime.AssessVersionAsync(
+            _versionId,
+            [corrupt, good],
+            environment,
+            AssessmentDepth.Deep,
+            MaterializationFidelity.Exact);
+
+        Assert.AreEqual(good.RepresentationId, assessment.Selected!.RepresentationId);
+        Assert.AreEqual(HistoryReadiness.Ready, assessment.Readiness);
+        Assert.AreEqual(
+            HistoryReadiness.Unavailable,
+            assessment.Candidates.Single(item => item.RepresentationId == corrupt.RepresentationId).Readiness);
+    }
+
+    [TestMethod]
+    public async Task CloudOnlyExactRepresentationRequiresExplicitPreparation()
+    {
+        var representation = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var replica = new StorageReplica(
+            ReplicaId.New(), representation.RepresentationId, ReplicaProviderKind.Cloud,
+            $"replicas/{Guid.NewGuid():N}/payload", 10, null, HistoryProvenance.Native("test"));
+        var environment = new RepresentationEnvironment(
+            [], [replica], [replica.ReplicaId]);
+
+        var assessment = await _runtime.AssessVersionAsync(
+            _versionId,
+            [representation],
+            environment,
+            AssessmentDepth.Fast,
+            MaterializationFidelity.Exact);
+
+        Assert.AreEqual(HistoryReadiness.PreparationRequired, assessment.Readiness);
+        Assert.AreEqual(replica.ObjectKey, assessment.Selected!.Evidence.Single().Detail);
+    }
+
+    [TestMethod]
+    public async Task SmartRepresentationWithMissingDependencyIsBlocked()
+    {
+        var delta = new VersionRepresentation(
+            RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "smart-v1",
+            [RepresentationId.New()], MaterializationFidelity.Exact, null, null, null);
+        var environment = Environment(Local(delta.RepresentationId, CreateFile("delta.7z", "delta")));
+
+        var assessment = await _runtime.AssessVersionAsync(
+            _versionId,
+            [delta],
+            environment,
+            AssessmentDepth.Fast,
+            MaterializationFidelity.Exact);
+
+        Assert.AreEqual(HistoryReadiness.Blocked, assessment.Readiness);
+        Assert.IsTrue(assessment.Candidates.Single().Diagnostics.Any(text => text.Contains("not materializable", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ExactRootWithPartialDependencyCannotClaimExactClosure()
+    {
+        var dependency = new VersionRepresentation(
+            RepresentationId.New(), VersionId.New(), RepresentationKind.LegacyArchive, "test", [],
+            MaterializationFidelity.Partial, null, null, null);
+        var root = new VersionRepresentation(
+            RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "test",
+            [dependency.RepresentationId], MaterializationFidelity.Exact, null, null, null);
+        var environment = Environment(
+            Local(dependency.RepresentationId, CreateFile("partial-base.7z", "base")),
+            Local(root.RepresentationId, CreateFile("exact-root.7z", "delta")));
+
+        var assessment = await _runtime.AssessVersionAsync(
+            _versionId,
+            [root, dependency],
+            environment,
+            AssessmentDepth.Fast,
+            MaterializationFidelity.Exact);
+
+        Assert.AreEqual(HistoryReadiness.Blocked, assessment.Readiness);
+        Assert.AreEqual(MaterializationFidelity.Partial, assessment.Candidates.Single().Fidelity);
+    }
+
+    [TestMethod]
+    public async Task MissingPluginBlocksArtifactWithoutMutatingOrDownloading()
+    {
+        _plugin.PluginAvailable = false;
+        var representation = new VersionRepresentation(
+            RepresentationId.New(), _versionId, RepresentationKind.PluginArtifact, "plugin-v1", [],
+            MaterializationFidelity.Exact, null, null,
+            new Dictionary<string, string>
+            {
+                [PluginArtifactRepresentationHandler.ArtifactRootIdMetadataKey] = Guid.NewGuid().ToString("D"),
+                [PluginArtifactRepresentationHandler.PluginIdMetadataKey] = "plugin.test"
+            });
+
+        var assessment = await _runtime.AssessVersionAsync(
+            _versionId,
+            [representation],
+            Environment(),
+            AssessmentDepth.Fast,
+            MaterializationFidelity.Exact);
+
+        Assert.AreEqual(HistoryReadiness.Blocked, assessment.Readiness);
+        Assert.AreEqual(1, _plugin.ProbeCount);
+        Assert.AreEqual(0, _plugin.MaterializeCount);
+    }
+
+    [TestMethod]
+    public async Task ExactRequirementRejectsPartialButOrdinaryRestoreCanSelectIt()
+    {
+        var partial = CreateRepresentation(RepresentationKind.LegacyArchive, MaterializationFidelity.Partial);
+        var environment = Environment(Local(partial.RepresentationId, CreateFile("partial.7z", "partial")));
+
+        var exact = await _runtime.AssessVersionAsync(
+            _versionId, [partial], environment, AssessmentDepth.Fast, MaterializationFidelity.Exact);
+        var ordinary = await _runtime.AssessVersionAsync(
+            _versionId, [partial], environment, AssessmentDepth.Fast, MaterializationFidelity.Partial);
+
+        Assert.AreEqual(HistoryReadiness.Blocked, exact.Readiness);
+        Assert.IsNull(exact.Selected);
+        Assert.AreEqual(HistoryReadiness.Ready, ordinary.Readiness);
+        Assert.AreEqual(MaterializationFidelity.Partial, ordinary.Selected!.Fidelity);
+    }
+
+    [TestMethod]
+    public async Task SmartMaterializationPassesDependencyFirstStableRepresentationChain()
+    {
+        var full = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var delta = new VersionRepresentation(
+            RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "smart-v1",
+            [full.RepresentationId], MaterializationFidelity.Exact, null, null, null);
+        var environment = Environment(
+            Local(full.RepresentationId, CreateFile("base.7z", "base")),
+            Local(delta.RepresentationId, CreateFile("delta.7z", "delta")));
+        var staging = Path.Combine(_root, "staging");
+
+        await _runtime.MaterializeAsync(
+            delta.RepresentationId,
+            [delta, full],
+            environment,
+            MaterializationFidelity.Exact,
+            staging);
+
+        CollectionAssert.AreEqual(
+            new[] { full.RepresentationId, delta.RepresentationId },
+            _archive.LastMaterialization.Select(item => item.Representation.RepresentationId).ToArray());
+    }
+
+    private VersionRepresentation CreateRepresentation(RepresentationKind kind, MaterializationFidelity fidelity)
+        => new(RepresentationId.New(), _versionId, kind, "test", [], fidelity, null, null, null);
+
+    private string CreateFile(string name, string content)
+    {
+        var path = Path.Combine(_root, name);
+        File.WriteAllText(path, content);
+        return path;
+    }
+
+    private static LocalReplicaCatalogEntry Local(RepresentationId representationId, string path)
+        => new(
+            representationId,
+            LocalReplicaId.New(),
+            LocalReplicaLocator.ControlledAbsolute(path),
+            DateTimeOffset.UtcNow);
+
+    private static RepresentationEnvironment Environment(params LocalReplicaCatalogEntry[] entries)
+        => new(entries, [], []);
+
+    private sealed class FakeArchiveBackend : IArchiveRepresentationBackend
+    {
+        public int VerificationCount { get; private set; }
+        public HashSet<string> CorruptPaths { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public IReadOnlyList<ArchiveMaterializationInput> LastMaterialization { get; private set; } = [];
+
+        public ValueTask<PayloadVerificationResult> VerifyAsync(
+            VersionRepresentation representation,
+            string localPath,
+            CancellationToken cancellationToken)
+        {
+            VerificationCount++;
+            return ValueTask.FromResult(CorruptPaths.Contains(localPath)
+                ? new PayloadVerificationResult(false, string.Empty, "corrupt")
+                : new PayloadVerificationResult(true, "verified", string.Empty));
+        }
+
+        public ValueTask MaterializeAsync(
+            IReadOnlyList<ArchiveMaterializationInput> dependencyFirstInputs,
+            string stagingDirectory,
+            CancellationToken cancellationToken)
+        {
+            LastMaterialization = dependencyFirstInputs.ToArray();
+            Directory.CreateDirectory(stagingDirectory);
+            File.WriteAllText(Path.Combine(stagingDirectory, "content.txt"), "restored");
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class FakePluginBackend : IPluginArtifactBackend
+    {
+        public bool PluginAvailable { get; set; } = true;
+        public int ProbeCount { get; private set; }
+        public int MaterializeCount { get; private set; }
+
+        public ValueTask<PluginArtifactProbeResult> ProbeAsync(
+            Guid artifactRootId,
+            string pluginId,
+            CancellationToken cancellationToken)
+        {
+            ProbeCount++;
+            return ValueTask.FromResult(new PluginArtifactProbeResult(
+                PluginAvailable,
+                ArtifactAvailable: true,
+                MaterializationFidelity.Exact,
+                PluginAvailable ? "available" : "plugin missing"));
+        }
+
+        public ValueTask<PayloadVerificationResult> VerifyAsync(
+            Guid artifactRootId,
+            string pluginId,
+            CancellationToken cancellationToken)
+            => ValueTask.FromResult(new PayloadVerificationResult(true, "verified", string.Empty));
+
+        public ValueTask MaterializeAsync(
+            Guid artifactRootId,
+            string pluginId,
+            string stagingDirectory,
+            CancellationToken cancellationToken)
+        {
+            MaterializeCount++;
+            return ValueTask.CompletedTask;
+        }
+    }
+}

@@ -4,10 +4,22 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="FolderRewind-Plugin-Minecraft/MineRewind/MineRewind.csproj">
-    <Platform Solution="*|x64" Project="x64" />
+  <Project Path="FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj">
+    <Platform Solution="*|ARM64" Project="AnyCPU" />
+    <Platform Solution="*|x64" Project="AnyCPU" />
+    <Platform Solution="*|x86" Project="AnyCPU" />
   </Project>
-  <Project Path="FolderRewind-Plugin-Minecraft/MineRewind.Tests/MineRewind.Tests.csproj">
+  <Project Path="FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj">
+    <Platform Solution="*|ARM64" Project="AnyCPU" />
+    <Platform Solution="*|x64" Project="AnyCPU" />
+    <Platform Solution="*|x86" Project="AnyCPU" />
+  </Project>
+  <Project Path="FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj">
+    <Platform Solution="*|ARM64" Project="AnyCPU" />
+    <Platform Solution="*|x64" Project="AnyCPU" />
+    <Platform Solution="*|x86" Project="AnyCPU" />
+  </Project>
+  <Project Path="FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj">
     <Platform Solution="*|ARM64" Project="AnyCPU" />
     <Platform Solution="*|x64" Project="AnyCPU" />
     <Platform Solution="*|x86" Project="AnyCPU" />

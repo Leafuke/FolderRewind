@@ -1,4 +1,5 @@
-using FolderRewind.Services.Plugins;
+using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Runtime.Activation;
 
 namespace FolderRewind.Services
 {
@@ -10,12 +11,12 @@ namespace FolderRewind.Services
     }
 }
 
-namespace FolderRewind.Services.Plugins
+namespace FolderRewind.Services.Plugins.V3
 {
-    internal static class PluginService
+    internal static class PluginV3RuntimeService
     {
-        internal static IReadOnlyList<(string PluginId, PluginKnotLinkCapabilityContribution Contribution)>
-            GetKnotLinkCapabilityContributions() =>
-            Array.Empty<(string, PluginKnotLinkCapabilityContribution)>();
+        internal static PluginRuntimeManager Runtime { get; } = new(safeMode: false);
+
+        internal static IReadOnlyList<PluginId> GetActivePlugins() => Array.Empty<PluginId>();
     }
 }

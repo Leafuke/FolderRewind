@@ -1,0 +1,176 @@
+using FolderRewind.Models;
+using FolderRewind.Services.Discovery;
+using System.Collections.ObjectModel;
+
+namespace FolderRewind.Tests;
+
+[TestClass]
+public sealed class DiscoveryPresentationServiceTests
+{
+    [TestMethod]
+    public void UnsupportedResourcesAreNeverSelectedByDefault()
+    {
+        var registry = Resource("registry", BackupResourceSupportState.UnsupportedRegistry, selected: false);
+        var supported = Resource("save", BackupResourceSupportState.Supported, selected: true);
+
+        Assert.IsFalse(DiscoveryPresentationService.IsSelectedByDefault(registry));
+        Assert.IsTrue(DiscoveryPresentationService.IsSelectedByDefault(supported));
+    }
+
+    [TestMethod]
+    public void ExistingDefinitionReportsOnlyActuallyNewResourceIds()
+    {
+        var game = Game(Resource("save", BackupResourceSupportState.Supported, selected: true));
+        var existing = ExistingOrigin("save");
+
+        Assert.AreEqual(
+            DiscoveryCandidateStatus.UpToDate,
+            DiscoveryPresentationService.GetStatus(game, new[] { existing }));
+
+        game.BackupSets[0].Resources.Add(Resource("config", BackupResourceSupportState.Supported, selected: true));
+        Assert.AreEqual(
+            DiscoveryCandidateStatus.NewResources,
+            DiscoveryPresentationService.GetStatus(game, new[] { existing }));
+    }
+
+    [TestMethod]
+    public void FiltersUseAliasesStoreAndStatusTogether()
+    {
+        var game = Game(Resource("save", BackupResourceSupportState.Supported, selected: true));
+        Assert.IsTrue(DiscoveryPresentationService.Matches(
+            game,
+            DiscoveryCandidateStatus.New,
+            "alternate",
+            GameStore.Steam,
+            DiscoveryCandidateStatus.New));
+        Assert.IsFalse(DiscoveryPresentationService.Matches(
+            game,
+            DiscoveryCandidateStatus.New,
+            "alternate",
+            GameStore.Epic,
+            DiscoveryCandidateStatus.New));
+    }
+
+    [TestMethod]
+    public void IdentityMatcherUsesUniqueExternalIdForUpstreamRenameButRejectsAmbiguity()
+    {
+        var identity = new DiscoverySetIdentity
+        {
+            ProviderId = "ludusavi",
+            DefinitionId = "New Title",
+            SetId = "main",
+            ExternalIds = new Dictionary<string, string> { ["steam"] = "42" }
+        };
+        var renamed = Origin("Old Title", "42");
+
+        Assert.AreSame(
+            renamed,
+            DiscoverySetIdentityMatcher.FindUnique(identity, new[] { renamed }, origin => origin));
+        Assert.IsNull(DiscoverySetIdentityMatcher.FindUnique(
+            identity,
+            new[] { renamed, Origin("Another Old Title", "42") },
+            origin => origin));
+    }
+
+    [TestMethod]
+    public void StableDiscoveryIdentityPreservesDefinitionIdCase()
+    {
+        var upper = new DiscoverySetIdentity
+        {
+            ProviderId = "ludusavi",
+            DefinitionId = "AFTERLIFE",
+            SetId = "main"
+        };
+        var titleCase = new DiscoverySetIdentity
+        {
+            ProviderId = "LUDUSAVI",
+            DefinitionId = "Afterlife",
+            SetId = "main"
+        };
+
+        Assert.IsFalse(upper.HasSameStableIdentity(titleCase));
+    }
+
+    private static BackupResourceCandidate Resource(
+        string id,
+        BackupResourceSupportState support,
+        bool selected)
+    {
+        return new BackupResourceCandidate
+        {
+            ResourceId = id,
+            ProviderId = "ludusavi",
+            DisplayName = id,
+            SupportState = support,
+            FixedRoot = $@"C:\Games\{id}",
+            IsSelectedByDefault = selected
+        };
+    }
+
+    private static DiscoveredGameCandidate Game(BackupResourceCandidate resource)
+    {
+        return new DiscoveredGameCandidate
+        {
+            StableKey = "ludusavi:test-game",
+            Definition = new GameDefinition
+            {
+                ProviderId = "ludusavi",
+                DefinitionId = "test-game",
+                DisplayName = "Test Game",
+                Aliases = new[] { "Alternate title" }
+            },
+            Installations =
+            {
+                new GameInstallation
+                {
+                    InstallationId = "steam:1",
+                    Store = GameStore.Steam,
+                    StoreGameId = "1"
+                }
+            },
+            BackupSets =
+            {
+                new BackupSetCandidate
+                {
+                    StableKey = "test-game:default",
+                    Identity = Identity(),
+                    DisplayName = "Test Game",
+                    Resources = { resource }
+                }
+            }
+        };
+    }
+
+    private static DiscoveryOrigin ExistingOrigin(params string[] resourceIds)
+    {
+        return new DiscoveryOrigin
+        {
+            Identity = Identity(),
+            ReviewedBaseline = new ReviewedDiscoveryBaseline
+            {
+                Sources = new ObservableCollection<ReviewedDiscoverySource>
+                {
+                    new() { ResourceIds = new ObservableCollection<string>(resourceIds) }
+                }
+            }
+        };
+    }
+
+    private static DiscoverySetIdentity Identity() => new()
+    {
+        ProviderId = "ludusavi",
+        DefinitionId = "test-game",
+        SetId = "main"
+    };
+
+    private static DiscoveryOrigin Origin(string definitionId, string steamId) => new()
+    {
+        Identity = new DiscoverySetIdentity
+        {
+            ProviderId = "ludusavi",
+            DefinitionId = definitionId,
+            SetId = "main",
+            ExternalIds = new Dictionary<string, string> { ["steam"] = steamId }
+        }
+    };
+}

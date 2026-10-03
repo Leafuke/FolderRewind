@@ -20,12 +20,21 @@ namespace FolderRewind.Services.KnotLink
             get => _client.OnErrorAsync;
             set => _client.OnErrorAsync = value;
         }
+        private readonly string _host;
+        private readonly int _port;
+
         public SignalSender(string appId, string signalId, string host = "127.0.0.1", int port = 6370)
         {
             _appId = appId;
             _signalId = signalId;
+            _host = host;
+            _port = port;
             _client = new KlTcpClient();
-            _client.ConnectAsync(host, port).GetAwaiter().GetResult();
+        }
+
+        public Task InitializeAsync()
+        {
+            return _client.ConnectAsync(_host, _port);
         }
 
         public void SetConfig(string appId, string signalId)

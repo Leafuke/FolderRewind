@@ -16,31 +16,36 @@ namespace FolderRewind.ViewModels
         private BackupConfig _config;
         private ArchiveSettings _archive;
         private AutomationSettings _automation;
+        private FilterSettings _filters;
         private CloudSettings _cloud;
         private readonly int _cpuThreadMax;
         private List<AutomationFolderOption> _automationFolderOptions = new();
         private List<BackupScopeOption> _backupScopeOptions = new();
         private int _selectedPageIndex;
-        private int _lastAppliedPerformancePresetIndex = 3;
+        private BackupPerformancePreset _lastAppliedPerformancePreset = BackupPerformancePreset.Custom;
 
         private const int MinPageIndex = 0;
         private const int MaxPageIndex = 5;
-        private const int PerformancePresetAutoIndex = 0;
-        private const int PerformancePresetLightIndex = 1;
-        private const int PerformancePresetVeryLightIndex = 2;
-        private const int PerformancePresetCustomIndex = 3;
 
         public ConfigSettingsDialogViewModel(BackupConfig config)
+            : this(config, viewModel => new ConfigSettingsActions(viewModel, MainWindowService.GetXamlRoot))
+        {
+        }
+
+        internal ConfigSettingsDialogViewModel(BackupConfig config,
+            Func<ConfigSettingsDialogViewModel, IConfigSettingsActions> actionsFactory)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _archive = _config.Archive ??= new ArchiveSettings();
             _automation = _config.Automation ??= new AutomationSettings();
+            _filters = _config.Filters ??= new FilterSettings();
             _cloud = _config.Cloud ??= new CloudSettings();
             _config.BackupScope ??= new BackupScopeSettings();
             _cpuThreadMax = Math.Max(Environment.ProcessorCount, 1);
 
             _archive.PropertyChanged += OnArchivePropertyChanged;
             _automation.PropertyChanged += OnAutomationPropertyChanged;
+            _filters.PropertyChanged += OnFilterPropertyChanged;
             _config.PropertyChanged += OnConfigPropertyChanged;
             _cloud.PropertyChanged += OnCloudPropertyChanged;
             _config.SourceFolders.CollectionChanged += OnSourceFoldersCollectionChanged;
@@ -51,6 +56,7 @@ namespace FolderRewind.ViewModels
             RefreshBackupScopeOptions();
             RefreshAutomationFolderOptions();
             RaiseCloudUiProperties();
+            InitializeActions(actionsFactory(this));
         }
 
         public void Unbind()
@@ -62,6 +68,7 @@ namespace FolderRewind.ViewModels
 
             _archive.PropertyChanged -= OnArchivePropertyChanged;
             _automation.PropertyChanged -= OnAutomationPropertyChanged;
+            _filters.PropertyChanged -= OnFilterPropertyChanged;
             _config.PropertyChanged -= OnConfigPropertyChanged;
             _cloud.PropertyChanged -= OnCloudPropertyChanged;
             _config.SourceFolders.CollectionChanged -= OnSourceFoldersCollectionChanged;
@@ -77,14 +84,18 @@ namespace FolderRewind.ViewModels
 
         public void Rebind(BackupConfig config)
         {
+            Unbind();
+            ResetPerformanceDraftState();
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _archive = _config.Archive ??= new ArchiveSettings();
             _automation = _config.Automation ??= new AutomationSettings();
+            _filters = _config.Filters ??= new FilterSettings();
             _cloud = _config.Cloud ??= new CloudSettings();
             _config.BackupScope ??= new BackupScopeSettings();
 
             _archive.PropertyChanged += OnArchivePropertyChanged;
             _automation.PropertyChanged += OnAutomationPropertyChanged;
+            _filters.PropertyChanged += OnFilterPropertyChanged;
             _config.PropertyChanged += OnConfigPropertyChanged;
             _cloud.PropertyChanged += OnCloudPropertyChanged;
             _config.SourceFolders.CollectionChanged += OnSourceFoldersCollectionChanged;
@@ -163,7 +174,7 @@ namespace FolderRewind.ViewModels
                     return -1;
                 }
 
-                var scopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+                var scopeId = _config.BackupScope?.ScopeId ?? string.Empty;
                 var index = _backupScopeOptions
                     .Select((option, i) => (option, i))
                     .FirstOrDefault(pair => string.Equals(pair.option.Id, scopeId, StringComparison.OrdinalIgnoreCase)).i;
@@ -190,12 +201,13 @@ namespace FolderRewind.ViewModels
 
             _config.BackupScope ??= new BackupScopeSettings();
             var option = _backupScopeOptions[value];
-            if (string.Equals(_config.BackupScope.PluginScopeId, option.Id, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(_config.BackupScope.ScopeId, option.Id, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
 
-            _config.BackupScope.PluginScopeId = option.Id;
+            _config.BackupScope.OwnerId = option.Definition?.OwnerId ?? string.Empty;
+            _config.BackupScope.ScopeId = option.Id;
             EnsureScopeParameterDefaults(option);
             RaiseBackupScopeUiProperties();
             return true;
@@ -207,8 +219,8 @@ namespace FolderRewind.ViewModels
 
         public string BackupScopeDescription => SelectedBackupScopeOption?.Description ?? string.Empty;
 
-        public IReadOnlyList<PluginSettingDefinition> SelectedBackupScopeParameters =>
-            SelectedBackupScopeOption?.Definition?.Parameters ?? Array.Empty<PluginSettingDefinition>();
+        public IReadOnlyList<PluginFormFieldDefinition> SelectedBackupScopeParameters =>
+            SelectedBackupScopeOption?.Definition?.Parameters ?? Array.Empty<PluginFormFieldDefinition>();
 
         public double CompressionLevelMin => ArchiveCompressionPolicy.GetLevelRange(_archive.Method).Min;
 
@@ -262,7 +274,7 @@ namespace FolderRewind.ViewModels
                     definition));
             }
 
-            var selectedScopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+            var selectedScopeId = _config.BackupScope?.ScopeId ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(selectedScopeId)
                 && !options.Any(option => string.Equals(option.Id, selectedScopeId, StringComparison.OrdinalIgnoreCase)))
             {

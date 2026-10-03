@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "presetId": "minecraft-enhanced-experience",
+  "name": "Minecraft Enhanced Experience",
+  "actions": [
+    {
+      "id": "install-minerewind",
+      "type": "installBundledPlugin",
+      "pluginId": "com.folderrewind.minerewind",
+      "packagePath": "Assets/Plugins/MineRewind-1.9.5.frplugin",
+      "sha256": "ba7f3eb0b0aa3273f29cac6824a10ea9d5b0a9ea4989e8e5dc7097c7f5f1f434"
+    },
+    {
+      "id": "enable-minerewind",
+      "dependsOn": ["install-minerewind"],
+      "type": "enablePlugin",
+      "pluginId": "com.folderrewind.minerewind"
+    },
+    {
+      "id": "enable-knotlink-host",
+      "dependsOn": ["enable-minerewind"],
+      "type": "setHostFeature",
+      "feature": "knotLink",
+      "enabled": true
+    },
+    {
+      "id": "knotlink-installer-awaits-curation",
+      "type": "notice",
+      "severity": "warning",
+      "messageResourceKey": "PluginPreset_Notice_KnotLinkCuration"
+    },
+    {
+      "id": "mine-backup-reminder",
+      "type": "notice",
+      "severity": "information",
+      "messageResourceKey": "PluginPreset_Notice_MineBackupReminder"
+    }
+  ]
+}

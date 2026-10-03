@@ -1,0 +1,46 @@
+<UserControl x:Class="FolderRewind.Controls.LogLevelPresenter"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="LevelStates">
+                <VisualState x:Name="Info">
+                    <VisualState.Setters>
+                        <Setter Target="LevelMarker.Fill" Value="{ThemeResource LogInfoBrush}" />
+                        <Setter Target="LevelBadge.BorderBrush" Value="{ThemeResource LogInfoBrush}" />
+                        <Setter Target="LevelBadge.Background" Value="{ThemeResource LogInfoBackgroundBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Warning">
+                    <VisualState.Setters>
+                        <Setter Target="LevelMarker.Fill" Value="{ThemeResource LogWarningBrush}" />
+                        <Setter Target="LevelBadge.BorderBrush" Value="{ThemeResource LogWarningBrush}" />
+                        <Setter Target="LevelBadge.Background" Value="{ThemeResource LogWarningBackgroundBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Error">
+                    <VisualState.Setters>
+                        <Setter Target="LevelMarker.Fill" Value="{ThemeResource LogErrorBrush}" />
+                        <Setter Target="LevelBadge.BorderBrush" Value="{ThemeResource LogErrorBrush}" />
+                        <Setter Target="LevelBadge.Background" Value="{ThemeResource LogErrorBackgroundBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Debug">
+                    <VisualState.Setters>
+                        <Setter Target="LevelMarker.Fill" Value="{ThemeResource LogDebugBrush}" />
+                        <Setter Target="LevelBadge.BorderBrush" Value="{ThemeResource LogDebugBrush}" />
+                        <Setter Target="LevelBadge.Background" Value="{ThemeResource LogDebugBackgroundBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Rectangle x:Name="LevelMarker" Width="8" Height="24" RadiusX="4" RadiusY="4"
+                Fill="{ThemeResource LogInfoBrush}" AutomationProperties.AccessibilityView="Raw" />
+            <Border x:Name="LevelBadge" CornerRadius="{StaticResource ControlCornerRadius}" Padding="8,4" BorderThickness="1"
+                Background="{ThemeResource LogInfoBackgroundBrush}" BorderBrush="{ThemeResource LogInfoBrush}">
+                <TextBlock x:Name="LevelText" Style="{StaticResource BodyStrongTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

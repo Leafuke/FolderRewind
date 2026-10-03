@@ -1,0 +1,637 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:settings="using:CommunityToolkit.WinUI.Controls" xmlns:models="using:FolderRewind.Models" x:Class="FolderRewind.Views.ConfigSettingsPage" SizeChanged="OnSettingsPageSizeChanged">
+    <Grid x:Name="SettingsLayout" Margin="24" RowSpacing="12" HorizontalAlignment="Left">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Spacing="8">
+            <Grid x:Name="SettingsHeaderGrid" ColumnSpacing="16" RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Uid="SettingsProject_Title" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBox x:Name="SettingsSearchBox" x:Uid="SettingsProject_SearchCompact" TextChanged="OnSearchChanged" AutomationProperties.AutomationId="ProjectSettingsSearch" Grid.Column="1" Width="280"/>
+            </Grid>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <SelectorBar x:Name="ConfigSelectorBar" SelectionChanged="OnSettingsSelectorBarSelectionChanged" AutomationProperties.AutomationId="ConfigSelectorBar">
+                    <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabGeneral" x:Uid="SettingsProject_TabGeneral" Tag="General" IsSelected="True">
+                        </SelectorBarItem>
+                    <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabBackup" x:Uid="SettingsProject_TabBackup" Tag="Backup">
+                        </SelectorBarItem>
+                    <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabResource" x:Uid="SettingsProject_TabResource" Tag="Resource">
+                        </SelectorBarItem>
+                    <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabRestore" x:Uid="SettingsProject_TabRestore" Tag="Restore">
+                        </SelectorBarItem>
+                    <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabAutomation" x:Uid="SettingsProject_TabAutomation" Tag="Automation">
+                        </SelectorBarItem>
+                    <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabCloud" x:Uid="SettingsProject_TabCloud" Tag="Cloud">
+                        </SelectorBarItem>
+                    <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabFilter" x:Uid="SettingsProject_TabFilter" Tag="Filter">
+                        </SelectorBarItem>
+                </SelectorBar>
+            </ScrollViewer>
+        </StackPanel>
+        <!-- 1. 常规设置 -->
+        <ScrollViewer x:Name="GeneralTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_ConfigName" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <TextBox AutomationProperties.AutomationId="ConfigSettingsName" x:Uid="ConfigSettingsDialog_ConfigName_CardInput" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_ConfigKind">
+                    <StackPanel Spacing="8">
+                        <ComboBox ItemsSource="{x:Bind ConfigKindsView, Mode=OneWay}" SelectedItem="{x:Bind SelectedConfigKind, Mode=TwoWay}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="ConfigSettingsKindPicker" HorizontalAlignment="Stretch"/>
+                        <TextBlock x:Name="ConfigKindDescriptionText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_Icon">
+                    <StackPanel Spacing="8">
+                        <GridView x:Name="IconGrid" SelectionMode="Single" Height="100" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectionChanged="OnIconSelectionChanged" AutomationProperties.AutomationId="IconGrid">
+                            <GridView.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Border Width="40" Height="40" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}">
+                                        <FontIcon Glyph="{x:Bind}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_DestPath">
+                    <StackPanel Spacing="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="DestPathBox" x:Uid="ConfigSettingsDialog_DestPathPlaceholder" Text="{x:Bind Config.DestinationPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="DestPathBox"/>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseClick" x:Uid="ConfigSettingsDialog_BrowseButton" AutomationProperties.AutomationId="ConfigSettingsDialog_BrowseButton">
+                                <FontIcon Glyph=""/>
+                            </Button>
+                            <Button Grid.Column="2" Margin="8,0,0,0" Click="OnOpenDestinationClick" x:Uid="ConfigSettingsDialog_OpenDestination" AutomationProperties.AutomationId="ConfigSettingsDialog_OpenDestination">
+                                <FontIcon Glyph=""/>
+                            </Button>
+                        </Grid>
+                        <TextBlock x:Uid="ConfigSettingsDialog_DestPathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_ConfigFilePath">
+                    <StackPanel Spacing="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ConfigPathBox" Text="{x:Bind ConfigFilePath, Mode=OneTime}" IsReadOnly="True" AutomationProperties.AutomationId="ConfigPathBox"/>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnOpenConfigFolderClick" x:Uid="ConfigSettingsDialog_OpenConfigFolder" AutomationProperties.AutomationId="ConfigSettingsDialog_OpenConfigFolder">
+                                <FontIcon Glyph=""/>
+                            </Button>
+                            <Button Grid.Column="2" Margin="8,0,0,0" Click="OnOpenConfigFileClick" x:Uid="ConfigSettingsDialog_OpenConfigFile" AutomationProperties.AutomationId="ConfigSettingsDialog_OpenConfigFile">
+                                <FontIcon Glyph=""/>
+                            </Button>
+                        </Grid>
+                        <TextBlock x:Uid="ConfigSettingsDialog_ConfigFilePathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_SaveAsTemplateText">
+                    <StackPanel Spacing="6">
+                        <Button AutomationProperties.AutomationId="ConfigSettingsSaveTemplate" Click="OnSaveAsTemplateClick" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph=""/>
+                                <TextBlock x:Uid="ConfigSettingsDialog_SaveAsTemplateText"/>
+                            </StackPanel>
+                        </Button>
+                        <TextBlock x:Uid="ConfigSettingsDialog_SaveAsTemplateDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+            </StackPanel>
+        </ScrollViewer>
+        <!-- 2. 备份策略 -->
+        <ScrollViewer x:Name="BackupTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_BackupMode" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ComboBox x:Uid="ConfigSettingsDialog_BackupMode_CardInput" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="ConfigSettingsDialog_BackupMode">
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeFull"/>
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeSmart"/>
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeRolling"/>
+                    </ComboBox>
+                </settings:SettingsCard>
+                <Border Style="{StaticResource CautionCardStyle}" Visibility="{x:Bind IsRollingModeSelected, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{x:Bind RollingModeDescriptionText, Mode=OneTime}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                </Border>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_BackupScope">
+                    <StackPanel Spacing="8">
+                        <ComboBox x:Uid="ConfigSettingsDialog_BackupScope_CardInput" ItemsSource="{x:Bind ViewModel.BackupScopeOptions, Mode=OneWay}" DisplayMemberPath="DisplayName" SelectedIndex="{x:Bind ViewModel.BackupScopeSelectedIndex, Mode=OneWay}" SelectionChanged="OnBackupScopeSelectionChanged" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="ConfigSettingsDialog_BackupScope"/>
+                        <TextBlock Text="{x:Bind ViewModel.BackupScopeDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <Border Style="{StaticResource CautionCardStyle}" Visibility="{x:Bind ViewModel.IsPluginBackupScopeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock x:Uid="ConfigSettingsDialog_BackupScopePartialWarning" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                        </Border>
+                        <StackPanel x:Name="BackupScopeParametersPanel" Spacing="10" Visibility="{x:Bind ViewModel.IsPluginBackupScopeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged_CardInput" IsOn="{x:Bind ViewModel.SkipIfUnchanged, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_SkipIfUnchanged"/>
+                </settings:SettingsCard>
+            </StackPanel>
+        </ScrollViewer>
+        <ScrollViewer x:Name="ResourceTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_KeepCount" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <NumberBox x:Uid="ConfigSettingsDialog_KeepCount_CardInput" Value="{x:Bind ViewModel.KeepCount, Mode=TwoWay}" Minimum="0" AutomationProperties.AutomationId="ConfigSettingsDialog_KeepCount"/>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_MaxSmartChain">
+                    <StackPanel Spacing="4">
+                        <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain_CardInput" Value="{x:Bind ViewModel.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100" AutomationProperties.AutomationId="ConfigSettingsDialog_MaxSmartChain"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_MaxSmartChainDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_PerformancePreset">
+                    <StackPanel Spacing="4">
+                        <ComboBox x:Uid="ConfigSettingsDialog_PerformancePreset_CardInput" ItemsSource="{x:Bind ViewModel.PerformancePresetOptions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.PerformanceChoice, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="ConfigSettingsDialog_PerformancePreset"/>
+                        <TextBlock Text="{x:Bind ViewModel.PerformancePresetDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{x:Bind ViewModel.PerformanceChangePreview, Mode=OneWay}" TextWrapping="Wrap"/>
+                        <TextBlock x:Uid="Performance_FileTypeOverrideHint" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Uid="Performance_Apply" Click="OnApplyPerformance" IsEnabled="{x:Bind ViewModel.CanApplyPerformancePreset, Mode=OneWay}" AutomationProperties.AutomationId="PerformanceApply"/>
+                            <Button x:Uid="Performance_Undo" Click="OnUndoPerformance" IsEnabled="{x:Bind ViewModel.CanUndoPerformance, Mode=OneWay}" AutomationProperties.AutomationId="PerformanceUndo"/>
+                        </StackPanel>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <Expander x:Uid="SettingsProject_AdvancedResources" HorizontalAlignment="Stretch" Margin="0,12,0,0">
+                    <StackPanel Spacing="4">
+                        <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_Format">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Uid="ConfigSettingsDialog_Format_CardInput" SelectedIndex="{x:Bind FormatSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="0,0,8,0" AutomationProperties.AutomationId="ConfigSettingsDialog_Format">
+                                    <ComboBoxItem x:Uid="ConfigSettingsDialog_Format7z"/>
+                                    <ComboBoxItem x:Uid="ConfigSettingsDialog_FormatZip"/>
+                                </ComboBox>
+                                <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind ViewModel.CompressionMethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0" AutomationProperties.AutomationId="ConfigSettingsDialog_Method">
+                                    <ComboBoxItem Content="LZMA2"/>
+                                    <ComboBoxItem Content="Deflate"/>
+                                    <ComboBoxItem Content="BZip2"/>
+                                    <ComboBoxItem Content="zstd"/>
+                                </ComboBox>
+                            </Grid>
+                        </settings:SettingsCard>
+                        <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CompressionLevel">
+                            <StackPanel Spacing="4">
+                                <Slider x:Name="CompressionLevelSlider" Minimum="{x:Bind ViewModel.CompressionLevelMin, Mode=OneWay}" Maximum="{x:Bind ViewModel.CompressionLevelMax, Mode=OneWay}" Value="{x:Bind ViewModel.CompressionLevel, Mode=TwoWay}" AutomationProperties.AutomationId="CompressionLevelSlider"/>
+                            </StackPanel>
+                        </settings:SettingsCard>
+                        <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CpuThreads">
+                            <StackPanel Spacing="4">
+                                <Slider Minimum="0" Maximum="{x:Bind ViewModel.CpuThreadMax, Mode=OneWay}" StepFrequency="1" Value="{x:Bind ViewModel.CpuThreadsValue, Mode=TwoWay}" AutomationProperties.AutomationId="ProjectSettingsControl126"/>
+                                <TextBlock Text="{x:Bind ViewModel.CpuThreadsDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </settings:SettingsCard>
+                        <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_LowPriority">
+                            <StackPanel Spacing="4">
+                                <ToggleSwitch x:Uid="ConfigSettingsDialog_LowPriority_CardInput" IsOn="{x:Bind ViewModel.RunCompressionAtLowPriority, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_LowPriority"/>
+                                <TextBlock x:Uid="ConfigSettingsDialog_LowPriorityDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </settings:SettingsCard>
+                        <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_Additional7zArgs">
+                            <StackPanel Spacing="4">
+                                <TextBox x:Uid="ConfigSettingsDialog_Additional7zArgsPlaceholder" Text="{x:Bind ViewModel.AdditionalSevenZipArgumentsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="ConfigSettingsDialog_Additional7zArgsPlaceholder"/>
+                                <TextBlock x:Uid="ConfigSettingsDialog_Additional7zArgsDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </settings:SettingsCard>
+                        <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_FileTypeHandling">
+                            <StackPanel Spacing="8">
+                                <ToggleSwitch x:Uid="ConfigSettingsDialog_FileTypeHandling_CardInput" IsOn="{x:Bind ViewModel.FileTypeHandlingEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_FileTypeHandling"/>
+                                <TextBlock x:Uid="ConfigSettingsDialog_FileTypeHandlingDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                <StackPanel Visibility="{x:Bind ViewModel.FileTypeHandlingEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
+                                    <ListView x:Name="FileTypeRulesList" ItemsSource="{x:Bind ViewModel.FileTypeRules, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" AutomationProperties.AutomationId="FileTypeRulesList" MaxHeight="180" MinHeight="48">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="models:FileTypeRule">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Pattern, Mode=OneWay}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Opacity="0.6">
+                                                        <Run Text="mx="/>
+                                                        <Run Text="{x:Bind CompressionLevel, Mode=OneWay}"/>
+                                                    </TextBlock>
+                                                    <Button Grid.Column="2" Content="" FontFamily="Segoe MDL2 Assets" Click="OnRemoveFileTypeRuleClick" AutomationProperties.AutomationId="ProjectSettingsControl151" x:Uid="SettingsProject_RemoveRule"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="FileTypePatternBox" x:Uid="ConfigSettingsDialog_FileTypePatternPlaceholder" AutomationProperties.AutomationId="FileTypePatternBox"/>
+                                        <NumberBox x:Name="FileTypeLevelBox" Grid.Column="1" Value="1" Minimum="0" Maximum="9" Width="130" AutomationProperties.AutomationId="FileTypeLevelBox"/>
+                                        <Button Grid.Column="2" x:Uid="ConfigSettingsDialog_AddFileTypeRule" Click="OnAddFileTypeRuleClick" AutomationProperties.AutomationId="ConfigSettingsDialog_AddFileTypeRule"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </settings:SettingsCard>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+        <!-- 3. 还原策略 -->
+        <ScrollViewer x:Name="RestoreTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore_CardInput" IsOn="{x:Bind ViewModel.BackupBeforeRestore, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_BackupBeforeRestore"/>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_SafeRestore" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_SafeRestore_CardInput" IsOn="{x:Bind ViewModel.SafeRestoreEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_SafeRestore"/>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput" IsOn="{x:Bind ViewModel.VerifyArchiveBeforeRestore, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_VerifyArchiveBeforeRestore"/>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_RestoreWhitelist">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelistDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <ListView ItemsSource="{x:Bind ViewModel.RestoreWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" AutomationProperties.AutomationId="ProjectSettingsControl168" MaxHeight="180" MinHeight="48">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="" FontFamily="Segoe MDL2 Assets" Click="OnRemoveRestoreWhitelistClick" AutomationProperties.AutomationId="ProjectSettingsControl176"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="RestoreWhitelistBox" x:Uid="ConfigSettingsDialog_RestoreWhitelistPlaceholder" AutomationProperties.AutomationId="RestoreWhitelistBox"/>
+                            <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddRestoreWhitelist" Margin="8,0,0,0" Click="OnAddRestoreWhitelistClick" AutomationProperties.AutomationId="ConfigSettingsDialog_AddRestoreWhitelist"/>
+                            <DropDownButton x:Name="RestoreWhitelistBrowseButton" Grid.Column="2" Margin="8,0,0,0" x:Uid="Filter_Browse" AutomationProperties.AutomationId="RestoreWhitelistBrowse">
+                                <DropDownButton.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFiles" Tag="AddRestoreWhitelist" Click="OnBrowseFilterFilesClick" AutomationProperties.AutomationId="RestoreWhitelistBrowseFiles"/>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFolder" Tag="AddRestoreWhitelist" Click="OnBrowseFilterFolderClick" AutomationProperties.AutomationId="RestoreWhitelistBrowseFolder"/>
+                                </MenuFlyout></DropDownButton.Flyout>
+                            </DropDownButton>
+                        </Grid>
+                    </StackPanel>
+                </settings:SettingsCard>
+            </StackPanel>
+        </ScrollViewer>
+        <!-- 4. 自动化 -->
+        <ScrollViewer x:Name="AutomationTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_AutoBackup" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup_CardInput" IsOn="{x:Bind ViewModel.AutoBackupEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_AutoBackup"/>
+                </settings:SettingsCard>
+                <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.AutoBackupEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_AutomationScope">
+                        <StackPanel Spacing="8">
+                            <ComboBox SelectedIndex="{x:Bind ViewModel.AutomationScopeSelectedIndex, Mode=TwoWay}" AutomationProperties.AutomationId="ProjectSettingsControl189">
+                                <ComboBoxItem Content="{x:Bind ViewModel.AutomationScopeAllText, Mode=OneWay}"/>
+                                <ComboBoxItem Content="{x:Bind ViewModel.AutomationScopeSingleText, Mode=OneWay}"/>
+                            </ComboBox>
+                            <TextBlock Text="{x:Bind ViewModel.AutomationScopeDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" Visibility="{x:Bind ViewModel.IsAutomationSingleFolderScope, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SettingsCard_ConfigSettingsDialog_AutomationTargetFolder">
+                        <StackPanel Spacing="8">
+                            <ComboBox ItemsSource="{x:Bind ViewModel.AutomationFolderOptions, Mode=OneWay}" DisplayMemberPath="DisplayName" SelectedValuePath="Path" SelectedValue="{x:Bind ViewModel.AutomationTargetFolderPath, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanSelectAutomationTargetFolder, Mode=OneWay}" AutomationProperties.AutomationId="ProjectSettingsControl195"/>
+                            <TextBlock Text="{x:Bind ViewModel.AutomationTargetFolderDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Left" HorizontalContentAlignment="Stretch">
+                        <CheckBox x:Uid="ConfigSettingsDialog_RunOnAppStart" IsChecked="{x:Bind ViewModel.RunOnAppStart, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_RunOnAppStart"/>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Left" HorizontalContentAlignment="Stretch">
+                        <CheckBox x:Uid="ConfigSettingsDialog_IntervalMode" IsChecked="{x:Bind ViewModel.IntervalMode, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_IntervalMode"/>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" Visibility="{x:Bind ViewModel.IntervalMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SettingsCard_ConfigSettingsDialog_IntervalMinutes">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <NumberBox Value="{x:Bind ViewModel.IntervalMinutes, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="10080" Width="140" AutomationProperties.AutomationId="ProjectSettingsControl201"/>
+                            <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutesSuffix" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Left" HorizontalContentAlignment="Stretch">
+                        <CheckBox x:Uid="ConfigSettingsDialog_ScheduledMode" IsChecked="{x:Bind ViewModel.ScheduledMode, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_ScheduledMode"/>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" Visibility="{x:Bind ViewModel.ScheduledMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SettingsCard_Schedule_MonthLabel">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Name="ScheduleEntriesHeader" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ScheduleEntriesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            <ItemsControl x:Name="ScheduleEntriesControl" ItemsSource="{x:Bind ViewModel.ScheduleEntries, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Spacing="6"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ScheduleEntry">
+                                        <Grid Margin="0,4" Padding="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" x:Uid="Schedule_MonthLabel" VerticalAlignment="Center" Margin="4,0" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                            <ComboBox Grid.Column="1" Width="80" SelectedIndex="{x:Bind MonthSelection, Mode=TwoWay}" IsEnabled="{x:Bind IsMonthEnabled, Mode=OneWay}" Loaded="OnScheduleMonthComboLoaded" AutomationProperties.AutomationId="ScheduleMonthCombo"/>
+                                            <TextBlock Grid.Column="2" x:Uid="Schedule_DayLabel" VerticalAlignment="Center" Margin="8,0,4,0" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                            <ComboBox Grid.Column="3" Width="80" SelectedIndex="{x:Bind DaySelection, Mode=TwoWay}" Loaded="OnScheduleDayComboLoaded" AutomationProperties.AutomationId="ScheduleDayCombo"/>
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="8,0" Spacing="4">
+                                                <NumberBox Width="60" Value="{x:Bind Hour, Mode=TwoWay}" Minimum="0" Maximum="23" SpinButtonPlacementMode="Compact" AutomationProperties.AutomationId="ScheduleHourBox"/>
+                                                <TextBlock Text=":" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <NumberBox Width="60" Value="{x:Bind Minute, Mode=TwoWay}" Minimum="0" Maximum="59" SpinButtonPlacementMode="Compact" AutomationProperties.AutomationId="ScheduleMinuteBox"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="8,0" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind NextRunDisplay, Mode=OneWay}"/>
+                                            <Button Grid.Column="6" Margin="4,0" Click="OnDeleteScheduleEntryClick" Padding="6" VerticalAlignment="Center" AutomationProperties.AutomationId="DeleteScheduleEntryButton">
+                                                <FontIcon Glyph="" FontSize="12"/>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button x:Name="AddScheduleButton" Click="OnAddScheduleEntryClick" AutomationProperties.AutomationId="AddScheduleButton">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="" FontSize="14"/>
+                                    <TextBlock x:Name="AddScheduleText"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Left" HorizontalContentAlignment="Stretch">
+                        <CheckBox x:Uid="ConfigSettingsDialog_ConditionalMode" IsChecked="{x:Bind ViewModel.ConditionalModeEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_ConditionalMode"/>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" Visibility="{x:Bind ViewModel.ConditionalModeEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SettingsCard_ConfigSettingsDialog_ConditionalModeDesc">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="ConfigSettingsDialog_ConditionRelativePath" FontWeight="SemiBold"/>
+                            <TextBox x:Uid="ConfigSettingsDialog_ConditionRelativePathPlaceholder" Text="{x:Bind ViewModel.ConditionRelativePathText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="ConfigSettingsDialog_ConditionRelativePathPlaceholder"/>
+                            <TextBlock Text="{x:Bind ViewModel.ConditionConfigurationHint, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_StopAfterNoChange" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                        <ToggleSwitch x:Uid="ConfigSettingsDialog_StopAfterNoChange_CardInput" IsOn="{x:Bind ViewModel.StopAfterNoChangeEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_StopAfterNoChange"/>
+                    </settings:SettingsCard>
+                    <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" Visibility="{x:Bind ViewModel.StopAfterNoChangeEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SettingsCard_ConfigSettingsDialog_StopAfterNoChangePrefix">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <NumberBox Value="{x:Bind ViewModel.StopAfterNoChangeCount, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="100" Width="120" AutomationProperties.AutomationId="ProjectSettingsControl246"/>
+                            <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangeSuffix" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </settings:SettingsCard>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+        <!-- 5. 云上传 -->
+        <ScrollViewer x:Name="CloudTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudEnvironmentSection">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudExecutable" FontWeight="SemiBold"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CloudExecutableBox" x:Uid="ConfigSettingsDialog_CloudExecutablePlaceholder" Text="{x:Bind ViewModel.CloudExecutablePathText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudExecutableBox"/>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseCloudExecutableClick" x:Uid="ConfigSettingsDialog_CloudBrowseExecutable" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudBrowseExecutable">
+                                <FontIcon Glyph=""/>
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{x:Bind ViewModel.CloudExecutableDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudWorkingDirectory">
+                    <StackPanel Spacing="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CloudWorkingDirectoryBox" x:Uid="ConfigSettingsDialog_CloudWorkingDirectoryPlaceholder" Text="{x:Bind ViewModel.CloudWorkingDirectoryText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudWorkingDirectoryBox"/>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseCloudWorkingDirectoryClick" x:Uid="ConfigSettingsDialog_CloudBrowseWorkingDirectory" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudBrowseWorkingDirectory">
+                                <FontIcon Glyph=""/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudRemoteBasePath">
+                    <StackPanel Spacing="8">
+                        <TextBox x:Name="CloudRemoteBasePathBox" x:Uid="ConfigSettingsDialog_CloudRemoteBasePathPlaceholder" Text="{x:Bind ViewModel.CloudRemoteBasePathText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudRemoteBasePathBox"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudRemoteBasePathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudSyncSection">
+                    <StackPanel Spacing="8">
+                        <Button x:Uid="CloudSetup_Open" Click="OnCloudSetup" AutomationProperties.AutomationId="ProjectSettingsCloudSetup"/>
+                        <TextBlock Text="{x:Bind ViewModel.CloudManualSyncHint, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudGuideTip" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            <HyperlinkButton x:Uid="ConfigSettingsDialog_CloudGuideOpen" VerticalAlignment="Center" Padding="0" Click="OnOpenCloudGuideClick"/>
+                        </StackPanel>
+                        <Button Click="OnOpenCloudSyncClick" HorizontalAlignment="Left" IsEnabled="{x:Bind ViewModel.CanUseManualCloudActions, Mode=OneWay}" AutomationProperties.AutomationId="ProjectSettingsControl282">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph=""/>
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudSyncOpenText"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard x:Uid="SettingsCard_ConfigSettingsDialog_CloudEnabled" ContentAlignment="Right" HorizontalContentAlignment="Stretch" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_CloudEnabled_CardInput" IsOn="{x:Bind ViewModel.AutoUploadEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudEnabled"/>
+                </settings:SettingsCard>
+                <Expander x:Uid="SettingsCard_CloudAdvanced" HorizontalAlignment="Stretch" Margin="0,12,0,0" Visibility="{x:Bind ViewModel.ShowCloudUploadAdvancedSettings, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel Spacing="12">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudLegacyModeDesc" Visibility="{x:Bind ViewModel.IsLegacyCustomCommandMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <Grid ColumnSpacing="8" Visibility="{x:Bind ViewModel.ShowCloudTemplateOptions, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Uid="ConfigSettingsDialog_CloudTemplate" SelectedIndex="{x:Bind ViewModel.CloudTemplateSelectedIndex, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudTemplate">
+                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateArchive"/>
+                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateDirectory"/>
+                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateCustom"/>
+                            </ComboBox>
+                            <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_CloudApplyTemplate" Click="OnApplyCloudTemplateClick" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudApplyTemplate"/>
+                        </Grid>
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudArguments" FontWeight="SemiBold"/>
+                            <TextBox x:Name="CloudArgumentsBox" x:Uid="ConfigSettingsDialog_CloudArgumentsPlaceholder" Text="{x:Bind ViewModel.CloudArgumentsTemplateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="84" AutomationProperties.AutomationId="CloudArgumentsBox"/>
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudArgumentsDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <ToggleSwitch x:Uid="ConfigSettingsDialog_CloudSyncHistoryAfterUpload" IsOn="{x:Bind ViewModel.SyncHistoryAfterUpload, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudSyncHistoryAfterUpload"/>
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="8">
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudTimeout" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <NumberBox x:Name="CloudTimeoutBox" Value="{x:Bind ViewModel.CloudTimeoutSeconds, Mode=TwoWay}" Minimum="10" Maximum="86400" Width="140" AutomationProperties.AutomationId="CloudTimeoutBox"/>
+                                    <TextBlock x:Uid="ConfigSettingsDialog_CloudTimeoutSuffix" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudRetryCount" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <NumberBox x:Name="CloudRetryCountBox" Value="{x:Bind ViewModel.CloudRetryCount, Mode=TwoWay}" Minimum="0" Maximum="5" Width="120" AutomationProperties.AutomationId="CloudRetryCountBox"/>
+                                    <TextBlock x:Uid="ConfigSettingsDialog_CloudRetryCountSuffix" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudVariables" FontWeight="SemiBold"/>
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudVariablesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            <TextBox Text="{x:Bind ViewModel.CloudVariablesHelpText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" AutomationProperties.AutomationId="ProjectSettingsControl322"/>
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudPreview" FontWeight="SemiBold"/>
+                            <TextBox Text="{x:Bind ViewModel.CloudPreviewText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96" AutomationProperties.AutomationId="ProjectSettingsControl325"/>
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudLastStatus" FontWeight="SemiBold"/>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudLastRunLabel"/>
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.CloudLastRunDisplay, Mode=OneWay}"/>
+                            </Grid>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudLastExitCodeLabel"/>
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.CloudLastExitCodeDisplay, Mode=OneWay}"/>
+                            </Grid>
+                            <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.CloudLastErrorMessage, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}">
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudLastErrorLabel"/>
+                                <TextBlock Text="{x:Bind ViewModel.CloudLastErrorMessage, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+        <!-- 6. 过滤器 -->
+        <ScrollViewer x:Name="FilterTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_BackupFilterMode" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ComboBox x:Uid="ConfigSettingsDialog_BackupFilterMode_CardInput" SelectedIndex="{x:Bind ViewModel.BackupFilterModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="ConfigSettingsDialog_BackupFilterMode">
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_BackupFilterModeBlacklist"/>
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_BackupFilterModeWhitelist"/>
+                    </ComboBox>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Left" HorizontalContentAlignment="Stretch">
+                    <CheckBox x:Uid="ConfigSettingsDialog_UseRegex" IsChecked="{x:Bind ViewModel.UseRegex, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_UseRegex"/>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" Visibility="{x:Bind ViewModel.IsBackupBlacklistMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SettingsCard_ConfigSettingsDialog_Blacklist">
+                    <StackPanel Spacing="12">
+                        <ListView ItemsSource="{x:Bind ViewModel.Blacklist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" AutomationProperties.AutomationId="ProjectSettingsControl351" MaxHeight="180" MinHeight="48">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBlacklistClick" AutomationProperties.AutomationId="ProjectSettingsControl359"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="BlacklistBox" x:Uid="ConfigSettingsDialog_BlacklistPlaceholder" AutomationProperties.AutomationId="BlacklistBox"/>
+                            <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick" AutomationProperties.AutomationId="ConfigSettingsDialog_AddBlacklist"/>
+                            <DropDownButton x:Name="BlacklistBrowseButton" Grid.Column="2" Margin="8,0,0,0" x:Uid="Filter_Browse" AutomationProperties.AutomationId="BlacklistBrowse">
+                                <DropDownButton.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFiles" Tag="AddBlacklist" Click="OnBrowseFilterFilesClick" AutomationProperties.AutomationId="BlacklistBrowseFiles"/>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFolder" Tag="AddBlacklist" Click="OnBrowseFilterFolderClick" AutomationProperties.AutomationId="BlacklistBrowseFolder"/>
+                                </MenuFlyout></DropDownButton.Flyout>
+                            </DropDownButton>
+                        </Grid>
+                    </StackPanel>
+                </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" Visibility="{x:Bind ViewModel.IsBackupWhitelistMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SettingsCard_ConfigSettingsDialog_BackupWhitelist">
+                    <StackPanel Spacing="12">
+                        <Border Style="{StaticResource CautionCardStyle}">
+                            <TextBlock Text="{x:Bind ViewModel.BackupWhitelistCleanWarningText, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                        </Border>
+                        <ListView ItemsSource="{x:Bind ViewModel.BackupWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" AutomationProperties.AutomationId="ProjectSettingsControl370" MaxHeight="180" MinHeight="48">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBackupWhitelistClick" AutomationProperties.AutomationId="ProjectSettingsControl378"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="BackupWhitelistBox" x:Uid="ConfigSettingsDialog_BackupWhitelistPlaceholder" AutomationProperties.AutomationId="BackupWhitelistBox"/>
+                            <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBackupWhitelist" Margin="8,0,0,0" Click="OnAddBackupWhitelistClick" AutomationProperties.AutomationId="ConfigSettingsDialog_AddBackupWhitelist"/>
+                            <DropDownButton x:Name="BackupWhitelistBrowseButton" Grid.Column="2" Margin="8,0,0,0" x:Uid="Filter_Browse" AutomationProperties.AutomationId="BackupWhitelistBrowse">
+                                <DropDownButton.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFiles" Tag="AddBackupWhitelist" Click="OnBrowseFilterFilesClick" AutomationProperties.AutomationId="BackupWhitelistBrowseFiles"/>
+                                    <MenuFlyoutItem x:Uid="Filter_SelectFolder" Tag="AddBackupWhitelist" Click="OnBrowseFilterFolderClick" AutomationProperties.AutomationId="BackupWhitelistBrowseFolder"/>
+                                </MenuFlyout></DropDownButton.Flyout>
+                            </DropDownButton>
+                        </Grid>
+                    </StackPanel>
+                </settings:SettingsCard>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Spacing="8" Margin="0,8,0,0">
+            <TextBlock x:Name="DraftStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Uid="SettingsProject_Save" Click="OnSaveClick" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="ProjectSettingsSave"/>
+                <Button x:Uid="Setup_Cancel" Click="OnCancelClick" AutomationProperties.AutomationId="ProjectSettingsCancel"/>
+                <Button x:Uid="SettingsProject_Delete" Click="OnDeleteClick" AutomationProperties.AutomationId="ProjectSettingsDelete" Margin="16,0,0,0"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Page>

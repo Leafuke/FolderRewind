@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
@@ -35,10 +36,10 @@ namespace FolderRewind.ViewModels
 
     public sealed class TemplateManagerDialogViewModel : ViewModelBase
     {
-        private readonly List<ConfigTemplate> _allTemplates = new();
+        private readonly List<BackupPreset> _allTemplates = new();
 
         private string _searchText = string.Empty;
-        private ConfigTemplate? _selectedTemplate;
+        private BackupPreset? _selectedTemplate;
         private string _selectedTemplateId = string.Empty;
         private string _templateName = string.Empty;
         private string _templateAuthor = string.Empty;
@@ -51,7 +52,7 @@ namespace FolderRewind.ViewModels
         private string _feedbackMessage = string.Empty;
         private InfoBarSeverity _feedbackSeverity = InfoBarSeverity.Informational;
 
-        public ObservableCollection<ConfigTemplate> TemplatesView { get; } = new();
+        public ObservableCollection<BackupPreset> TemplatesView { get; } = new();
         public ObservableCollection<TemplateRulePreviewItem> PreviewItems { get; } = new();
         public ObservableCollection<EditableTemplateRuleItem> EditablePathRules { get; } = new();
         public ObservableCollection<TemplateRuleSyntaxHelpItem> SyntaxHelpItems { get; } = new();
@@ -68,7 +69,7 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public ConfigTemplate? SelectedTemplate
+        public BackupPreset? SelectedTemplate
         {
             get => _selectedTemplate;
             set
@@ -147,7 +148,7 @@ namespace FolderRewind.ViewModels
 
         public TemplateManagerDialogViewModel()
         {
-            foreach (var item in TemplateService.GetRuleSyntaxHelpItems())
+            foreach (var item in BackupPresetService.GetRuleSyntaxHelpItems())
             {
                 SyntaxHelpItems.Add(item);
             }
@@ -158,72 +159,18 @@ namespace FolderRewind.ViewModels
         public void ReloadTemplates(string? preferredTemplateId = null)
         {
             _allTemplates.Clear();
-            _allTemplates.AddRange(TemplateService.GetTemplates()
+            _allTemplates.AddRange(BackupPresetService.GetTemplates()
                 .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase));
 
             ApplyFilter(preferredTemplateId);
         }
 
-        public bool SaveTemplate()
-        {
-            try
-            {
-                if (SelectedTemplate == null)
-                {
-                    SetFeedback(I18n.GetString("Template_Manager_SelectFirst"), InfoBarSeverity.Warning);
-                    return false;
-                }
+        public Task<bool> SaveTemplateAsync() => RunMutationAsync(() =>
+            BackupPresetService.UpdateTemplateMetadataAsync(SelectedTemplate!.Id,
+                TemplateName, TemplateAuthor, TemplateDescription, BuildRuleItems()));
 
-                var ok = TemplateService.UpdateTemplateMetadata(
-                    SelectedTemplate.Id,
-                    TemplateName,
-                    TemplateAuthor,
-                    TemplateDescription,
-                    out var message);
-
-                if (!ok)
-                {
-                    SetFeedback(message, InfoBarSeverity.Error);
-                    return false;
-                }
-
-                // 先存元数据再存规则，失败时反馈会更接近用户刚改动的那一块。
-                var rulesSaved = SaveRulesInternal(SelectedTemplate.Id, out var rulesMessage);
-                if (!rulesSaved)
-                {
-                    SetFeedback(rulesMessage, InfoBarSeverity.Error);
-                    return false;
-                }
-
-                SetFeedback(message, InfoBarSeverity.Success);
-                ReloadTemplates(SelectedTemplate.Id);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError($"Template manager save failed: {ex.Message}", nameof(TemplateManagerDialogViewModel), ex);
-                SetFeedback(ex.Message, InfoBarSeverity.Error);
-                return false;
-            }
-        }
-
-        public bool SaveRules()
-        {
-            if (SelectedTemplate == null)
-            {
-                SetFeedback(I18n.GetString("Template_Manager_SelectFirst"), InfoBarSeverity.Warning);
-                return false;
-            }
-
-            var ok = SaveRulesInternal(SelectedTemplate.Id, out var message);
-            SetFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-            if (ok)
-            {
-                ReloadTemplates(SelectedTemplate.Id);
-            }
-
-            return ok;
-        }
+        public Task<bool> SaveRulesAsync() => RunMutationAsync(() =>
+            BackupPresetService.UpdateTemplatePathRulesAsync(SelectedTemplate!.Id, BuildRuleItems()));
 
         public void AddRule()
         {
@@ -256,24 +203,8 @@ namespace FolderRewind.ViewModels
             RaiseStatePropertiesChanged();
         }
 
-        public bool DuplicateTemplate()
-        {
-            if (SelectedTemplate == null)
-            {
-                SetFeedback(I18n.GetString("Template_Manager_SelectFirst"), InfoBarSeverity.Warning);
-                return false;
-            }
-
-            var result = TemplateService.DuplicateTemplate(SelectedTemplate.Id);
-            SetFeedback(result.Message, result.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-            if (!result.Success || result.Template == null)
-            {
-                return false;
-            }
-
-            ReloadTemplates(result.Template.Id);
-            return true;
-        }
+        public Task<bool> DuplicateTemplateAsync() => RunMutationAsync(() =>
+            BackupPresetService.DuplicateTemplateAsync(SelectedTemplate!.Id));
 
         public void ShowDeleteConfirm()
         {
@@ -287,28 +218,37 @@ namespace FolderRewind.ViewModels
             IsDeleteConfirmVisible = true;
         }
 
-        public bool ConfirmDeleteTemplate()
+        public Task<bool> ConfirmDeleteTemplateAsync() => RunMutationAsync(() =>
+            BackupPresetService.DeleteTemplateAsync(SelectedTemplate!.Id));
+
+        private bool _isSaving;
+        private async Task<bool> RunMutationAsync(Func<Task<TemplateMutationResult>> operation)
         {
-            if (SelectedTemplate == null)
+            if (_isSaving) return false;
+            if (SelectedTemplate is null)
             {
-                HideDeleteConfirm();
                 SetFeedback(I18n.GetString("Template_Manager_SelectFirst"), InfoBarSeverity.Warning);
                 return false;
             }
-
-            var ok = TemplateService.DeleteTemplate(SelectedTemplate.Id, out var message);
-            HideDeleteConfirm();
-            SetFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-            if (!ok)
+            _isSaving = true;
+            try
             {
+                var result = await operation();
+                SetFeedback(result.Message, result.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                if (result.Success)
+                {
+                    HideDeleteConfirm();
+                    ReloadTemplates(result.Template?.Id);
+                }
+                return result.Success;
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(ex.Message, nameof(TemplateManagerDialogViewModel), ex);
+                SetFeedback(ex.Message, InfoBarSeverity.Error);
                 return false;
             }
-
-            PreviewItems.Clear();
-            EditablePathRules.Clear();
-            PreviewSummaryText = I18n.GetString("TemplateManagerDialog_PreviewSummary.Text");
-            ReloadTemplates();
-            return true;
+            finally { _isSaving = false; }
         }
 
         public void CancelDeleteTemplate()
@@ -324,7 +264,7 @@ namespace FolderRewind.ViewModels
                 return false;
             }
 
-            var ok = TemplateService.ExportTemplate(SelectedTemplate.Id, path, out var message);
+            var ok = BackupPresetService.ExportTemplate(SelectedTemplate.Id, path, out var message);
             SetFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             return ok;
         }
@@ -357,7 +297,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
-            var result = TemplateService.PreviewTemplateRules(SelectedTemplate.Id);
+            var result = BackupPresetService.PreviewTemplateRules(SelectedTemplate.Id);
             PreviewSummaryText = result.Message;
             foreach (var item in result.Items)
             {
@@ -371,13 +311,14 @@ namespace FolderRewind.ViewModels
         {
             var keyword = SearchText.Trim();
 
-            IEnumerable<ConfigTemplate> filtered = _allTemplates;
+            IEnumerable<BackupPreset> filtered = _allTemplates;
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 filtered = filtered.Where(t =>
                     (t.Name?.Contains(keyword, StringComparison.CurrentCultureIgnoreCase) ?? false)
                     || (t.Author?.Contains(keyword, StringComparison.CurrentCultureIgnoreCase) ?? false)
-                    || (t.BaseConfigType?.Contains(keyword, StringComparison.CurrentCultureIgnoreCase) ?? false));
+                    || t.Kind.OwnerId.Contains(keyword, StringComparison.CurrentCultureIgnoreCase)
+                    || t.Kind.KindId.Contains(keyword, StringComparison.CurrentCultureIgnoreCase));
             }
 
             TemplatesView.Clear();
@@ -421,11 +362,11 @@ namespace FolderRewind.ViewModels
             TemplateAuthor = SelectedTemplate.Author;
             TemplateDescription = SelectedTemplate.Description;
 
-            var updatedText = SelectedTemplate.UpdatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
+            var updatedText = UserDisplayFormatter.ShortDateTime(SelectedTemplate.UpdatedUtc.ToLocalTime());
             var ruleCount = SelectedTemplate.PathRules?.Count ?? 0;
             TemplateMetaText = I18n.Format(
                 "TemplateManagerDialog_TemplateMetaFormat",
-                SelectedTemplate.BaseConfigType,
+                $"{SelectedTemplate.Kind.OwnerId}/{SelectedTemplate.Kind.KindId}",
                 updatedText,
                 ruleCount.ToString(CultureInfo.CurrentCulture));
 
@@ -434,10 +375,10 @@ namespace FolderRewind.ViewModels
             RaiseStatePropertiesChanged();
         }
 
-        private void ReloadEditableRules(ConfigTemplate selectedTemplate)
+        private void ReloadEditableRules(BackupPreset selectedTemplate)
         {
             EditablePathRules.Clear();
-            foreach (var item in TemplateService.BuildRuleEditItems(selectedTemplate))
+            foreach (var item in BackupPresetService.BuildRuleEditItems(selectedTemplate))
             {
                 EditablePathRules.Add(new EditableTemplateRuleItem
                 {
@@ -453,10 +394,10 @@ namespace FolderRewind.ViewModels
             RaiseStatePropertiesChanged();
         }
 
-        private bool SaveRulesInternal(string templateId, out string message)
+        private List<BackupPresetService.TemplateRuleEditItem> BuildRuleItems()
         {
             // EditablePathRules 是 UI 编辑态；提交前统一映射成服务层的 DTO。
-            var items = EditablePathRules.Select(rule => new TemplateService.TemplateRuleEditItem
+            var items = EditablePathRules.Select(rule => new BackupPresetService.TemplateRuleEditItem
             {
                 Id = rule.Id,
                 Name = rule.Name,
@@ -466,7 +407,7 @@ namespace FolderRewind.ViewModels
                 AutoAdd = rule.AutoAdd
             }).ToList();
 
-            return TemplateService.UpdateTemplatePathRules(templateId, items, out message);
+            return items;
         }
 
         private void ClearDetail()

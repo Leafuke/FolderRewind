@@ -1,0 +1,41 @@
+param([Parameter(Mandatory)][ValidateSet('x64','ARM64')][string]$Platform, [string]$OutputDirectory, [string]$ReleaseTag)
+$ErrorActionPreference = 'Stop'
+$arch = $Platform.ToLowerInvariant()
+$endpoint = if ($ReleaseTag) { "tags/$([Uri]::EscapeDataString($ReleaseTag))" } else { 'latest' }
+$release = Invoke-RestMethod "https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/$endpoint" -Headers @{'User-Agent'='FolderRewind-release'}
+$version = $release.tag_name
+$releaseAssets = @($release.assets | Where-Object { $_.name -match "^7z.+-zstd-$arch\.exe$" })
+if ($releaseAssets.Count -ne 1) { throw "Expected one architecture-specific 7-Zip installer for $arch." }
+$asset = $releaseAssets[0]
+if ($asset.digest -notmatch '^sha256:([a-fA-F0-9]+)$') { throw 'The upstream asset does not provide a SHA-256 digest.' }
+$expectedHash = $Matches[1].ToLowerInvariant()
+if (-not $OutputDirectory) { $OutputDirectory = "$PSScriptRoot\..\..\artifacts\sevenzip\$version\$arch" }
+$destination = [IO.Path]::GetFullPath($OutputDirectory)
+New-Item -ItemType Directory -Path $destination -Force | Out-Null
+$installer = Join-Path $destination $asset.name
+if (-not (Test-Path -LiteralPath $installer)) {
+    Invoke-WebRequest $asset.browser_download_url -OutFile $installer
+}
+if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash -ine $expectedHash) { throw "7-Zip $arch installer SHA256 mismatch." }
+$payload = Join-Path $destination 'payload'
+if (-not (Test-Path -LiteralPath (Join-Path $payload '7za.exe'))) {
+    $extractor = "$PSScriptRoot\..\..\7za.exe"
+    if (-not (Test-Path -LiteralPath $extractor)) { $extractor = (Get-Command 7z -ErrorAction Stop).Source }
+    # The upstream installer is a 7z self-extracting archive. Extracting avoids
+    # running an ARM64 binary on an x64 CI worker and writes no machine settings.
+    & $extractor x $installer "-o$payload" -y 7za.exe License.txt | Out-Host
+    if ($LASTEXITCODE) { throw "7-Zip extraction failed: $LASTEXITCODE" }
+}
+$sevenzip = Join-Path $payload '7za.exe'
+if (-not (Test-Path -LiteralPath $sevenzip)) { throw "Architecture-specific standalone 7za.exe not found: $sevenzip" }
+$stream = [IO.File]::OpenRead($sevenzip)
+try {
+    $reader = [IO.BinaryReader]::new($stream)
+    $stream.Position = 0x3c; $offset = $reader.ReadInt32()
+    $stream.Position = $offset + 4; $machine = $reader.ReadUInt16()
+    $expected = if ($arch -eq 'arm64') { 0xaa64 } else { 0x8664 }
+    if ($machine -ne $expected) { throw "7za.exe architecture mismatch: $machine" }
+} finally { $stream.Dispose() }
+@{version=$version;architecture=$arch;installerSha256=$expectedHash;payloadSha256=(Get-FileHash $sevenzip -Algorithm SHA256).Hash.ToLowerInvariant()} |
+    ConvertTo-Json | Set-Content (Join-Path $destination 'provenance.json') -Encoding utf8
+Write-Output $sevenzip

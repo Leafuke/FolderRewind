@@ -1,4 +1,6 @@
 using FolderRewind.Services.Plugins;
+using FolderRewind.Services.Plugins.V3;
+using FolderRewind.Plugin.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +11,11 @@ namespace FolderRewind.Services.KnotLink
     public static class KnotLinkFuncListService
     {
         public const string SpecVersion = "1.0";
-        public const string ManifestVersion = "2.0.0";
+        public const string ManifestVersion = "3.0.0";
         public const string DefaultAppId = "0x00000020";
         public const string DefaultOpenSocketId = "0x00000010";
         public const string DefaultSignalId = "0x00000020";
+        private static readonly IReadOnlySet<string> CoreSignalNames = BuildCore().Signal.Keys.ToHashSet(StringComparer.Ordinal);
 
         public static KnotLinkFuncList BuildCore(
             string appId = DefaultAppId,
@@ -31,62 +34,67 @@ namespace FolderRewind.Services.KnotLink
             string signalId)
         {
             var manifest = BuildCore(appId, openSocketId, signalId);
-            MergePluginContributions(
-                manifest,
-                appId,
-                openSocketId,
-                signalId,
-                PluginService.GetKnotLinkCapabilityContributions());
+            MergeV3PluginCommands(manifest, appId, openSocketId, signalId);
             return manifest;
         }
 
-        internal static void MergePluginContributions(
+        private static void MergeV3PluginCommands(
             KnotLinkFuncList manifest,
             string appId,
             string openSocketId,
-            string signalId,
-            IEnumerable<(string PluginId, PluginKnotLinkCapabilityContribution Contribution)> contributions)
+            string signalId)
         {
-            foreach (var (pluginId, contribution) in contributions.OrderBy(item => item.PluginId, StringComparer.OrdinalIgnoreCase))
+            var contributions = new List<(PluginId PluginId, IReadOnlyList<KnotLinkCommandDescriptor> Commands)>();
+            foreach (var pluginId in PluginV3RuntimeService.GetActivePlugins())
             {
-                foreach (var function in contribution.OpenSocket.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+                using var lease = PluginV3RuntimeService.Runtime
+                    .TryAcquire<IKnotLinkIntegrationCapability>(pluginId);
+                if (lease is null) continue;
+                contributions.Add((pluginId, lease.Capability.Commands.ToArray()));
+                MergePluginSignals(manifest, appId, signalId, pluginId, lease.Capability.Signals);
+            }
+
+            MergePluginCommands(manifest, appId, openSocketId, contributions);
+        }
+
+        internal static void MergePluginCommands(
+            KnotLinkFuncList manifest,
+            string appId,
+            string openSocketId,
+            IEnumerable<(PluginId PluginId, IReadOnlyList<KnotLinkCommandDescriptor> Commands)> contributions)
+        {
+            foreach (var contribution in contributions.OrderBy(item => item.PluginId.Value, StringComparer.Ordinal))
+            {
+                foreach (var command in contribution.Commands.OrderBy(item => item.Command, StringComparer.OrdinalIgnoreCase))
                 {
-                    var name = NormalizeCapabilityName(function.Name);
+                    var name = NormalizeCapabilityName(command.FunctionName ?? command.Command);
                     if (string.IsNullOrEmpty(name) || manifest.OpenSocket.ContainsKey(name))
                     {
-                        LogCapabilityCollision(pluginId, name, "openSocket");
+                        LogCapabilityCollision(contribution.PluginId.Value, name, "openSocket");
                         continue;
                     }
 
+                    var args = new SortedDictionary<string, KnotLinkFuncArgument>(StringComparer.Ordinal)
+                    {
+                        ["cmd"] = Static(command.Command, command.Description)
+                    };
+                    var declared = command.IsTargetSelector
+                        ? (KnotLinkCoreCommands.Find(command.Command)?.Arguments ?? Array.Empty<KnotLinkArgumentDescriptor>())
+                            .Where(argument => argument.Name is not "config_id" and not "folder")
+                            .Concat(command.Arguments)
+                        : command.Arguments;
+                    foreach (var argument in declared) args[argument.Name] = FromDescriptor(argument);
+                    foreach (var argument in command.RequiredArguments)
+                    {
+                        args[argument.Key] = Static(argument.Value, $"Required value for {argument.Key}.");
+                    }
                     manifest.OpenSocket[name] = new KnotLinkOpenSocketFunction
                     {
                         AppId = appId,
                         OpenSocketId = openSocketId,
-                        Description = function.Description,
-                        Args = new SortedDictionary<string, KnotLinkFuncArgument>(
-                            function.Args.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
-                            StringComparer.Ordinal),
-                        Returns = function.Returns.Select(item => item.ToArray()).ToList()
-                    };
-                }
-
-                foreach (var signal in contribution.Signal.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    var name = NormalizeCapabilityName(signal.Name);
-                    if (string.IsNullOrEmpty(name) || manifest.Signal.ContainsKey(name))
-                    {
-                        LogCapabilityCollision(pluginId, name, "signal");
-                        continue;
-                    }
-
-                    manifest.Signal[name] = new KnotLinkSignalFunction
-                    {
-                        AppId = appId,
-                        SignalId = signalId,
-                        Description = signal.Description,
-                        Returns = new SortedDictionary<string, KnotLinkSignalField>(
-                            signal.Returns.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
-                            StringComparer.Ordinal)
+                        Description = command.Description,
+                        Args = args,
+                        Returns = StatusReturns(command.Returns.ToArray())
                     };
                 }
             }
@@ -114,68 +122,43 @@ namespace FolderRewind.Services.KnotLink
 
         private static void AddCoreOpenSocketFunctions(KnotLinkFuncList manifest, string appId, string socketId)
         {
-            AddFunction(manifest, appId, socketId, "get_capabilities", "GET_CAPABILITIES", "Get the runtime FolderRewind funcList manifest.",
-                returns: StatusReturns("content_type", "encoding", "manifest_version", "func_list"));
-            AddFunction(manifest, appId, socketId, "ping", "PING", "Check whether the FolderRewind KnotLink endpoint is available.", returns: StatusReturns("message"));
-            AddFunction(manifest, appId, socketId, "list_configs", "LIST_CONFIGS", "List backup configurations.", returns: StatusReturns("data"));
-            AddFunction(manifest, appId, socketId, "list_folders", "LIST_FOLDERS", "List managed folders in a backup configuration.",
-                Args(("config_id", Input("Backup configuration ID.", "config-id"))), StatusReturns("data"));
-            AddFunction(manifest, appId, socketId, "list_backups", "LIST_BACKUPS", "List backup archives for a managed folder.",
-                Args(("config_id", Input("Backup configuration ID.", "config-id")), ("folder", Input("Folder name or index.", "0"))), StatusReturns("data"));
-            AddFunction(manifest, appId, socketId, "get_config", "GET_CONFIG", "Get public settings for a backup configuration.",
-                Args(("config_id", Input("Backup configuration ID.", "config-id"))), StatusReturns("data"));
-            AddFunction(manifest, appId, socketId, "get_status", "GET_STATUS", "Get FolderRewind runtime status.", returns: StatusReturns("data"));
+            foreach (var command in KnotLinkCoreCommands.Commands)
+                AddFunction(manifest, appId, socketId, command.Command.ToLowerInvariant(), command.Command,
+                    command.Description,
+                    new SortedDictionary<string, KnotLinkFuncArgument>(command.Arguments.ToDictionary(
+                        argument => argument.Name, FromDescriptor), StringComparer.Ordinal),
+                    StatusReturns(command.Returns.ToArray()));
+        }
 
-            AddFunction(manifest, appId, socketId, "backup", "BACKUP", "Start a backup for one managed folder.",
-                WithConversation(Args(
-                    ("config_id", Input("Backup configuration ID.", "config-id")),
-                    ("folder", Input("Folder name or index.", "0")),
-                    ("comment", Input("Optional backup comment.", "")),
-                    ("backup_mode", Optional("Optional one-shot backup mode.", ("Full", "full"), ("Incremental", "incremental"))),
-                    ("compression_method", Optional(
-                        "Optional one-shot compression method.",
-                        ("LZMA2", "LZMA2"),
-                        ("Deflate", "Deflate"),
-                        ("BZip2", "BZip2"),
-                        ("zstd", "zstd"))),
-                    ("compression_level", Input("Optional one-shot compression level.", "")),
-                    ("backup_blacklist", Input("Comma-separated one-shot blacklist rules.", "")),
-                    ("backup_whitelist", Input("Comma-separated one-shot whitelist rules.", "")),
-                    ("backup_scope", Input("Optional plugin backup scope ID.", "")),
-                    ("scope_dimensions", Input("Example plugin scope parameter.", "")),
-                    ("scope_areas", Input("Example plugin scope parameter.", "")))), StatusReturns("message"));
+        private static KnotLinkFuncArgument FromDescriptor(KnotLinkArgumentDescriptor argument) => new()
+        {
+            Type = argument.Type, Description = argument.Description, DefaultValue = argument.DefaultValue,
+            Value = argument.Value,
+            Options = argument.Options.Count == 0 ? null : argument.Options.Select(option => new[] { option.Description, option.Value }).ToList()
+        };
 
-            AddFunction(manifest, appId, socketId, "restore", "RESTORE", "Start restoring a managed folder from an archive.",
-                WithConversation(Args(
-                    ("config_id", Input("Backup configuration ID.", "config-id")),
-                    ("folder", Input("Folder name or index.", "0")),
-                    ("file", Input("Backup archive file name.", "backup.7z")),
-                    ("mode", Optional("Restore mode. Partial backups are always restored in overwrite mode.", ("Overwrite", "overwrite"), ("Clean", "clean"))),
-                    ("restore_whitelist", Input("Comma-separated one-shot restore whitelist rules.", "")))), StatusReturns("message"));
-
-            AddFunction(manifest, appId, socketId, "backup_all", "BACKUP_ALL", "Start backing up every folder in a configuration.",
-                WithConversation(Args(
-                    ("config_id", Input("Backup configuration ID.", "config-id")),
-                    ("comment", Input("Optional backup comment.", "")),
-                    ("backup_blacklist", Input("Comma-separated one-shot blacklist rules.", "")),
-                    ("backup_whitelist", Input("Comma-separated one-shot whitelist rules.", "")),
-                    ("backup_scope", Input("Optional plugin backup scope ID.", "")))), StatusReturns("message"));
-
-            AddFunction(manifest, appId, socketId, "auto_backup", "AUTO_BACKUP", "Start periodic backup for one managed folder.",
-                WithConversation(Args(
-                    ("config_id", Input("Backup configuration ID.", "config-id")),
-                    ("folder", Input("Folder name or index.", "0")),
-                    ("interval_minutes", Input("Backup interval in minutes.", "10")))), StatusReturns("message"));
-            AddFunction(manifest, appId, socketId, "stop_auto_backup", "STOP_AUTO_BACKUP", "Stop periodic backup for one managed folder.",
-                WithConversation(Args(
-                    ("config_id", Input("Backup configuration ID.", "config-id")),
-                    ("folder", Input("Folder name or index.", "0")))), StatusReturns("message"));
-            AddFunction(manifest, appId, socketId, "mark_important", "MARK_IMPORTANT", "Mark or unmark a backup archive as important.",
-                WithConversation(Args(
-                    ("config_id", Input("Backup configuration ID.", "config-id")),
-                    ("folder", Input("Folder name or index.", "0")),
-                    ("file", Input("Backup archive file name.", "backup.7z")),
-                    ("important", BooleanOption("Whether the archive is important.")))), StatusReturns("message"));
+        internal static void MergePluginSignals(KnotLinkFuncList manifest, string appId, string signalId,
+            PluginId pluginId, IEnumerable<KnotLinkSignalDescriptor> signals)
+        {
+            foreach (var signal in signals.OrderBy(signal => signal.Name, StringComparer.Ordinal))
+            {
+                var name = NormalizeCapabilityName(signal.Name);
+                if (string.IsNullOrEmpty(name)) { LogCapabilityCollision(pluginId.Value, name, "signal"); continue; }
+                if (manifest.Signal.TryGetValue(name, out var existing))
+                {
+                    if (!CoreSignalNames.Contains(name))
+                    {
+                        LogCapabilityCollision(pluginId.Value, name, "signal");
+                        continue;
+                    }
+                    // Plugins may enrich an existing host event (notably restore_finished).
+                    foreach (var field in signal.Fields)
+                        if (!existing.Returns.ContainsKey(field.Key)) existing.Returns[field.Key] = new() { Description = field.Value };
+                    continue;
+                }
+                AddSignal(manifest, appId, signalId, name, signal.Description,
+                    signal.Fields.Select(field => (field.Key, field.Value)).ToArray());
+            }
         }
 
         private static void AddCoreSignals(KnotLinkFuncList manifest, string appId, string signalId)
@@ -188,7 +171,7 @@ namespace FolderRewind.Services.KnotLink
             AddSignal(manifest, appId, signalId, "status", "Runtime status was queried.");
 
             foreach (var name in new[] { "command_accepted", "command_started", "command_progress", "command_completed", "command_failed", "command_error" })
-                AddSignal(manifest, appId, signalId, name, $"Command lifecycle event: {name}.", ("command", "Command name."), ("request_id", "Request correlation ID."));
+                AddSignal(manifest, appId, signalId, name, $"Command lifecycle event: {name}.", ("command", "Command name."), ("request_id", "Request correlation ID."), ("progress", "Optional progress percentage."), ("result", "Optional completion result."), ("reason", "Optional failure reason."), ("error", "Optional error detail."));
 
             foreach (var name in new[] { "backup_started", "backup_warning", "backup_success", "backup_failed" })
                 AddSignal(manifest, appId, signalId, name, $"Backup event: {name}.", ("config", "Configuration ID."), ("folder", "Folder name."));
@@ -231,7 +214,9 @@ namespace FolderRewind.Services.KnotLink
         {
             var returns = new SortedDictionary<string, KnotLinkSignalField>(StringComparer.Ordinal)
             {
-                ["event"] = new() { Description = "Signal event name.", Verification = name }
+                ["event"] = new() { Description = "Signal event name.", Verification = name },
+                ["from"] = new() { Description = "Caller identifier when emitted in a command conversation." },
+                ["request_id"] = new() { Description = "Request correlation ID when emitted in a command conversation." }
             };
             foreach (var field in fields)
             {

@@ -12,23 +12,11 @@ namespace FolderRewind.Services
         private const string StartupTaskId = "FolderRewindStartupTask";
         private const string ClassicStartupRunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string ClassicStartupValueName = "FolderRewind";
+        private const string StartupApprovedKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
         internal const string ClassicStartupArgument = "--startup";
 
         // <param name="enable">True to enable startup, false to disable.</param>
         // <returns>True if the operation succeeded.</returns>
-        public static bool SetStartup(bool enable)
-        {
-            try
-            {
-                return Task.Run(() => SetStartupAsync(enable)).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Startup set failed: {ex.Message}");
-                LogService.Log(I18n.Format("Startup_SetFailed", ex.Message));
-                return false;
-            }
-        }
         public static async Task<bool> SetStartupAsync(bool enable)
         {
             if (AppRuntimeInfo.IsMsiDistribution)
@@ -72,17 +60,6 @@ namespace FolderRewind.Services
                 return false;
             }
         }
-        public static bool IsStartupEnabled()
-        {
-            try
-            {
-                return Task.Run(() => IsStartupEnabledAsync()).GetAwaiter().GetResult();
-            }
-            catch
-            {
-                return false;
-            }
-        }
         public static async Task<bool> IsStartupEnabledAsync()
         {
             var probe = await TryGetStartupEnabledAsync();
@@ -93,7 +70,7 @@ namespace FolderRewind.Services
         {
             if (AppRuntimeInfo.IsMsiDistribution)
             {
-                return (true, IsClassicStartupEnabled());
+                return TryGetClassicStartupState(out var state) ? (true, state == StartupTaskState.Enabled) : (false, false);
             }
 
             try
@@ -114,7 +91,8 @@ namespace FolderRewind.Services
         {
             if (AppRuntimeInfo.IsMsiDistribution)
             {
-                return IsClassicStartupEnabled() ? StartupTaskState.Enabled : StartupTaskState.Disabled;
+                if (!TryGetClassicStartupState(out var state)) throw new IOException("Unable to read startup state.");
+                return state;
             }
 
             try
@@ -137,9 +115,30 @@ namespace FolderRewind.Services
 
                 if (!enable)
                 {
-                    key.DeleteValue(ClassicStartupValueName, throwOnMissingValue: false);
+                    if (ClassicStartupPolicy.IsOwnedCommand(key.GetValue(ClassicStartupValueName) as string, AppRuntimeInfo.ExecutablePath))
+                        key.DeleteValue(ClassicStartupValueName, throwOnMissingValue: false);
                     return true;
                 }
+
+                if (!TryGetClassicStartupState(out _))
+                    return false;
+                var existing = key.GetValue(ClassicStartupValueName) as string;
+                if (!string.IsNullOrEmpty(existing) && !ClassicStartupPolicy.IsOwnedCommand(existing, AppRuntimeInfo.ExecutablePath))
+                    throw new IOException("The startup entry belongs to another installation.");
+                using var approved = Registry.CurrentUser.OpenSubKey(StartupApprovedKey, writable: false);
+                var approval = approved?.GetValue(ClassicStartupValueName);
+                if (approval != null && approval is not byte[]) return false;
+                if (ClassicStartupPolicy.Evaluate($"\"{AppRuntimeInfo.ExecutablePath}\" {ClassicStartupArgument}",
+                    AppRuntimeInfo.ExecutablePath, approval as byte[]) is ClassicStartupState.DisabledByUser)
+                {
+                    // Make a removed entry visible in Windows startup settings,
+                    // while preserving the user's disabled approval marker.
+                    if (existing == null && File.Exists(AppRuntimeInfo.ExecutablePath))
+                        key.SetValue(ClassicStartupValueName, $"\"{AppRuntimeInfo.ExecutablePath}\" {ClassicStartupArgument}", RegistryValueKind.String);
+                    return false;
+                }
+                if (ClassicStartupPolicy.Evaluate($"\"{AppRuntimeInfo.ExecutablePath}\" {ClassicStartupArgument}",
+                    AppRuntimeInfo.ExecutablePath, approval as byte[]) == ClassicStartupState.Unknown) return false;
 
                 var executablePath = AppRuntimeInfo.ExecutablePath;
                 if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
@@ -161,15 +160,33 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool IsClassicStartupEnabled()
+        private static bool TryGetClassicStartupState(out StartupTaskState state)
         {
+            state = StartupTaskState.Disabled;
             try
             {
                 using var key = Registry.CurrentUser.OpenSubKey(ClassicStartupRunKey, writable: false);
-                return !string.IsNullOrWhiteSpace(key?.GetValue(ClassicStartupValueName) as string);
+                using var approved = Registry.CurrentUser.OpenSubKey(StartupApprovedKey, writable: false);
+                var run = key?.GetValue(ClassicStartupValueName);
+                var approval = approved?.GetValue(ClassicStartupValueName);
+                if ((run != null && run is not string) || (approval != null && approval is not byte[]))
+                    throw new IOException("Invalid startup registry value type.");
+                state = ClassicStartupPolicy.Evaluate(run as string,
+                    AppRuntimeInfo.ExecutablePath, approval as byte[]) switch
+                {
+                    ClassicStartupState.Enabled => StartupTaskState.Enabled,
+                    ClassicStartupState.DisabledByUser => StartupTaskState.DisabledByUser,
+                    ClassicStartupState.Disabled => StartupTaskState.Disabled,
+                    _ => throw new IOException("Unknown StartupApproved state.")
+                };
+                if (run == null && ClassicStartupPolicy.Evaluate($"\"{AppRuntimeInfo.ExecutablePath}\" {ClassicStartupArgument}",
+                    AppRuntimeInfo.ExecutablePath, approval as byte[]) == ClassicStartupState.DisabledByUser)
+                    state = StartupTaskState.DisabledByUser;
+                return true;
             }
-            catch
+            catch (Exception error)
             {
+                LogService.LogError("Startup state could not be read.", nameof(StartupService), error);
                 return false;
             }
         }

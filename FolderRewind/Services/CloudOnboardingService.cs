@@ -72,16 +72,15 @@ namespace FolderRewind.Services
                 }
 
                 progress?.Report(I18n.GetString("CloudOnboarding_Status_SaveSettings"));
-                ApplyRclonePath(rclonePath, provider.SuggestedRemoteBasePath);
-
-                OpenGuidance(rclonePath, openListPath);
+                await ApplyRclonePathAsync(rclonePath, ct).ConfigureAwait(false);
 
                 var message = provider.RequiresOpenList
                     ? I18n.Format("CloudOnboarding_Success_WithOpenList", provider.DisplayName, rclonePath, openListPath, provider.SuggestedRemoteBasePath)
                     : I18n.Format("CloudOnboarding_Success_RcloneOnly", provider.DisplayName, rclonePath, provider.SuggestedRemoteBasePath);
 
                 LogService.LogInfo(I18n.Format("CloudOnboarding_Log_Success", provider.Id, rclonePath, openListPath), nameof(CloudOnboardingService));
-                NotificationService.ShowSuccess(message, I18n.GetString("CloudOnboarding_Title"), 10000);
+                message += Environment.NewLine + I18n.GetString("Onboarding_ToolsPrepared");
+                NotificationService.ShowInfo(message, I18n.GetString("CloudOnboarding_Title"), 10000);
 
                 return new CloudOnboardingResult
                 {
@@ -134,6 +133,12 @@ namespace FolderRewind.Services
             IProgress<string>? progress,
             CancellationToken ct)
         {
+            if (toolDirectoryName == "rclone" && File.Exists(ConfigService.CurrentConfig.GlobalSettings.RcloneExecutablePath))
+            {
+                var path = Path.GetFullPath(ConfigService.CurrentConfig.GlobalSettings.RcloneExecutablePath);
+                await ToolExecutableVerifier.VerifyAsync(path, toolDirectoryName, ct).ConfigureAwait(false);
+                return path;
+            }
             progress?.Report(downloadStatus);
 
             var release = await GitHubReleaseService.GetLatestReleaseAsync(owner, repo, ct).ConfigureAwait(false);
@@ -144,29 +149,43 @@ namespace FolderRewind.Services
 
             var tagName = string.IsNullOrWhiteSpace(release.TagName) ? "latest" : SanitizePathSegment(release.TagName);
             var installDir = Path.Combine(ConfigService.ConfigDirectory, "tools", toolDirectoryName, tagName);
+            var asset = assetSelector(release.Assets)
+                ?? throw new InvalidOperationException(I18n.Format("CloudOnboarding_AssetMissing", repo));
+            if (!release.OfficialMetadata || !asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                || asset.SizeBytes > ToolArchiveInstaller.MaximumArchiveBytes)
+                throw new InvalidOperationException(I18n.GetString("Onboarding_ToolChecksumUnavailable"));
+
             var existingExecutable = FindExecutable(installDir, executableFileName);
-            if (!string.IsNullOrWhiteSpace(existingExecutable))
+            var marker = Path.Combine(installDir, ".folderrewind-tool-verification");
+            if (!string.IsNullOrWhiteSpace(existingExecutable) && File.Exists(marker))
             {
+                var evidence = File.ReadAllLines(marker);
+                if (evidence.Length != 2 || evidence[0] != asset.Digest
+                    || !StringComparer.OrdinalIgnoreCase.Equals(evidence[1], ToolExecutableVerifier.HashExecutable(existingExecutable)))
+                    throw new InvalidDataException(I18n.GetString("Onboarding_ToolCacheChanged"));
+                await ToolExecutableVerifier.VerifyAsync(existingExecutable, toolDirectoryName, ct).ConfigureAwait(false);
                 LogService.LogInfo(I18n.Format("CloudOnboarding_Log_ReuseTool", toolDirectoryName, existingExecutable), nameof(CloudOnboardingService));
                 return existingExecutable;
             }
-
-            var asset = assetSelector(release.Assets)
-                ?? throw new InvalidOperationException(I18n.Format("CloudOnboarding_AssetMissing", repo));
+            if (Directory.Exists(installDir)) throw new InvalidDataException(I18n.GetString("Onboarding_ToolCacheUnverified"));
 
             var downloadDir = Path.Combine(ConfigService.ConfigDirectory, "tools", "_downloads");
             Directory.CreateDirectory(downloadDir);
-            Directory.CreateDirectory(installDir);
+            var staging = installDir + ".staging-" + Guid.NewGuid().ToString("N");
 
             var zipPath = Path.Combine(downloadDir, $"{Guid.NewGuid():N}-{asset.Name}");
             try
             {
-                var bytes = await GitHubReleaseService.DownloadAssetAsync(asset.DownloadUrl, ct).ConfigureAwait(false);
+                var bytes = await GitHubReleaseService.DownloadAssetAsync(asset.DownloadUrl, ct, ToolArchiveInstaller.MaximumArchiveBytes).ConfigureAwait(false);
                 await File.WriteAllBytesAsync(zipPath, bytes, ct).ConfigureAwait(false);
 
-                // Release 包通常自带一层版本目录。递归查找 exe，避免把资产内部结构写死。
-                ZipFile.ExtractToDirectory(zipPath, installDir, overwriteFiles: true);
-                var executable = FindExecutable(installDir, executableFileName);
+                var stagedExecutable = ToolArchiveInstaller.ExtractVerified(bytes, asset.Digest[7..], staging, executableFileName);
+                await ToolExecutableVerifier.VerifyAsync(stagedExecutable, toolDirectoryName, ct).ConfigureAwait(false);
+                File.WriteAllLines(Path.Combine(staging, ".folderrewind-tool-verification"), [asset.Digest, ToolExecutableVerifier.HashExecutable(stagedExecutable)]);
+                ct.ThrowIfCancellationRequested();
+                var relative = Path.GetRelativePath(staging, stagedExecutable);
+                Directory.Move(staging, installDir);
+                var executable = Path.Combine(installDir, relative);
                 if (string.IsNullOrWhiteSpace(executable))
                 {
                     throw new FileNotFoundException(I18n.Format("CloudOnboarding_ExecutableMissing", executableFileName), installDir);
@@ -178,6 +197,9 @@ namespace FolderRewind.Services
             finally
             {
                 try { File.Delete(zipPath); } catch { }
+                // staging 为本次随机路径，始终位于本工具版本目录旁；不删除已有安装。
+                if (Directory.Exists(staging) && Path.GetFullPath(staging).StartsWith(Path.GetFullPath(installDir) + ".staging-", StringComparison.OrdinalIgnoreCase))
+                    Directory.Delete(staging, recursive: true);
             }
         }
 
@@ -210,47 +232,18 @@ namespace FolderRewind.Services
                 return string.Empty;
             }
 
-            return Directory
-                .EnumerateFiles(directory, executableFileName, SearchOption.AllDirectories)
-                .FirstOrDefault() ?? string.Empty;
+            var matches = Directory.EnumerateFiles(directory, executableFileName, SearchOption.AllDirectories).Take(2).ToArray();
+            return matches.Length == 1 ? matches[0] : string.Empty;
         }
 
-        private static void ApplyRclonePath(string rclonePath, string suggestedRemoteBasePath)
-        {
-            var settings = ConfigService.CurrentConfig.GlobalSettings;
-            settings.RcloneExecutablePath = rclonePath;
-            if (!string.IsNullOrWhiteSpace(suggestedRemoteBasePath)
-                && string.Equals(settings.DefaultCloudRemoteBasePath, "remote:FolderRewind", StringComparison.OrdinalIgnoreCase))
+        private static Task ApplyRclonePathAsync(string rclonePath, CancellationToken token)
+            => UiDispatcherService.RunOnUiAsync(async () =>
             {
-                // 只在默认占位值时替换，避免覆盖用户已有 remote 名称。
-                settings.DefaultCloudRemoteBasePath = suggestedRemoteBasePath;
-            }
-
-            ConfigService.Save();
-        }
-
-        private static void OpenGuidance(string rclonePath, string openListPath)
-        {
-            var rcloneDir = Path.GetDirectoryName(rclonePath) ?? ConfigService.ConfigDirectory;
-            if (!ShellPathService.TryOpenCommandPromptAt(rcloneDir, out var cmdError))
-            {
-                LogService.LogWarning(I18n.Format("CloudOnboarding_Log_OpenCommandPromptFailed", cmdError ?? string.Empty), nameof(CloudOnboardingService));
-            }
-
-            if (!string.IsNullOrWhiteSpace(openListPath))
-            {
-                var openListDir = Path.GetDirectoryName(openListPath) ?? ConfigService.ConfigDirectory;
-                if (!ShellPathService.TryOpenPath(openListDir, out var openListError))
-                {
-                    LogService.LogWarning(I18n.Format("CloudOnboarding_Log_OpenOpenListFolderFailed", openListError ?? string.Empty), nameof(CloudOnboardingService));
-                }
-            }
-
-            if (!ShellPathService.TryOpenPath(OfficialLinksService.GetCloudGuideUrl(), out var guideError))
-            {
-                LogService.LogWarning(I18n.Format("CloudOnboarding_Log_OpenGuideFailed", guideError ?? string.Empty), nameof(CloudOnboardingService));
-            }
-        }
+                var settings = ConfigService.CurrentConfig.GlobalSettings;
+                var previous = settings.RcloneExecutablePath;
+                await ConfigEditTransaction.ApplyAsync(() => settings.RcloneExecutablePath = rclonePath,
+                    () => settings.RcloneExecutablePath = previous, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"), token);
+            });
 
         private static string SanitizePathSegment(string value)
         {

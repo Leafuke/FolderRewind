@@ -1,0 +1,281 @@
+using System.Text.Json;
+
+namespace FolderRewind.Plugin.Abstractions;
+
+public interface IDiscoveryCapability : IPluginCapability
+{
+    DiscoveryProviderId ProviderId { get; }
+    ValueTask<DiscoveryResult> DiscoverAsync(DiscoveryRequest request, PluginInvocationContext context);
+}
+
+public sealed record DiscoveryRequest(IReadOnlyList<string> UserRoots)
+{
+    /// <summary>Allows known machine locations in addition to the explicitly supplied roots.</summary>
+    public bool IncludeKnownLocations { get; init; }
+}
+public sealed record DiscoveryResult(IReadOnlyList<DiscoveryCandidate> Candidates, IReadOnlyList<PluginDiagnostic> Diagnostics);
+public sealed record DiscoveryCandidate(string CandidateId, string DisplayName, IReadOnlyList<ConfigDraft> ConfigDrafts);
+
+/// <summary>
+/// Optional metadata extension implemented by an <see cref="IDiscoveryCapability" />
+/// when its candidates can participate in Host game discovery and targeted presets.
+/// This interface is not registered as a separate plugin capability.
+/// Definitions must be non-null, have non-empty identifiers, and be unique within
+/// the provider using ordinal comparison. The resolver returns only a declared
+/// identifier or <see langword="null" />.
+/// </summary>
+public interface IDiscoveryDefinitionCatalog
+{
+    IReadOnlyList<DiscoveryDefinitionDescriptor> Definitions { get; }
+    string? ResolveDefinitionId(DiscoveryCandidate candidate);
+}
+
+public sealed record DiscoveryDefinitionDescriptor(
+    string DefinitionId,
+    string DisplayName,
+    IReadOnlyList<string> Aliases,
+    IReadOnlyDictionary<string, string> ExternalIds);
+
+public interface IConfigReconciliationCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<ConfigChangeProposal?> ProposeAsync(ConfigReconciliationRequest request, PluginInvocationContext context);
+}
+
+public sealed record ConfigReconciliationRequest(ConfigSnapshot Config, string Reason);
+public sealed record ConfigChangeProposal(
+    string ProposalId,
+    string ConfigId,
+    ConfigRevision ExpectedRevision,
+    string Reason,
+    IReadOnlyList<ConfigChange> Changes,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+public enum ConfigChangeImpact
+{
+    Additive = 0,
+    Mutating = 1,
+    Destructive = 2
+}
+
+public enum ConfigFieldOwnership
+{
+    Provider = 0,
+    User = 1
+}
+
+public abstract record ConfigChange(ConfigChangeImpact Impact, ConfigFieldOwnership Ownership);
+public sealed record AddFolderChange(FolderDraft Folder)
+    : ConfigChange(ConfigChangeImpact.Additive, ConfigFieldOwnership.Provider);
+public sealed record UpdateFolderChange(Guid FolderId, string? Path, string? DisplayName)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.User);
+public sealed record RemoveFolderChange(Guid FolderId)
+    : ConfigChange(ConfigChangeImpact.Destructive, ConfigFieldOwnership.User);
+public sealed record SetProviderOptionsChange(StateOwnerId StateOwnerId, int SchemaVersion, JsonElement Options)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.Provider);
+public sealed record SetArtifactTransformPolicyChange(ArtifactTransformerId? TransformerId)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.User);
+public sealed record SetUserPolicyChange(string PolicyId, JsonElement Value)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.User);
+
+public sealed record ConfigDraft(
+    ConfigKindRef Kind,
+    string SuggestedName,
+    IReadOnlyList<FolderDraft> Folders,
+    IReadOnlyDictionary<StateOwnerId, ProviderStateDraft> ProviderStates);
+public sealed record FolderDraft(
+    string Path,
+    string DisplayName,
+    IReadOnlyDictionary<StateOwnerId, ProviderStateDraft> ProviderStates);
+public sealed record ProviderStateDraft(StateOwnerId StateOwnerId, int SchemaVersion, JsonElement Data);
+
+public interface IFilePolicyCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<FilePolicyResult> ResolveAsync(FilePolicyRequest request, PluginInvocationContext context);
+}
+
+public sealed record FilePolicyRequest(ConfigSnapshot Config, FolderSnapshot Folder);
+public sealed record FilePolicyResult(IReadOnlyList<string> RequiredExclusions, IReadOnlyList<string> RequiredInclusions, IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+public interface IBackupScopeCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    IReadOnlyList<BackupScopeDescriptor> Scopes { get; }
+    ValueTask<BackupScopeResult> ResolveAsync(BackupScopeRequest request, PluginInvocationContext context);
+}
+
+public sealed record BackupScopeDescriptor(BackupScopeId Id, string DisplayName, JsonElement FormSchema);
+public sealed record BackupScopeRequest(ConfigSnapshot Config, FolderSnapshot Folder, BackupScopeId ScopeId, IReadOnlyDictionary<string, JsonElement> Parameters);
+public sealed record BackupScopeResult(OperationReadiness Readiness, IReadOnlyList<string> IncludePatterns, IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+public interface IBackupConsistencyCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<IConsistencyLease> AcquireAsync(BackupConsistencyRequest request, PluginInvocationContext context);
+}
+
+public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnapshot Folder, ConsistencyIntent Intent);
+public interface IConsistencyLease : IAsyncDisposable
+{
+    string SourcePath { get; }
+    bool IsStableSourceView => false;
+    IReadOnlyList<PluginDiagnostic> Diagnostics { get; }
+}
+
+public interface IFolderMetadataCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<FolderMetadataResult> ReadAsync(FolderMetadataRequest request, PluginInvocationContext context);
+}
+
+public sealed record FolderMetadataRequest(ConfigSnapshot Config, FolderSnapshot Folder);
+public sealed record FolderMetadataField(
+    string Key,
+    LocalizedText DisplayName,
+    LocalizedText Value);
+public sealed record FolderMetadataResult(
+    IReadOnlyList<FolderMetadataField> Fields,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+/// <summary>
+/// Optional capture-time metadata provider. The source view is a Host-owned, read-only
+/// stable view for the same capture; it is intentionally distinct from live folder metadata.
+/// </summary>
+public interface IVersionMetadataProviderCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<VersionMetadataCaptureResult> CaptureAsync(
+        VersionMetadataCaptureRequest request,
+        PluginInvocationContext context);
+}
+
+public interface IVersionMetadataSourceView
+{
+    ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken);
+}
+
+/// <summary>Host-owned, locked file inventory for ordinary Restore preparation only.</summary>
+public interface IRestoreSourceView : IVersionMetadataSourceView
+{
+    IReadOnlyList<string> RelativePaths { get; }
+}
+
+public sealed record VersionMetadataCaptureRequest(
+    ConfigSnapshot Config,
+    FolderSnapshot Folder,
+    IVersionMetadataSourceView Source);
+
+public sealed record CapturedVersionMetadata(
+    string SchemaId,
+    int SchemaVersion,
+    JsonElement Payload);
+
+public sealed record VersionMetadataCaptureResult(
+    IReadOnlyList<CapturedVersionMetadata> Snapshots,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+public interface IRestoreCoordinatorCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<RestoreCoordinatorResult> CoordinateAsync(RestoreCoordinatorRequest request, PluginInvocationContext context);
+}
+
+public delegate ValueTask<OperationOutcome> RestoreMutationContinuation(CancellationToken cancellationToken);
+public enum WorkspaceOperationKind { Restore = 0, Checkout = 1, Merge = 2 }
+
+public sealed record RestoreCoordinatorRequest(
+    ConfigSnapshot Config,
+    IReadOnlyList<FolderSnapshot> Folders,
+    string TargetIdentity,
+    Guid OperationId,
+    WorkspaceOperationKind OperationKind,
+    RestoreMutationContinuation ContinueMutationAsync);
+public sealed record RestoreCoordinatorResult(OperationOutcome Outcome, IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+/// <summary>Ordinary Restore only. Inputs are stable read-only views; proposals never name live paths.</summary>
+public interface IRestoreStagingPreparationCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    bool SupportsPlayerDataOverride => false;
+    ValueTask<RestoreStagingPreparationResult> PrepareAsync(
+        RestoreStagingPreparationRequest request, PluginInvocationContext context);
+}
+
+public sealed record RestoreStagingPreparationRequest(
+    Guid OperationId,
+    ConfigSnapshot Config,
+    Guid FolderId,
+    IVersionMetadataSourceView Current,
+    IVersionMetadataSourceView Target,
+    bool PreservePlayerData)
+{
+    public bool? PreservePlayerDataOverride { get; init; }
+}
+
+public sealed record RestoreStagedFileProposal(string RelativePath, ReadOnlyMemory<byte> Content);
+public sealed record RestoreStagingPreparationResult(
+    IReadOnlyList<RestoreStagedFileProposal> Files,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+public interface IPluginCommandCapability : IPluginCapability
+{
+    IReadOnlyList<PluginCommandDescriptor> Commands { get; }
+    ValueTask<PluginCommandResult> ExecuteAsync(PluginCommandRequest request, PluginInvocationContext context);
+}
+
+public sealed record PluginCommandDescriptor(PluginCommandId Id, string DisplayName, JsonElement ArgumentSchema)
+{
+    public string? DefaultHotkey { get; init; }
+    public bool IsGlobalHotkey { get; init; }
+}
+public sealed record PluginCommandRequest(PluginCommandId Id, IReadOnlyDictionary<string, JsonElement> Arguments);
+public sealed record PluginCommandResult(OperationOutcome Outcome, IReadOnlyDictionary<string, JsonElement> Values, IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+public interface IKnotLinkIntegrationCapability : IPluginCapability
+{
+    IReadOnlyList<KnotLinkCommandDescriptor> Commands { get; }
+    IReadOnlyList<KnotLinkSignalDescriptor> Signals => Array.Empty<KnotLinkSignalDescriptor>();
+    ValueTask<PluginCommandResult> ExecuteAsync(string command, IReadOnlyDictionary<string, string> arguments, PluginInvocationContext context);
+}
+
+/// <summary>Optional extension on an integration capability, not a separately registered capability.</summary>
+public interface IKnotLinkTargetResolver
+{
+    ValueTask<KnotLinkTargetResolution> ResolveTargetAsync(string command,
+        IReadOnlyDictionary<string, string> arguments, PluginInvocationContext context);
+}
+
+public sealed record KnotLinkTarget(string ConfigId, Guid FolderId);
+public sealed record KnotLinkTargetResolution(KnotLinkTarget? Target, IReadOnlyList<PluginDiagnostic> Diagnostics);
+public sealed record KnotLinkArgumentOption(string Description, string Value);
+public sealed record KnotLinkArgumentDescriptor(string Name, string Description)
+{
+    public string Type { get; init; } = "input";
+    public string? DefaultValue { get; init; }
+    public string? Value { get; init; }
+    public IReadOnlyList<KnotLinkArgumentOption> Options { get; init; } = Array.Empty<KnotLinkArgumentOption>();
+}
+public sealed record KnotLinkSignalDescriptor(string Name, string Description, IReadOnlyDictionary<string, string> Fields);
+
+public sealed record KnotLinkCommandDescriptor(string Command, string Description)
+{
+    public string? FunctionName { get; init; }
+    public bool IsTargetSelector { get; init; }
+    public IReadOnlyList<KnotLinkArgumentDescriptor> Arguments { get; init; } = Array.Empty<KnotLinkArgumentDescriptor>();
+    public IReadOnlyList<string> Returns { get; init; } = new[] { "message", "data" };
+    /// <summary>
+    /// Only route the command when every declared argument matches. This lets a plugin
+    /// extend a Core command such as BACKUP for a semantic selector without taking over
+    /// unrelated BACKUP requests. Boolean values use KnotLink's semantic aliases.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RequiredArguments { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+}
+
+public interface IProviderStateMigrationCapability : IPluginCapability
+{
+    StateOwnerId StateOwnerId { get; }
+    int CurrentSchemaVersion { get; }
+    ValueTask<ProviderStatePatch> MigrateAsync(ProviderStateSnapshot state, PluginInvocationContext context);
+}

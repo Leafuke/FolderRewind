@@ -1,0 +1,73 @@
+name: Publish Previously Verified Setup Installers
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Completed Build GitHub Setup Installers run containing the frozen packages
+        required: true
+        type: string
+      acceptance_run_id:
+        description: Validation run containing installer-acceptance/acceptance.json for those exact bytes
+        required: true
+        type: string
+      package_version:
+        description: Exact candidate version
+        required: false
+        type: string
+      release_notes_path:
+        description: Optional release notes file in the repository
+        required: false
+        type: string
+      finalize:
+        description: Promote the verified draft to a public Latest release
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve Frozen Build Revision
+        id: candidate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
+        run: |
+          if ($env:CANDIDATE_RUN -notmatch '^\d+$') { throw 'Invalid candidate run ID.' }
+          $run = gh run view $env:CANDIDATE_RUN --json headSha,status,conclusion,workflowName | ConvertFrom-Json
+          if ($LASTEXITCODE -or $run.status -ne 'completed' -or $run.conclusion -ne 'success' -or $run.workflowName -ne 'Build GitHub Setup Installers') { throw 'Candidate run is not a successful installer build.' }
+          "revision=$($run.headSha)" >> $env:GITHUB_OUTPUT
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate_run_id }}
+          pattern: setup-*
+          path: artifacts/final
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.acceptance_run_id }}
+          name: installer-acceptance
+          path: artifacts/acceptance
+      - name: Validate Exact Bytes And Publish Without Replacement
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_VERSION: ${{ inputs.package_version }}
+          CANDIDATE_REVISION: ${{ steps.candidate.outputs.revision }}
+          RELEASE_NOTES_PATH: ${{ inputs.release_notes_path }}
+        run: |
+          if (-not $env:CANDIDATE_VERSION) { $env:CANDIDATE_VERSION = (Get-Content artifacts/acceptance/acceptance.json -Raw | ConvertFrom-Json).version }
+          if ($env:CANDIDATE_VERSION -notmatch '^\d+\.\d+\.\d+\.0$') { throw 'Invalid version.' }
+          $version = [version]$env:CANDIDATE_VERSION
+          $tag = "v$($version.Major).$($version.Minor).$($version.Build)"
+          .\.github\scripts\Publish-ReleaseAssets.ps1 -Tag $tag `
+            -ReleaseName "FolderRewind $env:CANDIDATE_VERSION" `
+            -Version $env:CANDIDATE_VERSION -TargetCommit $env:CANDIDATE_REVISION `
+            -AssetsDirectory artifacts/final -AcceptanceReport artifacts/acceptance/acceptance.json `
+            -ReleaseNotesPath $env:RELEASE_NOTES_PATH -Finalize:([bool]::Parse('${{ inputs.finalize }}'))

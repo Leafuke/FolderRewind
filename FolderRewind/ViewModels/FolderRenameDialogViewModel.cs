@@ -1,7 +1,5 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
-using System;
-using System.Globalization;
 
 namespace FolderRewind.ViewModels;
 
@@ -112,26 +110,8 @@ public sealed class FolderRenameDialogViewModel : ViewModelBase
     }
 
     private static string BuildImpactSummary(FolderRenamePreview preview)
-    {
-        if (UsesChineseUiCulture())
-        {
-            return string.Format(
-                CultureInfo.CurrentCulture,
-                "将更新 {0} 个配置引用和 {1} 条历史记录。",
-                preview.AffectedConfigCount,
-                preview.AffectedHistoryCount);
-        }
-
-        return string.Format(
-            CultureInfo.CurrentCulture,
-            "Updates {0} config reference(s) and {1} history item(s).",
+        => I18n.Format(
+            "FolderRenameDialog_ImpactSummaryFormat",
             preview.AffectedConfigCount,
             preview.AffectedHistoryCount);
-    }
-
-    private static bool UsesChineseUiCulture()
-    {
-        string cultureName = CultureInfo.CurrentUICulture.Name;
-        return cultureName.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
-    }
 }

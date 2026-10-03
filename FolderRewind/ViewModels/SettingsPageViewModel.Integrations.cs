@@ -3,11 +3,11 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 
@@ -15,26 +15,29 @@ namespace FolderRewind.ViewModels
 {
     public sealed partial class SettingsPageViewModel : ViewModelBase, IDisposable
     {
-        public void HandlePluginsEnabledToggled(bool isOn)
-        {
-            PluginService.SetPluginSystemEnabled(isOn);
-            OnPropertyChanged(nameof(Settings));
-        }
-
         public void HandlePluginsAutoCheckUpdatesToggled(bool isOn)
         {
             Settings.Plugins.AutoCheckUpdates = isOn;
             _isDirty = true;
         }
 
-        public void HandlePluginEnabledToggled(string pluginId, bool isOn)
+        public async Task HandlePluginEnabledToggledAsync(string pluginId, bool isOn)
         {
             if (string.IsNullOrWhiteSpace(pluginId))
             {
                 return;
             }
 
-            PluginService.SetPluginEnabled(pluginId, isOn);
+            var id = new FolderRewind.Plugin.Abstractions.PluginId(pluginId);
+            var transition = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.SetEnabledAsync(id, isOn);
+            if (!transition.Success)
+                NotificationService.ShowError(
+                    FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatRuntimeDiagnostics(
+                        transition.Diagnostics));
+            else if (transition.RequiresRestart)
+                NotificationService.ShowWarning(I18n.GetString("Plugins_RuntimeRequiresRestart"));
+            PluginService.RefreshInstalledList();
+            OnPropertyChanged(nameof(InstalledPlugins));
         }
 
         public async Task<MinecraftOnboardingResult> InstallMinecraftPresetAsync()
@@ -119,20 +122,25 @@ namespace FolderRewind.ViewModels
         }
 
         public void HandleKnotLinkToggled(bool isOn)
+            => TaskObserver.Observe(SetKnotLinkEnabledAsync(isOn), nameof(SettingsPageViewModel));
+
+        public async Task SetKnotLinkEnabledAsync(bool isOn, CancellationToken cancellationToken = default)
         {
-            Settings.EnableKnotLink = isOn;
-            _isDirty = true;
-
-            if (isOn)
-            {
-                KnotLinkService.Initialize();
-            }
-            else
-            {
-                KnotLinkService.Shutdown();
-            }
-
+            if (isOn) ValidateKnotLinkSettings();
+            var previous = Settings.EnableKnotLink;
+            await ConfigEditTransaction.ApplyAsync(() => Settings.EnableKnotLink = isOn,
+                () => Settings.EnableKnotLink = previous, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"), cancellationToken);
+            if (isOn) await KnotLinkService.InitializeAsync(cancellationToken);
+            else await KnotLinkService.ShutdownAsync();
             UpdateKnotLinkStatus();
+            RefreshKnotLinkServerInfo();
+        }
+
+        private void ValidateKnotLinkSettings()
+        {
+            var error = KnotLinkSettingsPolicy.Validate(Settings.KnotLinkHost, Settings.KnotLinkAppId,
+                Settings.KnotLinkOpenSocketId, Settings.KnotLinkSignalId);
+            if (error is not null) throw new ArgumentException(I18n.GetString(error));
         }
 
         public void HandleKnotLinkAutoStartToggled(bool isOn)
@@ -141,10 +149,11 @@ namespace FolderRewind.ViewModels
             _isDirty = true;
         }
 
-        public bool RestartKnotLinkService()
+        public async Task<bool> RestartKnotLinkServiceAsync(CancellationToken cancellationToken = default)
         {
-            ConfigService.Save();
-            KnotLinkService.Restart();
+            ValidateKnotLinkSettings();
+            await TaskObserver.SaveConfigAsync();
+            await KnotLinkService.RestartAsync(cancellationToken);
             UpdateKnotLinkStatus();
             return KnotLinkService.IsInitialized;
         }
@@ -166,11 +175,11 @@ namespace FolderRewind.ViewModels
                 _knotLinkServerUpdateInfo = null;
             }
 
-            KnotLinkServerStatusBrush = KnotLinkServerRunning
-                ? new SolidColorBrush(Microsoft.UI.Colors.LimeGreen)
+            KnotLinkServerStatus = KnotLinkServerRunning
+                ? SemanticStatus.Success
                 : KnotLinkServerInstalled
-                    ? new SolidColorBrush(Microsoft.UI.Colors.OrangeRed)
-                    : new SolidColorBrush(Microsoft.UI.Colors.Gray);
+                    ? SemanticStatus.Error
+                    : SemanticStatus.Neutral;
 
             OnPropertyChanged(nameof(KnotLinkServerCanStart));
             OnPropertyChanged(nameof(KnotLinkServerUpdateEnabled));
@@ -194,30 +203,21 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public bool StartKnotLinkServer()
+        public async Task<bool> StartKnotLinkServerAsync(CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateKnotLinkSettings();
             var result = KnotLinkServerManagerService.TryStartServer();
-            _ = Task.Run(async () =>
+            if (result)
             {
-                try
-                {
-                    if (result)
-                    {
-                        var host = string.IsNullOrWhiteSpace(Settings.KnotLinkHost)
-                            ? "127.0.0.1"
-                            : Settings.KnotLinkHost;
-                        await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
-                        if (Settings.EnableKnotLink)
-                        {
-                            KnotLinkService.Restart();
-                        }
-                    }
-
-                    RefreshKnotLinkServerInfo();
-                }
-                catch { }
-            });
-            return result;
+                var host = string.IsNullOrWhiteSpace(Settings.KnotLinkHost) ? "127.0.0.1" : Settings.KnotLinkHost.Trim();
+                result = await KnotLinkServerManagerService.WaitForServerReadyAsync(host, ct: cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (result && Settings.EnableKnotLink) await KnotLinkService.RestartAsync(cancellationToken);
+            }
+            RefreshKnotLinkServerInfo();
+            UpdateKnotLinkStatus();
+            return result && KnotLinkServerRunning;
         }
 
         public async Task DownloadAndRunKnotLinkInstallerAsync()

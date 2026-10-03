@@ -50,7 +50,7 @@ public static partial class FolderRenameService
             var runtimeState = CaptureRuntimeState(references, preview.OldPath);
             CloseRenameDependents(preview.OldPath);
 
-            var moveExecution = ExecuteMovePlanCore(operations, cancellationToken);
+            var moveExecution = await ExecuteMovePlanCore(operations, cancellationToken);
             if (!moveExecution.Result.Success)
             {
                 RestoreRuntimeState(runtimeState);
@@ -68,7 +68,6 @@ public static partial class FolderRenameService
                 };
             }
 
-            var historyUpdate = new HistoryFolderIdentityUpdate();
             try
             {
                 ApplyReferenceUpdates(references);
@@ -76,32 +75,12 @@ public static partial class FolderRenameService
                     ConfigService.CurrentConfig?.GlobalSettings,
                     preview.OldPath,
                     preview.NewPath);
-                historyUpdate = HistoryService.UpdateFolderIdentities(references);
-
-                cancellationToken.ThrowIfCancellationRequested();
-                var historySave = await HistoryService.SaveNowAsync(
-                    publishChangedEvent: false,
-                    cancellationToken);
-                if (!historySave.Success)
-                {
-                    return await RollbackTransactionAsync(
-                        preview,
-                        references.Count,
-                        historyUpdate,
-                        memorySnapshot,
-                        moveExecution.CompletedOperations,
-                        runtimeState,
-                        $"Failed to save history: {historySave.ErrorMessage}",
-                        moveExecution.Result);
-                }
-
-                var configSave = ConfigService.SaveWithResult(publishSavedEvent: false);
+                var configSave = await ConfigService.SaveAsync(publishSavedEvent: false);
                 if (!configSave.Success)
                 {
                     return await RollbackTransactionAsync(
                         preview,
                         references.Count,
-                        historyUpdate,
                         memorySnapshot,
                         moveExecution.CompletedOperations,
                         runtimeState,
@@ -111,7 +90,6 @@ public static partial class FolderRenameService
 
                 RestoreRuntimeState(runtimeState);
                 ConfigService.PublishSaved();
-                HistoryService.PublishChanged();
                 return new FolderRenameResult
                 {
                     Success = true,
@@ -119,7 +97,7 @@ public static partial class FolderRenameService
                     OldPath = preview.OldPath,
                     NewPath = preview.NewPath,
                     AffectedConfigCount = references.Count,
-                    AffectedHistoryCount = historyUpdate.UpdatedCount
+                    AffectedHistoryCount = 0
                 };
             }
             catch (Exception ex)
@@ -127,7 +105,6 @@ public static partial class FolderRenameService
                 return await RollbackTransactionAsync(
                     preview,
                     references.Count,
-                    historyUpdate,
                     memorySnapshot,
                     moveExecution.CompletedOperations,
                     runtimeState,
@@ -230,7 +207,6 @@ public static partial class FolderRenameService
     private static async Task<FolderRenameResult> RollbackTransactionAsync(
         FolderRenamePreview preview,
         int affectedReferenceCount,
-        HistoryFolderIdentityUpdate historyUpdate,
         RenameMemorySnapshot memorySnapshot,
         IReadOnlyList<FolderMoveOperation> completedOperations,
         RenameRuntimeState runtimeState,
@@ -247,34 +223,9 @@ public static partial class FolderRenameService
             rollbackErrors.Add($"Restore config memory: {ex.Message}");
         }
 
-        try
-        {
-            HistoryService.RestoreFolderIdentities(historyUpdate.Snapshots);
-        }
-        catch (Exception ex)
-        {
-            rollbackErrors.Add($"Restore history memory: {ex.Message}");
-        }
-
         rollbackErrors.AddRange(RollbackMoves(completedOperations));
 
-        try
-        {
-            var historyRollbackSave = await HistoryService.SaveNowAsync(
-                publishChangedEvent: false,
-                CancellationToken.None);
-            if (!historyRollbackSave.Success)
-            {
-                rollbackErrors.Add(
-                    $"Save rolled-back history: {historyRollbackSave.ErrorMessage}");
-            }
-        }
-        catch (Exception ex)
-        {
-            rollbackErrors.Add($"Save rolled-back history: {ex.Message}");
-        }
-
-        var configRollbackSave = ConfigService.SaveWithResult(publishSavedEvent: false);
+        var configRollbackSave = await ConfigService.SaveAsync(publishSavedEvent: false);
         if (!configRollbackSave.Success)
         {
             rollbackErrors.Add(
@@ -300,7 +251,7 @@ public static partial class FolderRenameService
             OldPath = preview.OldPath,
             NewPath = preview.NewPath,
             AffectedConfigCount = affectedReferenceCount,
-            AffectedHistoryCount = historyUpdate.UpdatedCount,
+            AffectedHistoryCount = 0,
             RollbackSucceeded = rollbackErrors.Count == 0,
             RollbackErrors = rollbackErrors
         };

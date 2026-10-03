@@ -113,7 +113,8 @@ namespace FolderRewind.Services
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = path,
-                    UseShellExecute = true
+                    UseShellExecute = false,
+                    CreateNoWindow = true
                 });
 
                 LogService.LogInfo($"KnotLink server started: {path}", nameof(KnotLinkServerManagerService));

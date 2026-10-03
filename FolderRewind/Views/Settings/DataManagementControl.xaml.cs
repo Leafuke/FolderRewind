@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.History.Application;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -44,16 +45,20 @@ namespace FolderRewind.Views.Settings
 
             if (location == DataTransferLocation.Cloud)
             {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                var connection = await PromptCloudConnectionAsync(
                     I18n.GetString("Settings_ExportConfigToCloud_Title"),
                     I18n.GetString("Settings_ExportConfigToCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                if (connection is null)
                 {
                     return;
                 }
 
-                var cloudResult = await CloudSyncService.ExportConfigToCloudAsync(remoteBasePath);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                try
+                {
+                    var cloudResult = await CloudSyncService.ExportConfigToCloudAsync(connection);
+                    ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                }
+                catch (Exception ex) { ShowInfoBar(CloudCommandSecurity.Redact(ex.Message), InfoBarSeverity.Error); }
                 return;
             }
 
@@ -85,32 +90,29 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var confirm = new ContentDialog
-            {
-                Title = I18n.GetString("Settings_ImportConfigConfirmTitle"),
-                Content = new TextBlock { Text = I18n.GetString("Settings_ImportConfigConfirmContent"), TextWrapping = TextWrapping.Wrap },
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var result = await confirm.ShowAsync();
-            if (result != ContentDialogResult.Primary) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("Settings_ImportConfigConfirmTitle"),
+                    I18n.GetString("Settings_ImportConfigConfirmContent"),
+                    I18n.GetString("Common_Confirm"),
+                    this.XamlRoot,
+                    isDestructive: true)) return;
 
             if (location == DataTransferLocation.Cloud)
             {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                var connection = await PromptCloudConnectionAsync(
                     I18n.GetString("Settings_ImportConfigFromCloud_Title"),
                     I18n.GetString("Settings_ImportConfigFromCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                if (connection is null)
                 {
                     return;
                 }
 
-                var cloudResult = await CloudSyncService.ImportConfigFromCloudAsync(remoteBasePath);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                try
+                {
+                    var cloudResult = await CloudSyncService.ImportConfigFromCloudAsync(connection);
+                    ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                }
+                catch (Exception ex) { ShowInfoBar(CloudCommandSecurity.Redact(ex.Message), InfoBarSeverity.Error); }
                 return;
             }
 
@@ -136,7 +138,7 @@ namespace FolderRewind.Views.Settings
         {
             try
             {
-                var templates = TemplateService.GetTemplates()
+                var templates = BackupPresetService.GetTemplates()
                     .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
 
@@ -168,12 +170,12 @@ namespace FolderRewind.Views.Settings
                 };
                 ThemeService.ApplyThemeToDialog(chooseDialog);
 
-                if (await chooseDialog.ShowAsync() != ContentDialogResult.Primary)
+                if (await AppDialogService.Default.ShowCustomAsync(chooseDialog, this.XamlRoot) != ContentDialogResult.Primary)
                 {
                     return;
                 }
 
-                var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+                var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as BackupPreset;
                 if (selectedTemplate == null)
                 {
                     ShowInfoBar(I18n.GetString("Template_Export_TemplateNotFound"), InfoBarSeverity.Error);
@@ -185,13 +187,13 @@ namespace FolderRewind.Views.Settings
                     "FolderRewind.Settings.DataManagement.ExportTemplate",
                     new Dictionary<string, IReadOnlyList<string>>
                     {
-                        ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { TemplateService.ShareFileExtension })
+                        [I18n.GetString("FilePicker_FolderRewindTemplate")] = new ReadOnlyCollection<string>(new[] { BackupPresetService.ShareFileExtension })
                     },
                     $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}",
                     MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
                 if (string.IsNullOrWhiteSpace(filePath)) return;
 
-                var ok = TemplateService.ExportTemplate(selectedTemplate.Id, filePath, out var message);
+                var ok = BackupPresetService.ExportTemplate(selectedTemplate.Id, filePath, out var message);
                 ShowInfoBar(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             }
             catch (Exception ex)
@@ -201,8 +203,11 @@ namespace FolderRewind.Views.Settings
             }
         }
 
+        private bool _isImportingTemplate;
         private async void OnImportTemplateClick(object sender, RoutedEventArgs e)
         {
+            if (_isImportingTemplate) return;
+            _isImportingTemplate = true;
             try
             {
                 var filePath = await MainWindowService.PickFilePathAsync(
@@ -219,14 +224,14 @@ namespace FolderRewind.Views.Settings
                     return;
                 }
 
-                var inspection = TemplateService.InspectImportTemplate(filePath);
+                var inspection = BackupPresetService.InspectImportTemplate(filePath);
                 if (!inspection.Success)
                 {
                     ShowInfoBar(inspection.Message, InfoBarSeverity.Error);
                     return;
                 }
 
-                var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
+                var strategy = BackupPresetService.TemplateImportConflictStrategy.KeepBoth;
                 if (inspection.HasConflict)
                 {
                     var conflictDialog = new ContentDialog
@@ -244,25 +249,26 @@ namespace FolderRewind.Views.Settings
                     };
                     ThemeService.ApplyThemeToDialog(conflictDialog);
 
-                    var conflictResult = await conflictDialog.ShowAsync();
+                    var conflictResult = await AppDialogService.Default.ShowCustomAsync(conflictDialog, this.XamlRoot);
                     if (conflictResult == ContentDialogResult.None)
                     {
                         return;
                     }
 
                     strategy = conflictResult == ContentDialogResult.Primary
-                        ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
-                        : TemplateService.TemplateImportConflictStrategy.KeepBoth;
+                        ? BackupPresetService.TemplateImportConflictStrategy.ReplaceExisting
+                        : BackupPresetService.TemplateImportConflictStrategy.KeepBoth;
                 }
 
-                var ok = TemplateService.ImportTemplate(filePath, strategy, out var message);
-                ShowInfoBar(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                var imported = await BackupPresetService.ImportTemplateAsync(filePath, strategy);
+                ShowInfoBar(imported.Message, imported.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             }
             catch (Exception ex)
             {
                 LogService.LogError($"[DataManagementControl] Import template failed: {ex.Message}", nameof(DataManagementControl), ex);
                 ShowInfoBar(I18n.Format("Template_Import_Failed", ex.Message), InfoBarSeverity.Error);
             }
+            finally { _isImportingTemplate = false; }
         }
 
         private async void OnManageTemplatesClick(object sender, RoutedEventArgs e)
@@ -272,7 +278,7 @@ namespace FolderRewind.Views.Settings
                 XamlRoot = this.XamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
         }
 
         private async void OnBrowseOfficialTemplatesClick(object sender, RoutedEventArgs e)
@@ -319,101 +325,62 @@ namespace FolderRewind.Views.Settings
 
         private async void OnExportHistoryClick(object sender, RoutedEventArgs e)
         {
-            var location = await PromptDataTransferLocationAsync(
-                I18n.GetString("Settings_ExportHistoryMode_Title"),
-                I18n.GetString("Settings_ExportHistoryMode_Description"));
-            if (location == null)
-            {
-                return;
-            }
-
-            if (location == DataTransferLocation.Cloud)
-            {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
-                    I18n.GetString("Settings_ExportHistoryToCloud_Title"),
-                    I18n.GetString("Settings_ExportHistoryToCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
-                {
-                    return;
-                }
-
-                var cloudResult = await CloudSyncService.ExportHistoryToCloudAsync(remoteBasePath);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-                return;
-            }
-
             var filePath = await MainWindowService.PickSaveFilePathAsync(
                 string.Empty,
                 "FolderRewind.Settings.DataManagement.ExportHistory",
                 new Dictionary<string, IReadOnlyList<string>>
                 {
-                    ["JSON"] = new ReadOnlyCollection<string>(new[] { ".json" })
+                    [I18n.GetString("FilePicker_FolderRewindHistory")] = new ReadOnlyCollection<string>(new[] { ".frhistory" })
                 },
                 "FolderRewind_history",
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            bool ok = HistoryService.ExportHistory(filePath);
-            if (ok)
+            var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item =>
+                item.Id == ConfigService.CurrentConfig.GlobalSettings.LastHistoryConfigId)
+                ?? ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault();
+            if (config is null) return;
+            try
+            {
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config);
+                await new HistoryRepositoryTransferService().ExportAsync(runtime, filePath);
                 ShowInfoBar(I18n.GetString("Settings_ExportHistorySuccess"), InfoBarSeverity.Success);
-            else
+            }
+            catch
+            {
                 ShowInfoBar(I18n.GetString("Settings_ExportHistoryFailed"), InfoBarSeverity.Error);
+            }
         }
 
         private async void OnImportHistoryClick(object sender, RoutedEventArgs e)
         {
-            var location = await PromptDataTransferLocationAsync(
-                I18n.GetString("Settings_ImportHistoryMode_Title"),
-                I18n.GetString("Settings_ImportHistoryMode_Description"));
-            if (location == null)
-            {
-                return;
-            }
-
-            var confirm = new ContentDialog
-            {
-                Title = I18n.GetString("Settings_ImportHistoryConfirmTitle"),
-                Content = new TextBlock { Text = I18n.GetString("Settings_ImportHistoryConfirmContent"), TextWrapping = TextWrapping.Wrap },
-                PrimaryButtonText = I18n.GetString("Settings_ImportHistoryMerge"),
-                SecondaryButtonText = I18n.GetString("Settings_ImportHistoryReplace"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var result = await confirm.ShowAsync();
-            if (result == ContentDialogResult.None) return;
-
-            bool merge = (result == ContentDialogResult.Primary);
-
-            if (location == DataTransferLocation.Cloud)
-            {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
-                    I18n.GetString("Settings_ImportHistoryFromCloud_Title"),
-                    I18n.GetString("Settings_ImportHistoryFromCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
-                {
-                    return;
-                }
-
-                var cloudResult = await CloudSyncService.ImportHistoryFromCloudAsync(remoteBasePath, merge);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-                return;
-            }
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("Settings_ImportHistoryConfirmTitle"),
+                    I18n.GetString("Settings_ImportHistoryConfirmContent"),
+                    I18n.GetString("Settings_ImportHistoryMerge"),
+                    this.XamlRoot)) return;
 
             var filePath = await MainWindowService.PickFilePathAsync(
                 string.Empty,
                 "FolderRewind.Settings.DataManagement.ImportHistory",
-                new[] { ".json" },
+                new[] { ".frhistory" },
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var (ok, count) = HistoryService.ImportHistory(filePath, merge);
-            if (ok)
-                ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", count.ToString()), InfoBarSeverity.Success);
-            else
+            try
+            {
+                var imported = await new HistoryRepositoryTransferService(id =>
+                {
+                    NativeHistoryCoreGateway.TryGetRuntime(id, out var runtime);
+                    return runtime;
+                }).ImportAsync(
+                    filePath, ConfigService.ConfigDirectory);
+                ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", imported.InstalledPacks.ToString()), InfoBarSeverity.Success);
+            }
+            catch
+            {
                 ShowInfoBar(I18n.GetString("Settings_ImportHistoryFailed"), InfoBarSeverity.Error);
+            }
         }
 
         private async Task<DataTransferLocation?> PromptDataTransferLocationAsync(string title, string description)
@@ -453,7 +420,7 @@ namespace FolderRewind.Views.Settings
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
@@ -461,8 +428,11 @@ namespace FolderRewind.Views.Settings
             return cloudRadio.IsChecked == true ? DataTransferLocation.Cloud : DataTransferLocation.Local;
         }
 
-        private async Task<string?> PromptCloudRemoteBasePathAsync(string title, string description)
+        private async Task<CloudSettings?> PromptCloudConnectionAsync(string title, string description)
         {
+            var configPath = await MainWindowService.PickFilePathAsync(
+                I18n.GetString("CloudSetup_ExplicitConfigRequired"), "FolderRewind.Cloud.ConfigTransfer", new[] { ".conf" });
+            if (string.IsNullOrWhiteSpace(configPath)) return null;
             var input = new TextBox
             {
                 Header = I18n.GetString("Settings_CloudRemoteBasePath_Label"),
@@ -490,12 +460,12 @@ namespace FolderRewind.Views.Settings
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
 
-            return input.Text?.Trim();
+            return new CloudSettings { RcloneConfigPath = configPath, RemoteBasePath = input.Text?.Trim() ?? string.Empty };
         }
 
         private static string SanitizeFileName(string? name)
@@ -518,14 +488,7 @@ namespace FolderRewind.Views.Settings
         {
             try
             {
-                var dialog = new ContentDialog
-                {
-                    Content = message,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                await AppDialogService.Default.ShowMessageAsync(string.Empty, message, this.XamlRoot);
             }
             catch (Exception ex)
             {
