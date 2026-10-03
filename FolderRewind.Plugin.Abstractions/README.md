@@ -50,12 +50,10 @@ API 3.5 adds optional KnotLink target resolution, shared command/argument metada
 API 3.6 adds the optional `DiscoveryRequest.IncludeKnownLocations` init property.
 Its default is false, and the existing positional constructor is unchanged.
 Hosts opt in for machine/preset discovery; explicitly selected roots stay scoped.
-MineRewind 1.9.4 requires API 3.6. Assembly identity remains 3.0.0.0.
+MineRewind 1.9.5 requires API 3.6. Assembly identity remains 3.0.0.0.
 
-API 3.6 is the source/release-candidate baseline. Before documenting a public
+API 3.6 is the baseline for FolderRewind 1.9.3 and MineRewind 1.9.5. Before documenting a public
 `PackageReference` restore as available, verify that 3.6.0 is listed on nuget.org
 and restore it with an empty package cache. Building a local package does not
-prove public availability. FolderRewind App 1.9.x, MineRewind 1.9.4, package
-3.6.0, and assembly identity 3.0.0.0 are separate version numbers. The discovery
-candidate was built against a local nupkg through an isolated temporary feed;
-this does not publish the package or prove public restore availability.
+prove public availability. FolderRewind App 1.9.3, MineRewind 1.9.5, package
+3.6.0, and assembly identity 3.0.0.0 are separate version numbers.

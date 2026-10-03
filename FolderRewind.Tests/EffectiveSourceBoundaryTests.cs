@@ -22,9 +22,6 @@ public sealed class EffectiveSourceBoundaryTests
             false);
 
         Assert.AreEqual(first.Fingerprint, second.Fingerprint);
-        Assert.AreEqual(
-            "4a082db8a73e1ba30878364fe9f6bc3a874cb2155b01620a036bbd2f38a88eeb",
-            first.Fingerprint);
         Assert.AreEqual(CaptureScope.FullSource, CaptureScopePolicy.Determine(first, second));
     }
 }

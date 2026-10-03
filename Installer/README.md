@@ -1,8 +1,8 @@
 # MSI 和离线 Setup 构建
 
-本轮修复版本为 1.9.2.0。Windows Installer 版本的前三段必须递增，范围为 255.255.65535，第四段固定为 0。MSI UpgradeCode 保持原值。
+当前发行版本为 1.9.3.0。Windows Installer 版本的前三段必须递增，范围为 255.255.65535，第四段固定为 0。MSI UpgradeCode 保持原值。
 
-**完整发行验收尚未通过。** 本机故障升级/卸载的 MSI 注册回滚仍失败。当前用户 Setup 的安装位置与正常卸载自启动清理已增加 Burn 提交后处理；完整状态以 1.9.2.0 报告为准。构建成功和本机部署成功不能代替这些门禁；详见 [1.9.2.0 阶段验收报告](../docs/release/exe-repair-1.9.2-acceptance-2026-10-02.md)。不要发行隔离测试夹具或 99.x 测试版本。
+**本次安装体验由项目负责人明确人工验收放行。** 历史故障升级/卸载诊断与待验证场景继续保留，不改写为自动验收通过。发布必须绑定最终提交和两架构安装包哈希，构建、资源和测试门禁继续执行；使用 `.github/scripts/New-ManualInstallerAcceptance.ps1` 记录针对本次候选文件的明确验收依据。历史状态见 [1.9.2.0 阶段验收报告](../docs/release/exe-repair-1.9.2-acceptance-2026-10-02.md)。不要发行隔离测试夹具或 99.x 测试版本。
 
 ## 本地构建
 
@@ -64,11 +64,11 @@ Setup 维护页提供默认不勾选的“卸载时同时清除当前用户的�
 .github/scripts/Test-MsiBundleInstallation.ps1 -FixtureMsi <本轮测试MSI> -ResultDirectory artifacts/bundle-fault -IncludeFailureProbe
 ```
 
-默认 Bundle 脚本验证正常生命周期；发行 CI 显式启用故障探针。SkipRollbackProbes 只用于诊断，生命周期脚本末尾仍因必测项目未执行而失败。本机隔离身份测试不等于干净 VM 验收。
+默认 Bundle 脚本验证正常生命周期；构建工作流的 `run_installer_lifecycle` 可显式启用隔离生命周期和故障探针，默认关闭。SkipRollbackProbes 只用于诊断，生命周期脚本末尾仍因必测项目未执行而失败。本机隔离身份测试不等于干净 VM 验收。
 
 当前用户 Setup 在 MSI 卸载前核对已登记产品及精确 Run 命令，只在整个 Burn 卸载成功后清理仍匹配的用户启动值；失败或取消时不执行这次额外清理。InstallLocation 同样在成功提交后由 Burn 写入自己的用户卸载项。机器范围保留有所有权校验、日志及回滚的提升 MSI 动作。这用于处理本机 MSI 动作读不到 Burn/调用者新写用户注册值的现象，不表示 Installer 注册回滚已修复。
 
-构建工作流只生成候选包和证据。发布使用独立的 `publish-verified-setup.yml`，下载既有构建 run 的冻结 `setup-*` 附件，以及验证 run 的 `installer-acceptance/acceptance.json`，不重新构建。验收必须绑定版本、干净源提交和每个 EXE 的 SHA-256，所有架构/场景均须 passed。已有附件必须有匹配的 GitHub SHA-256 digest，否则拒绝修改；不使用 `--clobber`。
+构建工作流只生成候选包和证据，版本自动读取项目 manifest。发布使用独立的 `publish-verified-setup.yml` 或本机发布脚本，下载冻结附件，不重新构建。验收必须绑定版本、干净源提交和每个 EXE 的动态 SHA-256；自动检查须 passed，安装体验可由针对本次版本、提交和文件的显式人工验收覆盖。已有附件必须有匹配的 GitHub SHA-256 digest，否则拒绝修改；不使用 `--clobber`。默认创建草稿，完整核验后通过 `Finalize` 转为正式发布。
 
 ```powershell
 .github/scripts/New-InstallerCandidateManifest.ps1 -PackageDirectory artifacts/installer-packages -OutputDirectory artifacts/candidate-evidence -Version 1.9.2.0

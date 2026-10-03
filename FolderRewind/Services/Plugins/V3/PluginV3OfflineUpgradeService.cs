@@ -19,8 +19,21 @@ internal sealed record PluginV3OfflineUpgradeResult(
 internal static class PluginV3OfflineUpgradeService
 {
     internal const string MineRewindId = "com.folderrewind.minerewind";
-    private const string BundledFileName = "MineRewind-1.9.5.frplugin";
-    internal const string BundledSha256 = "ba7f3eb0b0aa3273f29cac6824a10ea9d5b0a9ea4989e8e5dc7097c7f5f1f434";
+    internal static string BundledSha256
+    {
+        get
+        {
+            var packagePath = ResolveBundledPackagePath();
+            var fields = File.ReadAllText(packagePath + ".sha256")
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length != 2
+                || fields[0].Length != System.Security.Cryptography.SHA256.HashSizeInBytes * 2
+                || fields[0].Any(value => !Uri.IsHexDigit(value))
+                || !string.Equals(fields[1].TrimStart('*'), Path.GetFileName(packagePath), StringComparison.Ordinal))
+                throw new InvalidDataException("Bundled plugin checksum is invalid.");
+            return fields[0].ToLowerInvariant();
+        }
+    }
     private static readonly TimeSpan MigrationTimeout = TimeSpan.FromSeconds(30);
     private static readonly PluginId MineRewindPluginId = new(MineRewindId);
     private static readonly HashSet<string> V3Entries = new(StringComparer.OrdinalIgnoreCase)
@@ -327,11 +340,17 @@ internal static class PluginV3OfflineUpgradeService
 
     internal static string ResolveBundledPackagePath()
     {
-        var candidates = new[]
+        foreach (var directory in new[]
         {
-            Path.Combine(AppContext.BaseDirectory, "Assets", "Plugins", BundledFileName),
-            Path.Combine(AppContext.BaseDirectory, BundledFileName)
-        };
-        return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
+            Path.Combine(AppContext.BaseDirectory, "Assets", "Plugins"),
+            AppContext.BaseDirectory
+        })
+        {
+            if (!Directory.Exists(directory)) continue;
+            var candidates = Directory.GetFiles(directory, "MineRewind-*.frplugin");
+            if (candidates.Length > 1) throw new InvalidDataException("Multiple bundled MineRewind packages were found.");
+            if (candidates.Length == 1) return candidates[0];
+        }
+        throw new FileNotFoundException("Bundled MineRewind package is missing.");
     }
 }

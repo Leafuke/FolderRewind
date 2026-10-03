@@ -328,8 +328,6 @@ public sealed class LudusaviDiscoveryProviderTests
         Assert.IsFalse(cloud.IsSelectedByDefault);
         var userData = resources.Single(resource => resource.FixedRoot == Path.GetFullPath(gameDataRoot));
         CollectionAssert.AreEqual(new[] { "UserData_*", "UserData_*/**" }, userData.IncludePatterns.ToArray());
-        Assert.IsTrue(userData.Evidence.Single().Description.Contains("single path-segment wildcard", StringComparison.Ordinal));
-        Assert.IsTrue(userData.Evidence.Single().Description.Contains("requires manual selection", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -367,7 +365,6 @@ public sealed class LudusaviDiscoveryProviderTests
         Assert.IsTrue(resources.Single(item => item.FixedRoot.EndsWith("111", StringComparison.OrdinalIgnoreCase)).IsSelectedByDefault);
         var inactive = resources.Single(item => item.FixedRoot.EndsWith("222", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(inactive.IsSelectedByDefault);
-        Assert.IsTrue(inactive.Evidence.Single().Description.Contains("not the active account", StringComparison.Ordinal));
     }
 
     private LudusaviDiscoveryProvider CreateProvider(

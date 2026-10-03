@@ -90,10 +90,15 @@
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\IGameDiscoveryProvider.cs" Link="Source\IGameDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.cs" Link="Source\LudusaviManifestCompiler.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.Streaming.cs" Link="Source\LudusaviManifestCompiler.Streaming.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.cs" Link="Source\LudusaviManifestCacheService.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.Generation.cs" Link="Source\LudusaviManifestCacheService.Generation.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.Streaming.cs" Link="Source\LudusaviManifestCacheService.Streaming.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviGeneration.cs" Link="Source\LudusaviGeneration.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LauncherInstallationScanners.cs" Link="Source\LauncherInstallationScanners.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviPathExpressionResolver.cs" Link="Source\LudusaviPathExpressionResolver.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviDiscoveryProvider.cs" Link="Source\LudusaviDiscoveryProvider.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviDiscoveryProvider.Streaming.cs" Link="Source\LudusaviDiscoveryProvider.Streaming.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\PluginDiscoveryCandidateMapper.cs" Link="Source\PluginDiscoveryCandidateMapper.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\PluginDiscoveryDefinitionPolicy.cs" Link="Source\PluginDiscoveryDefinitionPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceFileEnumerator.cs" Link="Source\BackupSourceFileEnumerator.cs" />

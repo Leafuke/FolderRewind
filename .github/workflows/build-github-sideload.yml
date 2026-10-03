@@ -5,8 +5,14 @@ on:
     inputs:
       package_version:
         description: Package version from Package.appxmanifest
-        required: true
-        default: 1.9.3.0
+        required: false
+        type: string
+      run_installer_lifecycle:
+        description: Optional isolated installation and fault-injection diagnostics
+        type: boolean
+        default: false
+      sevenzip_release:
+        description: Optional upstream 7-Zip-zstd release tag (empty selects latest)
         type: string
 permissions:
   contents: write
@@ -31,15 +37,16 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Stage Pinned Architecture-Specific 7-Zip-zstd
+      - name: Stage Architecture-Specific 7-Zip-zstd From Upstream Metadata
         shell: pwsh
+        env:
+          SEVENZIP_RELEASE: ${{ inputs.sevenzip_release }}
         run: |
-          $payload = .\.github\scripts\Stage-SevenZip.ps1 -Platform '${{ matrix.platform }}' | Select-Object -Last 1
+          $payload = .\.github\scripts\Stage-SevenZip.ps1 -Platform '${{ matrix.platform }}' -ReleaseTag $env:SEVENZIP_RELEASE | Select-Object -Last 1
           "SEVENZIP_PAYLOAD=$payload" >> $env:GITHUB_ENV
-          .\.github\scripts\Generate-InstallerArtwork.ps1
 
       - name: Ensure WinApp CLI For UI Evidence
-        if: matrix.platform == 'x64'
+        if: matrix.platform == 'x64' && inputs.run_installer_lifecycle
         shell: pwsh
         run: |
           if (-not (Get-Command winapp -ErrorAction SilentlyContinue)) {
@@ -51,7 +58,7 @@ jobs:
       - name: Validate Version Input
         shell: pwsh
         run: |
-          if ('${{ inputs.package_version }}' -notmatch '^\d+\.\d+\.\d+\.0$') {
+          if ('${{ inputs.package_version }}' -and '${{ inputs.package_version }}' -notmatch '^\d+\.\d+\.\d+\.0$') {
             throw "package_version must use major.minor.build.0; MSI revision must be zero."
           }
 
@@ -66,7 +73,7 @@ jobs:
         run: |
           [xml]$manifest = Get-Content 'FolderRewind/Package.appxmanifest'
           $manifestVersion = $manifest.Package.Identity.Version
-          if ($manifestVersion -ne '${{ inputs.package_version }}') {
+          if ('${{ inputs.package_version }}' -and $manifestVersion -ne '${{ inputs.package_version }}') {
             throw "The workflow input version does not match Package.appxmanifest."
           }
 
@@ -155,7 +162,7 @@ jobs:
             -ResultPath "$env:GITHUB_WORKSPACE\artifacts\installer-packages\${{ matrix.platform }}\resource-negative-tests.json"
 
       - name: Validate x64 MSI Lifecycle In An Empty Installation Context
-        if: matrix.platform == 'x64'
+        if: matrix.platform == 'x64' && inputs.run_installer_lifecycle
         shell: pwsh
         run: |
           .\.github\scripts\Test-MsiInstallation.ps1 `

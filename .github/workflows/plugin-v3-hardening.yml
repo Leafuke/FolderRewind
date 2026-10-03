@@ -2,10 +2,20 @@ name: Plugin v3 Hardening
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_api:
+        description: Publish the verified API package to nuget.org (default branch only)
+        type: boolean
+        default: false
+      plugin_ref:
+        description: Plugin source branch, tag or commit to validate against the API candidate
+        type: string
   pull_request:
   push:
     branches:
-      - 1.9.x
+      - '*.x'
+      - master
+      - main
 
 permissions:
   contents: read
@@ -149,6 +159,91 @@ jobs:
           finally {
             $archive.Dispose()
           }
+
+      - name: Preserve verified Plugin API candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-api-candidate
+          path: artifacts/nuget/*.nupkg
+          if-no-files-found: error
+
+  plugin-candidate:
+    name: Verify MineRewind against the same API candidate
+    if: github.event_name == 'workflow_dispatch' && (inputs.publish_api || inputs.plugin_ref != '')
+    needs: contracts-runtime-host
+    runs-on: windows-latest
+    steps:
+      - name: Require an explicit plugin source revision
+        shell: pwsh
+        env:
+          PLUGIN_REF: ${{ inputs.plugin_ref }}
+        run: |
+          if (-not $env:PLUGIN_REF) { throw 'plugin_ref is required for API publication.' }
+      - uses: actions/checkout@v4
+        with:
+          repository: Leafuke/FolderRewind-Plugin-Minecraft
+          ref: ${{ inputs.plugin_ref }}
+          path: plugin
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-api-candidate
+          path: feed
+      - name: Restore, build and test the independent plugin
+        shell: pwsh
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/api-candidate-packages
+        run: |
+          $feed = [IO.Path]::GetFullPath('feed')
+          "<configuration><packageSources><clear/><add key='candidate' value='$feed'/><add key='nuget.org' value='https://api.nuget.org/v3/index.json'/></packageSources></configuration>" | Set-Content candidate.config
+          dotnet restore plugin/FolderRewind-Plugin-Minecraft.slnx -p:Platform=x64 --configfile candidate.config --no-http-cache
+          if ($LASTEXITCODE) { throw 'Candidate plugin restore failed.' }
+          dotnet build plugin/FolderRewind-Plugin-Minecraft.slnx -c Release -p:Platform=x64 --no-restore
+          if ($LASTEXITCODE) { throw 'Candidate plugin build failed.' }
+          dotnet test plugin/MineRewind.Tests/MineRewind.Tests.csproj -c Release -p:Platform=x64 --no-restore --no-build --logger trx --results-directory artifacts/plugin-tests
+          if ($LASTEXITCODE) { throw 'Candidate plugin tests failed.' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-candidate-plugin-tests
+          path: artifacts/plugin-tests
+
+  publish-api:
+    name: Explicitly publish the verified API package
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_api && github.ref_name == github.event.repository.default_branch
+    needs: [contracts-runtime-host, plugin-candidate, release-build]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-api-candidate
+          path: feed
+      - name: Push the tested package without replacing existing versions
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if (-not $env:NUGET_API_KEY) { throw 'NUGET_API_KEY is not configured.' }
+          $packages = @(Get-ChildItem feed -Filter '*.nupkg' -File)
+          if ($packages.Count -ne 1) { throw 'Expected one verified API package.' }
+          $package = $packages[0]
+          $archive = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+          try {
+            $reader = [IO.StreamReader]::new(($archive.Entries | Where-Object FullName -Like '*.nuspec').Open())
+            try { [xml]$spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            $metadata = $spec.SelectSingleNode('//*[local-name()="metadata"]')
+            $packageId = $metadata.id.ToLowerInvariant()
+            $version = [string]$metadata.version
+          } finally { $archive.Dispose() }
+          $index = Invoke-RestMethod "https://api.nuget.org/v3-flatcontainer/$packageId/index.json"
+          if ($index.versions -contains $version) { throw "API $version already exists; verify it before retrying." }
+          dotnet nuget push $package.FullName --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_API_KEY
+          if ($LASTEXITCODE) { throw 'NuGet publication failed.' }
 
   release-build:
     name: Host Release ${{ matrix.platform }}

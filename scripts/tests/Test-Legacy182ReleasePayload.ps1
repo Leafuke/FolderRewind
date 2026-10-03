@@ -8,15 +8,16 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
-$source = Get-Content -Raw -LiteralPath (Join-Path $repo 'FolderRewind/Services/Plugins/V3/PluginV3OfflineUpgradeService.cs')
-$bundleName = [regex]::Match($source, 'BundledFileName\s*=\s*"([^"]+)"').Groups[1].Value
-$expectedHash = [regex]::Match($source, 'BundledSha256\s*=\s*"([a-fA-F0-9]{64})"').Groups[1].Value
-if (-not $bundleName -or -not $expectedHash) { throw 'Cannot resolve bundled plugin contract.' }
 $payload = [IO.Path]::GetFullPath($PayloadDirectory)
-$plugin = Join-Path $payload "Assets/Plugins/$bundleName"
-if (-not (Test-Path -LiteralPath $plugin -PathType Leaf)) { throw "Bundled plugin missing from payload: $plugin" }
+$packages = @(Get-ChildItem -LiteralPath (Join-Path $payload 'Assets/Plugins') -Filter 'MineRewind-*.frplugin' -File)
+if ($packages.Count -ne 1) { throw 'Expected exactly one bundled MineRewind package.' }
+$plugin = $packages[0].FullName
+$bundleName = $packages[0].Name
+$fields = (Get-Content -LiteralPath ($plugin + '.sha256') -Raw).Trim() -split '\s+'
+if ($fields.Count -ne 2 -or $fields[1].TrimStart('*') -cne $bundleName) { throw 'Bundled checksum filename differs from the package.' }
+$expectedHash = $fields[0].ToLowerInvariant()
 $actualHash = (Get-FileHash -LiteralPath $plugin -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($actualHash -cne $expectedHash) { throw 'Bundled plugin bytes differ from the host migration hash.' }
+if ($actualHash -cne $expectedHash) { throw 'Bundled plugin bytes differ from its published checksum.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::OpenRead($plugin)
 try {
