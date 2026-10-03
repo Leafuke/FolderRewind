@@ -45,6 +45,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         {
             HistoryRestoreTransactionJournalStore.RequireRecovered(repository.Paths.TransactionsRoot);
             repository.Journals.RequireRecovered();
+            Retention.HistoryChainRewriteJournalStore.RequireRecovered(repository.Paths.LocalStateRoot);
         });
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
@@ -127,6 +128,8 @@ public sealed class HistoryRuntime : IAsyncDisposable
                 rebuilt = true;
             }
 
+            if (!await new Retention.HistoryChainRewriteJournalStore(this).RecoverAsync(cancellationToken).ConfigureAwait(false))
+                MaintenanceDiagnostic = "Backup chain rebuilt; some archive files await reclamation.";
             await RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
 
             _initialized = true;
