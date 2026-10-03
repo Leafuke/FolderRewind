@@ -82,6 +82,9 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         var stableSourcePath = stagedSourcePath ?? _captureLeaseOwner.StableSourcePath;
         if (stableSourcePath is null)
         {
+            // A successful ordinary source lease intentionally has no stable metadata view.
+            // Metadata is optional; consistency diagnostics already describe any degraded world capture.
+            if (_captureLeaseOwner.SourcePath is not null) return PluginV3VersionMetadataCaptureResult.Empty;
             var diagnostic = new PluginDiagnostic(
                 "plugin.version_metadata_stable_view_unavailable",
                 DiagnosticSeverity.Warning,
