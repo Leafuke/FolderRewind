@@ -31,7 +31,7 @@ public sealed partial class GameDiscoveryPage : Page
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
-        ViewModel.Cancel();
+        ViewModel.Dispose();
         base.OnNavigatedFrom(e);
     }
 
@@ -65,13 +65,13 @@ public sealed partial class GameDiscoveryPage : Page
     private async void OnImportManifestClick(object sender, RoutedEventArgs e)
     {
         var path = await PickYamlAsync("FolderRewind.GameDiscovery.Primary");
-        if (!string.IsNullOrWhiteSpace(path)) await ViewModel.ImportAndScanAsync(path);
+        if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path)) await ViewModel.ImportAndScanAsync(path);
     }
 
     private async void OnBrowseSecondaryClick(object sender, RoutedEventArgs e)
     {
         var path = await PickYamlAsync("FolderRewind.GameDiscovery.Secondary");
-        if (!string.IsNullOrWhiteSpace(path)) ViewModel.SecondaryManifestPath = path;
+        if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path)) ViewModel.SecondaryManifestPath = path;
     }
 
     private async void OnBrowseOverrideClick(object sender, RoutedEventArgs e)
@@ -80,7 +80,7 @@ public sealed partial class GameDiscoveryPage : Page
             I18n.GetString("GameDiscoveryPage_PickOverride"),
             "FolderRewind.GameDiscovery.Override",
             new[] { ".json" });
-        if (!string.IsNullOrWhiteSpace(path)) ViewModel.OverridePath = path;
+        if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path)) ViewModel.OverridePath = path;
     }
 
     private async void OnAddSteamRootClick(object sender, RoutedEventArgs e) => await AddRootAsync(GameStore.Steam);
@@ -92,7 +92,7 @@ public sealed partial class GameDiscoveryPage : Page
         var path = await MainWindowService.PickFolderPathAsync(
             I18n.Format("GameDiscoveryPage_PickStoreRoot", store),
             $"FolderRewind.GameDiscovery.{store}");
-        if (!string.IsNullOrWhiteSpace(path)) ViewModel.AddLibraryRoot(store, path);
+        if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path)) ViewModel.AddLibraryRoot(store, path);
     }
 
     private void OnRemoveRootClick(object sender, RoutedEventArgs e)
@@ -154,6 +154,7 @@ public sealed partial class GameDiscoveryPage : Page
             }
         }
 
+        if (!ViewModel.IsSessionActive) return;
         ViewModel.BuildDrafts();
         if (ViewModel.Drafts.Count == 0)
         {
@@ -256,6 +257,7 @@ public sealed partial class GameDiscoveryPage : Page
             new[] { ".yaml", ".yml" });
     }
 
-    private Task ShowMessageAsync(string title, string content) =>
-        AppDialogService.Default.ShowMessageAsync(title, content, XamlRoot);
+    private Task ShowMessageAsync(string title, string content) => ViewModel.IsSessionActive
+        ? AppDialogService.Default.ShowMessageAsync(title, content, XamlRoot)
+        : Task.CompletedTask;
 }

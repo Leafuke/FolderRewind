@@ -24,6 +24,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     private readonly HttpClient _httpClient;
     private readonly GameDiscoverySettings _settings;
     private CancellationTokenSource? _operationCts;
+    private readonly CancellationTokenSource _sessionCts = new();
+    private readonly List<SessionProgress> _progressSinks = new();
+    private bool _disposed;
+    public bool IsSessionActive => !_disposed && !_sessionCts.IsCancellationRequested;
     private bool _initialized;
     private bool _isBusy;
     private bool _hasCache;
@@ -160,6 +164,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     public async Task InitializeAsync(GameDiscoveryNavigationParameter? parameter = null)
     {
+        if (!IsSessionActive) return;
         ReturnDraftToSetup = parameter?.ReturnDraftToSetup == true;
         SetupReentry = ReturnDraftToSetup ? parameter : null;
         var requestedMode = parameter?.Mode ?? GameDiscoveryNavigationMode.FullMachine;
@@ -169,7 +174,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             RefreshDetectedLibraryRoots();
             if (requestedMode == GameDiscoveryNavigationMode.FullMachine)
             {
-                await RefreshCacheStatusAsync(CancellationToken.None);
+                await RefreshCacheStatusAsync(_sessionCts.Token);
+                if (!IsSessionActive) return;
             }
         }
 
@@ -465,10 +471,23 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        _sessionCts.Cancel();
         _settings.PropertyChanged -= OnSettingsPropertyChanged;
         _operationCts?.Cancel();
-        _operationCts?.Dispose();
-        _httpClient.Dispose();
+        foreach (var sink in _progressSinks) sink.Detach();
+        _progressSinks.Clear();
+        SelectedGame = null;
+        Games.Clear();
+        VisibleGames.Clear();
+        Drafts.Clear();
+        ResetPluginBatchState();
+        SetupReentry = null;
+        _targetedPreset = null;
+        if (!IsBusy) _httpClient.Dispose();
+        OnPropertyChanged(nameof(HasResults));
+        OnPropertyChanged(nameof(HasDrafts));
     }
 
     private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -479,26 +498,30 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     private async Task RunOperationAsync(Func<CancellationToken, Task> operation)
     {
-        if (IsBusy) return;
-        _operationCts?.Dispose();
-        _operationCts = new CancellationTokenSource();
+        if (IsBusy || !IsSessionActive) return;
+        using var request = CancellationTokenSource.CreateLinkedTokenSource(_sessionCts.Token);
+        _operationCts = request;
         IsBusy = true;
         try
         {
-            await operation(_operationCts.Token);
+            await operation(request.Token);
         }
-        catch (OperationCanceledException) when (_operationCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
-            ProgressText = I18n.GetString("GameDiscovery_Status_Cancelled");
+            if (IsSessionActive) ProgressText = I18n.GetString("GameDiscovery_Status_Cancelled");
         }
         catch (Exception ex)
         {
-            ProgressText = I18n.Format("GameDiscovery_Status_Failed", ex.Message);
+            if (IsSessionActive) ProgressText = I18n.Format("GameDiscovery_Status_Failed", ex.Message);
             LogService.LogError($"Game discovery failed: {ex.Message}", "GameDiscovery", ex);
         }
         finally
         {
+            foreach (var sink in _progressSinks) sink.Detach();
+            _progressSinks.Clear();
+            if (ReferenceEquals(_operationCts, request)) _operationCts = null;
             IsBusy = false;
+            if (_disposed) _httpClient.Dispose();
         }
     }
 
@@ -540,6 +563,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             discoveryService,
             CreateProgress(),
             token);
+        token.ThrowIfCancellationRequested();
         ApplyResult(result, stopwatch, preset);
     }
 
@@ -671,6 +695,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         Stopwatch stopwatch,
         BackupPreset? lockedPreset)
     {
+        if (!IsSessionActive) return;
         Games.Clear();
         foreach (var game in result.Candidates.OrderBy(candidate => candidate.Definition.DisplayName, StringComparer.CurrentCultureIgnoreCase))
         {
@@ -733,13 +758,35 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     private IProgress<DiscoveryProgress> CreateProgress()
     {
-        var request = _operationCts;
-        return new Progress<DiscoveryProgress>(progress =>
+        var sink = new SessionProgress(this, _operationCts, SynchronizationContext.Current);
+        _progressSinks.Add(sink);
+        return sink;
+    }
+
+    private sealed class SessionProgress : IProgress<DiscoveryProgress>
+    {
+        private WeakReference<GameDiscoveryPageViewModel>? _owner;
+        private readonly CancellationTokenSource? _request;
+        private readonly SynchronizationContext? _context;
+        private long _lastUpdate;
+        public SessionProgress(GameDiscoveryPageViewModel owner, CancellationTokenSource? request, SynchronizationContext? context)
+        { _owner = new(owner); _request = request; _context = context; }
+        public void Detach() => Interlocked.Exchange(ref _owner, null);
+        public void Report(DiscoveryProgress progress)
         {
-            if (!IsBusy || request != _operationCts || request?.IsCancellationRequested != false) return;
+            var now = Environment.TickCount64;
+            var previous = Interlocked.Read(ref _lastUpdate);
+            if (now - previous < 100 || Interlocked.CompareExchange(ref _lastUpdate, now, previous) != previous) return;
+            if (_context is null) Publish(progress);
+            else _context.Post(_ => Publish(progress), null);
+        }
+        private void Publish(DiscoveryProgress progress)
+        {
+            if (_owner?.TryGetTarget(out var owner) != true || !owner.IsSessionActive
+                || !owner.IsBusy || !ReferenceEquals(_request, owner._operationCts)) return;
             var total = progress.Total is > 0 ? $" ({progress.Completed}/{progress.Total})" : string.Empty;
-            ProgressText = $"{progress.Message}{total}";
-        });
+            owner.ProgressText = $"{progress.Message}{total}";
+        }
     }
 
     private async Task RefreshCacheStatusAsync(CancellationToken token)
@@ -759,8 +806,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             }
             ApplyCacheMetadata(current.Value.Metadata);
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex)
         {
+            if (!IsSessionActive) return;
             HasCache = false;
             CacheStatus = I18n.Format("GameDiscovery_Cache_Invalid", ex.Message);
             LogService.LogWarning($"Ludusavi cache validation failed: {ex.Message}", "GameDiscovery");
