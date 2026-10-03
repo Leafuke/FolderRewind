@@ -34,7 +34,7 @@ internal static class PluginDiscoveryDefinitionPolicy
                     providerId,
                     DiscoveryDiagnosticSeverity.Error,
                     "definition-catalog-invalid",
-                    "The plugin definition catalog contains an invalid or duplicate definition."));
+                    I18n.GetString("GameDiscovery_Diagnostic_InvalidCatalog")));
             }
         }
         return result;
@@ -70,7 +70,7 @@ internal static class PluginDiscoveryDefinitionPolicy
                 providerId,
                 DiscoveryDiagnosticSeverity.Error,
                 "definition-unavailable",
-                $"The provider does not declare the requested definition(s): {string.Join(", ", unknown)}."));
+                string.Format(I18n.GetString("GameDiscovery_Diagnostic_DefinitionsUnavailable"), string.Join(", ", unknown))));
         }
         requested.IntersectWith(definitions.Keys);
         return new PluginDiscoveryTargetSelection
@@ -96,7 +96,7 @@ internal static class PluginDiscoveryDefinitionPolicy
                 providerId,
                 DiscoveryDiagnosticSeverity.Warning,
                 "plugin-candidate-invalid",
-                "A plugin candidate is null."));
+                I18n.GetString("GameDiscovery_Diagnostic_NullCandidate")));
             return false;
         }
 
@@ -111,7 +111,7 @@ internal static class PluginDiscoveryDefinitionPolicy
                 providerId,
                 DiscoveryDiagnosticSeverity.Warning,
                 "definition-resolution-failed",
-                $"Candidate '{candidate.CandidateId}' could not be resolved: {ex.Message}"));
+                string.Format(I18n.GetString("GameDiscovery_Diagnostic_CandidateResolutionFailed"), candidate.CandidateId, ex.Message)));
             return false;
         }
 
@@ -121,7 +121,7 @@ internal static class PluginDiscoveryDefinitionPolicy
                 providerId,
                 DiscoveryDiagnosticSeverity.Warning,
                 "definition-unresolved",
-                $"Candidate '{candidate.CandidateId}' was not assigned to a game definition."));
+                string.Format(I18n.GetString("GameDiscovery_Diagnostic_CandidateUnassigned"), candidate.CandidateId)));
             return false;
         }
         if (!definitions.TryGetValue(definitionId, out definition))
@@ -130,7 +130,7 @@ internal static class PluginDiscoveryDefinitionPolicy
                 providerId,
                 DiscoveryDiagnosticSeverity.Warning,
                 "definition-resolution-unknown",
-                $"Candidate '{candidate.CandidateId}' resolved to undeclared definition '{definitionId}'."));
+                string.Format(I18n.GetString("GameDiscovery_Diagnostic_CandidateDefinitionUnknown"), candidate.CandidateId, definitionId)));
             return false;
         }
         if (requestedDefinitions != null && !requestedDefinitions.Contains(definitionId))

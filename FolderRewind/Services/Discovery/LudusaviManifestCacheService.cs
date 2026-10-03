@@ -260,7 +260,7 @@ public sealed partial class LudusaviManifestCacheService
             {
                 ProviderId = "ludusavi",
                 Phase = "compile",
-                Message = "Rebuilding the Ludusavi index because a manifest input or compiler version changed"
+                Message = I18n.GetString("GameDiscovery_Status_RebuildingIndex")
             });
             return await CompileAndStoreAsync(
                 primaryBytes,
@@ -406,7 +406,7 @@ public sealed partial class LudusaviManifestCacheService
         {
             ProviderId = "ludusavi",
             Phase = "compile",
-            Message = generationId
+            Message = I18n.GetString("GameDiscovery_Status_CompilingIndex")
         });
 
         var overrides = overrideBytes.Length == 0

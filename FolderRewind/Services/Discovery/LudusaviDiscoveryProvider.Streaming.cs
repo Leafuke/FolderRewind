@@ -19,10 +19,10 @@ public sealed partial class LudusaviDiscoveryProvider
         var generation = _generation ?? ownedGeneration;
         if (generation is null)
             return new DiscoveryProviderResult { ProviderId = ProviderId, Diagnostics = [Diagnostic(
-                DiscoveryDiagnosticSeverity.Information, "manifest-unavailable", "No valid Ludusavi manifest cache is available.")] };
+                DiscoveryDiagnosticSeverity.Information, "manifest-unavailable", I18n.GetString("GameDiscovery_Diagnostic_NoManifestCache"))] };
 
         progress?.Report(new DiscoveryProgress { ProviderId = ProviderId, Phase = "installations",
-            Message = "Scanning Steam, GOG, and Epic installations" });
+            Message = I18n.GetString("GameDiscovery_Status_ScanningInstallations") });
         var installationScan = _installationDiscovery.Scan(request.StoreRoots, request.DisabledAutoRoots, token);
         var installations = installationScan.Installations;
         var requested = request.Mode == DiscoveryRequestMode.PresetTargeted
@@ -51,13 +51,13 @@ public sealed partial class LudusaviDiscoveryProvider
                 {
                     strongInstallations.Add(key);
                     AddMatch(matched, game, new InstallationMatch(installation, DiscoveryConfidence.High,
-                        "store-id", $"Matched {installation.Store} ID {installation.StoreGameId}."));
+                        "store-id", string.Format(I18n.GetString("GameDiscovery_Evidence_StoreIdMatched"), installation.Store, installation.StoreGameId)));
                 }
                 else if (installationNames[key].Any(names.Contains))
                 {
                     namesPerInstallation[key] = namesPerInstallation.GetValueOrDefault(key) + 1;
                     AddMatch(matched, game, new InstallationMatch(installation, DiscoveryConfidence.Medium,
-                        "name-and-install-dir", "Matched the normalized display name, alias, or install directory hint."));
+                        "name-and-install-dir", I18n.GetString("GameDiscovery_Evidence_NameMatched")));
                 }
             }
         }
@@ -79,7 +79,7 @@ public sealed partial class LudusaviDiscoveryProvider
                         && string.Equals(NormalizeName(other.DisplayName), NormalizeName(match.Installation.DisplayName),
                             StringComparison.OrdinalIgnoreCase)) > 1);
                 matches.Add(ambiguous ? new InstallationMatch(match.Installation, DiscoveryConfidence.Low,
-                    "ambiguous-name", "Only an ambiguous normalized name matched; resources are not selected by default.") : match);
+                    "ambiguous-name", I18n.GetString("GameDiscovery_Evidence_AmbiguousName")) : match);
             }
             if (matches.Count == 0) continue;
             candidates.Add(CreateCandidate(pair.Key, matches.GroupBy(match => InstallationKey(match.Installation), StringComparer.OrdinalIgnoreCase)

@@ -28,7 +28,7 @@ internal static class PluginDiscoveryCandidateMapper
         ArgumentNullException.ThrowIfNull(diagnostics);
         if (candidate == null || string.IsNullOrWhiteSpace(candidate.CandidateId))
         {
-            diagnostics.Add(Diagnostic(providerId, "plugin-candidate-invalid", "A plugin candidate has no stable CandidateId."));
+            diagnostics.Add(Diagnostic(providerId, "plugin-candidate-invalid", I18n.GetString("GameDiscovery_Diagnostic_MissingCandidateId")));
             return null;
         }
         if (candidate.ConfigDrafts == null || candidate.ConfigDrafts.Count != 1)
@@ -36,7 +36,7 @@ internal static class PluginDiscoveryCandidateMapper
             diagnostics.Add(Diagnostic(
                 providerId,
                 "plugin-candidate-shape-unsupported",
-                $"Candidate '{candidate.CandidateId}' must contain exactly one ConfigDraft for game discovery."));
+                string.Format(I18n.GetString("GameDiscovery_Diagnostic_CandidateDraftCount"), candidate.CandidateId)));
             return null;
         }
 
@@ -46,7 +46,7 @@ internal static class PluginDiscoveryCandidateMapper
             diagnostics.Add(Diagnostic(
                 providerId,
                 "plugin-candidate-shape-unsupported",
-                $"Candidate '{candidate.CandidateId}' contains an invalid ConfigDraft."));
+                string.Format(I18n.GetString("GameDiscovery_Diagnostic_CandidateDraftInvalid"), candidate.CandidateId)));
             return null;
         }
 
@@ -59,7 +59,7 @@ internal static class PluginDiscoveryCandidateMapper
                 diagnostics.Add(Diagnostic(
                     providerId,
                     "plugin-folder-invalid",
-                    $"Candidate '{candidate.CandidateId}' contains an invalid FolderDraft."));
+                    string.Format(I18n.GetString("GameDiscovery_Diagnostic_FolderDraftInvalid"), candidate.CandidateId)));
                 continue;
             }
             try
@@ -78,7 +78,7 @@ internal static class PluginDiscoveryCandidateMapper
                 diagnostics.Add(Diagnostic(
                     providerId,
                     "plugin-folder-mapping-failed",
-                    $"Candidate '{candidate.CandidateId}' contains a FolderDraft that could not be mapped: {ex.Message}"));
+                    string.Format(I18n.GetString("GameDiscovery_Diagnostic_FolderDraftMappingFailed"), candidate.CandidateId, ex.Message)));
             }
         }
 
@@ -163,14 +163,14 @@ internal static class PluginDiscoveryCandidateMapper
             OriginalExpression = folder.Path,
             FixedRootExists = exists,
             IsSelectedByDefault = exists,
-            SafetyWarning = unsafeRoot ? "The plugin returned an unsafe broad source root." : string.Empty,
+            SafetyWarning = unsafeRoot ? I18n.GetString("GameDiscovery_Safety_PluginBroadRoot") : string.Empty,
             Evidence =
             [
                 new DiscoveryEvidence
                 {
                     Confidence = DiscoveryConfidence.High,
                     Kind = "plugin-discovery",
-                    Description = $"Discovered directly by specialized plugin '{pluginId.Value}'.",
+                    Description = string.Format(I18n.GetString("GameDiscovery_Evidence_SpecializedPlugin"), pluginId.Value),
                     Source = providerId.Value
                 }
             ]

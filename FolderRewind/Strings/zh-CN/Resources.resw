@@ -5986,4 +5986,90 @@ Pull Request：{1}</value>
   <data name="LegacyMigration_ShortTitle" xml:space="preserve"><value>旧备份迁移</value></data>
   <data name="LegacyMigration_PendingNotice" xml:space="preserve"><value>有 {0} 条旧备份记录需要定位、关联或验证。</value></data>
   <data name="LegacyMigration_ReportProblemNotice" xml:space="preserve"><value>旧备份迁移遇到问题，请查看报告。</value></data>
+  <data name="Hotkeys_MineRewind_BackupActive_DisplayName" xml:space="preserve"><value>备份当前 Minecraft Java 世界</value></data>
+  <data name="Hotkeys_MineRewind_BackupActive_Description" xml:space="preserve"><value>通过全局热键备份当前活动的 Minecraft Java 世界。</value></data>
+  <data name="Hotkeys_MineRewind_RestoreActive_DisplayName" xml:space="preserve"><value>将当前 Minecraft Java 世界还原到最新备份</value></data>
+  <data name="Hotkeys_MineRewind_RestoreActive_Description" xml:space="preserve"><value>通过全局热键将当前活动的 Minecraft Java 世界还原到最新备份。</value></data>
+  <data name="SettingsPage_About_Link_KnotLink.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>由 KnotLink-Protocol 提供</value></data>
+  <data name="FilePicker_FolderRewindTemplate" xml:space="preserve"><value>FolderRewind 模板</value></data>
+  <data name="FilePicker_FolderRewindHistory" xml:space="preserve"><value>FolderRewind 历史记录</value></data>
+  <data name="GameDiscovery_Confidence_Low" xml:space="preserve"><value>低</value></data>
+  <data name="GameDiscovery_Confidence_Medium" xml:space="preserve"><value>中</value></data>
+  <data name="GameDiscovery_Confidence_High" xml:space="preserve"><value>高</value></data>
+  <data name="GameDiscovery_ResourceTag_Save" xml:space="preserve"><value>存档</value></data>
+  <data name="GameDiscovery_ResourceTag_Config" xml:space="preserve"><value>配置</value></data>
+  <data name="GameDiscovery_ResourceTag_Data" xml:space="preserve"><value>数据</value></data>
+  <data name="GameDiscovery_ResourceTag_Other" xml:space="preserve"><value>其他</value></data>
+  <data name="GameDiscovery_Status_ScanningInstallations" xml:space="preserve"><value>正在扫描 Steam、GOG 和 Epic 的游戏安装目录</value></data>
+  <data name="GameDiscovery_Evidence_AmbiguousName" xml:space="preserve"><value>规范化名称匹配存在歧义，因此默认不选择这些资源。</value></data>
+  <data name="GameDiscovery_Evidence_NameMatched" xml:space="preserve"><value>已匹配规范化的显示名称、别名或安装目录提示。</value></data>
+  <data name="GameDiscovery_Evidence_StoreIdMatched" xml:space="preserve"><value>已匹配 {0} ID {1}。</value></data>
+  <data name="GameDiscovery_Diagnostic_NoManifest" xml:space="preserve"><value>没有可用的 Ludusavi 清单缓存，请先下载或导入清单。</value></data>
+  <data name="GameDiscovery_Diagnostic_NoManifestCache" xml:space="preserve"><value>没有可用的 Ludusavi 清单缓存。</value></data>
+  <data name="GameDiscovery_Evidence_NoActiveAccount" xml:space="preserve"><value>未能识别当前商店账号。此通配符可能包含多个本地账号，需要手动选择。</value></data>
+  <data name="GameDiscovery_Evidence_AccountWildcard" xml:space="preserve"><value>未知的商店用户 ID 将保留为匹配单个路径段的通配符。</value></data>
+  <data name="GameDiscovery_Evidence_RegistryUnsupported" xml:space="preserve"><value>清单包含注册表数据，当前 FolderRewind 版本暂不支持备份。</value></data>
+  <data name="GameDiscovery_Safety_InvalidPath" xml:space="preserve"><value>清单解析结果不是有效路径。</value></data>
+  <data name="GameDiscovery_Safety_VolumeRoot" xml:space="preserve"><value>清单解析结果为磁盘根目录。</value></data>
+  <data name="GameDiscovery_Safety_BroadRoot" xml:space="preserve"><value>此规则指向范围过大的系统目录、用户目录或游戏库根目录，需要明确确认。</value></data>
+  <data name="GameDiscovery_Safety_PluginBroadRoot" xml:space="preserve"><value>插件返回了范围过大的不安全源目录。</value></data>
+  <data name="GameDiscovery_Evidence_InactiveAccount" xml:space="preserve"><value>商店账号 {0} 不是当前活动账号，因此默认不选中。</value></data>
+  <data name="GameDiscovery_Diagnostic_PathResolutionFailed" xml:space="preserve"><value>{0}：无法安全解析“{1}”。</value></data>
+  <data name="GameDiscovery_RegistryResourceName" xml:space="preserve"><value>{0} 注册表</value></data>
+  <data name="GameDiscovery_Diagnostic_UnknownStoreConstraint" xml:space="preserve"><value>未知的 Ludusavi 商店约束：{0}。</value></data>
+  <data name="GameDiscovery_Evidence_SpecializedPlugin" xml:space="preserve"><value>由专用插件“{0}”直接发现。</value></data>
+  <data name="GameDiscovery_Suppression_EquivalentScope" xml:space="preserve"><value>与专用资源 {0} 的有效源范围相同。</value></data>
+  <data name="GameDiscovery_Conflict_SpecializedResource" xml:space="preserve"><value>与专用提供程序“{1}”的资源“{0}”部分重叠。</value></data>
+  <data name="GameDiscovery_Conflict_GenericResource" xml:space="preserve"><value>与通用资源“{0}”部分重叠。</value></data>
+  <data name="GameDiscovery_DefaultResourceName" xml:space="preserve"><value>游戏数据</value></data>
+  <data name="GameDiscovery_Draft_MultiplePresets" xml:space="preserve"><value>匹配到多个推荐预设，已改用标准预设。</value></data>
+  <data name="GameDiscovery_Draft_PresetUnavailable" xml:space="preserve"><value>所选预设无法应用于当前宿主。</value></data>
+  <data name="GameDiscovery_Draft_NoResources" xml:space="preserve"><value>未选择受支持的文件系统资源。</value></data>
+  <data name="GameDiscovery_Draft_PasswordRequired" xml:space="preserve"><value>保存此草稿前必须提供加密密码。</value></data>
+  <data name="GameDiscovery_Draft_InvalidDefinition" xml:space="preserve"><value>预设未包含有效的提供程序定义引用。</value></data>
+  <data name="GameDiscovery_Draft_NoTargets" xml:space="preserve"><value>所选提供程序未找到匹配的备份目标。</value></data>
+  <data name="GameDiscovery_Draft_NameRequired" xml:space="preserve"><value>每个配置都必须填写名称。</value></data>
+  <data name="GameDiscovery_Draft_DestinationRequired" xml:space="preserve"><value>每个配置都必须填写备份目标目录。</value></data>
+  <data name="GameDiscovery_Draft_SourceRequired" xml:space="preserve"><value>新发现的配置必须至少包含一个源文件夹。</value></data>
+  <data name="GameDiscovery_Draft_DuplicateName" xml:space="preserve"><value>配置名称不能重复。</value></data>
+  <data name="GameDiscovery_Draft_DuplicateDestination" xml:space="preserve"><value>配置的备份目标目录不能重复。</value></data>
+  <data name="GameDiscovery_Draft_PluginsUnavailable" xml:space="preserve"><value>所需插件缺失或已禁用：{0}。</value></data>
+  <data name="GameDiscovery_Draft_PluginsMissing" xml:space="preserve"><value>所需插件尚未安装：{0}。</value></data>
+  <data name="GameDiscovery_Draft_PluginsInactive" xml:space="preserve"><value>所需插件已禁用或未激活：{0}。</value></data>
+  <data name="GameDiscovery_Draft_StoragePathInvalid" xml:space="preserve"><value>无法为源文件夹“{0}”解析安全的备份存储路径。</value></data>
+  <data name="GameDiscovery_Draft_StoragePathOverlap" xml:space="preserve"><value>源文件夹“{0}”与其备份存储路径重叠：{1} ↔ {2}</value></data>
+  <data name="GameDiscovery_Draft_KindMismatch" xml:space="preserve"><value>所选预设类型“{0}/{1}”与插件草稿类型“{2}/{3}”不匹配。</value></data>
+  <data name="GameDiscovery_Status_CompilingIndex" xml:space="preserve"><value>正在编译 Ludusavi 游戏索引</value></data>
+  <data name="GameDiscovery_Status_RebuildingIndex" xml:space="preserve"><value>清单输入或编译器版本已更改，正在重建 Ludusavi 索引</value></data>
+  <data name="GameDiscovery_Diagnostic_TimeLimit" xml:space="preserve"><value>发现操作已达到时间限制，已保留已完成的结果；请选择更小的扫描目录继续。</value></data>
+  <data name="GameDiscovery_Diagnostic_ResultLimit" xml:space="preserve"><value>发现结果已达到数量限制；请选择更小的扫描目录查找其他内容。</value></data>
+  <data name="GameDiscovery_Diagnostic_NoResult" xml:space="preserve"><value>发现提供程序未返回结果。</value></data>
+  <data name="GameDiscovery_Diagnostic_ProviderInactive" xml:space="preserve"><value>插件发现提供程序未激活。</value></data>
+  <data name="GameDiscovery_Diagnostic_ProviderIdentityChanged" xml:space="preserve"><value>活动插件的发现标识与已注册的提供程序不再匹配。</value></data>
+  <data name="GameDiscovery_Diagnostic_PluginUpgradeRequired" xml:space="preserve"><value>必须先更新插件，才能使用其游戏发现功能。</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidCatalog" xml:space="preserve"><value>插件定义目录包含无效或重复的定义。</value></data>
+  <data name="GameDiscovery_Diagnostic_NullCandidate" xml:space="preserve"><value>插件返回了空的发现候选项。</value></data>
+  <data name="GameDiscovery_Diagnostic_MissingCandidateId" xml:space="preserve"><value>插件发现候选项缺少稳定的 CandidateId。</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidScanPath" xml:space="preserve"><value>已跳过无效的绝对扫描路径。</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidInstallationPath" xml:space="preserve"><value>已跳过安装路径无效的游戏。</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidSteamManifest" xml:space="preserve"><value>Steam 清单缺少 appid 或 installdir。</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidEpicManifest" xml:space="preserve"><value>Epic 清单缺少 InstallLocation。</value></data>
+  <data name="GameDiscovery_Diagnostic_ProviderUnavailable" xml:space="preserve"><value>发现提供程序“{0}”不可用。</value></data>
+  <data name="GameDiscovery_Diagnostic_PluginCatalogUpgrade" xml:space="preserve"><value>必须先更新插件“{0}”，才能使用其游戏发现提供程序。</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateMappingFailed" xml:space="preserve"><value>无法映射候选项“{0}”：{1}</value></data>
+  <data name="GameDiscovery_Diagnostic_DefinitionsUnavailable" xml:space="preserve"><value>提供程序未声明所请求的定义：{0}。</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateResolutionFailed" xml:space="preserve"><value>无法解析候选项“{0}”：{1}</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateUnassigned" xml:space="preserve"><value>候选项“{0}”未关联到游戏定义。</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateDefinitionUnknown" xml:space="preserve"><value>候选项“{0}”指向未声明的定义“{1}”。</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateDraftCount" xml:space="preserve"><value>用于游戏发现的候选项“{0}”必须且只能包含一个配置草稿。</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateDraftInvalid" xml:space="preserve"><value>候选项“{0}”包含无效的配置草稿。</value></data>
+  <data name="GameDiscovery_Diagnostic_FolderDraftInvalid" xml:space="preserve"><value>候选项“{0}”包含无效的文件夹草稿。</value></data>
+  <data name="GameDiscovery_Diagnostic_FolderDraftMappingFailed" xml:space="preserve"><value>无法映射候选项“{0}”中的文件夹草稿：{1}</value></data>
+  <data name="GameDiscovery_Diagnostic_StoreScanFailed" xml:space="preserve"><value>无法扫描 {0} 源目录“{1}”：{2}</value></data>
+  <data name="GameDiscovery_Cache_SourceLocal" xml:space="preserve"><value>本地导入</value></data>
+  <data name="GameDiscovery_Cache_SourceRemote" xml:space="preserve"><value>在线下载</value></data>
+  <data name="GameDiscovery_Cache_PrimaryMissing" xml:space="preserve"><value>已导入的主清单不再可用，正在使用缓存副本。</value></data>
+  <data name="GameDiscovery_Cache_PreviousRestored" xml:space="preserve"><value>当前缓存无效，已恢复上一版本缓存。</value></data>
+  <data name="GameDiscovery_Cache_SecondaryMissing" xml:space="preserve"><value>配置的附加清单已不存在，已跳过：{0}</value></data>
+  <data name="GameDiscovery_Cache_OverrideMissing" xml:space="preserve"><value>配置的 FolderRewind 本地覆盖文件已不存在，已跳过：{0}</value></data>
 </root>

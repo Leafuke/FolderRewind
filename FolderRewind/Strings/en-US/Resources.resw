@@ -5986,4 +5986,90 @@ Branch at backup: {2}
   <data name="LegacyMigration_ShortTitle" xml:space="preserve"><value>Legacy backup migration</value></data>
   <data name="LegacyMigration_PendingNotice" xml:space="preserve"><value>{0} legacy backup records need locating, association, or verification.</value></data>
   <data name="LegacyMigration_ReportProblemNotice" xml:space="preserve"><value>Legacy backup migration needs attention. View the report for details.</value></data>
+  <data name="Hotkeys_MineRewind_BackupActive_DisplayName" xml:space="preserve"><value>Back up the active Minecraft Java world</value></data>
+  <data name="Hotkeys_MineRewind_BackupActive_Description" xml:space="preserve"><value>Back up the currently active Minecraft Java world using a global hotkey.</value></data>
+  <data name="Hotkeys_MineRewind_RestoreActive_DisplayName" xml:space="preserve"><value>Restore the active Minecraft Java world to its latest backup</value></data>
+  <data name="Hotkeys_MineRewind_RestoreActive_Description" xml:space="preserve"><value>Restore the currently active Minecraft Java world to its latest backup using a global hotkey.</value></data>
+  <data name="SettingsPage_About_Link_KnotLink.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>By KnotLink-Protocol</value></data>
+  <data name="FilePicker_FolderRewindTemplate" xml:space="preserve"><value>FolderRewind Template</value></data>
+  <data name="FilePicker_FolderRewindHistory" xml:space="preserve"><value>FolderRewind History</value></data>
+  <data name="GameDiscovery_Confidence_Low" xml:space="preserve"><value>Low</value></data>
+  <data name="GameDiscovery_Confidence_Medium" xml:space="preserve"><value>Medium</value></data>
+  <data name="GameDiscovery_Confidence_High" xml:space="preserve"><value>High</value></data>
+  <data name="GameDiscovery_ResourceTag_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="GameDiscovery_ResourceTag_Config" xml:space="preserve"><value>Config</value></data>
+  <data name="GameDiscovery_ResourceTag_Data" xml:space="preserve"><value>Data</value></data>
+  <data name="GameDiscovery_ResourceTag_Other" xml:space="preserve"><value>Other</value></data>
+  <data name="GameDiscovery_Status_ScanningInstallations" xml:space="preserve"><value>Scanning Steam, GOG, and Epic installations</value></data>
+  <data name="GameDiscovery_Evidence_AmbiguousName" xml:space="preserve"><value>Only an ambiguous normalized name matched; resources are not selected by default.</value></data>
+  <data name="GameDiscovery_Evidence_NameMatched" xml:space="preserve"><value>Matched the normalized display name, alias, or install directory hint.</value></data>
+  <data name="GameDiscovery_Evidence_StoreIdMatched" xml:space="preserve"><value>Matched {0} ID {1}.</value></data>
+  <data name="GameDiscovery_Diagnostic_NoManifest" xml:space="preserve"><value>No valid Ludusavi manifest cache is available. Download or import a manifest first.</value></data>
+  <data name="GameDiscovery_Diagnostic_NoManifestCache" xml:space="preserve"><value>No valid Ludusavi manifest cache is available.</value></data>
+  <data name="GameDiscovery_Evidence_NoActiveAccount" xml:space="preserve"><value>No active store account could be identified. This wildcard may include multiple local accounts and requires manual selection.</value></data>
+  <data name="GameDiscovery_Evidence_AccountWildcard" xml:space="preserve"><value>The unknown store user ID is preserved as a single path-segment wildcard.</value></data>
+  <data name="GameDiscovery_Evidence_RegistryUnsupported" xml:space="preserve"><value>The manifest contains Registry data, which this FolderRewind version cannot back up.</value></data>
+  <data name="GameDiscovery_Safety_InvalidPath" xml:space="preserve"><value>The manifest resolved to an invalid path.</value></data>
+  <data name="GameDiscovery_Safety_VolumeRoot" xml:space="preserve"><value>The manifest resolved to a volume root.</value></data>
+  <data name="GameDiscovery_Safety_BroadRoot" xml:space="preserve"><value>This rule resolves to a broad system, user, or game-library root and requires explicit confirmation.</value></data>
+  <data name="GameDiscovery_Safety_PluginBroadRoot" xml:space="preserve"><value>The plugin returned an unsafe broad source root.</value></data>
+  <data name="GameDiscovery_Evidence_InactiveAccount" xml:space="preserve"><value>Store account {0} is not the active account and is not selected by default.</value></data>
+  <data name="GameDiscovery_Diagnostic_PathResolutionFailed" xml:space="preserve"><value>{0}: could not safely resolve '{1}'.</value></data>
+  <data name="GameDiscovery_RegistryResourceName" xml:space="preserve"><value>{0} Registry</value></data>
+  <data name="GameDiscovery_Diagnostic_UnknownStoreConstraint" xml:space="preserve"><value>Unknown Ludusavi store constraint: {0}.</value></data>
+  <data name="GameDiscovery_Evidence_SpecializedPlugin" xml:space="preserve"><value>Discovered directly by specialized plugin '{0}'.</value></data>
+  <data name="GameDiscovery_Suppression_EquivalentScope" xml:space="preserve"><value>Has the same effective source scope as specialized resource {0}.</value></data>
+  <data name="GameDiscovery_Conflict_SpecializedResource" xml:space="preserve"><value>Partially overlaps resource '{0}' from specialized provider '{1}'.</value></data>
+  <data name="GameDiscovery_Conflict_GenericResource" xml:space="preserve"><value>Partially overlaps generic resource '{0}'.</value></data>
+  <data name="GameDiscovery_DefaultResourceName" xml:space="preserve"><value>Game data</value></data>
+  <data name="GameDiscovery_Draft_MultiplePresets" xml:space="preserve"><value>More than one recommended preset matched. The standard preset was selected instead.</value></data>
+  <data name="GameDiscovery_Draft_PresetUnavailable" xml:space="preserve"><value>The selected preset cannot be applied on this host.</value></data>
+  <data name="GameDiscovery_Draft_NoResources" xml:space="preserve"><value>No supported filesystem resources are selected.</value></data>
+  <data name="GameDiscovery_Draft_PasswordRequired" xml:space="preserve"><value>An encryption password must be provided before this draft can be committed.</value></data>
+  <data name="GameDiscovery_Draft_InvalidDefinition" xml:space="preserve"><value>The preset does not contain a valid provider definition reference.</value></data>
+  <data name="GameDiscovery_Draft_NoTargets" xml:space="preserve"><value>The selected provider found no matching backup targets.</value></data>
+  <data name="GameDiscovery_Draft_NameRequired" xml:space="preserve"><value>Every configuration requires a name.</value></data>
+  <data name="GameDiscovery_Draft_DestinationRequired" xml:space="preserve"><value>Every configuration requires a destination directory.</value></data>
+  <data name="GameDiscovery_Draft_SourceRequired" xml:space="preserve"><value>A newly discovered configuration must contain at least one source folder.</value></data>
+  <data name="GameDiscovery_Draft_DuplicateName" xml:space="preserve"><value>Configuration names must be unique.</value></data>
+  <data name="GameDiscovery_Draft_DuplicateDestination" xml:space="preserve"><value>Configuration destination directories must be unique.</value></data>
+  <data name="GameDiscovery_Draft_PluginsUnavailable" xml:space="preserve"><value>Required plugins are missing or disabled: {0}.</value></data>
+  <data name="GameDiscovery_Draft_PluginsMissing" xml:space="preserve"><value>Required plugin(s) are not installed: {0}.</value></data>
+  <data name="GameDiscovery_Draft_PluginsInactive" xml:space="preserve"><value>Required plugin(s) are disabled or inactive: {0}.</value></data>
+  <data name="GameDiscovery_Draft_StoragePathInvalid" xml:space="preserve"><value>Cannot resolve a safe backup storage path for source '{0}'.</value></data>
+  <data name="GameDiscovery_Draft_StoragePathOverlap" xml:space="preserve"><value>Source '{0}' overlaps its backup storage path: {1} ↔ {2}</value></data>
+  <data name="GameDiscovery_Draft_KindMismatch" xml:space="preserve"><value>The selected preset kind '{0}/{1}' does not match the plugin draft kind '{2}/{3}'.</value></data>
+  <data name="GameDiscovery_Status_CompilingIndex" xml:space="preserve"><value>Compiling the Ludusavi game index</value></data>
+  <data name="GameDiscovery_Status_RebuildingIndex" xml:space="preserve"><value>Rebuilding the Ludusavi index because a manifest input or compiler version changed</value></data>
+  <data name="GameDiscovery_Diagnostic_TimeLimit" xml:space="preserve"><value>Discovery reached its time limit. Completed provider results are retained; choose a narrower root to continue.</value></data>
+  <data name="GameDiscovery_Diagnostic_ResultLimit" xml:space="preserve"><value>Discovery reached its result limit. Choose a narrower root to find additional content.</value></data>
+  <data name="GameDiscovery_Diagnostic_NoResult" xml:space="preserve"><value>The discovery provider returned no result.</value></data>
+  <data name="GameDiscovery_Diagnostic_ProviderInactive" xml:space="preserve"><value>The plugin discovery provider is not active.</value></data>
+  <data name="GameDiscovery_Diagnostic_ProviderIdentityChanged" xml:space="preserve"><value>The active plugin discovery identity no longer matches the registered provider.</value></data>
+  <data name="GameDiscovery_Diagnostic_PluginUpgradeRequired" xml:space="preserve"><value>The plugin must be updated before it can participate in game discovery.</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidCatalog" xml:space="preserve"><value>The plugin definition catalog contains an invalid or duplicate definition.</value></data>
+  <data name="GameDiscovery_Diagnostic_NullCandidate" xml:space="preserve"><value>A plugin candidate is null.</value></data>
+  <data name="GameDiscovery_Diagnostic_MissingCandidateId" xml:space="preserve"><value>A plugin candidate has no stable CandidateId.</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidScanPath" xml:space="preserve"><value>Skipped an invalid absolute discovery path.</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidInstallationPath" xml:space="preserve"><value>Skipped an installation with an invalid absolute path.</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidSteamManifest" xml:space="preserve"><value>Steam manifest is missing appid or installdir.</value></data>
+  <data name="GameDiscovery_Diagnostic_InvalidEpicManifest" xml:space="preserve"><value>Epic manifest is missing InstallLocation.</value></data>
+  <data name="GameDiscovery_Diagnostic_ProviderUnavailable" xml:space="preserve"><value>Discovery provider '{0}' is unavailable.</value></data>
+  <data name="GameDiscovery_Diagnostic_PluginCatalogUpgrade" xml:space="preserve"><value>Plugin '{0}' must be updated before its discovery provider can be used by game discovery.</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateMappingFailed" xml:space="preserve"><value>Candidate '{0}' could not be mapped: {1}</value></data>
+  <data name="GameDiscovery_Diagnostic_DefinitionsUnavailable" xml:space="preserve"><value>The provider does not declare the requested definition(s): {0}.</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateResolutionFailed" xml:space="preserve"><value>Candidate '{0}' could not be resolved: {1}</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateUnassigned" xml:space="preserve"><value>Candidate '{0}' was not assigned to a game definition.</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateDefinitionUnknown" xml:space="preserve"><value>Candidate '{0}' resolved to undeclared definition '{1}'.</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateDraftCount" xml:space="preserve"><value>Candidate '{0}' must contain exactly one ConfigDraft for game discovery.</value></data>
+  <data name="GameDiscovery_Diagnostic_CandidateDraftInvalid" xml:space="preserve"><value>Candidate '{0}' contains an invalid ConfigDraft.</value></data>
+  <data name="GameDiscovery_Diagnostic_FolderDraftInvalid" xml:space="preserve"><value>Candidate '{0}' contains an invalid FolderDraft.</value></data>
+  <data name="GameDiscovery_Diagnostic_FolderDraftMappingFailed" xml:space="preserve"><value>Candidate '{0}' contains a FolderDraft that could not be mapped: {1}</value></data>
+  <data name="GameDiscovery_Diagnostic_StoreScanFailed" xml:space="preserve"><value>Could not scan {0} source '{1}': {2}</value></data>
+  <data name="GameDiscovery_Cache_SourceLocal" xml:space="preserve"><value>Local import</value></data>
+  <data name="GameDiscovery_Cache_SourceRemote" xml:space="preserve"><value>Online download</value></data>
+  <data name="GameDiscovery_Cache_PrimaryMissing" xml:space="preserve"><value>The imported primary manifest is no longer available; the cached copy is being used.</value></data>
+  <data name="GameDiscovery_Cache_PreviousRestored" xml:space="preserve"><value>The current cache was invalid; the previous generation was restored.</value></data>
+  <data name="GameDiscovery_Cache_SecondaryMissing" xml:space="preserve"><value>The configured secondary manifest no longer exists and was omitted: {0}</value></data>
+  <data name="GameDiscovery_Cache_OverrideMissing" xml:space="preserve"><value>The configured FolderRewind override no longer exists and was omitted: {0}</value></data>
 </root>

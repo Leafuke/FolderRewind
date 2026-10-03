@@ -27,16 +27,34 @@ public static class PluginV3CommandService
                 HotkeyId(command.Id),
                 _ => ExecuteAsync(command.Id, new Dictionary<string, JsonElement>(), CancellationToken.None).AsTask());
         }
-        HotkeyManager.RegisterDefinitions(commands.Select(command => new HotkeyDefinition
+        HotkeyManager.RegisterDefinitions(commands.Select(command => CreateHotkeyDefinition(command, pluginId, pluginName)));
+    }
+
+    private static HotkeyDefinition CreateHotkeyDefinition(
+        PluginCommandDescriptor command, PluginId pluginId, string pluginName)
+    {
+        // API 3 command descriptors contain plain text. Supply host translations for
+        // the bundled plugin by stable identity, without changing its command contract.
+        var resourcePrefix = command.Id.PluginId.Value == PluginV3OfflineUpgradeService.MineRewindId
+            ? command.Id.CommandId switch
+            {
+                "hotbackup.active-world" => "Hotkeys_MineRewind_BackupActive",
+                "hotrestore.active-world" => "Hotkeys_MineRewind_RestoreActive",
+                _ => null
+            }
+            : null;
+        return new HotkeyDefinition
         {
             Id = HotkeyId(command.Id),
-            DisplayName = command.DisplayName,
-            Description = command.DisplayName,
+            DisplayName = resourcePrefix is null
+                ? command.DisplayName : I18n.GetString(resourcePrefix + "_DisplayName"),
+            Description = resourcePrefix is null
+                ? command.DisplayName : I18n.GetString(resourcePrefix + "_Description"),
             DefaultGesture = command.DefaultHotkey!,
             Scope = command.IsGlobalHotkey ? HotkeyScope.GlobalHotkey : HotkeyScope.Shortcut,
             OwnerPluginId = pluginId.Value,
             OwnerPluginName = pluginName
-        }));
+        };
     }
 
     public static void UnregisterHotkeys(PluginId pluginId)

@@ -232,13 +232,13 @@ public sealed class LudusaviPathExpressionResolver
         DetectedGameInstallation? installation)
     {
         if (!DiscoveryPathPolicy.TryNormalizeAbsolutePath(fixedRoot, out var normalized))
-            return (LudusaviPathSafety.Blocked, "The manifest resolved to an invalid path.");
+            return (LudusaviPathSafety.Blocked, I18n.GetString("GameDiscovery_Safety_InvalidPath"));
 
         var volumeRoot = Path.GetPathRoot(normalized);
         if (string.IsNullOrWhiteSpace(volumeRoot)
             || DiscoveryPathPolicy.Equals(normalized, volumeRoot))
         {
-            return (LudusaviPathSafety.Blocked, "The manifest resolved to a volume root.");
+            return (LudusaviPathSafety.Blocked, I18n.GetString("GameDiscovery_Safety_VolumeRoot"));
         }
 
         var broadRoots = new[]
@@ -258,7 +258,7 @@ public sealed class LudusaviPathExpressionResolver
         {
             return (
                 LudusaviPathSafety.RequiresConfirmation,
-                "This rule resolves to a broad system, user, or game-library root and requires explicit confirmation.");
+                I18n.GetString("GameDiscovery_Safety_BroadRoot"));
         }
 
         return (LudusaviPathSafety.Normal, string.Empty);

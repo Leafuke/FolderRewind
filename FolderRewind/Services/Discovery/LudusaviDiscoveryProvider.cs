@@ -78,7 +78,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                     Diagnostic(
                         DiscoveryDiagnosticSeverity.Information,
                         "manifest-unavailable",
-                        "No valid Ludusavi manifest cache is available. Download or import a manifest first.")
+                        I18n.GetString("GameDiscovery_Diagnostic_NoManifest"))
                 },
                 Statistics = new DiscoveryScanStatistics { Duration = stopwatch.Elapsed }
             };
@@ -88,7 +88,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         {
             ProviderId = ProviderId,
             Phase = "installations",
-            Message = "Scanning Steam, GOG, and Epic installations"
+            Message = I18n.GetString("GameDiscovery_Status_ScanningInstallations")
         });
         var installationScan = _installationDiscovery.Scan(
             request.StoreRoots,
@@ -186,7 +186,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                         match,
                         string.Empty,
                         allowDefaultSelection: false,
-                        accountWarning: "No active store account could be identified. This wildcard may include multiple local accounts and requires manual selection.");
+                        accountWarning: I18n.GetString("GameDiscovery_Evidence_NoActiveAccount"));
                     continue;
                 }
 
@@ -207,7 +207,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                         allowDefaultSelection: isActive,
                         accountWarning: isActive
                             ? null
-                            : $"Store account {userId} is not the active account and is not selected by default.");
+                            : string.Format(I18n.GetString("GameDiscovery_Evidence_InactiveAccount"), userId));
                 }
             }
 
@@ -324,7 +324,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                 DefinitionId = definition.DefinitionId,
                 RootPath = match.Installation.BasePath,
                 Category = "path",
-                Message = $"{definition.DisplayName}: could not safely resolve '{resource.Expression}'."
+                Message = string.Format(I18n.GetString("GameDiscovery_Diagnostic_PathResolutionFailed"), definition.DisplayName, resource.Expression)
             });
             return;
         }
@@ -351,7 +351,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         var parts = new List<string> { evidenceDescription };
         if (usesStoreUserIdWildcard)
         {
-            parts.Add("The unknown store user ID is preserved as a single path-segment wildcard.");
+            parts.Add(I18n.GetString("GameDiscovery_Evidence_AccountWildcard"));
         }
         if (!string.IsNullOrWhiteSpace(accountWarning))
         {
@@ -370,7 +370,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
             ResourceId = resource.ResourceId,
             ProviderId = ProviderId,
             ProviderPriority = Descriptor.Priority,
-            DisplayName = $"{definition.DisplayName} Registry",
+            DisplayName = string.Format(I18n.GetString("GameDiscovery_RegistryResourceName"), definition.DisplayName),
             Kind = BackupResourceKind.Registry,
             SupportState = BackupResourceSupportState.UnsupportedRegistry,
             OriginalExpression = resource.Expression,
@@ -383,7 +383,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                 {
                     Confidence = confidence,
                     Kind = "registry-rule",
-                    Description = "The manifest contains Registry data, which this FolderRewind version cannot back up.",
+                    Description = I18n.GetString("GameDiscovery_Evidence_RegistryUnsupported"),
                     Source = ProviderId
                 }
             }
@@ -454,7 +454,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                         installation,
                         DiscoveryConfidence.High,
                         "store-id",
-                        $"Matched {installation.Store} ID {installation.StoreGameId}."));
+                        string.Format(I18n.GetString("GameDiscovery_Evidence_StoreIdMatched"), installation.Store, installation.StoreGameId)));
                 }
             }
             else
@@ -493,8 +493,8 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                         ambiguous ? DiscoveryConfidence.Low : DiscoveryConfidence.Medium,
                         ambiguous ? "ambiguous-name" : "name-and-install-dir",
                         ambiguous
-                            ? "Only an ambiguous normalized name matched; resources are not selected by default."
-                            : "Matched the normalized display name, alias, or install directory hint."));
+                            ? I18n.GetString("GameDiscovery_Evidence_AmbiguousName")
+                            : I18n.GetString("GameDiscovery_Evidence_NameMatched")));
                 }
             }
         }
@@ -606,7 +606,7 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                 {
                     Severity = DiscoveryDiagnosticSeverity.Warning,
                     Code = "unknown-store-constraint",
-                    Message = $"Unknown Ludusavi store constraint: {string.Join(", ", unknownStores)}.",
+                    Message = string.Format(I18n.GetString("GameDiscovery_Diagnostic_UnknownStoreConstraint"), string.Join(", ", unknownStores)),
                     ProviderId = ProviderId,
                     DefinitionId = definitionId
                 });
@@ -697,7 +697,14 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
 
     private static string CreateResourceDisplayName(string gameName, IReadOnlyList<string> tags)
     {
-        var suffix = tags.Count == 0 ? "Data" : string.Join(" + ", tags.Select(tag => tag.ToUpperInvariant()));
+        var suffix = tags.Count == 0 ? I18n.GetString("GameDiscovery_ResourceTag_Data")
+            : string.Join(" + ", tags.Select(tag => tag.ToLowerInvariant() switch
+            {
+                "save" => I18n.GetString("GameDiscovery_ResourceTag_Save"),
+                "config" => I18n.GetString("GameDiscovery_ResourceTag_Config"),
+                "other" => I18n.GetString("GameDiscovery_ResourceTag_Other"),
+                _ => tag.ToUpperInvariant()
+            }));
         return $"{gameName} {suffix}";
     }
 

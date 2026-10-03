@@ -72,7 +72,7 @@ public static class DiscoveryResourcePlanner
             ? leafName
             : resources.Select(resource => resource.DisplayName)
                 .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-              ?? "Game data";
+              ?? I18n.GetString("GameDiscovery_DefaultResourceName");
     }
 
     public static string NormalizePath(string path) =>

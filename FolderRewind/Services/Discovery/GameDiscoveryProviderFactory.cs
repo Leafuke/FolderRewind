@@ -46,7 +46,7 @@ public static class GameDiscoveryProviderFactory
                 {
                     Severity = DiscoveryDiagnosticSeverity.Warning,
                     Code = "definition-catalog-unavailable",
-                    Message = $"Plugin '{pluginId.Value}' must be updated before its discovery provider can be used by game discovery.",
+                    Message = string.Format(I18n.GetString("GameDiscovery_Diagnostic_PluginCatalogUpgrade"), pluginId.Value),
                     ProviderId = lease.Capability.ProviderId.Value,
                     Category = "plugin-discovery"
                 });
@@ -57,7 +57,8 @@ public static class GameDiscoveryProviderFactory
             providers.Add(new PluginGameDiscoveryProvider(
                 pluginId,
                 lease.Capability.ProviderId,
-                manifest?.Name.Default ?? pluginId.Value,
+                manifest is null ? pluginId.Value
+                    : I18n.PickBest(manifest.Name.Translations, manifest.Name.Default) ?? pluginId.Value,
                 manifest?.Version ?? "unknown"));
         }
         return new GameDiscoveryProviderComposition
@@ -81,7 +82,8 @@ public static class GameDiscoveryProviderFactory
         {
             var id = new PluginId(pluginId.Trim());
             var manifest = PluginV3RuntimeService.FindManifest(id);
-            var displayName = manifest?.Name.Default ?? id.Value;
+            var displayName = manifest is null ? id.Value
+                : I18n.PickBest(manifest.Name.Translations, manifest.Name.Default) ?? id.Value;
             if (!PluginV3RuntimeService.IsActive(id))
             {
                 return Unavailable(
@@ -140,7 +142,8 @@ public static class GameDiscoveryProviderFactory
             var id = new PluginId(pluginId.Trim());
             using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IDiscoveryCapability>(id, default);
             var manifest = PluginV3RuntimeService.FindManifest(id);
-            var displayName = manifest?.Name.Default ?? id.Value;
+            var displayName = manifest is null ? id.Value
+                : I18n.PickBest(manifest.Name.Translations, manifest.Name.Default) ?? id.Value;
             if (lease == null)
             {
                 return FailureComposition(Unavailable(

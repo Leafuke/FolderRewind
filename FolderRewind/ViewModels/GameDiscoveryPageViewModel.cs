@@ -935,11 +935,41 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             "GameDiscovery_Cache_Present",
             metadata.UpdatedAtUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
             ShortRevision(metadata.SourceSha256),
-            metadata.SourceKind);
+            metadata.SourceKind switch
+            {
+                "local" => I18n.GetString("GameDiscovery_Cache_SourceLocal"),
+                "upstream" => I18n.GetString("GameDiscovery_Cache_SourceRemote"),
+                _ => metadata.SourceKind
+            });
         if (metadata.Warnings.Count > 0)
         {
-            CacheStatus += Environment.NewLine + string.Join(Environment.NewLine, metadata.Warnings);
+            CacheStatus += Environment.NewLine + string.Join(Environment.NewLine, metadata.Warnings.Select(LocalizeCacheWarning));
         }
+    }
+
+    // Cache warnings are persisted as text by older versions. Translate at the UI
+    // boundary so an existing cache also follows the current application language.
+    private static string LocalizeCacheWarning(string warning)
+    {
+        switch (warning)
+        {
+            case "The imported primary manifest is no longer available; the cached copy is being used.":
+                return I18n.GetString("GameDiscovery_Cache_PrimaryMissing");
+            case "The current cache was invalid; the previous generation was restored.":
+            case "The current Ludusavi cache generation was invalid; the previous generation was restored.":
+                return I18n.GetString("GameDiscovery_Cache_PreviousRestored");
+        }
+
+        foreach (var (prefix, key) in new[]
+        {
+            ("The configured secondary manifest no longer exists and was omitted: ", "GameDiscovery_Cache_SecondaryMissing"),
+            ("The configured FolderRewind override no longer exists and was omitted: ", "GameDiscovery_Cache_OverrideMissing")
+        })
+        {
+            if (warning.StartsWith(prefix, StringComparison.Ordinal))
+                return I18n.Format(key, warning[prefix.Length..]);
+        }
+        return warning;
     }
 
     private void RefreshStatuses()
@@ -1188,8 +1218,14 @@ public sealed class GameDiscoveryResourceItem : FolderRewind.Models.ObservableOb
     public string Name => Candidate.DisplayName;
     public string Expression => Candidate.OriginalExpression;
     public bool CanOpenPath => Candidate.FixedRootExists && Candidate.Kind != BackupResourceKind.Registry;
-    public string Tags => string.Join(", ", Candidate.Tags);
-    public string Evidence => string.Join("; ", Candidate.Evidence.Select(item => $"{item.Confidence}: {item.Description}"));
+    public string Tags => string.Join(", ", Candidate.Tags.Select(tag => tag.ToLowerInvariant() switch
+            {
+                "save" => I18n.GetString("GameDiscovery_ResourceTag_Save"),
+                "config" => I18n.GetString("GameDiscovery_ResourceTag_Config"),
+                "other" => I18n.GetString("GameDiscovery_ResourceTag_Other"),
+                _ => tag
+            }));
+    public string Evidence => string.Join("; ", Candidate.Evidence.Select(item => $"{I18n.GetString("GameDiscovery_Confidence_" + item.Confidence)}: {item.Description}"));
     public string PathSummary => Candidate.Kind == BackupResourceKind.Registry
         ? string.Empty
         : I18n.GetString(Candidate.FixedRootExists

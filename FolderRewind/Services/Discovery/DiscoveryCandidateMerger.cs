@@ -186,13 +186,13 @@ public static class DiscoveryCandidateMerger
                 if (ResourcesEquivalent(winner, other))
                 {
                     other.SuppressedByProviderId = winner.ProviderId;
-                    other.SuppressionReason = $"Has the same effective source scope as specialized resource {winner.ResourceId}.";
+                    other.SuppressionReason = string.Format(I18n.GetString("GameDiscovery_Suppression_EquivalentScope"), winner.ResourceId);
                 }
                 else if (ResourcesMayOverlap(winner, other))
                 {
-                    var warning = $"Partially overlaps resource '{winner.ResourceId}' from specialized provider '{winner.ProviderId}'.";
+                    var warning = string.Format(I18n.GetString("GameDiscovery_Conflict_SpecializedResource"), winner.ResourceId, winner.ProviderId);
                     other.ConflictWarning = warning;
-                    winner.ConflictWarning = $"Partially overlaps generic resource '{other.ResourceId}'.";
+                    winner.ConflictWarning = string.Format(I18n.GetString("GameDiscovery_Conflict_GenericResource"), other.ResourceId);
                 }
             }
         }

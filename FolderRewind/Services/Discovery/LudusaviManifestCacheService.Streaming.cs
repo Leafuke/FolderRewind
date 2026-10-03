@@ -195,7 +195,7 @@ public sealed partial class LudusaviManifestCacheService
                         PreviousGenerationId = IsSafeGenerationId(previous) ? previous! : string.Empty });
                 return new LudusaviGeneration(WithWarnings(existing, warnings), Path.Combine(GetGenerationRoot(generationId), IndexFileName), _gate);
             }
-            progress?.Report(new DiscoveryProgress { ProviderId = "ludusavi", Phase = "compile", Message = generationId });
+            progress?.Report(new DiscoveryProgress { ProviderId = "ludusavi", Phase = "compile", Message = I18n.GetString("GameDiscovery_Status_CompilingIndex") });
             await Task.Run(() => _compiler.CompileToIndex(primary, secondary, overrides,
                 Path.Combine(staging, IndexFileName), sourceHash, staging, token), token).ConfigureAwait(false);
             var metadata = new LudusaviManifestCacheMetadata { GenerationId = generationId, CompilerVersion = CompilerVersion,

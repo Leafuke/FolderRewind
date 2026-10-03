@@ -60,7 +60,7 @@ public sealed class LauncherInstallationDiscoveryService : ILauncherInstallation
                 {
                     Severity = DiscoveryDiagnosticSeverity.Warning,
                     Code = "invalid_discovery_path",
-                    Message = "Skipped an invalid absolute discovery path.",
+                    Message = I18n.GetString("GameDiscovery_Diagnostic_InvalidScanPath"),
                     RootPath = path
                 });
             }
@@ -87,7 +87,7 @@ public sealed class LauncherInstallationDiscoveryService : ILauncherInstallation
                 {
                     Severity = DiscoveryDiagnosticSeverity.Warning,
                     Code = "invalid_discovery_path",
-                    Message = "Skipped an installation with an invalid absolute path.",
+                    Message = I18n.GetString("GameDiscovery_Diagnostic_InvalidInstallationPath"),
                     RootPath = item.BasePath
                 });
             }
@@ -177,7 +177,7 @@ public sealed class SteamInstallationScanner : ILauncherInstallationScanner
                     if (!TryScalar(root, "appid", out var appId)
                         || !TryScalar(root, "installdir", out var installDir))
                     {
-                        diagnostics.Add(ScanDiagnostic(Store, manifestPath, "format", "Steam manifest is missing appid or installdir."));
+                        diagnostics.Add(ScanDiagnostic(Store, manifestPath, "format", I18n.GetString("GameDiscovery_Diagnostic_InvalidSteamManifest")));
                         continue;
                     }
 
@@ -395,7 +395,7 @@ public sealed class EpicInstallationScanner : ILauncherInstallationScanner
                         var installPath = GetString(json, "InstallLocation");
                         if (string.IsNullOrWhiteSpace(installPath))
                         {
-                            diagnostics.Add(ScanDiagnostic(Store, path, "format", "Epic manifest is missing InstallLocation."));
+                            diagnostics.Add(ScanDiagnostic(Store, path, "format", I18n.GetString("GameDiscovery_Diagnostic_InvalidEpicManifest")));
                             continue;
                         }
                         var appId = GetString(json, "CatalogItemId");
@@ -576,7 +576,7 @@ internal static class LauncherScanDiagnosticFactory
         ProviderId = store.ToString().ToLowerInvariant(),
         RootPath = rootPath,
         Category = category,
-        Message = $"Could not scan {store} source '{rootPath}': {message}"
+        Message = string.Format(I18n.GetString("GameDiscovery_Diagnostic_StoreScanFailed"), store, rootPath, message)
     };
 
     private static string ErrorCategory(Exception exception) => exception switch

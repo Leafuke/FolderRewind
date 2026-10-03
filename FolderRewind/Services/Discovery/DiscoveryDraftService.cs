@@ -41,7 +41,7 @@ public static class DiscoveryDraftService
                 issues.Add(new BackupConfigDraftIssue
                 {
                     Code = "multiple-recommended-presets",
-                    Message = "More than one recommended preset matched. The standard preset was selected instead."
+                    Message = I18n.GetString("GameDiscovery_Draft_MultiplePresets")
                 });
             }
         }
@@ -57,7 +57,7 @@ public static class DiscoveryDraftService
             issues.Add(new BackupConfigDraftIssue
             {
                 Code = "missing-required-plugins",
-                Message = $"Required plugins are missing or disabled: {string.Join(", ", unavailablePlugins)}.",
+                Message = string.Format(I18n.GetString("GameDiscovery_Draft_PluginsUnavailable"), string.Join(", ", unavailablePlugins)),
                 IsBlocking = true
             });
         }
@@ -99,7 +99,7 @@ public static class DiscoveryDraftService
                 {
                     Code = "preset-unavailable",
                     Message = string.IsNullOrWhiteSpace(presetResult.Message)
-                        ? "The selected preset cannot be applied on this host."
+                        ? I18n.GetString("GameDiscovery_Draft_PresetUnavailable")
                         : presetResult.Message,
                     IsBlocking = true
                 });
@@ -124,7 +124,7 @@ public static class DiscoveryDraftService
             issues.Add(new BackupConfigDraftIssue
             {
                 Code = "no-supported-resources",
-                Message = "No supported filesystem resources are selected.",
+                Message = I18n.GetString("GameDiscovery_Draft_NoResources"),
                 IsBlocking = true
             });
         }
@@ -150,7 +150,7 @@ public static class DiscoveryDraftService
             issues.Add(new BackupConfigDraftIssue
             {
                 Code = "encryption-password-required",
-                Message = "An encryption password must be provided before this draft can be committed.",
+                Message = I18n.GetString("GameDiscovery_Draft_PasswordRequired"),
                 IsBlocking = true
             });
         }
@@ -209,7 +209,7 @@ public static class DiscoveryDraftService
         {
             return TargetedFailure(
                 "invalid-provider-preset",
-                "The preset does not contain a valid provider definition reference.",
+                I18n.GetString("GameDiscovery_Draft_InvalidDefinition"),
                 string.Empty);
         }
         var providerId = definitions.FirstOrDefault()?.ProviderId ?? string.Empty;
@@ -218,7 +218,7 @@ public static class DiscoveryDraftService
         {
             return TargetedFailure(
                 "provider-unavailable",
-                $"Required plugin(s) are not installed: {string.Join(", ", missingPlugins)}.",
+                string.Format(I18n.GetString("GameDiscovery_Draft_PluginsMissing"), string.Join(", ", missingPlugins)),
                 providerId);
         }
         var installedV3 = GetInstalledV3PluginIds();
@@ -232,7 +232,7 @@ public static class DiscoveryDraftService
         {
             return TargetedFailure(
                 "provider-inactive",
-                $"Required plugin(s) are disabled or inactive: {string.Join(", ", inactivePlugins)}.",
+                string.Format(I18n.GetString("GameDiscovery_Draft_PluginsInactive"), string.Join(", ", inactivePlugins)),
                 providerId);
         }
         var result = await discoveryService.DiscoverAsync(
@@ -257,7 +257,7 @@ public static class DiscoveryDraftService
                 {
                     Severity = DiscoveryDiagnosticSeverity.Error,
                     Code = "no-candidates",
-                    Message = "The selected provider found no matching backup targets.",
+                    Message = I18n.GetString("GameDiscovery_Draft_NoTargets"),
                     ProviderId = providerId,
                     Category = "preset-targeted"
                 }
@@ -400,7 +400,7 @@ public static class DiscoveryDraftService
         foreach (var plan in plans)
         {
             var baseName = FolderNameConflictService.ResolveDisplayName(plan.DisplayName, plan.FixedRoot);
-            var name = string.IsNullOrWhiteSpace(baseName) ? "Game data" : baseName;
+            var name = string.IsNullOrWhiteSpace(baseName) ? I18n.GetString("GameDiscovery_DefaultResourceName") : baseName;
             var suffix = 2;
             while (!names.Add(name))
             {
@@ -456,15 +456,15 @@ public static class DiscoveryDraftService
     {
         if (newConfigs.Any(config => string.IsNullOrWhiteSpace(config.Name)))
         {
-            return "Every configuration requires a name.";
+            return I18n.GetString("GameDiscovery_Draft_NameRequired");
         }
         if (newConfigs.Any(config => string.IsNullOrWhiteSpace(config.DestinationPath)))
         {
-            return "Every configuration requires a destination directory.";
+            return I18n.GetString("GameDiscovery_Draft_DestinationRequired");
         }
         if (newConfigs.Any(config => config.SourceFolders.Count == 0))
         {
-            return "A newly discovered configuration must contain at least one source folder.";
+            return I18n.GetString("GameDiscovery_Draft_SourceRequired");
         }
 
         var existingNames = ConfigService.CurrentConfig.BackupConfigs
@@ -473,7 +473,7 @@ public static class DiscoveryDraftService
         if (newConfigs.GroupBy(config => config.Name.Trim(), StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1)
             || newConfigs.Any(config => existingNames.Contains(config.Name.Trim())))
         {
-            return "Configuration names must be unique.";
+            return I18n.GetString("GameDiscovery_Draft_DuplicateName");
         }
         var existingDestinations = ConfigService.CurrentConfig.BackupConfigs
             .Select(config => FolderNameConflictService.NormalizeDestinationPath(config.DestinationPath))
@@ -485,7 +485,7 @@ public static class DiscoveryDraftService
         if (newDestinations.GroupBy(path => path, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1)
             || newDestinations.Any(existingDestinations.Contains))
         {
-            return "Configuration destination directories must be unique.";
+            return I18n.GetString("GameDiscovery_Draft_DuplicateDestination");
         }
 
         foreach (var draft in selectedDrafts.Where(draft => draft.IsCommittable))
@@ -516,14 +516,13 @@ public static class DiscoveryDraftService
                         out var backupSubDir,
                         out var metadataDir))
                 {
-                    return $"Cannot resolve a safe backup storage path for source '{folder.DisplayName}'.";
+                    return string.Format(I18n.GetString("GameDiscovery_Draft_StoragePathInvalid"), folder.DisplayName);
                 }
 
                 var overlap = BackupPathOverlapPolicy.Validate(folder.Path, backupSubDir, metadataDir);
                 if (!overlap.IsSafe)
                 {
-                    return $"Source '{folder.DisplayName}' overlaps its backup storage path: "
-                           + $"{overlap.SourcePath} ↔ {overlap.TargetPath}";
+                    return string.Format(I18n.GetString("GameDiscovery_Draft_StoragePathOverlap"), folder.DisplayName, overlap.SourcePath, overlap.TargetPath);
                 }
             }
         }
@@ -616,7 +615,7 @@ public static class DiscoveryDraftService
 
     private static string UniqueFolderName(BackupConfig config, string requested)
     {
-        var baseName = string.IsNullOrWhiteSpace(requested) ? "Game data" : requested;
+        var baseName = string.IsNullOrWhiteSpace(requested) ? I18n.GetString("GameDiscovery_DefaultResourceName") : requested;
         var candidate = baseName;
         var suffix = 2;
         while (config.SourceFolders.Any(folder =>
@@ -653,7 +652,7 @@ public static class DiscoveryDraftService
             issues.Add(new BackupConfigDraftIssue
             {
                 Code = "plugin-config-kind-mismatch",
-                Message = $"The selected preset kind '{targetKind.OwnerId}/{targetKind.KindId}' does not match the plugin draft kind '{context.Kind.OwnerId}/{context.Kind.KindId}'.",
+                Message = string.Format(I18n.GetString("GameDiscovery_Draft_KindMismatch"), targetKind.OwnerId, targetKind.KindId, context.Kind.OwnerId, context.Kind.KindId),
                 IsBlocking = true
             });
             return;

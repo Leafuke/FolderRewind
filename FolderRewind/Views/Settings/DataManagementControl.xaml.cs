@@ -187,7 +187,7 @@ namespace FolderRewind.Views.Settings
                     "FolderRewind.Settings.DataManagement.ExportTemplate",
                     new Dictionary<string, IReadOnlyList<string>>
                     {
-                        ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { BackupPresetService.ShareFileExtension })
+                        [I18n.GetString("FilePicker_FolderRewindTemplate")] = new ReadOnlyCollection<string>(new[] { BackupPresetService.ShareFileExtension })
                     },
                     $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}",
                     MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
@@ -330,7 +330,7 @@ namespace FolderRewind.Views.Settings
                 "FolderRewind.Settings.DataManagement.ExportHistory",
                 new Dictionary<string, IReadOnlyList<string>>
                 {
-                    ["FolderRewind History"] = new ReadOnlyCollection<string>(new[] { ".frhistory" })
+                    [I18n.GetString("FilePicker_FolderRewindHistory")] = new ReadOnlyCollection<string>(new[] { ".frhistory" })
                 },
                 "FolderRewind_history",
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);

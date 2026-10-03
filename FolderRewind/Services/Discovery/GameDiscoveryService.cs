@@ -71,7 +71,7 @@ public sealed class GameDiscoveryService
         if (timedOut) diagnostics.Add(new DiscoveryDiagnostic
         {
             Severity = DiscoveryDiagnosticSeverity.Warning, Code = "discovery-time-budget",
-            Message = "Discovery reached its time limit. Completed provider results are retained; choose a narrower root to continue."
+            Message = I18n.GetString("GameDiscovery_Diagnostic_TimeLimit")
         });
         if (request.Mode == DiscoveryRequestMode.PresetTargeted)
         {
@@ -88,7 +88,7 @@ public sealed class GameDiscoveryService
                     {
                         Severity = DiscoveryDiagnosticSeverity.Error,
                         Code = "provider-unavailable",
-                        Message = $"Discovery provider '{providerId}' is unavailable.",
+                        Message = string.Format(I18n.GetString("GameDiscovery_Diagnostic_ProviderUnavailable"), providerId),
                         ProviderId = providerId,
                         Category = "provider-composition"
                     });
@@ -102,7 +102,7 @@ public sealed class GameDiscoveryService
             diagnostics.Add(new DiscoveryDiagnostic
             {
                 Severity = DiscoveryDiagnosticSeverity.Warning, Code = "discovery-result-budget",
-                Message = "Discovery reached its result limit. Choose a narrower root to find additional content."
+                Message = I18n.GetString("GameDiscovery_Diagnostic_ResultLimit")
             });
             candidates = candidates.Take(maximum).ToList();
         }
@@ -137,7 +137,7 @@ public sealed class GameDiscoveryService
             return result ?? FailureResult(
                 provider.Descriptor.Id,
                 "provider-returned-null",
-                "The discovery provider returned no result.");
+                I18n.GetString("GameDiscovery_Diagnostic_NoResult"));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

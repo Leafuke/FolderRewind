@@ -54,19 +54,19 @@ internal sealed class PluginGameDiscoveryProvider : IGameDiscoveryProvider
         if (lease == null)
         {
             return Result(
-                diagnostics: [Diagnostic(DiscoveryDiagnosticSeverity.Error, "provider-inactive", "The plugin discovery provider is not active.")],
+                diagnostics: [Diagnostic(DiscoveryDiagnosticSeverity.Error, "provider-inactive", I18n.GetString("GameDiscovery_Diagnostic_ProviderInactive"))],
                 duration: stopwatch.Elapsed);
         }
         if (lease.Capability.ProviderId != _providerId)
         {
             return Result(
-                diagnostics: [Diagnostic(DiscoveryDiagnosticSeverity.Error, "provider-identity-changed", "The active plugin discovery identity no longer matches the registered provider.")],
+                diagnostics: [Diagnostic(DiscoveryDiagnosticSeverity.Error, "provider-identity-changed", I18n.GetString("GameDiscovery_Diagnostic_ProviderIdentityChanged"))],
                 duration: stopwatch.Elapsed);
         }
         if (lease.Capability is not IDiscoveryDefinitionCatalog catalog)
         {
             return Result(
-                diagnostics: [Diagnostic(DiscoveryDiagnosticSeverity.Error, "definition-catalog-unavailable", "The plugin must be updated before it can participate in game discovery.")],
+                diagnostics: [Diagnostic(DiscoveryDiagnosticSeverity.Error, "definition-catalog-unavailable", I18n.GetString("GameDiscovery_Diagnostic_PluginUpgradeRequired"))],
                 duration: stopwatch.Elapsed);
         }
 
@@ -154,7 +154,7 @@ internal sealed class PluginGameDiscoveryProvider : IGameDiscoveryProvider
                 diagnostics.Add(Diagnostic(
                     DiscoveryDiagnosticSeverity.Warning,
                     "plugin-candidate-mapping-failed",
-                    $"Candidate '{candidate?.CandidateId}' could not be mapped: {ex.Message}"));
+                    string.Format(I18n.GetString("GameDiscovery_Diagnostic_CandidateMappingFailed"), candidate?.CandidateId, ex.Message)));
             }
         }
 
