@@ -91,7 +91,10 @@ public sealed partial class LudusaviManifestCacheService
         finally { if (!transferred) _gate.Release(); }
     }
 
-    private async Task<(LudusaviManifestCacheMetadata Metadata, string PrimaryPath, bool IndexValidated)?> FindDiskSeedAsync(CancellationToken token)
+    private Task<(LudusaviManifestCacheMetadata Metadata, string PrimaryPath, bool IndexValidated)?> FindDiskSeedAsync(CancellationToken token)
+        => Task.Run(() => FindDiskSeedCoreAsync(token), token);
+
+    private async Task<(LudusaviManifestCacheMetadata Metadata, string PrimaryPath, bool IndexValidated)?> FindDiskSeedCoreAsync(CancellationToken token)
     {
         var pointer = await TryLoadPointerAsync(token).ConfigureAwait(false);
         if (pointer is null) return null;
@@ -121,7 +124,13 @@ public sealed partial class LudusaviManifestCacheService
         return fallback;
     }
 
-    private async Task<LudusaviGeneration> BuildDiskGenerationAsync(string? primaryPath, Stream? download,
+    private Task<LudusaviGeneration> BuildDiskGenerationAsync(string? primaryPath, Stream? download,
+        string? secondaryPath, string? overridePath, string sourceKind, string sourceUri, string etag,
+        IProgress<DiscoveryProgress>? progress, CancellationToken token, string? validatedGenerationId = null)
+        => Task.Run(() => BuildDiskGenerationCoreAsync(primaryPath, download, secondaryPath, overridePath,
+            sourceKind, sourceUri, etag, progress, token, validatedGenerationId), token);
+
+    private async Task<LudusaviGeneration> BuildDiskGenerationCoreAsync(string? primaryPath, Stream? download,
         string? secondaryPath, string? overridePath, string sourceKind, string sourceUri, string etag,
         IProgress<DiscoveryProgress>? progress, CancellationToken token, string? validatedGenerationId = null)
     {
