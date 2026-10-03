@@ -66,6 +66,27 @@ namespace FolderRewind.Services.KnotLink
                 : Array.Empty<string>();
         }
 
+        /// <summary>
+        /// Preserve selectors forbid commas inside paths, so this parameter alone can
+        /// accept legacy whole-value encoding without ambiguity for valid selectors.
+        /// Generic lists must keep encoded commas inside individual items.
+        /// </summary>
+        public IReadOnlyList<string> GetRestorePreservePaths()
+        {
+            if (!_encodedOptions.TryGetValue("restore_preserve_paths", out var value)
+                || string.IsNullOrEmpty(value)) return Array.Empty<string>();
+            if (value.Contains(',')) return KnotLinkKeyValueCodec.DecodeList(value);
+
+            // Decode exactly once: a literal "%2C" path must not become a separator.
+            var decoded = KnotLinkKeyValueCodec.DecodeValue(value);
+            var result = new List<string>();
+            foreach (var item in decoded.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(item)) result.Add(item);
+            }
+            return result;
+        }
+
         public static string NormalizeKey(string key) => KnotLinkKeyValueCodec.NormalizeKey(key);
     }
 }

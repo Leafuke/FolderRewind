@@ -374,7 +374,7 @@ namespace FolderRewind.Services
             if (!TryResolveRestoreMode(request, out var mode, out error)) return error;
             var restoreWhitelist = request.GetList("restore_whitelist");
             string[] preservePaths;
-            try { preservePaths = RestorePreservePaths.Normalize(request.GetList("restore_preserve_paths")); }
+            try { preservePaths = RestorePreservePaths.Normalize(request.GetRestorePreservePaths()); }
             catch (Exception ex) { return $"ERROR:invalid_preserve_path:{ex.Message}"; }
             try { PathRuleMatcher.ValidateRestoreRules(config!.Filters.RestoreWhitelist.Concat(restoreWhitelist)); }
             catch (Exception ex) { return $"ERROR:invalid_filter_rule:{ex.Message}"; }
