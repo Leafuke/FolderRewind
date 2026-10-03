@@ -18,6 +18,7 @@ namespace FolderRewind.Views
         private readonly Dictionary<SettingsExpander, long> _expanderCallbackTokens = new();
         private bool _expanderLazyLoadInitialized;
         private string? _pendingRepairTarget;
+        private bool _active;
 
         public SettingsPage()
         {
@@ -30,6 +31,8 @@ namespace FolderRewind.Views
 
             Loaded += async (_, _) =>
             {
+                _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+                _viewModel.PropertyChanged += OnViewModelPropertyChanged;
                 // Inject ViewModel into all child controls
                 PresetControl.SetViewModel(_viewModel);
                 CoreBehaviorControl.SetViewModel(_viewModel);
@@ -41,6 +44,7 @@ namespace FolderRewind.Views
                 AboutControl.SetViewModel(_viewModel);
 
                 await _viewModel.InitializeAsync();
+                if (!_active) return;
                 InitializeExpanderLazyLoading();
                 ApplyPendingRepairTarget();
             };
@@ -112,16 +116,24 @@ namespace FolderRewind.Views
             _expanderContentCreated.Clear();
 
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-            _viewModel.Dispose();
-            Unloaded -= OnSettingsPageUnloaded;
+            _viewModel.Deactivate();
         }
 
         protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            _active = true;
             _viewModel.OnNavigatedTo();
             _pendingRepairTarget = e.Parameter as string;
             if (IsLoaded) DispatcherQueue.TryEnqueue(ApplyPendingRepairTarget);
+        }
+
+        protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            _active = false;
+            _viewModel.SaveIfDirty();
+            _viewModel.Deactivate();
+            base.OnNavigatedFrom(e);
         }
 
         private void ApplyPendingRepairTarget()

@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models"
     xmlns:controls="using:FolderRewind.Controls"
-    NavigationCacheMode="Required">
+    NavigationCacheMode="Enabled">
 
     <Grid Padding="36">
         <Grid.RowDefinitions>

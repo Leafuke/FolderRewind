@@ -8,7 +8,7 @@
     xmlns:controls="using:FolderRewind.Controls"
     xmlns:converters="using:FolderRewind.Converters"
     x:Name="RootPage"
-    NavigationCacheMode="Required" SizeChanged="OnHistoryPageSizeChanged">
+    NavigationCacheMode="Enabled" SizeChanged="OnHistoryPageSizeChanged">
 
     <Page.Resources>
         <Style x:Key="HistoryTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">

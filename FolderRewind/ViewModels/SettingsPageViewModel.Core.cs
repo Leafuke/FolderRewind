@@ -15,6 +15,7 @@ namespace FolderRewind.ViewModels
     public sealed partial class SettingsPageViewModel : ViewModelBase, IDisposable
     {
         private bool _initialized;
+        private bool _active;
         private bool _pluginsRefreshed;
         private bool _pluginsRefreshing;
         private bool _fontFamiliesLoading;
@@ -283,7 +284,6 @@ namespace FolderRewind.ViewModels
 
         public SettingsPageViewModel()
         {
-            ObserveBindableSettings();
             InstallMinecraftPresetCommand = new AsyncRelayCommand(
                 async () => { await InstallMinecraftPresetAsync(); },
                 () => IsMinecraftPresetInstallIdle);
@@ -316,6 +316,7 @@ namespace FolderRewind.ViewModels
 
         public async Task InitializeAsync()
         {
+            Activate();
             if (_initialized)
             {
                 return;
@@ -331,6 +332,14 @@ namespace FolderRewind.ViewModels
             RefreshCoreValidationState();
             RefreshSponsorState();
 
+            await RefreshStartupStatusAsync();
+        }
+
+        public void Activate()
+        {
+            if (_active) return;
+            _active = true;
+            ObserveBindableSettings();
             try
             {
                 HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
@@ -348,11 +357,22 @@ namespace FolderRewind.ViewModels
             SponsorService.StatusChanged -= SponsorService_StateChanged;
             SponsorService.StatusChanged += SponsorService_StateChanged;
 
-            await RefreshStartupStatusAsync();
+        }
+
+        public void Deactivate()
+        {
+            if (!_active) return;
+            _active = false;
+            StopObservingBindableSettings();
+            CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
+            SponsorService.StateChanged -= SponsorService_StateChanged;
+            SponsorService.StatusChanged -= SponsorService_StateChanged;
+            HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
         }
 
         public void OnNavigatedTo()
         {
+            Activate();
             TaskObserver.Observe(RefreshStartupStatusAsync(), nameof(SettingsPageViewModel));
             UpdateKnotLinkStatus();
             RefreshKnotLinkServerInfo();
@@ -404,21 +424,7 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public void Dispose()
-        {
-            StopObservingBindableSettings();
-            // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
-            CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
-            SponsorService.StateChanged -= SponsorService_StateChanged;
-            SponsorService.StatusChanged -= SponsorService_StateChanged;
-            try
-            {
-                HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
-            }
-            catch
-            {
-            }
-        }
+        public void Dispose() => Deactivate();
 
     }
 }
