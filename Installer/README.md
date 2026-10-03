@@ -26,7 +26,7 @@ MSI 仅为 Burn 内嵌载荷及构建/验收中间产物，放在 `artifacts/ins
 
 ## 验证和隔离
 
-`Test-MsiInstallation.ps1` 生成独立的测试 UpgradeCode、ProductCode、注册表位置和快捷方式名称。应用通过子进程环境变量 `FOLDERREWIND_TEST_DATA_ROOT` 使用独立配置；正式启动不设置该变量。脚本在执行任何 MSI 前核对测试身份，拒绝生产身份。测试夹具及故障注入不能作为发行资产。
+`Test-MsiInstallation.ps1` 生成独立的测试 UpgradeCode、ProductCode、注册表位置、快捷方式名称和快捷方式 AUMID。测试快捷方式使用对应 `PackageIdentifier`，避免失败测试留下的无效入口与正式版共用任务栏身份。应用通过子进程环境变量 `FOLDERREWIND_TEST_DATA_ROOT` 使用独立配置；正式启动不设置该变量。脚本在执行任何 MSI 前核对测试身份，拒绝生产身份。测试夹具及故障注入不能作为发行资产。
 
 每轮测试还使用独立的注册表后缀和 ProductCode，避免复用失败回滚留下的测试标记。默认执行故障回滚门禁；`-SkipRollbackProbes` 仅用于继续收集其他场景的证据，结果会明确记录未执行，不能作为完整发行验收通过。
 
@@ -38,7 +38,7 @@ MSI 仅为 Burn 内嵌载荷及构建/验收中间产物，放在 `artifacts/ins
 
 ## 既有任务栏入口
 
-1.9.3.0 使用稳定 MSI AUMID `Leafuke.FolderRewind.Msi`，窗口和快捷方式带有重新启动命令、图标和名称。图标引用安装目录中的 EXE，避免依赖旧版 Installer 图标缓存。启动时仅修复目标路径精确匹配当前 EXE 的固定入口，保留参数和固定顺序；Store 或其他安装路径的入口保持原样，仍可从新开始菜单入口手动重新固定。
+1.9.3.0 使用稳定 MSI AUMID `Leafuke.FolderRewind.Msi`，窗口和快捷方式带有重新启动命令、图标和名称。快捷方式的普通图标使用安装目录中的 EXE 索引 0；任务栏 `RelaunchIconResource` 使用 `Assets\MsiApp.ico,0`，避免依赖旧版 Installer 图标缓存。该属性引用 EXE/DLL 时要求负数资源 ID，不能使用普通快捷方式的 `exe,0` 索引格式，否则运行中的任务栏按钮会显示空白文件图标。启动时仅修复目标路径精确匹配当前 EXE 的固定入口，包括旧的错误资源格式，保留参数和固定顺序；Store 或其他安装路径的入口保持原样，仍可从新开始菜单入口手动重新固定。
 
 安装器不改变应用语言，也不默认启用自启动。系统禁用的启动项应在 Windows“启动应用”设置中重新启用。卸载仅清理指向本安装目录的 Run 项和入口，默认保留用户数据。
 
