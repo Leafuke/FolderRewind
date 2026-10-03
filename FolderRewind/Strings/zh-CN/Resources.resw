@@ -5967,4 +5967,16 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_EmptyFilter" xml:space="preserve"><value>没有符合筛选条件的游戏。清除筛选可查看所有结果。</value></data>
   <data name="GameDiscovery_EmptyResults" xml:space="preserve"><value>扫描以查找可备份的目录，也可以指定插件扫描位置。</value></data>
   <data name="GameDiscovery_IncompatibleResume" xml:space="preserve"><value>之前保存的配置类型与当前发现结果不兼容，请重新选择。</value></data>
+  <data name="GameDiscovery_RulesHeading.Text" xml:space="preserve"><value>规则与扫描位置</value></data>
+  <data name="GameDiscovery_RulesButton.Content" xml:space="preserve"><value>规则与位置</value></data>
+  <data name="GameDiscovery_CloseRules.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>关闭规则与扫描位置</value></data>
+  <data name="GameDiscovery_CloseRules.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>关闭</value></data>
+  <data name="GameDiscovery_SearchCompact.PlaceholderText" xml:space="preserve"><value>搜索游戏或别名</value></data>
+  <data name="GameDiscovery_SearchCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>搜索游戏或别名</value></data>
+  <data name="GameDiscovery_StoreCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>按商店筛选</value></data>
+  <data name="GameDiscovery_StoreCompact.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>按商店筛选</value></data>
+  <data name="GameDiscovery_StatusCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>按发现状态筛选</value></data>
+  <data name="GameDiscovery_StatusCompact.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>按发现状态筛选</value></data>
+  <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>资源操作：复制路径、打开目录、详细信息</value></data>
+  <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>资源操作</value></data>
 </root>

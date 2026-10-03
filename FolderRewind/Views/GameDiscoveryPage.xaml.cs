@@ -23,6 +23,7 @@ public sealed partial class GameDiscoveryPage : Page
     private bool _narrow;
     private bool _showDetail;
     private Flyout? _detailsFlyout;
+    private MenuFlyout? _resourceMenu;
 
     public GameDiscoveryPage()
     {
@@ -39,15 +40,42 @@ public sealed partial class GameDiscoveryPage : Page
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         _filterCts?.Cancel();
+        RulesSplitView.IsPaneOpen = false;
+        _resourceMenu?.Hide();
+        _resourceMenu = null;
         _detailsFlyout?.Hide();
         _detailsFlyout = null;
         ViewModel.Dispose();
         base.OnNavigatedFrom(e);
     }
 
-    private async void OnDownloadAndScanClick(object sender, RoutedEventArgs e) => await ViewModel.DownloadAndScanAsync();
-    private async void OnCheckUpdateClick(object sender, RoutedEventArgs e) => await ViewModel.DownloadAndScanAsync();
+    private async void OnDownloadAndScanClick(object sender, RoutedEventArgs e)
+    {
+        RulesSplitView.IsPaneOpen = false;
+        await ViewModel.DownloadAndScanAsync();
+    }
     private async void OnScanClick(object sender, RoutedEventArgs e) => await ViewModel.ScanAsync();
+
+    private void OnOpenRulesClick(object sender, RoutedEventArgs e)
+    {
+        FindName("RulesPane");
+        RulesSplitView.IsPaneOpen = true;
+    }
+
+    private void OnCloseRulesClick(object sender, RoutedEventArgs e)
+    {
+        RulesSplitView.IsPaneOpen = false;
+        RulesButton.Focus(FocusState.Programmatic);
+    }
+
+    private void OnRulesPaneOpened(SplitView sender, object args) => CloseRulesButton?.Focus(FocusState.Programmatic);
+
+    private void OnRulesPaneKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Escape) return;
+        OnCloseRulesClick(sender, e);
+        e.Handled = true;
+    }
     private void OnCancelClick(object sender, RoutedEventArgs e) => ViewModel.Cancel();
 
     private async void OnPluginKnownLocationsClick(object sender, RoutedEventArgs e)
@@ -75,7 +103,11 @@ public sealed partial class GameDiscoveryPage : Page
     private async void OnImportManifestClick(object sender, RoutedEventArgs e)
     {
         var path = await PickYamlAsync("FolderRewind.GameDiscovery.Primary");
-        if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path)) await ViewModel.ImportAndScanAsync(path);
+        if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path))
+        {
+            RulesSplitView.IsPaneOpen = false;
+            await ViewModel.ImportAndScanAsync(path);
+        }
     }
 
     private async void OnBrowseSecondaryClick(object sender, RoutedEventArgs e)
@@ -172,9 +204,36 @@ public sealed partial class GameDiscoveryPage : Page
     private void ApplyResponsiveWidth(double width)
     {
         _narrow = width < 900;
-        var orientation = width < 600 ? Orientation.Vertical : Orientation.Horizontal;
-        if (FiltersPanel is not null) FiltersPanel.Orientation = orientation;
-        if (DataButtons is not null) DataButtons.Orientation = orientation;
+        RulesSplitView.OpenPaneLength = Math.Min(420, Math.Max(0, width + 24));
+        if (FilterToolbar is not null && SearchBox is not null && StoreFilter is not null && StatusFilter is not null && ToolbarActions is not null)
+        {
+            var stacked = width < 1000;
+            var small = width < 600;
+            SearchColumn.Width = new GridLength(1, GridUnitType.Star);
+            StoreColumn.Width = stacked ? new GridLength(1, GridUnitType.Star) : new GridLength(150);
+            StatusColumn.Width = small ? new GridLength(0) : stacked ? GridLength.Auto : new GridLength(190);
+            ActionsColumn.Width = stacked ? new GridLength(0) : GridLength.Auto;
+            Grid.SetColumnSpan(SearchBox, stacked ? 2 : 1);
+            Grid.SetColumn(StoreFilter, stacked ? 0 : 1);
+            Grid.SetRow(StoreFilter, stacked ? 1 : 0);
+            Grid.SetColumn(StatusFilter, stacked ? 1 : 2);
+            Grid.SetRow(StatusFilter, stacked ? 1 : 0);
+            Grid.SetColumn(ToolbarActions, small ? 0 : stacked ? 2 : 3);
+            Grid.SetColumnSpan(ToolbarActions, small ? 2 : 1);
+            Grid.SetRow(ToolbarActions, small ? 2 : 0);
+            ToolbarActions.HorizontalAlignment = HorizontalAlignment.Right;
+            StoreFilter.Margin = StatusFilter.Margin = new Thickness(0, stacked ? 8 : 0, 0, 0);
+            ToolbarActions.Margin = new Thickness(0, small ? 8 : 0, 0, 0);
+        }
+        if (StandardFooter is not null && FooterActions is not null && FooterSummary is not null)
+        {
+            var stackedFooter = width < 600;
+            Grid.SetColumnSpan(FooterSummary, stackedFooter ? 2 : 1);
+            Grid.SetColumn(FooterActions, stackedFooter ? 0 : 1);
+            Grid.SetColumnSpan(FooterActions, stackedFooter ? 2 : 1);
+            Grid.SetRow(FooterActions, stackedFooter ? 1 : 0);
+            FooterActions.Margin = new Thickness(0, stackedFooter ? 8 : 0, 0, 0);
+        }
         UpdateResponsiveLayout();
     }
 
@@ -196,28 +255,65 @@ public sealed partial class GameDiscoveryPage : Page
     { if (sender is CheckBox { Tag: GameDiscoveryBackupSetItem set }) set.ToggleSelection(); }
     private async void OnCopyPathClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: GameDiscoveryResourceItem resource }) return;
+        if (sender is not FrameworkElement { Tag: GameDiscoveryResourceItem resource }) return;
         try { var data = new DataPackage(); data.SetText(resource.Expression); Clipboard.SetContent(data); }
         catch (Exception ex) { await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message); }
     }
     private async void OnOpenPathClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: GameDiscoveryResourceItem resource }
+        if (sender is FrameworkElement { Tag: GameDiscoveryResourceItem resource }
             && !ShellPathService.TryOpenPath(resource.Candidate.FixedRoot, out var error))
             await ShowMessageAsync(I18n.GetString("Common_Failed"), error ?? string.Empty);
     }
-    private void OnResourceDetailsClick(object sender, RoutedEventArgs e)
+    private void OnResourceActionsClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: GameDiscoveryResourceItem resource } button) return;
+        _resourceMenu?.Hide();
+        var menu = new MenuFlyout();
+        var copy = new MenuFlyoutItem { Text = I18n.GetString("GameDiscovery_CopyPath.Content"), Tag = resource, Icon = new SymbolIcon(Symbol.Copy) };
+        copy.Click += OnCopyPathClick;
+        var open = new MenuFlyoutItem { Text = I18n.GetString("GameDiscovery_OpenPath.Content"), Tag = resource,
+            IsEnabled = resource.CanOpenPath, Icon = new SymbolIcon(Symbol.OpenFile) };
+        open.Click += OnOpenPathClick;
+        var details = new MenuFlyoutItem { Text = I18n.GetString("GameDiscovery_Details.Content"), Icon = new SymbolIcon(Symbol.Document) };
+        details.Click += (_, _) => ShowResourceDetails(resource, button);
+        menu.Items.Add(copy);
+        menu.Items.Add(open);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(details);
+        // Clearing the menu releases the row references after dismissal or navigation.
+        menu.Closed += OnResourceMenuClosed;
+        _resourceMenu = menu;
+        menu.ShowAt(button);
+    }
+
+    private void OnResourceMenuClosed(object? sender, object args)
+    {
+        if (sender is not MenuFlyout menu) return;
+        menu.Closed -= OnResourceMenuClosed;
+        menu.Items.Clear();
+        if (ReferenceEquals(_resourceMenu, menu)) _resourceMenu = null;
+    }
+
+    private void ShowResourceDetails(GameDiscoveryResourceItem resource, FrameworkElement target)
+    {
         _detailsFlyout?.Hide();
         var content = new StackPanel { Spacing = 8, MaxWidth = 520 };
         foreach (var text in new[] { resource.Expression, resource.Tags, resource.Evidence })
             if (!string.IsNullOrWhiteSpace(text)) content.Children.Add(new TextBlock
                 { Text = text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true });
         var flyout = new Flyout { Content = content };
-        flyout.Closed += static (sender, _) => { if (sender is Flyout closed) closed.Content = null; };
+        flyout.Closed += OnResourceDetailsClosed;
         _detailsFlyout = flyout;
-        flyout.ShowAt(button);
+        flyout.ShowAt(target);
+    }
+
+    private void OnResourceDetailsClosed(object? sender, object args)
+    {
+        if (sender is not Flyout flyout) return;
+        flyout.Closed -= OnResourceDetailsClosed;
+        flyout.Content = null;
+        if (ReferenceEquals(_detailsFlyout, flyout)) _detailsFlyout = null;
     }
 
     private async void OnReviewClick(object sender, RoutedEventArgs e)

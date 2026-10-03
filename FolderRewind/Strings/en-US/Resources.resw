@@ -5967,4 +5967,16 @@ Branch at backup: {2}
   <data name="GameDiscovery_EmptyFilter" xml:space="preserve"><value>No games match these filters. Clear the filters to see all results.</value></data>
   <data name="GameDiscovery_EmptyResults" xml:space="preserve"><value>Scan to find backup folders, or choose a plugin scan location.</value></data>
   <data name="GameDiscovery_IncompatibleResume" xml:space="preserve"><value>The saved configuration type is incompatible with this discovery result. Select it again.</value></data>
+  <data name="GameDiscovery_RulesHeading.Text" xml:space="preserve"><value>Rules and scan locations</value></data>
+  <data name="GameDiscovery_RulesButton.Content" xml:space="preserve"><value>Rules and locations</value></data>
+  <data name="GameDiscovery_CloseRules.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Close rules and scan locations</value></data>
+  <data name="GameDiscovery_CloseRules.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Close</value></data>
+  <data name="GameDiscovery_SearchCompact.PlaceholderText" xml:space="preserve"><value>Search games or aliases</value></data>
+  <data name="GameDiscovery_SearchCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Search games or aliases</value></data>
+  <data name="GameDiscovery_StoreCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Filter by store</value></data>
+  <data name="GameDiscovery_StoreCompact.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Filter by store</value></data>
+  <data name="GameDiscovery_StatusCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Filter by discovery status</value></data>
+  <data name="GameDiscovery_StatusCompact.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Filter by discovery status</value></data>
+  <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Resource actions: copy path, open folder, details</value></data>
+  <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Resource actions</value></data>
 </root>
