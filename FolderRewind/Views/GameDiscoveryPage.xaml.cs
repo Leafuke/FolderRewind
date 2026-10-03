@@ -10,6 +10,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace FolderRewind.Views;
 
@@ -17,6 +19,10 @@ public sealed partial class GameDiscoveryPage : Page
 {
     public GameDiscoveryPageViewModel ViewModel { get; } = new();
     private bool _pickingPluginRoot;
+    private CancellationTokenSource? _filterCts;
+    private bool _narrow;
+    private bool _showDetail;
+    private Flyout? _detailsFlyout;
 
     public GameDiscoveryPage()
     {
@@ -27,10 +33,14 @@ public sealed partial class GameDiscoveryPage : Page
     {
         base.OnNavigatedTo(e);
         await ViewModel.InitializeAsync(e.Parameter as GameDiscoveryNavigationParameter);
+        if (ViewModel.IsSessionActive) ApplyResponsiveWidth(PageLayout.ActualWidth - 48);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        _filterCts?.Cancel();
+        _detailsFlyout?.Hide();
+        _detailsFlyout = null;
         ViewModel.Dispose();
         base.OnNavigatedFrom(e);
     }
@@ -109,7 +119,25 @@ public sealed partial class GameDiscoveryPage : Page
         }
     }
 
-    private void OnFilterChanged(object sender, object e)
+    private async void OnFilterChanged(object sender, object e)
+    {
+        _filterCts?.Cancel();
+        var request = new CancellationTokenSource();
+        _filterCts = request;
+        try
+        {
+            await Task.Delay(150, request.Token);
+            if (ViewModel.IsSessionActive) ApplyFilters();
+        }
+        catch (OperationCanceledException) when (request.IsCancellationRequested) { }
+        finally
+        {
+            if (ReferenceEquals(_filterCts, request)) _filterCts = null;
+            request.Dispose();
+        }
+    }
+
+    private void ApplyFilters()
     {
         if (SearchBox == null || StoreFilter == null || StatusFilter == null) return;
         GameStore? store = (StoreFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString() switch
@@ -132,6 +160,64 @@ public sealed partial class GameDiscoveryPage : Page
     private void OnGameSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         ViewModel.SelectedGame = GameList.SelectedItem as GameDiscoveryCandidateItem;
+        if (_narrow && GameList.FocusState != FocusState.Unfocused && ViewModel.SelectedGame is not null) _showDetail = true;
+        UpdateResponsiveLayout();
+    }
+
+    private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ApplyResponsiveWidth(e.NewSize.Width - 48);
+    }
+
+    private void ApplyResponsiveWidth(double width)
+    {
+        _narrow = width < 900;
+        var orientation = width < 600 ? Orientation.Vertical : Orientation.Horizontal;
+        if (FiltersPanel is not null) FiltersPanel.Orientation = orientation;
+        if (DataButtons is not null) DataButtons.Orientation = orientation;
+        UpdateResponsiveLayout();
+    }
+
+    private void UpdateResponsiveLayout()
+    {
+        if (ResultsLayout is null || DetailPane is null || GamesPane is null) return;
+        GameColumn.Width = _narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(260);
+        DetailColumn.Width = _narrow ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        Grid.SetColumn(DetailPane, _narrow ? 0 : 1);
+        GamesPane.Visibility = _narrow && _showDetail ? Visibility.Collapsed : Visibility.Visible;
+        DetailPane.Visibility = !_narrow || _showDetail ? Visibility.Visible : Visibility.Collapsed;
+        BackToGames.Visibility = _narrow ? Visibility.Visible : Visibility.Collapsed;
+    }
+    private void OnBackToGamesClick(object sender, RoutedEventArgs e) { _showDetail = false; UpdateResponsiveLayout(); }
+    private void OnBackToResultsClick(object sender, RoutedEventArgs e) => ViewModel.ReturnToResults();
+    private void OnGameSelectionClick(object sender, RoutedEventArgs e)
+    { if (sender is CheckBox { Tag: GameDiscoveryCandidateItem game }) game.ToggleSelection(); }
+    private void OnSetSelectionClick(object sender, RoutedEventArgs e)
+    { if (sender is CheckBox { Tag: GameDiscoveryBackupSetItem set }) set.ToggleSelection(); }
+    private async void OnCopyPathClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: GameDiscoveryResourceItem resource }) return;
+        try { var data = new DataPackage(); data.SetText(resource.Expression); Clipboard.SetContent(data); }
+        catch (Exception ex) { await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message); }
+    }
+    private async void OnOpenPathClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: GameDiscoveryResourceItem resource }
+            && !ShellPathService.TryOpenPath(resource.Candidate.FixedRoot, out var error))
+            await ShowMessageAsync(I18n.GetString("Common_Failed"), error ?? string.Empty);
+    }
+    private void OnResourceDetailsClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: GameDiscoveryResourceItem resource } button) return;
+        _detailsFlyout?.Hide();
+        var content = new StackPanel { Spacing = 8, MaxWidth = 520 };
+        foreach (var text in new[] { resource.Expression, resource.Tags, resource.Evidence })
+            if (!string.IsNullOrWhiteSpace(text)) content.Children.Add(new TextBlock
+                { Text = text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true });
+        var flyout = new Flyout { Content = content };
+        flyout.Closed += static (sender, _) => { if (sender is Flyout closed) closed.Content = null; };
+        _detailsFlyout = flyout;
+        flyout.ShowAt(button);
     }
 
     private async void OnReviewClick(object sender, RoutedEventArgs e)
@@ -231,6 +317,7 @@ public sealed partial class GameDiscoveryPage : Page
     {
         foreach (var configId in configIds)
         {
+            if (!ViewModel.IsSessionActive) return false;
             var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item =>
                 string.Equals(item.Id, configId, StringComparison.OrdinalIgnoreCase));
             if (config is null) continue;

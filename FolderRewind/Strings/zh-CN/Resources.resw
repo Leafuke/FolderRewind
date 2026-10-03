@@ -5945,4 +5945,26 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_NoCompatiblePreset" xml:space="preserve"><value>没有兼容的预设</value></data>
   <data name="GameDiscovery_SetSelection" xml:space="preserve"><value>已选 {0}/{1} 项</value></data>
   <data name="GameDiscovery_TotalSelection" xml:space="preserve"><value>已选 {0} 个实例、{1} 项资源</value></data>
+  <data name="GameDiscovery_SettingsPicker.Header" xml:space="preserve"><value>备份设置</value></data>
+  <data name="GameDiscovery_CopyPath.Content" xml:space="preserve"><value>复制路径</value></data>
+  <data name="GameDiscovery_OpenPath.Content" xml:space="preserve"><value>打开目录</value></data>
+  <data name="GameDiscovery_Details.Content" xml:space="preserve"><value>详细信息</value></data>
+  <data name="GameDiscovery_DraftName.Header" xml:space="preserve"><value>配置名称</value></data>
+  <data name="GameDiscovery_DraftDestination.Header" xml:space="preserve"><value>备份位置</value></data>
+  <data name="GameDiscovery_DataOptions.Header" xml:space="preserve"><value>规则数据与扫描位置</value></data>
+  <data name="GameDiscovery_DataHelp.Text" xml:space="preserve"><value>下载或导入 Ludusavi 规则以发现其他游戏存档。Minecraft 由 MineRewind 发现。</value></data>
+  <data name="GameDiscovery_SecondaryInput.Header" xml:space="preserve"><value>辅助规则文件（可选）</value></data>
+  <data name="GameDiscovery_OverrideInput.Header" xml:space="preserve"><value>覆盖规则文件（可选）</value></data>
+  <data name="GameDiscovery_SearchInput.Header" xml:space="preserve"><value>搜索游戏或别名</value></data>
+  <data name="GameDiscovery_SearchInput.PlaceholderText" xml:space="preserve"><value>输入游戏名称</value></data>
+  <data name="GameDiscovery_StoreInput.Header" xml:space="preserve"><value>商店</value></data>
+  <data name="GameDiscovery_StatusInput.Header" xml:space="preserve"><value>发现状态</value></data>
+  <data name="GameDiscovery_BackToGames.Content" xml:space="preserve"><value>返回游戏列表</value></data>
+  <data name="GameDiscovery_SelectGame.Text" xml:space="preserve"><value>选择一个游戏查看可备份的目录。</value></data>
+  <data name="GameDiscovery_BackToResults.Content" xml:space="preserve"><value>返回选择</value></data>
+  <data name="GameDiscovery_Next.Content" xml:space="preserve"><value>下一步</value></data>
+  <data name="GameDiscovery_LoadingResults" xml:space="preserve"><value>正在扫描，请稍候…</value></data>
+  <data name="GameDiscovery_EmptyFilter" xml:space="preserve"><value>没有符合筛选条件的游戏。清除筛选可查看所有结果。</value></data>
+  <data name="GameDiscovery_EmptyResults" xml:space="preserve"><value>扫描以查找可备份的目录，也可以指定插件扫描位置。</value></data>
+  <data name="GameDiscovery_IncompatibleResume" xml:space="preserve"><value>之前保存的配置类型与当前发现结果不兼容，请重新选择。</value></data>
 </root>

@@ -5945,4 +5945,26 @@ Branch at backup: {2}
   <data name="GameDiscovery_NoCompatiblePreset" xml:space="preserve"><value>No compatible preset</value></data>
   <data name="GameDiscovery_SetSelection" xml:space="preserve"><value>Selected {0}/{1} items</value></data>
   <data name="GameDiscovery_TotalSelection" xml:space="preserve"><value>Selected {0} sets and {1} resources</value></data>
+  <data name="GameDiscovery_SettingsPicker.Header" xml:space="preserve"><value>Backup settings</value></data>
+  <data name="GameDiscovery_CopyPath.Content" xml:space="preserve"><value>Copy path</value></data>
+  <data name="GameDiscovery_OpenPath.Content" xml:space="preserve"><value>Open folder</value></data>
+  <data name="GameDiscovery_Details.Content" xml:space="preserve"><value>Details</value></data>
+  <data name="GameDiscovery_DraftName.Header" xml:space="preserve"><value>Configuration name</value></data>
+  <data name="GameDiscovery_DraftDestination.Header" xml:space="preserve"><value>Backup location</value></data>
+  <data name="GameDiscovery_DataOptions.Header" xml:space="preserve"><value>Rule data and scan locations</value></data>
+  <data name="GameDiscovery_DataHelp.Text" xml:space="preserve"><value>Download or import Ludusavi rules to discover other game saves. Minecraft is discovered by MineRewind.</value></data>
+  <data name="GameDiscovery_SecondaryInput.Header" xml:space="preserve"><value>Secondary manifest (optional)</value></data>
+  <data name="GameDiscovery_OverrideInput.Header" xml:space="preserve"><value>Override rules (optional)</value></data>
+  <data name="GameDiscovery_SearchInput.Header" xml:space="preserve"><value>Search games or aliases</value></data>
+  <data name="GameDiscovery_SearchInput.PlaceholderText" xml:space="preserve"><value>Enter a game name</value></data>
+  <data name="GameDiscovery_StoreInput.Header" xml:space="preserve"><value>Store</value></data>
+  <data name="GameDiscovery_StatusInput.Header" xml:space="preserve"><value>Discovery status</value></data>
+  <data name="GameDiscovery_BackToGames.Content" xml:space="preserve"><value>Back to games</value></data>
+  <data name="GameDiscovery_SelectGame.Text" xml:space="preserve"><value>Choose a game to view its backup resources.</value></data>
+  <data name="GameDiscovery_BackToResults.Content" xml:space="preserve"><value>Back to selection</value></data>
+  <data name="GameDiscovery_Next.Content" xml:space="preserve"><value>Next</value></data>
+  <data name="GameDiscovery_LoadingResults" xml:space="preserve"><value>Scanning, please wait…</value></data>
+  <data name="GameDiscovery_EmptyFilter" xml:space="preserve"><value>No games match these filters. Clear the filters to see all results.</value></data>
+  <data name="GameDiscovery_EmptyResults" xml:space="preserve"><value>Scan to find backup folders, or choose a plugin scan location.</value></data>
+  <data name="GameDiscovery_IncompatibleResume" xml:space="preserve"><value>The saved configuration type is incompatible with this discovery result. Select it again.</value></data>
 </root>
