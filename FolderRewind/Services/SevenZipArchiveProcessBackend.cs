@@ -16,7 +16,7 @@ namespace FolderRewind.Services;
 
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
-    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryCompactionBackend
+    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend
 {
     public async ValueTask<PayloadVerificationResult> VerifyAsync(
         VersionRepresentation representation,
@@ -136,12 +136,21 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
     {
         Directory.CreateDirectory(durableOutputDirectory);
         var path = Path.Combine(durableOutputDirectory, "payload.7z");
+        // A marker makes an empty state a valid archive and is removed on materialization.
+        var emptyMarker = !Directory.EnumerateFileSystemEntries(materializedDirectory).Any()
+            ? Path.Combine(materializedDirectory, restoreMarkerDirectory, "empty") : null;
+        if (emptyMarker is not null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(emptyMarker)!);
+            await File.WriteAllTextAsync(emptyMarker, string.Empty, cancellationToken).ConfigureAwait(false);
+        }
         var result = await RunAsync(
             "a",
             path,
             outputDirectory: null,
             workingDirectory: materializedDirectory,
             cancellationToken).ConfigureAwait(false);
+        if (emptyMarker is not null) Directory.Delete(Path.GetDirectoryName(emptyMarker)!, recursive: true);
         if (!result.Success) throw new InvalidDataException(result.Diagnostic);
         return new(
             "7z",
@@ -157,6 +166,33 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         string payloadPath,
         CancellationToken cancellationToken)
         => VerifyAsync(representation, payloadPath, cancellationToken);
+
+    public async Task<HistoryCompactionPayload> CreateDeltaAsync(SourceVersion version,
+        string targetDirectory, ImmutableArray<string> changedFiles, RepresentationId replacementId,
+        string durableOutputDirectory, CancellationToken token)
+    {
+        var selected = Path.Combine(durableOutputDirectory, "delta-input");
+        Directory.CreateDirectory(selected);
+        try
+        {
+            foreach (var relative in changedFiles)
+            {
+                token.ThrowIfCancellationRequested();
+                if (!FolderRewind.History.Storage.HistoryRepositoryPaths.IsSafeRepositoryRelativePath(relative))
+                    throw new InvalidDataException("Unsafe delta path.");
+                var destination = Path.Combine(selected, relative.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(Path.Combine(targetDirectory, relative.Replace('/', Path.DirectorySeparatorChar)), destination);
+            }
+            return await CreateFullAsync(version, selected, replacementId, durableOutputDirectory, token).ConfigureAwait(false);
+        }
+        finally
+        {
+            foreach (var file in Directory.EnumerateFiles(selected, "*", SearchOption.AllDirectories))
+                File.SetAttributes(file, FileAttributes.Normal);
+            Directory.Delete(selected, recursive: true);
+        }
+    }
 
     private async Task<(bool Success, string Diagnostic, string Output)> RunAsync(
         string operation,
