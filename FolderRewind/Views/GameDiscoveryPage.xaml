@@ -87,7 +87,7 @@
             ResourceTemplate="{StaticResource ResourceRow}" DraftTemplate="{StaticResource DraftRow}" ChangeTemplate="{StaticResource ChangeRow}"/>
     </Page.Resources>
     <SplitView x:Name="RulesSplitView" DisplayMode="Overlay" PanePlacement="Right" OpenPaneLength="420"
-        PaneOpened="OnRulesPaneOpened" PaneBackground="{ThemeResource LayerFillColorDefaultBrush}">
+        PaneOpened="OnRulesPaneOpened">
         <SplitView.Pane>
             <Grid x:Name="RulesPane" x:Load="False" Padding="20" RowSpacing="16" KeyDown="OnRulesPaneKeyDown">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>

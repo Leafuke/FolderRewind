@@ -61,6 +61,8 @@ public sealed partial class HistoryPage : Page
         FiltersGrid.ColumnDefinitions[3].Width = new GridLength(0, GridUnitType.Auto);
         Grid.SetColumn(PresentationSelector, narrow ? 0 : 1);
         Grid.SetRow(PresentationSelector, narrow ? 1 : 0);
+        Grid.SetColumnSpan(PresentationSelector, narrow ? 2 : 1);
+        Grid.SetColumnSpan(HistoryPageTitle, narrow ? 2 : 1);
     }
 
     private void OnBranchToolbarSizeChanged(object sender, SizeChangedEventArgs e)
@@ -152,6 +154,7 @@ public sealed partial class HistoryPage : Page
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
+        _legacyNoticeActive = true;
         base.OnNavigatedTo(e);
 
         if (e.Parameter is ManagerNavigationParameter managerParameter)
@@ -171,6 +174,8 @@ public sealed partial class HistoryPage : Page
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        _legacyNoticeActive = false;
+        ResetLegacyMigrationNotice();
         ViewModel.Suspend();
         base.OnNavigatedFrom(e);
     }
@@ -278,17 +283,24 @@ public sealed partial class HistoryPage : Page
         }
     }
 
-    private Task SelectHistoryAsync(
+    private async Task SelectHistoryAsync(
         BackupConfig config,
         ManagedFolder? folder,
         bool refreshHistory,
         bool persistSelection)
-        => ViewModel.ChangeSelectionCommand.ExecuteAsync(
-            new HistoryPageViewModel.HistorySelectionRequest(
-                config,
-                folder,
-                refreshHistory,
-                persistSelection));
+    {
+        ResetLegacyMigrationNotice();
+        try
+        {
+            await ViewModel.ChangeSelectionCommand.ExecuteAsync(
+                new HistoryPageViewModel.HistorySelectionRequest(config, folder, refreshHistory, persistSelection));
+        }
+        finally
+        {
+            if (ViewModel.TryGetCurrentConfig(out var current) && current?.Id == config.Id)
+                await RefreshLegacyMigrationNoticeAsync();
+        }
+    }
 
     private void ConfigureFolderFilter(BackupConfig config, ManagedFolder? preferredFolder)
     {

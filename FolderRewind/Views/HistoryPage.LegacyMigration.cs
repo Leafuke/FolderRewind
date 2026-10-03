@@ -16,17 +16,81 @@ namespace FolderRewind.Views;
 public sealed partial class HistoryPage
 {
     private bool _legacyReportOpen;
+    private bool _legacyNoticeActive;
+    private long _legacyNoticeRequestId;
+    private LegacyMigrationNoticeState? _legacyNoticeState;
+    private string[] _legacyAttentionKeys = [];
+    private Task _legacyNoticeSaveTask = Task.CompletedTask;
+
     private async void OnLegacyMigrationLoaded(object sender, RoutedEventArgs e)
+        => await RefreshLegacyMigrationNoticeAsync();
+
+    private void ResetLegacyMigrationNotice()
     {
+        _legacyNoticeRequestId++;
+        _legacyNoticeState = null;
+        _legacyAttentionKeys = [];
+        LegacyMigrationNotice.IsOpen = false;
+        LegacyMigrationNotice.Visibility = Visibility.Collapsed;
+        HistoryMoreActionsButton.Visibility = Visibility.Collapsed;
+    }
+
+    private async Task RefreshLegacyMigrationNoticeAsync()
+    {
+        if (!_legacyNoticeActive) return;
+        var requestId = ++_legacyNoticeRequestId;
         try
         {
             if (!ViewModel.TryGetCurrentConfig(out var config) || config is null) return;
-            var report = await NativeHistoryCoreGateway.RecheckLegacyAsync(config);
-            LegacyMigrationNotice.Title = I18n.GetString("LegacyMigration_Title");
-            LegacyMigrationNotice.Message = I18n.GetString("LegacyMigration_Notice");
-            LegacyMigrationNotice.IsOpen = report.Items.Length > 0 || report.InputStatus == "Unreadable";
+            var configDirectory = ConfigService.ConfigDirectory;
+            var configId = new HistoryConfigId(config.Id);
+            var state = new LegacyMigrationNoticeState(configDirectory, configId);
+            await _legacyNoticeSaveTask;
+            var result = await Task.Run(() =>
+            {
+                var report = new LegacyTakeoverService(configDirectory, configId).ReadReport();
+                var keys = LegacyMigrationNoticeState.AttentionKeys(report);
+                return (report, keys, show: state.ShouldShow(keys));
+            });
+            if (!_legacyNoticeActive || requestId != _legacyNoticeRequestId
+                || !ViewModel.TryGetCurrentConfig(out var current) || current?.Id != config.Id) return;
+            _legacyNoticeState = state;
+            _legacyAttentionKeys = result.keys;
+            HistoryMoreActionsButton.Visibility = LegacyMigrationNoticeState.HasReport(result.report)
+                ? Visibility.Visible : Visibility.Collapsed;
+            LegacyMigrationNotice.Title = I18n.GetString("LegacyMigration_ShortTitle");
+            var pending = LegacyMigrationNoticeState.PendingCount(result.report);
+            LegacyMigrationNotice.Message = pending > 0
+                ? I18n.Format("LegacyMigration_PendingNotice", pending)
+                : I18n.GetString("LegacyMigration_ReportProblemNotice");
+            LegacyMigrationNotice.IsOpen = result.show;
+            LegacyMigrationNotice.Visibility = result.show ? Visibility.Visible : Visibility.Collapsed;
         }
-        catch (Exception ex) { ViewModel.ReportLoadFailure(ex.Message); }
+        catch (Exception ex)
+        {
+            LogService.LogError("[HistoryPage] Loading migration notice failed: " + ex.Message, nameof(HistoryPage), ex);
+        }
+    }
+
+    private async void OnLegacyMigrationNoticeClose(InfoBar sender, object args)
+    {
+        sender.Visibility = Visibility.Collapsed;
+        var state = _legacyNoticeState;
+        var keys = _legacyAttentionKeys;
+        if (state is null) return;
+        // Invalidate an in-flight refresh so it cannot reopen the notice before the write completes.
+        _legacyNoticeRequestId++;
+        _legacyNoticeSaveTask = SaveLegacyMigrationNoticeAsync(state, keys);
+        await _legacyNoticeSaveTask;
+    }
+
+    private static async Task SaveLegacyMigrationNoticeAsync(LegacyMigrationNoticeState state, string[] keys)
+    {
+        try { await Task.Run(() => state.Dismiss(keys)); }
+        catch (Exception ex)
+        {
+            LogService.LogError("[HistoryPage] Saving migration notice preference failed: " + ex.Message, nameof(HistoryPage), ex);
+        }
     }
 
     private async void OnLegacyMigrationClick(object sender, RoutedEventArgs e)
@@ -130,6 +194,10 @@ public sealed partial class HistoryPage
             }
         }
         catch (Exception ex) { ViewModel.ReportLoadFailure(ex.Message); }
-        finally { _legacyReportOpen = false; }
+        finally
+        {
+            _legacyReportOpen = false;
+            await RefreshLegacyMigrationNoticeAsync();
+        }
     }
 }

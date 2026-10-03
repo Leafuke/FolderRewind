@@ -5979,4 +5979,11 @@ Branch at backup: {2}
   <data name="GameDiscovery_StatusCompact.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Filter by discovery status</value></data>
   <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Resource actions: copy path, open folder, details</value></data>
   <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Resource actions</value></data>
+  <data name="HistoryPage_MoreActions.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>More history actions</value></data>
+  <data name="HistoryPage_MoreActions.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>More actions</value></data>
+  <data name="LegacyMigration_Menu.Text" xml:space="preserve"><value>Migration report</value></data>
+  <data name="LegacyMigration_ViewReport.Content" xml:space="preserve"><value>View report</value></data>
+  <data name="LegacyMigration_ShortTitle" xml:space="preserve"><value>Legacy backup migration</value></data>
+  <data name="LegacyMigration_PendingNotice" xml:space="preserve"><value>{0} legacy backup records need locating, association, or verification.</value></data>
+  <data name="LegacyMigration_ReportProblemNotice" xml:space="preserve"><value>Legacy backup migration needs attention. View the report for details.</value></data>
 </root>

@@ -5979,4 +5979,11 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_StatusCompact.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>按发现状态筛选</value></data>
   <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>资源操作：复制路径、打开目录、详细信息</value></data>
   <data name="GameDiscovery_ResourceActions.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>资源操作</value></data>
+  <data name="HistoryPage_MoreActions.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>历史页更多操作</value></data>
+  <data name="HistoryPage_MoreActions.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>更多操作</value></data>
+  <data name="LegacyMigration_Menu.Text" xml:space="preserve"><value>迁移报告</value></data>
+  <data name="LegacyMigration_ViewReport.Content" xml:space="preserve"><value>查看报告</value></data>
+  <data name="LegacyMigration_ShortTitle" xml:space="preserve"><value>旧备份迁移</value></data>
+  <data name="LegacyMigration_PendingNotice" xml:space="preserve"><value>有 {0} 条旧备份记录需要定位、关联或验证。</value></data>
+  <data name="LegacyMigration_ReportProblemNotice" xml:space="preserve"><value>旧备份迁移遇到问题，请查看报告。</value></data>
 </root>

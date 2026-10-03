@@ -35,12 +35,21 @@
 
         <Grid x:Name="HistoryHeader" Margin="0,0,0,20" ColumnSpacing="16" RowSpacing="8">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <TextBlock x:Uid="HistoryPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="HistoryPageTitle" x:Uid="HistoryPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <SelectorBar x:Name="PresentationSelector" Grid.Column="1" AutomationProperties.AutomationId="HistoryPresentationSelector" SelectionChanged="OnPresentationSelectionChanged">
                 <SelectorBarItem x:Name="NormalHistoryItem" x:Uid="History_Normal" Tag="Normal"/>
                 <SelectorBarItem x:Name="AdvancedHistoryItem" x:Uid="History_AdvancedMode" Tag="Advanced"/>
             </SelectorBar>
+            <Button x:Name="HistoryMoreActionsButton" Grid.Column="2" x:Uid="HistoryPage_MoreActions"
+                    AutomationProperties.AutomationId="HistoryMoreActions" VerticalAlignment="Center" Visibility="Collapsed">
+                <FontIcon Glyph="&#xE712;" FontSize="14"/>
+                <Button.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem x:Uid="LegacyMigration_Menu" AutomationProperties.AutomationId="LegacyMigrationOpen" Click="OnLegacyMigrationClick"/>
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
         </Grid>
 
         <!-- 顶部一体化控制面板 -->
@@ -51,12 +60,12 @@
                 CornerRadius="{StaticResource OverlayCornerRadius}"
                 Padding="16,14">
             <StackPanel Spacing="12">
-                <InfoBar x:Name="LegacyMigrationNotice" IsOpen="False" IsClosable="True" Severity="Informational">
+                <InfoBar x:Name="LegacyMigrationNotice" AutomationProperties.AutomationId="LegacyMigrationNotice"
+                         IsOpen="False" Visibility="Collapsed" IsClosable="True" Severity="Informational" CloseButtonClick="OnLegacyMigrationNoticeClose">
                     <InfoBar.ActionButton>
-                        <Button x:Uid="LegacyMigration_Open" AutomationProperties.AutomationId="LegacyMigrationNoticeOpen" Click="OnLegacyMigrationClick"/>
+                        <Button x:Uid="LegacyMigration_ViewReport" AutomationProperties.AutomationId="LegacyMigrationNoticeOpen" Click="OnLegacyMigrationClick"/>
                     </InfoBar.ActionButton>
                 </InfoBar>
-                <Button x:Uid="LegacyMigration_Open" AutomationProperties.AutomationId="LegacyMigrationOpen" Click="OnLegacyMigrationClick" HorizontalAlignment="Left"/>
                 <!-- 第 1 行：核心维度切换 & 搜索 -->
                 <Grid x:Name="FiltersGrid" ColumnSpacing="12" RowSpacing="12">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
