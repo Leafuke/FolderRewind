@@ -318,12 +318,11 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                 EmptyToNull(Settings.OverridePath),
                 CreateProgress(),
                 token);
-            ApplyCacheMetadata(update.Generation.Metadata);
+            await using var generation = update.Generation;
+            token.ThrowIfCancellationRequested();
             ProgressText = update.Status == LudusaviManifestUpdateStatus.NotModified
                 ? I18n.GetString("GameDiscovery_Status_NotModified")
                 : I18n.GetString("GameDiscovery_Status_Downloaded");
-            await using var generation = update.Generation;
-            token.ThrowIfCancellationRequested();
             await ScanPreparedCoreAsync(token, generation);
         });
     }
@@ -338,7 +337,6 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                 EmptyToNull(Settings.OverridePath),
                 CreateProgress(),
                 token);
-            ApplyCacheMetadata(update.Generation.Metadata);
             await using var generation = update.Generation;
             token.ThrowIfCancellationRequested();
             await ScanPreparedCoreAsync(token, generation);

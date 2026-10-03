@@ -62,12 +62,12 @@ public sealed partial class GameDiscoveryPage : Page
             var root = await MainWindowService.PickFolderPathAsync(
                 I18n.GetString("Setup_InstanceRoot"), "FolderRewind.GameDiscovery.PluginRoot",
                 MainWindowService.SuggestedPickerLocation.ComputerFolder);
-            if (ReferenceEquals(Frame.Content, this) && !string.IsNullOrWhiteSpace(root))
+            if (ViewModel.IsSessionActive && ReferenceEquals(Frame?.Content, this) && !string.IsNullOrWhiteSpace(root))
                 await ViewModel.ScanPluginUserRootAsync(root);
         }
         catch (Exception ex)
         {
-            if (ReferenceEquals(Frame.Content, this)) await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message);
+            if (ViewModel.IsSessionActive && ReferenceEquals(Frame?.Content, this)) await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message);
         }
         finally { _pickingPluginRoot = false; }
     }
@@ -303,6 +303,7 @@ public sealed partial class GameDiscoveryPage : Page
                 "GameDiscovery_PluginBatch_CommitSummary",
                 result.AddedConfigurationCount,
                 skippedCount));
+        if (!ViewModel.IsSessionActive) return;
         if (Frame.CanGoBack)
         {
             Frame.GoBack();
@@ -333,7 +334,7 @@ public sealed partial class GameDiscoveryPage : Page
                 return false;
             }
         }
-        return true;
+        return ViewModel.IsSessionActive;
     }
 
     private static Task<string?> PickYamlAsync(string settingsIdentifier)
