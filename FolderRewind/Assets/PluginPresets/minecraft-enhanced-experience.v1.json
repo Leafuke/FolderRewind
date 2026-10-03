@@ -7,8 +7,8 @@
       "id": "install-minerewind",
       "type": "installBundledPlugin",
       "pluginId": "com.folderrewind.minerewind",
-      "packagePath": "Assets/Plugins/MineRewind-1.9.4.frplugin",
-      "sha256": "14fb12fee03d2592d7d7b6a526dfc5a4ec875e944e2112620ef653539ad3424b"
+      "packagePath": "Assets/Plugins/MineRewind-1.9.5.frplugin",
+      "sha256": "ba7f3eb0b0aa3273f29cac6824a10ea9d5b0a9ea4989e8e5dc7097c7f5f1f434"
     },
     {
       "id": "enable-minerewind",

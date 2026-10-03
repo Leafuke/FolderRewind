@@ -19,8 +19,8 @@ internal sealed record PluginV3OfflineUpgradeResult(
 internal static class PluginV3OfflineUpgradeService
 {
     internal const string MineRewindId = "com.folderrewind.minerewind";
-    private const string BundledFileName = "MineRewind-1.9.4.frplugin";
-    internal const string BundledSha256 = "14fb12fee03d2592d7d7b6a526dfc5a4ec875e944e2112620ef653539ad3424b";
+    private const string BundledFileName = "MineRewind-1.9.5.frplugin";
+    internal const string BundledSha256 = "ba7f3eb0b0aa3273f29cac6824a10ea9d5b0a9ea4989e8e5dc7097c7f5f1f434";
     private static readonly TimeSpan MigrationTimeout = TimeSpan.FromSeconds(30);
     private static readonly PluginId MineRewindPluginId = new(MineRewindId);
     private static readonly HashSet<string> V3Entries = new(StringComparer.OrdinalIgnoreCase)
