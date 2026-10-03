@@ -514,6 +514,15 @@ namespace FolderRewind.Services
                     config.Id,
                     sourceId,
                     cancellationToken).ConfigureAwait(false);
+                if (captureBaseline is null)
+                {
+                    var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                    var archive = new SevenZipHistoryArchiveBackend(config);
+                    var engine = new FolderRewind.History.Representation.RepresentationRuntime(
+                    [new FolderRewind.History.Representation.CoreArchiveRepresentationHandler(archive),
+                     new FolderRewind.History.Representation.SmartDeltaRepresentationHandler(archive)]);
+                    captureBaseline = await HistoryCaptureBaselineRepair.RebuildAsync(history, engine, sourceId, cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

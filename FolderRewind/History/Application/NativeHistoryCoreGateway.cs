@@ -245,7 +245,8 @@ public static class NativeHistoryCoreGateway
             var workspaceLoad = await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
             if (workspaceLoad.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible)
                 throw new InvalidOperationException($"Workspace recovery is required: {workspaceLoad.Diagnostic}");
-            if (SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, workspaceLoad.Value))
+            if (SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, workspaceLoad.Value)
+                && await HistoryCaptureBaselineRepair.IsLocallyAvailableAsync(runtime, baseline, cancellationToken).ConfigureAwait(false))
             {
                 return baseline;
             }

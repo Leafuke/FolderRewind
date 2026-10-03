@@ -103,9 +103,26 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history)
         return complete;
     }
 
-    // Completed in the capture-cache integration; recovery invokes this before any reclamation.
-    private Task RepairBaselinesAsync(HistoryChainRewriteJournal journal, CancellationToken token)
-        => Task.CompletedTask;
+    private async Task RepairBaselinesAsync(HistoryChainRewriteJournal journal, CancellationToken token)
+    {
+        var versions = await history.Query.GetAllVersionsAsync(token).ConfigureAwait(false);
+        var mapping = journal.Mappings.ToDictionary(m => m.PreviousId);
+        foreach (var source in versions.Select(v => v.SourceId).Distinct())
+        {
+            var baseline = await history.CaptureBaselines.LoadAsync(source, token).ConfigureAwait(false);
+            if (baseline is null) continue;
+            if (mapping.TryGetValue(baseline.BaseRepresentationId, out var replacement))
+            {
+                // FileStates describe the historical version, never the current live folder.
+                await history.CaptureBaselines.SaveAsync(source,
+                    new Capture.SourceCaptureBaselineCandidate(baseline.Revision, replacement.Path,
+                        replacement.DeltaDepth, baseline.FileStates, baseline.BoundaryFingerprint),
+                    baseline.BaseVersionId, replacement.Replacement, token).ConfigureAwait(false);
+            }
+            else if (journal.RetiredFiles.Any(f => StringComparer.OrdinalIgnoreCase.Equals(f.Path, baseline.PayloadPath)))
+                await history.CaptureBaselines.RemoveAsync(source, baseline.Revision, token).ConfigureAwait(false);
+        }
+    }
 
     internal static async Task<string> HashAsync(string path, CancellationToken token)
     {
