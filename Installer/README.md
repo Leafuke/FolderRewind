@@ -2,7 +2,9 @@
 
 当前发行版本为 1.9.4.0。Windows Installer 版本的前三段必须递增，范围为 255.255.65535，第四段固定为 0。MSI UpgradeCode 保持原值。
 
-**本次安装体验由项目负责人明确人工验收放行。** 历史故障升级/卸载诊断与待验证场景继续保留，不改写为自动验收通过。发布必须绑定最终提交和两架构安装包哈希，构建、资源和测试门禁继续执行；使用 `.github/scripts/New-ManualInstallerAcceptance.ps1` 记录针对本次候选文件的明确验收依据。历史状态见 [1.9.2.0 阶段验收报告](../docs/release/exe-repair-1.9.2-acceptance-2026-10-02.md)。不要发行隔离测试夹具或 99.x 测试版本。
+GitHub 正式发布使用 **Release Setup**：选择分支后点击一次 **Run workflow**，自动执行核心测试、x64/ARM64 构建、检查和公开 Latest。无需填写版本、运行 ID 或人工验收理由。版本来自 manifest，并与应用项目核对；更新说明优先读取 `docs/release/FolderRewind-<三段版本>-notes.md`，其次读取 `.github/release-notes/v<三段版本>.md`，缺失则由 GitHub 自动生成。
+
+手动触发表示执行正式发布；安装体验和历史故障诊断不作为每次发行的人工门禁，也不改写为自动通过。新版本 2 报告只记录本次实际检查，并标记安装体验 `not-run`。历史版本 1 验收工具继续可用，状态见 [1.9.2.0 阶段验收报告](../docs/release/exe-repair-1.9.2-acceptance-2026-10-02.md)。不要发行隔离测试夹具或 99.x 测试版本。
 
 ## 本地构建
 
@@ -10,8 +12,8 @@
 .github/scripts/Generate-InstallerArtwork.ps1
 $sevenzip = .github/scripts/Stage-SevenZip.ps1 -Platform x64 | Select-Object -Last 1
 dotnet publish FolderRewind/FolderRewind.csproj -c Release -p:Platform=x64 -p:FolderRewindDistributionChannel=Msi -p:CETCompat=false -p:DebugType=None -p:DebugSymbols=false -p:SevenZipExecutable="$sevenzip" -o artifacts/msi-publish/x64 /warnaserror
-.github/scripts/Prepare-MsiPackage.ps1 -ProjectPath Installer/FolderRewind.Installer.wixproj -PublishDirectory artifacts/msi-publish/x64 -Version 1.9.2.0 -Platform x64 -OutputDirectory artifacts/installer-packages/x64
-.github/scripts/Prepare-SetupReleaseAssets.ps1 -SourceDirectory artifacts/installer-packages/x64 -Version 1.9.2.0 -Platform x64 -OutputDirectory artifacts/release/x64
+.github/scripts/Prepare-MsiPackage.ps1 -ProjectPath Installer/FolderRewind.Installer.wixproj -PublishDirectory artifacts/msi-publish/x64 -Version 1.9.4.0 -Platform x64 -OutputDirectory artifacts/installer-packages/x64
+.github/scripts/Prepare-SetupReleaseAssets.ps1 -SourceDirectory artifacts/installer-packages/x64 -Version 1.9.4.0 -Platform x64 -OutputDirectory artifacts/release/x64
 ```
 
 ARM64 使用同名平台参数和对应 7za.exe。打包之前校验所有 PRI 文件引用；第三方 SDK 的文件名大小写在暂存目录规范化。公开插件契约保持 AssemblyVersion 3.0.0.0，应用版本参数不会传播到该项目。
@@ -64,15 +66,20 @@ Setup 维护页提供默认不勾选的“卸载时同时清除当前用户的�
 .github/scripts/Test-MsiBundleInstallation.ps1 -FixtureMsi <本轮测试MSI> -ResultDirectory artifacts/bundle-fault -IncludeFailureProbe
 ```
 
-默认 Bundle 脚本验证正常生命周期；构建工作流的 `run_installer_lifecycle` 可显式启用隔离生命周期和故障探针，默认关闭。SkipRollbackProbes 只用于诊断，生命周期脚本末尾仍因必测项目未执行而失败。本机隔离身份测试不等于干净 VM 验收。
+默认 Bundle 脚本验证正常生命周期；**Installer Diagnostics** 手动工作流执行两架构未签名 MSIX 回归、Setup 检查，以及 x64 隔离生命周期、边界和故障探针。该工作流不发布 Release，也不阻塞 Release Setup。SkipRollbackProbes 只用于诊断，生命周期脚本末尾仍因必测项目未执行而失败。本机隔离身份测试不等于干净 VM 验收。
 
 当前用户 Setup 在 MSI 卸载前核对已登记产品及精确 Run 命令，只在整个 Burn 卸载成功后清理仍匹配的用户启动值；失败或取消时不执行这次额外清理。InstallLocation 同样在成功提交后由 Burn 写入自己的用户卸载项。机器范围保留有所有权校验、日志及回滚的提升 MSI 动作。这用于处理本机 MSI 动作读不到 Burn/调用者新写用户注册值的现象，不表示 Installer 注册回滚已修复。
 
-构建工作流只生成候选包和证据，版本自动读取项目 manifest。发布使用独立的 `publish-verified-setup.yml` 或本机发布脚本，下载冻结附件，不重新构建。验收必须绑定版本、干净源提交和每个 EXE 的动态 SHA-256；自动检查须 passed，安装体验可由针对本次版本、提交和文件的显式人工验收覆盖。已有附件必须有匹配的 GitHub SHA-256 digest，否则拒绝修改；不使用 `--clobber`。默认创建草稿，完整核验后通过 `Finalize` 转为正式发布。
+Release Setup 固定使用触发时的提交。预检查之后，三个核心测试项目与两架构安装包构建并行；正式链路每架构仅执行一次自包含 publish，不构建 MSIX，不等待完整 CI 的压力测试或其他架构回归。NuGet 包和按脚本内容区分的 WiX 原生依赖可缓存，bin/obj 和安装包不缓存。两架构使用预检查解析的同一个 7-Zip 上游版本。
+
+汇总任务下载本次运行冻结的 EXE 和证据，生成 `setup-release-report`，检查版本、干净提交、运行 ID、测试结果和包 SHA-256 后创建草稿；上传四个文件、核验远程 digest 后自动公开为 Latest。已有文件内容不同、标签指向其他提交、混入其他附件或无法校验时拒绝发布；不使用 `--clobber`。上传中断保留草稿，使用 GitHub 的 **Re-run failed jobs** 复用冻结文件继续上传。不要重新运行全部构建来替换已有草稿中的不同字节。
+
+同一仓库的正式发布串行运行。相同版本、提交已公开且四个附件与校验文件可验证时，预检查直接成功结束，不再构建。发布摘要包含提交、附件哈希、阶段耗时和 Release 链接。部署工作流时需同步默认分支与需要发布的版本分支。
 
 ```powershell
-.github/scripts/New-InstallerCandidateManifest.ps1 -PackageDirectory artifacts/installer-packages -OutputDirectory artifacts/candidate-evidence -Version 1.9.2.0
-.github/scripts/Test-InstallerAcceptance.ps1 -ReportPath artifacts/candidate-evidence/acceptance.json -AssetsDirectory artifacts/public -Version 1.9.2.0 -SourceRevision <完整提交SHA>
+.github/scripts/Invoke-SetupCoreTests.ps1
+.github/scripts/Build-SetupCandidate.ps1 -Platform x64 -Version 1.9.4.0 -SevenZipRelease <上游版本标签>
+# ARM64 在独立的干净工作区用相同 SevenZipRelease 构建。
 ```
 
-生成器初始将验收项设为 not-run，不把构建成功自动转成完整验收。内部 manifest 保留 ProductCode、BundleCode、签名状态、MSI 哈希和源码快照。公开目录只有两架构 Setup EXE 及各自校验文件。未提交工作区可交付诊断候选包，但 `sourceDirty=true`，不能通过远程发行门禁。
+候选生成器的 `IdentityOnly` 模式保留 ProductCode、BundleCode、签名状态、内嵌 MSI 哈希和源码快照，只输出身份文件，不生成旧式待人工填写清单。历史调用不加此开关时仍生成版本 1 验收文件。公开目录只有两架构 Setup EXE 及各自校验文件。未提交工作区可交付诊断候选包，但 `sourceDirty=true`，不能通过远程发行门禁。

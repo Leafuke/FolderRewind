@@ -1,0 +1,200 @@
+name: Release Setup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-setup-${{ github.repository }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  preflight:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      title: ${{ steps.resolve.outputs.title }}
+      notes: ${{ steps.resolve.outputs.notes }}
+      sevenzip: ${{ steps.resolve.outputs.sevenzip }}
+      published: ${{ steps.resolve.outputs.published }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Resolve version and check existing release
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $metadata = & ./.github/scripts/Get-SetupReleaseMetadata.ps1
+          $state = & ./.github/scripts/Test-SetupReleasePreflight.ps1 -Version $metadata.version -SourceRevision $env:GITHUB_SHA -DownloadDirectory artifacts/preflight
+          "version=$($metadata.version)" >> $env:GITHUB_OUTPUT
+          "tag=$($metadata.tag)" >> $env:GITHUB_OUTPUT
+          "title=$($metadata.title)" >> $env:GITHUB_OUTPUT
+          "notes=$($metadata.notesPath)" >> $env:GITHUB_OUTPUT
+          "published=$($state.alreadyPublished.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "## $($metadata.title)`n`nCommit: $env:GITHUB_SHA" >> $env:GITHUB_STEP_SUMMARY
+          if ($state.alreadyPublished) {
+            "Already published; verified tag, four assets and SHA-256. $($state.url)" >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers @{'User-Agent'='FolderRewind-release'}
+            "sevenzip=$($upstream.tag_name)" >> $env:GITHUB_OUTPUT
+          }
+
+  tests:
+    name: Core tests
+    needs: preflight
+    if: needs.preflight.outputs.published != 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-setup-${{ hashFiles('**/*.csproj', '**/*.wixproj', 'NuGet.Config') }}
+          restore-keys: ${{ runner.os }}-nuget-setup-
+      - name: Run all three core test suites
+        run: ./.github/scripts/Invoke-SetupCoreTests.ps1
+      - name: Preserve core test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-results
+          path: artifacts/core-tests/
+          if-no-files-found: error
+          overwrite: true
+
+  build:
+    name: Setup ${{ matrix.platform }}
+    needs: preflight
+    if: needs.preflight.outputs.published != 'true'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, ARM64]
+        include:
+          - platform: x64
+            architecture: x64
+          - platform: ARM64
+            architecture: arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-setup-${{ hashFiles('**/*.csproj', '**/*.wixproj', 'NuGet.Config') }}
+          restore-keys: ${{ runner.os }}-nuget-setup-
+      - uses: actions/cache@v4
+        with:
+          path: artifacts/installer-native-api
+          key: ${{ runner.os }}-wix-native-${{ hashFiles('.github/scripts/Restore-InstallerNativeApi.ps1') }}
+      - name: Publish once, package and verify production identity
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          SEVENZIP_RELEASE: ${{ needs.preflight.outputs.sevenzip }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
+      - name: Preserve validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-validation-${{ matrix.platform }}
+          path: artifacts/validation/
+          if-no-files-found: warn
+          overwrite: true
+      - name: Freeze public installer bytes
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-${{ matrix.platform }}
+          path: artifacts/release/${{ matrix.architecture }}/*
+          if-no-files-found: error
+          overwrite: true
+      - name: Freeze candidate identity and checks
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ matrix.platform }}
+          path: |
+            artifacts/candidate/${{ matrix.architecture }}/*.json
+            artifacts/candidate/${{ matrix.architecture }}/*.log
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    name: Publish Latest
+    needs: [preflight, tests, build]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: setup-x64
+          path: artifacts/public
+      - uses: actions/download-artifact@v4
+        with:
+          name: setup-ARM64
+          path: artifacts/public
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: candidate-*
+          path: artifacts/candidates
+      - uses: actions/download-artifact@v4
+        with:
+          name: core-test-results
+          path: artifacts/core-tests
+      - name: Aggregate exact evidence and publish automatically
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          RELEASE_TITLE: ${{ needs.preflight.outputs.title }}
+          RELEASE_NOTES: ${{ needs.preflight.outputs.notes }}
+        run: |
+          ./.github/scripts/New-SetupReleaseReport.ps1 -CandidateDirectory artifacts/candidates -AssetsDirectory artifacts/public -TestResultsDirectory artifacts/core-tests -Version $env:RELEASE_VERSION -SourceRevision $env:GITHUB_SHA -RunId $env:GITHUB_RUN_ID -OutputPath artifacts/report/release-report.json
+          ./.github/scripts/Publish-ReleaseAssets.ps1 -Tag $env:RELEASE_TAG -ReleaseName $env:RELEASE_TITLE -AssetsDirectory artifacts/public -TargetCommit $env:GITHUB_SHA -Version $env:RELEASE_VERSION -ReleaseReport artifacts/report/release-report.json -RunId $env:GITHUB_RUN_ID -ReleaseNotesPath $env:RELEASE_NOTES -Finalize
+          $recordJson = gh release view $env:RELEASE_TAG --json assets,isDraft,isPrerelease,targetCommitish,url
+          if ($LASTEXITCODE) { throw 'Cannot record published release.' }
+          $recordJson | Set-Content artifacts/report/release-record.json -Encoding utf8
+          $record = $recordJson | ConvertFrom-Json
+          $runJson = gh run view $env:GITHUB_RUN_ID --json createdAt,jobs
+          if ($LASTEXITCODE) { throw 'Cannot record release timings.' }
+          $run = $runJson | ConvertFrom-Json
+          $elapsed = [math]::Round(([DateTimeOffset]::UtcNow - [DateTimeOffset]::Parse($run.createdAt)).TotalSeconds,1)
+          "## Published $env:RELEASE_TAG`n`n$($record.url)`n`nCommit: $env:GITHUB_SHA`n`nElapsed through publication: $elapsed seconds (previous full CI: 944 seconds).`n`n| Asset | SHA-256 |`n| --- | --- |" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($asset in $record.assets) { "| $($asset.name) | $($asset.digest) |" >> $env:GITHUB_STEP_SUMMARY }
+          "`n| Job | Seconds |`n| --- | ---: |" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($job in $run.jobs | Where-Object status -EQ completed) {
+            $seconds = [math]::Round(([DateTimeOffset]::Parse($job.completedAt) - [DateTimeOffset]::Parse($job.startedAt)).TotalSeconds,1)
+            "| $($job.name) | $seconds |" >> $env:GITHUB_STEP_SUMMARY
+          }
+      - name: Preserve release report and record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-release-report
+          path: artifacts/report/
+          if-no-files-found: warn
+          overwrite: true

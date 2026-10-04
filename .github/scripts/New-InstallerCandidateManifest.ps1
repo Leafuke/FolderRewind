@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$PackageDirectory,[Parameter(Mandatory)][string]$OutputDirectory,
       [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+\.0$')][string]$Version,
-      [ValidateSet('x64','arm64')][string[]]$Architectures = @('x64','arm64'))
+      [ValidateSet('x64','arm64')][string[]]$Architectures = @('x64','arm64'),
+      [switch]$IdentityOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\InstallerValidation.ps1"
@@ -57,14 +58,14 @@ foreach ($requestedArchitecture in $Architectures) {
     $hash = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
     $assets += @{name=$file.Name;size=$file.Length;architecture=$architecture;sha256=$hash;productCode=$identity.ProductCode;bundleCode=$registration.Code;signature=(Get-AuthenticodeSignature $exe).Status.ToString()}
     $internal += @{name=(Split-Path $msi -Leaf);architecture=$architecture;sha256=(Get-FileHash $msi).Hash.ToLowerInvariant();productCode=$identity.ProductCode}
-    foreach ($id in (& "$PSScriptRoot\Get-InstallerRequiredScenarios.ps1")) {
+    if (-not $IdentityOnly) { foreach ($id in (& "$PSScriptRoot\Get-InstallerRequiredScenarios.ps1")) {
         $scenarios += @{id=$id;architecture=$architecture;status='not-run';packageSha256=$hash;evidence='';reason='Evidence must be reviewed and supplied for these exact candidate bytes.'}
-    }
+    } }
 }
-foreach ($id in @('app-tests','plugin-contract','runtime-tests','msix-regression','release-policy')) {
+if (-not $IdentityOnly) { foreach ($id in @('app-tests','plugin-contract','runtime-tests','msix-regression','release-policy')) {
     $scenarios += @{id=$id;architecture='common';status='not-run';evidence='';reason='Not imported automatically.'}
-}
+} }
 $report = @{schemaVersion=1;version=$Version;sourceRevision=$revision;sourceDirty=$dirty;sourceTreeSha256=$sourceHash;assets=$assets;internalAssets=$internal;scenarios=$scenarios}
-$report | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $output 'acceptance.json') -Encoding utf8
+if (-not $IdentityOnly) { $report | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $output 'acceptance.json') -Encoding utf8 }
 $report | Select-Object schemaVersion,version,sourceRevision,sourceDirty,sourceTreeSha256,assets,internalAssets | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $output 'manifest.json') -Encoding utf8
-Write-Host "Candidate manifest and initially incomplete acceptance: $output"
+Write-Host "Candidate identity recorded (IdentityOnly=$IdentityOnly): $output"
