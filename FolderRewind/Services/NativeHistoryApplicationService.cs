@@ -403,7 +403,7 @@ internal static partial class NativeHistoryApplicationService
         var elapsed = Stopwatch.StartNew();
         try
         {
-            var result = await new HistoryChainRewriteRetentionService(runtime, representations, archive, planner)
+            var result = await new HistoryChainRewriteRetentionService(runtime, representations, archive, planner, GetRewriteBackupRoot(config))
                 .ExecuteAsync(config.Archive.KeepCount, config.Archive.MaxSmartBackupsPerFull, cancellationToken).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(result.Diagnostic))
                 LogService.LogWarning("[Retention] " + result.Diagnostic, nameof(NativeHistoryApplicationService));

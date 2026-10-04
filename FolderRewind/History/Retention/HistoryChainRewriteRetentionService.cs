@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace FolderRewind.History.Retention;
 
 public sealed class HistoryChainRewriteRetentionService(HistoryRuntime history, RepresentationRuntime engine,
-    IHistoryChainRewriteArchiveBackend archive, HistoryRetentionPlanner retention)
+    IHistoryChainRewriteArchiveBackend archive, HistoryRetentionPlanner retention, string backupRoot)
 {
     public async Task<HistoryChainRewriteResult> ExecuteAsync(int keepCount, int maximumDeltaDepth,
         CancellationToken token = default)
@@ -34,7 +34,7 @@ public sealed class HistoryChainRewriteRetentionService(HistoryRuntime history, 
             if (targets.Length == 0) return new(false, false, 0, 0, 0, string.Empty);
             var request = new HistoryChainRewriteRequest(HistoryChainRewriteOrigin.Retention,
                 [.. targets.Select(e => e.LocalReplicaId)], [.. targets.Select(e => graph[e.RepresentationId].VersionId).Distinct()],
-                [.. protectedVersions], maximumDeltaDepth);
+                [.. protectedVersions], maximumDeltaDepth, BackupRoot: backupRoot);
             plan = await new HistoryChainRewritePlanner(history, engine).PlanInsideGateAsync(request, token).ConfigureAwait(false);
         }
         if (!plan.CanExecute) return new(false, false, 0, 0, 0, string.Join(" ", plan.Blockers));

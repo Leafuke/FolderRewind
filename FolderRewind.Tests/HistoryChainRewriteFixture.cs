@@ -16,6 +16,7 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
     public SevenZipArchiveProcessBackend Archive { get; }
     public RepresentationRuntime Engine { get; }
     public SourceId Source { get; } = SourceId.New();
+    public string BackupRoot => Path.Combine(Root, "archives");
     public HistoryConfigId Config { get; } = new(Guid.NewGuid().ToString("N"));
     public List<Node> Nodes { get; } = [];
     public HistoryChainRewritePlanner Planner => new(History, Engine);
@@ -84,7 +85,7 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
     }
 
     public HistoryChainRewriteRequest Delete(params Node[] nodes) => new(HistoryChainRewriteOrigin.Manual,
-        [.. nodes.Select(n => n.Entry.LocalReplicaId)], [.. nodes.Select(n => n.Version.VersionId)], [], 5, true, true);
+        [.. nodes.Select(n => n.Entry.LocalReplicaId)], [.. nodes.Select(n => n.Version.VersionId)], [], 5, true, true, BackupRoot);
 
     public async Task RecordBackupAsync(Node node)
     {
@@ -105,7 +106,7 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
     {
         async Task<IRepresentationEnvironment> Environment(CancellationToken token)
             => new RepresentationEnvironment((await History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []);
-        return new(History, Engine, Archive, new(History, Engine, Environment, new FileSystemHistoryLocalPayloadStore()));
+        return new(History, Engine, Archive, new(History, Engine, Environment, new FileSystemHistoryLocalPayloadStore()), BackupRoot);
     }
 
     public async Task AssertRestoresAsync(params Node[] nodes)

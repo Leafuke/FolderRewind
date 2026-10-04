@@ -15,19 +15,28 @@ namespace FolderRewind.History.Retention;
 
 public sealed record HistoryRewriteRetiredFile(string Path, long Size, string StorageSha256,
     ImmutableArray<RepresentationId> Representations);
-public sealed record HistoryRewriteMapping(RepresentationId PreviousId, VersionRepresentation Replacement, string Path, int DeltaDepth);
+public sealed record HistoryRewriteMapping(RepresentationId PreviousId, VersionRepresentation Replacement, string Path, int DeltaDepth,
+    bool StorageRelocationOnly = false);
 public sealed record HistoryRewriteFileWitness(string Path, long Size, string StorageSha256);
 public sealed record HistoryChainRewriteJournal(HistoryTransactionId OperationId, PackId? PackId,
     bool StateApplied, bool Complete, ImmutableArray<HistoryRewriteRetiredFile> RetiredFiles,
     ImmutableArray<HistoryRewriteMapping> Mappings,
-    ImmutableArray<HistoryRewriteFileWitness> VerifiedFiles = default);
+    ImmutableArray<HistoryRewriteFileWitness> VerifiedFiles = default,
+    string? BackupRoot = null);
 
-public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Action<string>? checkpoint = null)
+public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Action<string>? checkpoint = null, string? backupRoot = null)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private string Root => Path.Combine(history.Repository.Paths.LocalStateRoot, "chain-rewrites");
-    public string WorkRoot(HistoryTransactionId id) => Path.Combine(history.Repository.Paths.TransactionsRoot, "rewrite-" + id);
-    public string PayloadRoot(HistoryTransactionId id) => Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads", "rewrite-" + id);
+    public string? BackupRoot { get; } = backupRoot is null ? null : HistoryRewriteStoragePaths.NormalizeBackupRoot(backupRoot);
+    public string WorkRoot(HistoryTransactionId id) => WorkRootAt(id, BackupRoot);
+    public string PayloadRoot(HistoryTransactionId id) => PayloadRootAt(id, BackupRoot);
+    private string WorkRootAt(HistoryTransactionId id, string? destination) => destination is null
+        ? Path.Combine(history.Repository.Paths.TransactionsRoot, "rewrite-" + id)
+        : Path.Combine(HistoryRewriteStoragePaths.OperationRoot(destination, history.ConfigId, id), "work");
+    private string PayloadRootAt(HistoryTransactionId id, string? destination) => destination is null
+        ? Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads", "rewrite-" + id)
+        : Path.Combine(HistoryRewriteStoragePaths.OperationRoot(destination, history.ConfigId, id), "payloads");
     private string PathFor(HistoryTransactionId id) => Path.Combine(Root, id + ".json");
     public void Save(HistoryChainRewriteJournal journal)
         => AtomicFileService.Write(PathFor(journal.OperationId), stream => JsonSerializer.Serialize(stream,
@@ -45,10 +54,11 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
         }
     }
 
-    internal static bool HasPending(string localStateRoot)
+    internal static bool HasPending(string localStateRoot, HistoryTransactionId? exceptOperation = null)
     {
         var root = Path.Combine(localStateRoot, "chain-rewrites");
-        return Directory.Exists(root) && Directory.EnumerateFiles(root, "*.json").Any(path => !Read(path).Complete);
+        return Directory.Exists(root) && Directory.EnumerateFiles(root, "*.json")
+            .Select(Read).Any(journal => !journal.Complete && journal.OperationId != exceptOperation);
     }
 
     public async Task<bool> RecoverAsync(CancellationToken token = default)
@@ -67,11 +77,14 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
 
     public async Task<bool> FinishAsync(HistoryChainRewriteJournal journal, CancellationToken token = default)
     {
+        // Recovery uses the transaction's destination, not a possibly changed current configuration.
+        if (journal.BackupRoot is not null
+            && !Directory.Exists(Path.GetPathRoot(HistoryRewriteStoragePaths.NormalizeBackupRoot(journal.BackupRoot)))) return false;
         var committed = journal.PackId is { } pack && File.Exists(history.Repository.Paths.GetPackPath(pack));
         if (!committed)
         {
-            CleanupOwnedTree(PayloadRoot(journal.OperationId));
-            CleanupOwnedTree(WorkRoot(journal.OperationId));
+            CleanupOperationTree(journal.OperationId, true, journal.BackupRoot);
+            CleanupOperationTree(journal.OperationId, false, journal.BackupRoot);
             Save(journal with { Complete = true });
             return true;
         }
@@ -123,7 +136,7 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { complete = false; }
         }
-        CleanupOwnedTree(WorkRoot(journal.OperationId));
+        CleanupOperationTree(journal.OperationId, false, journal.BackupRoot);
         Save(journal with { Complete = complete });
         return complete;
     }
@@ -161,6 +174,26 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
         var relative = Path.GetRelativePath(history.Repository.Paths.RepositoryRoot, full);
         if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar))
             throw new InvalidDataException("Rewrite cleanup escapes the repository.");
+        DeleteTree(full);
+    }
+
+    internal void CleanupOperationTree(HistoryTransactionId id, bool payloads)
+        => CleanupOperationTree(id, payloads, BackupRoot);
+
+    private void CleanupOperationTree(HistoryTransactionId id, bool payloads, string? destination)
+    {
+        var path = payloads ? PayloadRootAt(id, destination) : WorkRootAt(id, destination);
+        if (destination is null) { CleanupOwnedTree(path); return; } // Existing pre-fix journals.
+        var operationRoot = HistoryRewriteStoragePaths.OperationRoot(destination, history.ConfigId, id);
+        if (!HistoryRewriteStoragePaths.IsWithin(path, operationRoot)
+            || StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(path), operationRoot))
+            throw new InvalidDataException("Rewrite cleanup escapes its owned operation directory.");
+        DeleteTree(path);
+    }
+
+    private static void DeleteTree(string full)
+    {
+        HistoryRewriteStoragePaths.RequireUnlinkedAncestors(full);
         if (!Directory.Exists(full)) return;
         var directories = new System.Collections.Generic.Stack<string>();
         directories.Push(full);

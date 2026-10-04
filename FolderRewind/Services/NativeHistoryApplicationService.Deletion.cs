@@ -30,7 +30,7 @@ internal static partial class NativeHistoryApplicationService
         var archive = new SevenZipHistoryArchiveBackend(config);
         var engine = RewriteEngine(archive);
         var request = new HistoryChainRewriteRequest(HistoryChainRewriteOrigin.Manual, [.. targets], [versionId], [],
-            config.Archive.MaxSmartBackupsPerFull, hideRecord, releaseVersion);
+            config.Archive.MaxSmartBackupsPerFull, hideRecord, releaseVersion, GetRewriteBackupRoot(config));
         progress?.Report(new("analyze", 0, 0));
         var plan = await new HistoryChainRewritePlanner(runtime, engine).PlanAsync(request, token).ConfigureAwait(false);
         return await new HistoryChainRewriteExecutor(runtime, engine, archive).PrepareAsync(plan, progress, token).ConfigureAwait(false);
@@ -39,6 +39,8 @@ internal static partial class NativeHistoryApplicationService
     public static async Task<HistoryChainRewriteResult> CommitVersionDeletionAsync(BackupConfig config,
         PreparedHistoryChainRewrite prepared, CancellationToken token = default)
     {
+        if (!StringComparer.OrdinalIgnoreCase.Equals(GetRewriteBackupRoot(config), prepared.Plan.Request.BackupRoot))
+            throw new InvalidOperationException("History changed after preparation; prepare the deletion again.");
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var archive = new SevenZipHistoryArchiveBackend(config);
         return await new HistoryChainRewriteExecutor(runtime, RewriteEngine(archive), archive).CommitAsync(prepared, token).ConfigureAwait(false);
@@ -46,4 +48,14 @@ internal static partial class NativeHistoryApplicationService
 
     private static RepresentationRuntime RewriteEngine(SevenZipHistoryArchiveBackend archive)
         => new([new CoreArchiveRepresentationHandler(archive), new SmartDeltaRepresentationHandler(archive)]);
+
+    private static string GetRewriteBackupRoot(BackupConfig config)
+    {
+        var root = HistoryRewriteStoragePaths.NormalizeBackupRoot(config.DestinationPath);
+        var managed = HistoryRewriteStoragePaths.ManagedRoot(root, new HistoryConfigId(config.Id));
+        foreach (var folder in config.SourceFolders)
+            if (!BackupPathOverlapPolicy.Validate(folder.Path, managed).IsSafe)
+                throw new InvalidOperationException("Backup rewrite storage overlaps a source directory.");
+        return root;
+    }
 }

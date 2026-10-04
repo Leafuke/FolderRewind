@@ -38,7 +38,7 @@ public sealed class PreparedHistoryChainRewrite : IAsyncDisposable
         Disposed = true;
         ReleaseReads();
         if (!CommitStarted)
-            await Journals.FinishAsync(new(Plan.OperationId, null, false, false, [], []), CancellationToken.None).ConfigureAwait(false);
+            await Journals.FinishAsync(new(Plan.OperationId, null, false, false, [], [], BackupRoot: Journals.BackupRoot), CancellationToken.None).ConfigureAwait(false);
     }
 }
 
@@ -52,9 +52,11 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         if (!plan.CanExecute) throw new InvalidOperationException(string.Join(" ", plan.Blockers));
         if (await HistoryChainRewritePlanner.FingerprintAsync(history, token).ConfigureAwait(false) != plan.StateFingerprint)
             throw new InvalidOperationException("History changed; prepare the deletion again.");
-        var journals = new HistoryChainRewriteJournalStore(history, checkpoint);
+        var destination = HistoryRewriteStoragePaths.NormalizeBackupRoot(plan.Request.BackupRoot);
+        HistoryRewriteStoragePaths.RequireUnlinkedAncestors(HistoryRewriteStoragePaths.OperationRoot(destination, history.ConfigId, plan.OperationId));
+        var journals = new HistoryChainRewriteJournalStore(history, checkpoint, destination);
         var prepared = new PreparedHistoryChainRewrite(plan, journals);
-        journals.Save(new(plan.OperationId, null, false, false, [], []));
+        journals.Save(new(plan.OperationId, null, false, false, [], [], BackupRoot: destination));
         try
         {
             RequireSpace(journals.WorkRoot(plan.OperationId), 1024 * 1024);
@@ -64,15 +66,16 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                 inputIds.UnionWith(HistoryChainRewritePlanner.Closure(alternate.ExistingAlternativeId!.Value,
                     plan.Representations.ToDictionary(r => r.RepresentationId)));
             var targets = plan.Request.TargetReplicaIds.ToHashSet();
-            foreach (var path in plan.Catalog.Entries.Where(e => inputIds.Contains(e.RepresentationId) || targets.Contains(e.LocalReplicaId))
+            foreach (var path in plan.Catalog.Entries.Where(e => inputIds.Contains(e.RepresentationId) || targets.Contains(e.LocalReplicaId)
+                             || IsLegacyPayload(e))
                          .Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
                          .Select(e => e.Locator.AbsolutePath).Distinct(StringComparer.OrdinalIgnoreCase).Where(File.Exists))
                 prepared.Reads.Add(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true));
             await BuildAsync(prepared, false, progress, token).ConfigureAwait(false);
             if (plan.Request.Origin == HistoryChainRewriteOrigin.Retention && prepared.NetReleasedBytes <= 0 && plan.Steps.Length > 0)
             {
-                journals.CleanupOwnedTree(journals.PayloadRoot(plan.OperationId));
-                journals.CleanupOwnedTree(journals.WorkRoot(plan.OperationId));
+                journals.CleanupOperationTree(plan.OperationId, true);
+                journals.CleanupOperationTree(plan.OperationId, false);
                 await BuildAsync(prepared, true, progress, token).ConfigureAwait(false);
             }
             if (plan.Request.Origin == HistoryChainRewriteOrigin.Retention && prepared.NetReleasedBytes <= 0)
@@ -190,8 +193,77 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
             mappings.Add(step.Original.RepresentationId, new(step.Original.RepresentationId, replacement, path, DeltaDepth(replacement.RepresentationId, graph)));
         }
         var targetIds = plan.Request.TargetReplicaIds.ToHashSet();
+        // Older builds put durable rewrite/compaction payloads under the application data
+        // repository. Relocate still-registered bytes in this same verified transaction.
+        // A pending earlier journal may still reference those paths, so defer that case.
+        var relocatedIds = new HashSet<LocalReplicaId>();
+        var relocatedPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var protectedRepresentations = history.MergeSessions.ProtectedRepresentations(plan.Representations);
+        async Task<string> RelocateAsync(RepresentationId id, string oldPath)
+        {
+            if (relocatedPaths.TryGetValue(oldPath, out var known)) return known;
+            var hash = await HistoryChainRewriteJournalStore.HashAsync(oldPath, token).ConfigureAwait(false);
+            var newPath = Path.Combine(outputs, "relocated", id.ToString(), Path.GetFileName(oldPath));
+            if (!File.Exists(newPath))
+            {
+                RequireSpace(outputs, new FileInfo(oldPath).Length);
+                Directory.CreateDirectory(Path.GetDirectoryName(newPath)!);
+                await using (var input = new FileStream(oldPath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true))
+                await using (var output = new FileStream(newPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true))
+                    await input.CopyToAsync(output, token).ConfigureAwait(false);
+                created += new FileInfo(newPath).Length;
+            }
+            if (await HistoryChainRewriteJournalStore.HashAsync(newPath, token).ConfigureAwait(false) != hash)
+                throw new InvalidDataException("Relocated archive does not match its original bytes.");
+            relocatedPaths.Add(oldPath, newPath);
+            checkpoint?.Invoke("payload-relocated");
+            return newPath;
+        }
+        if (!HistoryChainRewriteJournalStore.HasPending(history.Repository.Paths.LocalStateRoot, plan.OperationId))
+        {
+            foreach (var group in plan.Catalog.Entries.Where(e => !targetIds.Contains(e.LocalReplicaId)
+                         && !protectedRepresentations.Contains(e.RepresentationId)
+                         && !mappings.ContainsKey(e.RepresentationId) && IsLegacyPayload(e) && File.Exists(e.Locator.AbsolutePath))
+                         .GroupBy(e => e.RepresentationId))
+            {
+                var replacement = graph[group.Key];
+                // These are existing verified archive bytes, not a change of logical state.
+                var originalEntry = group.First();
+                var oldPath = originalEntry.Locator.AbsolutePath;
+                var newPath = await RelocateAsync(group.Key, oldPath).ConfigureAwait(false);
+                var relocatedHash = await HistoryChainRewriteJournalStore.HashAsync(newPath, token).ConfigureAwait(false);
+                foreach (var other in group.Skip(1))
+                {
+                    if (await HistoryChainRewriteJournalStore.HashAsync(other.Locator.AbsolutePath, token).ConfigureAwait(false) != relocatedHash)
+                        throw new InvalidDataException("Local copies of an archive disagree; repair them before relocation.");
+                    relocatedPaths[other.Locator.AbsolutePath] = newPath;
+                }
+                entries.Add(new(group.Key, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(newPath), DateTimeOffset.UtcNow));
+                mappings.Add(group.Key, new(group.Key, replacement, newPath, DeltaDepth(group.Key, graph), StorageRelocationOnly: true));
+                foreach (var old in group) relocatedIds.Add(old.LocalReplicaId);
+            }
+            // A descendant can reuse bytes from an old application-data payload. Move the
+            // registration for its new representation as well, without recompressing it.
+            foreach (var pair in mappings.Where(p => !p.Value.StorageRelocationOnly
+                         && !protectedRepresentations.Contains(p.Value.Replacement.RepresentationId)
+                         && IsLegacyPayloadPath(p.Value.Path)).ToArray())
+            {
+                var mapping = pair.Value;
+                var newPath = await RelocateAsync(mapping.Replacement.RepresentationId, mapping.Path).ConfigureAwait(false);
+                entries.RemoveAll(e => e.RepresentationId == mapping.Replacement.RepresentationId
+                    && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath
+                    && StringComparer.OrdinalIgnoreCase.Equals(e.Locator.AbsolutePath, mapping.Path));
+                if (!entries.Any(e => e.RepresentationId == mapping.Replacement.RepresentationId
+                    && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath
+                    && StringComparer.OrdinalIgnoreCase.Equals(e.Locator.AbsolutePath, newPath)))
+                    entries.Add(new(mapping.Replacement.RepresentationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(newPath), DateTimeOffset.UtcNow));
+                mappings[pair.Key] = mapping with { Path = newPath };
+            }
+        }
         var removedIds = plan.Catalog.Entries.Where(e => targetIds.Contains(e.LocalReplicaId)
-            || (mappings.ContainsKey(e.RepresentationId) && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath))
+            || relocatedIds.Contains(e.LocalReplicaId)
+            || (mappings.TryGetValue(e.RepresentationId, out var mapping) && !mapping.StorageRelocationOnly
+                && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath))
             .Select(e => e.LocalReplicaId).ToHashSet();
         var finalEntries = entries.Where(e => !removedIds.Contains(e.LocalReplicaId)).ToArray();
         var retainedPaths = finalEntries.Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
@@ -210,6 +282,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         }
         var finalEnvironment = new RepresentationEnvironment(finalEntries, [], []);
         var verifiedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        verifiedPaths.UnionWith(mappings.Values.Select(m => m.Path));
         foreach (var id in plan.ProtectedVersions)
         {
             var assessment = await engine.AssessVersionAsync(id, graph.Values.ToArray(), finalEnvironment,
@@ -243,7 +316,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         var plan = prepared.Plan;
         if (await HistoryChainRewritePlanner.FingerprintAsync(history, token).ConfigureAwait(false) != plan.StateFingerprint)
             throw new InvalidOperationException("History changed after preparation; prepare the deletion again.");
-        var facts = new List<object>(prepared.Mappings.Select(m => m.Replacement));
+        var facts = new List<object>(prepared.Mappings.Select(m => m.Replacement).DistinctBy(r => r.RepresentationId));
         foreach (var version in plan.Request.TargetVersionIds)
         {
             if (plan.Request.ReleaseTargets)
@@ -268,7 +341,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         var journal = HistoryTransactionJournal.Prepared(pack.TransactionId, pack.PackId,
             [HistoryLocalStateJournalRecovery.CreateCatalogIntent(prepared.Catalog, plan.Catalog.CatalogRevision)]);
         var rewrite = new HistoryChainRewriteJournal(plan.OperationId, pack.PackId, false, false,
-            prepared.RetiredFiles, prepared.Mappings, prepared.VerifiedFiles);
+            prepared.RetiredFiles, prepared.Mappings, prepared.VerifiedFiles, prepared.Journals.BackupRoot);
         token.ThrowIfCancellationRequested();
         prepared.Journals.Save(rewrite);
         prepared.CommitStarted = true;
@@ -311,8 +384,17 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
 
     private void RequireSpace(string path, long required)
     {
-        var available = availableSpace?.Invoke(path) ?? new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))!).AvailableFreeSpace;
+        var volume = Path.GetPathRoot(Path.GetFullPath(path))!;
+        // DriveInfo does not support UNC roots. Share I/O still fails closed on insufficient space.
+        var available = availableSpace?.Invoke(path) ?? (volume.StartsWith(@"\\", StringComparison.Ordinal)
+            ? long.MaxValue : new DriveInfo(volume).AvailableFreeSpace);
         if (available < required)
             throw new IOException("Insufficient temporary space to rebuild the backup chain. Original archives have been retained.");
     }
+
+    private bool IsLegacyPayload(LocalReplicaCatalogEntry entry)
+        => entry.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath && IsLegacyPayloadPath(entry.Locator.AbsolutePath);
+
+    private bool IsLegacyPayloadPath(string path)
+        => HistoryRewriteStoragePaths.IsWithin(path, Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads"));
 }

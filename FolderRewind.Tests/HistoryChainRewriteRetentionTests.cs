@@ -27,6 +27,8 @@ public sealed class HistoryChainRewriteRetentionTests
         Assert.IsFalse(File.Exists(a.Entry.Locator.AbsolutePath));
         Assert.IsFalse(File.Exists(b.Entry.Locator.AbsolutePath));
         Assert.IsTrue(File.Exists(d.Entry.Locator.AbsolutePath));
+        Assert.IsTrue((await f.History.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries.All(e =>
+            HistoryRewriteStoragePaths.IsWithin(e.Locator.AbsolutePath, f.BackupRoot)));
         await f.AssertRestoresAsync(c, d);
         var again = await f.Retention().ExecuteAsync(2, 5);
         Assert.IsFalse(again.Committed, again.Diagnostic);

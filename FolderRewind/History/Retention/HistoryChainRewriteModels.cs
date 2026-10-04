@@ -14,7 +14,8 @@ public sealed record HistoryChainRewriteRequest(
     ImmutableArray<VersionId> RetainedVersionIds,
     int MaximumDeltaDepth = 5,
     bool HideTargets = false,
-    bool ReleaseTargets = false);
+    bool ReleaseTargets = false,
+    string? BackupRoot = null);
 
 public sealed record HistoryChainRewriteStep(
     VersionRepresentation Original,

@@ -27,6 +27,8 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
     internal async Task<HistoryChainRewritePlan> PlanInsideGateAsync(HistoryChainRewriteRequest request,
         CancellationToken token)
     {
+        request = request with { BackupRoot = HistoryRewriteStoragePaths.NormalizeBackupRoot(request.BackupRoot) };
+        HistoryRewriteStoragePaths.RequireUnlinkedAncestors(HistoryRewriteStoragePaths.ManagedRoot(request.BackupRoot, history.ConfigId));
         await history.EnsureIndexCurrentAsync(token).ConfigureAwait(false);
         var load = await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false);
         if (load.Status != DeviceLocalStateStatus.Valid || load.Value is null)
