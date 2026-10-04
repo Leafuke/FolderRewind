@@ -29,7 +29,8 @@ namespace FolderRewind.Services
     /// </summary>
     public static partial class BackupService
     {
-        public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
+        internal static BackupTaskCollection TaskRegistry { get; } = new();
+        public static ObservableCollection<BackupTask> ActiveTasks => TaskRegistry;
 
         // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
         internal const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";

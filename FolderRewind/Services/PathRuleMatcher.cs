@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services;
@@ -172,7 +171,8 @@ internal sealed class PathRuleMatcher
         /// </summary>
         public bool IsMatch(string candidatePath)
     {
-        if (string.IsNullOrWhiteSpace(candidatePath))
+        if ((_literalRules.Count == 0 && _wildcardRules.Count == 0 && _regexRules.Count == 0)
+            || string.IsNullOrWhiteSpace(candidatePath))
         {
             return false;
         }
@@ -181,7 +181,8 @@ internal sealed class PathRuleMatcher
         string relativePath = TryGetRelativePath(_backupSourceRoot, fullPath);
         string fileName = Path.GetFileName(fullPath);
 
-        if (MatchesLiteralPath(fullPath)
+        if (_literalRules.Contains(fullPath) || _literalRules.Contains(relativePath)
+            || MatchesLiteralPath(fullPath)
             || (!string.IsNullOrWhiteSpace(relativePath) && MatchesLiteralPath(relativePath)))
         {
             return true;
@@ -189,7 +190,7 @@ internal sealed class PathRuleMatcher
 
         foreach (Regex wildcard in _wildcardRules)
         {
-            if ((!string.IsNullOrEmpty(fileName) && wildcard.IsMatch(NormalizePath(fileName)))
+            if ((!string.IsNullOrEmpty(fileName) && wildcard.IsMatch(fileName))
                 || (_matchWildcardAgainstRelativePath
                     && !string.IsNullOrWhiteSpace(relativePath)
                     && wildcard.IsMatch(relativePath)))
@@ -235,35 +236,16 @@ internal sealed class PathRuleMatcher
 
     private bool MatchesLiteralPath(string path)
     {
-        string normalized = NormalizePath(path);
-        if (string.IsNullOrWhiteSpace(normalized))
+        if (_literalRules.Count == 0 || path.Length == 0) return false;
+        var lookup = _literalRules.GetAlternateLookup<ReadOnlySpan<char>>();
+        var span = path.AsSpan();
+        for (var start = 0; start < span.Length; start++)
         {
-            return false;
-        }
-
-        string[] segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length == 0)
-        {
-            return false;
-        }
-
-        // Check all segment-bounded contiguous subpaths. This preserves the old
-        // boundary semantics while making lookup independent of rule count.
-        for (int start = 0; start < segments.Length; start++)
-        {
-            var builder = new StringBuilder();
-            for (int end = start; end < segments.Length; end++)
+            if (start > 0 && span[start - 1] != '/') continue;
+            for (var end = start + 1; end <= span.Length; end++)
             {
-                if (builder.Length > 0)
-                {
-                    builder.Append('/');
-                }
-
-                builder.Append(segments[end]);
-                if (_literalRules.Contains(builder.ToString()))
-                {
-                    return true;
-                }
+                if (end != span.Length && span[end] != '/') continue;
+                if (lookup.Contains(span[start..end])) return true;
             }
         }
 
