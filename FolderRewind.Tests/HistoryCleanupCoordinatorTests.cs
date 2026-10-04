@@ -22,6 +22,7 @@ public sealed class HistoryCleanupCoordinatorTests
         File.Delete(broken.Entry.Locator.AbsolutePath);
         var report = await f.Cleanup().ExecuteAsync(1, 5, HistoryRetentionBenefitPolicy.SpaceFirst, false, "test");
         Assert.AreEqual("Partial", report!.Status);
+        Assert.IsTrue(report.HasWarnings, "A partially blocked cleanup must warn the committed backup caller.");
         Assert.AreEqual("Blocked", report.Sources.Single(r => r.SourceId == f.Source.ToString()).Status);
         Assert.AreEqual("Completed", report.Sources.Single(r => r.SourceId == other.ToString()).Status);
         Assert.IsFalse(File.Exists(old.Entry.Locator.AbsolutePath));

@@ -24,8 +24,10 @@ internal sealed partial class MergeOperationService
     public static void BeginShutdown() { _stopping = true; foreach (var item in Instances.Values) item.Tracker.Stop(); }
     public static void CancelShutdown() => _stopping = false;
 
-    private MergeOperationService(BackupConfig config, SourceId source) { Config = config; SourceId = source; }
-    public BackupConfig Config { get; }
+    private MergeOperationService(BackupConfig config, SourceId source)
+    { Config = config; SourceId = source; _configSignature = NativeHistoryConfigLease.Signature(config); }
+    public BackupConfig Config { get; private set; }
+    private string _configSignature;
     public SourceId SourceId { get; }
     public MergeOperationTracker Tracker { get; } = new();
     public MergeOperationSnapshot Snapshot => Tracker.Snapshot;
@@ -47,6 +49,18 @@ internal sealed partial class MergeOperationService
                 throw new InvalidOperationException(I18n.GetString("MergeWorkspace_ConfigBusy"));
             try
             {
+                // Refresh inside the tracked operation, never by replacing a service that may still own work or unsaved decisions.
+                var (current, signature) = await UiDispatcherService.RunOnUiAsync(() =>
+                {
+                    var registered = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => c.Id == Config.Id)
+                        ?? throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
+                    return Task.FromResult((registered, NativeHistoryConfigLease.Signature(registered)));
+                }).ConfigureAwait(false);
+                if (!ReferenceEquals(Config, current) || signature != _configSignature)
+                {
+                    Config = current; _configSignature = signature;
+                    _restore = null; Review = null; _automatic = []; _automaticPlan = null; _undo = null;
+                }
                 Runtime ??= await NativeHistoryCoreGateway.EnsureReadyAsync(Config, token).ConfigureAwait(false);
                 _restore ??= await NativeHistoryApplicationService.CreateRestoreServiceAsync(Config, token).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
@@ -83,8 +97,15 @@ internal sealed partial class MergeOperationService
     private void Refresh()
     {
         // Result is already captured before this potentially failing read.
+        if (Snapshot.Session is { } session)
+        {
+            var current = Runtime!.MergeSessions.Load(session.Id);
+            if (current.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready
+                && current.Plan.ConfigRevision != _configSignature)
+                current = Runtime.MergeSessions.Update(current, MergeSessionState.Stale);
+            SetSession(current);
+        }
         Sessions = Runtime!.MergeSessions.List().Where(s => s.Plan.Ours.SourceId == SourceId).ToArray();
-        if (Snapshot.Session is { } session) SetSession(Runtime.MergeSessions.Load(session.Id));
         Tracker.Update(s => s);
     }
     private MergeSession RequireSession() => Snapshot.Session ?? throw new InvalidOperationException(I18n.GetString("Merge_SelectBranch"));
