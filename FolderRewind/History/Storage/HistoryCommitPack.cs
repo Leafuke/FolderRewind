@@ -126,3 +126,5 @@ public sealed class HistoryPackCompatibilityException(string message)
 
 public sealed class HistoryRepositoryValidationException(string message)
     : HistoryRepositoryException(message);
+
+internal sealed record HistoryPackFile(PackId PackId, long Length, long LastWriteUtcTicks);

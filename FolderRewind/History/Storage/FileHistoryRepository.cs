@@ -28,6 +28,21 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
         _journals = new HistoryTransactionJournalStore(paths);
     }
 
+    internal Func<IReadOnlyList<HistoryPackReadResult>, IReadOnlyList<HistoryPackReadResult>, CancellationToken, Task>? PacksInstalled { get; set; }
+
+    internal IReadOnlyList<HistoryPackFile> GetPackFiles() => Directory.Exists(Paths.PacksRoot)
+        ? Directory.EnumerateFiles(Paths.PacksRoot, "*.frpack", SearchOption.AllDirectories)
+            .Select(path => new FileInfo(path)).Select(file => new HistoryPackFile(
+                PackId.Parse(Path.GetFileNameWithoutExtension(file.Name)), file.Length, file.LastWriteTimeUtc.Ticks)).ToArray()
+        : [];
+
+    internal async Task WithGateAsync(Func<Task> action, CancellationToken token)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try { await action().ConfigureAwait(false); }
+        finally { _gate.Release(); }
+    }
+
     public HistoryConfigId ConfigId { get; }
     public HistoryRepositoryPaths Paths { get; }
     public HistoryTransactionJournalStore Journals => _journals;
@@ -199,6 +214,8 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
                 }
             }
 
+            if (newPacks.Count > 0 && PacksInstalled is { } installed)
+                await installed(existing, newPacks, cancellationToken).ConfigureAwait(false);
             return results;
         }
         finally
@@ -230,7 +247,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
         _gate.Dispose();
     }
 
-    private async Task<IReadOnlyList<HistoryPackReadResult>> ReadAllPacksInsideGateAsync(
+    internal async Task<IReadOnlyList<HistoryPackReadResult>> ReadAllPacksInsideGateAsync(
         CancellationToken cancellationToken)
     {
         var results = new List<HistoryPackReadResult>();

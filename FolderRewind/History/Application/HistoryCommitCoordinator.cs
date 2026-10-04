@@ -339,8 +339,7 @@ public sealed class HistoryCommitCoordinator
             bool indexRefreshSucceeded;
             try
             {
-                var packs = await _runtime.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-                await _runtime.Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
+                await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
                 indexRefreshSucceeded = true;
             }
             catch (Exception)
@@ -356,10 +355,6 @@ public sealed class HistoryCommitCoordinator
             if (batch.UpdatedWorkspace is not null || batch.UpdatedLocalReplicaCatalog is not null)
             {
                 _runtime.ChangeFeed.Publish(_runtime.ConfigId, HistoryChangeKind.LocalStateChanged);
-            }
-            if (indexRefreshSucceeded)
-            {
-                _runtime.ChangeFeed.Publish(_runtime.ConfigId, HistoryChangeKind.IndexRebuilt);
             }
 
             return batch with { IndexRefreshSucceeded = indexRefreshSucceeded };
