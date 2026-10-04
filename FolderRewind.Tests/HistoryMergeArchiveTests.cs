@@ -9,6 +9,30 @@ namespace FolderRewind.Tests;
 public sealed class HistoryMergeArchiveTests
 {
     [TestMethod]
+    [DataRow("revision")]
+    [DataRow("candidate")]
+    [DataRow("working")]
+    public async Task ReviewedMergeRejectsChangedIdentityOrWorkingFiles(string change)
+    {
+        await using var fixture = new HistoryMergeArchiveFixture();
+        await fixture.SeedAsync();
+        var prepared = await fixture.Builder().BuildAsync(fixture.Session);
+        var live = await MergeTreeManifest.ReadAsync(fixture.Target, _ => true, default);
+        var review = new MergeReviewSnapshot(prepared, [new(fixture.Source, fixture.Target, true, live.Digest)], [], [], false);
+        if (change == "revision") review = review with { Prepared = prepared with { Session = prepared.Session with { Revision = prepared.Session.Revision + 1 } } };
+        if (change == "candidate") review = review with { Prepared = prepared with { PackId = PackId.New() } };
+        if (change == "working") File.WriteAllText(Path.Combine(fixture.Target, "a.txt"), "new unbacked work");
+        var packCount = (await fixture.History.Repository.ReadAllPacksAsync()).Count;
+        var restore = fixture.Restore();
+        var result = await new HistoryMergeApplyService(fixture.History, restore, fixture.Builder(restore))
+            .ApplyAsync(fixture.Session, ready: prepared, review: review);
+        Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, result.Status);
+        Assert.IsFalse(result.TargetCommitted);
+        Assert.HasCount(packCount, await fixture.History.Repository.ReadAllPacksAsync());
+        Assert.AreEqual(change == "working" ? "new unbacked work" : "ours-a", File.ReadAllText(Path.Combine(fixture.Target, "a.txt")));
+    }
+
+    [TestMethod]
     public async Task IndependentChangesCreateNewArchivePersistPreparationAndRestoreExactly()
     {
         await using var fixture = new HistoryMergeArchiveFixture();

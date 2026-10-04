@@ -6161,4 +6161,20 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_Preview_Binary" xml:space="preserve"><value>Binary or unsupported encoding</value></data>
   <data name="MergeWorkspace_Preview_Limited" xml:space="preserve"><value>Preview truncated (512 KiB / 5,000 lines); full diff unavailable</value></data>
   <data name="MergeWorkspace_Preview_Unavailable" xml:space="preserve"><value>Preview unavailable; prepare again</value></data>
+  <data name="MergeWorkspace_ReviewTitle.Text" xml:space="preserve"><value>Review the result before applying</value></data>
+  <data name="MergeWorkspace_ReviewSummary" xml:space="preserve"><value>Compared with target branch: {0} changes. Actual working-folder changes: {1}.</value></data>
+  <data name="MergeWorkspace_ProtectionRequired" xml:space="preserve"><value>Current work contains unbacked changes. A safety snapshot will be created before writing.</value></data>
+  <data name="MergeWorkspace_ProtectionNotRequired" xml:space="preserve"><value>No additional safety snapshot is needed at this check. State will be verified again before applying.</value></data>
+  <data name="MergeWorkspace_Validation.Text" xml:space="preserve"><value>Candidate archive and file content verified. Application-specific save format has not been validated.</value></data>
+  <data name="MergeWorkspace_BranchChanges.Header" xml:space="preserve"><value>Changes compared with the target branch</value></data>
+  <data name="MergeWorkspace_WorkingChanges.Header" xml:space="preserve"><value>Actual working-folder changes</value></data>
+  <data name="MergeWorkspace_EditDecisions.Content" xml:space="preserve"><value>Back to decisions</value></data>
+  <data name="MergeWorkspace_ViewResult.Content" xml:space="preserve"><value>View merged version</value></data>
+  <data name="MergeWorkspace_ViewProtection.Content" xml:space="preserve"><value>View safety snapshots</value></data>
+  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>Build and review result</value></data>
+  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>Merge and update this folder</value></data>
+  <data name="MergeWorkspace_Change_Added" xml:space="preserve"><value>Add</value></data>
+  <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>Modify</value></data>
+  <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>Delete</value></data>
+  <data name="MergeWorkspace_Change_Structure" xml:space="preserve"><value>Path structure replacement</value></data>
 </root>

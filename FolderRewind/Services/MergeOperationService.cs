@@ -52,13 +52,25 @@ internal sealed partial class MergeOperationService
             catch (Exception ex)
             {
                 LogService.LogError($"Merge config={Config.Id} session={Snapshot.Session?.Id} stage={Snapshot.Stage}", "Merge", ex);
+                if (ex is HistoryMergeBlockedException blocked)
+                {
+                    if (blocked.Diagnostic.Code == MergeDiagnosticCode.Stale && Snapshot.Session is { } stale
+                        && stale.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready)
+                        SetSession(Runtime!.MergeSessions.Update(stale, MergeSessionState.Stale));
+                    throw new InvalidOperationException(I18n.GetString("Merge_Diagnostic_" + blocked.Diagnostic.Code)
+                        + "\n" + I18n.GetString(blocked.Diagnostic.NextActionKey), ex);
+                }
                 throw;
             }
             finally { gate.Release(); }
         }, canStop);
     }
 
-    private void SetSession(MergeSession? session) => Tracker.Update(s => s with { Session = session, IsSaved = true });
+    private void SetSession(MergeSession? session)
+    {
+        if (Review is { } r && (r.SessionId != session?.Id || r.ResolutionRevision != session.Revision)) Review = null;
+        Tracker.Update(s => s with { Session = session, IsSaved = true });
+    }
     private void Refresh()
     {
         // Result is already captured before this potentially failing read.
@@ -124,6 +136,22 @@ internal sealed partial class MergeOperationService
         Remember(session, before); SetSession(session); Refresh(); return Task.CompletedTask;
     });
     public string? RecomputeSummary { get; private set; }
+    public MergeReviewSnapshot? Review { get; private set; }
+    public Task GenerateReviewAsync() => Run(MergeOperationStage.Building, async token =>
+    {
+        Review = null; Tracker.Update(s => s with { Result = null });
+        Review = await NativeHistoryApplicationService.PrepareMergeReviewAsync(Config, RequireSession(), Tracker.ReportStage, token).ConfigureAwait(false);
+        Refresh();
+    });
+    public void DismissReview() { if (!Snapshot.IsBusy) { Review = null; Tracker.Update(s => s); } }
+    public Task ApplyReviewedAsync() => Run(MergeOperationStage.Validating, async _ =>
+    {
+        var review = Review ?? throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
+        var result = await NativeHistoryApplicationService.ApplyMergeAsync(Config, RequireSession(), CancellationToken.None, review, Tracker.ReportStage).ConfigureAwait(false);
+        Tracker.ReportResult(result);
+        if (!result.TargetCommitted) Review = null;
+        Refresh();
+    }, false);
     public Task ImportAsync(MergeConflict conflict, string path) => Run(MergeOperationStage.Saving, async token =>
     {
         SetSession(await Core.ImportManualAsync(RequireSession(), conflict, path, token).ConfigureAwait(false)); Refresh();

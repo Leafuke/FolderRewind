@@ -323,7 +323,8 @@ public sealed class HistoryRestoreService
         CancellationToken cancellationToken,
         HistoryCommitPack? commitPack = null,
         LocalReplicaCatalog? desiredCatalog = null,
-        long expectedCatalogRevision = -1)
+        long expectedCatalogRevision = -1,
+        Action? beforeCommit = null)
     {
         foreach (var item in prepared)
         {
@@ -419,6 +420,7 @@ public sealed class HistoryRestoreService
             }
             if (commitPack is not null)
             {
+                beforeCommit?.Invoke();
                 if (PackPublisher is { } publish) await publish(commitPack, cancellationToken).ConfigureAwait(false);
                 else await _history.Repository.CommitAsync(commitPack, cancellationToken: cancellationToken).ConfigureAwait(false);
             }

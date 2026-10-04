@@ -6161,4 +6161,20 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_Preview_Binary" xml:space="preserve"><value>二进制或不支持的编码</value></data>
   <data name="MergeWorkspace_Preview_Limited" xml:space="preserve"><value>预览已截断（512 KiB / 5,000 行），未进行完整差异比较</value></data>
   <data name="MergeWorkspace_Preview_Unavailable" xml:space="preserve"><value>预览文件不可用，请重新准备</value></data>
+  <data name="MergeWorkspace_ReviewTitle.Text" xml:space="preserve"><value>确认即将写入的结果</value></data>
+  <data name="MergeWorkspace_ReviewSummary" xml:space="preserve"><value>相对目标分支：{0} 项变更；当前文件夹实际写入：{1} 项变更。</value></data>
+  <data name="MergeWorkspace_ProtectionRequired" xml:space="preserve"><value>当前工作有未备份改动，写入前将创建保护快照。</value></data>
+  <data name="MergeWorkspace_ProtectionNotRequired" xml:space="preserve"><value>本次检查无需额外保护快照；提交前将再次校验。</value></data>
+  <data name="MergeWorkspace_Validation.Text" xml:space="preserve"><value>候选归档与文件内容校验通过。应用存档格式未验证。</value></data>
+  <data name="MergeWorkspace_BranchChanges.Header" xml:space="preserve"><value>相对目标分支的变化</value></data>
+  <data name="MergeWorkspace_WorkingChanges.Header" xml:space="preserve"><value>当前文件夹实际写入</value></data>
+  <data name="MergeWorkspace_EditDecisions.Content" xml:space="preserve"><value>返回修改决定</value></data>
+  <data name="MergeWorkspace_ViewResult.Content" xml:space="preserve"><value>查看合并版本</value></data>
+  <data name="MergeWorkspace_ViewProtection.Content" xml:space="preserve"><value>查看保护快照</value></data>
+  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>生成并审阅结果</value></data>
+  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>合并并更新当前文件夹</value></data>
+  <data name="MergeWorkspace_Change_Added" xml:space="preserve"><value>新增</value></data>
+  <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>修改</value></data>
+  <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>删除</value></data>
+  <data name="MergeWorkspace_Change_Structure" xml:space="preserve"><value>路径结构替换</value></data>
 </root>

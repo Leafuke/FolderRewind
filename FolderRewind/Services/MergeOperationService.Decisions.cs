@@ -40,8 +40,13 @@ internal sealed partial class MergeOperationService
     {
         if (_automaticPlan == session.Plan.Revision) return _automatic;
         var rows = new List<MergeConflict>();
-        foreach (var source in Runtime!.MergeSessions.Sources(session))
+        foreach (var stored in Runtime!.MergeSessions.Sources(session))
         {
+            var source = stored;
+            // Older reuse sessions did not persist their target comparison tree.
+            if (source.Plan.Action == HistoryMergeSourceAction.Reuse && source.Ours.Files.IsEmpty && source.Plan.Ours is not null)
+                source = source with { Ours = NativeHistoryApplicationService.MaterializeMergeComparisonAsync(Runtime, _restore!, session,
+                    source.Plan.Ours, System.Threading.CancellationToken.None).GetAwaiter().GetResult() };
             var conflicts = Core.AllConflicts(session, source.Plan.SourceId).Select(c => c.Conflict).ToArray();
             if (conflicts.Any(c => c.Subject.Paths.IsEmpty)) continue;
             var claimed = conflicts.SelectMany(c => c.Subject.Paths).ToHashSet(StringComparer.Ordinal);

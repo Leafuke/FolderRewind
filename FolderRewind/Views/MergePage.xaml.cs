@@ -97,6 +97,11 @@ public sealed partial class MergePage : Page
     private async void OnSessionChanged(object sender, SelectionChangedEventArgs e)
     { if (SessionPicker.SelectedItem is MergeSessionChoice s) await ViewModel.SelectSessionAsync(s.Id); }
     private async void OnAnalyze(object sender, RoutedEventArgs e) => await ViewModel.AnalyzeAsync();
+    private async void OnGenerate(object sender, RoutedEventArgs e) => await ViewModel.GenerateAsync();
+    private async void OnApplyReview(object sender, RoutedEventArgs e) => await ViewModel.ApplyReviewAsync();
+    private void OnEditDecisions(object sender, RoutedEventArgs e) => ViewModel.EditDecisions();
+    private async void OnViewResult(object sender, RoutedEventArgs e) => await ViewModel.ExecuteAsync(() => ViewModel.ShowResultAsync(false));
+    private async void OnViewProtection(object sender, RoutedEventArgs e) => await ViewModel.ExecuteAsync(() => ViewModel.ShowResultAsync(true));
     private async void OnOurs(object sender, RoutedEventArgs e) => await ViewModel.AdoptAsync(MergeResolutionChoice.Ours);
     private async void OnTheirs(object sender, RoutedEventArgs e) => await ViewModel.AdoptAsync(MergeResolutionChoice.Theirs);
     private void OnStop(object sender, RoutedEventArgs e) => ViewModel.Operations?.Tracker.Stop();

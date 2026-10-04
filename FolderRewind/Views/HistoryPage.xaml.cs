@@ -171,6 +171,9 @@ public sealed partial class HistoryPage : Page
                 ViewModel.CommentFilterText = returnContext.Search;
                 ViewModel.SelectedBranch = ViewModel.Branches.FirstOrDefault(b => b.BranchId == returnContext.SelectedBranch);
                 DispatcherQueue.TryEnqueue(() => { HistoryList.UpdateLayout(); FindHistoryScroll(HistoryList)?.ChangeView(null, returnContext.ScrollOffset, null, true); });
+                if (returnContext.FocusCheckpoint is { } checkpoint && ViewModel.FilteredHistory.FirstOrDefault(item => item.CheckpointId == checkpoint) is { } focus)
+                    DispatcherQueue.TryEnqueue(() => { HistoryList.SelectedItem = focus; HistoryList.ScrollIntoView(focus); HistoryList.Focus(FocusState.Programmatic); });
+                if (returnContext.OpenSafetySnapshots) await ViewModel.ManageSafetySnapshotsCommand.ExecuteAsync(null);
                 return;
             }
         }
