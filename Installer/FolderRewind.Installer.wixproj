@@ -4,7 +4,7 @@
     <InstallerPlatform Condition="'$(InstallerPlatform)'==''">x64</InstallerPlatform>
     <!-- WiX 7 OSMF EULA: the project owner accepted this for the CI build channel. -->
     <AcceptEula>wix7</AcceptEula>
-    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.3.0</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.4.0</ProductVersion>
     <PackageLanguage Condition="'$(PackageLanguage)'==''">1033</PackageLanguage>
     <PackageIdentifier Condition="'$(PackageIdentifier)'==''">Leafuke.FolderRewind.Msi</PackageIdentifier>
     <PackageDisplayName Condition="'$(PackageDisplayName)'==''">FolderRewind</PackageDisplayName>
