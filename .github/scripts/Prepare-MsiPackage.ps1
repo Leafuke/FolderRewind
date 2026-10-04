@@ -80,7 +80,7 @@ New-Item -ItemType Directory -Path $validationWork | Out-Null
 & $wix msi validate -acceptEula wix7 -intermediateFolder $validationWork -sice ICE57 -sice ICE105 $msi
 if ($LASTEXITCODE) { throw "Embedded-transform MSI validation failed: $LASTEXITCODE" }
 if (-not $SkipBundle) {
-    dotnet build (Join-Path $root 'Installer\Bootstrapper\FolderRewind.Bootstrapper.wixproj') -t:Rebuild -c Release `
+    dotnet build (Join-Path $root 'Installer\Bootstrapper\FolderRewind.Bootstrapper.wixproj') -t:Rebuild -c Release -p:Platform=x86 `
         "-p:ProductVersion=$Version" "-p:PayloadArchitecture=$arch" "-p:MsiPath=$msi" "-p:ProductCode=$productCode" `
         "-p:BaseIntermediateOutputPath=$work\bundle-obj\" `
         "-p:NativeOutputDirectory=$native" "-p:OutputPath=$output\" /warnaserror

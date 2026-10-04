@@ -36,37 +36,37 @@ jobs:
           key: ${{ runner.os }}-wix-native-${{ hashFiles('.github/scripts/Restore-InstallerNativeApi.ps1') }}
       - name: Resolve diagnostic inputs
         env:
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
           $metadata = & ./.github/scripts/Get-SetupReleaseMetadata.ps1
           "RELEASE_VERSION=$($metadata.version)" >> $env:GITHUB_ENV
           $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers @{'User-Agent'='FolderRewind-diagnostics'}
           "SEVENZIP_RELEASE=$($upstream.tag_name)" >> $env:GITHUB_ENV
-          $payload = & ./.github/scripts/Stage-SevenZip.ps1 -Platform $env:PLATFORM -ReleaseTag $upstream.tag_name | Select-Object -Last 1
+          $payload = & ./.github/scripts/Stage-SevenZip.ps1 -Platform $env:TARGET_PLATFORM -ReleaseTag $upstream.tag_name | Select-Object -Last 1
           "SEVENZIP_PAYLOAD=$payload" >> $env:GITHUB_ENV
       - name: Build unsigned MSIX regression package
         env:
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          dotnet build FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:PLATFORM" -p:CETCompat=false `
+          dotnet build FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:TARGET_PLATFORM" -p:CETCompat=false `
             "-p:SevenZipExecutable=$env:SEVENZIP_PAYLOAD" -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxBundle=Never `
             -p:GenerateAppxPackageOnBuild=true -p:GenerateTestArtifacts=false -p:AppxSymbolPackageEnabled=false `
             -p:GenerateAppxSymbolPackage=false -p:DebugType=None -p:DebugSymbols=false `
-            "-p:AppxPackageDir=$env:GITHUB_WORKSPACE\artifacts\appx\$env:PLATFORM\" `
+            "-p:AppxPackageDir=$env:GITHUB_WORKSPACE\artifacts\appx\$env:TARGET_PLATFORM\" `
             -p:PackageCertificateKeyFile= -p:PackageCertificatePassword= -p:PackageCertificateThumbprint= `
             -p:AppxPackageSigningEnabled=false /warnaserror
           if ($LASTEXITCODE) { throw 'MSIX regression build failed.' }
       - name: Clean packaged PRI before diagnostic Setup publish
         env:
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          dotnet clean FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:PLATFORM" -p:FolderRewindDistributionChannel=Msi -p:GenerateAppxPackageOnBuild=false
+          dotnet clean FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:TARGET_PLATFORM" -p:FolderRewindDistributionChannel=Msi -p:GenerateAppxPackageOnBuild=false
           if ($LASTEXITCODE) { throw 'Diagnostic cleanup failed.' }
       - name: Build diagnostic candidate
         env:
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
+          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:TARGET_PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
       - name: Ensure WinApp CLI for UI evidence
         if: matrix.platform == 'x64'
         run: |

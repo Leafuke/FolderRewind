@@ -110,9 +110,9 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
           SEVENZIP_RELEASE: ${{ needs.preflight.outputs.sevenzip }}
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
+          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:TARGET_PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
       - name: Preserve validation diagnostics
         if: always()
         uses: actions/upload-artifact@v4
