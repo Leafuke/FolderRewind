@@ -22,6 +22,36 @@ public sealed class LocalizationQualityTests
     }
 
     [TestMethod]
+    public void LiteralCodeResourceKeysExistInEveryLanguage()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repositoryRoot, "FolderRewind");
+        // Only complete literal arguments are checked; concatenated/dynamic keys are excluded.
+        var resourceCallPattern = new Regex(
+            "(?:I18n\\.(?:GetString|Format)|(?:resources|resourceLoader)\\.GetString)\\(\\s*\"(?<key>[^\"]+)\"\\s*[,)]",
+            RegexOptions.CultureInvariant);
+        var references = Directory.EnumerateFiles(projectRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(IsSourceFile)
+            .SelectMany(path => resourceCallPattern.Matches(File.ReadAllText(path))
+                .Select(match => (path, key: match.Groups["key"].Value)))
+            .ToArray();
+
+        foreach (var languageDirectory in Directory.EnumerateDirectories(Path.Combine(projectRoot, "Strings")))
+        {
+            var resourcePath = Path.Combine(languageDirectory, "Resources.resw");
+            var keys = ReadResourceKeys(resourcePath).ToHashSet(StringComparer.Ordinal);
+            var missingKeys = references
+                .Where(reference => !keys.Contains(reference.key.Replace('/', '.')))
+                .Select(reference => $"{Path.GetRelativePath(repositoryRoot, reference.path)}: {reference.key}")
+                .Distinct()
+                .ToArray();
+
+            Assert.HasCount(0, missingKeys,
+                $"Missing resources in {resourcePath}:{Environment.NewLine}{string.Join(Environment.NewLine, missingKeys)}");
+        }
+    }
+
+    [TestMethod]
     public void UserDisplayFormatterUsesCurrentCulture()
     {
         var originalCulture = CultureInfo.CurrentCulture;
@@ -94,6 +124,10 @@ public sealed class LocalizationQualityTests
         Assert.AreEqual(keys.Length, keys.Distinct(StringComparer.Ordinal).Count(), $"Duplicate resource key in {path}");
         return keys;
     }
+
+    private static bool IsSourceFile(string path) =>
+        !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+        && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase);
 
     private static string FindRepositoryRoot()
     {

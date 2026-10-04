@@ -340,7 +340,7 @@ namespace FolderRewind.Services
             const int height = 400;
             var size = new SizeInt32(width, height);
             appWindow.Resize(size);
-            appWindow.Title = I18n.GetString("SponsorWindow_Title");
+            appWindow.Title = I18n.GetString("SponsorWindow_Title.Text");
 
             var owner = GetMainWindow()?.AppWindow;
             if (owner != null)

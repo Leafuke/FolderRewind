@@ -156,7 +156,7 @@ public sealed class PluginStorePageViewModel : ViewModelBase
             item.IsOperationAllowed = CanLoad;
             Assets.Add(item);
         }
-        if (Assets.Count == 0) StatusMessage = I18n.GetString("PluginStorePage_NoAssets");
+        if (Assets.Count == 0) StatusMessage = I18n.GetString("PluginStorePage_NoAssets.Text");
     }
 
     private async Task InstallAsync(PluginStoreAssetItem item, CancellationToken ct, Func<bool> isCurrent)

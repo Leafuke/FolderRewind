@@ -6091,4 +6091,13 @@ Pull Request：{1}</value>
   <data name="HistoryCancelOperation.Content" xml:space="preserve"><value>取消</value></data>
   <data name="History_Rewrite_InsufficientSpace" xml:space="preserve"><value>临时空间不足，无法安全重建备份链。原备份已保留，请释放空间后重试。</value></data>
   <data name="History_Rewrite_Failed" xml:space="preserve"><value>暂时无法安全删除此备份。请检查备份完整性、密码及运行中的操作后重试，详细原因已记录到日志。</value></data>
+  <data name="App_Log_PluginInitException" xml:space="preserve"><value>[App] 插件初始化失败：{0}</value></data>
+  <data name="Tray_InitFailed" xml:space="preserve"><value>[Tray] 托盘初始化失败：{0}</value></data>
+  <data name="Tray_ToggleFailed" xml:space="preserve"><value>[Tray] 切换窗口显示状态失败：{0}</value></data>
+  <data name="BackupService_Log_RecoveryRequired" xml:space="preserve"><value>备份 {0} 已提交，但需要恢复本地状态。请保留事务文件并重试恢复。</value></data>
+  <data name="MiniWindow_Log_WatcherError" xml:space="preserve"><value>[MiniWindow] 文件夹“{0}”的监视器发生错误：{1}</value></data>
+  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve"><value>[MiniWindow] 启动文件夹“{0}”的监视器失败：{1}</value></data>
+  <data name="Plugins_NotInstalled" xml:space="preserve"><value>该插件尚未安装。</value></data>
+  <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] 打开链接失败：{0}</value></data>
+  <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] 检查插件“{0}”的更新失败：{1}</value></data>
 </root>

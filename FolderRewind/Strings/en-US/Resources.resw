@@ -6091,4 +6091,13 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="HistoryCancelOperation.Content" xml:space="preserve"><value>Cancel</value></data>
   <data name="History_Rewrite_InsufficientSpace" xml:space="preserve"><value>Not enough temporary space to rebuild the backup chain safely. Original backups have been retained. Free some space and try again.</value></data>
   <data name="History_Rewrite_Failed" xml:space="preserve"><value>This backup cannot be safely deleted right now. Check archive integrity, credentials and active operations, then try again. Details are available in the log.</value></data>
+  <data name="App_Log_PluginInitException" xml:space="preserve"><value>[App] Plugin initialization failed: {0}</value></data>
+  <data name="Tray_InitFailed" xml:space="preserve"><value>[Tray] Initialization failed: {0}</value></data>
+  <data name="Tray_ToggleFailed" xml:space="preserve"><value>[Tray] Failed to switch window visibility: {0}</value></data>
+  <data name="BackupService_Log_RecoveryRequired" xml:space="preserve"><value>Backup {0} was committed, but local recovery is required. Preserve the transaction files and retry recovery.</value></data>
+  <data name="MiniWindow_Log_WatcherError" xml:space="preserve"><value>[MiniWindow] Folder watcher error for '{0}': {1}</value></data>
+  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve"><value>[MiniWindow] Failed to start the folder watcher for '{0}': {1}</value></data>
+  <data name="Plugins_NotInstalled" xml:space="preserve"><value>The plugin is not installed.</value></data>
+  <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] Failed to open the link: {0}</value></data>
+  <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] Failed to check for updates to plugin '{0}': {1}</value></data>
 </root>

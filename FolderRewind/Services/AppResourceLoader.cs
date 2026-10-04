@@ -59,6 +59,10 @@ namespace FolderRewind.Services
                 return string.Empty;
             }
 
+            // PRI stores RESW property keys such as Control.Text as Control/Text.
+            // Normalize once so MRT Core and the packaged fallback use the same path.
+            key = key.Replace('.', '/');
+
             if (_mrtCoreManager != null && _mrtCoreResourceMap != null)
             {
                 try
