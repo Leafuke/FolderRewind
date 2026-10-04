@@ -171,7 +171,8 @@ public sealed partial class HomePage : Page
         }
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e) => ApplySortSelection();
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    { ApplySortSelection(); UpdateLayoutBounds(); StartupTimingService.HomeLoaded(); }
 
     private void ApplySortSelection()
     {

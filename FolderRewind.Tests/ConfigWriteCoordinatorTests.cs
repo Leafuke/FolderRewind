@@ -9,6 +9,50 @@ namespace FolderRewind.Tests;
 public sealed class ConfigWriteCoordinatorTests
 {
     [TestMethod]
+    public async Task SnapshotRequestsCoalesceBeforeCaptureAndWaitForDurability()
+    {
+        var posted = new List<Action>();
+        var values = new List<int>();
+        var captures = 0;
+        int[]? snapshot = null;
+        var disk = new TaskCompletionSource<FolderRewind.Models.ConfigSaveResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new ConfigSnapshotCoordinator<int[]>(posted.Add,
+            () => { captures++; return values.ToArray(); },
+            (copy, _) => { snapshot = copy; return disk.Task; });
+        var requests = Enumerable.Range(0, 50).Select(i => coordinator.EnqueueAsync(() => values.Add(i), true, default)).ToArray();
+        Assert.HasCount(1, posted);
+        posted[0]();
+        Assert.AreEqual(1, captures);
+        CollectionAssert.AreEqual(Enumerable.Range(0, 50).ToArray(), snapshot);
+        values.Add(999);
+        Assert.HasCount(50, snapshot!);
+        Assert.IsTrue(requests.All(task => !task.IsCompleted));
+        disk.SetResult(new() { Success = true });
+        Assert.IsTrue((await Task.WhenAll(requests)).All(result => result.Success));
+        coordinator.Seal();
+        Assert.IsFalse((await coordinator.EnqueueAsync(null, false, default)).Success);
+    }
+
+    [TestMethod]
+    public async Task SnapshotCancellationAndFailedMutationDoNotDropFollowingMutation()
+    {
+        Action? posted = null;
+        var state = 0;
+        var coordinator = new ConfigSnapshotCoordinator<int>(action => posted = action,
+            () => state, (_, _) => Task.FromResult(new FolderRewind.Models.ConfigSaveResult { Success = true }));
+        using var cancellation = new CancellationTokenSource();
+        var canceled = coordinator.EnqueueAsync(() => state = 100, false, cancellation.Token);
+        cancellation.Cancel();
+        var failed = coordinator.EnqueueAsync(() => throw new InvalidOperationException("mutation failed"), false, default);
+        var succeeded = coordinator.EnqueueAsync(() => state++, false, default);
+        posted!();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await canceled);
+        Assert.IsFalse((await failed).Success);
+        Assert.IsTrue((await succeeded).Success);
+        Assert.AreEqual(1, state);
+    }
+
+    [TestMethod]
     public async Task ConcurrentRequestsPersistLatestRevisionWithoutOverlappingWrites()
     {
         var writes = new ConcurrentQueue<string>();

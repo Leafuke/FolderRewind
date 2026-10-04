@@ -37,8 +37,14 @@ internal sealed class ConfigWriteCoordinator : IAsyncDisposable
 
     internal long PersistedRevision => Interlocked.Read(ref _persistedRevision);
 
+    public Task<ConfigSaveResult> EnqueueAsync(byte[] payload, bool publishSavedEvent, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        return EnqueueAsync(() => payload, publishSavedEvent, cancellationToken);
+    }
+
     public Task<ConfigSaveResult> EnqueueAsync(
-        byte[] payload,
+        Func<byte[]> payload,
         bool publishSavedEvent,
         CancellationToken cancellationToken = default)
     {
@@ -127,7 +133,7 @@ internal sealed class ConfigWriteCoordinator : IAsyncDisposable
         {
             // Once an atomic write has started, an individual caller cancellation must not leave
             // the persisted revision ambiguous. Cancellation only stops requests still in queue.
-            await _writer(latest.Payload, CancellationToken.None).ConfigureAwait(false);
+            await _writer(await Task.Run(latest.Payload).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
             Interlocked.Exchange(ref _persistedRevision, latest.Revision);
             result = new ConfigSaveResult { Success = true };
 
@@ -182,7 +188,7 @@ internal sealed class ConfigWriteCoordinator : IAsyncDisposable
 
         public SaveRequest(
             long revision,
-            byte[] payload,
+            Func<byte[]> payload,
             bool publishSavedEvent,
             CancellationToken cancellationToken)
         {
@@ -198,7 +204,7 @@ internal sealed class ConfigWriteCoordinator : IAsyncDisposable
 
         public long Revision { get; }
 
-        public byte[] Payload { get; }
+        public Func<byte[]> Payload { get; }
 
         public bool PublishSavedEvent { get; }
 

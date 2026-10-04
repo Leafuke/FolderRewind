@@ -9,7 +9,8 @@ param(
     [ValidateRange(5, 120)]
     [int]$StartupTimeoutSeconds = 30,
 
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$HistoricalSdkMatrix
 )
 
 Set-StrictMode -Version Latest
@@ -62,6 +63,13 @@ $variants = @(
         OptionalChanges = $allOptionalChanges
     }
 )
+
+# Normal measurement follows the current project. Legacy SDK comparisons remain explicit opt-in.
+if (-not $HistoricalSdkMatrix) {
+    [xml]$projectDocument = Get-Content -LiteralPath $projectPath -Raw
+    $currentSdk = $projectDocument.SelectSingleNode('//FolderRewindWindowsAppSdkVersion').InnerText
+    $variants = @([pscustomobject]@{ Name = 'current'; SdkVersion = $currentSdk; OptionalChanges = $allOptionalChanges })
+}
 
 function Assert-NoRunningFolderRewind {
     $running = Get-Process -Name "FolderRewind" -ErrorAction SilentlyContinue
@@ -192,6 +200,7 @@ function Invoke-StartupRun {
     $windowDetectedMs = $null
     $windowActivatedMs = $null
     $appReadyMs = $null
+    $historyWarmupMs = $null
     $peakWorkingSetBytes = 0L
     $capturedLog = ""
 
@@ -215,11 +224,14 @@ function Invoke-StartupRun {
                 $windowActivatedMs = [long]$Matches.value
             }
             if ($null -eq $appReadyMs -and
-                $capturedLog -match "\[Startup\] App ready: (?<value>\d+)ms") {
+                $capturedLog -match "\[Startup\] Home loaded: (?<value>\d+)ms") {
                 $appReadyMs = [long]$Matches.value
             }
 
-            if ($null -ne $windowDetectedMs -and $null -ne $windowActivatedMs -and $null -ne $appReadyMs) {
+            if ($null -eq $historyWarmupMs -and $capturedLog -match "\[Startup\] History warmup completed: (?<value>\d+)ms") {
+                $historyWarmupMs = [long]$Matches.value
+            }
+            if ($null -ne $windowDetectedMs -and $null -ne $windowActivatedMs -and $null -ne $appReadyMs -and $null -ne $historyWarmupMs) {
                 break
             }
 
@@ -230,7 +242,7 @@ function Invoke-StartupRun {
             $missing = @()
             if ($null -eq $windowDetectedMs) { $missing += "responsive window" }
             if ($null -eq $windowActivatedMs) { $missing += "Window activated log marker" }
-            if ($null -eq $appReadyMs) { $missing += "App ready log marker" }
+            if ($null -eq $appReadyMs) { $missing += "Home loaded log marker" }
             throw "Startup timed out for $($Variant.Name). Missing: $($missing -join ', '). Ensure file logging is enabled."
         }
 
@@ -245,7 +257,9 @@ function Invoke-StartupRun {
             Warmup = $IsWarmup
             WindowDetectedMs = $windowDetectedMs
             WindowActivatedMs = $windowActivatedMs
+            HomeLoadedMs = $appReadyMs
             AppReadyMs = $appReadyMs
+            HistoryWarmupMs = $historyWarmupMs
             PeakWorkingSetMB = [Math]::Round($peakWorkingSetBytes / 1MB, 2)
         }
     }
@@ -280,7 +294,7 @@ function Write-MarkdownSummary {
     )
 
     $lines = @(
-        "# Windows App SDK 2.3.1 local benchmark",
+        "# Local startup measurements",
         "",
         "- Generated: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss zzz'))",
         "- Machine: $([Environment]::MachineName)",
@@ -288,8 +302,8 @@ function Write-MarkdownSummary {
         "- Warm-up runs per variant: $WarmupRuns",
         "- Measured runs per variant: $MeasuredRuns",
         "",
-        "| Variant | SDK | Optional changes | Direct baseline | App ready median (ms) | App ready delta | Peak working set median (MB) | Working set delta |",
-        "|---|---:|---|---|---:|---:|---:|---:|"
+        "| Variant | SDK | Optional changes | Direct baseline | Window activated (ms) | Home loaded (ms) | History warmup (ms) | Home loaded delta | Peak working set median (MB) | Working set delta |",
+        "|---|---:|---|---|---:|---:|---:|---:|---:|---:|"
     )
 
     foreach ($row in $Summary) {
@@ -297,12 +311,12 @@ function Write-MarkdownSummary {
         $baseline = if ([string]::IsNullOrWhiteSpace($row.BaselineVariant)) { "(baseline)" } else { $row.BaselineVariant }
         $appReadyDelta = if ($null -eq $row.AppReadyDeltaPercent) { "-" } else { "$($row.AppReadyDeltaPercent)%" }
         $workingSetDelta = if ($null -eq $row.PeakWorkingSetDeltaPercent) { "-" } else { "$($row.PeakWorkingSetDeltaPercent)%" }
-        $lines += "| $($row.Variant) | $($row.SdkVersion) | $changes | $baseline | $($row.AppReadyMedianMs) | $appReadyDelta | $($row.PeakWorkingSetMedianMB) | $workingSetDelta |"
+        $lines += "| $($row.Variant) | $($row.SdkVersion) | $changes | $baseline | $($row.WindowActivatedMedianMs) | $($row.HomeLoadedMedianMs) | $($row.HistoryWarmupMedianMs) | $appReadyDelta | $($row.PeakWorkingSetMedianMB) | $workingSetDelta |"
     }
 
     $lines += @(
         "",
-        "The results are a lightweight local comparison. Treat a repeatable median regression above 5% as a reason to investigate; performance-neutral optional changes are acceptable when smoke tests pass."
+        "Measurements are informational only. Compare repeated runs with the same fixture and machine; no performance threshold is enforced. Blank warmup values mean warmup was not observed before the timeout."
     )
 
     Set-Content -LiteralPath $Path -Value $lines -Encoding utf8
@@ -340,9 +354,10 @@ foreach ($variant in $variants) {
 }
 
 $timestamp = [DateTime]::Now.ToString("yyyyMMdd-HHmmss")
-$rawCsvPath = Join-Path $resultRoot "windowsappsdk-2.3.1-$timestamp.csv"
-$summaryCsvPath = Join-Path $resultRoot "windowsappsdk-2.3.1-$timestamp-summary.csv"
-$summaryMarkdownPath = Join-Path $resultRoot "windowsappsdk-2.3.1-$timestamp-summary.md"
+$resultPrefix = if ($HistoricalSdkMatrix) { "windowsappsdk-2.3.1" } else { "current-startup" }
+$rawCsvPath = Join-Path $resultRoot "$resultPrefix-$timestamp.csv"
+$summaryCsvPath = Join-Path $resultRoot "$resultPrefix-$timestamp-summary.csv"
+$summaryMarkdownPath = Join-Path $resultRoot "$resultPrefix-$timestamp-summary.md"
 
 $results | Export-Csv -LiteralPath $rawCsvPath -NoTypeInformation -Encoding utf8
 
@@ -354,7 +369,11 @@ $summary = foreach ($variant in $variants) {
         OptionalChanges = $variant.OptionalChanges
         WindowDetectedMedianMs = [Math]::Round((Get-Median @($measured.WindowDetectedMs)), 2)
         WindowActivatedMedianMs = [Math]::Round((Get-Median @($measured.WindowActivatedMs)), 2)
+        HomeLoadedMedianMs = [Math]::Round((Get-Median @($measured.HomeLoadedMs)), 2)
         AppReadyMedianMs = [Math]::Round((Get-Median @($measured.AppReadyMs)), 2)
+        HistoryWarmupMedianMs = if (@($measured | Where-Object { $null -ne $_.HistoryWarmupMs }).Count -gt 0) {
+            [Math]::Round((Get-Median @($measured | Where-Object { $null -ne $_.HistoryWarmupMs } | ForEach-Object { $_.HistoryWarmupMs })), 2)
+        } else { $null }
         PeakWorkingSetMedianMB = [Math]::Round((Get-Median @($measured.PeakWorkingSetMB)), 2)
     }
 }
@@ -365,7 +384,7 @@ foreach ($row in $summary) {
 }
 
 foreach ($row in $summary) {
-    $baselineVariant = if ($row.Variant -eq "sdk-2.2.0") {
+    $baselineVariant = if ($row.Variant -in @("current", "sdk-2.2.0")) {
         ""
     }
     elseif ($row.Variant -eq "sdk-2.3.1-default") {

@@ -67,7 +67,7 @@ namespace FolderRewind.Services
                 }
                 try { FlushWriter(); } catch (Exception error) { Debug.WriteLine(error); }
             }
-            CloseWriter();
+            try { CloseWriter(); } catch (Exception error) { Debug.WriteLine(error); }
         }
 
         private static void FlushWriter() => _fileWriter?.Flush();

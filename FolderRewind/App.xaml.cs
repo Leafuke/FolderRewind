@@ -147,6 +147,7 @@ namespace FolderRewind
                 UpdateWindowTitle();
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
+                StartupTimingService.Mark("Window activated");
                 Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
 
                 StartHistoryWarmup();
@@ -678,6 +679,7 @@ namespace FolderRewind
                         Services.ConfigService.ConfigDirectory,
                         cancellationToken),
                     cancellationToken).ConfigureAwait(false);
+                StartupTimingService.Mark("History warmup completed");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
