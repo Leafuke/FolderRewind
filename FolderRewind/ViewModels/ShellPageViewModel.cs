@@ -33,6 +33,7 @@ namespace FolderRewind.ViewModels
         public bool IsSponsorBackgroundVisible => _isSponsorBackgroundVisible;
 
         public string? SponsorBackgroundImagePath => _sponsorBackgroundImagePath;
+        public int SponsorBackgroundRevision => _backgroundLoadVersion;
 
         public int SponsorBackgroundStretchIndex => GetSponsorBackgroundStretchIndex();
 
@@ -126,7 +127,11 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            var requestVersion = ++_backgroundLoadVersion;
             var currentState = GetSponsorBackgroundImageState();
+            var exists = await Task.Run(() => File.Exists(currentState.Path));
+            if (!SponsorBackgroundImageCachePolicy.IsCurrentLoad(requestVersion, _backgroundLoadVersion, _disposed)) return;
+            currentState = currentState with { FileExists = exists };
             if (SponsorBackgroundImageCachePolicy.ShouldClear(currentState))
             {
                 _backgroundImageState = currentState;
@@ -146,11 +151,10 @@ namespace FolderRewind.ViewModels
             }
 
             _backgroundImageState = currentState;
-            var requestVersion = ++_backgroundLoadVersion;
 
             try
             {
-                var imagePath = GetValidImagePath(currentState.Path);
+                var imagePath = currentState.Path;
                 if (!SponsorBackgroundImageCachePolicy.IsCurrentLoad(
                         requestVersion,
                         _backgroundLoadVersion,
@@ -160,6 +164,7 @@ namespace FolderRewind.ViewModels
                 }
 
                 SetSponsorBackgroundImage(imagePath, isVisible: true);
+                OnPropertyChanged(nameof(SponsorBackgroundRevision));
             }
             catch (Exception ex)
             {
@@ -188,7 +193,7 @@ namespace FolderRewind.ViewModels
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             var path = settings?.SponsorBackgroundImagePath?.Trim() ?? string.Empty;
-            var fileExists = !string.IsNullOrWhiteSpace(path) && File.Exists(path);
+            var fileExists = !string.IsNullOrWhiteSpace(path);
             var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
                 settings?.SponsorBackgroundEnabled == true, SponsorService.IsUnlocked, AccessibilityThemeService.IsHighContrast);
 
@@ -197,15 +202,6 @@ namespace FolderRewind.ViewModels
                 appearance.BackgroundEnabled,
                 SponsorService.IsUnlocked,
                 fileExists);
-        }
-
-        private static string? GetValidImagePath(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-            {
-                return null;
-            }
-            return path;
         }
 
         private void SetSponsorBackgroundImage(string? imagePath, bool isVisible)

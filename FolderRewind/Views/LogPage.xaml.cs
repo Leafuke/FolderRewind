@@ -4,6 +4,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
+using Microsoft.UI.Dispatching;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -24,6 +26,8 @@ namespace FolderRewind.Views
         // 最终表现为“日志仍在写入，但日志页列表不再更新”。
         // 因此这里改为在 OnNavigatedTo/OnNavigatedFrom 进行订阅管理。
         private bool _isSubscribed;
+        private readonly ConcurrentQueue<(LogEntry Entry, long Generation)> _pending = new();
+        private DispatcherQueueTimer? _batchTimer;
 
         private string _keyword = string.Empty;
         private LogLevel? _filterLevel;
@@ -58,6 +62,10 @@ namespace FolderRewind.Views
             _entryPublishedHandler = entry => OnEntryPublished(entry, generation);
             LogService.EntryPublished += _entryPublishedHandler;
             _isSubscribed = true;
+            _batchTimer ??= DispatcherQueue.CreateTimer();
+            _batchTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _batchTimer.Tick += OnBatchTick;
+            _batchTimer.Start();
         }
 
         private void Unsubscribe()
@@ -67,6 +75,8 @@ namespace FolderRewind.Views
             _entryPublishedHandler = null;
             _presentation.EndSession();
             _isSubscribed = false;
+            if (_batchTimer is not null) { _batchTimer.Stop(); _batchTimer.Tick -= OnBatchTick; }
+            _pending.Clear();
         }
 
         private void ReloadSnapshot()
@@ -75,12 +85,14 @@ namespace FolderRewind.Views
             ScrollToEnd();
         }
 
-        private void OnEntryPublished(LogEntry entry, long generation)
+        private void OnEntryPublished(LogEntry entry, long generation) => _pending.Enqueue((entry, generation));
+
+        private void OnBatchTick(DispatcherQueueTimer sender, object args)
         {
-            _ = DispatcherQueue.TryEnqueue(() =>
-            {
-                if (_presentation.Append(entry, generation)) ScrollToEnd();
-            });
+            var changed = false;
+            for (var count = 0; count < 200 && _pending.TryDequeue(out var item); count++)
+                changed |= _presentation.Append(item.Entry, item.Generation);
+            if (changed) ScrollToEnd();
         }
 
         private void RefreshFiltered()
@@ -157,11 +169,12 @@ namespace FolderRewind.Views
             LogService.OpenLogFolder();
         }
 
-        private void OnOpenFileClick(object sender, RoutedEventArgs e)
+        private async void OnOpenFileClick(object sender, RoutedEventArgs e)
         {
             var path = LogService.GetLogFilePath();
             try
             {
+                await LogService.FlushAsync();
                 if (!File.Exists(path))
                 {
                     File.WriteAllText(path, string.Empty);

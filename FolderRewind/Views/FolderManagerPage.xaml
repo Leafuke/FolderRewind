@@ -12,7 +12,6 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
     </Page.Resources>
 
     <Grid>
@@ -255,7 +254,7 @@
                                     <FontIcon Glyph="&#xE8B9;" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </Border>
                                 <!-- 封面图片 -->
-                                <Image Source="{x:Bind CoverImagePath, Mode=OneWay, Converter={StaticResource StringToBitmapConverter}}" Stretch="UniformToFill"/>
+                                <controls:AsyncFileImage DecodeDip="72" SourcePath="{x:Bind CoverImagePath, Mode=OneWay}" Stretch="UniformToFill"/>
                             </Grid>
                         </Button>
 

@@ -606,6 +606,7 @@ namespace FolderRewind
             app.CleanupTrayIcon();
             app.CleanupAppNotifications();
 
+            await LogService.StopAsync();
             _window?.Close();
             app.Exit();
         }
