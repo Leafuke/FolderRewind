@@ -1,0 +1,101 @@
+name: Installer Diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  diagnostics:
+    name: MSIX and installer diagnostics ${{ matrix.platform }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-setup-${{ hashFiles('**/*.csproj', '**/*.wixproj', 'NuGet.Config') }}
+          restore-keys: ${{ runner.os }}-nuget-setup-
+      - uses: actions/cache@v4
+        with:
+          path: artifacts/installer-native-api
+          key: ${{ runner.os }}-wix-native-${{ hashFiles('.github/scripts/Restore-InstallerNativeApi.ps1') }}
+      - name: Resolve diagnostic inputs
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          $metadata = & ./.github/scripts/Get-SetupReleaseMetadata.ps1
+          "RELEASE_VERSION=$($metadata.version)" >> $env:GITHUB_ENV
+          $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers @{'User-Agent'='FolderRewind-diagnostics'}
+          "SEVENZIP_RELEASE=$($upstream.tag_name)" >> $env:GITHUB_ENV
+          $payload = & ./.github/scripts/Stage-SevenZip.ps1 -Platform $env:PLATFORM -ReleaseTag $upstream.tag_name | Select-Object -Last 1
+          "SEVENZIP_PAYLOAD=$payload" >> $env:GITHUB_ENV
+      - name: Build unsigned MSIX regression package
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          dotnet build FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:PLATFORM" -p:CETCompat=false `
+            "-p:SevenZipExecutable=$env:SEVENZIP_PAYLOAD" -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxBundle=Never `
+            -p:GenerateAppxPackageOnBuild=true -p:GenerateTestArtifacts=false -p:AppxSymbolPackageEnabled=false `
+            -p:GenerateAppxSymbolPackage=false -p:DebugType=None -p:DebugSymbols=false `
+            "-p:AppxPackageDir=$env:GITHUB_WORKSPACE\artifacts\appx\$env:PLATFORM\" `
+            -p:PackageCertificateKeyFile= -p:PackageCertificatePassword= -p:PackageCertificateThumbprint= `
+            -p:AppxPackageSigningEnabled=false /warnaserror
+          if ($LASTEXITCODE) { throw 'MSIX regression build failed.' }
+      - name: Clean packaged PRI before diagnostic Setup publish
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          dotnet clean FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:PLATFORM" -p:FolderRewindDistributionChannel=Msi -p:GenerateAppxPackageOnBuild=false
+          if ($LASTEXITCODE) { throw 'Diagnostic cleanup failed.' }
+      - name: Build diagnostic candidate
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
+      - name: Ensure WinApp CLI for UI evidence
+        if: matrix.platform == 'x64'
+        run: |
+          if (-not (Get-Command winapp -ErrorAction SilentlyContinue)) {
+            winget install --id Microsoft.WinAppCli --exact --silent --accept-package-agreements --accept-source-agreements
+            if ($LASTEXITCODE) { throw 'WinApp CLI setup failed.' }
+          }
+          "$env:LOCALAPPDATA\Microsoft\WindowsApps" >> $env:GITHUB_PATH
+      - name: Validate isolated installation and rollback
+        if: matrix.platform == 'x64'
+        run: |
+          ./.github/scripts/Test-MsiInstallation.ps1 -MsiPath "artifacts/installer-packages/x64/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -PublishDirectory artifacts/msi-publish/x64 -ResultDirectory artifacts/msi-validation
+      - name: Validate installation boundaries
+        if: matrix.platform == 'x64'
+        run: |
+          ./.github/scripts/Test-MsiBoundaries.ps1 -BaseMsi "artifacts/msi-validation/base-fixture/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -UpgradeMsi artifacts/msi-validation/upgrade-fixture/FolderRewind_99.99.99.0_x64.msi -ResultDirectory artifacts/msi-validation/boundaries
+      - name: Validate isolated Bundle lifecycle and fault injection
+        if: matrix.platform == 'x64'
+        run: |
+          ./.github/scripts/Test-MsiBundleInstallation.ps1 -FixtureMsi "artifacts/msi-validation/base-fixture/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -ResultDirectory artifacts/msi-validation/bundle -IncludeFailureProbe
+      - name: Preserve diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-diagnostics-${{ matrix.platform }}
+          path: |
+            artifacts/validation/
+            artifacts/msi-validation/
+            artifacts/candidate/*/*.json
+            artifacts/candidate/*/*.log
+          if-no-files-found: warn
+          overwrite: true

@@ -85,7 +85,7 @@ function gh {
         if ($global:FolderRewindSetupReleaseMock.existingAsset) { @{assets=@(@{name=$global:FolderRewindSetupReleaseMock.existingAsset})} | ConvertTo-Json -Depth 4 }
         else { @{assets=$global:FolderRewindSetupReleaseMock.assets;isDraft=$global:FolderRewindSetupReleaseMock.isDraft;targetCommitish=$revision} | ConvertTo-Json -Depth 4 }
     } elseif ($args[0] -eq 'api') {
-        $revision
+        if ($args[1] -like '*matching-refs*') { '[]' } else { $revision }
     } else {
         $global:FolderRewindSetupReleaseMock.mutations++
         if ($args[1] -eq 'upload') {
@@ -108,7 +108,7 @@ Expect-Rejected 'reject-incomplete-public-release' { & "$PSScriptRoot\Publish-Re
 $global:FolderRewindSetupReleaseMock.calls = 0
 $global:FolderRewindSetupReleaseMock.isDraft = $true
 & "$PSScriptRoot\Publish-ReleaseAssets.ps1" @publishArguments
-if ($global:FolderRewindSetupReleaseMock.calls -ne 4 -or $global:FolderRewindSetupReleaseMock.mutations -ne 1) { throw 'Validated draft did not upload and verify its assets.' }
+if ($global:FolderRewindSetupReleaseMock.calls -ne 5 -or $global:FolderRewindSetupReleaseMock.mutations -ne 1) { throw 'Validated draft did not upload and verify its assets.' }
 $results.Add(@{scenario='publisher-accepts-valid-release-with-mock';passed=$true})
 foreach ($status in @('failed','blocked','not-run')) {
     $report.scenarios[0].status = $status; Save-Report
