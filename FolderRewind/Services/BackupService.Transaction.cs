@@ -415,10 +415,12 @@ public static partial class BackupService
         {
             try
             {
-                await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config, operationLease).ConfigureAwait(false);
+                var cleanup = await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config, operationLease).ConfigureAwait(false);
+                hasPostCommitWarnings |= cleanup?.HasWarnings == true;
             }
             catch (Exception ex)
             {
+                hasPostCommitWarnings = true;
                 Log($"Post-commit retention failed: {ex.Message}", LogLevel.Warning);
             }
         }

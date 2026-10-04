@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -17,6 +18,9 @@ public sealed class HistoryCleanupReport
     public string Status { get; set; } = "Running";
     public List<HistoryCleanupSourceReport> Sources { get; set; } = [];
     public List<HistoryCleanupIssue> Issues { get; set; } = [];
+    [JsonIgnore]
+    public bool HasWarnings => Status is not ("Completed" or "NoWork")
+        || Issues.Count != 0 || Sources.Any(source => source.Issues.Count != 0);
 }
 
 public sealed class HistoryCleanupSourceReport

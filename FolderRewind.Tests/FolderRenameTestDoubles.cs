@@ -16,6 +16,7 @@ namespace FolderRewind.Models
     public sealed class BackupConfig
     {
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        public string ConfigRevision { get; set; } = Guid.NewGuid().ToString("N");
         public string DestinationPath { get; set; } = string.Empty;
         public ObservableCollection<ManagedFolder> SourceFolders { get; set; } = [];
         public AutomationSettings Automation { get; set; } = new();

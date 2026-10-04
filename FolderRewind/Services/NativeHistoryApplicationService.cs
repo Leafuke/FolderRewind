@@ -381,14 +381,15 @@ internal static partial class NativeHistoryApplicationService
         return result;
     }
 
-    public static async Task ApplyAutomaticRetentionAsync(BackupConfig config,
+    public static async Task<HistoryCleanupReport?> ApplyAutomaticRetentionAsync(BackupConfig config,
         NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken cancellationToken = default)
     {
         operation.Require(new(config.Id));
         var report = await RunCleanupInsideOperationAsync(config, HistoryRetentionBenefitPolicy.SpaceFirst,
             true, null, cancellationToken).ConfigureAwait(false);
-        if (report is not null && report.Status is "Incomplete" or "Partial")
+        if (report?.HasWarnings == true)
             LogService.LogWarning("[Retention] " + report.Status + "; see cleanup report.", nameof(NativeHistoryApplicationService));
+        return report;
     }
 
     public static async Task ReleaseVersionAsync(

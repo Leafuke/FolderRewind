@@ -8,6 +8,7 @@ namespace FolderRewind.Services
         public static void LogWarning(string message, string source)
         {
         }
+        public static void LogError(string message, string source, Exception error) { }
     }
 }
 
