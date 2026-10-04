@@ -31,7 +31,7 @@
 
             <!-- 第一部分：收藏的文件夹 -->
             <Grid x:Name="FavoritesSection" Grid.Row="1" RowSpacing="12">
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE735;" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                     <TextBlock x:Uid="HomePage_FavoriteFolders" Style="{StaticResource SubtitleTextBlockStyle}"/>

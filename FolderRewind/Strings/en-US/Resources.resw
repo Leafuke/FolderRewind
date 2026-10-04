@@ -1378,7 +1378,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Install preset</value>
   </data>
   <data name="SettingsPage_PluginDeleteData.Content" xml:space="preserve">
-    <value>Delete data...</value>
+    <value>Delete data</value>
   </data>
   <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
     <value>Cloud backup starter preset</value>

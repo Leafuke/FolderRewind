@@ -1378,7 +1378,7 @@
     <value>一键安装</value>
   </data>
   <data name="SettingsPage_PluginDeleteData.Content" xml:space="preserve">
-    <value>删除数据...</value>
+    <value>删除数据</value>
   </data>
   <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
     <value>云备份入门预设</value>
