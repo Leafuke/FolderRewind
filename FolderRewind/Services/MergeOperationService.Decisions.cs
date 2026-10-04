@@ -27,12 +27,12 @@ internal sealed partial class MergeOperationService
     {
         var session = RequireSession(); var before = ReadPrevious(session, ids);
         session = Runtime!.MergeSessions.SetResolutions(session, ids.Distinct().ToDictionary(id => id, _ => (MergeResolution?)null));
-        Remember(session, before); SetSession(session); Refresh(); return Task.CompletedTask;
+        Remember(session, before); SetSession(session, true); Refresh(); return Task.CompletedTask;
     });
     public Task UndoAsync() => Run(MergeOperationStage.Saving, _ =>
     {
         if (!CanUndo || _undo is not { } undo) throw new InvalidOperationException(I18n.GetString("MergeWorkspace_UndoExpired"));
-        SetSession(Runtime!.MergeSessions.SetResolutions(RequireSession(), undo.Values)); _undo = null;
+        SetSession(Runtime!.MergeSessions.SetResolutions(RequireSession(), undo.Values), true); _undo = null;
         Refresh(); return Task.CompletedTask;
     });
 
@@ -69,15 +69,21 @@ internal sealed partial class MergeOperationService
 
     internal sealed record ChangePage(IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution, bool Automatic)> Rows,
         int Matching, int Total, int Unresolved);
-    public ChangePage QueryChanges(MergeSession session, string search, string filter, int offset, int count)
+    public ChangePage QueryChanges(MergeSession session, string search, string filter, int offset, int count, string? selectedId = null)
     {
         var conflicts = Runtime!.MergeSessions.ConflictIndex(session);
+        var matchingIds = search.Length == 0 ? null : Runtime.MergeSessions.ConflictIndex(session, search).Select(c => c.Id).ToHashSet();
         var automatic = AutomaticChanges(session).ToDictionary(c => c.Id);
         var index = conflicts.Select(c => (c.Id, c.Path, c.Resolved, Automatic: false))
             .Concat(automatic.Values.Select(c => (c.Id, Path: c.Subject.Paths[0], Resolved: true, Automatic: true))).ToArray();
-        var filtered = index.Where(c => c.Path.Contains(search, StringComparison.OrdinalIgnoreCase)
+        var filtered = index.Where(c => (c.Automatic ? c.Path.Contains(search, StringComparison.OrdinalIgnoreCase) : matchingIds is null || matchingIds.Contains(c.Id))
             && (filter == "All" || filter == "Unresolved" && !c.Resolved || filter == "Resolved" && c.Resolved && !c.Automatic
                 || filter == "Automatic" && c.Automatic)).OrderBy(c => c.Path, StringComparer.Ordinal).ThenBy(c => c.Id, StringComparer.Ordinal).ToArray();
+        if (offset == 0 && selectedId is not null)
+        {
+            var indexOfSelected = Array.FindIndex(filtered, c => c.Id == selectedId);
+            if (indexOfSelected >= count) count = (indexOfSelected / 100 + 1) * 100;
+        }
         var page = filtered.Skip(offset).Take(count).ToArray();
         var details = Runtime.MergeSessions.GetConflicts(session, page.Where(c => !c.Automatic).Select(c => c.Id));
         return new(page.Select(c => c.Automatic ? (automatic[c.Id], (MergeResolution?)null, true)

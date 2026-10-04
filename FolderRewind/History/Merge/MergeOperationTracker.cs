@@ -62,6 +62,17 @@ public sealed class MergeOperationTracker
         lock (_sync) if (_snapshot.CanStop) _cancellation?.Cancel();
     }
 
+    public CancellationToken EnterCritical(CancellationToken token)
+    {
+        lock (_sync)
+        {
+            token.ThrowIfCancellationRequested();
+            _snapshot = _snapshot with { CanStop = false };
+        }
+        Update(s => s);
+        return CancellationToken.None;
+    }
+
     public void ReportResult(HistoryRestoreResult result) => Update(s => s with { Result = result });
     public void ReportStage(MergeOperationStage stage) => Update(s => s with { Stage = stage });
 }

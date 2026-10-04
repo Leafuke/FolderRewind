@@ -20,11 +20,13 @@ public sealed class HistoryMergeTests
         tracker.Changed += observer;
         var task = tracker.RunAsync(MergeOperationStage.Committing, async token =>
         {
+            Assert.IsFalse(tracker.EnterCritical(token).CanBeCanceled);
+            Assert.IsFalse(tracker.Snapshot.CanStop);
             calls++; entered.SetResult(); await release.Task;
             Assert.IsFalse(token.IsCancellationRequested);
             tracker.ReportResult(new(HistoryRestoreStatus.Committed, "", true, []));
             throw new IOException("session refresh unavailable");
-        }, false);
+        });
         await entered.Task;
         tracker.Changed -= observer;
         tracker.Stop();
@@ -65,17 +67,8 @@ public sealed class HistoryMergeTests
     }
 
     [TestMethod]
-    public void SessionActionsAndDiagnosticsHaveLocalizedStateContracts()
+    public void MergeDiagnosticsHaveLocalizedStateContracts()
     {
-        foreach (var state in Enum.GetValues<MergeSessionState>())
-        {
-            Assert.AreEqual(state == MergeSessionState.Ready, MergeSessionActions.Allowed("Merge_Apply", state, true));
-            Assert.AreEqual(state is MergeSessionState.Resolving or MergeSessionState.Ready, MergeSessionActions.Allowed("Merge_Manual", state, true));
-            if (state is MergeSessionState.Committed or MergeSessionState.Abandoned)
-                foreach (var key in new[] { "Merge_Apply", "Merge_Abandon", "Merge_Recompute", "Merge_Resume", "Merge_PreviewBase" })
-                    Assert.IsFalse(MergeSessionActions.Allowed(key, state, true));
-        }
-        Assert.IsFalse(MergeSessionActions.Allowed("Merge_New", null, false));
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "FolderRewind", "Strings"))) directory = directory.Parent;
         Assert.IsNotNull(directory);

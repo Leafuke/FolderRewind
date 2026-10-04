@@ -7,11 +7,13 @@ namespace FolderRewind.History.LocalState;
 
 public sealed partial class MergeSessionStore
 {
-    public IReadOnlyList<(string Id, string Path, bool Resolved)> ConflictIndex(MergeSession session)
+    public IReadOnlyList<(string Id, string Path, bool Resolved)> ConflictIndex(MergeSession session, string search = "")
     {
         using var db = Open();
-        using var cmd = Command(db, "SELECT id,COALESCE(json_extract(data,'$.subject.paths[0]'),''),resolution IS NOT NULL FROM conflicts WHERE session=$s AND revision=$r",
-            ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()));
+        using var cmd = Command(db, """
+            SELECT id,COALESCE(json_extract(data,'$.subject.paths[0]'),''),resolution IS NOT NULL FROM conflicts
+            WHERE session=$s AND revision=$r AND ($q='' OR EXISTS(SELECT 1 FROM json_each(data,'$.subject.paths') WHERE instr(lower(value),lower($q))>0))
+            """, ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$q", search));
         using var read = cmd.ExecuteReader(); var rows = new List<(string, string, bool)>();
         while (read.Read()) rows.Add((read.GetString(0), read.GetString(1), read.GetBoolean(2)));
         return rows;

@@ -288,12 +288,10 @@ public sealed partial class HistoryPageViewModel
     }
 
     private Task MergeBranchCommandAsync(CancellationToken cancellationToken)
-        => ExecuteOperationAsync("branch merge", async token =>
-        {
-            if (!TryGetCurrentConfig(out var config) || config is null) return;
-            await HistoryMergeInteraction.ShowAsync(config, new SourceId(Guid.Parse(_currentFolder!.Id)), SelectedBranch?.BranchId, token);
-            await RefreshCurrentHistoryAsync(token);
-        }, cancellationToken);
+    {
+        OpenMergeWorkspace();
+        return Task.CompletedTask;
+    }
 
     private Task CheckoutBranchCommandAsync(CancellationToken cancellationToken)
     {

@@ -1,66 +1,191 @@
-<Page x:Class="FolderRewind.Views.MergePage"
- xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- NavigationCacheMode="Disabled">
- <Page.Resources>
-  <DataTemplate x:Key="DiffLineTemplate"><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Number}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/><TextBlock Grid.Column="1" Text="{Binding Marker}" FontWeight="SemiBold"/><TextBlock Grid.Column="2" Text="{Binding Text}" FontFamily="Consolas" IsTextSelectionEnabled="True"/></Grid></DataTemplate>
-  <DataTemplate x:Key="ReviewLineTemplate"><StackPanel Orientation="Horizontal" Spacing="12"><TextBlock Text="{Binding Kind}" FontWeight="SemiBold"/><TextBlock Text="{Binding Path}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/></StackPanel></DataTemplate>
- </Page.Resources>
- <Grid Padding="24" RowSpacing="12" SizeChanged="OnSizeChanged">
-  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <StackPanel Spacing="6">
-   <StackPanel Orientation="Horizontal" Spacing="12"><Button x:Uid="MergeWorkspace_Back" Click="OnBack"/><TextBlock x:Uid="MergeWorkspace_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/></StackPanel>
-   <TextBlock Text="{Binding FolderName}" Style="{StaticResource SubtitleTextBlockStyle}"/>
-   <TextBlock Text="{Binding Direction}" FontSize="18"/><TextBlock Text="{Binding TargetPath}" IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
-   <TextBlock x:Uid="MergeWorkspace_Impact" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-  </StackPanel>
-  <StackPanel Grid.Row="1" Spacing="8">
-   <StackPanel Orientation="Horizontal" Spacing="8"><ComboBox x:Name="SourcePicker" x:Uid="MergeWorkspace_Source" ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch, Mode=TwoWay}" DisplayMemberPath="Name" MinWidth="160" SelectionChanged="OnSourceChanged" IsEnabled="{Binding IsIdle}"/><Button x:Uid="MergeWorkspace_Analyze" Click="OnAnalyze" IsEnabled="{Binding CanAnalyze}" VerticalAlignment="Bottom"/></StackPanel>
-   <StackPanel Orientation="Horizontal" Spacing="8"><ComboBox x:Name="SessionPicker" x:Uid="MergeWorkspace_Sessions" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}" DisplayMemberPath="Label" MaxWidth="600" HorizontalAlignment="Stretch" SelectionChanged="OnSessionChanged" IsEnabled="{Binding IsIdle}"/><CheckBox x:Uid="MergeWorkspace_ShowCompleted" IsChecked="{Binding ShowCompleted, Mode=TwoWay}"/></StackPanel>
-   <InfoBar IsOpen="{Binding HasError}" Severity="Warning" IsClosable="False" Message="{Binding Error}"/>
-  </StackPanel>
-  <StackPanel Grid.Row="2" Spacing="6"><TextBlock x:Name="StatusText" Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/><ProgressBar IsIndeterminate="True" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}"/><TextBlock Text="{Binding SaveStatus}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
-  <Grid x:Name="WorkspaceGrid" Grid.Row="3" ColumnSpacing="12" Visibility="{Binding ShowWorkspace, Converter={StaticResource BoolToVisConverter}}">
-   <Grid.ColumnDefinitions><ColumnDefinition x:Name="ListColumn" Width="270"/><ColumnDefinition x:Name="SplitColumn" Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-   <Grid x:Name="FilePanel" RowSpacing="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-    <StackPanel Spacing="8"><TextBlock Text="{Binding CountLabel}" TextWrapping="Wrap"/><TextBox x:Uid="MergeWorkspace_Search" Text="{Binding Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/><ComboBox x:Name="FilterPicker" SelectedIndex="0" SelectionChanged="OnFilterChanged" HorizontalAlignment="Stretch"><ComboBoxItem x:Uid="MergeWorkspace_FilterAll" Tag="All"/><ComboBoxItem x:Uid="MergeWorkspace_FilterUnresolved" Tag="Unresolved"/><ComboBoxItem x:Uid="MergeWorkspace_FilterResolved" Tag="Resolved"/><ComboBoxItem x:Uid="MergeWorkspace_FilterAutomatic" Tag="Automatic"/></ComboBox><TextBlock Text="{Binding SelectionLabel}"/></StackPanel>
-    <ListView x:Name="ChangeList" Grid.Row="1" ItemsSource="{Binding Changes}" SelectedItem="{Binding SelectedChange, Mode=TwoWay}" SelectionChanged="OnChangeSelected" Loaded="OnListLoaded" AutomationProperties.AutomationId="MergeChangeList">
-     <ListView.ItemTemplate><DataTemplate><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" IsEnabled="{Binding CanCheck}" AutomationProperties.Name="{Binding Path}"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Path}" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel></Grid></DataTemplate></ListView.ItemTemplate>
-    </ListView>
-   </Grid>
-   <Thumb x:Name="ListSplitter" Grid.Column="1" DragDelta="OnListResize" AutomationProperties.Name="{Binding CountLabel}"/>
-   <ScrollViewer x:Name="DetailPanel" Grid.Column="2" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="12">
-    <Button x:Name="BackToFiles" x:Uid="MergeWorkspace_BackToFiles" Click="OnBackToFiles" Visibility="Collapsed"/>
-    <TextBlock Text="{Binding SelectedPath}" TextWrapping="Wrap" Style="{StaticResource SubtitleTextBlockStyle}"/><TextBlock Text="{Binding SelectedDescription}" TextWrapping="Wrap"/>
-    <TextBlock Text="{Binding PreviewNotice}" TextWrapping="Wrap"/><TextBlock Text="{Binding RecomputeSummary}" TextWrapping="Wrap"/>
-    <Grid x:Name="CompareGrid" ColumnSpacing="12" RowSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="CompareSecondColumn" Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-     <StackPanel x:Name="OursPanel" Spacing="8"><TextBlock Text="{Binding OursLabel}" FontWeight="SemiBold"/><TextBlock Text="{Binding OursInfo}" TextWrapping="Wrap"/><ListView x:Name="OursLinesList" ItemsSource="{Binding OursLines}" ItemTemplate="{StaticResource DiffLineTemplate}" SelectionMode="None" MaxHeight="320" ScrollViewer.HorizontalScrollBarVisibility="Auto" Loaded="OnDiffLoaded"/><Button Content="{Binding AdoptOursLabel}" Click="OnOurs" IsEnabled="{Binding CanAdopt}"/></StackPanel>
-     <StackPanel x:Name="TheirsPanel" Grid.Column="1" Spacing="8"><TextBlock Text="{Binding TheirsLabel}" FontWeight="SemiBold"/><TextBlock Text="{Binding TheirsInfo}" TextWrapping="Wrap"/><ListView x:Name="TheirsLinesList" ItemsSource="{Binding TheirsLines}" ItemTemplate="{StaticResource DiffLineTemplate}" SelectionMode="None" MaxHeight="320" ScrollViewer.HorizontalScrollBarVisibility="Auto" Loaded="OnDiffLoaded"/><Button Content="{Binding AdoptTheirsLabel}" Click="OnTheirs" IsEnabled="{Binding CanAdopt}"/></StackPanel>
+<?xml version="1.0" ?>
+<Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:FolderRewind.ViewModels" x:Class="FolderRewind.Views.MergePage" NavigationCacheMode="Disabled">
+    <Page.Resources>
+        <DataTemplate x:Key="ChangeTemplate" x:DataType="vm:MergeChangeItem">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <CheckBox IsChecked="{x:Bind IsChecked, Mode=TwoWay}" IsEnabled="{x:Bind CanCheck, Mode=OneWay}" AutomationProperties.Name="{x:Bind Path, Mode=OneWay}" AutomationProperties.AutomationId="{x:Bind Id, Mode=OneWay}"/>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="{x:Bind Path, Mode=OneWay}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{x:Bind Description, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="DiffLineTemplate" x:DataType="vm:MergeDiffLine">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{x:Bind Number, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Grid.Column="1" Text="{x:Bind Marker, Mode=OneTime}" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="2" Text="{x:Bind Text, Mode=OneTime}" FontFamily="Consolas" IsTextSelectionEnabled="True"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="ReviewLineTemplate" x:DataType="vm:MergeReviewLine">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{x:Bind Kind, Mode=OneTime}" FontWeight="SemiBold"/>
+                <TextBlock Text="{x:Bind Path, Mode=OneTime}" TextWrapping="Wrap" IsTextSelectionEnabled="True" Grid.Column="1"/>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+    <Grid Padding="24" RowSpacing="12" SizeChanged="OnSizeChanged">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Spacing="6">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button x:Uid="MergeWorkspace_Back" Click="OnBack" AutomationProperties.AutomationId="MergeWorkspace_Back"/>
+                <TextBlock x:Uid="MergeWorkspace_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            </StackPanel>
+            <TextBlock Text="{Binding FolderName}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Direction}" FontSize="18" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding TargetPath}" IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
+            <TextBlock x:Uid="MergeWorkspace_Impact" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="8">
+            <Expander x:Name="ContextExpander" x:Uid="MergeWorkspace_Context" IsExpanded="True" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ComboBox x:Name="SourcePicker" x:Uid="MergeWorkspace_Source" ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch, Mode=TwoWay}" DisplayMemberPath="Name" MinWidth="160" SelectionChanged="OnSourceChanged" IsEnabled="{Binding IsIdle}"/>
+                        <Button x:Uid="MergeWorkspace_Analyze" Click="OnAnalyze" IsEnabled="{Binding CanAnalyze}" VerticalAlignment="Bottom" AutomationProperties.AutomationId="MergeWorkspace_Analyze"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding SourceAvailability}" TextWrapping="Wrap"/>
+                    <ComboBox x:Name="SessionPicker" x:Uid="MergeWorkspace_Sessions" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}" DisplayMemberPath="Label" HorizontalAlignment="Stretch" SelectionChanged="OnSessionChanged" IsEnabled="{Binding CanChooseSession}"/>
+                    <CheckBox x:Uid="MergeWorkspace_ShowCompleted" IsChecked="{Binding ShowCompleted, Mode=TwoWay}" AutomationProperties.AutomationId="MergeWorkspace_ShowCompleted"/>
+                    <Button x:Uid="MergeWorkspace_Reload" Click="OnReload" IsEnabled="{Binding IsIdle}" AutomationProperties.AutomationId="MergeWorkspace_Reload"/>
+                </StackPanel>
+            </Expander>
+            <InfoBar x:Uid="MergeWorkspace_Attention" IsOpen="{Binding HasError}" Severity="Warning" IsClosable="False" Message="{Binding Error}"/>
+            <Button x:Uid="MergeWorkspace_RetrySave" Click="OnRetrySave" Visibility="{Binding CanRetrySave, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.AutomationId="MergeWorkspace_RetrySave"/>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Spacing="6">
+            <TextBlock x:Name="StatusText" Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+            <ProgressBar IsIndeterminate="True" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}"/>
+            <TextBlock Text="{Binding SaveStatus}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+        </StackPanel>
+        <Grid x:Name="WorkspaceGrid" Grid.Row="3" ColumnSpacing="12" Visibility="{Binding ShowWorkspace, Converter={StaticResource BoolToVisConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="ListColumn" Width="270"/>
+                <ColumnDefinition x:Name="SplitColumn" Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="FilePanel" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding CountLabel}" TextWrapping="Wrap"/>
+                    <TextBox x:Uid="MergeWorkspace_Search" Text="{Binding Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="MergeWorkspace_Search"/>
+                    <ComboBox x:Name="FilterPicker" SelectedIndex="0" SelectionChanged="OnFilterChanged" HorizontalAlignment="Stretch">
+                        <ComboBoxItem x:Uid="MergeWorkspace_FilterAll" Tag="All"/>
+                        <ComboBoxItem x:Uid="MergeWorkspace_FilterUnresolved" Tag="Unresolved"/>
+                        <ComboBoxItem x:Uid="MergeWorkspace_FilterResolved" Tag="Resolved"/>
+                        <ComboBoxItem x:Uid="MergeWorkspace_FilterAutomatic" Tag="Automatic"/>
+                    </ComboBox>
+                    <TextBlock Text="{Binding SelectionLabel}"/>
+                </StackPanel>
+                <ListView x:Name="ChangeList" Grid.Row="1" ItemsSource="{Binding Changes}" ItemTemplate="{StaticResource ChangeTemplate}" SelectedItem="{Binding SelectedChange, Mode=TwoWay}" IsItemClickEnabled="True" ItemClick="OnChangeClicked" KeyDown="OnListKeyDown" Loaded="OnListLoaded" AutomationProperties.AutomationId="MergeChangeList"/>
+            </Grid>
+            <Thumb x:Name="ListSplitter" x:Uid="MergeWorkspace_ResizeList" Grid.Column="1" DragDelta="OnListResize" IsTabStop="True" KeyDown="OnSplitterKeyDown"/>
+            <ScrollViewer x:Name="DetailPanel" Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="12">
+                    <Button x:Name="BackToFiles" x:Uid="MergeWorkspace_BackToFiles" Click="OnBackToFiles" Visibility="Collapsed"/>
+                    <TextBlock Text="{Binding SelectedPath}" TextWrapping="Wrap" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                    <TextBlock Text="{Binding SelectedDescription}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PreviewNotice}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding RecomputeSummary}" TextWrapping="Wrap"/>
+                    <Grid x:Name="CompareGrid" ColumnSpacing="12" RowSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition x:Name="CompareSecondColumn" Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel x:Name="OursPanel" Spacing="8">
+                            <TextBlock Text="{Binding OursLabel}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding OursInfo}" TextWrapping="Wrap"/>
+                            <ListView x:Name="OursLinesList" ItemsSource="{Binding OursLines}" ItemTemplate="{StaticResource DiffLineTemplate}" SelectionMode="None" MaxHeight="320" ScrollViewer.HorizontalScrollBarVisibility="Auto" Loaded="OnDiffLoaded"/>
+                            <Button x:Name="AdoptOursButton" Content="{Binding AdoptOursLabel}" Click="OnOurs" IsEnabled="{Binding CanAdopt}"/>
+                        </StackPanel>
+                        <StackPanel x:Name="TheirsPanel" Grid.Column="1" Spacing="8">
+                            <TextBlock Text="{Binding TheirsLabel}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding TheirsInfo}" TextWrapping="Wrap"/>
+                            <ListView x:Name="TheirsLinesList" ItemsSource="{Binding TheirsLines}" ItemTemplate="{StaticResource DiffLineTemplate}" SelectionMode="None" MaxHeight="320" ScrollViewer.HorizontalScrollBarVisibility="Auto" Loaded="OnDiffLoaded"/>
+                            <Button x:Name="AdoptTheirsButton" Content="{Binding AdoptTheirsLabel}" Click="OnTheirs" IsEnabled="{Binding CanAdopt}"/>
+                        </StackPanel>
+                    </Grid>
+                    <Expander x:Uid="MergeWorkspace_Base" IsExpanded="{Binding ShowBase, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="MergeWorkspace_Base" Visibility="{Binding CanPreviewBase, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBox x:Name="BaseContent" Text="{Binding BaseText}" AutomationProperties.Name="{Binding SelectedPath}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="240"/>
+                    </Expander>
+                    <TextBlock Text="{Binding DecisionText}" TextWrapping="Wrap"/>
+                    <CommandBar DefaultLabelPosition="Right">
+                        <AppBarButton x:Uid="MergeWorkspace_ImportAction" Click="OnImport" IsEnabled="{Binding CanImport}" AutomationProperties.AutomationId="MergeWorkspace_ImportAction"/>
+                        <AppBarButton x:Uid="MergeWorkspace_Clear" Click="OnClear" IsEnabled="{Binding CanClear}" AutomationProperties.AutomationId="MergeWorkspace_Clear"/>
+                        <CommandBar.SecondaryCommands>
+                            <AppBarButton x:Uid="MergeWorkspace_Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}" AutomationProperties.AutomationId="MergeWorkspace_Undo"/>
+                        </CommandBar.SecondaryCommands>
+                    </CommandBar>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+        <ScrollViewer Grid.Row="3" Visibility="{Binding ShowReview, Converter={StaticResource BoolToVisConverter}}">
+            <StackPanel Spacing="12">
+                <TextBlock x:Uid="MergeWorkspace_ReviewTitle" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                <TextBlock Text="{Binding ReviewSummary}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding ProtectionText}" TextWrapping="Wrap"/>
+                <TextBlock x:Uid="MergeWorkspace_Validation" TextWrapping="Wrap"/>
+                <Expander x:Uid="MergeWorkspace_BranchChanges" IsExpanded="True" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="MergeWorkspace_BranchChanges">
+                    <ListView x:Name="BranchChangeList" ItemsSource="{Binding BranchChanges}" ItemTemplate="{StaticResource ReviewLineTemplate}" MaxHeight="250" SelectionMode="None"/>
+                </Expander>
+                <Expander x:Uid="MergeWorkspace_WorkingChanges" IsExpanded="True" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="MergeWorkspace_WorkingChanges">
+                    <ListView x:Name="WorkingChangeList" ItemsSource="{Binding WorkingChanges}" ItemTemplate="{StaticResource ReviewLineTemplate}" MaxHeight="250" SelectionMode="None"/>
+                </Expander>
+                <Button x:Uid="MergeWorkspace_EditDecisions" Click="OnEditDecisions" IsEnabled="{Binding IsIdle}" AutomationProperties.AutomationId="MergeWorkspace_EditDecisions"/>
+            </StackPanel>
+        </ScrollViewer>
+        <ScrollViewer Grid.Row="3" Visibility="{Binding ShowCompletion, Converter={StaticResource BoolToVisConverter}}">
+            <StackPanel Spacing="12">
+                <TextBlock Text="{Binding Status}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding ResultDiagnostic}" IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
+                <Button x:Uid="MergeWorkspace_ViewResult" Click="OnViewResult" IsEnabled="{Binding CanShowResult}" AutomationProperties.AutomationId="MergeWorkspace_ViewResult"/>
+                <Button x:Uid="MergeWorkspace_ViewProtection" Click="OnViewProtection" IsEnabled="{Binding CanShowResult}" AutomationProperties.AutomationId="MergeWorkspace_ViewProtection"/>
+            </StackPanel>
+        </ScrollViewer>
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <CommandBar DefaultLabelPosition="Right" IsDynamicOverflowEnabled="True">
+                <AppBarButton x:Uid="MergeWorkspace_Stop" Click="OnStop" IsEnabled="{Binding CanStop}" AutomationProperties.AutomationId="MergeWorkspace_Stop"/>
+                <AppBarButton x:Uid="MergeWorkspace_Next" Click="OnNext" IsEnabled="{Binding CanNext}" AutomationProperties.AutomationId="MergeWorkspace_Next"/>
+                <CommandBar.SecondaryCommands>
+                    <AppBarButton x:Uid="MergeWorkspace_Download" Click="OnDownload" IsEnabled="{Binding CanPrepare}" AutomationProperties.AutomationId="MergeWorkspace_Download"/>
+                    <AppBarButton x:Uid="MergeWorkspace_Recompute" Click="OnRecompute" IsEnabled="{Binding CanRecompute}" AutomationProperties.AutomationId="MergeWorkspace_Recompute"/>
+                    <AppBarButton x:Name="RecoverMergeButton" Label="{Binding ResumeLabel}" Click="OnRecover" IsEnabled="{Binding CanRecover}"/>
+                    <AppBarButton x:Uid="MergeWorkspace_Abandon" Click="OnAbandon" IsEnabled="{Binding CanAbandon}" AutomationProperties.AutomationId="MergeWorkspace_Abandon"/>
+                </CommandBar.SecondaryCommands>
+            </CommandBar>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button x:Uid="MergeWorkspace_Generate" Click="OnGenerate" IsEnabled="{Binding CanGenerate}" Visibility="{Binding ShowWorkspace, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="MergeWorkspace_Generate"/>
+                <Button x:Uid="MergeWorkspace_ApplyReviewed" Click="OnApplyReview" IsEnabled="{Binding CanApplyReview}" Visibility="{Binding ShowReview, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="MergeWorkspace_ApplyReviewed"/>
+            </StackPanel>
+        </Grid>
     </Grid>
-    <Expander x:Uid="MergeWorkspace_Base" IsExpanded="{Binding ShowBase, Mode=TwoWay}" HorizontalAlignment="Stretch"><TextBox Text="{Binding BaseText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="240"/></Expander>
-    <TextBlock Text="{Binding DecisionText}" TextWrapping="Wrap"/>
-    <CommandBar DefaultLabelPosition="Right"><AppBarButton x:Uid="MergeWorkspace_ImportAction" Click="OnImport" IsEnabled="{Binding CanImport}"/><AppBarButton x:Uid="MergeWorkspace_Clear" Click="OnClear" IsEnabled="{Binding CanClear}"/><CommandBar.SecondaryCommands><AppBarButton x:Uid="MergeWorkspace_Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}"/></CommandBar.SecondaryCommands></CommandBar>
-   </StackPanel></ScrollViewer>
-  </Grid>
-  <ScrollViewer Grid.Row="3" Visibility="{Binding ShowReview, Converter={StaticResource BoolToVisConverter}}"><StackPanel Spacing="12">
-   <TextBlock x:Uid="MergeWorkspace_ReviewTitle" Style="{StaticResource SubtitleTextBlockStyle}"/>
-   <TextBlock Text="{Binding ReviewSummary}" TextWrapping="Wrap"/><TextBlock Text="{Binding ProtectionText}" TextWrapping="Wrap"/>
-   <TextBlock x:Uid="MergeWorkspace_Validation" TextWrapping="Wrap"/>
-   <Expander x:Uid="MergeWorkspace_BranchChanges" IsExpanded="True" HorizontalAlignment="Stretch"><ListView ItemsSource="{Binding BranchChanges}" ItemTemplate="{StaticResource ReviewLineTemplate}" MaxHeight="250" SelectionMode="None"/></Expander>
-   <Expander x:Uid="MergeWorkspace_WorkingChanges" IsExpanded="True" HorizontalAlignment="Stretch"><ListView ItemsSource="{Binding WorkingChanges}" ItemTemplate="{StaticResource ReviewLineTemplate}" MaxHeight="250" SelectionMode="None"/></Expander>
-   <Button x:Uid="MergeWorkspace_EditDecisions" Click="OnEditDecisions" IsEnabled="{Binding IsIdle}"/>
-  </StackPanel></ScrollViewer>
-  <ScrollViewer Grid.Row="3" Visibility="{Binding ShowCompletion, Converter={StaticResource BoolToVisConverter}}"><StackPanel Spacing="12">
-   <TextBlock Text="{Binding Status}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/><TextBlock Text="{Binding ResultDiagnostic}" IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
-   <Button x:Uid="MergeWorkspace_ViewResult" Click="OnViewResult" IsEnabled="{Binding CanShowResult}"/>
-   <Button x:Uid="MergeWorkspace_ViewProtection" Click="OnViewProtection" IsEnabled="{Binding CanShowResult}"/>
-  </StackPanel></ScrollViewer>
-  <Grid Grid.Row="4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-  <CommandBar DefaultLabelPosition="Right" IsDynamicOverflowEnabled="True">
-   <AppBarButton x:Uid="MergeWorkspace_Stop" Click="OnStop" IsEnabled="{Binding CanStop}"/>
-   <AppBarButton x:Uid="MergeWorkspace_Next" Click="OnNext" IsEnabled="{Binding CanNext}"/>
-   <CommandBar.SecondaryCommands><AppBarButton x:Uid="MergeWorkspace_Download" Click="OnDownload" IsEnabled="{Binding CanPrepare}"/><AppBarButton x:Uid="MergeWorkspace_Recompute" Click="OnRecompute" IsEnabled="{Binding CanRecompute}"/><AppBarButton x:Uid="MergeWorkspace_Recover" Click="OnRecover" IsEnabled="{Binding CanRecover}"/><AppBarButton x:Uid="MergeWorkspace_Abandon" Click="OnAbandon" IsEnabled="{Binding CanAbandon}"/></CommandBar.SecondaryCommands>
-  </CommandBar>
-  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"><Button x:Uid="MergeWorkspace_Generate" Click="OnGenerate" IsEnabled="{Binding CanGenerate}" Visibility="{Binding ShowWorkspace, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource AccentButtonStyle}"/><Button x:Uid="MergeWorkspace_ApplyReviewed" Click="OnApplyReview" IsEnabled="{Binding CanApplyReview}" Visibility="{Binding ShowReview, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource AccentButtonStyle}"/></StackPanel>
-  </Grid>
- </Grid>
 </Page>

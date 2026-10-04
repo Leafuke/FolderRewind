@@ -14,7 +14,8 @@ internal static class MergeViewStateStore
         try
         {
             var value = JsonSerializer.Deserialize<MergeViewState>(File.ReadAllText(PathFor(root, id))) ?? new();
-            return value with { ListWidth = double.IsFinite(value.ListWidth) ? Math.Clamp(value.ListWidth, 200, 420) : 270,
+            return value with { Search = value.Search ?? "", Filter = value.Filter is "All" or "Unresolved" or "Resolved" or "Automatic" ? value.Filter : "All",
+                ListWidth = double.IsFinite(value.ListWidth) ? Math.Clamp(value.ListWidth, 200, 420) : 270,
                 ScrollOffset = double.IsFinite(value.ScrollOffset) ? Math.Max(0, value.ScrollOffset) : 0 };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return new(); }

@@ -212,8 +212,15 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
             if (!request.IsCurrent) return;
             _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
-            var pending = folder is not null && await Task.Run(() => runtime.MergeSessions.List().Any(s =>
-                s.Plan.Ours.SourceId.ToString() == folder.Id && s.State is not (History.LocalState.MergeSessionState.Committed or History.LocalState.MergeSessionState.Abandoned)), request.Token);
+            var pending = false;
+            try
+            {
+                pending = folder is not null && await Task.Run(() => runtime.MergeSessions.List().Any(s =>
+                    string.Equals(s.Plan.Ours.SourceId.ToString(), folder.Id, StringComparison.OrdinalIgnoreCase)
+                    && s.State is not (History.LocalState.MergeSessionState.Committed or History.LocalState.MergeSessionState.Abandoned)), request.Token);
+            }
+            catch (OperationCanceledException) when (request.Token.IsCancellationRequested) { throw; }
+            catch (Exception ex) { LogService.LogWarning($"Could not read pending merges: {ex.Message}", "History"); }
             if (!request.IsCurrent) return;
             HasPendingMerges = pending;
             OnPropertyChanged(nameof(HasPendingMerges));

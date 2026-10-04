@@ -17,12 +17,14 @@ public sealed record MergeDiffLine(string Number, string Marker, string Text);
 public sealed partial class MergePageViewModel
 {
     private CancellationTokenSource? _preview;
+    private CancellationTokenSource? _filterDelay;
     private int _total, _unresolved, _matching;
     private bool _loadingMore;
     private string _search = "", _filter = "All";
     public string Search { get => _search; set { if (SetProperty(ref _search, value ?? "")) FilterChanged(); } }
     public string Filter { get => _filter; set { if (SetProperty(ref _filter, value)) FilterChanged(); } }
     public bool ShowBase { get => ViewState.ShowBase; set { ViewState = ViewState with { ShowBase = value }; Notify(); } }
+    public bool CanPreviewBase => SelectedChange is { IsAutomatic: false };
     public string PreviewNotice { get; private set; } = "";
     public string OursInfo { get; private set; } = "";
     public string TheirsInfo { get; private set; } = "";
@@ -56,7 +58,14 @@ public sealed partial class MergePageViewModel
         ViewState = ViewState with { Search = Search, Filter = Filter };
         if (!_active) return;
         // Reload is generation-checked so earlier searches never replace newer results.
-        TaskObserver.Observe(ReloadChangesAsync(), "Merge filter");
+        _filterDelay?.Cancel(); _filterDelay?.Dispose(); _filterDelay = new();
+        var token = _filterDelay.Token;
+        TaskObserver.Observe(DelayedReloadAsync(token), "Merge filter");
+    }
+    private async Task DelayedReloadAsync(CancellationToken token)
+    {
+        try { await Task.Delay(180, token); if (_active) await ReloadChangesAsync(); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
     }
     public async Task LoadMoreAsync()
     {
@@ -80,7 +89,7 @@ public sealed partial class MergePageViewModel
         var currentPath = SelectedChange?.Path ?? "";
         var next = await Task.Run(() =>
         {
-            var candidates = runtime.MergeSessions.ConflictIndex(session).Where(c => !c.Resolved && c.Path.Contains(Search, StringComparison.OrdinalIgnoreCase))
+            var candidates = runtime.MergeSessions.ConflictIndex(session, Search).Where(c => !c.Resolved)
                 .OrderBy(c => c.Path, StringComparer.Ordinal).ToArray();
             return candidates.FirstOrDefault(c => StringComparer.Ordinal.Compare(c.Path, currentPath) > 0).Id ?? candidates.FirstOrDefault().Id;
         });
@@ -93,7 +102,7 @@ public sealed partial class MergePageViewModel
     partial void SelectionChanged()
     {
         CancelPreview(); Notify();
-        if (!_active || SelectedChange is null) return;
+        if (!_active || IsBusy || SelectedChange is null) return;
         _preview = new(); var token = _preview.Token; var row = SelectedChange;
         TaskObserver.Observe(LoadPreviewAsync(row, token), "Merge preview");
     }
@@ -107,7 +116,10 @@ public sealed partial class MergePageViewModel
             {
                 foreach (var path in conflict.Ours.Keys) OursLines.Add(new("", "", path));
                 foreach (var path in conflict.Theirs.Keys) TheirsLines.Add(new("", "", path));
-                BaseText = string.Join("\n", conflict.Base.Keys);
+                BaseText = conflict.Kind is MergeConflictKind.SourceBoundary or MergeConflictKind.SourceRoster
+                    ? I18n.GetString("MergeWorkspace_GroupBaseUnavailable") : string.Join("\n", conflict.Base.Keys);
+                OursInfo = string.Format(I18n.GetString("MergeWorkspace_GroupCount"), conflict.Ours.Count);
+                TheirsInfo = string.Format(I18n.GetString("MergeWorkspace_GroupCount"), conflict.Theirs.Count);
                 PreviewNotice = I18n.GetString("MergeWorkspace_GroupDecision"); Notify(); return;
             }
             var pathKey = conflict.Subject.Paths[0];
@@ -117,7 +129,7 @@ public sealed partial class MergePageViewModel
             var left = previews[0]; var right = previews[1];
             static string Info(MergeFilePreview p) => I18n.GetString("MergeWorkspace_Preview_" + p.Kind) + $" · {p.Length:N0} B · {p.EncodingName}";
             OursInfo = Info(left); TheirsInfo = Info(right); BaseText = Info(previews[2]) + "\n" + previews[2].Text;
-            PreviewNotice = I18n.GetString(right.Kind == MergePreviewKind.Missing || left.Kind == MergePreviewKind.Missing
+            PreviewNotice = I18n.GetString(row.IsAutomatic ? "MergeWorkspace_AutomaticNotice" : right.Kind == MergePreviewKind.Missing || left.Kind == MergePreviewKind.Missing
                 ? "MergeWorkspace_DeletionNotice" : "MergeWorkspace_WholeFileNotice");
             if (left.CanCompare && right.CanCompare)
             {

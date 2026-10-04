@@ -29,7 +29,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
             var plan = await new HistoryMergePlanner(history).BuildAsync(source, workspace, configRevision, bindings, token, _provider.Descriptor).ConfigureAwait(false);
             if (plan.Mode == HistoryMergeMode.NoOp) return null;
             if (plan.Mode is HistoryMergeMode.NoCommonBase or HistoryMergeMode.MultipleMergeBases)
-                throw new InvalidOperationException(plan.Mode.ToString());
+                throw new HistoryMergeBlockedException(new(plan.Mode == HistoryMergeMode.NoCommonBase ? MergeDiagnosticCode.NoCommonBase : MergeDiagnosticCode.MultipleMergeBases));
             session = history.MergeSessions.Create(plan, Roots(plan));
         }
         return await PrepareAsync(session, token).ConfigureAwait(false);
@@ -46,7 +46,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 ?? throw new InvalidOperationException("Workspace is unavailable.");
             var plan = await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace, configRevision, bindings, token, _provider.Descriptor).ConfigureAwait(false);
             if (plan.Mode is not (HistoryMergeMode.ThreeWay or HistoryMergeMode.FastForwardLike))
-                throw new InvalidOperationException(plan.Mode.ToString());
+                throw new HistoryMergeBlockedException(new(plan.Mode == HistoryMergeMode.NoCommonBase ? MergeDiagnosticCode.NoCommonBase
+                    : plan.Mode == HistoryMergeMode.MultipleMergeBases ? MergeDiagnosticCode.MultipleMergeBases : MergeDiagnosticCode.Stale));
             session = history.MergeSessions.Replan(session, plan, Roots(plan));
         }
         return await PrepareAsync(session, token).ConfigureAwait(false);

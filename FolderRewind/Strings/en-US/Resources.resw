@@ -5226,7 +5226,7 @@ Confirm to use the historical scope.</value></data>
   <data name="Merge_Theirs" xml:space="preserve"><value>Use source</value></data>
   <data name="Merge_Manual" xml:space="preserve"><value>Import resolution</value></data>
   <data name="Merge_Close" xml:space="preserve"><value>Close and keep</value></data>
-  <data name="Merge_WholeSource" xml:space="preserve"><value>Whole Source</value></data>
+  <data name="Merge_WholeSource" xml:space="preserve"><value>Entire folder</value></data>
   <data name="Merge_Page" xml:space="preserve"><value>Page</value></data>
   <data name="Merge_Base" xml:space="preserve"><value>Merge base</value></data>
   <data name="Merge_SelectBranch" xml:space="preserve"><value>Select the source branch in History first.</value></data>
@@ -5251,20 +5251,20 @@ Confirm to use the historical scope.</value></data>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>No changes needed.</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>Merge commit is durable; local recovery must complete.</value></data>
   <data name="Merge_PrepareReplicas" xml:space="preserve"><value>Prepare required replicas (download)</value></data>
-  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>Exact replicas require preparation.</value></data>
+  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>Prepare backup data for an exact restore first.</value></data>
   <data name="Merge_Working" xml:space="preserve"><value>Working:</value></data>
   <data name="Merge_Cancelled" xml:space="preserve"><value>Cancelled; the session and saved decisions are retained.</value></data>
-  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>Required Exact replicas are not ready locally.</value></data>
-  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>An Exact replica or dependency is unavailable; merge is blocked.</value></data>
+  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>Backup data required for an exact restore is not ready locally.</value></data>
+  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>An exact backup or one of its dependencies is unavailable. The merge is blocked.</value></data>
   <data name="Merge_Diagnostic_Stale" xml:space="preserve"><value>Configuration, workspace, branch or merge implementation changed.</value></data>
-  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>A result source needs a valid directory mapping.</value></data>
+  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>The merge result needs a valid target folder matching its backup scope.</value></data>
   <data name="Merge_Diagnostic_CoordinationScopeChanged" xml:space="preserve"><value>The coordination scope changed; target mutation has not started.</value></data>
   <data name="Merge_Diagnostic_RecoveryRequired" xml:space="preserve"><value>Transaction recovery is required; preserve session and transaction files.</value></data>
   <data name="Merge_Diagnostic_PostActionWarning" xml:space="preserve"><value>Commit completed; cache or cleanup maintenance needs retry.</value></data>
   <data name="Merge_Diagnostic_PreparationFailed" xml:space="preserve"><value>Preparation did not complete; saved manual work is retained. See logs for details.</value></data>
-  <data name="Merge_Action_Prepare" xml:space="preserve"><value>Repair credentials, plugins or replicas, then select Prepare required replicas. This will not apply the merge.</value></data>
-  <data name="Merge_Action_Recompute" xml:space="preserve"><value>Fix mappings or configuration, then explicitly recompute. Matching decisions will be retained.</value></data>
-  <data name="Merge_Action_Recover" xml:space="preserve"><value>Use Resume / Recover to finish the original transaction; preserve packs and rollback directories.</value></data>
+  <data name="Merge_Action_Prepare" xml:space="preserve"><value>Check credentials, plugins, or backup copies, then choose Download required copies. This does not apply the merge.</value></data>
+  <data name="Merge_Action_Recompute" xml:space="preserve"><value>After correcting the configuration or folder, choose Analyze again. Saved decisions with unchanged inputs are retained.</value></data>
+  <data name="Merge_Action_Recover" xml:space="preserve"><value>Choose Recover original transaction to finish recovery. Do not create another merge.</value></data>
   <data name="Merge_Action_Maintenance" xml:space="preserve"><value>Startup or maintenance will retry cleanup; do not apply the merge again.</value></data>
   <data name="Merge_Action_Retry" xml:space="preserve"><value>Check the environment and retry; recompute the plan if needed.</value></data>
   <data name="Merge_Mode_NoOp" xml:space="preserve"><value>No merge needed</value></data>
@@ -5276,8 +5276,8 @@ Confirm to use the historical scope.</value></data>
   <data name="Merge_Conflict_ModifyDelete" xml:space="preserve"><value>Modify versus delete</value></data>
   <data name="Merge_Conflict_AddAdd" xml:space="preserve"><value>Both added</value></data>
   <data name="Merge_Conflict_PathStructure" xml:space="preserve"><value>Path structure conflict</value></data>
-  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Source roster conflict</value></data>
-  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Source boundary conflict</value></data>
+  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Folder presence conflict</value></data>
+  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Backup scope conflict</value></data>
   <data name="History_Creation_Capture" xml:space="preserve"><value>Capture</value></data>
   <data name="History_Creation_Merge" xml:space="preserve"><value>Merge</value></data>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>Recovery</value></data>
@@ -6177,4 +6177,20 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>Modify</value></data>
   <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>Delete</value></data>
   <data name="MergeWorkspace_Change_Structure" xml:space="preserve"><value>Path structure replacement</value></data>
+  <data name="MergeWorkspace_Context.Header" xml:space="preserve"><value>Source branch and saved tasks</value></data>
+  <data name="MergeWorkspace_Reload.Content" xml:space="preserve"><value>Reload sessions</value></data>
+  <data name="MergeWorkspace_RetrySave.Content" xml:space="preserve"><value>Retry saving pending decisions</value></data>
+  <data name="MergeWorkspace_Attention.Title" xml:space="preserve"><value>Action required</value></data>
+  <data name="MergeWorkspace_ResizeList.AutomationProperties.Name" xml:space="preserve"><value>Resize file list; arrow keys adjust by 10 DIP</value></data>
+  <data name="MergeWorkspace_RecoverTransaction" xml:space="preserve"><value>Recover original transaction</value></data>
+  <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>Resume preparation</value></data>
+  <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>This folder has no valid active branch. Back up or check out a branch first.</value></data>
+  <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>There is no other eligible branch. A source needs a unique, valid history tip.</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} files</value></data>
+  <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>The selected branch is invalid, is the current branch, or has multiple tips.</value></data>
+  <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>These branches have no common base for a three-way merge.</value></data>
+  <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>There are multiple best common bases; this merge engine cannot safely select one.</value></data>
+  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>Choose another source under Source branch and saved tasks; reconcile branch divergence first if needed.</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>This file is handled automatically by file-level rules. Review its actual writes before applying.</value></data>
+  <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>File-level base previews are unavailable for scope or source conflicts.</value></data>
 </root>

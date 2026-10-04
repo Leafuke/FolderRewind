@@ -22,7 +22,9 @@ internal static partial class NativeHistoryApplicationService
             throw new InvalidOperationException(diagnostic);
         var restore = CreateRestoreService(config, runtime);
         await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
-        var branch = (await runtime.Query.GetBranchTipsAsync(source, token).ConfigureAwait(false)).Single();
+        var tips = await runtime.Query.GetBranchTipsAsync(source, token).ConfigureAwait(false);
+        if (tips.Count != 1) throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.InvalidBranches));
+        var branch = tips[0];
         return await new HistoryMergeService(runtime, restore).StartAsync(source, NativeHistoryConfigLease.Signature(config),
             await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == branch.SourceId), token).ConfigureAwait(false), token).ConfigureAwait(false);
     }
@@ -64,7 +66,8 @@ internal static partial class NativeHistoryApplicationService
     }
 
     internal static async Task<HistoryRestoreResult> ApplyMergeAsync(BackupConfig config, MergeSession session, CancellationToken token,
-        MergeReviewSnapshot? review = null, Action<MergeOperationStage>? progress = null)
+        MergeReviewSnapshot? review = null, Action<MergeOperationStage>? progress = null,
+        Func<CancellationToken, CancellationToken>? enterCritical = null)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
@@ -76,7 +79,7 @@ internal static partial class NativeHistoryApplicationService
         var apply = new HistoryMergeApplyService(runtime, restore, builder,
             new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge, [session.Plan.Ours.SourceId]),
             async cancellation => (NativeHistoryConfigLease.Signature(config),
-                await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == session.Plan.Ours.SourceId), cancellation).ConfigureAwait(false)), reportFailure: ReportFailure, progress: progress);
+                await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == session.Plan.Ours.SourceId), cancellation).ConfigureAwait(false)), reportFailure: ReportFailure, progress: progress, enterCritical: enterCritical);
         PreparedMerge prepared;
         HistoryMergeApplyService.CoordinationPlan scope;
         var stage = "recover";

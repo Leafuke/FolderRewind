@@ -32,6 +32,9 @@ internal sealed partial class MergeOperationService
     public HistoryRuntime? Runtime { get; private set; }
     public IReadOnlyList<MergeSession> Sessions { get; private set; } = [];
     private HistoryRestoreService? _restore;
+    private Func<CancellationToken, Task>? _pendingSave;
+    public bool CanRetrySave => !Snapshot.IsBusy && !Snapshot.IsSaved && _pendingSave is not null;
+    public Task RetrySaveAsync() => _pendingSave is { } save ? Run(MergeOperationStage.Saving, save) : Task.CompletedTask;
     private HistoryMergeService Core => new(Runtime!, _restore!);
 
     private Task Run(MergeOperationStage stage, Func<CancellationToken, Task> action, bool canStop = true)
@@ -46,12 +49,16 @@ internal sealed partial class MergeOperationService
             {
                 Runtime ??= await NativeHistoryCoreGateway.EnsureReadyAsync(Config, token).ConfigureAwait(false);
                 _restore ??= await NativeHistoryApplicationService.CreateRestoreServiceAsync(Config, token).ConfigureAwait(false);
-                if (stage == MergeOperationStage.Saving) Tracker.Update(s => s with { IsSaved = false });
+                token.ThrowIfCancellationRequested();
+                if (stage == MergeOperationStage.Saving) { _pendingSave = action; Tracker.Update(s => s with { IsSaved = false }); }
                 await action(token).ConfigureAwait(false);
+                if (stage == MergeOperationStage.Saving) { _pendingSave = null; Tracker.Update(s => s with { IsSaved = true }); }
             }
             catch (Exception ex)
             {
                 LogService.LogError($"Merge config={Config.Id} session={Snapshot.Session?.Id} stage={Snapshot.Stage}", "Merge", ex);
+                if (stage == MergeOperationStage.Saving && Snapshot.IsSaved) _pendingSave = null;
+                try { Refresh(); } catch { /* The original error/result takes precedence over a failed refresh. */ }
                 if (ex is HistoryMergeBlockedException blocked)
                 {
                     if (blocked.Diagnostic.Code == MergeDiagnosticCode.Stale && Snapshot.Session is { } stale
@@ -66,10 +73,12 @@ internal sealed partial class MergeOperationService
         }, canStop);
     }
 
-    private void SetSession(MergeSession? session)
+    private void SetSession(MergeSession? session, bool decisionsSaved = false)
     {
         if (Review is { } r && (r.SessionId != session?.Id || r.ResolutionRevision != session.Revision)) Review = null;
-        Tracker.Update(s => s with { Session = session, IsSaved = true });
+        if (session?.State is MergeSessionState.Committed or MergeSessionState.Abandoned)
+        { _automatic = []; _automaticPlan = null; _undo = null; }
+        Tracker.Update(s => s with { Session = session, IsSaved = decisionsSaved || s.IsSaved || _pendingSave is null });
     }
     private void Refresh()
     {
@@ -85,16 +94,20 @@ internal sealed partial class MergeOperationService
         await _restore!.RecoverIncompleteAsync(token).ConfigureAwait(false);
         if (id is { } selected)
         {
+            if (_pendingSave is not null && Snapshot.Session?.Id != selected) throw new InvalidOperationException(I18n.GetString("MergeWorkspace_Unsaved"));
             var session = Runtime!.MergeSessions.Load(selected);
             if (session.Plan.Ours.SourceId != SourceId) throw new InvalidOperationException("Merge source identity mismatch.");
             if (Snapshot.Session?.Id != id) Tracker.Update(s => s with { Result = null });
             SetSession(session);
         }
         Refresh();
+        NormalizeRecoveredResult();
     });
 
     public Task StartAsync(BranchId source) => Run(MergeOperationStage.Analyzing, async token =>
     {
+        if (_pendingSave is not null) throw new InvalidOperationException(I18n.GetString("MergeWorkspace_Unsaved"));
+        Review = null; _undo = null; RecomputeSummary = null;
         Tracker.Update(s => s with { Result = null, Session = null });
         SetSession(await NativeHistoryApplicationService.StartMergeAsync(Config, source, token).ConfigureAwait(false));
         if (Snapshot.Session is null) Tracker.Update(s => s with { Notice = "Merge_NoOp" });
@@ -119,21 +132,22 @@ internal sealed partial class MergeOperationService
         await _restore!.RecoverIncompleteAsync(token).ConfigureAwait(false);
         var session = Runtime!.MergeSessions.Load(RequireSession().Id);
         if (session.State == MergeSessionState.Preparing) session = await Core.PrepareAsync(session, token).ConfigureAwait(false);
-        SetSession(session); Refresh();
+        SetSession(session); Refresh(); NormalizeRecoveredResult();
     }, false);
     public Task AbandonAsync() => Run(MergeOperationStage.Finishing, async token =>
     {
         await using var lease = await Runtime!.MutationGate.EnterAsync(token).ConfigureAwait(false);
         SetSession(Runtime.MergeSessions.Update(RequireSession(), MergeSessionState.Abandoned));
+        _pendingSave = null;
         var catalog = (await Runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         if (catalog is not null) Runtime.MergeSessions.CleanupTerminalArtifacts(catalog);
         Refresh();
-    });
+    }, false);
     public Task ResolveAsync(IReadOnlyList<MergeResolution> decisions) => Run(MergeOperationStage.Saving, _ =>
     {
         var before = ReadPrevious(RequireSession(), decisions.Select(d => d.ConflictId));
         var session = Runtime!.MergeSessions.ResolveBatch(RequireSession(), decisions);
-        Remember(session, before); SetSession(session); Refresh(); return Task.CompletedTask;
+        Remember(session, before); SetSession(session, true); Refresh(); return Task.CompletedTask;
     });
     public string? RecomputeSummary { get; private set; }
     public MergeReviewSnapshot? Review { get; private set; }
@@ -144,21 +158,23 @@ internal sealed partial class MergeOperationService
         Refresh();
     });
     public void DismissReview() { if (!Snapshot.IsBusy) { Review = null; Tracker.Update(s => s); } }
-    public Task ApplyReviewedAsync() => Run(MergeOperationStage.Validating, async _ =>
+    public Task ApplyReviewedAsync() => Run(MergeOperationStage.Validating, async token =>
     {
         var review = Review ?? throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
-        var result = await NativeHistoryApplicationService.ApplyMergeAsync(Config, RequireSession(), CancellationToken.None, review, Tracker.ReportStage).ConfigureAwait(false);
+        var result = await NativeHistoryApplicationService.ApplyMergeAsync(Config, RequireSession(), token, review, Tracker.ReportStage, Tracker.EnterCritical).ConfigureAwait(false);
         Tracker.ReportResult(result);
         if (!result.TargetCommitted) Review = null;
         Refresh();
-    }, false);
+    });
     public Task ImportAsync(MergeConflict conflict, string path) => Run(MergeOperationStage.Saving, async token =>
     {
-        SetSession(await Core.ImportManualAsync(RequireSession(), conflict, path, token).ConfigureAwait(false)); Refresh();
+        SetSession(await Core.ImportManualAsync(RequireSession(), conflict, path, token).ConfigureAwait(false), true); Refresh();
     });
-    public Task ApplyAsync() => Run(MergeOperationStage.Committing, async _ =>
+    private void NormalizeRecoveredResult()
     {
-        var result = await NativeHistoryApplicationService.ApplyMergeAsync(Config, RequireSession(), CancellationToken.None).ConfigureAwait(false);
-        Tracker.ReportResult(result); Refresh();
-    }, false);
+        if (Snapshot.Session?.State == MergeSessionState.Committed && Snapshot.Result?.Status == HistoryRestoreStatus.CommittedRecoveryRequired)
+            Tracker.ReportResult(Snapshot.Result with { Status = HistoryRestoreStatus.Committed, Diagnostic = "", WorkspaceUpdated = true, MergeDiagnostic = null });
+        else if (Snapshot.Session?.State == MergeSessionState.Ready && Snapshot.Result?.Status == HistoryRestoreStatus.MutationFailedRecoveryRequired)
+            Tracker.Update(s => s with { Result = null });
+    }
 }

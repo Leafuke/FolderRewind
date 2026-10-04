@@ -5226,7 +5226,7 @@ Pull Request：{1}</value>
   <data name="Merge_Theirs" xml:space="preserve"><value>采用来源分支</value></data>
   <data name="Merge_Manual" xml:space="preserve"><value>导入解决文件</value></data>
   <data name="Merge_Close" xml:space="preserve"><value>关闭并保留</value></data>
-  <data name="Merge_WholeSource" xml:space="preserve"><value>整个 Source</value></data>
+  <data name="Merge_WholeSource" xml:space="preserve"><value>整个文件夹</value></data>
   <data name="Merge_Page" xml:space="preserve"><value>页</value></data>
   <data name="Merge_Base" xml:space="preserve"><value>共同基点</value></data>
   <data name="Merge_SelectBranch" xml:space="preserve"><value>请先在历史页选择来源分支。</value></data>
@@ -5251,20 +5251,20 @@ Pull Request：{1}</value>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>无需修改。</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>合并提交已落盘，需要完成本机恢复。</value></data>
   <data name="Merge_PrepareReplicas" xml:space="preserve"><value>准备所需副本（显式下载）</value></data>
-  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>需要先准备 Exact 副本。</value></data>
+  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>需要先准备可精确还原的备份数据。</value></data>
   <data name="Merge_Working" xml:space="preserve"><value>正在执行：</value></data>
   <data name="Merge_Cancelled" xml:space="preserve"><value>操作已取消；会话和已保存处理结果仍保留。</value></data>
-  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>所需 Exact 副本尚未在本机准备好。</value></data>
-  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>Exact 副本或其依赖不可用，合并已阻断。</value></data>
+  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>可精确还原的备份数据尚未在本机准备好。</value></data>
+  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>可精确还原的备份或其依赖不可用，合并已阻断。</value></data>
   <data name="Merge_Diagnostic_Stale" xml:space="preserve"><value>配置、工作区、分支或合并实现已变化。</value></data>
-  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>结果 Source 缺少有效目录映射。</value></data>
+  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>合并结果缺少与备份范围一致的有效目标目录。</value></data>
   <data name="Merge_Diagnostic_CoordinationScopeChanged" xml:space="preserve"><value>所需协调范围已变化；尚未执行目标修改。</value></data>
   <data name="Merge_Diagnostic_RecoveryRequired" xml:space="preserve"><value>事务需要完成恢复；请保留会话与事务文件。</value></data>
   <data name="Merge_Diagnostic_PostActionWarning" xml:space="preserve"><value>提交已完成；缓存或清理维护需要重试。</value></data>
   <data name="Merge_Diagnostic_PreparationFailed" xml:space="preserve"><value>准备未完成；已保存的人工成果仍保留。详情见日志。</value></data>
-  <data name="Merge_Action_Prepare" xml:space="preserve"><value>修复凭据、插件或副本后，点击“准备所需副本”；不会自动应用。</value></data>
-  <data name="Merge_Action_Recompute" xml:space="preserve"><value>修复映射或配置后显式重新计算；匹配的处理结果会保留。</value></data>
-  <data name="Merge_Action_Recover" xml:space="preserve"><value>使用“继续 / 恢复”完成原事务，勿删除 pack 或回滚目录。</value></data>
+  <data name="Merge_Action_Prepare" xml:space="preserve"><value>检查凭据、插件或备份副本后，点击“下载所需副本”；不会自动应用合并。</value></data>
+  <data name="Merge_Action_Recompute" xml:space="preserve"><value>修正配置或目录后点击“重新分析”；输入未变化的已保存决定会保留。</value></data>
+  <data name="Merge_Action_Recover" xml:space="preserve"><value>点击“恢复原事务”完成恢复，无需重新创建合并。</value></data>
   <data name="Merge_Action_Maintenance" xml:space="preserve"><value>下次启动或维护会重试清理；无需重复应用合并。</value></data>
   <data name="Merge_Action_Retry" xml:space="preserve"><value>确认环境后重试；必要时重新计算计划。</value></data>
   <data name="Merge_Mode_NoOp" xml:space="preserve"><value>无需合并</value></data>
@@ -5276,8 +5276,8 @@ Pull Request：{1}</value>
   <data name="Merge_Conflict_ModifyDelete" xml:space="preserve"><value>修改与删除</value></data>
   <data name="Merge_Conflict_AddAdd" xml:space="preserve"><value>双方新增</value></data>
   <data name="Merge_Conflict_PathStructure" xml:space="preserve"><value>路径结构冲突</value></data>
-  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Source 清单冲突</value></data>
-  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Source 边界冲突</value></data>
+  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>文件夹存在状态冲突</value></data>
+  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>备份范围冲突</value></data>
   <data name="History_Creation_Capture" xml:space="preserve"><value>备份捕获</value></data>
   <data name="History_Creation_Merge" xml:space="preserve"><value>合并版本</value></data>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>恢复版本</value></data>
@@ -6177,4 +6177,20 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>修改</value></data>
   <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>删除</value></data>
   <data name="MergeWorkspace_Change_Structure" xml:space="preserve"><value>路径结构替换</value></data>
+  <data name="MergeWorkspace_Context.Header" xml:space="preserve"><value>来源分支与已有任务</value></data>
+  <data name="MergeWorkspace_Reload.Content" xml:space="preserve"><value>重新加载会话</value></data>
+  <data name="MergeWorkspace_RetrySave.Content" xml:space="preserve"><value>重试保存未提交的决定</value></data>
+  <data name="MergeWorkspace_Attention.Title" xml:space="preserve"><value>需要处理</value></data>
+  <data name="MergeWorkspace_ResizeList.AutomationProperties.Name" xml:space="preserve"><value>调整文件列表宽度；左右方向键每次调整 10 DIP</value></data>
+  <data name="MergeWorkspace_RecoverTransaction" xml:space="preserve"><value>恢复原事务</value></data>
+  <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>继续准备</value></data>
+  <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>当前文件夹尚无有效的活动分支，请先备份或检出一个分支。</value></data>
+  <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>没有其他可合并分支。来源分支须有唯一、有效的历史节点。</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} 个文件</value></data>
+  <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>所选分支无效、与当前分支相同或存在多个分支头。</value></data>
+  <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>这两个分支没有共同基点，无法进行三方合并。</value></data>
+  <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>存在多个最佳共同基点，当前合并器无法安全选择。</value></data>
+  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>请在“来源分支与已有任务”中选择其他来源；必要时先解决分支分歧。</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>此文件由文件级规则自动处理，可在最终审阅中核对实际写入。</value></data>
+  <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>此类范围或来源冲突不提供文件级共同基点预览。</value></data>
 </root>

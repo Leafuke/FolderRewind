@@ -3,7 +3,7 @@ using System;
 
 namespace FolderRewind.History.Merge;
 
-public enum MergeDiagnosticCode { PreparationRequired, ExactUnavailable, Stale, MappingRequired, CoordinationScopeChanged, RecoveryRequired, PostActionWarning, PreparationFailed }
+public enum MergeDiagnosticCode { PreparationRequired, ExactUnavailable, Stale, MappingRequired, CoordinationScopeChanged, RecoveryRequired, PostActionWarning, PreparationFailed, InvalidBranches, NoCommonBase, MultipleMergeBases }
 public sealed record HistoryMergeDiagnostic(MergeDiagnosticCode Code, SourceId? SourceId = null,
     VersionId? VersionId = null, RepresentationId? RepresentationId = null, string? Detail = null)
 {
@@ -13,6 +13,7 @@ public sealed record HistoryMergeDiagnostic(MergeDiagnosticCode Code, SourceId? 
         MergeDiagnosticCode.Stale or MergeDiagnosticCode.MappingRequired => "Merge_Action_Recompute",
         MergeDiagnosticCode.RecoveryRequired => "Merge_Action_Recover",
         MergeDiagnosticCode.PostActionWarning => "Merge_Action_Maintenance",
+        MergeDiagnosticCode.InvalidBranches or MergeDiagnosticCode.NoCommonBase or MergeDiagnosticCode.MultipleMergeBases => "MergeWorkspace_Action_SelectSource",
         _ => "Merge_Action_Retry"
     };
 }

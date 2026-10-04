@@ -65,14 +65,8 @@ internal static partial class NativeHistoryApplicationService
     {
         if (checkpoint?.VersionId is not { } versionId) return MergeTreeManifest.Empty;
         var version = await runtime.Query.GetVersionAsync(versionId, token).ConfigureAwait(false) ?? throw new InvalidDataException("Missing comparison version.");
-        var directory = Path.Combine(runtime.MergeSessions.SessionDirectory(session.Id), "comparison", versionId.ToString());
-        // Immutable input manifest is checked on every read; old sessions need no schema migration.
-        if (Directory.Exists(directory))
-        {
-            var existing = await MergeTreeManifest.ReadAsync(directory, _ => true, token).ConfigureAwait(false);
-            using var verified = await restore.VerifyExactTreeAndLockAsync(version, existing.Digest, token).ConfigureAwait(false);
-            return existing;
-        }
+        var directory = Path.Combine(runtime.MergeSessions.SessionDirectory(session.Id), "comparison", versionId + "-" + Guid.NewGuid().ToString("N"));
+        // Separate immutable directories also support concurrent readers of an older saved session.
         var source = await restore.PrepareSourceAsync(version, new(checkpoint.SourceId, directory, checkpoint.EffectiveSourceBoundary),
             MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, token).ConfigureAwait(false);
         try

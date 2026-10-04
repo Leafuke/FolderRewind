@@ -8,23 +8,41 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Windows.System;
 using System;
 
 namespace FolderRewind.Views;
 
 public sealed partial class MergePage : Page
 {
-    private bool _narrow, _showDetail, _syncScroll;
+    private bool _narrow, _showDetail, _syncScroll, _refreshingList;
+    private Guid? _displayedSession;
+    private string? _announcedStatus;
     private ScrollViewer? _listScroll, _oursScroll, _theirsScroll;
     public MergePageViewModel ViewModel { get; } = new();
     public MergePage()
     {
         InitializeComponent(); DataContext = ViewModel;
+        ViewModel.PropertyChanged += (_, _) =>
+        {
+            if (_announcedStatus == ViewModel.Status) return;
+            _announcedStatus = ViewModel.Status;
+            FrameworkElementAutomationPeer.FromElement(StatusText)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        };
+        ViewModel.ContentChanging += () => _refreshingList = true;
         ViewModel.ContentChanged += () => DispatcherQueue.TryEnqueue(() =>
         {
             if (ViewModel.Filter != (FilterPicker.SelectedItem as ComboBoxItem)?.Tag?.ToString())
                 foreach (ComboBoxItem item in FilterPicker.Items) if (item.Tag?.ToString() == ViewModel.Filter) { FilterPicker.SelectedItem = item; break; }
             _listScroll?.ChangeView(null, ViewModel.ViewState.ScrollOffset, null, true);
+            _refreshingList = false;
+            if (_displayedSession != ViewModel.State.Session?.Id)
+            {
+                _displayedSession = ViewModel.State.Session?.Id;
+                ContextExpander.IsExpanded = _displayedSession is null;
+            }
         });
     }
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -59,7 +77,15 @@ public sealed partial class MergePage : Page
         SplitColumn.Width = new GridLength(_narrow ? 0 : 8);
     }
     private void OnBackToFiles(object sender, RoutedEventArgs e) { _showDetail = false; UpdateNarrowLayout(); ChangeList.Focus(FocusState.Programmatic); }
-    private void OnChangeSelected(object sender, SelectionChangedEventArgs e) { if (ChangeList.SelectedItem is not null) { _showDetail = true; UpdateNarrowLayout(); } }
+    private void OnChangeClicked(object sender, ItemClickEventArgs e) { _showDetail = true; UpdateNarrowLayout(); }
+    private void OnListKeyDown(object sender, KeyRoutedEventArgs e)
+    { if (_narrow && e.Key == VirtualKey.Enter && ViewModel.SelectedChange is not null) { _showDetail = true; UpdateNarrowLayout(); BackToFiles.Focus(FocusState.Programmatic); e.Handled = true; } }
+    private void OnSplitterKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not (VirtualKey.Left or VirtualKey.Right)) return;
+        ViewModel.ViewState = ViewModel.ViewState with { ListWidth = Math.Clamp(ListColumn.ActualWidth + (e.Key == VirtualKey.Left ? -10 : 10), 200, 420) };
+        ListColumn.Width = new(ViewModel.ViewState.ListWidth); e.Handled = true;
+    }
     private void OnListResize(object sender, DragDeltaEventArgs e) { ViewModel.ViewState = ViewModel.ViewState with { ListWidth = Math.Clamp(ListColumn.ActualWidth + e.HorizontalChange, 200, 420) }; ListColumn.Width = new(ViewModel.ViewState.ListWidth); }
     private void OnFilterChanged(object sender, SelectionChangedEventArgs e) { if (FilterPicker.SelectedItem is ComboBoxItem { Tag: string filter }) ViewModel.Filter = filter; }
     private async void OnClear(object sender, RoutedEventArgs e) => await ViewModel.ClearAsync();
@@ -77,6 +103,7 @@ public sealed partial class MergePage : Page
         _listScroll = scroll;
         scroll.ViewChanged += async (_, _) =>
         {
+            if (_refreshingList) return;
             ViewModel.ViewState = ViewModel.ViewState with { ScrollOffset = scroll.VerticalOffset };
             if (scroll.VerticalOffset >= scroll.ScrollableHeight - 200) await ViewModel.LoadMoreAsync();
         };
@@ -108,13 +135,21 @@ public sealed partial class MergePage : Page
     private async void OnDownload(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.PrepareReplicasAsync); }
     private async void OnRecompute(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.RecomputeAsync); }
     private async void OnRecover(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.ResumeAsync); }
+    private async void OnReload(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) { await ViewModel.ExecuteAsync(() => o.LoadAsync()); await ViewModel.ReloadChangesAsync(); } }
+    private async void OnRetrySave(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.RetrySaveAsync); }
     private async void OnImport(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.CanImport || ViewModel.SelectedChange is not { } row || ViewModel.Operations is not { } o) return;
+        var original = o.Snapshot.Session;
         await ViewModel.ExecuteAsync(async () =>
         {
             var path = await MainWindowService.PickFilePathAsync(I18n.GetString("Merge_Manual"), "merge-manual", ["*"]);
-            if (path is not null) await o.ImportAsync(row.Conflict, path);
+            if (path is not null)
+            {
+                if (original?.Id != o.Snapshot.Session?.Id || original?.Revision != o.Snapshot.Session?.Revision)
+                    throw new InvalidOperationException(I18n.GetString("Merge_Diagnostic_Stale"));
+                await o.ImportAsync(row.Conflict, path);
+            }
         });
     }
     private async void OnAbandon(object sender, RoutedEventArgs e)

@@ -29,6 +29,7 @@ public sealed class AccessibilityMarkupTests
     private static readonly string[] AuditedXamlFiles =
     [
         "Views/HistoryPage.xaml",
+        "Views/MergePage.xaml",
         "Views/HomePage.xaml",
         "Views/FolderManagerPage.xaml",
         "Views/MiniWindow.xaml",

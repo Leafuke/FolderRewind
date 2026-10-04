@@ -33,6 +33,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
     internal MergeOperationService? Operations { get; private set; }
     public MergeNavigationParameter? Navigation { get; private set; }
     private bool _active;
+    private bool _switchingSession;
     private long _loadGeneration;
     private string? _loadedRevision;
     private string? _localError;
@@ -46,18 +47,25 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public string FolderName { get; private set; } = "";
     public string TargetPath { get; private set; } = "";
     private string _targetName = "";
+    private bool _hasTarget;
     public MergeOperationSnapshot State => Operations?.Snapshot ?? new();
-    public bool IsBusy => State.IsBusy;
+    public bool IsBusy => _switchingSession || State.IsBusy;
     public bool IsIdle => !IsBusy;
     public bool CanStop => State.CanStop;
     public bool HasSession => State.Session is not null;
-    public bool CanAnalyze => IsIdle && SelectedBranch is not null;
-    public bool CanResolve => IsIdle && State.Session?.State is MergeSessionState.Resolving or MergeSessionState.Ready;
-    public bool CanRecompute => IsIdle && State.Session?.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready or MergeSessionState.Stale;
+    public bool CanAnalyze => IsIdle && State.IsSaved && _hasTarget && SelectedBranch is not null;
+    public bool CanResolve => IsIdle && State.IsSaved && State.Session?.State is MergeSessionState.Resolving or MergeSessionState.Ready;
+    public bool CanRecompute => IsIdle && State.IsSaved && State.Session?.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready or MergeSessionState.Stale;
     public bool CanPrepare => CanRecompute && State.Session?.State != MergeSessionState.Stale;
-    public bool CanRecover => IsIdle && HasSession && State.Session?.State is not (MergeSessionState.Abandoned or MergeSessionState.Committed);
-    public bool CanAbandon => CanRecompute;
-    public bool CanGenerate => IsIdle && State.Session?.State == MergeSessionState.Ready;
+    public bool CanRecover => IsIdle && HasSession && (State.Session?.State is MergeSessionState.Preparing or MergeSessionState.Applying
+        || State.Result?.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired);
+    public bool CanAbandon => IsIdle && State.Session?.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready or MergeSessionState.Stale;
+    public bool CanGenerate => IsIdle && State.IsSaved && State.Session?.State == MergeSessionState.Ready;
+    public bool CanRetrySave => Operations?.CanRetrySave == true;
+    public bool CanChooseSession => IsIdle && State.IsSaved;
+    public string ResumeLabel => I18n.GetString(State.Session?.State == MergeSessionState.Applying
+        || State.Result?.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired
+        ? "MergeWorkspace_RecoverTransaction" : "MergeWorkspace_ResumePreparation");
     public string Direction => State.Session is { } s ? $"{s.Plan.Theirs.Name} → {s.Plan.Ours.Name}" : $"{SelectedBranch?.Name ?? "—"} → {_targetName}";
     public string OursLabel => State.Session?.Plan.Ours.Name ?? _targetName;
     public string TheirsLabel => State.Session?.Plan.Theirs.Name ?? SelectedBranch?.Name ?? "—";
@@ -66,7 +74,9 @@ public sealed partial class MergePageViewModel : ViewModelBase
         : State.Notice is { } notice ? I18n.GetString(notice)
         : State.Session is { } session ? I18n.GetString("Merge_State_" + session.State) : I18n.GetString("MergeWorkspace_ChooseSource");
     public string SaveStatus => I18n.GetString(State.IsSaved ? "MergeWorkspace_Saved" : "MergeWorkspace_Unsaved");
-    public string Error => _localError ?? State.Error ?? (State.Session?.Diagnostic is { } d
+    public string SourceAvailability => !_hasTarget ? I18n.GetString("MergeWorkspace_NoTarget")
+        : Branches.Count == 0 ? I18n.GetString("MergeWorkspace_NoSource") : "";
+    public string Error => _localError ?? State.Error ?? ((State.Result?.MergeDiagnostic ?? State.Session?.Diagnostic) is { } d
         ? I18n.GetString("Merge_Diagnostic_" + d.Code) + "\n" + I18n.GetString(d.NextActionKey) + "\n" + d.Detail : "");
     public bool HasError => !string.IsNullOrWhiteSpace(Error);
     public string CountLabel => string.Format(I18n.GetString("MergeWorkspace_Count"), _total, _unresolved);
@@ -87,6 +97,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
         FolderName = folder.DisplayName; TargetPath = folder.Path;
         Operations = MergeOperationService.Get(config, new SourceId(Guid.Parse(folder.Id)));
         Operations.Tracker.Changed += OnOperationChanged;
+        RefreshSessions(); Notify();
         await Operations.LoadAsync(parameter.SessionId);
         if (!_active) return;
         if (Operations.Runtime is { } runtime)
@@ -94,6 +105,8 @@ public sealed partial class MergePageViewModel : ViewModelBase
             var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value;
             var activeId = workspace?.GetSourceState(Operations.SourceId).ActiveBranchId;
             var branches = HistoryBranchProjection.Build(await runtime.Query.GetAllBranchUpdatesAsync());
+            if (!_active) return;
+            _hasTarget = branches.Any(b => b.BranchId == activeId && b.Tips.Length == 1 && !b.Tips[0].IsDeleted && !b.Tips[0].IsUnborn);
             _targetName = branches.FirstOrDefault(b => b.BranchId == activeId)?.Tips.FirstOrDefault()?.Name ?? I18n.GetString("History_Branch_CurrentNotEstablished");
             Branches.Clear();
             foreach (var branch in branches.Where(b => b.BranchId != activeId && b.Tips.Length == 1
@@ -109,6 +122,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public void Detach()
     {
         _active = false; ++_loadGeneration;
+        _filterDelay?.Cancel(); _filterDelay?.Dispose(); _filterDelay = null;
         if (Operations is not null) Operations.Tracker.Changed -= OnOperationChanged;
         CancelPreview();
         if (Operations?.Runtime is { } runtime && State.Session is { } session)
@@ -120,9 +134,14 @@ public sealed partial class MergePageViewModel : ViewModelBase
     private void OnOperationChanged() => EnqueueOnUiThread(() =>
     {
         if (!_active) return;
+        if (_switchingSession) { Notify(); return; }
+        if (IsBusy) { ++_loadGeneration; CancelPreview(); }
+        if (State.Session is { } pinned)
+            TargetPath = pinned.Plan.Bindings.FirstOrDefault(b => b.SourceId == Operations!.SourceId)?.TargetDirectory ?? TargetPath;
         RefreshSessions(); Notify();
         var revision = State.Session is { } s ? $"{s.Id}:{s.Revision}" : "";
         if (!IsBusy && _loadedRevision != revision) TaskObserver.Observe(ReloadChangesAsync(), "Merge changes");
+        else if (!IsBusy && ShowWorkspace) SelectionChanged();
     });
     private void RefreshSessions()
     {
@@ -140,26 +159,54 @@ public sealed partial class MergePageViewModel : ViewModelBase
         try
         {
             var search = Search; var filter = Filter;
-            var page = Operations is { Runtime: not null } operations && session is not null
-                ? await Task.Run(() => operations.QueryChanges(session, search, filter, 0, Math.Max(100, Changes.Count))) : null;
+            var selectedId = SelectedChange?.Id ?? ViewState.SelectedId;
+            var page = Operations is { Runtime: not null } operations && session is not null && session.State is not (MergeSessionState.Committed or MergeSessionState.Abandoned)
+                ? await Task.Run(() => operations.QueryChanges(session, search, filter, 0, Math.Max(100, Changes.Count), selectedId)) : null;
             if (!_active || generation != _loadGeneration) return;
             var selected = SelectedChange?.Id ?? ViewState.SelectedId;
+            var scrollOffset = ViewState.ScrollOffset;
             var checkedIds = Changes.Where(c => c.IsChecked).Select(c => c.Id).ToHashSet();
+            ContentChanging?.Invoke();
             foreach (var row in Changes) row.PropertyChanged -= OnRowChanged;
             Changes.Clear();
             foreach (var row in page?.Rows ?? []) AddRow(row.Conflict, row.Resolution, row.Automatic, checkedIds.Contains(row.Conflict.Id));
             _total = page?.Total ?? 0; _unresolved = page?.Unresolved ?? 0; _matching = page?.Matching ?? 0;
             _loadedRevision = session is null ? "" : $"{session.Id}:{session.Revision}";
             SelectedChange = Changes.FirstOrDefault(c => c.Id == selected) ?? Changes.FirstOrDefault();
+            ViewState = ViewState with { ScrollOffset = scrollOffset };
             Notify(); ContentChanged?.Invoke();
         }
-        catch (Exception ex) { ReportError(ex); }
+        catch (Exception ex) { if (_active && generation == _loadGeneration) ReportError(ex); }
     }
+    public event Action? ContentChanging;
     public void Notify() => OnPropertyChanged(string.Empty);
     public void ReportError(Exception ex) { _localError = ex.Message; Notify(); }
     public async Task ExecuteAsync(Func<Task> action) { _localError = null; try { await action(); } catch (Exception ex) { ReportError(ex); } Notify(); }
     public Task AnalyzeAsync() => SelectedBranch is { } b && Operations is not null ? ExecuteAsync(() => Operations.StartAsync(b.Id)) : Task.CompletedTask;
-    public Task SelectSessionAsync(Guid id) => State.Session?.Id == id || Operations is null ? Task.CompletedTask : ExecuteAsync(() => Operations.LoadAsync(id));
+    public async Task SelectSessionAsync(Guid id)
+    {
+        if (State.Session?.Id == id || Operations is null || _switchingSession || State.IsBusy) return;
+        await ExecuteAsync(async () =>
+        {
+            _switchingSession = true; Notify();
+            try
+            {
+                if (Operations.Runtime is { } oldRuntime && State.Session is { } previous)
+                {
+                    var presentation = ViewState with { SelectedId = SelectedChange?.Id };
+                    await Task.Run(() => MergeViewStateStore.Save(oldRuntime.Repository.Paths.LocalStateRoot, previous.Id, presentation));
+                }
+                await Operations.LoadAsync(id);
+                if (Operations.Runtime is { } runtime && State.Session?.Id == id)
+                {
+                    ViewState = await Task.Run(() => MergeViewStateStore.Load(runtime.Repository.Paths.LocalStateRoot, id));
+                    _search = ViewState.Search; _filter = ViewState.Filter; _selectedChange = null;
+                }
+            }
+            finally { _switchingSession = false; }
+            await ReloadChangesAsync(); RefreshSessions();
+        });
+    }
     public Task AdoptAsync(MergeResolutionChoice choice)
     {
         if (!CanResolve || Operations is null || State.Session is not { } session) return Task.CompletedTask;
