@@ -293,6 +293,22 @@ public sealed class HistoryIndex : IDisposable
         }
     }
 
+    internal Task<IReadOnlyList<T>> ReadSourceFactsAsync<T>(SourceId source, CancellationToken token) where T : class
+    {
+        const string versions = "SELECT VersionId FROM Versions WHERE SourceId=$source";
+        const string representations = "WITH RECURSIVE selected(Id) AS (SELECT RepresentationId FROM Representations WHERE VersionId IN (" + versions + ") UNION SELECT d.DependencyRepresentationId FROM RepresentationDependencies d JOIN selected s ON d.RepresentationId=s.Id) SELECT Id FROM selected";
+        var sql = typeof(T) == typeof(SourceVersion) ? "SELECT PayloadJson FROM Versions WHERE SourceId=$source"
+            : typeof(T) == typeof(SourceCheckpoint) ? "SELECT PayloadJson FROM Checkpoints WHERE SourceId=$source"
+            : typeof(T) == typeof(BranchUpdate) ? "SELECT PayloadJson FROM BranchUpdates WHERE SourceId=$source"
+            : typeof(T) == typeof(VersionRepresentation) ? "SELECT PayloadJson FROM Representations WHERE RepresentationId IN (" + representations + ")"
+            : typeof(T) == typeof(MaterializationPolicyUpdate) ? "SELECT PayloadJson FROM MaterializationPolicies WHERE VersionId IN (" + versions + ")"
+            : typeof(T) == typeof(StorageReplica) ? "SELECT PayloadJson FROM SharedReplicas WHERE RepresentationId IN (" + representations + ")"
+            : typeof(T) == typeof(ReplicaLifecycleUpdate) ? "SELECT PayloadJson FROM ReplicaLifecycle WHERE ReplicaId IN (SELECT ReplicaId FROM SharedReplicas WHERE RepresentationId IN (" + representations + "))"
+            : typeof(T) == typeof(HistoryAnnotationUpdate) ? "SELECT PayloadJson FROM Annotations WHERE TargetId IN (" + versions + " UNION SELECT CheckpointId FROM Checkpoints WHERE SourceId=$source)"
+            : throw new ArgumentException("Unsupported source fact type.");
+        return ReadPayloadsAsync<T>(sql, [("$source", source.ToString())], token);
+    }
+
     public Task<IReadOnlyList<SourceVersion>> GetVersionsForSourceAsync(
         SourceId sourceId,
         CancellationToken cancellationToken = default)

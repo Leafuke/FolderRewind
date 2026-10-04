@@ -6293,4 +6293,5 @@ Retention count: {2} · {3}</value></data>
   <data name="Retention_Reason_CacheWriteFailed" xml:space="preserve"><value>The cleanup cache could not be saved. The next run will evaluate again.</value></data>
   <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>Cleanup was committed, but subsequent assessment failed. Check the state again.</value></data>
   <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>The history commit is durable, but local state requires recovery. Remaining sources were stopped. Recover history before retrying.</value></data>
+  <data name="History_LoadMore.Content" xml:space="preserve"><value>Load more</value></data>
 </root>

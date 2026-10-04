@@ -40,7 +40,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     private HistoryRuntime? _presentationRuntime;
     private long _presentationSequence = -1;
     private SourceId? _presentationSource;
-    private HistoryPresentationResult? _cachedPresentation;
+    private HistoryPageCursor? _nextCursor;
+    private int _filterGeneration;
+    public bool HasMoreHistory => _nextCursor is not null;
+    public bool CanLoadMore => HasMoreHistory && !IsLoading;
     private bool _refreshingBranches;
     private volatile bool _isActive;
 
@@ -81,7 +84,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         get => _isLoading;
         private set
         {
-            if (SetProperty(ref _isLoading, value)) OnPropertyChanged(nameof(ShowEmptyState));
+            if (SetProperty(ref _isLoading, value)) { OnPropertyChanged(nameof(ShowEmptyState)); OnPropertyChanged(nameof(CanLoadMore)); }
         }
     }
     public string ErrorMessage
@@ -147,7 +150,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public string CommentFilterText
     {
         get => _commentFilterText;
-        set { if (SetProperty(ref _commentFilterText, value ?? string.Empty)) ApplyFilter(); }
+        set { if (SetProperty(ref _commentFilterText, value ?? string.Empty)) TaskObserver.Observe(FilterAfterDelayAsync(++_filterGeneration), nameof(HistoryPageViewModel)); }
     }
 
     public bool UseHistoryStatusColors
@@ -251,6 +254,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public void Suspend()
     {
         _isActive = false;
+        ++_filterGeneration;
         if (_observedSettings is not null) _observedSettings.PropertyChanged -= OnSettingsChanged;
         _observedSettings = null;
         CancelHistoryCommands();
@@ -301,7 +305,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         return RefreshCurrentHistoryCoreAsync(cancellationToken, force: true);
     }
 
-    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken, bool force = false)
+    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken, bool force = false, bool append = false)
     {
         if (!_isActive) return;
         using var request = _refreshRequests.Begin(cancellationToken);
@@ -326,23 +330,23 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 && id != Guid.Empty
                     ? new SourceId(id)
                     : null;
-            if (!force && ReferenceEquals(runtime, _presentationRuntime) && sourceId == _presentationSource
-                && runtime.ChangeFeed.CurrentSequence == _presentationSequence && _cachedPresentation is not null)
-            {
-                ApplyPresentation(_cachedPresentation, selectedBranchId);
-                return;
-            }
-            var sequence = runtime.ChangeFeed.CurrentSequence;
-            var snapshot = await new HistoryPresentationQueryService(runtime)
-                .QueryAsync(sourceId, cancellationToken: token);
+            var page = await new HistoryPresentationQueryService(runtime).QueryPageAsync(
+                new HistoryPageRequest(sourceId, IsGroupedRunView, IsAdvancedHistory, selectedBranchId,
+                    CommentFilterText, Cursor: append ? _nextCursor : null,
+                    OutcomeNames: Enum.GetValues<BackupRunOutcome>().ToDictionary(outcome => outcome, BackupRunViewItem.GetRunOutcomeText)), token);
+            var snapshot = page.Snapshot;
             var presentation = await BuildPresentationAsync(config, snapshot, token);
             token.ThrowIfCancellationRequested();
             if (!request.IsCurrent || !_isActive) return;
-            _cachedPresentation = presentation;
+            _nextCursor = page.Next;
+            _missingCount = page.MissingCount;
+            OnPropertyChanged(nameof(HasMoreHistory));
+            OnPropertyChanged(nameof(CanLoadMore));
+            OnPropertyChanged(nameof(HasMissing));
             _presentationRuntime = runtime;
-            _presentationSequence = sequence;
+            _presentationSequence = page.Revision;
             _presentationSource = sourceId;
-            ApplyPresentation(presentation, selectedBranchId);
+            ApplyPresentation(presentation, selectedBranchId, append && !page.CursorInvalidated);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -853,11 +857,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             return new HistoryPresentationResult(versions, runs, branches, safetySnapshots);
         }, cancellationToken);
 
-    private void ApplyPresentation(HistoryPresentationResult presentation, BranchId? selectedBranchId)
+    private void ApplyPresentation(HistoryPresentationResult presentation, BranchId? selectedBranchId, bool append = false)
     {
-        _allVersions.Clear();
+        if (!append) { _allVersions.Clear(); _allRuns.Clear(); }
         _allVersions.AddRange(presentation.Versions);
-        _allRuns.Clear();
         _allRuns.AddRange(presentation.Runs);
         _refreshingBranches = true;
         try
@@ -877,7 +880,19 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
         foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
         NotifyBranchSelectionChanged();
-        ApplyFilter();
+        if (append)
+        {
+            foreach (var item in presentation.Versions) FilteredHistory.Add(item);
+            foreach (var item in presentation.Runs) FilteredRuns.Add(item);
+        }
+        else
+        {
+            FilteredHistory.ReplaceAll(_allVersions);
+            FilteredRuns.ReplaceAll(_allRuns);
+        }
+        IsEmpty = IsGroupedRunView ? FilteredRuns.Count == 0 : FilteredHistory.Count == 0;
+        UpdateSemanticStatusPreferences(_allVersions);
+        NotifyContextChanged();
         _ = AssessSelectedBranchAsync();
     }
 
@@ -915,7 +930,9 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
 
     private void ClearPresentation()
     {
-        _cachedPresentation = null;
+        _nextCursor = null;
+        OnPropertyChanged(nameof(HasMoreHistory));
+        OnPropertyChanged(nameof(CanLoadMore));
         _presentationRuntime = null;
         _presentationSequence = -1;
         _allVersions.Clear();
@@ -941,35 +958,20 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         NotifyBranchSelectionChanged();
     }
 
+    public Task LoadMoreAsync() => CanLoadMore
+        ? RefreshCurrentHistoryCoreAsync(CancellationToken.None, append: true) : Task.CompletedTask;
+
+    private async Task FilterAfterDelayAsync(int generation)
+    {
+        _refreshRequests.CancelCurrent();
+        await Task.Delay(250);
+        if (_isActive && generation == _filterGeneration) await RefreshCurrentHistoryAsync();
+    }
+
     private void ApplyFilter()
     {
-        var needle = CommentFilterText.Trim();
-        var branchId = (IsAdvancedHistory ? SelectedBranch : Branches.FirstOrDefault(branch => branch.IsActive))?.BranchId;
-        if (IsGroupedRunView)
-        {
-            var runs = _allRuns.Where(item => (needle.Length == 0
-                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)))
-                .ToArray();
-            FilteredRuns.ReplaceAll(runs);
-            FilteredHistory.ReplaceAll([]);
-            _missingCount = 0; IsEmpty = FilteredRuns.Count == 0;
-        }
-        else
-        {
-            var versions = _allVersions.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
-                         && (needle.Length == 0
-                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.FileName.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.BranchDisplay.Contains(needle, StringComparison.OrdinalIgnoreCase)))
-                .ToArray();
-            FilteredHistory.ReplaceAll(versions);
-            FilteredRuns.ReplaceAll([]);
-            _missingCount = FilteredHistory.Count(item => item.IsLocalPayloadMissing);
-            IsEmpty = FilteredHistory.Count == 0; UpdateSemanticStatusPreferences(_allVersions);
-        }
-        OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
+        if (_isActive && _currentConfig is not null)
+            TaskObserver.Observe(RefreshCurrentHistoryAsync(), nameof(HistoryPageViewModel));
     }
 
     private void ScheduleChangeRefresh()
@@ -1122,9 +1124,7 @@ public sealed class NativeHistoryVersionViewItem(
     IReadOnlyDictionary<BranchId, string>? branchNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
     private readonly bool _hasLocalFile = summary.LocalPath is not null && File.Exists(summary.LocalPath);
-    private readonly bool _isLocalPayloadMissing = summary.LocalPath is not null
-        && !File.Exists(summary.LocalPath)
-        && !Directory.Exists(summary.LocalPath);
+    private readonly bool _isLocalPayloadMissing = summary.IsLocalPayloadMissing;
     private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
     private SemanticStatus _readinessStatus = MapReadiness(summary.Readiness);
 
@@ -1235,7 +1235,7 @@ public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<So
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
     public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(summary.RunId, item, sourceNames?.GetValueOrDefault(item.SourceId), summary.HistoricalBranchNames?.GetValueOrDefault(item.BranchUpdateId ?? default), summary.BranchableCheckpointIds?.Contains(item.CheckpointId ?? default) == true)).ToArray();
 
-    private static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
+    internal static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
     {
         BackupRunOutcome.Completed => I18n.GetString("History_Run_OutcomeCompleted"),
         BackupRunOutcome.Partial => I18n.GetString("History_Run_OutcomePartial"),

@@ -6293,4 +6293,5 @@ Pull Request：{1}</value>
   <data name="Retention_Reason_CacheWriteFailed" xml:space="preserve"><value>无法保存清理缓存，下次会重新评估。</value></data>
   <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>清理已提交，但之后的状态评估失败，请重新检查。</value></data>
   <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>历史提交已持久化，但本地状态需要恢复。后续源已停止处理，请修复历史后重试。</value></data>
+  <data name="History_LoadMore.Content" xml:space="preserve"><value>加载更多</value></data>
 </root>

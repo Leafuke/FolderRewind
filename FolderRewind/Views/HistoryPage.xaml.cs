@@ -15,6 +15,8 @@ namespace FolderRewind.Views;
 
 public sealed partial class HistoryPage : Page
 {
+    private async void OnLoadMoreClick(object sender, RoutedEventArgs e) => await ViewModel.LoadMoreAsync();
+
     private bool _isNavigating;
     private HistoryReturnContext? _mergeReturnContext;
 

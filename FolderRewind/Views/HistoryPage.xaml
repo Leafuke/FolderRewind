@@ -31,6 +31,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid x:Name="HistoryHeader" Margin="0,0,0,20" ColumnSpacing="16" RowSpacing="8">
@@ -435,5 +436,9 @@
             <FontIcon Glyph="&#xE7BA;" FontSize="48" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
+        <Button Grid.Row="4" x:Uid="History_LoadMore" HorizontalAlignment="Center" Margin="0,12,0,0"
+                AutomationProperties.AutomationId="HistoryLoadMore" Click="OnLoadMoreClick"
+                IsEnabled="{x:Bind ViewModel.CanLoadMore, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.HasMoreHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
     </Grid>
 </Page>
