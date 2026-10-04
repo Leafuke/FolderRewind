@@ -961,7 +961,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Compression level (0-9)</value>
   </data>
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
-    <value>Keep recent backups (0 for unlimited)</value>
+    <value>Keep recent versions per source (0 for unlimited)</value>
   </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>Compression algorithm</value>
@@ -5635,7 +5635,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve"><value>Skip backup when unchanged</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>Keep recent backups (0 for unlimited)</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>Keep recent versions per source (0 for unlimited)</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve"><value>Smart backup chain length (0 = unlimited)</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve"><value>Performance impact</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_Format.Header" xml:space="preserve"><value>Archive format</value></data>
@@ -5711,7 +5711,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="ConfigSettingsDialog_ConfigName_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Config name</value></data>
   <data name="ConfigSettingsDialog_BackupMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup mode</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Skip backup when unchanged</value></data>
-  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep recent backups (0 for unlimited)</value></data>
+  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep recent versions per source (0 for unlimited)</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup before restore</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Safe restore</value></data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
@@ -6231,4 +6231,66 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_UndoButton.Content" xml:space="preserve"><value>Undo batch decision</value></data>
   <data name="MergeWorkspace_NoWorkingChanges.Text" xml:space="preserve"><value>No files need to be added, modified, or deleted in the current folder.</value></data>
   <data name="MergeWorkspace_NoBranchChanges.Text" xml:space="preserve"><value>The result matches the target branch. No file contents change.</value></data>
+  <data name="Retention_Dialog.Title" xml:space="preserve"><value>Backup cleanup</value></data>
+  <data name="Retention_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Retention_CountFirstLabel.Text" xml:space="preserve"><value>Prioritize retention count (may increase disk usage)</value></data>
+  <data name="Retention_Footer.Text" xml:space="preserve"><value>Only local archives are cleaned. History records and cloud copies remain. Protected versions are retained in addition.</value></data>
+  <data name="Retention_SettingDescription.Text" xml:space="preserve"><value>Keep the latest N restorable versions per source, plus protected versions. 0 means unlimited. Automatic cleanup only proceeds when it releases net disk space.</value></data>
+  <data name="Retention_ReportButton.Content" xml:space="preserve"><value>Cleanup report</value></data>
+  <data name="Retention_CleanNow" xml:space="preserve"><value>Clean up now</value></data>
+  <data name="Retention_SaveClean" xml:space="preserve"><value>Save and clean up</value></data>
+  <data name="Retention_Start" xml:space="preserve"><value>Start cleanup</value></data>
+  <data name="Retention_Heading" xml:space="preserve"><value>Configuration: {0}
+Keep the latest {1} versions per source</value></data>
+  <data name="Retention_ConfigChanged" xml:space="preserve"><value>The configuration changed. Start cleanup again.</value></data>
+  <data name="Retention_NoReport" xml:space="preserve"><value>No cleanup report yet.</value></data>
+  <data name="Retention_ReportReadFailed" xml:space="preserve"><value>The previous cleanup report could not be read.</value></data>
+  <data name="Retention_Canceling" xml:space="preserve"><value>Canceling. Committed cleanup remains complete; waiting for a safe stopping point.</value></data>
+  <data name="Retention_Saving" xml:space="preserve"><value>Waiting to save settings…</value></data>
+  <data name="Retention_ReportHeader" xml:space="preserve"><value>{0} · {1}
+Retention count: {2} · {3}</value></data>
+  <data name="Retention_Bytes" xml:space="preserve"><value>Archives deleted: {0}; created: {1}; reclaimed: {2}; net released: {3}</value></data>
+  <data name="Retention_Counts" xml:space="preserve"><value>Restorable versions: {0} → {1}; recent retained: {2}; additionally protected: {3}</value></data>
+  <data name="Retention_SharedGroup" xml:space="preserve"><value>Shared dependency group: {0}. File and space totals appear under the first source only.</value></data>
+  <data name="Retention_Version" xml:space="preserve"><value>Related version: {0}</value></data>
+  <data name="Retention_Unknown" xml:space="preserve"><value>Not assessed</value></data>
+  <data name="Retention_Trigger_Manual" xml:space="preserve"><value>Manual cleanup</value></data>
+  <data name="Retention_Trigger_Automatic" xml:space="preserve"><value>Automatic cleanup</value></data>
+  <data name="Retention_Policy_SpaceFirst" xml:space="preserve"><value>Space first</value></data>
+  <data name="Retention_Policy_CountFirst" xml:space="preserve"><value>Count first</value></data>
+  <data name="Retention_Status_Running" xml:space="preserve"><value>Cleanup in progress</value></data>
+  <data name="Retention_Status_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Retention_Status_Partial" xml:space="preserve"><value>Partially completed</value></data>
+  <data name="Retention_Status_NoWork" xml:space="preserve"><value>No cleanup needed</value></data>
+  <data name="Retention_Status_Incomplete" xml:space="preserve"><value>Incomplete</value></data>
+  <data name="Retention_Status_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="Retention_Status_Interrupted" xml:space="preserve"><value>Interrupted; some results need checking</value></data>
+  <data name="Retention_Status_Pending" xml:space="preserve"><value>Pending</value></data>
+  <data name="Retention_Status_Blocked" xml:space="preserve"><value>Cleanup blocked</value></data>
+  <data name="Retention_Status_NoSpaceBenefit" xml:space="preserve"><value>Skipped: no net space benefit</value></data>
+  <data name="Retention_Status_CleanupPending" xml:space="preserve"><value>Committed; some old files await reclamation</value></data>
+  <data name="Retention_Stage_waiting" xml:space="preserve"><value>Waiting for the current backup or restore…</value></data>
+  <data name="Retention_Stage_planning" xml:space="preserve"><value>Checking retention rules and dependencies…</value></data>
+  <data name="Retention_Stage_rebuild" xml:space="preserve"><value>Rebuilding retained versions…</value></data>
+  <data name="Retention_Stage_verify" xml:space="preserve"><value>Verifying restored content…</value></data>
+  <data name="Retention_Stage_ready" xml:space="preserve"><value>Verification complete; preparing to commit…</value></data>
+  <data name="Retention_Stage_committing" xml:space="preserve"><value>Completing current cleanup; the commit phase cannot be canceled.</value></data>
+  <data name="Retention_Reason_NoSpaceBenefit" xml:space="preserve"><value>Rebuilding would not release net space. Original archives remain. You can manually select count first.</value></data>
+  <data name="Retention_Reason_NoSpaceBenefitCached" xml:space="preserve"><value>Relevant state is unchanged; reusing the previous no-benefit result. Manual cleanup evaluates again.</value></data>
+  <data name="Retention_Reason_ProtectedVersionUnavailable" xml:space="preserve"><value>A protected version cannot be restored exactly. Check archives or credentials, or download missing files. Cleanup of this group was skipped.</value></data>
+  <data name="Retention_Reason_ProtectedVersionMissing" xml:space="preserve"><value>A protected version is missing from history. Repair history and retry.</value></data>
+  <data name="Retention_Reason_CatalogUnavailable" xml:space="preserve"><value>The local archive catalog needs recovery. Repair history first.</value></data>
+  <data name="Retention_Reason_WorkspaceUnavailable" xml:space="preserve"><value>Workspace baselines cannot be verified. Repair local history state.</value></data>
+  <data name="Retention_Reason_SnapshotCheckpointMissing" xml:space="preserve"><value>A safety snapshot checkpoint is missing. Repair history.</value></data>
+  <data name="Retention_Reason_OperationRepresentationMissing" xml:space="preserve"><value>An active operation references missing archive information. Complete or repair that operation.</value></data>
+  <data name="Retention_Reason_MigrationPending" xml:space="preserve"><value>Waiting for the first normal backup after legacy migration.</value></data>
+  <data name="Retention_Reason_UnsupportedArchive" xml:space="preserve"><value>Legacy, non-exact, or unsupported archives remain; they were not forcibly deleted.</value></data>
+  <data name="Retention_Reason_Blocked" xml:space="preserve"><value>Safe cleanup could not be established. Check the details below, repair the issue, and retry.</value></data>
+  <data name="Retention_Reason_StorageFailure" xml:space="preserve"><value>A storage operation failed. Check free space, paths, permissions, and file locks.</value></data>
+  <data name="Retention_Reason_GlobalStateUnavailable" xml:space="preserve"><value>Global history state or dependency ownership could not be verified. Cleanup stopped. Repair history and retry.</value></data>
+  <data name="Retention_Reason_CleanupPending" xml:space="preserve"><value>Retained versions were committed, but some old files await reclamation and are not counted as released space.</value></data>
+  <data name="Retention_Reason_ReportWriteFailed" xml:space="preserve"><value>The cleanup report could not be saved. Committed cleanup is unaffected.</value></data>
+  <data name="Retention_Reason_CacheWriteFailed" xml:space="preserve"><value>The cleanup cache could not be saved. The next run will evaluate again.</value></data>
+  <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>Cleanup was committed, but subsequent assessment failed. Check the state again.</value></data>
+  <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>The history commit is durable, but local state requires recovery. Remaining sources were stopped. Recover history before retrying.</value></data>
 </root>

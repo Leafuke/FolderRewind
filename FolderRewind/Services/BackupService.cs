@@ -778,14 +778,7 @@ namespace FolderRewind.Services
 
 
 
-        private static async Task PruneRetainedSourceArchivesAsync(BackupConfig config)
-        {
-            if (config.Archive.KeepCount <= 0)
-            {
-                return;
-            }
-            await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config);
-        }
+
 
     }
 }

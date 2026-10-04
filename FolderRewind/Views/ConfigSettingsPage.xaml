@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:settings="using:CommunityToolkit.WinUI.Controls" xmlns:models="using:FolderRewind.Models" x:Class="FolderRewind.Views.ConfigSettingsPage" SizeChanged="OnSettingsPageSizeChanged">
     <Grid x:Name="SettingsLayout" Margin="24" RowSpacing="12" HorizontalAlignment="Left">
         <Grid.RowDefinitions>
@@ -144,8 +144,15 @@
         </ScrollViewer>
         <ScrollViewer x:Name="ResourceTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
-                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_KeepCount" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
-                    <NumberBox x:Uid="ConfigSettingsDialog_KeepCount_CardInput" Value="{x:Bind ViewModel.KeepCount, Mode=TwoWay}" Minimum="0" AutomationProperties.AutomationId="ConfigSettingsDialog_KeepCount"/>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_KeepCount">
+                    <StackPanel Spacing="8">
+                        <NumberBox x:Uid="ConfigSettingsDialog_KeepCount_CardInput" Value="{x:Bind ViewModel.KeepCount, Mode=TwoWay}" Minimum="0" AutomationProperties.AutomationId="ConfigSettingsDialog_KeepCount"/>
+                        <TextBlock x:Uid="Retention_SettingDescription" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnCleanupButtonsSizeChanged">
+                            <Button Content="{x:Bind ViewModel.CleanNowLabel, Mode=OneWay}" IsEnabled="{x:Bind ViewModel.CanCleanNow, Mode=OneWay}" Click="OnCleanNowClick" AutomationProperties.AutomationId="RetentionCleanNow"/>
+                            <Button x:Uid="Retention_ReportButton" Click="OnCleanupReportClick" AutomationProperties.AutomationId="RetentionReport"/>
+                        </StackPanel>
+                    </StackPanel>
                 </settings:SettingsCard>
                 <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_MaxSmartChain">
                     <StackPanel Spacing="4">

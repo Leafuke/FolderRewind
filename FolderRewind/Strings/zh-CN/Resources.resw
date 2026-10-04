@@ -961,7 +961,7 @@
     <value>压缩等级（0-9）</value>
   </data>
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
-    <value>保留最近备份数（0 为不限制）</value>
+    <value>每个备份源保留最近版本数（0 为无限保留）</value>
   </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>压缩算法</value>
@@ -5635,7 +5635,7 @@ Pull Request：{1}</value>
   <data name="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve"><value>无变更时跳过备份</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>保留最近备份数（0 为不限制）</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>每个备份源保留最近版本数（0 为无限保留）</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve"><value>智能备份链长度 (0 为不限制)</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve"><value>性能影响</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_Format.Header" xml:space="preserve"><value>压缩格式</value></data>
@@ -5711,7 +5711,7 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_ConfigName_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份项目名称</value></data>
   <data name="ConfigSettingsDialog_BackupMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份模式</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>无变更时跳过备份</value></data>
-  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保留最近备份数（0 为不限制）</value></data>
+  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>每个备份源保留最近版本数（0 为无限保留）</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前自动备份</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>安全还原</value></data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前校验备份完整性</value></data>
@@ -6231,4 +6231,66 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_UndoButton.Content" xml:space="preserve"><value>撤销批量决定</value></data>
   <data name="MergeWorkspace_NoWorkingChanges.Text" xml:space="preserve"><value>当前文件夹内容无需新增、修改或删除。</value></data>
   <data name="MergeWorkspace_NoBranchChanges.Text" xml:space="preserve"><value>结果文件与目标分支一致，无文件内容变更。</value></data>
+  <data name="Retention_Dialog.Title" xml:space="preserve"><value>备份清理</value></data>
+  <data name="Retention_Close" xml:space="preserve"><value>关闭</value></data>
+  <data name="Retention_CountFirstLabel.Text" xml:space="preserve"><value>优先达到保留数量（可能增加磁盘占用）</value></data>
+  <data name="Retention_Footer.Text" xml:space="preserve"><value>仅清理本地归档；保留历史记录，不删除云端副本。受保护版本额外保留。</value></data>
+  <data name="Retention_SettingDescription.Text" xml:space="preserve"><value>每个备份源保留最近 N 个可恢复版本；受保护版本额外保留。0 为无限保留。自动清理仅在能够净释放空间时执行。</value></data>
+  <data name="Retention_ReportButton.Content" xml:space="preserve"><value>清理报告</value></data>
+  <data name="Retention_CleanNow" xml:space="preserve"><value>立即清理</value></data>
+  <data name="Retention_SaveClean" xml:space="preserve"><value>保存并立即清理</value></data>
+  <data name="Retention_Start" xml:space="preserve"><value>开始清理</value></data>
+  <data name="Retention_Heading" xml:space="preserve"><value>配置：{0}
+每个源保留最近 {1} 个版本</value></data>
+  <data name="Retention_ConfigChanged" xml:space="preserve"><value>配置已更改，请重新开始清理。</value></data>
+  <data name="Retention_NoReport" xml:space="preserve"><value>尚未执行清理。</value></data>
+  <data name="Retention_ReportReadFailed" xml:space="preserve"><value>无法读取上次清理报告。</value></data>
+  <data name="Retention_Canceling" xml:space="preserve"><value>正在取消；已提交的清理保持完成，等待当前操作安全退出。</value></data>
+  <data name="Retention_Saving" xml:space="preserve"><value>等待并保存设置…</value></data>
+  <data name="Retention_ReportHeader" xml:space="preserve"><value>{0} · {1}
+保留数量：{2} · {3}</value></data>
+  <data name="Retention_Bytes" xml:space="preserve"><value>删除归档：{0}；新增：{1}；实际回收：{2}；净释放：{3}</value></data>
+  <data name="Retention_Counts" xml:space="preserve"><value>可恢复版本：{0} → {1}；最近版本保留：{2}；额外保护：{3}</value></data>
+  <data name="Retention_SharedGroup" xml:space="preserve"><value>共享依赖组：{0}。文件和空间合计仅列在本组第一个源下。</value></data>
+  <data name="Retention_Version" xml:space="preserve"><value>相关版本：{0}</value></data>
+  <data name="Retention_Unknown" xml:space="preserve"><value>无法评估</value></data>
+  <data name="Retention_Trigger_Manual" xml:space="preserve"><value>手动清理</value></data>
+  <data name="Retention_Trigger_Automatic" xml:space="preserve"><value>自动清理</value></data>
+  <data name="Retention_Policy_SpaceFirst" xml:space="preserve"><value>空间优先</value></data>
+  <data name="Retention_Policy_CountFirst" xml:space="preserve"><value>数量优先</value></data>
+  <data name="Retention_Status_Running" xml:space="preserve"><value>清理进行中</value></data>
+  <data name="Retention_Status_Completed" xml:space="preserve"><value>完成</value></data>
+  <data name="Retention_Status_Partial" xml:space="preserve"><value>部分完成</value></data>
+  <data name="Retention_Status_NoWork" xml:space="preserve"><value>无需清理</value></data>
+  <data name="Retention_Status_Incomplete" xml:space="preserve"><value>未完成</value></data>
+  <data name="Retention_Status_Canceled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Retention_Status_Interrupted" xml:space="preserve"><value>意外中断，部分结果需重新检查</value></data>
+  <data name="Retention_Status_Pending" xml:space="preserve"><value>等待处理</value></data>
+  <data name="Retention_Status_Blocked" xml:space="preserve"><value>无法安全清理</value></data>
+  <data name="Retention_Status_NoSpaceBenefit" xml:space="preserve"><value>未清理：不能净释放空间</value></data>
+  <data name="Retention_Status_CleanupPending" xml:space="preserve"><value>已提交，部分旧文件等待回收</value></data>
+  <data name="Retention_Stage_waiting" xml:space="preserve"><value>等待当前备份或还原完成…</value></data>
+  <data name="Retention_Stage_planning" xml:space="preserve"><value>正在检查保留规则和依赖…</value></data>
+  <data name="Retention_Stage_rebuild" xml:space="preserve"><value>正在重建保留版本…</value></data>
+  <data name="Retention_Stage_verify" xml:space="preserve"><value>正在验证恢复结果…</value></data>
+  <data name="Retention_Stage_ready" xml:space="preserve"><value>验证完成，准备提交…</value></data>
+  <data name="Retention_Stage_committing" xml:space="preserve"><value>正在完成当前清理；提交阶段不可取消。</value></data>
+  <data name="Retention_Reason_NoSpaceBenefit" xml:space="preserve"><value>重建不能净释放空间，原归档保持不变。可手动选择数量优先。</value></data>
+  <data name="Retention_Reason_NoSpaceBenefitCached" xml:space="preserve"><value>相关状态未变，复用上次无收益结果。手动清理可重新评估。</value></data>
+  <data name="Retention_Reason_ProtectedVersionUnavailable" xml:space="preserve"><value>受保护版本无法完整恢复。请检查相关归档、密码或下载缺失文件；同组清理已跳过。</value></data>
+  <data name="Retention_Reason_ProtectedVersionMissing" xml:space="preserve"><value>受保护版本的历史信息缺失，请修复历史后重试。</value></data>
+  <data name="Retention_Reason_CatalogUnavailable" xml:space="preserve"><value>本地归档登记需要恢复，请先修复历史。</value></data>
+  <data name="Retention_Reason_WorkspaceUnavailable" xml:space="preserve"><value>无法确认工作基线，请修复本地历史状态。</value></data>
+  <data name="Retention_Reason_SnapshotCheckpointMissing" xml:space="preserve"><value>安全快照的历史位置缺失，请修复历史。</value></data>
+  <data name="Retention_Reason_OperationRepresentationMissing" xml:space="preserve"><value>活动操作需要的归档信息缺失，请完成或修复相关操作。</value></data>
+  <data name="Retention_Reason_MigrationPending" xml:space="preserve"><value>等待旧版历史迁移后首次正常备份。</value></data>
+  <data name="Retention_Reason_UnsupportedArchive" xml:space="preserve"><value>存在无法自动清理的旧版、非完整或不支持的归档，未强制删除。</value></data>
+  <data name="Retention_Reason_Blocked" xml:space="preserve"><value>无法证明清理安全。请检查下方原因并修复后重试。</value></data>
+  <data name="Retention_Reason_StorageFailure" xml:space="preserve"><value>存储操作失败，请检查可用空间、路径、权限或文件占用。</value></data>
+  <data name="Retention_Reason_GlobalStateUnavailable" xml:space="preserve"><value>无法确认全局历史状态或依赖归属，本次清理停止。请修复历史后重试。</value></data>
+  <data name="Retention_Reason_CleanupPending" xml:space="preserve"><value>保留版本已提交，部分旧文件尚未回收；未计入已释放空间。</value></data>
+  <data name="Retention_Reason_ReportWriteFailed" xml:space="preserve"><value>清理报告保存失败；已提交的清理不受影响。</value></data>
+  <data name="Retention_Reason_CacheWriteFailed" xml:space="preserve"><value>无法保存清理缓存，下次会重新评估。</value></data>
+  <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>清理已提交，但之后的状态评估失败，请重新检查。</value></data>
+  <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>历史提交已持久化，但本地状态需要恢复。后续源已停止处理，请修复历史后重试。</value></data>
 </root>

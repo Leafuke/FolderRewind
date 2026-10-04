@@ -43,7 +43,7 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
     }
 
     public async Task<Node> AddAsync(Node? parent, Action<string> change, bool full = false,
-        CaptureScope scope = CaptureScope.FullSource, HistoryProvenance? provenance = null)
+        CaptureScope scope = CaptureScope.FullSource, HistoryProvenance? provenance = null, SourceId? source = null)
     {
         var directory = Path.Combine(Root, "states", Nodes.Count.ToString());
         Directory.CreateDirectory(directory);
@@ -60,7 +60,7 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
         }
         change(directory);
         var tree = await HistoryRewriteTree.ReadAsync(directory);
-        var version = new SourceVersion(VersionId.New(), Config, Source, parent is null ? [] : [parent.Version.VersionId],
+        var version = new SourceVersion(VersionId.New(), Config, source ?? Source, parent is null ? [] : [parent.Version.VersionId],
             DateTimeOffset.UtcNow, null, scope, CaptureOutcome.Captured, [], new("source", directory), null, provenance ?? HistoryProvenance.Native("test"));
         var id = RepresentationId.New();
         full |= parent is null;
@@ -91,11 +91,11 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
     {
         var runId = RunId.New();
         var checkpoint = new SourceCheckpoint(CheckpointId.New(), Config, node.Version.CreatedAtUtc, runId,
-            HistoryProvenance.Native("test"), [new CheckpointSource(Source, node.Version.SourceDescriptorSnapshot,
+            HistoryProvenance.Native("test"), [new CheckpointSource(node.Version.SourceId, node.Version.SourceDescriptorSnapshot,
                 node.Version.VersionId, CheckpointSourceDisposition.Captured)]);
         var run = new BackupRun(runId, Config, node.Version.CreatedAtUtc, node.Version.CreatedAtUtc,
             BackupInvocationKind.Manual, BackupRunOutcome.Completed,
-            [new BackupRunSourceResult(Source, BackupRunSourceOutcome.Captured, node.Version.VersionId, [], checkpoint.CheckpointId)], []);
+            [new BackupRunSourceResult(node.Version.SourceId, BackupRunSourceOutcome.Captured, node.Version.VersionId, [], checkpoint.CheckpointId)], []);
         var codec = new HistoryPackCodec();
         await History.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
             new object[] { checkpoint, run }.Select(o => codec.CreateObject(o))));
@@ -107,6 +107,13 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
         async Task<IRepresentationEnvironment> Environment(CancellationToken token)
             => new RepresentationEnvironment((await History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []);
         return new(History, Engine, Archive, new(History, Engine, Environment, new FileSystemHistoryLocalPayloadStore()), BackupRoot);
+    }
+
+    public HistoryCleanupCoordinator Cleanup(IHistoryChainRewriteArchiveBackend? archive = null)
+    {
+        async Task<IRepresentationEnvironment> Environment(CancellationToken token)
+            => new RepresentationEnvironment((await History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []);
+        return new(History, Engine, archive ?? Archive, new(History, Engine, Environment, new FileSystemHistoryLocalPayloadStore()), BackupRoot);
     }
 
     public async Task AssertRestoresAsync(params Node[] nodes)

@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 namespace FolderRewind.History.Retention;
 
 public enum HistoryChainRewriteOrigin { Manual, Retention }
+public enum HistoryRetentionBenefitPolicy { SpaceFirst, CountFirst }
 
 public sealed record HistoryChainRewriteRequest(
     HistoryChainRewriteOrigin Origin,
@@ -15,7 +16,11 @@ public sealed record HistoryChainRewriteRequest(
     int MaximumDeltaDepth = 5,
     bool HideTargets = false,
     bool ReleaseTargets = false,
-    string? BackupRoot = null);
+    string? BackupRoot = null,
+    HistoryRetentionBenefitPolicy BenefitPolicy = HistoryRetentionBenefitPolicy.SpaceFirst)
+{
+    public ImmutableHashSet<SourceId>? SourceScope { get; init; }
+}
 
 public sealed record HistoryChainRewriteStep(
     VersionRepresentation Original,
@@ -43,6 +48,9 @@ public sealed record HistoryChainRewriteResult(bool Committed, bool CleanupPendi
     long ReclaimedBytes, long CreatedBytes, int RewrittenVersions, string Diagnostic)
 {
     public long NetReleasedBytes => ReclaimedBytes - CreatedBytes;
+    public string ReasonCode { get; init; } = string.Empty;
+    public int DeletedArchives { get; init; }
+    public bool RecoveryRequired { get; init; }
 }
 
 public static class HistoryChainRewriteStrategy

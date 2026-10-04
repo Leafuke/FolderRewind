@@ -81,16 +81,23 @@ public sealed class HistoryRetentionPlanner
         var catalogLoad = await _history.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var workspaceLoad = await _history.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var blockers = new List<string>();
+        var diagnostics = new List<HistoryRetentionDiagnostic>();
+        bool InScope(SourceId id) => request.SourceScope is null || request.SourceScope.Contains(id);
+        void Block(string code, string detail, VersionId? version = null)
+        {
+            blockers.Add(detail);
+            diagnostics.Add(new(code, detail, version is { } id && versionMap.TryGetValue(id, out var v) ? v.SourceId : null, version));
+        }
         var catalog = catalogLoad.Value;
         if (catalogLoad.Status != DeviceLocalStateStatus.Valid)
-            blockers.Add("Local Replica Catalog requires recovery before retention can plan deletion.");
+            Block("CatalogUnavailable", "Local Replica Catalog requires recovery before retention can plan deletion.");
         if (workspaceLoad.Status != DeviceLocalStateStatus.Valid)
-            blockers.Add("Workspace must be valid before retention can prove its protection roots.");
+            Block("WorkspaceUnavailable", "Workspace must be valid before retention can prove its protection roots.");
         if (migrationRecords.Count > 0
             && !request.AllowPostMigrationCleanup
             && runs.All(run => run.Invocation == BackupInvocationKind.Migration))
         {
-            blockers.Add("Automatic retention waits for a normal Native backup after Legacy migration.");
+            Block("MigrationPending", "Automatic retention waits for a normal Native backup after Legacy migration.");
         }
 
         var policyTips = new Dictionary<VersionId, ImmutableArray<MaterializationPolicyUpdateId>>();
@@ -166,6 +173,7 @@ public sealed class HistoryRetentionPlanner
             HistoryProtectionReason reason,
             MaterializationFidelity requiredFidelity)
         {
+            if (versionMap.TryGetValue(versionId, out var scopedVersion) && !InScope(scopedVersion.SourceId)) return;
             if (requiredFidelity == MaterializationFidelity.Unknown)
                 throw new ArgumentException("A retention root requires a provable fidelity.", nameof(requiredFidelity));
             if (versionRoots.TryGetValue(versionId, out var existing))
@@ -184,6 +192,7 @@ public sealed class HistoryRetentionPlanner
             HistoryProtectionReason reason,
             MaterializationFidelity requiredFidelity)
         {
+            if (!InScope(checkpoint.SourceId)) return;
             checkpointReasons[checkpoint.CheckpointId] = checkpointReasons.GetValueOrDefault(checkpoint.CheckpointId) | reason;
             foreach (var source in checkpoint.Sources)
             {
@@ -197,7 +206,7 @@ public sealed class HistoryRetentionPlanner
         var vectors = new HashSet<string>(StringComparer.Ordinal);
         var retainedCheckpointCounts = new Dictionary<SourceId, int>();
         foreach (var checkpoint in checkpoints
-                     .Where(item => item.CreatedByRunId is { } runId
+                     .Where(item => InScope(item.SourceId) && item.CreatedByRunId is { } runId
                          && validBackupRuns.TryGetValue(runId, out var run)
                          && run.SourceResults.Any(r => r.CheckpointId == item.CheckpointId && r.Outcome == BackupRunSourceOutcome.Captured)
                          && item.IsStructurallyComplete)
@@ -249,7 +258,7 @@ public sealed class HistoryRetentionPlanner
             }
             else
             {
-                blockers.Add($"Active SafetySnapshot {snapshot.SnapshotId} checkpoint is missing.");
+                Block("SnapshotCheckpointMissing", $"Active SafetySnapshot {snapshot.SnapshotId} checkpoint is missing.");
             }
         }
 
@@ -289,7 +298,7 @@ public sealed class HistoryRetentionPlanner
         {
             if (!versionMap.ContainsKey(protectedVersion.Key))
             {
-                blockers.Add($"Protected Version {protectedVersion.Key} is missing.");
+                Block("ProtectedVersionMissing", $"Protected Version {protectedVersion.Key} is missing.", protectedVersion.Key);
                 continue;
             }
             var selection = await SelectVersionAsync(
@@ -297,10 +306,10 @@ public sealed class HistoryRetentionPlanner
                 protectedVersion.Value.RequiredFidelity).ConfigureAwait(false);
             if (selection is null)
             {
-                blockers.Add(
+                Block("ProtectedVersionUnavailable",
                     released.Contains(protectedVersion.Key)
                         ? $"Protected released Version {protectedVersion.Key} has no Ready local materialization; automatic rehydration is forbidden."
-                        : $"Protected Version {protectedVersion.Key} has no Ready {protectedVersion.Value.RequiredFidelity} Representation.");
+                        : $"Protected Version {protectedVersion.Key} has no Ready {protectedVersion.Value.RequiredFidelity} Representation.", protectedVersion.Key);
                 continue;
             }
             selections.Add(protectedVersion.Key, selection);
@@ -318,7 +327,7 @@ public sealed class HistoryRetentionPlanner
         {
             if (!representationMap.TryGetValue(representationId, out var representation))
             {
-                blockers.Add($"Active operation Representation {representationId} is missing.");
+                Block("OperationRepresentationMissing", $"Active operation Representation {representationId} is missing.");
                 continue;
             }
             operationClosure.UnionWith(BuildDependencyFirstClosure(representation, representationMap)
@@ -379,6 +388,8 @@ public sealed class HistoryRetentionPlanner
                     && versionMap.TryGetValue(legacyRepresentation.VersionId, out var legacyVersion)
                     && legacyVersion.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)
                     continue; // Borrowed 1.8 archives stay outside automatic GC, even after the first native backup.
+                if (request.SourceScope is not null && (!representationMap.TryGetValue(entry.RepresentationId, out var scopedRepresentation)
+                    || !versionMap.TryGetValue(scopedRepresentation.VersionId, out var scopedVersion) || !InScope(scopedVersion.SourceId))) continue;
                 var inspection = inspectionCache[entry.LocalReplicaId];
                 if (!inspection.CanRemoveRegistration) continue;
                 deletions.Add(new HistoryLocalPayloadDeletion(
@@ -435,7 +446,7 @@ public sealed class HistoryRetentionPlanner
             compactions.ToImmutableArray(),
             deletions.ToImmutableArray(),
             deletions.Sum(item => item.EstimatedBytes),
-            blockers.Distinct(StringComparer.Ordinal).ToImmutableArray());
+            blockers.Distinct(StringComparer.Ordinal).ToImmutableArray()) { Diagnostics = [.. diagnostics] };
     }
 
     private static string StateVector(SourceCheckpoint checkpoint)
@@ -534,6 +545,7 @@ public sealed class HistoryRetentionPlanner
     {
         var text = new StringBuilder()
             .Append(request.KeepCount).Append('|')
+            .AppendJoin(',', (request.SourceScope?.Select(s => s.ToString()) ?? Enumerable.Empty<string>()).Order(StringComparer.Ordinal)).Append('|')
             .Append(request.AllowPostMigrationCleanup ? '1' : '0').Append('|')
             .Append(catalogRevision).Append('|')
             .Append(workspace?.StateRevision.ToString(CultureInfo.InvariantCulture) ?? "missing").AppendLine();

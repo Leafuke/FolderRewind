@@ -67,18 +67,18 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                     plan.Representations.ToDictionary(r => r.RepresentationId)));
             var targets = plan.Request.TargetReplicaIds.ToHashSet();
             foreach (var path in plan.Catalog.Entries.Where(e => inputIds.Contains(e.RepresentationId) || targets.Contains(e.LocalReplicaId)
-                             || IsLegacyPayload(e))
+                             || (plan.Request.SourceScope is null && IsLegacyPayload(e)))
                          .Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
                          .Select(e => e.Locator.AbsolutePath).Distinct(StringComparer.OrdinalIgnoreCase).Where(File.Exists))
                 prepared.Reads.Add(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true));
             await BuildAsync(prepared, false, progress, token).ConfigureAwait(false);
-            if (plan.Request.Origin == HistoryChainRewriteOrigin.Retention && prepared.NetReleasedBytes <= 0 && plan.Steps.Length > 0)
+            if (plan.Request.Origin == HistoryChainRewriteOrigin.Retention && plan.Request.BenefitPolicy == HistoryRetentionBenefitPolicy.SpaceFirst && prepared.NetReleasedBytes <= 0 && plan.Steps.Length > 0)
             {
                 journals.CleanupOperationTree(plan.OperationId, true);
                 journals.CleanupOperationTree(plan.OperationId, false);
                 await BuildAsync(prepared, true, progress, token).ConfigureAwait(false);
             }
-            if (plan.Request.Origin == HistoryChainRewriteOrigin.Retention && prepared.NetReleasedBytes <= 0)
+            if (plan.Request.Origin == HistoryChainRewriteOrigin.Retention && plan.Request.BenefitPolicy == HistoryRetentionBenefitPolicy.SpaceFirst && prepared.NetReleasedBytes <= 0)
             { prepared.CanCommit = false; prepared.Diagnostic = "Safe chain rewriting would not release disk space."; }
             if (prepared.CanCommit)
                 foreach (var witness in prepared.VerifiedFiles)
@@ -223,6 +223,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         {
             foreach (var group in plan.Catalog.Entries.Where(e => !targetIds.Contains(e.LocalReplicaId)
                          && !protectedRepresentations.Contains(e.RepresentationId)
+                         && (plan.Request.SourceScope is null || plan.Request.SourceScope.Contains(versions[graph[e.RepresentationId].VersionId].SourceId))
                          && !mappings.ContainsKey(e.RepresentationId) && IsLegacyPayload(e) && File.Exists(e.Locator.AbsolutePath))
                          .GroupBy(e => e.RepresentationId))
             {
@@ -308,10 +309,11 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         progress?.Report(new("ready", plan.Steps.Length, plan.Steps.Length));
     }
 
-    public async Task<HistoryChainRewriteResult> CommitAsync(PreparedHistoryChainRewrite prepared, CancellationToken token = default)
+    public async Task<HistoryChainRewriteResult> CommitAsync(PreparedHistoryChainRewrite prepared, CancellationToken token = default,
+        IProgress<HistoryChainRewriteProgress>? progress = null)
     {
         if (prepared.Disposed || prepared.CommitStarted) throw new InvalidOperationException("Prepared deletion is no longer available.");
-        if (!prepared.CanCommit) return new(false, false, 0, 0, 0, prepared.Diagnostic);
+        if (!prepared.CanCommit) return new(false, false, 0, 0, 0, prepared.Diagnostic) { ReasonCode = "NoSpaceBenefit" };
         await using var gate = await history.MutationGate.EnterAsync(token).ConfigureAwait(false);
         var plan = prepared.Plan;
         if (await HistoryChainRewritePlanner.FingerprintAsync(history, token).ConfigureAwait(false) != plan.StateFingerprint)
@@ -347,6 +349,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         prepared.CommitStarted = true;
         try
         {
+            progress?.Report(new("committing", 0, 0));
             checkpoint?.Invoke("before-pack");
             await history.Repository.CommitAsync(pack, journal, CancellationToken.None).ConfigureAwait(false);
             checkpoint?.Invoke("pack-installed");
@@ -361,13 +364,14 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
             history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.TransactionCommitted);
             history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.LocalStateChanged);
             return new(true, !clean, prepared.RetiredFiles.Where(f => !File.Exists(f.Path)).Sum(f => f.Size),
-                prepared.CreatedBytes, prepared.Mappings.Length, clean ? string.Empty : "Backup chain rebuilt; some archive files await reclamation.");
+                prepared.CreatedBytes, prepared.Mappings.Length, clean ? string.Empty : "Backup chain rebuilt; some archive files await reclamation.")
+            { DeletedArchives = prepared.RetiredFiles.Count(f => !File.Exists(f.Path)), ReasonCode = clean ? "Completed" : "CleanupPending" };
         }
         catch (Exception ex)
         {
             prepared.ReleaseReads();
             if (File.Exists(history.Repository.Paths.GetPackPath(pack.PackId)))
-                return new(true, true, 0, prepared.CreatedBytes, prepared.Mappings.Length, "Backup chain commit is durable; recovery is required: " + ex.Message);
+                return new(true, true, 0, prepared.CreatedBytes, prepared.Mappings.Length, "Backup chain commit is durable; recovery is required: " + ex.Message) { RecoveryRequired = true, ReasonCode = "RecoveryRequired" };
             // No commit exists. Repository recovery will discard the prepared Catalog intent.
             await history.Repository.Journals.RecoverAsync((_, _) => Task.CompletedTask, (_, _) => Task.CompletedTask).ConfigureAwait(false);
             await prepared.Journals.FinishAsync(rewrite, CancellationToken.None).ConfigureAwait(false);

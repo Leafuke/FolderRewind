@@ -40,6 +40,7 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
         var targets = request.TargetReplicaIds.ToHashSet();
         var removedVersions = request.TargetVersionIds.ToHashSet();
         var blockers = new List<string>();
+        if (!Enum.IsDefined(request.BenefitPolicy)) blockers.Add("Unknown retention benefit policy.");
         if (!Enum.IsDefined(request.Origin)) blockers.Add("Unknown chain rewrite operation.");
         if (targets.Count == 0 || removedVersions.Count == 0) blockers.Add("Select at least one local backup to delete.");
         if (!targets.IsSubsetOf(catalog.Entries.Select(e => e.LocalReplicaId).ToHashSet()))

@@ -381,38 +381,14 @@ internal static partial class NativeHistoryApplicationService
         return result;
     }
 
-    public static async Task ApplyAutomaticRetentionAsync(
-        BackupConfig config,
-        CancellationToken cancellationToken = default)
+    public static async Task ApplyAutomaticRetentionAsync(BackupConfig config,
+        NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken cancellationToken = default)
     {
-        // KeepCount=0 是用户配置层的“无限保留”哨兵；任何入口都不得把它下传为“保留 0 个”。
-        if (config.Archive.KeepCount <= 0)
-            return;
-
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        var archive = new SevenZipHistoryArchiveBackend(config);
-        var representations = new RepresentationRuntime(
-        [
-            new CoreArchiveRepresentationHandler(archive),
-            new SmartDeltaRepresentationHandler(archive)
-        ]);
-        async Task<IRepresentationEnvironment> Environment(CancellationToken token)
-            => await BuildEnvironmentAsync(runtime, token).ConfigureAwait(false);
-        var payloads = new FileSystemHistoryLocalPayloadStore();
-        var planner = new HistoryRetentionPlanner(runtime, representations, Environment, payloads);
-        var elapsed = Stopwatch.StartNew();
-        try
-        {
-            var result = await new HistoryChainRewriteRetentionService(runtime, representations, archive, planner, GetRewriteBackupRoot(config))
-                .ExecuteAsync(config.Archive.KeepCount, config.Archive.MaxSmartBackupsPerFull, cancellationToken).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(result.Diagnostic))
-                LogService.LogWarning("[Retention] " + result.Diagnostic, nameof(NativeHistoryApplicationService));
-            if (result.Committed)
-                LogService.LogInfo($"[Retention] Rebuilt {result.RewrittenVersions} versions; created {result.CreatedBytes} bytes; "
-                    + $"reclaimed {result.ReclaimedBytes} bytes; elapsed {elapsed.Elapsed.TotalSeconds:F1}s.", nameof(NativeHistoryApplicationService));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception ex) { LogService.LogWarning("[Retention] Safe cleanup skipped: " + ex.Message, nameof(NativeHistoryApplicationService)); }
+        operation.Require(new(config.Id));
+        var report = await RunCleanupInsideOperationAsync(config, HistoryRetentionBenefitPolicy.SpaceFirst,
+            true, null, cancellationToken).ConfigureAwait(false);
+        if (report is not null && report.Status is "Incomplete" or "Partial")
+            LogService.LogWarning("[Retention] " + report.Status + "; see cleanup report.", nameof(NativeHistoryApplicationService));
     }
 
     public static async Task ReleaseVersionAsync(

@@ -17,7 +17,7 @@ using Microsoft.UI.Xaml.Automation;
 
 namespace FolderRewind.Services;
 
-internal enum ConfigSettingsAction { Browse, OpenDestination, OpenConfigFolder, OpenConfigFile, SaveAsTemplate, BrowseCloudExecutable, BrowseCloudWorkingDirectory, OpenCloudSync }
+internal enum ConfigSettingsAction { Browse, OpenDestination, OpenConfigFolder, OpenConfigFile, SaveAsTemplate, BrowseCloudExecutable, BrowseCloudWorkingDirectory, OpenCloudSync, CleanNow, CleanupReport }
 
 internal interface IConfigSettingsActions
 {
@@ -51,8 +51,16 @@ internal sealed class ConfigSettingsActions(ConfigSettingsDialogViewModel viewMo
         ConfigSettingsAction.BrowseCloudExecutable => BrowseCloudExecutableAsync(),
         ConfigSettingsAction.BrowseCloudWorkingDirectory => BrowseCloudWorkingDirectoryAsync(),
         ConfigSettingsAction.OpenCloudSync => OpenCloudSyncAsync(),
+        ConfigSettingsAction.CleanNow => OpenCleanupAsync(false),
+        ConfigSettingsAction.CleanupReport => OpenCleanupAsync(true),
         _ => Task.CompletedTask
     };
+    private async Task OpenCleanupAsync(bool reportOnly)
+    {
+        var dialog = new HistoryCleanupDialog(ViewModel, reportOnly);
+        await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot, _token);
+        ViewModel.RefreshCleanupActions();
+    }
     private async Task BrowseAsync()
     {
         var folderPath = await MainWindowService.PickFolderPathAsync(

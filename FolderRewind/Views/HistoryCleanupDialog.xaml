@@ -1,0 +1,26 @@
+<ContentDialog
+    x:Class="FolderRewind.Views.HistoryCleanupDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Uid="Retention_Dialog"
+    Style="{StaticResource DefaultContentDialogStyle}"
+    PrimaryButtonText="{x:Bind ViewModel.StartLabel, Mode=OneWay}"
+    IsPrimaryButtonEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"
+    CloseButtonText="{x:Bind ViewModel.CloseLabel, Mode=OneWay}"
+    DefaultButton="Close"
+    PrimaryButtonClick="OnStart" Closing="OnClosing">
+    <ScrollViewer MaxHeight="520" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="12">
+            <TextBlock Text="{x:Bind ViewModel.Heading, Mode=OneTime}" TextWrapping="Wrap" />
+            <CheckBox x:Name="PolicyChoice" IsChecked="{x:Bind ViewModel.CountFirst, Mode=TwoWay}"
+                      IsEnabled="{x:Bind ViewModel.CanChoosePolicy, Mode=OneWay}" AutomationProperties.AutomationId="RetentionCountFirst">
+                <TextBlock x:Uid="Retention_CountFirstLabel" TextWrapping="Wrap" />
+            </CheckBox>
+            <ProgressBar IsIndeterminate="{x:Bind ViewModel.IsRunning, Mode=OneWay}" />
+            <TextBlock Text="{x:Bind ViewModel.Stage, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <TextBlock Text="{x:Bind ViewModel.ReportText, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                       AutomationProperties.AutomationId="RetentionReportText" />
+            <TextBlock x:Uid="Retention_Footer" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

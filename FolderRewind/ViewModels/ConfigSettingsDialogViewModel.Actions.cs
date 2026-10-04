@@ -33,6 +33,7 @@ public sealed partial class ConfigSettingsDialogViewModel
         SaveCommand = new AsyncRelayCommand(async () =>
         {
             LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave, SaveDraft ?? (() => ConfigService.SaveAsync()), ReportSettingsError);
+            RefreshCleanupActions();
         }, () => _actionLifetime.CanExecute);
         DeleteCommand = new AsyncRelayCommand(token => _actionLifetime.RunAsync(async ct =>
         {

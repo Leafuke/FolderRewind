@@ -411,15 +411,14 @@ public static partial class BackupService
             Log($"Post-commit cloud sync queueing failed: {ex.Message}", LogLevel.Warning);
         }
 
-        if (sourceOutcomes.Any(item => item.CreatedNewArchive))
+        if (committedBatch.Run.Outcome is BackupRunOutcome.Completed or BackupRunOutcome.Partial)
         {
             try
             {
-                await PruneRetainedSourceArchivesAsync(config).ConfigureAwait(false);
+                await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config, operationLease).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                hasPostCommitWarnings = true;
                 Log($"Post-commit retention failed: {ex.Message}", LogLevel.Warning);
             }
         }

@@ -11,9 +11,10 @@ namespace FolderRewind.Tests;
 public sealed class HistoryChainRewriteCostTests
 {
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task ActualArchiveCostsDriveDeltaFallbackOrSafeSkip(bool expensiveDelta)
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task ActualArchiveCostsDriveDeltaFallbackOrSafeSkip(bool expensiveDelta, bool countFirst)
     {
         await using var f = new HistoryChainRewriteFixture();
         await f.InitializeAsync();
@@ -31,29 +32,34 @@ public sealed class HistoryChainRewriteCostTests
         });
         var c = await f.AddAsync(b, _ => { });
         var request = f.Delete(b) with { Origin = HistoryChainRewriteOrigin.Retention,
-            RetainedVersionIds = [a.Version.VersionId, c.Version.VersionId], HideTargets = false, ReleaseTargets = false };
+            RetainedVersionIds = [a.Version.VersionId, c.Version.VersionId], HideTargets = false, ReleaseTargets = false,
+            BenefitPolicy = countFirst ? HistoryRetentionBenefitPolicy.CountFirst : HistoryRetentionBenefitPolicy.SpaceFirst };
         var backend = new StoredArchiveBackend(f.Archive, expensiveDelta);
         var executor = new HistoryChainRewriteExecutor(f.History, f.Engine, backend);
         await using var prepared = await executor.PrepareAsync(await f.Planner.PlanAsync(request));
         Assert.AreEqual(1, backend.FullCount);
-        Assert.AreEqual(1, backend.DeltaCount);
+        Assert.AreEqual(countFirst ? 0 : 1, backend.DeltaCount);
         var result = await executor.CommitAsync(prepared);
-        Assert.AreEqual(!expensiveDelta, result.Committed, result.Diagnostic);
-        if (expensiveDelta)
+        Assert.AreEqual(!expensiveDelta || countFirst, result.Committed, result.Diagnostic);
+        if (expensiveDelta && !countFirst)
         {
             Assert.IsTrue(File.Exists(b.Entry.Locator.AbsolutePath));
             await f.AssertRestoresAsync(a, b, c);
         }
         else
         {
-            Assert.IsGreaterThan(0L, result.NetReleasedBytes);
-            Assert.AreEqual(RepresentationKind.CoreSmartDelta, prepared.Mappings.Single().Replacement.Kind);
+            if (!countFirst)
+            {
+                Assert.IsGreaterThan(0L, result.NetReleasedBytes);
+                Assert.AreEqual(RepresentationKind.CoreSmartDelta, prepared.Mappings.Single().Replacement.Kind);
+            }
+            else Assert.IsLessThanOrEqualTo(0L, result.NetReleasedBytes);
             await f.AssertRestoresAsync(a, c);
         }
     }
 
     // Real, restorable stored ZIPs deliberately make the full option expensive; production writes 7z.
-    private sealed class StoredArchiveBackend(SevenZipArchiveProcessBackend inner, bool expensiveDelta) : IHistoryChainRewriteArchiveBackend
+    internal sealed class StoredArchiveBackend(SevenZipArchiveProcessBackend inner, bool expensiveDelta) : IHistoryChainRewriteArchiveBackend
     {
         public int FullCount { get; private set; }
         public int DeltaCount { get; private set; }
