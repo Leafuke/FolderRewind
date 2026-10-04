@@ -16,7 +16,9 @@ param(
     [string]$Version,
 
     [string]$ReleaseNotesPath,
-    [Parameter(Mandatory = $true)][string]$AcceptanceReport,
+    [Parameter(Mandatory = $true, ParameterSetName = 'Legacy')][string]$AcceptanceReport,
+    [Parameter(Mandatory = $true, ParameterSetName = 'Automated')][string]$ReleaseReport,
+    [Parameter(Mandatory = $true, ParameterSetName = 'Automated')][ValidatePattern('^\d+$')][string]$RunId,
     [switch]$Finalize
 )
 
@@ -27,7 +29,11 @@ if ($Tag -cne "v$($number.Major).$($number.Minor).$($number.Build)") { throw 'Re
 
 # Enforce the public EXE-only policy before any GitHub operation.
 $assets = @(& "$PSScriptRoot\Get-SetupReleaseAssets.ps1" -Directory $AssetsDirectory -Version $Version)
-& "$PSScriptRoot\Test-InstallerAcceptance.ps1" -ReportPath $AcceptanceReport -AssetsDirectory $AssetsDirectory -Version $Version -SourceRevision $TargetCommit
+if ($PSCmdlet.ParameterSetName -eq 'Automated') {
+    & "$PSScriptRoot\Test-SetupReleaseReport.ps1" -ReportPath $ReleaseReport -AssetsDirectory $AssetsDirectory -Version $Version -SourceRevision $TargetCommit -RunId $RunId
+} else {
+    & "$PSScriptRoot\Test-InstallerAcceptance.ps1" -ReportPath $AcceptanceReport -AssetsDirectory $AssetsDirectory -Version $Version -SourceRevision $TargetCommit
+}
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw "GitHub CLI (gh) is required." }
 
 if ($ReleaseNotesPath -and -not (Test-Path -LiteralPath $ReleaseNotesPath)) {
@@ -43,6 +49,14 @@ $releases = @($releaseListJson | ConvertFrom-Json)
 if ($releases.Count -ge 1000) { throw 'Release listing is truncated; cannot establish absence safely.' }
 $releaseExists = @($releases | Where-Object tagName -CEQ $Tag).Count -eq 1
 $pending = [Collections.Generic.List[string]]::new()
+# Check tags even for drafts: a draft target must never hide a conflicting tag.
+$refsJson = gh api "repos/{owner}/{repo}/git/matching-refs/tags/$Tag"
+if ($LASTEXITCODE) { throw 'Cannot verify existing release tags.' }
+$matchingRefs = @($refsJson | ConvertFrom-Json | Where-Object ref -CEQ "refs/tags/$Tag")
+if ($matchingRefs.Count) {
+    $tagCommit = gh api "repos/{owner}/{repo}/commits/$Tag" --jq .sha
+    if ($LASTEXITCODE -or $tagCommit -cne $TargetCommit) { throw 'Existing tag points to another source revision.' }
+}
 if ($releaseExists) {
     $existingAssetsJson = gh release view $Tag --json assets,isDraft,targetCommitish
     if ($LASTEXITCODE -ne 0) { throw 'Cannot verify existing release assets.' }
@@ -71,13 +85,6 @@ if ($releaseExists) {
     }
     if (-not $existingRelease.isDraft -and $pending.Count) { throw 'A published release is incomplete; discuss recovery before adding assets.' }
 } else {
-    $refsJson = gh api "repos/{owner}/{repo}/git/matching-refs/tags/$Tag"
-    if ($LASTEXITCODE) { throw 'Cannot verify existing release tags.' }
-    $matchingRefs = @($refsJson | ConvertFrom-Json | Where-Object ref -CEQ "refs/tags/$Tag")
-    if ($matchingRefs.Count) {
-        $tagCommit = gh api "repos/{owner}/{repo}/commits/$Tag" --jq .sha
-        if ($LASTEXITCODE -or $tagCommit -cne $TargetCommit) { throw 'Existing tag points to another source revision.' }
-    }
     foreach ($asset in $assets) { $pending.Add($asset.FullName) }
 }
 
@@ -87,7 +94,7 @@ if (-not $releaseExists) {
         gh release create $Tag --title $ReleaseName --notes-file $ReleaseNotesPath --target $TargetCommit --draft
     }
     else {
-        gh release create $Tag --title $ReleaseName --notes "FolderRewind Setup release candidate." --target $TargetCommit --draft
+        gh release create $Tag --title $ReleaseName --generate-notes --target $TargetCommit --draft
     }
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to create the release."
