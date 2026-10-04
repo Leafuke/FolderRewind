@@ -44,7 +44,7 @@ public sealed record TimelineEntrySummary(
     CheckpointId? BranchableCheckpointId,
     int BranchableCheckpointCount,
     SourceVersionCreationKind CreationKind = SourceVersionCreationKind.Capture,
-    CheckpointId? CheckpointId = null);
+    CheckpointId? CheckpointId = null, bool IsLocalPayloadMissing = false);
 
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
@@ -98,26 +98,59 @@ public sealed class HistoryPresentationQueryService
         _measure = measure;
     }
 
-    public async Task<HistoryPresentationSnapshot> QueryAsync(
+    public Task<HistoryPresentationSnapshot> QueryAsync(SourceId? sourceId = null, bool includeSuppressed = false,
+        CancellationToken cancellationToken = default)
+        => Task.Run(() => QueryCoreAsync(sourceId, includeSuppressed, cancellationToken), cancellationToken);
+
+    public Task<HistoryPresentationPage> QueryPageAsync(HistoryPageRequest request, CancellationToken token = default)
+        => Task.Run(async () =>
+        {
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                var revision = _runtime.ChangeFeed.CurrentSequence;
+                var snapshot = await QueryCoreAsync(request.SourceId, false, token, request.ByRun, scoped: true).ConfigureAwait(false);
+                if (revision != _runtime.ChangeFeed.CurrentSequence) continue;
+                return HistoryPresentationPager.Page(snapshot, request, revision);
+            }
+        }, token);
+
+    private async Task<HistoryPresentationSnapshot> QueryCoreAsync(
         SourceId? sourceId = null,
         bool includeSuppressed = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, bool? byRun = null, bool scoped = false)
     {
         // Only standalone profiling callers request timing; normal UI queries do not.
         var timer = _measure is null ? null : Stopwatch.StartNew();
         await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         _measure?.Invoke("index-current", timer!.Elapsed);
         timer?.Restart();
-        var versions = await _runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false);
-        var allRepresentations = await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
-        var checkpoints = await _runtime.Query.GetAllCheckpointsAsync(cancellationToken).ConfigureAwait(false);
-        var runs = await _runtime.Query.GetRunsAsync(cancellationToken).ConfigureAwait(false);
-        var annotations = await _runtime.Query.GetAllAnnotationUpdatesAsync(cancellationToken).ConfigureAwait(false);
-        var branchUpdates = await _runtime.Query.GetAllBranchUpdatesAsync(cancellationToken).ConfigureAwait(false);
+        var versions = scoped && sourceId is { } sourceForversions
+            ? await _runtime.Index.ReadSourceFactsAsync<SourceVersion>(sourceForversions, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false);
+        var allRepresentations = scoped && sourceId is { } sourceForallRepresentations
+            ? await _runtime.Index.ReadSourceFactsAsync<VersionRepresentation>(sourceForallRepresentations, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
+        var checkpoints = scoped && sourceId is { } sourceForcheckpoints
+            ? await _runtime.Index.ReadSourceFactsAsync<SourceCheckpoint>(sourceForcheckpoints, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllCheckpointsAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<BackupRun> runs = byRun == false ? [] : await _runtime.Query.GetRunsAsync(cancellationToken).ConfigureAwait(false);
+        var annotations = scoped && sourceId is { } sourceForannotations
+            ? await _runtime.Index.ReadSourceFactsAsync<HistoryAnnotationUpdate>(sourceForannotations, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllAnnotationUpdatesAsync(cancellationToken).ConfigureAwait(false);
+        var branchUpdates = scoped && sourceId is { } sourceForbranchUpdates
+            ? await _runtime.Index.ReadSourceFactsAsync<BranchUpdate>(sourceForbranchUpdates, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllBranchUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var migrations = await _runtime.Query.GetMigrationRecordsAsync(cancellationToken).ConfigureAwait(false);
-        var policies = await _runtime.Query.GetAllMaterializationPolicyUpdatesAsync(cancellationToken).ConfigureAwait(false);
-        var replicas = await _runtime.Query.GetAllStorageReplicasAsync(cancellationToken).ConfigureAwait(false);
-        var lifecycle = await _runtime.Query.GetAllReplicaLifecycleUpdatesAsync(cancellationToken).ConfigureAwait(false);
+        var policies = scoped && sourceId is { } sourceForpolicies
+            ? await _runtime.Index.ReadSourceFactsAsync<MaterializationPolicyUpdate>(sourceForpolicies, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllMaterializationPolicyUpdatesAsync(cancellationToken).ConfigureAwait(false);
+        var replicas = scoped && sourceId is { } sourceForreplicas
+            ? await _runtime.Index.ReadSourceFactsAsync<StorageReplica>(sourceForreplicas, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllStorageReplicasAsync(cancellationToken).ConfigureAwait(false);
+        var lifecycle = scoped && sourceId is { } sourceForlifecycle
+            ? await _runtime.Index.ReadSourceFactsAsync<ReplicaLifecycleUpdate>(sourceForlifecycle, cancellationToken).ConfigureAwait(false)
+            : await _runtime.Query.GetAllReplicaLifecycleUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var catalog = (await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var workspace = (await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var safetySnapshots = await _runtime.Query.GetSafetySnapshotProjectionsAsync(
@@ -147,8 +180,14 @@ public sealed class HistoryPresentationQueryService
         var versionScopes = versions.ToDictionary(item => item.VersionId, item => item.CaptureScope);
         var versionMap = versions.ToDictionary(v => v.VersionId);
         var representationMap = allRepresentations.ToDictionary(r => r.RepresentationId);
+        var pathCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        bool Exists(string path)
+        {
+            if (!pathCache.TryGetValue(path, out var exists)) pathCache[path] = exists = File.Exists(path) || Directory.Exists(path);
+            return exists;
+        }
         var timeline = new List<TimelineEntrySummary>();
-        foreach (var checkpoint in checkpoints.Where(c => c.CreationKind != CheckpointCreationKind.SafetySnapshot
+        foreach (var checkpoint in checkpoints.Where(c => byRun != true && c.CreationKind != CheckpointCreationKind.SafetySnapshot
                      && (sourceId is null || c.SourceId == sourceId)))
         {
             if (!versionMap.TryGetValue(checkpoint.VersionId, out var version) || supportIds.Contains(version.VersionId)) continue;
@@ -160,7 +199,7 @@ public sealed class HistoryPresentationQueryService
             cancellationToken.ThrowIfCancellationRequested();
             var policy = MaterializationPolicyProjection.Project(version.VersionId, policyGroups[version.VersionId]);
             var reps = representationGroups.GetValueOrDefault(version.VersionId) ?? [];
-            var state = Assess(reps, localPaths, replicaGroups, activeReplicas, policy);
+            var state = Assess(reps, localPaths, replicaGroups, activeReplicas, policy, Exists);
             var selected = state.Representation;
             var localPath = state.LocalPath;
             var fileName = selected?.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
@@ -176,7 +215,9 @@ public sealed class HistoryPresentationQueryService
                 children.GetValueOrDefault(version.VersionId, []),
                 memberships.CheckpointBranches.GetValueOrDefault(checkpoint.CheckpointId, []),
                 admission.IsReady ? checkpoint.CheckpointId : null,
-                admission.IsReady ? 1 : 0, checkpoint.CreationKind == CheckpointCreationKind.Merge ? SourceVersionCreationKind.Merge : version.CreationKind, checkpoint.CheckpointId));
+                admission.IsReady ? 1 : 0, checkpoint.CreationKind == CheckpointCreationKind.Merge ? SourceVersionCreationKind.Merge : version.CreationKind, checkpoint.CheckpointId,
+                reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any()
+                && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists)));
         }
 
         var checkpointSummaries = new List<CheckpointSummary>();
@@ -189,6 +230,7 @@ public sealed class HistoryPresentationQueryService
         }
         var historicalBranchNames = branchUpdates.ToDictionary(u => u.UpdateId, u => u.Name);
         var branchableIds = checkpoints.Where(c => HistoryExactCheckpointAdmission.Evaluate(c, versionMap, representationMap).IsReady).Select(c => c.CheckpointId).ToHashSet();
+        var branchMap = branchUpdates.ToDictionary(item => item.UpdateId);
         var runSummaries = runs.Select(run =>
         {
             var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, run.RunId.Value);
@@ -196,7 +238,7 @@ public sealed class HistoryPresentationQueryService
             var hasPartialCapture = run.SourceResults.Any(item => item.VersionId is { } versionId
                     && versionScopes.GetValueOrDefault(versionId) == CaptureScope.PartialSource);
             var branchIds = run.SourceResults.Where(r => r.BranchUpdateId is not null)
-                .Select(r => branchUpdates.FirstOrDefault(u => u.UpdateId == r.BranchUpdateId)?.BranchId)
+                .Select(r => branchMap.GetValueOrDefault(r.BranchUpdateId!.Value)?.BranchId)
                 .OfType<BranchId>().Distinct().ToImmutableArray();
             return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome,
                 projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
@@ -245,7 +287,7 @@ public sealed class HistoryPresentationQueryService
         ILookup<RepresentationId, string> localPaths,
         ILookup<RepresentationId, StorageReplica> replicas,
         IReadOnlySet<ReplicaId> activeReplicas,
-        MaterializationPolicyProjectionResult policy)
+        MaterializationPolicyProjectionResult policy, Func<string, bool> exists)
     {
         if (representations.Count == 0)
             return (HistoryPresentationReadiness.MetadataOnly, MaterializationFidelity.Unknown, null, null);
@@ -255,7 +297,7 @@ public sealed class HistoryPresentationQueryService
             .ToArray();
         foreach (var representation in ordered)
         {
-            var localPath = localPaths[representation.RepresentationId].FirstOrDefault(path => File.Exists(path) || Directory.Exists(path));
+            var localPath = localPaths[representation.RepresentationId].FirstOrDefault(exists);
             if (localPath is not null)
                 return (HistoryPresentationReadiness.Ready, Fidelity(representation), representation, localPath);
         }
@@ -278,4 +320,49 @@ public sealed class HistoryPresentationQueryService
 
     private static MaterializationFidelity Fidelity(VersionRepresentation representation)
         => representation.Fidelity;
+}
+
+public sealed record HistoryPageCursor(long Revision, string QueryKey, DateTimeOffset Time, string Id);
+public sealed record HistoryPageRequest(SourceId? SourceId, bool ByRun, bool Advanced, BranchId? BranchId,
+    string Keyword, int PageSize = 100, HistoryPageCursor? Cursor = null,
+    IReadOnlyDictionary<BackupRunOutcome, string>? OutcomeNames = null);
+public sealed record HistoryPresentationPage(HistoryPresentationSnapshot Snapshot, HistoryPageCursor? Next,
+    int TotalCount, int MissingCount, long Revision, bool CursorInvalidated);
+
+public static class HistoryPresentationPager
+{
+    public static HistoryPresentationPage Page(HistoryPresentationSnapshot snapshot, HistoryPageRequest request, long revision)
+    {
+        var branch = Services.HistoryPresentationPolicy.ResolveBranch(request.Advanced
+            ? Models.HistoryPresentationMode.Advanced : Models.HistoryPresentationMode.Normal, snapshot.Branches, request.BranchId);
+        var needle = request.Keyword.Trim();
+        var key = $"{request.SourceId}|{request.ByRun}|{request.Advanced}|{branch}|{needle}";
+        var invalid = request.Cursor is { } previous && (previous.Revision != revision || previous.QueryKey != key);
+        var cursor = invalid ? null : request.Cursor;
+        bool Matches(string? value) => value?.Contains(needle, StringComparison.OrdinalIgnoreCase) == true;
+        bool After(DateTimeOffset time, string id) => cursor is null || time < cursor.Time
+            || (time == cursor.Time && StringComparer.Ordinal.Compare(id, cursor.Id) < 0);
+        var size = Math.Clamp(request.PageSize, 1, 100);
+        if (request.ByRun)
+        {
+            var all = snapshot.Runs.Where(r => needle.Length == 0 || Matches(r.Comment)
+                || (string.IsNullOrWhiteSpace(r.Comment) && Matches(request.OutcomeNames?.GetValueOrDefault(r.Outcome) ?? r.Outcome.ToString())))
+                .OrderByDescending(r => r.CompletedAtUtc).ThenByDescending(r => r.RunId.ToString(), StringComparer.Ordinal).ToArray();
+            var rows = all.Where(r => After(r.CompletedAtUtc, r.RunId.ToString())).Take(size + 1).ToArray();
+            var page = rows.Take(size).ToImmutableArray();
+            var next = rows.Length > size ? new HistoryPageCursor(revision, key, page[^1].CompletedAtUtc, page[^1].RunId.ToString()) : null;
+            return new(snapshot with { Timeline = [], Runs = page }, next, all.Length, 0, revision, invalid);
+        }
+        string Id(TimelineEntrySummary item) => item.CheckpointId?.ToString() ?? item.VersionId.ToString();
+        var names = snapshot.Branches.ToDictionary(b => b.BranchId, b => b.Name);
+        var versions = snapshot.Timeline.Where(v => (branch is null || v.BranchIds.Contains(branch.Value))
+            && (needle.Length == 0 || Matches(v.Comment) || Matches(string.IsNullOrWhiteSpace(v.Comment) ? v.DisplayName : v.Comment)
+                || Matches(v.FileName ?? v.DisplayName) || Matches(string.Join(" · ", v.BranchIds.Select(id => names.GetValueOrDefault(id)).Where(n => !string.IsNullOrWhiteSpace(n))))))
+            .OrderByDescending(v => v.CreatedAtUtc).ThenByDescending(Id, StringComparer.Ordinal).ToArray();
+        var selected = versions.Where(v => After(v.CreatedAtUtc, Id(v))).Take(size + 1).ToArray();
+        var entries = selected.Take(size).ToImmutableArray();
+        var continuation = selected.Length > size ? new HistoryPageCursor(revision, key, entries[^1].CreatedAtUtc, Id(entries[^1])) : null;
+        return new(snapshot with { Timeline = entries, Runs = [] }, continuation, versions.Length,
+            versions.Count(v => v.IsLocalPayloadMissing), revision, invalid);
+    }
 }

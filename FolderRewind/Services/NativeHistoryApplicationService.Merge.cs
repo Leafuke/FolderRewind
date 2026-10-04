@@ -22,7 +22,9 @@ internal static partial class NativeHistoryApplicationService
             throw new InvalidOperationException(diagnostic);
         var restore = CreateRestoreService(config, runtime);
         await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
-        var branch = (await runtime.Query.GetBranchTipsAsync(source, token).ConfigureAwait(false)).Single();
+        var tips = await runtime.Query.GetBranchTipsAsync(source, token).ConfigureAwait(false);
+        if (tips.Count != 1) throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.InvalidBranches));
+        var branch = tips[0];
         return await new HistoryMergeService(runtime, restore).StartAsync(source, NativeHistoryConfigLease.Signature(config),
             await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == branch.SourceId), token).ConfigureAwait(false), token).ConfigureAwait(false);
     }
@@ -63,7 +65,9 @@ internal static partial class NativeHistoryApplicationService
         catch (HistoryMergeBlockedException ex) { return runtime.MergeSessions.SetDiagnostic(session, ex.Diagnostic); }
     }
 
-    internal static async Task<HistoryRestoreResult> ApplyMergeAsync(BackupConfig config, MergeSession session, CancellationToken token)
+    internal static async Task<HistoryRestoreResult> ApplyMergeAsync(BackupConfig config, MergeSession session, CancellationToken token,
+        MergeReviewSnapshot? review = null, Action<MergeOperationStage>? progress = null,
+        Func<CancellationToken, CancellationToken>? enterCritical = null)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
@@ -75,7 +79,7 @@ internal static partial class NativeHistoryApplicationService
         var apply = new HistoryMergeApplyService(runtime, restore, builder,
             new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge, [session.Plan.Ours.SourceId]),
             async cancellation => (NativeHistoryConfigLease.Signature(config),
-                await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == session.Plan.Ours.SourceId), cancellation).ConfigureAwait(false)), reportFailure: ReportFailure);
+                await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == session.Plan.Ours.SourceId), cancellation).ConfigureAwait(false)), reportFailure: ReportFailure, progress: progress, enterCritical: enterCritical);
         PreparedMerge prepared;
         HistoryMergeApplyService.CoordinationPlan scope;
         var stage = "recover";
@@ -83,8 +87,10 @@ internal static partial class NativeHistoryApplicationService
         {
             await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
             stage = "build-result";
-            prepared = await builder.BuildAsync(session, token).ConfigureAwait(false);
+            prepared = review?.Prepared ?? await builder.BuildAsync(session, token).ConfigureAwait(false);
+            review?.RequireIdentity(runtime.MergeSessions.Load(session.Id), prepared);
             stage = "payload-validation";
+            progress?.Invoke(MergeOperationStage.Validating);
             using var validation = await builder.ValidateAndLockAsync(prepared, token).ConfigureAwait(false);
             stage = "coordination";
             scope = await apply.PlanCoordinationAsync(prepared, session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace,
@@ -102,7 +108,8 @@ internal static partial class NativeHistoryApplicationService
         }
         async Task<HistoryRestoreResult> ExecuteAsync(CancellationToken ct)
         {
-                var result = await apply.ApplyAsync(session, ct, prepared, scope).ConfigureAwait(false);
+                var result = await apply.ApplyAsync(session, ct, prepared, scope, review).ConfigureAwait(false);
+                progress?.Invoke(MergeOperationStage.Finishing);
                 var completed = await MergePostActions.CompleteAsync(result,
                     ct => BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, prepared.Sources.Select(s => s.Version.SourceId).ToArray(), ct),
                     async ct =>

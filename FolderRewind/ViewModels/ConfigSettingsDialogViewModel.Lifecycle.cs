@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using System;
@@ -15,6 +15,7 @@ namespace FolderRewind.ViewModels
     {
         private void OnAutomationPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            RefreshCleanupActions();
             if (string.IsNullOrWhiteSpace(e.PropertyName))
             {
                 _automation.Normalize(_config.SourceFolders);
@@ -39,6 +40,7 @@ namespace FolderRewind.ViewModels
 
         private void OnArchivePropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            RefreshCleanupActions();
             if (string.IsNullOrWhiteSpace(e.PropertyName))
             {
                 NormalizeArchiveSettings();
@@ -84,6 +86,7 @@ namespace FolderRewind.ViewModels
 
         private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            RefreshCleanupActions();
             if (string.IsNullOrWhiteSpace(e.PropertyName))
             {
                 OnPropertyChanged(nameof(UseRegex));
@@ -101,6 +104,7 @@ namespace FolderRewind.ViewModels
 
         private void OnConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            RefreshCleanupActions();
             switch (e.PropertyName)
             {
                 case nameof(BackupConfig.Name):
@@ -112,6 +116,7 @@ namespace FolderRewind.ViewModels
 
         private void OnSourceFoldersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
+            RefreshCleanupActions();
             if (e.OldItems != null)
             {
                 foreach (var folder in e.OldItems.OfType<ManagedFolder>())
@@ -138,6 +143,7 @@ namespace FolderRewind.ViewModels
 
         private void OnSourceFolderPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            RefreshCleanupActions();
             if (string.IsNullOrWhiteSpace(e.PropertyName) ||
                 e.PropertyName == nameof(ManagedFolder.Path) ||
                 e.PropertyName == nameof(ManagedFolder.DisplayName))
@@ -148,6 +154,7 @@ namespace FolderRewind.ViewModels
 
         private void OnCloudPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            RefreshCleanupActions();
             if (string.IsNullOrWhiteSpace(e.PropertyName))
             {
                 RaiseCloudUiProperties();

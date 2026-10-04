@@ -1,4 +1,4 @@
-﻿using FolderRewind.Services;
+using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Threading.Tasks;
@@ -26,6 +26,15 @@ public sealed partial class ConfigSettingsPage
         }
     }
 
+    private void OnCleanupButtonsSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is StackPanel panel)
+            panel.Orientation = e.NewSize.Width < 420 ? Orientation.Vertical : Orientation.Horizontal;
+    }
+    private void OnCleanNowClick(object sender, RoutedEventArgs e)
+        => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.CleanNow), nameof(ConfigSettingsPage));
+    private void OnCleanupReportClick(object sender, RoutedEventArgs e)
+        => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.CleanupReport), nameof(ConfigSettingsPage));
     private void OnBrowseClick(object sender, RoutedEventArgs e)
         => ExecuteAction(ConfigSettingsAction.Browse);
 

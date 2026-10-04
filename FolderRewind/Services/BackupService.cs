@@ -29,7 +29,8 @@ namespace FolderRewind.Services
     /// </summary>
     public static partial class BackupService
     {
-        public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
+        internal static BackupTaskCollection TaskRegistry { get; } = new();
+        public static ObservableCollection<BackupTask> ActiveTasks => TaskRegistry;
 
         // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
         internal const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
@@ -514,6 +515,15 @@ namespace FolderRewind.Services
                     config.Id,
                     sourceId,
                     cancellationToken).ConfigureAwait(false);
+                if (captureBaseline is null)
+                {
+                    var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                    var archive = new SevenZipHistoryArchiveBackend(config);
+                    var engine = new FolderRewind.History.Representation.RepresentationRuntime(
+                    [new FolderRewind.History.Representation.CoreArchiveRepresentationHandler(archive),
+                     new FolderRewind.History.Representation.SmartDeltaRepresentationHandler(archive)]);
+                    captureBaseline = await HistoryCaptureBaselineRepair.RebuildAsync(history, engine, sourceId, cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -769,14 +779,7 @@ namespace FolderRewind.Services
 
 
 
-        private static async Task PruneRetainedSourceArchivesAsync(BackupConfig config)
-        {
-            if (config.Archive.KeepCount <= 0)
-            {
-                return;
-            }
-            await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config);
-        }
+
 
     }
 }

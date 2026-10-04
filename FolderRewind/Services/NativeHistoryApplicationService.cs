@@ -381,53 +381,14 @@ internal static partial class NativeHistoryApplicationService
         return result;
     }
 
-    public static async Task ApplyAutomaticRetentionAsync(
-        BackupConfig config,
-        CancellationToken cancellationToken = default)
+    public static async Task ApplyAutomaticRetentionAsync(BackupConfig config,
+        NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken cancellationToken = default)
     {
-        // KeepCount=0 是用户配置层的“无限保留”哨兵；任何入口都不得把它下传为“保留 0 个”。
-        if (config.Archive.KeepCount <= 0)
-            return;
-
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        var archive = new SevenZipHistoryArchiveBackend(config);
-        var representations = new RepresentationRuntime(
-        [
-            new CoreArchiveRepresentationHandler(archive),
-            new SmartDeltaRepresentationHandler(archive)
-        ]);
-        async Task<IRepresentationEnvironment> Environment(CancellationToken token)
-            => await BuildEnvironmentAsync(runtime, token).ConfigureAwait(false);
-        var payloads = new FileSystemHistoryLocalPayloadStore();
-        var planner = new HistoryRetentionPlanner(runtime, representations, Environment, payloads);
-        var plan = await planner.PlanAsync(
-            new HistoryRetentionRequest(
-                config.Archive.KeepCount,
-                HistoryRetentionOperationRoots.Empty,
-                allowPostMigrationCleanup: true),
-            cancellationToken).ConfigureAwait(false);
-        if (!plan.CanExecute)
-        {
-            LogService.LogWarning(
-                "[Retention] " + string.Join(" ", plan.Blockers),
-                nameof(NativeHistoryApplicationService));
-            return;
-        }
-        var executor = new HistoryRetentionExecutor(
-            runtime,
-            planner,
-            representations,
-            Environment,
-            archive,
-            payloads,
-            new ArtifactLedgerGarbageCollector(config));
-        var result = await executor.ExecuteAsync(plan, cancellationToken).ConfigureAwait(false);
-        if (!result.Succeeded)
-        {
-            LogService.LogWarning(
-                "[Retention] " + result.Diagnostic,
-                nameof(NativeHistoryApplicationService));
-        }
+        operation.Require(new(config.Id));
+        var report = await RunCleanupInsideOperationAsync(config, HistoryRetentionBenefitPolicy.SpaceFirst,
+            true, null, cancellationToken).ConfigureAwait(false);
+        if (report is not null && report.Status is "Incomplete" or "Partial")
+            LogService.LogWarning("[Retention] " + report.Status + "; see cleanup report.", nameof(NativeHistoryApplicationService));
     }
 
     public static async Task ReleaseVersionAsync(
@@ -451,46 +412,14 @@ internal static partial class NativeHistoryApplicationService
         bool releaseVersion,
         CancellationToken cancellationToken = default)
     {
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        await runtime.MaterializationPolicies.EnsureCanReleaseAsync(versionId, cancellationToken)
-            .ConfigureAwait(false);
-
-        var releaseCommitted = false;
-        try
-        {
-            if (releaseVersion)
-            {
-                await ReleaseVersionAsync(config, versionId, cancellationToken).ConfigureAwait(false);
-                releaseCommitted = true;
-            }
-
-            return await new HistoryLocalReplicaMaintenanceService(runtime)
-                .DeleteControlledReplicaAsync(
-                    versionId,
-                    representationId,
-                    localPath,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception deleteError) when (releaseCommitted)
-        {
-            try
-            {
-                await runtime.MaterializationPolicies.SetAsync(
-                    versionId,
-                    MaterializationPolicyState.Retained,
-                    "Compensate failed targeted local deletion",
-                    CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception compensationError)
-            {
-                throw new AggregateException(
-                    "Targeted local deletion failed and the Version release could not be compensated.",
-                    deleteError,
-                    compensationError);
-            }
-            throw;
-        }
+        _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+        await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
+        var existed = File.Exists(localPath);
+        await using var prepared = await PrepareVersionDeletionAsync(config, versionId, representationId,
+            localPath, hideRecord: false, releaseVersion, token: cancellationToken).ConfigureAwait(false);
+        var result = await CommitVersionDeletionAsync(config, prepared, cancellationToken).ConfigureAwait(false);
+        if (!result.Committed) throw new InvalidOperationException(result.Diagnostic);
+        return new(existed, existed && !File.Exists(localPath), prepared.Plan.Request.TargetReplicaIds.Length);
     }
 
     public static async Task<HistoryRestoreService> CreateRestoreServiceAsync(

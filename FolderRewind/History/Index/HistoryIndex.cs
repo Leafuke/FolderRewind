@@ -38,11 +38,11 @@ public sealed record HistoryReplicaObservation(
 
 public sealed class HistoryIndex : IDisposable
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     private static readonly JsonSerializerOptions PayloadJsonOptions = new(JsonSerializerDefaults.Web);
     private const string Schema = """
         PRAGMA foreign_keys = OFF;
-        CREATE TABLE IndexedPacks(PackId TEXT PRIMARY KEY, PayloadSha256 TEXT NOT NULL);
+        CREATE TABLE IndexedPacks(PackId TEXT PRIMARY KEY, PayloadSha256 TEXT NOT NULL, FileLength INTEGER NOT NULL DEFAULT 0, LastWriteUtcTicks INTEGER NOT NULL DEFAULT 0);
         CREATE TABLE Objects(Kind TEXT NOT NULL, ObjectId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, PayloadHash TEXT NOT NULL, PackId TEXT NOT NULL, IsSupported INTEGER NOT NULL, PayloadJson TEXT NOT NULL, PRIMARY KEY(Kind, ObjectId));
         CREATE TABLE Versions(VersionId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, SourceId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CaptureScope INTEGER NOT NULL, Outcome INTEGER NOT NULL, CreationKind INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE VersionParents(VersionId TEXT NOT NULL, ParentVersionId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(VersionId, Ordinal));
@@ -124,6 +124,106 @@ public sealed class HistoryIndex : IDisposable
         }
     }
 
+    internal async Task<bool> MatchesFilesAsync(IReadOnlyList<HistoryPackFile> files, CancellationToken token,
+        IReadOnlyList<HistoryPackReadResult>? verified = null)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            using var connection = OpenExisting();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT PackId, FileLength, LastWriteUtcTicks, PayloadSha256 FROM IndexedPacks";
+            using var reader = command.ExecuteReader();
+            var indexed = new Dictionary<PackId, (long Length, long Ticks, string Hash)>();
+            while (reader.Read()) indexed.Add(PackId.Parse(reader.GetString(0)), (reader.GetInt64(1), reader.GetInt64(2), reader.GetString(3)));
+            return indexed.Count == files.Count && files.All(file => indexed.TryGetValue(file.PackId, out var row)
+                && row.Length == file.Length && row.Ticks == file.LastWriteUtcTicks)
+                && (verified is null || verified.All(pack => indexed.TryGetValue(pack.Pack.PackId, out var row)
+                    && row.Hash == HistoryPackCodec.ComputeSha256(pack.OriginalBytes)));
+        }
+        finally { _gate.Release(); }
+    }
+
+    internal async Task RecordFilesAsync(IReadOnlyList<HistoryPackFile> files, CancellationToken token)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            using var connection = OpenExisting();
+            using var transaction = connection.BeginTransaction();
+            foreach (var file in files)
+                Execute(connection, transaction, "UPDATE IndexedPacks SET FileLength=$length,LastWriteUtcTicks=$ticks WHERE PackId=$id",
+                    ("$length", file.Length), ("$ticks", file.LastWriteUtcTicks), ("$id", file.PackId.ToString()));
+            transaction.Commit();
+        }
+        finally { _gate.Release(); }
+    }
+
+    public async Task ApplyPacksAsync(IReadOnlyList<HistoryPackReadResult> packs, CancellationToken token = default)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            using var connection = OpenExisting();
+            using var transaction = connection.BeginTransaction();
+            var branches = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var pack in packs)
+            {
+                token.ThrowIfCancellationRequested();
+                var hash = HistoryPackCodec.ComputeSha256(pack.OriginalBytes);
+                using var find = connection.CreateCommand();
+                find.Transaction = transaction;
+                find.CommandText = "SELECT PayloadSha256 FROM IndexedPacks WHERE PackId=$id";
+                find.Parameters.AddWithValue("$id", pack.Pack.PackId.ToString());
+                if (find.ExecuteScalar() is string previous)
+                {
+                    if (previous != hash) throw new HistoryIntegrityConflictException("Indexed PackId has different bytes.");
+                    continue;
+                }
+                Execute(connection, transaction, "INSERT INTO IndexedPacks(PackId,PayloadSha256) VALUES($id,$hash)",
+                    ("$id", pack.Pack.PackId.ToString()), ("$hash", hash));
+                foreach (var item in pack.Pack.Objects)
+                {
+                    using var existing = connection.CreateCommand();
+                    existing.Transaction = transaction;
+                    existing.CommandText = "SELECT PayloadHash,SchemaVersion FROM Objects WHERE Kind=$kind AND ObjectId=$id";
+                    existing.Parameters.AddWithValue("$kind", item.Kind); existing.Parameters.AddWithValue("$id", item.Id);
+                    using (var reader = existing.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            if (reader.GetString(0) != item.PayloadHash || reader.GetInt32(1) != item.SchemaVersion)
+                                throw new HistoryIntegrityConflictException("Indexed object has conflicting content.");
+                            continue;
+                        }
+                    }
+                    var payload = Encoding.UTF8.GetString(item.CanonicalPayload);
+                    var supported = HistoryObjectKinds.IsKnown(item.Kind) && item.SchemaVersion == 1;
+                    Execute(connection, transaction,
+                        "INSERT INTO Objects VALUES($kind,$id,$schema,$hash,$pack,$supported,$payload)",
+                        ("$kind", item.Kind), ("$id", item.Id), ("$schema", item.SchemaVersion), ("$hash", item.PayloadHash),
+                        ("$pack", pack.Pack.PackId.ToString()), ("$supported", supported ? 1 : 0), ("$payload", payload));
+                    if (!supported) continue;
+                    var value = _codec.DeserializeKnown(item);
+                    IndexKnownObject(connection, transaction, value, payload);
+                    if (value is BranchUpdate branch) branches.Add(branch.BranchId.ToString());
+                }
+            }
+            foreach (var branch in branches)
+            {
+                Execute(connection, transaction, "DELETE FROM BranchTips WHERE BranchId=$branch", ("$branch", branch));
+                Execute(connection, transaction, """
+                    INSERT INTO BranchTips SELECT u.BranchId,u.UpdateId FROM BranchUpdates u
+                    WHERE u.BranchId=$branch AND NOT EXISTS(SELECT 1 FROM BranchUpdateParents p
+                    JOIN BranchUpdates child ON child.UpdateId=p.UpdateId
+                    WHERE p.ParentUpdateId=u.UpdateId AND child.BranchId=u.BranchId)
+                    """, ("$branch", branch));
+            }
+            transaction.Commit();
+        }
+        finally { _gate.Release(); }
+    }
+
     internal static void InstallRebuiltDatabase(
         string temporaryPath,
         string indexPath,
@@ -191,6 +291,22 @@ public sealed class HistoryIndex : IDisposable
         {
             _gate.Release();
         }
+    }
+
+    internal Task<IReadOnlyList<T>> ReadSourceFactsAsync<T>(SourceId source, CancellationToken token) where T : class
+    {
+        const string versions = "SELECT VersionId FROM Versions WHERE SourceId=$source";
+        const string representations = "WITH RECURSIVE selected(Id) AS (SELECT RepresentationId FROM Representations WHERE VersionId IN (" + versions + ") UNION SELECT d.DependencyRepresentationId FROM RepresentationDependencies d JOIN selected s ON d.RepresentationId=s.Id) SELECT Id FROM selected";
+        var sql = typeof(T) == typeof(SourceVersion) ? "SELECT PayloadJson FROM Versions WHERE SourceId=$source"
+            : typeof(T) == typeof(SourceCheckpoint) ? "SELECT PayloadJson FROM Checkpoints WHERE SourceId=$source"
+            : typeof(T) == typeof(BranchUpdate) ? "SELECT PayloadJson FROM BranchUpdates WHERE SourceId=$source"
+            : typeof(T) == typeof(VersionRepresentation) ? "SELECT PayloadJson FROM Representations WHERE RepresentationId IN (" + representations + ")"
+            : typeof(T) == typeof(MaterializationPolicyUpdate) ? "SELECT PayloadJson FROM MaterializationPolicies WHERE VersionId IN (" + versions + ")"
+            : typeof(T) == typeof(StorageReplica) ? "SELECT PayloadJson FROM SharedReplicas WHERE RepresentationId IN (" + representations + ")"
+            : typeof(T) == typeof(ReplicaLifecycleUpdate) ? "SELECT PayloadJson FROM ReplicaLifecycle WHERE ReplicaId IN (SELECT ReplicaId FROM SharedReplicas WHERE RepresentationId IN (" + representations + "))"
+            : typeof(T) == typeof(HistoryAnnotationUpdate) ? "SELECT PayloadJson FROM Annotations WHERE TargetId IN (" + versions + " UNION SELECT CheckpointId FROM Checkpoints WHERE SourceId=$source)"
+            : throw new ArgumentException("Unsupported source fact type.");
+        return ReadPayloadsAsync<T>(sql, [("$source", source.ToString())], token);
     }
 
     public Task<IReadOnlyList<SourceVersion>> GetVersionsForSourceAsync(

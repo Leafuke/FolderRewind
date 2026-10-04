@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Threading.Channels;
+using System.Threading;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services
@@ -15,23 +17,102 @@ namespace FolderRewind.Services
     public static class LogService
     {
         private static readonly object _lock = new();
-        private static readonly List<LogEntry> _buffer = new();
+        private static readonly Queue<LogEntry> _buffer = new();
         private static long _publicationSequence;
         private static LogOptions _options = new();
         private static string _currentLogDate = string.Empty;
-        private static readonly Channel<LogEntry> _logChannel = Channel.CreateUnbounded<LogEntry>();
-
-        static LogService()
-        {
-            _ = Task.Run(ProcessLogQueueAsync);
-        }
+        private sealed record LogWork(LogEntry? Entry = null, bool Clear = false, TaskCompletionSource? Completion = null);
+        private static readonly Channel<LogWork> _logChannel = Channel.CreateUnbounded<LogWork>(new UnboundedChannelOptions { SingleReader = true });
+        private static readonly Task LogWorker = Task.Run(ProcessLogQueueAsync);
+        private static StreamWriter? _fileWriter;
+        private static string? _writerPath;
+        private static long _writerBytes;
 
         private static async Task ProcessLogQueueAsync()
         {
-            await foreach (var entry in _logChannel.Reader.ReadAllAsync())
+            while (await _logChannel.Reader.WaitToReadAsync().ConfigureAwait(false))
             {
-                TryAppendToFile(entry);
+                var started = Stopwatch.GetTimestamp();
+                var count = 0;
+                while (count < 100)
+                {
+                    if (!_logChannel.Reader.TryRead(out var work))
+                    {
+                        var remaining = TimeSpan.FromMilliseconds(100) - Stopwatch.GetElapsedTime(started);
+                        if (remaining <= TimeSpan.Zero) break;
+                        using var timeout = new CancellationTokenSource(remaining);
+                        try { if (!await _logChannel.Reader.WaitToReadAsync(timeout.Token).ConfigureAwait(false)) break; }
+                        catch (OperationCanceledException) { break; }
+                        continue;
+                    }
+                    try
+                    {
+                        if (work.Clear)
+                        {
+                            CloseWriter();
+                            Directory.CreateDirectory(GetLogDirectory());
+                            File.WriteAllText(GetLogFilePath(), string.Empty);
+                        }
+                        if (work.Entry is { } entry) AppendToWriter(entry);
+                        if (work.Completion is not null) { FlushWriter(); work.Completion.TrySetResult(); }
+                    }
+                    catch (Exception error)
+                    {
+                        work.Completion?.TrySetException(error);
+                        Debug.WriteLine($"Log write failed: {error.Message}");
+                        try { CloseWriter(); } catch { _fileWriter = null; }
+                    }
+                    count++;
+                    if (Stopwatch.GetElapsedTime(started) >= TimeSpan.FromMilliseconds(100)) break;
+                }
+                try { FlushWriter(); } catch (Exception error) { Debug.WriteLine(error); }
             }
+            try { CloseWriter(); } catch (Exception error) { Debug.WriteLine(error); }
+        }
+
+        private static void FlushWriter() => _fileWriter?.Flush();
+        private static void CloseWriter()
+        {
+            var writer = _fileWriter; _fileWriter = null; _writerPath = null;
+            writer?.Dispose();
+        }
+
+        private static void AppendToWriter(LogEntry entry)
+        {
+            if (!_options.EnableFileLogging) { CloseWriter(); return; }
+            var path = GetLogFilePath();
+            if (_writerPath != path) CloseWriter();
+            if (_fileWriter is not null && _writerBytes >= Math.Max(1024, _options.MaxFileSizeKb) * 1024L)
+                CloseWriter();
+            if (_fileWriter is null)
+            {
+                Directory.CreateDirectory(GetLogDirectory());
+                RotateIfNeeded(path);
+                var today = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                if (_currentLogDate != today) { _currentLogDate = today; TrimOldLogFiles(); }
+                var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read, 64 * 1024);
+                _writerBytes = stream.Length; _writerPath = path;
+                _fileWriter = new StreamWriter(stream, new UTF8Encoding(false), 64 * 1024);
+            }
+            var line = FormatEntry(entry);
+            _fileWriter.WriteLine(line);
+            _writerBytes += Encoding.UTF8.GetByteCount(line) + Encoding.UTF8.GetByteCount(Environment.NewLine);
+        }
+
+        public static Task FlushAsync()
+        {
+            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_lock)
+            {
+                if (!_logChannel.Writer.TryWrite(new LogWork(Completion: completion))) return LogWorker;
+            }
+            return completion.Task;
+        }
+
+        public static async Task StopAsync()
+        {
+            lock (_lock) _logChannel.Writer.TryComplete();
+            await LogWorker.ConfigureAwait(false);
         }
 
         public static event Action<LogEntry>? EntryPublished;
@@ -74,11 +155,10 @@ namespace FolderRewind.Services
             lock (_lock)
             {
                 entry.Sequence = ++_publicationSequence;
-                _buffer.Add(entry);
+                _buffer.Enqueue(entry);
                 TrimBufferIfNeeded();
+                _logChannel.Writer.TryWrite(new LogWork(entry));
             }
-
-            _logChannel.Writer.TryWrite(entry);
 
             try
             {
@@ -105,16 +185,7 @@ namespace FolderRewind.Services
             lock (_lock)
             {
                 _buffer.Clear();
-            }
-
-            try
-            {
-                var filePath = GetLogFilePath();
-                if (File.Exists(filePath)) File.WriteAllText(filePath, string.Empty);
-            }
-            catch
-            {
-
+                _logChannel.Writer.TryWrite(new LogWork(Clear: true));
             }
         }
 
@@ -157,35 +228,6 @@ namespace FolderRewind.Services
             return Path.Combine(GetLogDirectory(), $"app-{dateStr}.log");
         }
 
-        private static void TryAppendToFile(LogEntry entry)
-        {
-            if (!_options.EnableFileLogging) return;
-
-            try
-            {
-                var today = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                var filePath = GetLogFilePath();
-                var dir = GetLogDirectory();
-
-                if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
-
-                if (_currentLogDate != today)
-                {
-                    _currentLogDate = today;
-                    TrimOldLogFiles();
-                }
-
-                RotateIfNeeded(filePath);
-
-                File.AppendAllText(filePath, FormatEntry(entry) + Environment.NewLine);
-            }
-            catch
-            {
-
-            }
-        }
-
         private static void RotateIfNeeded(string filePath)
         {
             try
@@ -194,13 +236,13 @@ namespace FolderRewind.Services
                 if (!info.Exists) return;
 
                 var limitBytes = Math.Max(1024, _options.MaxFileSizeKb) * 1024L;
-                if (info.Length <= limitBytes) return;
+                if (info.Length < limitBytes) return;
 
                 var dir = Path.GetDirectoryName(filePath);
                 if (string.IsNullOrWhiteSpace(dir)) return;
 
                 var baseName = Path.GetFileNameWithoutExtension(filePath);
-                var archiveName = FormattableString.Invariant($"{baseName}-{DateTime.Now:HHmmss}.log");
+                var archiveName = FormattableString.Invariant($"{baseName}-{DateTime.Now:HHmmssfffffff}-{Guid.NewGuid():N}.log");
                 var archivePath = Path.Combine(dir, archiveName);
                 File.Move(filePath, archivePath, true);
             }
@@ -270,8 +312,7 @@ namespace FolderRewind.Services
         {
             if (_buffer.Count <= _options.MaxEntries) return;
 
-            var toRemove = _buffer.Count - _options.MaxEntries;
-            _buffer.RemoveRange(0, toRemove);
+            while (_buffer.Count > _options.MaxEntries) _buffer.Dequeue();
         }
 
         private static LogOptions Normalize(LogOptions options)

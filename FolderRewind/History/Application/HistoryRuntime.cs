@@ -6,6 +6,8 @@ using FolderRewind.History.Storage;
 using Microsoft.Data.Sqlite;
 using System;
 using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -45,6 +47,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         {
             HistoryRestoreTransactionJournalStore.RequireRecovered(repository.Paths.TransactionsRoot);
             repository.Journals.RequireRecovered();
+            Retention.HistoryChainRewriteJournalStore.RequireRecovered(repository.Paths.LocalStateRoot);
         });
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
@@ -52,6 +55,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         Branches = new HistoryBranchService(this, _codec);
         Annotations = new HistoryAnnotationService(this, _codec);
         MaterializationPolicies = new MaterializationPolicyService(this, _codec);
+        Repository.PacksInstalled = ApplyInstalledPacksAsync;
     }
 
     public HistoryConfigId ConfigId => Repository.ConfigId;
@@ -114,7 +118,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
             {
                 if (!File.Exists(Index.IndexPath)
                     || await Index.GetSchemaVersionAsync(cancellationToken).ConfigureAwait(false) != HistoryIndex.CurrentSchemaVersion
-                    || await Index.GetIndexedPackCountAsync(cancellationToken).ConfigureAwait(false) != packs.Count)
+                    || !await Index.MatchesFilesAsync(Repository.GetPackFiles(), cancellationToken, packs).ConfigureAwait(false))
                 {
                     await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
                     rebuilt = true;
@@ -127,6 +131,8 @@ public sealed class HistoryRuntime : IAsyncDisposable
                 rebuilt = true;
             }
 
+            await Index.RecordFilesAsync(Repository.GetPackFiles(), cancellationToken).ConfigureAwait(false);
+            await RecoverChainRewritesAsync(cancellationToken).ConfigureAwait(false);
             await RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
 
             _initialized = true;
@@ -158,7 +164,11 @@ public sealed class HistoryRuntime : IAsyncDisposable
 
     internal void ObservePendingRecovery()
     {
-        try { HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot); }
+        try
+        {
+            HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot);
+            Retention.HistoryChainRewriteJournalStore.RequireRecovered(Repository.Paths.LocalStateRoot);
+        }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
         {
             Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
@@ -166,11 +176,21 @@ public sealed class HistoryRuntime : IAsyncDisposable
         }
     }
 
+    internal async Task RecoverChainRewritesAsync(CancellationToken token)
+    {
+        if (!Retention.HistoryChainRewriteJournalStore.HasPending(Repository.Paths.LocalStateRoot)) return;
+        await EnsureIndexCurrentAsync(token).ConfigureAwait(false);
+        var completed = await new Retention.HistoryChainRewriteJournalStore(this).RecoverAsync(token).ConfigureAwait(false);
+        MaintenanceDiagnostic = completed ? null : "Backup chain recovery or archive reclamation needs attention; original archive bytes have been retained.";
+        await RefreshLocalStateHealthAsync(token).ConfigureAwait(false);
+        ChangeFeed.Publish(ConfigId, HistoryChangeKind.LocalStateChanged);
+    }
+
     internal async Task RefreshLocalStateHealthAsync(CancellationToken cancellationToken = default)
     {
         var workspace = await WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var packCount = (await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false)).Count;
+        var packCount = Repository.GetPackFiles().Count;
         Health = HistoryRuntimeHealth.Ready;
         HealthDiagnostic = null;
         ObservePendingRecovery();
@@ -191,28 +211,50 @@ public sealed class HistoryRuntime : IAsyncDisposable
     private static string AppendDiagnostic(string? previous, string next)
         => string.IsNullOrWhiteSpace(previous) ? next : previous + "\n" + next;
 
-    internal async Task EnsureIndexCurrentAsync(CancellationToken cancellationToken = default)
+    private async Task ApplyInstalledPacksAsync(IReadOnlyList<HistoryPackReadResult> existing,
+        IReadOnlyList<HistoryPackReadResult> installed, CancellationToken token)
     {
-        var packs = await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-        var needsRebuild = false;
+        // Called inside the repository gate after durable installation and full union validation.
         try
         {
-            if (!File.Exists(Index.IndexPath)
-                || await Index.GetSchemaVersionAsync(cancellationToken).ConfigureAwait(false) != HistoryIndex.CurrentSchemaVersion
-                || await Index.GetIndexedPackCountAsync(cancellationToken).ConfigureAwait(false) != packs.Count)
+            var files = Repository.GetPackFiles();
+            var installedIds = installed.Select(p => p.Pack.PackId).ToHashSet();
+            var previousFiles = files.Where(f => !installedIds.Contains(f.PackId)).ToArray();
+            if (File.Exists(Index.IndexPath)
+                && await Index.GetSchemaVersionAsync(token).ConfigureAwait(false) == HistoryIndex.CurrentSchemaVersion
+                && await Index.MatchesFilesAsync(previousFiles, token).ConfigureAwait(false))
             {
-                needsRebuild = true;
+                await Index.ApplyPacksAsync(installed, token).ConfigureAwait(false);
+                await Index.RecordFilesAsync(files.Where(f => installedIds.Contains(f.PackId)).ToArray(), token).ConfigureAwait(false);
+            }
+            else
+            {
+                await Index.RebuildAsync(existing.Concat(installed).ToArray(), token).ConfigureAwait(false);
+                await Index.RecordFilesAsync(files, token).ConfigureAwait(false);
+                ChangeFeed.Publish(ConfigId, HistoryChangeKind.IndexRebuilt);
             }
         }
-        catch (Exception ex) when (ex is SqliteException or InvalidDataException or HistoryRepositoryValidationException or IOException)
+        catch
         {
-            needsRebuild = true;
-        }
-
-        if (needsRebuild)
-        {
-            await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
-            ChangeFeed.Publish(ConfigId, HistoryChangeKind.IndexRebuilt);
+            // Facts are already durable. A missing/stale inventory forces recovery on the next query.
         }
     }
+
+    internal Task EnsureIndexCurrentAsync(CancellationToken cancellationToken = default)
+        => Repository.WithGateAsync(async () =>
+        {
+            var files = Repository.GetPackFiles();
+            try
+            {
+                if (File.Exists(Index.IndexPath)
+                    && await Index.GetSchemaVersionAsync(cancellationToken).ConfigureAwait(false) == HistoryIndex.CurrentSchemaVersion
+                    && await Index.MatchesFilesAsync(files, cancellationToken).ConfigureAwait(false)) return;
+            }
+            catch (Exception ex) when (ex is SqliteException or InvalidDataException or HistoryRepositoryException or IOException) { }
+            var packs = await Repository.ReadAllPacksInsideGateAsync(cancellationToken).ConfigureAwait(false);
+            new HistoryRepositoryValidator(_codec).Validate(ConfigId, packs);
+            await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
+            await Index.RecordFilesAsync(files, cancellationToken).ConfigureAwait(false);
+            ChangeFeed.Publish(ConfigId, HistoryChangeKind.IndexRebuilt);
+        }, cancellationToken);
 }

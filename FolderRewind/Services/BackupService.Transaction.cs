@@ -1,3 +1,4 @@
+using FolderRewind.History.Representation;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -317,7 +318,7 @@ public static partial class BackupService
                     invocationOptions.Comment,
                     cancellationToken,
                     intent,
-                    safetySnapshotIntent).ConfigureAwait(false);
+                    safetySnapshotIntent, invocationOptions.Protect).ConfigureAwait(false);
             }
             catch (HistoryCommitRecoveryRequiredException ex)
             {
@@ -381,7 +382,8 @@ public static partial class BackupService
 
         // 6. Durable boundary。到达这里后 History 已经确定事实；所有辅助失败只能降级为 warning。
         var committedOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
-        terminalLifecycle.Set(CreateCommittedTerminal(committedOutcome, sourceOutcomes, hasPostCommitWarnings: false));
+        if (!invocationOptions.Protect)
+            terminalLifecycle.Set(CreateCommittedTerminal(committedOutcome, sourceOutcomes, hasPostCommitWarnings: false));
         bool hasPostCommitWarnings = false;
         timing.MarkPhase("post-commit");
         try
@@ -409,21 +411,50 @@ public static partial class BackupService
             Log($"Post-commit cloud sync queueing failed: {ex.Message}", LogLevel.Warning);
         }
 
-        if (sourceOutcomes.Any(item => item.CreatedNewArchive))
+        if (committedBatch.Run.Outcome is BackupRunOutcome.Completed or BackupRunOutcome.Partial)
         {
             try
             {
-                await PruneRetainedSourceArchivesAsync(config).ConfigureAwait(false);
+                await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config, operationLease).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                hasPostCommitWarnings = true;
                 Log($"Post-commit retention failed: {ex.Message}", LogLevel.Warning);
             }
         }
 
         var durableOutcome = ResolveDurableOutcome(committedOutcome, hasPostCommitWarnings);
-        terminalLifecycle.Set(CreateCommittedTerminal(durableOutcome, sourceOutcomes, hasPostCommitWarnings));
+        if (invocationOptions.Protect)
+        {
+            try
+            {
+                var version = committedBatch.Run.SourceResults.Single().VersionId
+                    ?? throw new InvalidOperationException("Protected backup has no version.");
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
+                var assessment = await restore.AssessVersionAsync(version, MaterializationFidelity.Exact,
+                    FolderRewind.History.Representation.AssessmentDepth.Deep, cancellationToken).ConfigureAwait(false);
+                var entry = (await new HistoryPresentationQueryService(runtime).QueryAsync(
+                    committedBatch.Run.SourceResults.Single().SourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
+                    .Timeline.SingleOrDefault(e => e.VersionId == version);
+                if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null
+                    || entry is null || !entry.IsPinned || string.IsNullOrWhiteSpace(entry.FileName))
+                    throw new InvalidOperationException("Protected backup is committed but readiness/protection cannot be confirmed.");
+                terminalLifecycle.Set(new BackupTerminalLifecycle("command_completed", new Dictionary<string, string?>
+                {
+                    ["file"] = entry.FileName, ["important"] = "true",
+                    ["result"] = sourceOutcomes.Any(o => o.CreatedNewArchive) ? "created" : "reused"
+                }));
+            }
+            catch (Exception ex)
+            {
+                terminalLifecycle.Set(CreateFailedTerminal("protection_unconfirmed", ex.Message));
+                return new BackupTransactionExecutionResult { Outcome = OperationOutcome.SuccessWithWarnings,
+                    SourceOutcomes = sourceOutcomes, CommittedBatch = committedBatch,
+                    HistoryRecoveryRequired = true, RecoveryMessage = ex.Message };
+            }
+        }
+        else terminalLifecycle.Set(CreateCommittedTerminal(durableOutcome, sourceOutcomes, hasPostCommitWarnings));
         return new BackupTransactionExecutionResult
         {
             Outcome = durableOutcome,

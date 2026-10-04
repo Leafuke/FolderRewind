@@ -89,7 +89,9 @@ public sealed record HistoryCommitRequest
         HistoryBranchCreationIntent? branchCreationIntent = null,
         HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
         IEnumerable<SourceId>? affectedSourceIds = null,
-        HistorySafetySnapshotIntent? safetySnapshotIntent = null)
+        HistorySafetySnapshotIntent? safetySnapshotIntent = null,
+        bool protect = false,
+        Func<VersionId, CancellationToken, Task<bool>>? validateProtectedReuse = null)
     {
         ConfigSnapshot = configSnapshot ?? throw new ArgumentNullException(nameof(configSnapshot));
         Invocation = invocation ?? throw new ArgumentNullException(nameof(invocation));
@@ -97,6 +99,8 @@ public sealed record HistoryCommitRequest
         BranchCreationIntent = branchCreationIntent;
         Intent = intent;
         SafetySnapshotIntent = safetySnapshotIntent;
+        Protect = protect;
+        ValidateProtectedReuse = validateProtectedReuse;
         SourceCaptureResults = sourceCaptureResults is null
             ? throw new ArgumentNullException(nameof(sourceCaptureResults))
             : [.. sourceCaptureResults];
@@ -137,6 +141,8 @@ public sealed record HistoryCommitRequest
     public HistoryCommitIntent Intent { get; }
     public ImmutableArray<SourceId> AffectedSourceIds { get; }
     public HistorySafetySnapshotIntent? SafetySnapshotIntent { get; }
+    public bool Protect { get; }
+    public Func<VersionId, CancellationToken, Task<bool>>? ValidateProtectedReuse { get; }
 }
 
 public sealed record HistoryCommitBatch(
@@ -333,8 +339,7 @@ public sealed class HistoryCommitCoordinator
             bool indexRefreshSucceeded;
             try
             {
-                var packs = await _runtime.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-                await _runtime.Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
+                await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
                 indexRefreshSucceeded = true;
             }
             catch (Exception)
@@ -350,10 +355,6 @@ public sealed class HistoryCommitCoordinator
             if (batch.UpdatedWorkspace is not null || batch.UpdatedLocalReplicaCatalog is not null)
             {
                 _runtime.ChangeFeed.Publish(_runtime.ConfigId, HistoryChangeKind.LocalStateChanged);
-            }
-            if (indexRefreshSucceeded)
-            {
-                _runtime.ChangeFeed.Publish(_runtime.ConfigId, HistoryChangeKind.IndexRebuilt);
             }
 
             return batch with { IndexRefreshSucceeded = indexRefreshSucceeded };
@@ -392,6 +393,13 @@ public sealed class HistoryCommitCoordinator
                     "An independent recovery point requires a reliable Exact result for every affected Source.");
             }
         }
+        if (request.Protect && (request.AffectedSourceIds.Length != 1
+            || request.SourceCaptureResults.Any(c => c.CaptureScope != CaptureScope.FullSource
+                || c.EffectiveSourceBoundary.ScopeMode != EffectiveBoundaryScopeMode.All
+                || c.EffectiveSourceBoundary.FilterMode != EffectiveBoundaryFilterMode.Blacklist
+                || !c.EffectiveSourceBoundary.FilterRules.IsEmpty)))
+            throw new HistoryCommitConflictException("Protected backup requires one complete, unfiltered source; partial scope is not supported.");
+        var protectionAnnotations = new List<HistoryAnnotationUpdate>();
         var versions = ImmutableArray.CreateBuilder<SourceVersion>();
         var representations = ImmutableArray.CreateBuilder<VersionRepresentation>();
         var metadataSnapshots = ImmutableArray.CreateBuilder<VersionMetadataSnapshot>();
@@ -571,6 +579,22 @@ public sealed class HistoryCommitCoordinator
 
             bool captured = runOutcome == BackupRunSourceOutcome.Captured;
             bool successful = runOutcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused;
+            if (request.Protect)
+            {
+                if (!successful || finalVersionId is not { } protectedId)
+                    throw new HistoryCommitConflictException("Protected backup has no successful version.");
+                if (!captured)
+                {
+                    var existing = await RequireVersionForSourceAsync(protectedId, source.SourceId, cancellationToken).ConfigureAwait(false);
+                    if (existing.CaptureScope != CaptureScope.FullSource || request.ValidateProtectedReuse is null
+                        || !await request.ValidateProtectedReuse(protectedId, cancellationToken).ConfigureAwait(false))
+                        throw new HistoryCommitConflictException("Protected reuse requires a Ready Exact version.");
+                }
+                var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, protectedId.Value);
+                var previous = await _runtime.Query.GetAnnotationUpdatesAsync(target, HistoryAnnotationKind.Pin, cancellationToken).ConfigureAwait(false);
+                protectionAnnotations.Add(new HistoryAnnotationUpdate(AnnotationUpdateId.New(), target,
+                    HistoryAnnotationKind.Pin, HistoryAnnotationProjection.FindTips(previous).Select(p => p.UpdateId), "true", now));
+            }
             SourceCheckpoint? checkpoint = null;
             BranchUpdate? branchUpdate = null;
             if (successful && finalVersionId is { } resultVersion)
@@ -587,6 +611,8 @@ public sealed class HistoryCommitCoordinator
                 }
                 var candidate = checkpoint ?? currentCheckpoint;
                 var admission = candidate is null ? null : await _admission.EvaluateAsync(candidate, versions, representations, cancellationToken).ConfigureAwait(false);
+                if (request.Protect && admission?.IsReady != true)
+                    throw new HistoryCommitConflictException("Protected backup requires an Exact admitted checkpoint.");
                 if (request.SafetySnapshotIntent is not null && admission?.IsReady != true)
                     throw new HistoryCommitConflictException("SafetySnapshot requires Exact affected Source checkpoints.");
                 if (admission is { IsReady: false })
@@ -652,6 +678,7 @@ public sealed class HistoryCommitCoordinator
 
         var facts = new List<object>();
         facts.AddRange(versions);
+        facts.AddRange(protectionAnnotations);
         facts.AddRange(representations);
         facts.AddRange(metadataSnapshots);
         facts.AddRange(checkpoints);

@@ -4,9 +4,9 @@ namespace FolderRewind.Plugin.Abstractions;
 public static class KnotLinkCoreCommands
 {
     public static IReadOnlySet<string> FolderCommands { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    { "BACKUP", "LIST_BACKUPS", "RESTORE", "AUTO_BACKUP", "STOP_AUTO_BACKUP", "MARK_IMPORTANT" };
+    { "BACKUP", "LIST_BACKUPS", "RESTORE", "AUTO_BACKUP", "STOP_AUTO_BACKUP", "MARK_IMPORTANT", "GET_IMPORTANCE" };
     public static IReadOnlySet<string> ConversationCommands { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    { "BACKUP", "RESTORE", "BACKUP_ALL", "AUTO_BACKUP", "STOP_AUTO_BACKUP", "MARK_IMPORTANT" };
+    { "BACKUP", "RESTORE", "BACKUP_ALL", "AUTO_BACKUP", "STOP_AUTO_BACKUP", "MARK_IMPORTANT", "GET_IMPORTANCE" };
 
     public static IReadOnlyList<KnotLinkCommandDescriptor> Commands { get; } = Build();
     public static KnotLinkCommandDescriptor? Find(string command) => Commands.FirstOrDefault(
@@ -23,6 +23,7 @@ public static class KnotLinkCoreCommands
         var backup = new KnotLinkArgumentDescriptor[]
         {
             Input("comment", "Optional comment for this operation only."),
+            Choice("protect", "BACKUP only: atomically pin a complete unfiltered backup; unchanged data reuses its existing version.", ["true", "false"], "false"),
             Choice("backup_mode", "Omit to inherit local mode; supplied value overrides this operation only.", ["full", "smart"]),
             Choice("compression_method", "Omit to inherit local compression; supplied value overrides this operation only.", ["LZMA2", "Deflate", "BZip2", "zstd"]),
             Input("compression_level", "Optional integer; omit to inherit local level. Must be valid for the effective compression method."),
@@ -41,12 +42,14 @@ public static class KnotLinkCoreCommands
         Add("GET_CONFIG", "Get public settings for a backup configuration.", [], ["data"]);
         Add("GET_STATUS", "Get FolderRewind runtime status.", [], ["data"]);
         Add("BACKUP", "Start a backup for one managed folder.", backup, ["message"]);
-        Add("BACKUP_ALL", "Start backing up every folder in a configuration.", backup, ["message"]);
+        Add("BACKUP_ALL", "Start backing up every folder in a configuration.", backup.Where(a => a.Name != "protect").ToArray(), ["message"]);
         Add("AUTO_BACKUP", "Start periodic backup bound to this folder and these operation options.",
-            backup.Concat([Input("interval_minutes", "Required integer interval, at least 1 minute.", "10")]).ToArray(), ["message"]);
+            backup.Where(a => a.Name != "protect").Concat([Input("interval_minutes", "Required integer interval, at least 1 minute.", "10")]).ToArray(), ["message"]);
         Add("STOP_AUTO_BACKUP", "Stop periodic backup for one managed folder.", [], ["message"]);
+        Add("GET_IMPORTANCE", "Query a backup version pin, not its restore readiness.",
+            [Input("file", "Required backup archive file name.")], ["file", "important"]);
         Add("MARK_IMPORTANT", "Mark or unmark a backup archive as important.",
-            [Input("file", "Required backup archive file name."), Choice("important", "Optional importance flag; defaults to true.", ["true", "false"], "true")], ["message"]);
+            [Input("file", "Required backup archive file name."), Choice("important", "Optional importance flag; defaults to true.", ["true", "false"], "true")], ["message", "file", "important"]);
         Add("RESTORE", "Restore a managed folder; default clean, partial backups always overwrite.",
             [Input("file", "Optional archive name; omit for the active Workspace's unique local branch tip."),
              Choice("mode", "Optional restore mode; default clean. Partial backups always overwrite.", ["overwrite", "clean"], "clean"),

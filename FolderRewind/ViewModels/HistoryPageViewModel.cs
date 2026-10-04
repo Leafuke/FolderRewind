@@ -40,7 +40,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     private HistoryRuntime? _presentationRuntime;
     private long _presentationSequence = -1;
     private SourceId? _presentationSource;
-    private HistoryPresentationResult? _cachedPresentation;
+    private HistoryPageCursor? _nextCursor;
+    private int _filterGeneration;
+    public bool HasMoreHistory => _nextCursor is not null;
+    public bool CanLoadMore => HasMoreHistory && !IsLoading;
     private bool _refreshingBranches;
     private volatile bool _isActive;
 
@@ -81,7 +84,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         get => _isLoading;
         private set
         {
-            if (SetProperty(ref _isLoading, value)) OnPropertyChanged(nameof(ShowEmptyState));
+            if (SetProperty(ref _isLoading, value)) { OnPropertyChanged(nameof(ShowEmptyState)); OnPropertyChanged(nameof(CanLoadMore)); }
         }
     }
     public string ErrorMessage
@@ -101,6 +104,15 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public bool ShowGroupedRunHistory => IsGroupedRunView;
     public bool ShowPerSourceHistory => !IsGroupedRunView;
     public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder is not null;
+    public bool HasPendingMerges { get; private set; }
+    public HistoryReturnContext? CaptureReturnContext(double offset = 0) => _currentConfig is not null && _currentFolder is not null
+        ? new(_currentConfig.Id, _currentFolder.Id, SelectedBranch?.BranchId, CommentFilterText, _presentationMode, offset) : null;
+    public void OpenMergeWorkspace()
+    {
+        if (_currentConfig is null || _currentFolder is null) return;
+        NavigationService.NavigateTo("Merge", new MergeNavigationParameter(_currentConfig.Id, _currentFolder.Id,
+            SelectedBranch?.BranchId, ReturnContext: CaptureReturnContext()));
+    }
     public bool CanUseCloudHistoryActions => _currentConfig is not null
         && CloudSyncService.CanUseHistoryCloudActions(_currentConfig);
     public bool CanOpenConfigCloudSync => CanUseCloudHistoryActions;
@@ -138,7 +150,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public string CommentFilterText
     {
         get => _commentFilterText;
-        set { if (SetProperty(ref _commentFilterText, value ?? string.Empty)) ApplyFilter(); }
+        set { if (SetProperty(ref _commentFilterText, value ?? string.Empty)) TaskObserver.Observe(FilterAfterDelayAsync(++_filterGeneration), nameof(HistoryPageViewModel)); }
     }
 
     public bool UseHistoryStatusColors
@@ -203,6 +215,18 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
             if (!request.IsCurrent) return;
             _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
+            var pending = false;
+            try
+            {
+                pending = folder is not null && await Task.Run(() => runtime.MergeSessions.List().Any(s =>
+                    string.Equals(s.Plan.Ours.SourceId.ToString(), folder.Id, StringComparison.OrdinalIgnoreCase)
+                    && s.State is not (History.LocalState.MergeSessionState.Committed or History.LocalState.MergeSessionState.Abandoned)), request.Token);
+            }
+            catch (OperationCanceledException) when (request.Token.IsCancellationRequested) { throw; }
+            catch (Exception ex) { LogService.LogWarning($"Could not read pending merges: {ex.Message}", "History"); }
+            if (!request.IsCurrent) return;
+            HasPendingMerges = pending;
+            OnPropertyChanged(nameof(HasPendingMerges));
         }
         if (!request.IsCurrent) return;
         NotifyContextChanged();
@@ -230,6 +254,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public void Suspend()
     {
         _isActive = false;
+        ++_filterGeneration;
         if (_observedSettings is not null) _observedSettings.PropertyChanged -= OnSettingsChanged;
         _observedSettings = null;
         CancelHistoryCommands();
@@ -280,7 +305,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         return RefreshCurrentHistoryCoreAsync(cancellationToken, force: true);
     }
 
-    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken, bool force = false)
+    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken, bool force = false, bool append = false)
     {
         if (!_isActive) return;
         using var request = _refreshRequests.Begin(cancellationToken);
@@ -305,23 +330,23 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 && id != Guid.Empty
                     ? new SourceId(id)
                     : null;
-            if (!force && ReferenceEquals(runtime, _presentationRuntime) && sourceId == _presentationSource
-                && runtime.ChangeFeed.CurrentSequence == _presentationSequence && _cachedPresentation is not null)
-            {
-                ApplyPresentation(_cachedPresentation, selectedBranchId);
-                return;
-            }
-            var sequence = runtime.ChangeFeed.CurrentSequence;
-            var snapshot = await new HistoryPresentationQueryService(runtime)
-                .QueryAsync(sourceId, cancellationToken: token);
+            var page = await new HistoryPresentationQueryService(runtime).QueryPageAsync(
+                new HistoryPageRequest(sourceId, IsGroupedRunView, IsAdvancedHistory, selectedBranchId,
+                    CommentFilterText, Cursor: append ? _nextCursor : null,
+                    OutcomeNames: Enum.GetValues<BackupRunOutcome>().ToDictionary(outcome => outcome, BackupRunViewItem.GetRunOutcomeText)), token);
+            var snapshot = page.Snapshot;
             var presentation = await BuildPresentationAsync(config, snapshot, token);
             token.ThrowIfCancellationRequested();
             if (!request.IsCurrent || !_isActive) return;
-            _cachedPresentation = presentation;
+            _nextCursor = page.Next;
+            _missingCount = page.MissingCount;
+            OnPropertyChanged(nameof(HasMoreHistory));
+            OnPropertyChanged(nameof(CanLoadMore));
+            OnPropertyChanged(nameof(HasMissing));
             _presentationRuntime = runtime;
-            _presentationSequence = sequence;
+            _presentationSequence = page.Revision;
             _presentationSource = sourceId;
-            ApplyPresentation(presentation, selectedBranchId);
+            ApplyPresentation(presentation, selectedBranchId, append && !page.CursorInvalidated);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -567,7 +592,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             item.VersionId,
             mode).ConfigureAwait(false);
     }
-    public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
+    public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode,
+        Func<FolderRewind.History.Retention.PreparedHistoryChainRewrite, CancellationToken, Task<bool>>? confirm = null,
+        IProgress<FolderRewind.History.Retention.HistoryChainRewriteProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         var config = _currentConfig;
         if (config is null)
@@ -579,12 +607,12 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
         try
         {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
             await using var operationLease = await NativeHistoryConfigurationOperationGate
-                .EnterAsync(config.Id).ConfigureAwait(false);
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
+                .EnterAsync(config.Id, cancellationToken);
             var deletesLocalPayload = mode is BackupDeleteMode.LocalArchiveOnly
                 or BackupDeleteMode.LocalArchiveAndRecord;
-            HistoryTargetedReplicaDeletionResult? deletion = null;
+            FolderRewind.History.Retention.HistoryChainRewriteResult? deletion = null;
             if (deletesLocalPayload)
             {
                 if (item.RepresentationId is not { } representationId
@@ -597,19 +625,19 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                     };
                 }
 
-                // 手动删除只作用于用户选中的本地副本；不能借机运行配置级 Retention GC。
-                deletion = await NativeHistoryApplicationService.DeleteVersionLocalPayloadAsync(
-                        config,
-                        item.VersionId,
-                        representationId,
-                        item.LocalPath,
-                        releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord)
-                    .ConfigureAwait(false);
+                await using var prepared = await NativeHistoryApplicationService.PrepareVersionDeletionAsync(
+                    config, item.VersionId, representationId, item.LocalPath,
+                    hideRecord: mode == BackupDeleteMode.LocalArchiveAndRecord,
+                    releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord, progress, cancellationToken);
+                if (confirm is not null && !await confirm(prepared, cancellationToken))
+                    return new() { Success = true };
+                deletion = await NativeHistoryApplicationService.CommitVersionDeletionAsync(config, prepared, cancellationToken);
+                if (!deletion.Committed) return new() { Success = false, Message = deletion.Diagnostic };
             }
 
             var suppressesRecord = mode is BackupDeleteMode.RecordOnly
                 or BackupDeleteMode.LocalArchiveAndRecord;
-            if (suppressesRecord)
+            if (suppressesRecord && deletion is null)
             {
                 await runtime.Annotations.SetSuppressionAsync(
                     new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
@@ -618,12 +646,15 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             return new()
             {
                 Success = true,
-                ArchiveDeleted = deletion?.PayloadDeleted == true,
-                HistoryUpdated = suppressesRecord || deletion is not null
+                ArchiveDeleted = deletion is { Committed: true, CleanupPending: false },
+                HistoryUpdated = suppressesRecord || deletion is not null,
+                Message = deletion?.CleanupPending == true ? I18n.GetString("History_Rewrite_CleanupPending") : string.Empty
             };
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            LogService.LogWarning("[History deletion] " + ex.Message, nameof(HistoryPageViewModel));
             return new() { Success = false, Message = LocalizeDeleteError(ex.Message) };
         }
         finally
@@ -673,7 +704,22 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 I18n.GetString("History_Delete_PinProtected"),
             "The selected local backup is required by another Version Representation." =>
                 I18n.GetString("History_Delete_DependencyProtected"),
-            _ => message
+            "This archive format or historical boundary does not support safe chain rewriting." =>
+                I18n.GetString("History_Rewrite_Unsupported"),
+            "A dependent version cannot be restored exactly. Download missing archives or repair the chain first." =>
+                I18n.GetString("History_Rewrite_PreparationRequired"),
+            "History changed; prepare the deletion again." or "History changed after preparation; prepare the deletion again." =>
+                I18n.GetString("History_Rewrite_Changed"),
+            "The selected archive path is shared by another retained local replica." =>
+                I18n.GetString("History_Rewrite_Shared"),
+            var detail when detail.Contains("Insufficient temporary space", StringComparison.Ordinal) =>
+                I18n.GetString("History_Rewrite_InsufficientSpace"),
+            var detail when detail.Contains("unsupported", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("does not support", StringComparison.Ordinal) =>
+                I18n.GetString("History_Rewrite_Unsupported"),
+            var detail when detail.Contains("Download missing archives", StringComparison.Ordinal) =>
+                I18n.GetString("History_Rewrite_PreparationRequired"),
+            _ => I18n.GetString("History_Rewrite_Failed")
         };
 
     public async Task<bool> CreateBranchAsync(CheckpointId checkpointId, string name)
@@ -811,11 +857,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             return new HistoryPresentationResult(versions, runs, branches, safetySnapshots);
         }, cancellationToken);
 
-    private void ApplyPresentation(HistoryPresentationResult presentation, BranchId? selectedBranchId)
+    private void ApplyPresentation(HistoryPresentationResult presentation, BranchId? selectedBranchId, bool append = false)
     {
-        _allVersions.Clear();
+        if (!append) { _allVersions.Clear(); _allRuns.Clear(); }
         _allVersions.AddRange(presentation.Versions);
-        _allRuns.Clear();
         _allRuns.AddRange(presentation.Runs);
         _refreshingBranches = true;
         try
@@ -835,7 +880,19 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
         foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
         NotifyBranchSelectionChanged();
-        ApplyFilter();
+        if (append)
+        {
+            foreach (var item in presentation.Versions) FilteredHistory.Add(item);
+            foreach (var item in presentation.Runs) FilteredRuns.Add(item);
+        }
+        else
+        {
+            FilteredHistory.ReplaceAll(_allVersions);
+            FilteredRuns.ReplaceAll(_allRuns);
+        }
+        IsEmpty = IsGroupedRunView ? FilteredRuns.Count == 0 : FilteredHistory.Count == 0;
+        UpdateSemanticStatusPreferences(_allVersions);
+        NotifyContextChanged();
         _ = AssessSelectedBranchAsync();
     }
 
@@ -873,7 +930,9 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
 
     private void ClearPresentation()
     {
-        _cachedPresentation = null;
+        _nextCursor = null;
+        OnPropertyChanged(nameof(HasMoreHistory));
+        OnPropertyChanged(nameof(CanLoadMore));
         _presentationRuntime = null;
         _presentationSequence = -1;
         _allVersions.Clear();
@@ -899,35 +958,20 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         NotifyBranchSelectionChanged();
     }
 
+    public Task LoadMoreAsync() => CanLoadMore
+        ? RefreshCurrentHistoryCoreAsync(CancellationToken.None, append: true) : Task.CompletedTask;
+
+    private async Task FilterAfterDelayAsync(int generation)
+    {
+        _refreshRequests.CancelCurrent();
+        await Task.Delay(250);
+        if (_isActive && generation == _filterGeneration) await RefreshCurrentHistoryAsync();
+    }
+
     private void ApplyFilter()
     {
-        var needle = CommentFilterText.Trim();
-        var branchId = (IsAdvancedHistory ? SelectedBranch : Branches.FirstOrDefault(branch => branch.IsActive))?.BranchId;
-        if (IsGroupedRunView)
-        {
-            var runs = _allRuns.Where(item => (needle.Length == 0
-                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)))
-                .ToArray();
-            FilteredRuns.ReplaceAll(runs);
-            FilteredHistory.ReplaceAll([]);
-            _missingCount = 0; IsEmpty = FilteredRuns.Count == 0;
-        }
-        else
-        {
-            var versions = _allVersions.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
-                         && (needle.Length == 0
-                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.FileName.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.BranchDisplay.Contains(needle, StringComparison.OrdinalIgnoreCase)))
-                .ToArray();
-            FilteredHistory.ReplaceAll(versions);
-            FilteredRuns.ReplaceAll([]);
-            _missingCount = FilteredHistory.Count(item => item.IsLocalPayloadMissing);
-            IsEmpty = FilteredHistory.Count == 0; UpdateSemanticStatusPreferences(_allVersions);
-        }
-        OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
+        if (_isActive && _currentConfig is not null)
+            TaskObserver.Observe(RefreshCurrentHistoryAsync(), nameof(HistoryPageViewModel));
     }
 
     private void ScheduleChangeRefresh()
@@ -1080,9 +1124,7 @@ public sealed class NativeHistoryVersionViewItem(
     IReadOnlyDictionary<BranchId, string>? branchNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
     private readonly bool _hasLocalFile = summary.LocalPath is not null && File.Exists(summary.LocalPath);
-    private readonly bool _isLocalPayloadMissing = summary.LocalPath is not null
-        && !File.Exists(summary.LocalPath)
-        && !Directory.Exists(summary.LocalPath);
+    private readonly bool _isLocalPayloadMissing = summary.IsLocalPayloadMissing;
     private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
     private SemanticStatus _readinessStatus = MapReadiness(summary.Readiness);
 
@@ -1193,7 +1235,7 @@ public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<So
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
     public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(summary.RunId, item, sourceNames?.GetValueOrDefault(item.SourceId), summary.HistoricalBranchNames?.GetValueOrDefault(item.BranchUpdateId ?? default), summary.BranchableCheckpointIds?.Contains(item.CheckpointId ?? default) == true)).ToArray();
 
-    private static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
+    internal static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
     {
         BackupRunOutcome.Completed => I18n.GetString("History_Run_OutcomeCompleted"),
         BackupRunOutcome.Partial => I18n.GetString("History_Run_OutcomePartial"),

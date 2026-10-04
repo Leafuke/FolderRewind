@@ -32,6 +32,34 @@ public sealed class HistoryIndexAndLocalStateTests
     }
 
     [TestMethod]
+    public async Task IncrementalIndex_IsIdempotentAndMatchesRebuiltBranchTips()
+    {
+        var source = SourceId.New();
+        var version = CreateVersion(source);
+        var checkpoint = CreateCheckpoint(source, version.VersionId);
+        var branch = BranchId.New();
+        var root = new BranchUpdate(BranchUpdateId.New(), branch, [], "main", checkpoint.CheckpointId,
+            false, DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: source);
+        var tip = new BranchUpdate(BranchUpdateId.New(), branch, [root.UpdateId], "main", checkpoint.CheckpointId,
+            false, DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup, sourceId: source);
+        var initial = _codec.Decode(_codec.Encode(CreatePack(version, checkpoint, root)));
+        var added = _codec.Decode(_codec.Encode(CreatePack(tip)));
+        using var incremental = new HistoryIndex(Path.Combine(_root, "incremental.db"));
+        using var rebuilt = new HistoryIndex(Path.Combine(_root, "rebuilt.db"));
+        await incremental.RebuildAsync([initial]);
+        await incremental.ApplyPacksAsync([added]);
+        await incremental.ApplyPacksAsync([initial, added]);
+        await rebuilt.RebuildAsync([initial, added]);
+        Assert.AreEqual(await rebuilt.GetObjectCountAsync(), await incremental.GetObjectCountAsync());
+        CollectionAssert.AreEquivalent((await rebuilt.GetBranchTipsAsync(branch)).ToArray(),
+            (await incremental.GetBranchTipsAsync(branch)).ToArray());
+        var conflicting = _codec.Decode(_codec.Encode(new HistoryCommitPack(added.Pack.PackId,
+            HistoryTransactionId.New(), DateTimeOffset.UtcNow, added.Pack.Objects)));
+        await Assert.ThrowsExactlyAsync<HistoryIntegrityConflictException>(() => incremental.ApplyPacksAsync([conflicting]));
+        Assert.AreEqual(2, await incremental.GetIndexedPackCountAsync());
+    }
+
+    [TestMethod]
     public async Task Index_CanBeDeletedAndRebuiltWithDivergentBranchTips()
     {
         var source = SourceId.New();

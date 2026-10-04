@@ -1,15 +1,14 @@
-# Windows App SDK 2.3.1 local performance check
+# Local startup performance measurements
 
-`Measure-WindowsAppSdk231.ps1` performs the lightweight local comparison used
-for the Windows App SDK 2.3.1 upgrade. It publishes and measures exactly these
-configurations:
+`Measure-WindowsAppSdk231.ps1` measures the SDK version currently declared by the app.
+Pass `-HistoricalSdkMatrix` explicitly to publish the historical 2.2.0/2.3.1 variants.
 
-1. Windows App SDK 2.2.0 baseline
-2. Windows App SDK 2.3.1 with no optional XAML changes
-3. Each of the four optional changes enabled by itself
-4. All four optional changes enabled together
-
-It intentionally does not test two-change or three-change combinations.
+Window activation, home-page Loaded, and history warmup completion have separate
+monotonic timestamps measured from program entry. Home Loaded is not proof of a
+presented frame. `AppReadyMs` remains an alias for `HomeLoadedMs` in older summaries.
+A null `HistoryWarmupMs` means background warmup did not finish within the sampling
+window; it does not mean zero elapsed time. Raw CSV fields retain these values.
+No result is used as a performance gate or CI timing assertion.
 
 ## Run
 
@@ -42,6 +41,5 @@ payload, also check:
 - context menus and copy behavior on selectable text;
 - light/dark theme and font changes.
 
-The comparison is deliberately lightweight. Investigate a repeatable startup
-median regression above 5%. Performance-neutral optional changes are acceptable
+The comparison is deliberately lightweight. Compare repeated medians with the same fixture and machine. Performance-neutral optional changes are acceptable
 when the smoke checks pass.

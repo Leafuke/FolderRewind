@@ -46,6 +46,7 @@ public sealed partial class HistoryPageViewModel
         ExportVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>((item, token) => item is null ? Task.CompletedTask
             : ExecuteOperationAsync("version export", ct => ExportVersionCoreAsync(item, ct), token), CanExecuteItemOperation);
         DeleteVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(DeleteVersionCommandAsync, CanExecuteItemOperation);
+        CancelOperationCommand = new RelayCommand(CancelCurrentOperationCommands, () => IsOperationBusy);
 
         EditRunCommentCommand = new AsyncRelayCommand<BackupRunViewItem>(EditRunCommentCommandAsync, CanExecuteItemOperation);
         ToggleRunImportantCommand = new AsyncRelayCommand<BackupRunViewItem>(ToggleRunImportantCommandAsync, CanExecuteItemOperation);
@@ -85,6 +86,7 @@ public sealed partial class HistoryPageViewModel
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> RestoreVersionCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> ExportVersionCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> DeleteVersionCommand { get; }
+    public IRelayCommand CancelOperationCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> EditRunCommentCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> ToggleRunImportantCommand { get; }
     public IAsyncRelayCommand<BackupRunSourceViewItem> CreateBranchFromRunSourceCommand { get; }
@@ -286,12 +288,10 @@ public sealed partial class HistoryPageViewModel
     }
 
     private Task MergeBranchCommandAsync(CancellationToken cancellationToken)
-        => ExecuteOperationAsync("branch merge", async token =>
-        {
-            if (!TryGetCurrentConfig(out var config) || config is null) return;
-            await HistoryMergeInteraction.ShowAsync(config, new SourceId(Guid.Parse(_currentFolder!.Id)), SelectedBranch?.BranchId, token);
-            await RefreshCurrentHistoryAsync(token);
-        }, cancellationToken);
+    {
+        OpenMergeWorkspace();
+        return Task.CompletedTask;
+    }
 
     private Task CheckoutBranchCommandAsync(CancellationToken cancellationToken)
     {
@@ -790,9 +790,9 @@ public sealed partial class HistoryPageViewModel
                     ? I18n.Format("History_DeleteConfirm_Content", item.FileName)
                     : $"{I18n.Format("History_DeleteConfirm_Content", item.FileName)}\n{localDeletionBlocker}",
                 options,
-                I18n.GetString("Common_Ok"),
+                I18n.GetString("History_Rewrite_Continue"),
                 InitialValue: item.HasLocalFile && string.IsNullOrWhiteSpace(localDeletionBlocker)
-                    ? ((int)BackupDeleteMode.LocalArchiveOnly).ToString(CultureInfo.InvariantCulture)
+                    ? ((int)BackupDeleteMode.LocalArchiveAndRecord).ToString(CultureInfo.InvariantCulture)
                     : ((int)BackupDeleteMode.RecordOnly).ToString(CultureInfo.InvariantCulture),
                 IsDestructive: true),
             cancellationToken);
@@ -803,7 +803,24 @@ public sealed partial class HistoryPageViewModel
             return;
         }
 
-        var result = await DeleteVersionAsync(item, (BackupDeleteMode)rawMode);
+        var progress = new Progress<FolderRewind.History.Retention.HistoryChainRewriteProgress>(update =>
+            SetOperationStatus(update.Stage switch
+            {
+                "analyze" => "History_Rewrite_Analyzing",
+                "verify" => "History_Rewrite_Verifying",
+                "ready" => "History_Rewrite_Ready",
+                _ => "History_Rewrite_Preparing"
+            }));
+        var result = await DeleteVersionAsync(item, (BackupDeleteMode)rawMode,
+            async (prepared, token) => await _interactions.ConfirmAsync(
+                I18n.GetString("History_DeleteConfirm_Title"),
+                I18n.Format("History_Rewrite_Confirm", item.FileName, prepared.Mappings.Length,
+                    (prepared.CreatedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture),
+                    (prepared.ReclaimedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture),
+                    (prepared.NetReleasedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture)),
+                I18n.GetString("Common_Ok"), true, token), progress, cancellationToken);
+        if (result.Success && !string.IsNullOrWhiteSpace(result.Message))
+            _interactions.Notify(HistoryNotificationKind.Warning, result.Message);
         if (!result.Success)
         {
             _interactions.Notify(
@@ -1026,6 +1043,7 @@ public sealed partial class HistoryPageViewModel
 
     private void NotifyCommandStateChanged()
     {
+        CancelOperationCommand.NotifyCanExecuteChanged();
         RetryCommand.NotifyCanExecuteChanged();
         EditVersionCommentCommand.NotifyCanExecuteChanged();
         ToggleVersionImportantCommand.NotifyCanExecuteChanged();

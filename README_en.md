@@ -38,6 +38,7 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
   - **Hot Backups**: Plugins can intervene to create snapshots before backing up locked files.
   - **Plugin Control**: Plugins can redefine backup and restore modes for more advanced functionality.
 - **⏳ History Timeline**: View a clear timeline of your backups. "Rewind" your folder to any previous state.
+- **Safe incremental deletion**: Deleting a supported intermediate local backup composes replacement deltas or creates a full archive, preserving exact restoration of retained versions. Automatic retention only commits plans that reclaim net space. See the [design and validation record](docs/plans/History_Safe_Node_Deletion_2026-10-03.md).
 - **☁️ Cloud Backups**: Supports WebDAV, FTP, SFTP, and other protocols for cloud storage, making it easy to sync your data to NAS or cloud services.
 - **🎨 Modern Design**: 
   - Native **Windows 11** aesthetic with Mica material.

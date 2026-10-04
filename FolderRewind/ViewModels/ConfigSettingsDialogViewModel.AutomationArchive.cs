@@ -121,7 +121,7 @@ namespace FolderRewind.ViewModels
             {
                 if (!ConditionalModeEnabled)
                 {
-                    return I18n.GetString("ConfigSettingsDialog_ConditionalModeDesc");
+                    return I18n.GetString("ConfigSettingsDialog_ConditionalModeDesc.Text");
                 }
 
                 if (string.IsNullOrWhiteSpace(ConditionRelativePathText))

@@ -31,17 +31,17 @@ public sealed class HistoryMergePlanner(HistoryRuntime history)
         {
             var branch = branches.SingleOrDefault(b => b.BranchId == id);
             if (branch is null || branch.Tips.Length != 1 || branch.Tips[0].IsDeleted || branch.Tips[0].IsUnborn)
-                throw new InvalidOperationException("Merge inputs require unique, non-deleted, non-unborn local tips.");
+                throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.InvalidBranches));
             return branch.Tips[0];
         }
         var theirs = Tip(sourceBranch);
         if (sourceId is { } requested && theirs.SourceId != requested) throw new InvalidOperationException("Merge crosses Source identity.");
         var state = workspace.GetSourceState(theirs.SourceId);
         if (workspace.ConfigId != history.ConfigId || state.ActiveBranchId is not { } targetBranch || targetBranch == sourceBranch)
-            throw new InvalidOperationException("Merge requires distinct Branches in one Source.");
+            throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.InvalidBranches));
         var ours = Tip(targetBranch);
         if (ours.SourceId != theirs.SourceId) throw new InvalidOperationException("Merge crosses Source identity.");
-        if (state.ActiveBranchUpdateId != ours.UpdateId) throw new InvalidOperationException("Workspace target tip is stale.");
+        if (state.ActiveBranchUpdateId != ours.UpdateId) throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
         bindings = bindings.Where(b => b.SourceId == theirs.SourceId).ToArray();
         var checkpoints = await history.Query.GetAllCheckpointsAsync(token).ConfigureAwait(false);
         var map = checkpoints.ToDictionary(c => c.CheckpointId);

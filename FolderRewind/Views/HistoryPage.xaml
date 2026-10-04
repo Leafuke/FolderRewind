@@ -31,6 +31,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid x:Name="HistoryHeader" Margin="0,0,0,20" ColumnSpacing="16" RowSpacing="8">
@@ -214,9 +215,12 @@
         </Border>
 
         <StackPanel Grid.Row="2" Spacing="8" Margin="0,0,0,12">
+            <Button x:Uid="MergeWorkspace_Pending" AutomationProperties.AutomationId="HistoryPendingMerges" Click="OnPendingMergeClick" Visibility="{x:Bind ViewModel.HasPendingMerges, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
             <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsOperationBusy, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.LiveSetting="Polite">
                 <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.IsOperationBusy, Mode=OneWay}"/>
                 <TextBlock Text="{x:Bind ViewModel.OperationStatus, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <Button x:Uid="HistoryCancelOperation" AutomationProperties.AutomationId="HistoryCancelOperation"
+                        Command="{x:Bind ViewModel.CancelOperationCommand}"/>
             </StackPanel>
             <Grid Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
                   AutomationProperties.LiveSetting="Polite">
@@ -432,5 +436,9 @@
             <FontIcon Glyph="&#xE7BA;" FontSize="48" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
+        <Button Grid.Row="4" x:Uid="History_LoadMore" HorizontalAlignment="Center" Margin="0,12,0,0"
+                AutomationProperties.AutomationId="HistoryLoadMore" Click="OnLoadMoreClick"
+                IsEnabled="{x:Bind ViewModel.CanLoadMore, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.HasMoreHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
     </Grid>
 </Page>

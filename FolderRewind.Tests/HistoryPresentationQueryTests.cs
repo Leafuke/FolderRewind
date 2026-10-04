@@ -23,6 +23,42 @@ public sealed class HistoryPresentationQueryTests
     }
 
     [TestMethod]
+    public async Task PagedQuery_SearchesUnloadedRowsAndInvalidatesChangedRevision()
+    {
+        var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(config,
+            new HistoryRepositoryPaths(Path.Combine(_root, "pages"))));
+        await runtime.InitializeAsync();
+        var source = SourceId.New();
+        var other = SourceId.New();
+        var codec = new HistoryPackCodec();
+        var facts = new List<object>();
+        SourceVersion? target = null;
+        for (var i = 0; i < 210; i++)
+        {
+            var version = Version(config, i < 205 ? source : other, i == 0 ? "needle" : "item");
+            target ??= version;
+            facts.AddRange([version, ExactRepresentation(version), Checkpoint(config, version.SourceId, version)]);
+        }
+        await runtime.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            facts.Select(f => codec.CreateObject(f))));
+        var service = new HistoryPresentationQueryService(runtime);
+        var request = new HistoryPageRequest(source, false, false, null, "");
+        var first = await service.QueryPageAsync(request);
+        var second = await service.QueryPageAsync(request with { Cursor = first.Next });
+        var third = await service.QueryPageAsync(request with { Cursor = second.Next });
+        Assert.AreEqual(205, first.TotalCount);
+        Assert.AreEqual(205, first.Snapshot.Timeline.Concat(second.Snapshot.Timeline).Concat(third.Snapshot.Timeline)
+            .Select(v => v.CheckpointId).Distinct().Count());
+        Assert.IsNull(third.Next);
+        Assert.AreEqual(1, (await service.QueryPageAsync(request with { Keyword = "needle" })).TotalCount);
+        await runtime.Annotations.SetCommentAsync(new(HistoryAnnotationTargetKind.Version, target!.VersionId.Value), "updated");
+        var changed = await service.QueryPageAsync(request with { Cursor = first.Next });
+        Assert.IsTrue(changed.CursorInvalidated);
+        Assert.HasCount(100, changed.Snapshot.Timeline);
+    }
+
+    [TestMethod]
     public async Task TimelineKeepsParentlessAndDivergentVersionsWhileMultiTipCommandsAreDisabled()
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));

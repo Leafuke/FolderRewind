@@ -147,6 +147,7 @@ namespace FolderRewind
                 UpdateWindowTitle();
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
+                StartupTimingService.Mark("Window activated");
                 Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
 
                 StartHistoryWarmup();
@@ -574,8 +575,9 @@ namespace FolderRewind
             try
             {
                 await Services.AutomationService.StopAsync();
+                Services.MergeOperationService.BeginShutdown();
                 var deadline = DateTime.UtcNow.AddSeconds(30);
-                while (BackupService.ActiveTasks.Any(task => !task.IsCompleted))
+                while (BackupService.ActiveTasks.Any(task => !task.IsCompleted) || Services.MergeOperationService.ActiveTasks.Length != 0)
                 {
                     if (DateTime.UtcNow >= deadline)
                         throw new InvalidOperationException("请等待当前任务完成后退出或重启。 / Wait for active tasks before exiting or restarting.");
@@ -590,6 +592,7 @@ namespace FolderRewind
             {
                 if (root != null) root.IsEnabled = true;
                 Program.Instance?.SetClosing(false);
+                Services.MergeOperationService.CancelShutdown();
                 _exitTask = null;
                 NotificationService.ShowError(error.Message);
                 throw;
@@ -604,6 +607,7 @@ namespace FolderRewind
             app.CleanupTrayIcon();
             app.CleanupAppNotifications();
 
+            await LogService.StopAsync();
             _window?.Close();
             app.Exit();
         }
@@ -675,6 +679,7 @@ namespace FolderRewind
                         Services.ConfigService.ConfigDirectory,
                         cancellationToken),
                     cancellationToken).ConfigureAwait(false);
+                StartupTimingService.Mark("History warmup completed");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

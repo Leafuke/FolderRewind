@@ -961,7 +961,7 @@
     <value>压缩等级（0-9）</value>
   </data>
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
-    <value>保留最近备份数（0 为不限制）</value>
+    <value>每个备份源保留最近版本数（0 为无限保留）</value>
   </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>压缩算法</value>
@@ -1378,7 +1378,7 @@
     <value>一键安装</value>
   </data>
   <data name="SettingsPage_PluginDeleteData.Content" xml:space="preserve">
-    <value>删除数据...</value>
+    <value>删除数据</value>
   </data>
   <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
     <value>云备份入门预设</value>
@@ -4304,13 +4304,13 @@ Pull Request：{1}</value>
     <value>当前备份项目使用自定义云命令，历史页上传/下载仅支持 rclone 模式。</value>
   </data>
   <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
-    <value>仅删除历史记录</value>
+    <value>仅隐藏历史记录</value>
   </data>
   <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
     <value>仅删除本地备份文件</value>
   </data>
   <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
-    <value>删除本地备份文件和历史记录</value>
+    <value>删除本地备份并隐藏记录（保留后续版本）</value>
   </data>
   <data name="History_Delete_InvalidRequest" xml:space="preserve">
     <value>删除请求无效。</value>
@@ -5226,7 +5226,7 @@ Pull Request：{1}</value>
   <data name="Merge_Theirs" xml:space="preserve"><value>采用来源分支</value></data>
   <data name="Merge_Manual" xml:space="preserve"><value>导入解决文件</value></data>
   <data name="Merge_Close" xml:space="preserve"><value>关闭并保留</value></data>
-  <data name="Merge_WholeSource" xml:space="preserve"><value>整个 Source</value></data>
+  <data name="Merge_WholeSource" xml:space="preserve"><value>整个文件夹</value></data>
   <data name="Merge_Page" xml:space="preserve"><value>页</value></data>
   <data name="Merge_Base" xml:space="preserve"><value>共同基点</value></data>
   <data name="Merge_SelectBranch" xml:space="preserve"><value>请先在历史页选择来源分支。</value></data>
@@ -5251,20 +5251,20 @@ Pull Request：{1}</value>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>无需修改。</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>合并提交已落盘，需要完成本机恢复。</value></data>
   <data name="Merge_PrepareReplicas" xml:space="preserve"><value>准备所需副本（显式下载）</value></data>
-  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>需要先准备 Exact 副本。</value></data>
+  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>需要先准备可精确还原的备份数据。</value></data>
   <data name="Merge_Working" xml:space="preserve"><value>正在执行：</value></data>
   <data name="Merge_Cancelled" xml:space="preserve"><value>操作已取消；会话和已保存处理结果仍保留。</value></data>
-  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>所需 Exact 副本尚未在本机准备好。</value></data>
-  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>Exact 副本或其依赖不可用，合并已阻断。</value></data>
+  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>可精确还原的备份数据尚未在本机准备好。</value></data>
+  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>可精确还原的备份或其依赖不可用，合并已阻断。</value></data>
   <data name="Merge_Diagnostic_Stale" xml:space="preserve"><value>配置、工作区、分支或合并实现已变化。</value></data>
-  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>结果 Source 缺少有效目录映射。</value></data>
+  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>合并结果缺少与备份范围一致的有效目标目录。</value></data>
   <data name="Merge_Diagnostic_CoordinationScopeChanged" xml:space="preserve"><value>所需协调范围已变化；尚未执行目标修改。</value></data>
   <data name="Merge_Diagnostic_RecoveryRequired" xml:space="preserve"><value>事务需要完成恢复；请保留会话与事务文件。</value></data>
   <data name="Merge_Diagnostic_PostActionWarning" xml:space="preserve"><value>提交已完成；缓存或清理维护需要重试。</value></data>
   <data name="Merge_Diagnostic_PreparationFailed" xml:space="preserve"><value>准备未完成；已保存的人工成果仍保留。详情见日志。</value></data>
-  <data name="Merge_Action_Prepare" xml:space="preserve"><value>修复凭据、插件或副本后，点击“准备所需副本”；不会自动应用。</value></data>
-  <data name="Merge_Action_Recompute" xml:space="preserve"><value>修复映射或配置后显式重新计算；匹配的处理结果会保留。</value></data>
-  <data name="Merge_Action_Recover" xml:space="preserve"><value>使用“继续 / 恢复”完成原事务，勿删除 pack 或回滚目录。</value></data>
+  <data name="Merge_Action_Prepare" xml:space="preserve"><value>检查凭据、插件或备份副本后，点击“下载所需副本”；不会自动应用合并。</value></data>
+  <data name="Merge_Action_Recompute" xml:space="preserve"><value>修正配置或目录后点击“重新分析”；输入未变化的已保存决定会保留。</value></data>
+  <data name="Merge_Action_Recover" xml:space="preserve"><value>点击“恢复原事务”完成恢复，无需重新创建合并。</value></data>
   <data name="Merge_Action_Maintenance" xml:space="preserve"><value>下次启动或维护会重试清理；无需重复应用合并。</value></data>
   <data name="Merge_Action_Retry" xml:space="preserve"><value>确认环境后重试；必要时重新计算计划。</value></data>
   <data name="Merge_Mode_NoOp" xml:space="preserve"><value>无需合并</value></data>
@@ -5276,8 +5276,8 @@ Pull Request：{1}</value>
   <data name="Merge_Conflict_ModifyDelete" xml:space="preserve"><value>修改与删除</value></data>
   <data name="Merge_Conflict_AddAdd" xml:space="preserve"><value>双方新增</value></data>
   <data name="Merge_Conflict_PathStructure" xml:space="preserve"><value>路径结构冲突</value></data>
-  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Source 清单冲突</value></data>
-  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Source 边界冲突</value></data>
+  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>文件夹存在状态冲突</value></data>
+  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>备份范围冲突</value></data>
   <data name="History_Creation_Capture" xml:space="preserve"><value>备份捕获</value></data>
   <data name="History_Creation_Merge" xml:space="preserve"><value>合并版本</value></data>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>恢复版本</value></data>
@@ -5635,7 +5635,7 @@ Pull Request：{1}</value>
   <data name="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve"><value>无变更时跳过备份</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>保留最近备份数（0 为不限制）</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>每个备份源保留最近版本数（0 为无限保留）</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve"><value>智能备份链长度 (0 为不限制)</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve"><value>性能影响</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_Format.Header" xml:space="preserve"><value>压缩格式</value></data>
@@ -5711,7 +5711,7 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_ConfigName_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份项目名称</value></data>
   <data name="ConfigSettingsDialog_BackupMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份模式</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>无变更时跳过备份</value></data>
-  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保留最近备份数（0 为不限制）</value></data>
+  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>每个备份源保留最近版本数（0 为无限保留）</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前自动备份</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>安全还原</value></data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前校验备份完整性</value></data>
@@ -6072,4 +6072,226 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_Cache_PreviousRestored" xml:space="preserve"><value>当前缓存无效，已恢复上一版本缓存。</value></data>
   <data name="GameDiscovery_Cache_SecondaryMissing" xml:space="preserve"><value>配置的附加清单已不存在，已跳过：{0}</value></data>
   <data name="GameDiscovery_Cache_OverrideMissing" xml:space="preserve"><value>配置的 FolderRewind 本地覆盖文件已不存在，已跳过：{0}</value></data>
+  <data name="History_Rewrite_Continue" xml:space="preserve"><value>继续</value></data>
+  <data name="History_Rewrite_Analyzing" xml:space="preserve"><value>正在分析备份依赖…</value></data>
+  <data name="History_Rewrite_Preparing" xml:space="preserve"><value>正在重建备份链，原备份仍然保留…</value></data>
+  <data name="History_Rewrite_Verifying" xml:space="preserve"><value>正在验证保留版本的文件内容…</value></data>
+  <data name="History_Rewrite_Ready" xml:space="preserve"><value>备份链已验证，等待删除确认。</value></data>
+  <data name="History_Rewrite_Confirm" xml:space="preserve"><value>删除“{0}”的本地备份？
+已验证 {1} 个重建版本，其他保留版本仍可精确恢复。
+新增归档：{2} MiB
+可回收：{3} MiB
+净释放：{4} MiB（负数表示占用增加）
+确认后提交删除；取消会保留原备份。</value></data>
+  <data name="History_Rewrite_CleanupPending" xml:space="preserve"><value>备份链重建已提交，部分文件或本地状态仍待恢复处理。重新启动应用后会继续处理，请暂勿手动移除归档。</value></data>
+  <data name="History_Rewrite_Unsupported" xml:space="preserve"><value>此备份格式或历史边界暂不支持安全重建，可以选择仅隐藏记录。</value></data>
+  <data name="History_Rewrite_PreparationRequired" xml:space="preserve"><value>后续版本无法精确恢复，请先下载缺失的归档或修复备份链。</value></data>
+  <data name="History_Rewrite_Changed" xml:space="preserve"><value>历史记录已发生变化，请重新准备删除。</value></data>
+  <data name="History_Rewrite_Shared" xml:space="preserve"><value>所选归档文件仍被另一个保留副本使用，无法删除。</value></data>
+  <data name="HistoryCancelOperation.Content" xml:space="preserve"><value>取消</value></data>
+  <data name="History_Rewrite_InsufficientSpace" xml:space="preserve"><value>临时空间不足，无法安全重建备份链。原备份已保留，请释放空间后重试。</value></data>
+  <data name="History_Rewrite_Failed" xml:space="preserve"><value>暂时无法安全删除此备份。请检查备份完整性、密码及运行中的操作后重试，详细原因已记录到日志。</value></data>
+  <data name="App_Log_PluginInitException" xml:space="preserve"><value>[App] 插件初始化失败：{0}</value></data>
+  <data name="Tray_InitFailed" xml:space="preserve"><value>[Tray] 托盘初始化失败：{0}</value></data>
+  <data name="Tray_ToggleFailed" xml:space="preserve"><value>[Tray] 切换窗口显示状态失败：{0}</value></data>
+  <data name="BackupService_Log_RecoveryRequired" xml:space="preserve"><value>备份 {0} 已提交，但需要恢复本地状态。请保留事务文件并重试恢复。</value></data>
+  <data name="MiniWindow_Log_WatcherError" xml:space="preserve"><value>[MiniWindow] 文件夹“{0}”的监视器发生错误：{1}</value></data>
+  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve"><value>[MiniWindow] 启动文件夹“{0}”的监视器失败：{1}</value></data>
+  <data name="Plugins_NotInstalled" xml:space="preserve"><value>该插件尚未安装。</value></data>
+  <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] 打开链接失败：{0}</value></data>
+  <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] 检查插件“{0}”的更新失败：{1}</value></data>
+  <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>此项目已有合并操作正在执行，请等待完成后重试。</value></data>
+  <data name="MergeWorkspace_Back.Content" xml:space="preserve"><value>返回历史并保留</value></data>
+  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>合并分支</value></data>
+  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>确认合并后，会更新上方的本地文件夹和目标分支。来源分支保持不变。</value></data>
+  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>来源分支</value></data>
+  <data name="MergeWorkspace_Analyze.Content" xml:space="preserve"><value>分析合并</value></data>
+  <data name="MergeWorkspace_Sessions.Header" xml:space="preserve"><value>继续已有合并</value></data>
+  <data name="MergeWorkspace_ShowCompleted.Content" xml:space="preserve"><value>显示已完成与已放弃</value></data>
+  <data name="MergeWorkspace_Import.Content" xml:space="preserve"><value>导入解决文件</value></data>
+  <data name="MergeWorkspace_Stop.Label" xml:space="preserve"><value>停止并保留</value></data>
+  <data name="MergeWorkspace_Download.Label" xml:space="preserve"><value>下载所需副本</value></data>
+  <data name="MergeWorkspace_Recompute.Label" xml:space="preserve"><value>重新分析</value></data>
+  <data name="MergeWorkspace_Recover.Label" xml:space="preserve"><value>继续准备 / 恢复事务</value></data>
+  <data name="MergeWorkspace_Abandon.Label" xml:space="preserve"><value>放弃此合并</value></data>
+  <data name="MergeWorkspace_AbandonConfirm" xml:space="preserve"><value>将清理此合并的人工解决文件和临时结果。已经提交的历史备份不会被删除。</value></data>
+  <data name="MergeWorkspace_Unresolved" xml:space="preserve"><value>未解决</value></data>
+  <data name="MergeWorkspace_ChooseSource" xml:space="preserve"><value>选择来源分支，然后分析合并；也可以继续已有任务。</value></data>
+  <data name="MergeWorkspace_Saved" xml:space="preserve"><value>决定已保存</value></data>
+  <data name="MergeWorkspace_Unsaved" xml:space="preserve"><value>处理结果尚未保存，请重试本次操作。</value></data>
+  <data name="MergeWorkspace_Count" xml:space="preserve"><value>{0} 项变更 · {1} 项待解决</value></data>
+  <data name="MergeWorkspace_Stage_Idle" xml:space="preserve"><value>就绪</value></data>
+  <data name="MergeWorkspace_Stage_Loading" xml:space="preserve"><value>读取合并任务</value></data>
+  <data name="MergeWorkspace_Stage_Analyzing" xml:space="preserve"><value>分析分支与输入</value></data>
+  <data name="MergeWorkspace_Stage_Downloading" xml:space="preserve"><value>下载所需副本 · 大小未知</value></data>
+  <data name="MergeWorkspace_Stage_Saving" xml:space="preserve"><value>保存决定</value></data>
+  <data name="MergeWorkspace_Stage_Building" xml:space="preserve"><value>生成候选结果 · 所需空间未知</value></data>
+  <data name="MergeWorkspace_Stage_Validating" xml:space="preserve"><value>验证候选结果</value></data>
+  <data name="MergeWorkspace_Stage_Protecting" xml:space="preserve"><value>保护当前工作</value></data>
+  <data name="MergeWorkspace_Stage_Writing" xml:space="preserve"><value>写入当前文件夹</value></data>
+  <data name="MergeWorkspace_Stage_Committing" xml:space="preserve"><value>安全提交中，请等待完成</value></data>
+  <data name="MergeWorkspace_Stage_Finishing" xml:space="preserve"><value>完成与清理</value></data>
+  <data name="MergeWorkspace_Stage_Recovering" xml:space="preserve"><value>恢复原事务 / 继续准备</value></data>
+  <data name="MergeWorkspace_Pending.Content" xml:space="preserve"><value>此文件夹有未完成合并，打开合并工作页</value></data>
+  <data name="MergeWorkspace_Search.PlaceholderText" xml:space="preserve"><value>搜索文件路径</value></data>
+  <data name="MergeWorkspace_Search.AutomationProperties.Name" xml:space="preserve"><value>搜索变更文件</value></data>
+  <data name="MergeWorkspace_FilterAll.Content" xml:space="preserve"><value>全部变更</value></data>
+  <data name="MergeWorkspace_FilterUnresolved.Content" xml:space="preserve"><value>未解决</value></data>
+  <data name="MergeWorkspace_FilterResolved.Content" xml:space="preserve"><value>已解决</value></data>
+  <data name="MergeWorkspace_FilterAutomatic.Content" xml:space="preserve"><value>自动处理</value></data>
+  <data name="MergeWorkspace_ImportAction.Label" xml:space="preserve"><value>导入解决文件</value></data>
+  <data name="MergeWorkspace_Clear.Label" xml:space="preserve"><value>清除决定</value></data>
+  <data name="MergeWorkspace_Undo.Label" xml:space="preserve"><value>撤销最近一批决定</value></data>
+  <data name="MergeWorkspace_Next.Label" xml:space="preserve"><value>下一处未解决</value></data>
+  <data name="MergeWorkspace_Base.Header" xml:space="preserve"><value>共同基点</value></data>
+  <data name="MergeWorkspace_BackToFiles.Content" xml:space="preserve"><value>返回文件列表</value></data>
+  <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>决定已变化，无法撤销旧的一批处理。</value></data>
+  <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>重新分析：保留 {0} 项决定，{1} 项决定已失效。</value></data>
+  <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>自动处理</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>已勾选 {0} 项</value></data>
+  <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>采用</value></data>
+  <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>采用删除</value></data>
+  <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>正在读取预览…</value></data>
+  <data name="MergeWorkspace_GroupDecision" xml:space="preserve"><value>此冲突须按整组路径决定，不支持单文件导入。</value></data>
+  <data name="MergeWorkspace_WholeFileNotice" xml:space="preserve"><value>选择一侧将采用整个文件。差异标记：+ 新增，− 删除，~ 修改。</value></data>
+  <data name="MergeWorkspace_DeletionNotice" xml:space="preserve"><value>一侧不存在此文件；采用该侧将从结果中删除文件。</value></data>
+  <data name="MergeWorkspace_Preview_Missing" xml:space="preserve"><value>该侧不存在文件</value></data>
+  <data name="MergeWorkspace_Preview_Empty" xml:space="preserve"><value>空文本文件</value></data>
+  <data name="MergeWorkspace_Preview_Text" xml:space="preserve"><value>文本预览</value></data>
+  <data name="MergeWorkspace_Preview_Binary" xml:space="preserve"><value>二进制或不支持的编码</value></data>
+  <data name="MergeWorkspace_Preview_Limited" xml:space="preserve"><value>预览已截断（512 KiB / 5,000 行），未进行完整差异比较</value></data>
+  <data name="MergeWorkspace_Preview_Unavailable" xml:space="preserve"><value>预览文件不可用，请重新准备</value></data>
+  <data name="MergeWorkspace_ReviewTitle.Text" xml:space="preserve"><value>确认即将写入的结果</value></data>
+  <data name="MergeWorkspace_ReviewSummary" xml:space="preserve"><value>相对目标分支：{0} 项变更；当前文件夹实际写入：{1} 项变更。</value></data>
+  <data name="MergeWorkspace_ProtectionRequired" xml:space="preserve"><value>当前工作有未备份改动，写入前将创建保护快照。</value></data>
+  <data name="MergeWorkspace_ProtectionNotRequired" xml:space="preserve"><value>本次检查无需额外保护快照；提交前将再次校验。</value></data>
+  <data name="MergeWorkspace_Validation.Text" xml:space="preserve"><value>候选归档与文件内容校验通过。应用存档格式未验证。</value></data>
+  <data name="MergeWorkspace_BranchChanges.Header" xml:space="preserve"><value>相对目标分支的变化</value></data>
+  <data name="MergeWorkspace_WorkingChanges.Header" xml:space="preserve"><value>当前文件夹实际写入</value></data>
+  <data name="MergeWorkspace_EditDecisions.Content" xml:space="preserve"><value>返回修改决定</value></data>
+  <data name="MergeWorkspace_ViewResult.Content" xml:space="preserve"><value>查看合并版本</value></data>
+  <data name="MergeWorkspace_ViewProtection.Content" xml:space="preserve"><value>查看保护快照</value></data>
+  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>审阅合并结果</value></data>
+  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>确认合并并写入</value></data>
+  <data name="MergeWorkspace_Change_Added" xml:space="preserve"><value>新增</value></data>
+  <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>修改</value></data>
+  <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>删除</value></data>
+  <data name="MergeWorkspace_Change_Structure" xml:space="preserve"><value>路径结构替换</value></data>
+  <data name="MergeWorkspace_Context.Header" xml:space="preserve"><value>来源分支与已有任务</value></data>
+  <data name="MergeWorkspace_Reload.Content" xml:space="preserve"><value>重新加载会话</value></data>
+  <data name="MergeWorkspace_RetrySave.Content" xml:space="preserve"><value>重试保存未提交的决定</value></data>
+  <data name="MergeWorkspace_Attention.Title" xml:space="preserve"><value>需要处理</value></data>
+  <data name="MergeWorkspace_ResizeList.AutomationProperties.Name" xml:space="preserve"><value>调整文件列表宽度；左右方向键每次调整 10 DIP</value></data>
+  <data name="MergeWorkspace_RecoverTransaction" xml:space="preserve"><value>恢复原事务</value></data>
+  <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>继续准备</value></data>
+  <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>当前文件夹尚无有效的活动分支，请先备份或检出一个分支。</value></data>
+  <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>没有其他可合并分支。来源分支须有唯一、有效的历史节点。</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} 个文件</value></data>
+  <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>所选分支无效、与当前分支相同或存在多个分支头。</value></data>
+  <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>这两个分支没有共同基点，无法进行三方合并。</value></data>
+  <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>存在多个最佳共同基点，当前合并器无法安全选择。</value></data>
+  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>请通过右上角任务菜单新建合并并选择其他来源；必要时先解决分支分歧。</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>此文件由文件级规则自动处理，可在最终审阅中核对实际写入。</value></data>
+  <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>此类范围或来源冲突不提供文件级共同基点预览。</value></data>
+  <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>返回备份历史，保留合并任务</value></data>
+  <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>返回历史 · 任务将保留</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>以下操作仅应用于勾选项，不会影响全部搜索结果。</value></data>
+  <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>返回当前任务</value></data>
+  <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>清除决定</value></data>
+  <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>可在历史中查看合并版本与保护快照。</value></data>
+  <data name="MergeWorkspace_DiscardButton.Content" xml:space="preserve"><value>放弃此合并…</value></data>
+  <data name="MergeWorkspace_DownloadButton.Content" xml:space="preserve"><value>下载所需副本</value></data>
+  <data name="MergeWorkspace_Filter.Header" xml:space="preserve"><value>显示范围</value></data>
+  <data name="MergeWorkspace_NewTask.Content" xml:space="preserve"><value>新建合并</value></data>
+  <data name="MergeWorkspace_NextButton.Content" xml:space="preserve"><value>下一处冲突</value></data>
+  <data name="MergeWorkspace_NoChanges" xml:space="preserve"><value>没有需要处理的文件</value></data>
+  <data name="MergeWorkspace_NoMatches" xml:space="preserve"><value>没有匹配的文件</value></data>
+  <data name="MergeWorkspace_OursRole.Text" xml:space="preserve"><value>目标分支 · 当前版本</value></data>
+  <data name="MergeWorkspace_ReadyHint" xml:space="preserve"><value>所有冲突已解决，可以生成结果并进行最终审阅。</value></data>
+  <data name="MergeWorkspace_Reanalyze.Content" xml:space="preserve"><value>重新分析</value></data>
+  <data name="MergeWorkspace_ReturnHistory.Content" xml:space="preserve"><value>返回历史</value></data>
+  <data name="MergeWorkspace_ReviewHint" xml:space="preserve"><value>确认后将写入当前文件夹。</value></data>
+  <data name="MergeWorkspace_Search.Header" xml:space="preserve"><value>查找文件</value></data>
+  <data name="MergeWorkspace_SelectFile" xml:space="preserve"><value>选择一个文件进行比较</value></data>
+  <data name="MergeWorkspace_SelectFileHint" xml:space="preserve"><value>从文件列表选择一项，查看双方内容与处理方式。</value></data>
+  <data name="MergeWorkspace_SetupDescription.Text" xml:space="preserve"><value>先比较两个分支，再选择要保留的文件，最后确认写入。</value></data>
+  <data name="MergeWorkspace_SetupHint.Text" xml:space="preserve"><value>没有冲突的文件会自动处理。有冲突时，逐项比较并采用其中一侧，或导入解决文件。最终审阅前不会写入当前文件夹。</value></data>
+  <data name="MergeWorkspace_SetupNext.Text" xml:space="preserve"><value>分析后会发生什么</value></data>
+  <data name="MergeWorkspace_SetupTitle.Text" xml:space="preserve"><value>将另一分支的内容合入当前分支</value></data>
+  <data name="MergeWorkspace_StepDone" xml:space="preserve"><value>合并结果</value></data>
+  <data name="MergeWorkspace_StepResolve" xml:space="preserve"><value>第 2 步 · 检查文件与冲突</value></data>
+  <data name="MergeWorkspace_StepReview" xml:space="preserve"><value>第 3 步 · 确认合并</value></data>
+  <data name="MergeWorkspace_StepSetup" xml:space="preserve"><value>第 1 步 · 选择分支</value></data>
+  <data name="MergeWorkspace_StopButton.Content" xml:space="preserve"><value>停止并保留</value></data>
+  <data name="MergeWorkspace_TargetLabel.Text" xml:space="preserve"><value>合入当前分支</value></data>
+  <data name="MergeWorkspace_TaskMenu.AutomationProperties.Name" xml:space="preserve"><value>合并任务与更多操作</value></data>
+  <data name="MergeWorkspace_TaskMenu.ToolTipService.ToolTip" xml:space="preserve"><value>任务与更多操作</value></data>
+  <data name="MergeWorkspace_TaskTitle.Text" xml:space="preserve"><value>合并任务</value></data>
+  <data name="MergeWorkspace_TheirsRole.Text" xml:space="preserve"><value>来源分支 · 合入版本</value></data>
+  <data name="MergeWorkspace_UndoButton.Content" xml:space="preserve"><value>撤销批量决定</value></data>
+  <data name="MergeWorkspace_NoWorkingChanges.Text" xml:space="preserve"><value>当前文件夹内容无需新增、修改或删除。</value></data>
+  <data name="MergeWorkspace_NoBranchChanges.Text" xml:space="preserve"><value>结果文件与目标分支一致，无文件内容变更。</value></data>
+  <data name="Retention_Dialog.Title" xml:space="preserve"><value>备份清理</value></data>
+  <data name="Retention_Close" xml:space="preserve"><value>关闭</value></data>
+  <data name="Retention_CountFirstLabel.Text" xml:space="preserve"><value>优先达到保留数量（可能增加磁盘占用）</value></data>
+  <data name="Retention_Footer.Text" xml:space="preserve"><value>仅清理本地归档；保留历史记录，不删除云端副本。受保护版本额外保留。</value></data>
+  <data name="Retention_SettingDescription.Text" xml:space="preserve"><value>每个备份源保留最近 N 个可恢复版本；受保护版本额外保留。0 为无限保留。自动清理仅在能够净释放空间时执行。</value></data>
+  <data name="Retention_ReportButton.Content" xml:space="preserve"><value>清理报告</value></data>
+  <data name="Retention_CleanNow" xml:space="preserve"><value>立即清理</value></data>
+  <data name="Retention_SaveClean" xml:space="preserve"><value>保存并立即清理</value></data>
+  <data name="Retention_Start" xml:space="preserve"><value>开始清理</value></data>
+  <data name="Retention_Heading" xml:space="preserve"><value>配置：{0}
+每个源保留最近 {1} 个版本</value></data>
+  <data name="Retention_ConfigChanged" xml:space="preserve"><value>配置已更改，请重新开始清理。</value></data>
+  <data name="Retention_NoReport" xml:space="preserve"><value>尚未执行清理。</value></data>
+  <data name="Retention_ReportReadFailed" xml:space="preserve"><value>无法读取上次清理报告。</value></data>
+  <data name="Retention_Canceling" xml:space="preserve"><value>正在取消；已提交的清理保持完成，等待当前操作安全退出。</value></data>
+  <data name="Retention_Saving" xml:space="preserve"><value>等待并保存设置…</value></data>
+  <data name="Retention_ReportHeader" xml:space="preserve"><value>{0} · {1}
+保留数量：{2} · {3}</value></data>
+  <data name="Retention_Bytes" xml:space="preserve"><value>删除归档：{0}；新增：{1}；实际回收：{2}；净释放：{3}</value></data>
+  <data name="Retention_Counts" xml:space="preserve"><value>可恢复版本：{0} → {1}；最近版本保留：{2}；额外保护：{3}</value></data>
+  <data name="Retention_SharedGroup" xml:space="preserve"><value>共享依赖组：{0}。文件和空间合计仅列在本组第一个源下。</value></data>
+  <data name="Retention_Version" xml:space="preserve"><value>相关版本：{0}</value></data>
+  <data name="Retention_Unknown" xml:space="preserve"><value>无法评估</value></data>
+  <data name="Retention_Trigger_Manual" xml:space="preserve"><value>手动清理</value></data>
+  <data name="Retention_Trigger_Automatic" xml:space="preserve"><value>自动清理</value></data>
+  <data name="Retention_Policy_SpaceFirst" xml:space="preserve"><value>空间优先</value></data>
+  <data name="Retention_Policy_CountFirst" xml:space="preserve"><value>数量优先</value></data>
+  <data name="Retention_Status_Running" xml:space="preserve"><value>清理进行中</value></data>
+  <data name="Retention_Status_Completed" xml:space="preserve"><value>完成</value></data>
+  <data name="Retention_Status_Partial" xml:space="preserve"><value>部分完成</value></data>
+  <data name="Retention_Status_NoWork" xml:space="preserve"><value>无需清理</value></data>
+  <data name="Retention_Status_Incomplete" xml:space="preserve"><value>未完成</value></data>
+  <data name="Retention_Status_Canceled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Retention_Status_Interrupted" xml:space="preserve"><value>意外中断，部分结果需重新检查</value></data>
+  <data name="Retention_Status_Pending" xml:space="preserve"><value>等待处理</value></data>
+  <data name="Retention_Status_Blocked" xml:space="preserve"><value>无法安全清理</value></data>
+  <data name="Retention_Status_NoSpaceBenefit" xml:space="preserve"><value>未清理：不能净释放空间</value></data>
+  <data name="Retention_Status_CleanupPending" xml:space="preserve"><value>已提交，部分旧文件等待回收</value></data>
+  <data name="Retention_Stage_waiting" xml:space="preserve"><value>等待当前备份或还原完成…</value></data>
+  <data name="Retention_Stage_planning" xml:space="preserve"><value>正在检查保留规则和依赖…</value></data>
+  <data name="Retention_Stage_rebuild" xml:space="preserve"><value>正在重建保留版本…</value></data>
+  <data name="Retention_Stage_verify" xml:space="preserve"><value>正在验证恢复结果…</value></data>
+  <data name="Retention_Stage_ready" xml:space="preserve"><value>验证完成，准备提交…</value></data>
+  <data name="Retention_Stage_committing" xml:space="preserve"><value>正在完成当前清理；提交阶段不可取消。</value></data>
+  <data name="Retention_Reason_NoSpaceBenefit" xml:space="preserve"><value>重建不能净释放空间，原归档保持不变。可手动选择数量优先。</value></data>
+  <data name="Retention_Reason_NoSpaceBenefitCached" xml:space="preserve"><value>相关状态未变，复用上次无收益结果。手动清理可重新评估。</value></data>
+  <data name="Retention_Reason_ProtectedVersionUnavailable" xml:space="preserve"><value>受保护版本无法完整恢复。请检查相关归档、密码或下载缺失文件；同组清理已跳过。</value></data>
+  <data name="Retention_Reason_ProtectedVersionMissing" xml:space="preserve"><value>受保护版本的历史信息缺失，请修复历史后重试。</value></data>
+  <data name="Retention_Reason_CatalogUnavailable" xml:space="preserve"><value>本地归档登记需要恢复，请先修复历史。</value></data>
+  <data name="Retention_Reason_WorkspaceUnavailable" xml:space="preserve"><value>无法确认工作基线，请修复本地历史状态。</value></data>
+  <data name="Retention_Reason_SnapshotCheckpointMissing" xml:space="preserve"><value>安全快照的历史位置缺失，请修复历史。</value></data>
+  <data name="Retention_Reason_OperationRepresentationMissing" xml:space="preserve"><value>活动操作需要的归档信息缺失，请完成或修复相关操作。</value></data>
+  <data name="Retention_Reason_MigrationPending" xml:space="preserve"><value>等待旧版历史迁移后首次正常备份。</value></data>
+  <data name="Retention_Reason_UnsupportedArchive" xml:space="preserve"><value>存在无法自动清理的旧版、非完整或不支持的归档，未强制删除。</value></data>
+  <data name="Retention_Reason_Blocked" xml:space="preserve"><value>无法证明清理安全。请检查下方原因并修复后重试。</value></data>
+  <data name="Retention_Reason_StorageFailure" xml:space="preserve"><value>存储操作失败，请检查可用空间、路径、权限或文件占用。</value></data>
+  <data name="Retention_Reason_GlobalStateUnavailable" xml:space="preserve"><value>无法确认全局历史状态或依赖归属，本次清理停止。请修复历史后重试。</value></data>
+  <data name="Retention_Reason_CleanupPending" xml:space="preserve"><value>保留版本已提交，部分旧文件尚未回收；未计入已释放空间。</value></data>
+  <data name="Retention_Reason_ReportWriteFailed" xml:space="preserve"><value>清理报告保存失败；已提交的清理不受影响。</value></data>
+  <data name="Retention_Reason_CacheWriteFailed" xml:space="preserve"><value>无法保存清理缓存，下次会重新评估。</value></data>
+  <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>清理已提交，但之后的状态评估失败，请重新检查。</value></data>
+  <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>历史提交已持久化，但本地状态需要恢复。后续源已停止处理，请修复历史后重试。</value></data>
+  <data name="History_LoadMore.Content" xml:space="preserve"><value>加载更多</value></data>
 </root>

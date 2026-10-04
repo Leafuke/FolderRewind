@@ -32,6 +32,9 @@ namespace FolderRewind.Services
 
         private static bool _initialized;
         private static readonly ConfigWriteCoordinator ConfigWriter = new(WriteSnapshotAsync, PublishSaved);
+        private static readonly ConfigSnapshotCoordinator<AppConfig> SnapshotRequests = new(
+            UiDispatcherService.Post, CaptureDetachedSnapshot,
+            (snapshot, publish) => ConfigWriter.EnqueueAsync(() => SerializeConfig(snapshot), publish));
 
         public static event Action? Saved;
 
@@ -229,6 +232,15 @@ namespace FolderRewind.Services
             return config;
         }
 
+        private static System.Collections.ObjectModel.ObservableCollection<string> NormalizeStrings(
+            System.Collections.ObjectModel.ObservableCollection<string>? values, bool paths)
+        {
+            var normalized = (values ?? []).Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => paths ? value.Trim().Replace('\\', '/') : value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            return values is not null && values.SequenceEqual(normalized) ? values : new(normalized);
+        }
+
         /// <summary>
         /// 配置规范化：补全全局设置默认值、各备份配置的自动化/源范围/发现来源基线/
         /// 云同步设置，以及备份预设的 ID 与规则字段。仅修补字段，不改用户已有取值。
@@ -246,11 +258,7 @@ namespace FolderRewind.Services
                 foreach (var folder in backupConfig.SourceFolders.Where(folder => folder != null))
                 {
                     folder.SourceScope ??= new BackupSourceScope();
-                    folder.SourceScope.IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
-                        (folder.SourceScope.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
-                            .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
-                            .Select(pattern => pattern.Trim().Replace('\\', '/'))
-                            .Distinct(StringComparer.OrdinalIgnoreCase));
+                    folder.SourceScope.IncludePatterns = NormalizeStrings(folder.SourceScope.IncludePatterns, paths: true);
                 }
                 if (backupConfig.DiscoveryOrigin != null)
                 {
@@ -258,23 +266,15 @@ namespace FolderRewind.Services
                     backupConfig.DiscoveryOrigin.Identity.ProviderId = backupConfig.DiscoveryOrigin.Identity.ProviderId?.Trim() ?? string.Empty;
                     backupConfig.DiscoveryOrigin.Identity.DefinitionId = backupConfig.DiscoveryOrigin.Identity.DefinitionId?.Trim() ?? string.Empty;
                     backupConfig.DiscoveryOrigin.Identity.SetId = backupConfig.DiscoveryOrigin.Identity.SetId?.Trim() ?? string.Empty;
-                    backupConfig.DiscoveryOrigin.Identity.ExternalIds = backupConfig.DiscoveryOrigin.Identity.ExternalIds == null
-                        ? new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                        : new System.Collections.Generic.Dictionary<string, string>(backupConfig.DiscoveryOrigin.Identity.ExternalIds, StringComparer.OrdinalIgnoreCase);
+                    var externalIds = backupConfig.DiscoveryOrigin.Identity.ExternalIds;
+                    if (externalIds is null || !Equals(externalIds.Comparer, StringComparer.OrdinalIgnoreCase))
+                        backupConfig.DiscoveryOrigin.Identity.ExternalIds = new Dictionary<string, string>(externalIds ?? [], StringComparer.OrdinalIgnoreCase);
                     backupConfig.DiscoveryOrigin.ReviewedBaseline ??= new ReviewedDiscoveryBaseline();
                     foreach (var source in backupConfig.DiscoveryOrigin.ReviewedBaseline.Sources)
                     {
                         source.NormalizedRootPath = source.NormalizedRootPath?.Trim() ?? string.Empty;
-                        source.IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
-                            (source.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
-                                .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
-                                .Select(pattern => pattern.Trim().Replace('\\', '/'))
-                                .Distinct(StringComparer.OrdinalIgnoreCase));
-                        source.ResourceIds = new System.Collections.ObjectModel.ObservableCollection<string>(
-                            (source.ResourceIds ?? new System.Collections.ObjectModel.ObservableCollection<string>())
-                                .Where(id => !string.IsNullOrWhiteSpace(id))
-                                .Select(id => id.Trim())
-                                .Distinct(StringComparer.OrdinalIgnoreCase));
+                        source.IncludePatterns = NormalizeStrings(source.IncludePatterns, paths: true);
+                        source.ResourceIds = NormalizeStrings(source.ResourceIds, paths: false);
                     }
                 }
                 NormalizeBackupScope(backupConfig.BackupScope);
@@ -340,9 +340,9 @@ namespace FolderRewind.Services
                 if (backupConfig.ArtifactTransformPolicy is not null)
                 {
                     backupConfig.ArtifactTransformPolicy.Transformer ??= new ArtifactTransformerReference();
-                    backupConfig.ArtifactTransformPolicy.Parameters = backupConfig.ArtifactTransformPolicy.Parameters is null
-                        ? new Dictionary<string, JsonElement>(StringComparer.Ordinal)
-                        : new Dictionary<string, JsonElement>(backupConfig.ArtifactTransformPolicy.Parameters, StringComparer.Ordinal);
+                    var parameters = backupConfig.ArtifactTransformPolicy.Parameters;
+                    if (parameters is null || !Equals(parameters.Comparer, StringComparer.Ordinal))
+                        backupConfig.ArtifactTransformPolicy.Parameters = new Dictionary<string, JsonElement>(parameters ?? [], StringComparer.Ordinal);
                 }
                 RemoveLegacyExtensions(backupConfig.BackupScope, "PluginScopeId");
 
@@ -467,9 +467,7 @@ namespace FolderRewind.Services
                 scope.OwnerId = string.Empty;
                 scope.ScopeId = string.Empty;
             }
-            scope.Parameters = scope.Parameters == null
-                ? new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                : new System.Collections.Generic.Dictionary<string, string>(scope.Parameters, StringComparer.OrdinalIgnoreCase);
+            scope.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
         #endregion
@@ -492,9 +490,12 @@ namespace FolderRewind.Services
 
             try
             {
-                var snapshot = CaptureSnapshot();
-                return ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent)
-                    .ConfigureAwait(false).GetAwaiter().GetResult();
+                return UiDispatcherService.RunOnUiAsync(() =>
+                {
+                    SnapshotRequests.Drain();
+                    var snapshot = CaptureDetachedSnapshot();
+                    return ConfigWriter.EnqueueAsync(() => SerializeConfig(snapshot), publishSavedEvent);
+                }).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -518,10 +519,7 @@ namespace FolderRewind.Services
 
             try
             {
-                var snapshot = await UiDispatcherService.RunOnUiAsync(
-                    () => CaptureSnapshot()).ConfigureAwait(false);
-                return await ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent, cancellationToken)
-                    .ConfigureAwait(false);
+                return await SnapshotRequests.EnqueueAsync(null, publishSavedEvent, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -546,14 +544,12 @@ namespace FolderRewind.Services
 
             try
             {
-                var snapshot = await UiDispatcherService.RunOnUiAsync(() =>
+                return await UiDispatcherService.RunOnUiAsync(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     mutation(CurrentConfig);
-                    return CaptureSnapshot();
+                    return SnapshotRequests.EnqueueAsync(null, publishSavedEvent, cancellationToken);
                 }).ConfigureAwait(false);
-                return await ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent, cancellationToken)
-                    .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -565,8 +561,11 @@ namespace FolderRewind.Services
             }
         }
 
-        public static Task FlushAsync(CancellationToken cancellationToken = default)
-            => ConfigWriter.FlushAsync(cancellationToken);
+        public static async Task FlushAsync(CancellationToken cancellationToken = default)
+        {
+            await UiDispatcherService.RunOnUiAsync(SnapshotRequests.Drain).ConfigureAwait(false);
+            await ConfigWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         internal static async Task SealForExitAsync()
         {
@@ -577,14 +576,16 @@ namespace FolderRewind.Services
             }
             // Completing the channel drains accepted snapshots and rejects late
             // background requests before the process releases its instance lock.
+            await UiDispatcherService.RunOnUiAsync(SnapshotRequests.Seal).ConfigureAwait(false);
             await ConfigWriter.DisposeAsync();
         }
 
-        private static byte[] CaptureSnapshot()
+        private static AppConfig CaptureDetachedSnapshot()
         {
+            if (IsRecoveryMode) throw new InvalidOperationException("Configuration writes are disabled during recovery.");
             NormalizeConfig(CurrentConfig);
             PrepareSchemaOnePersistence(CurrentConfig);
-            return SerializeConfig(CurrentConfig);
+            return ConfigSnapshotMapper.Copy(CurrentConfig);
         }
 
         private static Task WriteSnapshotAsync(
@@ -1030,8 +1031,7 @@ namespace FolderRewind.Services
             settings.GameDiscovery ??= new GameDiscoverySettings();
             settings.GameDiscovery.SecondaryManifestPath = settings.GameDiscovery.SecondaryManifestPath?.Trim() ?? string.Empty;
             settings.GameDiscovery.OverridePath = settings.GameDiscovery.OverridePath?.Trim() ?? string.Empty;
-            settings.GameDiscovery.LibraryRoots = new System.Collections.ObjectModel.ObservableCollection<GameLibraryRootSetting>(
-                settings.GameDiscovery.LibraryRoots
+            var roots = settings.GameDiscovery.LibraryRoots
                     .Where(root => root != null && !string.IsNullOrWhiteSpace(root.Path))
                     .Select(root =>
                     {
@@ -1039,7 +1039,9 @@ namespace FolderRewind.Services
                         return root;
                     })
                     .GroupBy(root => $"{root.Store}|{root.Path}", StringComparer.OrdinalIgnoreCase)
-                    .Select(group => group.First()));
+                    .Select(group => group.First()).ToArray();
+            if (!settings.GameDiscovery.LibraryRoots.SequenceEqual(roots))
+                settings.GameDiscovery.LibraryRoots = new System.Collections.ObjectModel.ObservableCollection<GameLibraryRootSetting>(roots);
 
             settings.SponsorAccentColorIndex = Math.Clamp(settings.SponsorAccentColorIndex, 0, ThemeService.SponsorAccentPresetCount - 1);
             settings.SponsorBackdropIndex = Math.Clamp(settings.SponsorBackdropIndex, 0, 1);

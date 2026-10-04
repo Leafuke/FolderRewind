@@ -149,7 +149,7 @@ public static partial class PluginService
                 {
                     Success = false,
                     ErrorCode = "scope_parameter_required",
-                    ErrorMessage = $"{parameter.DisplayName}: {I18n.GetString("Validation_Required")}"
+                    ErrorMessage = $"{parameter.DisplayName}: {I18n.GetString("Common_Required")}"
                 };
             }
         }

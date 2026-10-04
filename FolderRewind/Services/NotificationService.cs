@@ -91,7 +91,6 @@ namespace FolderRewind.Services
         private static int _suppressionCount = 0;
         private static bool _taskBadgeTrackingInitialized;
         private static readonly object TaskTrackingLock = new();
-        private static readonly HashSet<BackupTask> TrackedTasks = new();
 
         /// <summary>
         /// 当前是否启用通知（全局开关）
@@ -116,11 +115,7 @@ namespace FolderRewind.Services
                 }
 
                 _taskBadgeTrackingInitialized = true;
-                BackupService.ActiveTasks.CollectionChanged += OnActiveTasksCollectionChanged;
-                foreach (var task in BackupService.ActiveTasks)
-                {
-                    TrackTask(task);
-                }
+                BackupService.TaskRegistry.RunningCountChanged += RefreshRunningTaskBadgeState;
             }
 
             RefreshRunningTaskBadgeState();
@@ -526,92 +521,9 @@ namespace FolderRewind.Services
             return MainWindowService.IsMainWindowVisible();
         }
 
-        private static void OnActiveTasksCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            lock (TaskTrackingLock)
-            {
-                if (e.Action == NotifyCollectionChangedAction.Reset)
-                {
-                    foreach (var task in TrackedTasks)
-                    {
-                        task.PropertyChanged -= OnTrackedTaskPropertyChanged;
-                    }
-
-                    TrackedTasks.Clear();
-                    foreach (var task in BackupService.ActiveTasks)
-                    {
-                        TrackTask(task);
-                    }
-                }
-                else
-                {
-                    if (e.OldItems != null)
-                    {
-                        foreach (var task in e.OldItems)
-                        {
-                            if (task is BackupTask removedTask)
-                            {
-                                UntrackTask(removedTask);
-                            }
-                        }
-                    }
-
-                    if (e.NewItems != null)
-                    {
-                        foreach (var task in e.NewItems)
-                        {
-                            if (task is BackupTask newTask)
-                            {
-                                TrackTask(newTask);
-                            }
-                        }
-                    }
-                }
-            }
-
-            RefreshRunningTaskBadgeState();
-        }
-
-        private static void TrackTask(BackupTask task)
-        {
-            if (!TrackedTasks.Add(task))
-            {
-                return;
-            }
-
-            task.PropertyChanged += OnTrackedTaskPropertyChanged;
-        }
-
-        private static void UntrackTask(BackupTask task)
-        {
-            if (!TrackedTasks.Remove(task))
-            {
-                return;
-            }
-
-            task.PropertyChanged -= OnTrackedTaskPropertyChanged;
-        }
-
-        private static void OnTrackedTaskPropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (!string.IsNullOrWhiteSpace(e.PropertyName) && e.PropertyName != nameof(BackupTask.IsCompleted))
-            {
-                return;
-            }
-
-            RefreshRunningTaskBadgeState();
-        }
-
         private static void RefreshRunningTaskBadgeState()
         {
-            int nextRunningTaskCount = 0;
-            foreach (var task in BackupService.ActiveTasks)
-            {
-                if (!task.IsCompleted)
-                {
-                    nextRunningTaskCount++;
-                }
-            }
+            int nextRunningTaskCount = BackupService.TaskRegistry.RunningCount;
 
             if (_runningTaskCount == nextRunningTaskCount)
             {

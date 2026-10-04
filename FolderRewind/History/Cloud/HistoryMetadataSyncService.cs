@@ -197,29 +197,6 @@ public sealed class HistoryMetadataSyncService
         try
         {
             await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
-            var existing = await _history.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                new HistoryRepositoryValidator(_codec).Validate(
-                    _history.ConfigId,
-                    existing.Concat(decodedIncoming));
-            }
-            catch (HistoryIntegrityConflictException)
-            {
-                // Let the repository perform its create-once conflict handling and quarantine
-                // the complete incoming batch rather than selecting individual objects.
-                await _history.Repository.ImportAsync(
-                    incoming.Select(bytes => (ReadOnlyMemory<byte>)bytes),
-                    cancellationToken).ConfigureAwait(false);
-                throw;
-            }
-            catch (HistoryRepositoryValidationException ex)
-            {
-                return new(
-                    HistoryMetadataSyncStatus.RemoteRepositoryIncomplete,
-                    0,
-                    "RemoteRepositoryIncomplete/RepairRequired: " + ex.Message);
-            }
             await _history.Repository.ImportAsync(
                 incoming.Select(bytes => (ReadOnlyMemory<byte>)bytes),
                 cancellationToken).ConfigureAwait(false);

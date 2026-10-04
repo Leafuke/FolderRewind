@@ -961,7 +961,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Compression level (0-9)</value>
   </data>
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
-    <value>Keep recent backups (0 for unlimited)</value>
+    <value>Keep recent versions per source (0 for unlimited)</value>
   </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>Compression algorithm</value>
@@ -1378,7 +1378,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Install preset</value>
   </data>
   <data name="SettingsPage_PluginDeleteData.Content" xml:space="preserve">
-    <value>Delete data...</value>
+    <value>Delete data</value>
   </data>
   <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
     <value>Cloud backup starter preset</value>
@@ -4304,13 +4304,13 @@ Pull request: {1}</value>
     <value>This backup project uses a custom cloud command. History page upload/download currently supports rclone mode only.</value>
   </data>
   <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
-    <value>Delete record only</value>
+    <value>Hide record only</value>
   </data>
   <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
     <value>Delete local backup only</value>
   </data>
   <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
-    <value>Delete local backup and record</value>
+    <value>Delete local backup and hide record (preserve later versions)</value>
   </data>
   <data name="History_Delete_InvalidRequest" xml:space="preserve">
     <value>Invalid delete request.</value>
@@ -5226,7 +5226,7 @@ Confirm to use the historical scope.</value></data>
   <data name="Merge_Theirs" xml:space="preserve"><value>Use source</value></data>
   <data name="Merge_Manual" xml:space="preserve"><value>Import resolution</value></data>
   <data name="Merge_Close" xml:space="preserve"><value>Close and keep</value></data>
-  <data name="Merge_WholeSource" xml:space="preserve"><value>Whole Source</value></data>
+  <data name="Merge_WholeSource" xml:space="preserve"><value>Entire folder</value></data>
   <data name="Merge_Page" xml:space="preserve"><value>Page</value></data>
   <data name="Merge_Base" xml:space="preserve"><value>Merge base</value></data>
   <data name="Merge_SelectBranch" xml:space="preserve"><value>Select the source branch in History first.</value></data>
@@ -5251,20 +5251,20 @@ Confirm to use the historical scope.</value></data>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>No changes needed.</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>Merge commit is durable; local recovery must complete.</value></data>
   <data name="Merge_PrepareReplicas" xml:space="preserve"><value>Prepare required replicas (download)</value></data>
-  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>Exact replicas require preparation.</value></data>
+  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>Prepare backup data for an exact restore first.</value></data>
   <data name="Merge_Working" xml:space="preserve"><value>Working:</value></data>
   <data name="Merge_Cancelled" xml:space="preserve"><value>Cancelled; the session and saved decisions are retained.</value></data>
-  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>Required Exact replicas are not ready locally.</value></data>
-  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>An Exact replica or dependency is unavailable; merge is blocked.</value></data>
+  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>Backup data required for an exact restore is not ready locally.</value></data>
+  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>An exact backup or one of its dependencies is unavailable. The merge is blocked.</value></data>
   <data name="Merge_Diagnostic_Stale" xml:space="preserve"><value>Configuration, workspace, branch or merge implementation changed.</value></data>
-  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>A result source needs a valid directory mapping.</value></data>
+  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>The merge result needs a valid target folder matching its backup scope.</value></data>
   <data name="Merge_Diagnostic_CoordinationScopeChanged" xml:space="preserve"><value>The coordination scope changed; target mutation has not started.</value></data>
   <data name="Merge_Diagnostic_RecoveryRequired" xml:space="preserve"><value>Transaction recovery is required; preserve session and transaction files.</value></data>
   <data name="Merge_Diagnostic_PostActionWarning" xml:space="preserve"><value>Commit completed; cache or cleanup maintenance needs retry.</value></data>
   <data name="Merge_Diagnostic_PreparationFailed" xml:space="preserve"><value>Preparation did not complete; saved manual work is retained. See logs for details.</value></data>
-  <data name="Merge_Action_Prepare" xml:space="preserve"><value>Repair credentials, plugins or replicas, then select Prepare required replicas. This will not apply the merge.</value></data>
-  <data name="Merge_Action_Recompute" xml:space="preserve"><value>Fix mappings or configuration, then explicitly recompute. Matching decisions will be retained.</value></data>
-  <data name="Merge_Action_Recover" xml:space="preserve"><value>Use Resume / Recover to finish the original transaction; preserve packs and rollback directories.</value></data>
+  <data name="Merge_Action_Prepare" xml:space="preserve"><value>Check credentials, plugins, or backup copies, then choose Download required copies. This does not apply the merge.</value></data>
+  <data name="Merge_Action_Recompute" xml:space="preserve"><value>After correcting the configuration or folder, choose Analyze again. Saved decisions with unchanged inputs are retained.</value></data>
+  <data name="Merge_Action_Recover" xml:space="preserve"><value>Choose Recover original transaction to finish recovery. Do not create another merge.</value></data>
   <data name="Merge_Action_Maintenance" xml:space="preserve"><value>Startup or maintenance will retry cleanup; do not apply the merge again.</value></data>
   <data name="Merge_Action_Retry" xml:space="preserve"><value>Check the environment and retry; recompute the plan if needed.</value></data>
   <data name="Merge_Mode_NoOp" xml:space="preserve"><value>No merge needed</value></data>
@@ -5276,8 +5276,8 @@ Confirm to use the historical scope.</value></data>
   <data name="Merge_Conflict_ModifyDelete" xml:space="preserve"><value>Modify versus delete</value></data>
   <data name="Merge_Conflict_AddAdd" xml:space="preserve"><value>Both added</value></data>
   <data name="Merge_Conflict_PathStructure" xml:space="preserve"><value>Path structure conflict</value></data>
-  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Source roster conflict</value></data>
-  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Source boundary conflict</value></data>
+  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Folder presence conflict</value></data>
+  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Backup scope conflict</value></data>
   <data name="History_Creation_Capture" xml:space="preserve"><value>Capture</value></data>
   <data name="History_Creation_Merge" xml:space="preserve"><value>Merge</value></data>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>Recovery</value></data>
@@ -5635,7 +5635,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve"><value>Skip backup when unchanged</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>Keep recent backups (0 for unlimited)</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>Keep recent versions per source (0 for unlimited)</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve"><value>Smart backup chain length (0 = unlimited)</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve"><value>Performance impact</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_Format.Header" xml:space="preserve"><value>Archive format</value></data>
@@ -5711,7 +5711,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="ConfigSettingsDialog_ConfigName_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Config name</value></data>
   <data name="ConfigSettingsDialog_BackupMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup mode</value></data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Skip backup when unchanged</value></data>
-  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep recent backups (0 for unlimited)</value></data>
+  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep recent versions per source (0 for unlimited)</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup before restore</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Safe restore</value></data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
@@ -6072,4 +6072,226 @@ Branch at backup: {2}
   <data name="GameDiscovery_Cache_PreviousRestored" xml:space="preserve"><value>The current cache was invalid; the previous generation was restored.</value></data>
   <data name="GameDiscovery_Cache_SecondaryMissing" xml:space="preserve"><value>The configured secondary manifest no longer exists and was omitted: {0}</value></data>
   <data name="GameDiscovery_Cache_OverrideMissing" xml:space="preserve"><value>The configured FolderRewind override no longer exists and was omitted: {0}</value></data>
+  <data name="History_Rewrite_Continue" xml:space="preserve"><value>Continue</value></data>
+  <data name="History_Rewrite_Analyzing" xml:space="preserve"><value>Analyzing backup dependencies…</value></data>
+  <data name="History_Rewrite_Preparing" xml:space="preserve"><value>Rebuilding the backup chain; original backups are still retained…</value></data>
+  <data name="History_Rewrite_Verifying" xml:space="preserve"><value>Verifying the contents of retained versions…</value></data>
+  <data name="History_Rewrite_Ready" xml:space="preserve"><value>The replacement chain is verified and ready for confirmation.</value></data>
+  <data name="History_Rewrite_Confirm" xml:space="preserve"><value>Delete the local backup “{0}”?
+{1} rebuilt versions have been verified. Other retained versions remain exactly restorable.
+New archives: {2} MiB
+Reclaimable: {3} MiB
+Net released: {4} MiB (negative means more space is used)
+Confirm to commit deletion, or cancel to keep the original backups.</value></data>
+  <data name="History_Rewrite_CleanupPending" xml:space="preserve"><value>The backup chain commit is durable. Some files or local state still require recovery. Restart the application to continue recovery; keep the archive files in place.</value></data>
+  <data name="History_Rewrite_Unsupported" xml:space="preserve"><value>This archive format or historical boundary does not support safe rewriting yet. You can hide the record instead.</value></data>
+  <data name="History_Rewrite_PreparationRequired" xml:space="preserve"><value>A dependent version cannot be restored exactly. Download missing archives or repair the backup chain first.</value></data>
+  <data name="History_Rewrite_Changed" xml:space="preserve"><value>History changed. Prepare the deletion again.</value></data>
+  <data name="History_Rewrite_Shared" xml:space="preserve"><value>The selected archive file is still used by another retained replica and cannot be deleted.</value></data>
+  <data name="HistoryCancelOperation.Content" xml:space="preserve"><value>Cancel</value></data>
+  <data name="History_Rewrite_InsufficientSpace" xml:space="preserve"><value>Not enough temporary space to rebuild the backup chain safely. Original backups have been retained. Free some space and try again.</value></data>
+  <data name="History_Rewrite_Failed" xml:space="preserve"><value>This backup cannot be safely deleted right now. Check archive integrity, credentials and active operations, then try again. Details are available in the log.</value></data>
+  <data name="App_Log_PluginInitException" xml:space="preserve"><value>[App] Plugin initialization failed: {0}</value></data>
+  <data name="Tray_InitFailed" xml:space="preserve"><value>[Tray] Initialization failed: {0}</value></data>
+  <data name="Tray_ToggleFailed" xml:space="preserve"><value>[Tray] Failed to switch window visibility: {0}</value></data>
+  <data name="BackupService_Log_RecoveryRequired" xml:space="preserve"><value>Backup {0} was committed, but local recovery is required. Preserve the transaction files and retry recovery.</value></data>
+  <data name="MiniWindow_Log_WatcherError" xml:space="preserve"><value>[MiniWindow] Folder watcher error for '{0}': {1}</value></data>
+  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve"><value>[MiniWindow] Failed to start the folder watcher for '{0}': {1}</value></data>
+  <data name="Plugins_NotInstalled" xml:space="preserve"><value>The plugin is not installed.</value></data>
+  <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] Failed to open the link: {0}</value></data>
+  <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] Failed to check for updates to plugin '{0}': {1}</value></data>
+  <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>A merge operation is already running for this project. Wait for it to finish and retry.</value></data>
+  <data name="MergeWorkspace_Back.Content" xml:space="preserve"><value>Back to history</value></data>
+  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>Merge branches</value></data>
+  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>Applying the merge updates the local folder shown above and the target branch. The source branch stays unchanged.</value></data>
+  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>Source branch</value></data>
+  <data name="MergeWorkspace_Analyze.Content" xml:space="preserve"><value>Analyze merge</value></data>
+  <data name="MergeWorkspace_Sessions.Header" xml:space="preserve"><value>Continue a saved merge</value></data>
+  <data name="MergeWorkspace_ShowCompleted.Content" xml:space="preserve"><value>Show completed and abandoned</value></data>
+  <data name="MergeWorkspace_Import.Content" xml:space="preserve"><value>Import resolved file</value></data>
+  <data name="MergeWorkspace_Stop.Label" xml:space="preserve"><value>Stop and keep progress</value></data>
+  <data name="MergeWorkspace_Download.Label" xml:space="preserve"><value>Download required copies</value></data>
+  <data name="MergeWorkspace_Recompute.Label" xml:space="preserve"><value>Analyze again</value></data>
+  <data name="MergeWorkspace_Recover.Label" xml:space="preserve"><value>Resume preparation / recover transaction</value></data>
+  <data name="MergeWorkspace_Abandon.Label" xml:space="preserve"><value>Abandon this merge</value></data>
+  <data name="MergeWorkspace_AbandonConfirm" xml:space="preserve"><value>This removes imported resolutions and temporary results for this merge. Committed backups are retained.</value></data>
+  <data name="MergeWorkspace_Unresolved" xml:space="preserve"><value>Unresolved</value></data>
+  <data name="MergeWorkspace_ChooseSource" xml:space="preserve"><value>Choose a source branch to analyze, or continue a saved merge.</value></data>
+  <data name="MergeWorkspace_Saved" xml:space="preserve"><value>Decisions saved</value></data>
+  <data name="MergeWorkspace_Unsaved" xml:space="preserve"><value>Decisions are not saved. Retry the operation.</value></data>
+  <data name="MergeWorkspace_Count" xml:space="preserve"><value>{0} changes · {1} unresolved</value></data>
+  <data name="MergeWorkspace_Stage_Idle" xml:space="preserve"><value>Ready</value></data>
+  <data name="MergeWorkspace_Stage_Loading" xml:space="preserve"><value>Loading merge</value></data>
+  <data name="MergeWorkspace_Stage_Analyzing" xml:space="preserve"><value>Analyzing branches and inputs</value></data>
+  <data name="MergeWorkspace_Stage_Downloading" xml:space="preserve"><value>Downloading required copies · size unknown</value></data>
+  <data name="MergeWorkspace_Stage_Saving" xml:space="preserve"><value>Saving decisions</value></data>
+  <data name="MergeWorkspace_Stage_Building" xml:space="preserve"><value>Building candidate result · required space unknown</value></data>
+  <data name="MergeWorkspace_Stage_Validating" xml:space="preserve"><value>Validating candidate result</value></data>
+  <data name="MergeWorkspace_Stage_Protecting" xml:space="preserve"><value>Protecting current work</value></data>
+  <data name="MergeWorkspace_Stage_Writing" xml:space="preserve"><value>Updating the working folder</value></data>
+  <data name="MergeWorkspace_Stage_Committing" xml:space="preserve"><value>Committing safely; please wait</value></data>
+  <data name="MergeWorkspace_Stage_Finishing" xml:space="preserve"><value>Finishing and cleaning up</value></data>
+  <data name="MergeWorkspace_Stage_Recovering" xml:space="preserve"><value>Recovering original transaction / resuming preparation</value></data>
+  <data name="MergeWorkspace_Pending.Content" xml:space="preserve"><value>This folder has unfinished merges. Open the merge workspace</value></data>
+  <data name="MergeWorkspace_Search.PlaceholderText" xml:space="preserve"><value>Search file paths</value></data>
+  <data name="MergeWorkspace_Search.AutomationProperties.Name" xml:space="preserve"><value>Search changed files</value></data>
+  <data name="MergeWorkspace_FilterAll.Content" xml:space="preserve"><value>All changes</value></data>
+  <data name="MergeWorkspace_FilterUnresolved.Content" xml:space="preserve"><value>Unresolved</value></data>
+  <data name="MergeWorkspace_FilterResolved.Content" xml:space="preserve"><value>Resolved</value></data>
+  <data name="MergeWorkspace_FilterAutomatic.Content" xml:space="preserve"><value>Automatic</value></data>
+  <data name="MergeWorkspace_ImportAction.Label" xml:space="preserve"><value>Import resolved file</value></data>
+  <data name="MergeWorkspace_Clear.Label" xml:space="preserve"><value>Clear decision</value></data>
+  <data name="MergeWorkspace_Undo.Label" xml:space="preserve"><value>Undo last batch</value></data>
+  <data name="MergeWorkspace_Next.Label" xml:space="preserve"><value>Next unresolved</value></data>
+  <data name="MergeWorkspace_Base.Header" xml:space="preserve"><value>Common base</value></data>
+  <data name="MergeWorkspace_BackToFiles.Content" xml:space="preserve"><value>Back to files</value></data>
+  <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>Decisions have changed; the previous batch can no longer be undone.</value></data>
+  <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>Reanalyzed: retained {0} decisions; {1} decisions invalidated.</value></data>
+  <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>Automatic</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} items checked</value></data>
+  <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>Use</value></data>
+  <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>Use deletion</value></data>
+  <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>Loading preview…</value></data>
+  <data name="MergeWorkspace_GroupDecision" xml:space="preserve"><value>Resolve this conflict as a whole group. Single-file import is unavailable.</value></data>
+  <data name="MergeWorkspace_WholeFileNotice" xml:space="preserve"><value>Choosing a side uses the whole file. Diff markers: + added, − removed, ~ modified.</value></data>
+  <data name="MergeWorkspace_DeletionNotice" xml:space="preserve"><value>One side has no file. Choosing that side removes the file from the result.</value></data>
+  <data name="MergeWorkspace_Preview_Missing" xml:space="preserve"><value>File absent on this side</value></data>
+  <data name="MergeWorkspace_Preview_Empty" xml:space="preserve"><value>Empty text file</value></data>
+  <data name="MergeWorkspace_Preview_Text" xml:space="preserve"><value>Text preview</value></data>
+  <data name="MergeWorkspace_Preview_Binary" xml:space="preserve"><value>Binary or unsupported encoding</value></data>
+  <data name="MergeWorkspace_Preview_Limited" xml:space="preserve"><value>Preview truncated (512 KiB / 5,000 lines); full diff unavailable</value></data>
+  <data name="MergeWorkspace_Preview_Unavailable" xml:space="preserve"><value>Preview unavailable; prepare again</value></data>
+  <data name="MergeWorkspace_ReviewTitle.Text" xml:space="preserve"><value>Review the result before applying</value></data>
+  <data name="MergeWorkspace_ReviewSummary" xml:space="preserve"><value>Compared with target branch: {0} changes. Actual working-folder changes: {1}.</value></data>
+  <data name="MergeWorkspace_ProtectionRequired" xml:space="preserve"><value>Current work contains unbacked changes. A safety snapshot will be created before writing.</value></data>
+  <data name="MergeWorkspace_ProtectionNotRequired" xml:space="preserve"><value>No additional safety snapshot is needed at this check. State will be verified again before applying.</value></data>
+  <data name="MergeWorkspace_Validation.Text" xml:space="preserve"><value>Candidate archive and file content verified. Application-specific save format has not been validated.</value></data>
+  <data name="MergeWorkspace_BranchChanges.Header" xml:space="preserve"><value>Changes compared with the target branch</value></data>
+  <data name="MergeWorkspace_WorkingChanges.Header" xml:space="preserve"><value>Actual working-folder changes</value></data>
+  <data name="MergeWorkspace_EditDecisions.Content" xml:space="preserve"><value>Back to decisions</value></data>
+  <data name="MergeWorkspace_ViewResult.Content" xml:space="preserve"><value>View merged version</value></data>
+  <data name="MergeWorkspace_ViewProtection.Content" xml:space="preserve"><value>View safety snapshots</value></data>
+  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>Review merge result</value></data>
+  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>Confirm and apply merge</value></data>
+  <data name="MergeWorkspace_Change_Added" xml:space="preserve"><value>Add</value></data>
+  <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>Modify</value></data>
+  <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>Delete</value></data>
+  <data name="MergeWorkspace_Change_Structure" xml:space="preserve"><value>Path structure replacement</value></data>
+  <data name="MergeWorkspace_Context.Header" xml:space="preserve"><value>Source branch and saved tasks</value></data>
+  <data name="MergeWorkspace_Reload.Content" xml:space="preserve"><value>Reload sessions</value></data>
+  <data name="MergeWorkspace_RetrySave.Content" xml:space="preserve"><value>Retry saving pending decisions</value></data>
+  <data name="MergeWorkspace_Attention.Title" xml:space="preserve"><value>Action required</value></data>
+  <data name="MergeWorkspace_ResizeList.AutomationProperties.Name" xml:space="preserve"><value>Resize file list; arrow keys adjust by 10 DIP</value></data>
+  <data name="MergeWorkspace_RecoverTransaction" xml:space="preserve"><value>Recover original transaction</value></data>
+  <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>Resume preparation</value></data>
+  <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>This folder has no valid active branch. Back up or check out a branch first.</value></data>
+  <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>There is no other eligible branch. A source needs a unique, valid history tip.</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} files</value></data>
+  <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>The selected branch is invalid, is the current branch, or has multiple tips.</value></data>
+  <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>These branches have no common base for a three-way merge.</value></data>
+  <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>There are multiple best common bases; this merge engine cannot safely select one.</value></data>
+  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>Start a new merge from the sessions menu and choose another source. Resolve branch divergence first if needed.</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>This file is handled automatically by file-level rules. Review its actual writes before applying.</value></data>
+  <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>File-level base previews are unavailable for scope or source conflicts.</value></data>
+  <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>Return to backup history and keep this merge</value></data>
+  <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Back to history · Your merge is kept</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>These actions affect only checked items, not all search results.</value></data>
+  <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>Return to current merge</value></data>
+  <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>Clear decision</value></data>
+  <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>Find the merged version and protection snapshots in history.</value></data>
+  <data name="MergeWorkspace_DiscardButton.Content" xml:space="preserve"><value>Abandon this merge…</value></data>
+  <data name="MergeWorkspace_DownloadButton.Content" xml:space="preserve"><value>Download required copies</value></data>
+  <data name="MergeWorkspace_Filter.Header" xml:space="preserve"><value>Show</value></data>
+  <data name="MergeWorkspace_NewTask.Content" xml:space="preserve"><value>New merge</value></data>
+  <data name="MergeWorkspace_NextButton.Content" xml:space="preserve"><value>Next conflict</value></data>
+  <data name="MergeWorkspace_NoChanges" xml:space="preserve"><value>No files to resolve</value></data>
+  <data name="MergeWorkspace_NoMatches" xml:space="preserve"><value>No matching files</value></data>
+  <data name="MergeWorkspace_OursRole.Text" xml:space="preserve"><value>Target branch · Current version</value></data>
+  <data name="MergeWorkspace_ReadyHint" xml:space="preserve"><value>All conflicts are resolved. Generate the result for final review.</value></data>
+  <data name="MergeWorkspace_Reanalyze.Content" xml:space="preserve"><value>Analyze again</value></data>
+  <data name="MergeWorkspace_ReturnHistory.Content" xml:space="preserve"><value>Back to history</value></data>
+  <data name="MergeWorkspace_ReviewHint" xml:space="preserve"><value>Confirming will update your current folder.</value></data>
+  <data name="MergeWorkspace_Search.Header" xml:space="preserve"><value>Find files</value></data>
+  <data name="MergeWorkspace_SelectFile" xml:space="preserve"><value>Select a file to compare</value></data>
+  <data name="MergeWorkspace_SelectFileHint" xml:space="preserve"><value>Choose an item in the file list to see both versions and resolution options.</value></data>
+  <data name="MergeWorkspace_SetupDescription.Text" xml:space="preserve"><value>Compare both branches, choose which files to keep, then review the result before applying it.</value></data>
+  <data name="MergeWorkspace_SetupHint.Text" xml:space="preserve"><value>Files without conflicts are handled automatically. For conflicts, compare each file and choose a side or import a resolved file. Your current folder is only updated after the final review.</value></data>
+  <data name="MergeWorkspace_SetupNext.Text" xml:space="preserve"><value>What happens after analysis</value></data>
+  <data name="MergeWorkspace_SetupTitle.Text" xml:space="preserve"><value>Bring another branch into this one</value></data>
+  <data name="MergeWorkspace_StepDone" xml:space="preserve"><value>Merge result</value></data>
+  <data name="MergeWorkspace_StepResolve" xml:space="preserve"><value>Step 2 · Review files and conflicts</value></data>
+  <data name="MergeWorkspace_StepReview" xml:space="preserve"><value>Step 3 · Confirm merge</value></data>
+  <data name="MergeWorkspace_StepSetup" xml:space="preserve"><value>Step 1 · Choose branches</value></data>
+  <data name="MergeWorkspace_StopButton.Content" xml:space="preserve"><value>Stop and keep progress</value></data>
+  <data name="MergeWorkspace_TargetLabel.Text" xml:space="preserve"><value>Merge into current branch</value></data>
+  <data name="MergeWorkspace_TaskMenu.AutomationProperties.Name" xml:space="preserve"><value>Merge sessions and more actions</value></data>
+  <data name="MergeWorkspace_TaskMenu.ToolTipService.ToolTip" xml:space="preserve"><value>Sessions and more actions</value></data>
+  <data name="MergeWorkspace_TaskTitle.Text" xml:space="preserve"><value>Merge sessions</value></data>
+  <data name="MergeWorkspace_TheirsRole.Text" xml:space="preserve"><value>Source branch · Incoming version</value></data>
+  <data name="MergeWorkspace_UndoButton.Content" xml:space="preserve"><value>Undo batch decision</value></data>
+  <data name="MergeWorkspace_NoWorkingChanges.Text" xml:space="preserve"><value>No files need to be added, modified, or deleted in the current folder.</value></data>
+  <data name="MergeWorkspace_NoBranchChanges.Text" xml:space="preserve"><value>The result matches the target branch. No file contents change.</value></data>
+  <data name="Retention_Dialog.Title" xml:space="preserve"><value>Backup cleanup</value></data>
+  <data name="Retention_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Retention_CountFirstLabel.Text" xml:space="preserve"><value>Prioritize retention count (may increase disk usage)</value></data>
+  <data name="Retention_Footer.Text" xml:space="preserve"><value>Only local archives are cleaned. History records and cloud copies remain. Protected versions are retained in addition.</value></data>
+  <data name="Retention_SettingDescription.Text" xml:space="preserve"><value>Keep the latest N restorable versions per source, plus protected versions. 0 means unlimited. Automatic cleanup only proceeds when it releases net disk space.</value></data>
+  <data name="Retention_ReportButton.Content" xml:space="preserve"><value>Cleanup report</value></data>
+  <data name="Retention_CleanNow" xml:space="preserve"><value>Clean up now</value></data>
+  <data name="Retention_SaveClean" xml:space="preserve"><value>Save and clean up</value></data>
+  <data name="Retention_Start" xml:space="preserve"><value>Start cleanup</value></data>
+  <data name="Retention_Heading" xml:space="preserve"><value>Configuration: {0}
+Keep the latest {1} versions per source</value></data>
+  <data name="Retention_ConfigChanged" xml:space="preserve"><value>The configuration changed. Start cleanup again.</value></data>
+  <data name="Retention_NoReport" xml:space="preserve"><value>No cleanup report yet.</value></data>
+  <data name="Retention_ReportReadFailed" xml:space="preserve"><value>The previous cleanup report could not be read.</value></data>
+  <data name="Retention_Canceling" xml:space="preserve"><value>Canceling. Committed cleanup remains complete; waiting for a safe stopping point.</value></data>
+  <data name="Retention_Saving" xml:space="preserve"><value>Waiting to save settings…</value></data>
+  <data name="Retention_ReportHeader" xml:space="preserve"><value>{0} · {1}
+Retention count: {2} · {3}</value></data>
+  <data name="Retention_Bytes" xml:space="preserve"><value>Archives deleted: {0}; created: {1}; reclaimed: {2}; net released: {3}</value></data>
+  <data name="Retention_Counts" xml:space="preserve"><value>Restorable versions: {0} → {1}; recent retained: {2}; additionally protected: {3}</value></data>
+  <data name="Retention_SharedGroup" xml:space="preserve"><value>Shared dependency group: {0}. File and space totals appear under the first source only.</value></data>
+  <data name="Retention_Version" xml:space="preserve"><value>Related version: {0}</value></data>
+  <data name="Retention_Unknown" xml:space="preserve"><value>Not assessed</value></data>
+  <data name="Retention_Trigger_Manual" xml:space="preserve"><value>Manual cleanup</value></data>
+  <data name="Retention_Trigger_Automatic" xml:space="preserve"><value>Automatic cleanup</value></data>
+  <data name="Retention_Policy_SpaceFirst" xml:space="preserve"><value>Space first</value></data>
+  <data name="Retention_Policy_CountFirst" xml:space="preserve"><value>Count first</value></data>
+  <data name="Retention_Status_Running" xml:space="preserve"><value>Cleanup in progress</value></data>
+  <data name="Retention_Status_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Retention_Status_Partial" xml:space="preserve"><value>Partially completed</value></data>
+  <data name="Retention_Status_NoWork" xml:space="preserve"><value>No cleanup needed</value></data>
+  <data name="Retention_Status_Incomplete" xml:space="preserve"><value>Incomplete</value></data>
+  <data name="Retention_Status_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="Retention_Status_Interrupted" xml:space="preserve"><value>Interrupted; some results need checking</value></data>
+  <data name="Retention_Status_Pending" xml:space="preserve"><value>Pending</value></data>
+  <data name="Retention_Status_Blocked" xml:space="preserve"><value>Cleanup blocked</value></data>
+  <data name="Retention_Status_NoSpaceBenefit" xml:space="preserve"><value>Skipped: no net space benefit</value></data>
+  <data name="Retention_Status_CleanupPending" xml:space="preserve"><value>Committed; some old files await reclamation</value></data>
+  <data name="Retention_Stage_waiting" xml:space="preserve"><value>Waiting for the current backup or restore…</value></data>
+  <data name="Retention_Stage_planning" xml:space="preserve"><value>Checking retention rules and dependencies…</value></data>
+  <data name="Retention_Stage_rebuild" xml:space="preserve"><value>Rebuilding retained versions…</value></data>
+  <data name="Retention_Stage_verify" xml:space="preserve"><value>Verifying restored content…</value></data>
+  <data name="Retention_Stage_ready" xml:space="preserve"><value>Verification complete; preparing to commit…</value></data>
+  <data name="Retention_Stage_committing" xml:space="preserve"><value>Completing current cleanup; the commit phase cannot be canceled.</value></data>
+  <data name="Retention_Reason_NoSpaceBenefit" xml:space="preserve"><value>Rebuilding would not release net space. Original archives remain. You can manually select count first.</value></data>
+  <data name="Retention_Reason_NoSpaceBenefitCached" xml:space="preserve"><value>Relevant state is unchanged; reusing the previous no-benefit result. Manual cleanup evaluates again.</value></data>
+  <data name="Retention_Reason_ProtectedVersionUnavailable" xml:space="preserve"><value>A protected version cannot be restored exactly. Check archives or credentials, or download missing files. Cleanup of this group was skipped.</value></data>
+  <data name="Retention_Reason_ProtectedVersionMissing" xml:space="preserve"><value>A protected version is missing from history. Repair history and retry.</value></data>
+  <data name="Retention_Reason_CatalogUnavailable" xml:space="preserve"><value>The local archive catalog needs recovery. Repair history first.</value></data>
+  <data name="Retention_Reason_WorkspaceUnavailable" xml:space="preserve"><value>Workspace baselines cannot be verified. Repair local history state.</value></data>
+  <data name="Retention_Reason_SnapshotCheckpointMissing" xml:space="preserve"><value>A safety snapshot checkpoint is missing. Repair history.</value></data>
+  <data name="Retention_Reason_OperationRepresentationMissing" xml:space="preserve"><value>An active operation references missing archive information. Complete or repair that operation.</value></data>
+  <data name="Retention_Reason_MigrationPending" xml:space="preserve"><value>Waiting for the first normal backup after legacy migration.</value></data>
+  <data name="Retention_Reason_UnsupportedArchive" xml:space="preserve"><value>Legacy, non-exact, or unsupported archives remain; they were not forcibly deleted.</value></data>
+  <data name="Retention_Reason_Blocked" xml:space="preserve"><value>Safe cleanup could not be established. Check the details below, repair the issue, and retry.</value></data>
+  <data name="Retention_Reason_StorageFailure" xml:space="preserve"><value>A storage operation failed. Check free space, paths, permissions, and file locks.</value></data>
+  <data name="Retention_Reason_GlobalStateUnavailable" xml:space="preserve"><value>Global history state or dependency ownership could not be verified. Cleanup stopped. Repair history and retry.</value></data>
+  <data name="Retention_Reason_CleanupPending" xml:space="preserve"><value>Retained versions were committed, but some old files await reclamation and are not counted as released space.</value></data>
+  <data name="Retention_Reason_ReportWriteFailed" xml:space="preserve"><value>The cleanup report could not be saved. Committed cleanup is unaffected.</value></data>
+  <data name="Retention_Reason_CacheWriteFailed" xml:space="preserve"><value>The cleanup cache could not be saved. The next run will evaluate again.</value></data>
+  <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>Cleanup was committed, but subsequent assessment failed. Check the state again.</value></data>
+  <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>The history commit is durable, but local state requires recovery. Remaining sources were stopped. Recover history before retrying.</value></data>
+  <data name="History_LoadMore.Content" xml:space="preserve"><value>Load more</value></data>
 </root>

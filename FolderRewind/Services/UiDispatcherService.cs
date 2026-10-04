@@ -35,6 +35,13 @@ namespace FolderRewind.Services
             _ = queue.TryEnqueue(() => action());
         }
 
+        internal static void Post(Action action)
+        {
+            var queue = _dispatcherQueue;
+            if (queue is null) { action(); return; }
+            if (!queue.TryEnqueue(() => action())) throw new InvalidOperationException("Failed to queue UI work.");
+        }
+
         public static Task RunOnUiAsync(Action action)
         {
             if (action == null)

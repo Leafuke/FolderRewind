@@ -16,6 +16,7 @@ namespace FolderRewind.Services
 
         public bool PreferApplicationConsistentSnapshot { get; init; }
         public string Comment { get; init; } = string.Empty;
+        public bool Protect { get; init; }
 
         public static BackupInvocationOptions Default { get; } = new();
 
@@ -54,14 +55,22 @@ namespace FolderRewind.Services
         {
             Source = Source,
             PreferApplicationConsistentSnapshot = prefer,
-            Comment = Comment
+            Comment = Comment,
+            Protect = Protect
         };
 
         public BackupInvocationOptions WithComment(string? comment) => new()
         {
             Source = Source,
             PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
-            Comment = comment ?? string.Empty
+            Comment = comment ?? string.Empty,
+            Protect = Protect
+        };
+
+        public BackupInvocationOptions WithProtection(bool protect) => new()
+        {
+            Source = Source, PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
+            Comment = Comment, Protect = protect
         };
     }
 }

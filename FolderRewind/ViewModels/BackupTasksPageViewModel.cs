@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Linq;
 
 namespace FolderRewind.ViewModels
 {
@@ -12,7 +13,7 @@ namespace FolderRewind.ViewModels
         private int _taskCount;
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
-        public ObservableCollection<object> TasksView { get; } = new();
+        public BatchObservableCollection<object> TasksView { get; } = new();
 
         public int TaskCount
         {
@@ -56,11 +57,7 @@ namespace FolderRewind.ViewModels
 
         private void RefreshTasksView()
         {
-            TasksView.Clear();
-            foreach (BackupTask task in BackupService.ActiveTasks)
-            {
-                TasksView.Add(task);
-            }
+            TasksView.Synchronize(BackupService.ActiveTasks.Cast<object>());
 
             TaskCount = BackupService.ActiveTasks.Count;
             IsEmpty = TaskCount == 0;

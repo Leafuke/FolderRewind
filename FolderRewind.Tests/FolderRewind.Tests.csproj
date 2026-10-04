@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\ConfigSnapshotCoordinator.cs" Link="Source\ConfigSnapshotCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\RestorePreservePaths.cs" Link="Source\RestorePreservePaths.cs" />
     <Compile Include="..\FolderRewind\Services\RestorePreservePreparation.cs" Link="Source\RestorePreservePreparation.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryPathPolicy.cs" Link="Source\DiscoveryPathPolicy.cs" />

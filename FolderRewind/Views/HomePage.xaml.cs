@@ -27,6 +27,24 @@ public sealed partial class HomePage : Page
         ViewModel = new HomePageViewModel(new HomeInteractionService(() => XamlRoot));
         InitializeComponent();
         Loaded += OnLoaded;
+        ViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(ViewModel.HasProjects) or nameof(ViewModel.HasFavorites)) UpdateLayoutBounds();
+        };
+    }
+
+    private void OnLayoutSizeChanged(object sender, SizeChangedEventArgs e) => UpdateLayoutBounds();
+
+    private void UpdateLayoutBounds()
+    {
+        if (HomeLayout is null) return;
+        var height = Math.Max(0, HomeLayout.ActualHeight - 60);
+        var columns = Math.Max(1, (int)(Math.Max(0, HomeLayout.ActualWidth - 72) / 340));
+        var desired = 44 + Math.Ceiling((double)ViewModel.FavoriteFolders.Count / columns) * 130;
+        FavoritesRow.Height = ViewModel.HasProjects
+            ? new GridLength(ViewModel.HasFavorites ? Math.Min(desired, height * .4) : 72)
+            : new GridLength(ViewModel.HasFavorites ? 1 : 0, ViewModel.HasFavorites ? GridUnitType.Star : GridUnitType.Pixel);
+        ProjectsRow.Height = new GridLength(ViewModel.HasProjects ? 1 : 0, ViewModel.HasProjects ? GridUnitType.Star : GridUnitType.Pixel);
     }
 
     private void OnFavoriteContainerContentChanging(
@@ -153,7 +171,8 @@ public sealed partial class HomePage : Page
         }
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e) => ApplySortSelection();
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    { ApplySortSelection(); UpdateLayoutBounds(); StartupTimingService.HomeLoaded(); }
 
     private void ApplySortSelection()
     {

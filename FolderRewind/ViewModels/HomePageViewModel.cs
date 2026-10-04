@@ -14,16 +14,18 @@ namespace FolderRewind.ViewModels
     public sealed partial class HomePageViewModel : ViewModelBase, IDisposable
     {
         private bool _isActive;
+        private bool _refreshScheduled;
+        private int _sortGeneration;
         private bool _isFavoritesEmpty = true;
         private ObservableCollection<BackupConfig>? _subscribedConfigs;
 
         // 业务层仍保留强类型集合，方便后续查找所属配置等逻辑。
-        public ObservableCollection<ManagedFolder> FavoriteFolders { get; } = new();
+        public BatchObservableCollection<ManagedFolder> FavoriteFolders { get; } = new();
 
         // WinUI + MSIX Trim 下，x:Bind 对 object 视图更稳定，这里保留投影视图。
-        public ObservableCollection<object> FavoriteFoldersView { get; } = new();
+        public BatchObservableCollection<object> FavoriteFoldersView { get; } = new();
 
-        public ObservableCollection<object> ConfigsView { get; } = new();
+        public BatchObservableCollection<object> ConfigsView { get; } = new();
 
         public ObservableCollection<BackupConfig>? Configs => ConfigService.CurrentConfig?.BackupConfigs;
 
@@ -49,7 +51,7 @@ namespace FolderRewind.ViewModels
             _interactions = interactions ?? throw new ArgumentNullException(nameof(interactions));
             InitializeCommands();
             // 收藏源集合变化时统一刷新投影视图，避免页面手动维护两份数据。
-            FavoriteFolders.CollectionChanged += (_, __) => SyncFavoritesView();
+
         }
 
         public void Activate()
@@ -82,6 +84,7 @@ namespace FolderRewind.ViewModels
 
             // 对称解绑，避免下次激活后收到重复 CollectionChanged。
             _isActive = false;
+            ++_sortGeneration;
             _pageLifetime.Cancel();
             UnhookConfigsChanged();
             ConfigService.Saved -= OnConfigurationSaved;
@@ -94,32 +97,39 @@ namespace FolderRewind.ViewModels
 
         public void RefreshFavorites()
         {
-            FavoriteFolders.Clear();
-            if (Configs == null)
-            {
-                return;
-            }
-
-            foreach (var config in Configs)
-            {
-                foreach (var folder in config.SourceFolders)
-                {
-                    if (folder.IsFavorite)
-                    {
-                        FavoriteFolders.Add(folder);
-                    }
-                }
-            }
+            var folders = Configs?.SelectMany(config => config.SourceFolders).Where(folder => folder.IsFavorite).ToArray() ?? [];
+            FavoriteFolders.Synchronize(folders);
+            FavoriteFoldersView.Synchronize(folders.Cast<object>());
+            IsFavoritesEmpty = folders.Length == 0;
+            OnPropertyChanged(nameof(HasFavorites));
         }
 
-        public void RefreshConfigsView()
+        public void RefreshConfigsView() => TaskObserver.Observe(RefreshConfigsAsync(), nameof(HomePageViewModel));
+
+        private async Task RefreshConfigsAsync()
         {
-            ConfigsView.Clear();
-            foreach (var cfg in GetSortedConfigs())
+            var generation = ++_sortGeneration;
+            var mode = CurrentSortMode;
+            var configs = Configs?.ToArray() ?? [];
+            BackupConfig[] sorted;
+            if (mode == "LastModifiedDesc")
             {
-                ConfigsView.Add(cfg);
+                var snapshots = configs.Select(config => (Config: config, Name: config.Name,
+                    Paths: config.SourceFolders.Select(folder => folder.Path).ToArray())).ToArray();
+                sorted = await Task.Run(() => snapshots.Select(item => (item.Config, item.Name,
+                    Modified: item.Paths.Select(ReadModified).DefaultIfEmpty(DateTime.MinValue).Max()))
+                    .OrderByDescending(item => item.Modified).ThenBy(item => item.Name).Select(item => item.Config).ToArray());
             }
+            else sorted = GetSortedConfigs().ToArray();
+            if (!_isActive || generation != _sortGeneration) return;
+            ConfigsView.Synchronize(sorted.Cast<object>());
             OnPropertyChanged(nameof(HasProjects));
+        }
+
+        private static DateTime ReadModified(string path)
+        {
+            try { return Directory.GetLastWriteTimeUtc(path); }
+            catch { return DateTime.MinValue; }
         }
 
         public BackupConfig? FindParentConfig(ManagedFolder folder)
@@ -202,36 +212,23 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        private void OnConfigsChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            EnqueueOnUiThread(() =>
-            {
-                if (!_isActive) return;
-                // 配置列表变化后，这两个视图都要同步，否则会出现首页卡片和收藏不同步。
-                RefreshConfigsView();
-                RefreshFavorites();
+        private void OnConfigsChanged(object? sender, NotifyCollectionChangedEventArgs e) => ScheduleRefresh();
+        private void OnConfigurationSaved() => ScheduleRefresh();
 
-            });
-        }
-
-        private void OnConfigurationSaved() => EnqueueOnUiThread(() =>
+        private void ScheduleRefresh() => EnqueueOnUiThread(() =>
         {
-            if (!_isActive) return;
-            RefreshFavorites();
-            RefreshConfigsView();
+            if (!_isActive || _refreshScheduled) return;
+            _refreshScheduled = true;
+            TaskObserver.Observe(RefreshNextTurnAsync(), nameof(HomePageViewModel));
         });
 
-        private void SyncFavoritesView()
+        private async Task RefreshNextTurnAsync()
         {
-            // object 投影视图只服务绑定层，业务逻辑始终读写强类型集合。
-            FavoriteFoldersView.Clear();
-            foreach (var folder in FavoriteFolders)
-            {
-                FavoriteFoldersView.Add(folder);
-            }
-
-            IsFavoritesEmpty = FavoriteFoldersView.Count == 0;
-            OnPropertyChanged(nameof(HasFavorites));
+            await Task.Yield();
+            _refreshScheduled = false;
+            if (!_isActive) return;
+            RefreshFavorites();
+            await RefreshConfigsAsync();
         }
 
         private System.Collections.Generic.IEnumerable<BackupConfig> GetSortedConfigs()

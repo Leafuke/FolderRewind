@@ -3,6 +3,7 @@
     x:Class="FolderRewind.Views.ShellPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:FolderRewind.Controls"
     KeyboardAcceleratorPlacementMode="Hidden">
 
     <Grid>
@@ -12,8 +13,8 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Image Grid.RowSpan="3"
-               Source="{x:Bind ViewModel.SponsorBackgroundImagePath, Mode=OneWay, Converter={StaticResource StringToBitmapConverter}}"
+        <controls:AsyncFileImage Grid.RowSpan="3" ReloadVersion="{x:Bind ViewModel.SponsorBackgroundRevision, Mode=OneWay}"
+               SourcePath="{x:Bind ViewModel.SponsorBackgroundImagePath, Mode=OneWay}"
                Stretch="{x:Bind ViewModel.SponsorBackgroundStretchIndex, Mode=OneWay, Converter={StaticResource IntToStretchConverter}}"
                Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
@@ -30,7 +31,8 @@
                 Height="44"
                 Background="Transparent"
             Padding="12,0,12,0"
-            KeyboardAcceleratorPlacementMode="Hidden">
+            xmlns:controls="using:FolderRewind.Controls"
+    KeyboardAcceleratorPlacementMode="Hidden">
             <Grid ColumnSpacing="12" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -71,7 +73,8 @@
                         PaneOpened="NavView_PaneOpened"
                         PaneClosed="NavView_PaneClosed"
                 BackRequested="NavView_BackRequested"
-                KeyboardAcceleratorPlacementMode="Hidden">
+                xmlns:controls="using:FolderRewind.Controls"
+    KeyboardAcceleratorPlacementMode="Hidden">
 
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home"

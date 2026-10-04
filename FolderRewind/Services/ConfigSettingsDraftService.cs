@@ -23,9 +23,10 @@ internal sealed class ConfigSettingsDraftService
     public bool IsDirty => Serialize(Draft) != _baseline;
     public void AcceptInitialNormalization() => _baseline = Serialize(Draft);
     private static string Serialize(BackupConfig config) => JsonSerializer.Serialize(config, AppJsonContext.Default.BackupConfig);
-    public async Task<ConfigSaveResult> CommitAsync()
+    public Task<ConfigSaveResult> CommitAsync() => CommitAsync(default);
+    public async Task<ConfigSaveResult> CommitAsync(System.Threading.CancellationToken token)
     {
-        await using var gate = await NativeHistoryConfigurationOperationGate.EnterAsync(_original.Id);
+        await using var gate = await NativeHistoryConfigurationOperationGate.EnterAsync(_original.Id, token);
         var configs = ConfigService.CurrentConfig.BackupConfigs;
         var current = configs.FirstOrDefault(c => c.Id == _original.Id);
         if (current is null || !ReferenceEquals(current, _original) || Serialize(current) != _expected)

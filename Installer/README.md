@@ -1,6 +1,6 @@
 # MSI 和离线 Setup 构建
 
-当前发行版本为 1.9.3.0。Windows Installer 版本的前三段必须递增，范围为 255.255.65535，第四段固定为 0。MSI UpgradeCode 保持原值。
+当前发行版本为 1.9.4.0。Windows Installer 版本的前三段必须递增，范围为 255.255.65535，第四段固定为 0。MSI UpgradeCode 保持原值。
 
 **本次安装体验由项目负责人明确人工验收放行。** 历史故障升级/卸载诊断与待验证场景继续保留，不改写为自动验收通过。发布必须绑定最终提交和两架构安装包哈希，构建、资源和测试门禁继续执行；使用 `.github/scripts/New-ManualInstallerAcceptance.ps1` 记录针对本次候选文件的明确验收依据。历史状态见 [1.9.2.0 阶段验收报告](../docs/release/exe-repair-1.9.2-acceptance-2026-10-02.md)。不要发行隔离测试夹具或 99.x 测试版本。
 

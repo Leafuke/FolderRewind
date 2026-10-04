@@ -27,6 +27,87 @@ public sealed class HistoryRetentionSafetyTests
     }
 
     [TestMethod]
+    public async Task PinProtectsDependencyClosureAndChangingPinInvalidatesRetentionPlan()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+
+        var sourceId = SourceId.New();
+        var baseVersion = Version(configId, sourceId, [], "base");
+        var currentVersion = Version(configId, sourceId, [baseVersion.VersionId], "current");
+        var full = new VersionRepresentation(
+            RepresentationId.New(), baseVersion.VersionId, RepresentationKind.CoreFull, "test", [],
+            MaterializationFidelity.Exact, null, null, null);
+        var smart = new VersionRepresentation(
+            RepresentationId.New(), currentVersion.VersionId, RepresentationKind.CoreSmartDelta, "test",
+            [full.RepresentationId], MaterializationFidelity.Exact, null, null, null);
+        var checkpoint = new SourceCheckpoint(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(
+                sourceId, currentVersion.SourceDescriptorSnapshot, currentVersion.VersionId,
+                CheckpointSourceDisposition.Captured)]);
+        var branch = new BranchUpdate(
+            BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpoint.SourceId);
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { baseVersion, currentVersion, full, smart, checkpoint }
+                .Select(item => codec.CreateObject(item))));
+
+        var fullPath = CreatePayload("base.bin", "base-payload");
+        var smartPath = CreatePayload("delta.bin", "delta-payload");
+        var fullEntry = Entry(full.RepresentationId, fullPath);
+        var smartEntry = Entry(smart.RepresentationId, smartPath);
+        await history.LocalReplicaCatalogStore.SaveAsync(
+            new LocalReplicaCatalog(configId, 0, [fullEntry, smartEntry]),
+            LocalReplicaCatalogStore.MissingRevision);
+        var workspace = new HistoryWorkspace(
+            configId,
+            0, HistoryFixture.SourceStates([], null, null, null));
+        await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+
+        var representationRuntime = new RepresentationRuntime([new ReadyTestHandler()]);
+        var payloads = new TrackingPayloadStore();
+        Task<IRepresentationEnvironment> EnvironmentFactory(CancellationToken _)
+            => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], []));
+        var planner = new HistoryRetentionPlanner(history, representationRuntime, EnvironmentFactory, payloads);
+        var pinTarget = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, currentVersion.VersionId.Value);
+        await history.Annotations.SetPinAsync(pinTarget, true);
+        var plan = await planner.PlanAsync(new HistoryRetentionRequest(
+            0,
+            HistoryRetentionOperationRoots.Empty));
+        Assert.HasCount(1, plan.Compactions);
+        Assert.IsTrue(plan.LocalPayloadDeletions.All(item => item.RequiresCompaction));
+        var executor = new HistoryRetentionExecutor(
+            history,
+            planner,
+            representationRuntime,
+            EnvironmentFactory,
+            new FailingCompactionBackend(),
+            payloads,
+            new NullHistoryArtifactGarbageCollector());
+
+        Assert.IsTrue(plan.ProtectedVersions.Single().Reasons.HasFlag(HistoryProtectionReason.Pin));
+        Assert.HasCount(2, plan.ProtectedClosures.Single().DependencyFirstRepresentationIds);
+        await history.Annotations.SetPinAsync(pinTarget, false);
+        var result = await executor.ExecuteAsync(plan);
+
+        Assert.AreEqual(HistoryRetentionExecutionStatus.StalePlan, result.Status);
+        Assert.AreEqual(0, payloads.DeleteCount);
+        Assert.IsTrue(File.Exists(fullPath));
+        Assert.IsTrue(File.Exists(smartPath));
+        var catalog = (await history.LocalReplicaCatalogStore.LoadAsync()).Value!;
+        CollectionAssert.AreEquivalent(
+            new[] { fullEntry.LocalReplicaId, smartEntry.LocalReplicaId },
+            catalog.Entries.Select(item => item.LocalReplicaId).ToArray());
+    }
+
+    [TestMethod]
     public async Task CompactionFailureNeverDeletesOrUnregistersOldRepresentationClosure()
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));

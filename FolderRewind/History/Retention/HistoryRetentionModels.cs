@@ -58,7 +58,10 @@ public sealed record HistoryRetentionRequest
     public int KeepCount { get; }
     public HistoryRetentionOperationRoots ActiveOperations { get; }
     public bool AllowPostMigrationCleanup { get; }
+    public ImmutableHashSet<SourceId>? SourceScope { get; init; }
 }
+
+public sealed record HistoryRetentionDiagnostic(string Code, string Detail, SourceId? SourceId = null, VersionId? VersionId = null);
 
 public sealed record HistoryProtectedCheckpoint(
     CheckpointId CheckpointId,
@@ -108,6 +111,7 @@ public sealed record HistoryRetentionPlan(
     ImmutableArray<string> Blockers)
 {
     public bool CanExecute => Blockers.IsEmpty;
+    public ImmutableArray<HistoryRetentionDiagnostic> Diagnostics { get; init; } = [];
     public int SharedReplicaRetirementCount => 0;
     public int ReleasedFactCount => 0;
 }

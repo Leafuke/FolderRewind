@@ -173,6 +173,9 @@ namespace FolderRewind.Services.KnotLink
             foreach (var name in new[] { "command_accepted", "command_started", "command_progress", "command_completed", "command_failed", "command_error" })
                 AddSignal(manifest, appId, signalId, name, $"Command lifecycle event: {name}.", ("command", "Command name."), ("request_id", "Request correlation ID."), ("progress", "Optional progress percentage."), ("result", "Optional completion result."), ("reason", "Optional failure reason."), ("error", "Optional error detail."));
 
+            manifest.Signal["command_completed"].Returns["file"] = new() { Description = "Optional completed backup filename." };
+            manifest.Signal["command_completed"].Returns["important"] = new() { Description = "True only for a confirmed protected backup." };
+
             foreach (var name in new[] { "backup_started", "backup_warning", "backup_success", "backup_failed" })
                 AddSignal(manifest, appId, signalId, name, $"Backup event: {name}.", ("config", "Configuration ID."), ("folder", "Folder name."));
 

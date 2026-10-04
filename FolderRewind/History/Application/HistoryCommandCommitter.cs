@@ -73,8 +73,7 @@ internal static class HistoryCommandCommitter
         bool indexRefreshSucceeded;
         try
         {
-            var packs = await runtime.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-            await runtime.Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
+            await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
             indexRefreshSucceeded = true;
         }
         catch
@@ -89,10 +88,6 @@ internal static class HistoryCommandCommitter
         if (updatedWorkspace is not null)
         {
             runtime.ChangeFeed.Publish(runtime.ConfigId, HistoryChangeKind.LocalStateChanged);
-        }
-        if (indexRefreshSucceeded)
-        {
-            runtime.ChangeFeed.Publish(runtime.ConfigId, HistoryChangeKind.IndexRebuilt);
         }
         return new HistoryCommandCommitResult(pack, indexRefreshSucceeded);
     }
