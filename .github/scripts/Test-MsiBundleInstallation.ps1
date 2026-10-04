@@ -26,7 +26,7 @@ $key = Read-Value 'SELECT `Key` FROM `RegLocator` WHERE `Signature_` = ''Remembe
 if (-not $key.StartsWith('Software\Leafuke\FolderRewind.Msi.Validation.')) { throw 'Unexpected fixture registry identity.' }
 [Runtime.InteropServices.Marshal]::FinalReleaseComObject($db) | Out-Null
 $native = & "$PSScriptRoot\Build-InstallerNative.ps1" | Select-Object -Last 1
-dotnet build "$root\Installer\Bootstrapper\FolderRewind.Bootstrapper.wixproj" -t:Rebuild -c Release `
+dotnet build "$root\Installer\Bootstrapper\FolderRewind.Bootstrapper.wixproj" -t:Rebuild -c Release -p:Platform=x86 `
     -p:ProductVersion=99.99.99.0 -p:PayloadArchitecture=x64 "-p:MsiPath=$msi" "-p:ProductCode=$product" `
     "-p:NativeOutputDirectory=$native" "-p:OutputPath=$output\" "-p:MsiRegistryKey=$key" "-p:MsiUpgradeCode=$family" `
     "-p:BundleDisplayName=$($identity.ProductName)" "-p:BundleUpgradeCode=$bundleFamily" -p:EnableFaultInjection=1 /warnaserror
@@ -102,7 +102,7 @@ try {
     $results.Add(@{scenario='bundle-same-version';passed=$process.ExitCode -in @(0,3010) -and $single;exitCode=$process.ExitCode})
     if (-not $single -or $process.ExitCode -notin @(0,3010)) { throw 'Same-version bundle maintenance failed.' }
     $rebuilt = Join-Path $output 'rebuilt'
-    dotnet build "$root\Installer\Bootstrapper\FolderRewind.Bootstrapper.wixproj" -t:Rebuild -c Release `
+    dotnet build "$root\Installer\Bootstrapper\FolderRewind.Bootstrapper.wixproj" -t:Rebuild -c Release -p:Platform=x86 `
         -p:ProductVersion=99.99.99.0 -p:PayloadArchitecture=x64 "-p:MsiPath=$msi" "-p:ProductCode=$product" `
         "-p:NativeOutputDirectory=$native" "-p:OutputPath=$rebuilt\" "-p:MsiRegistryKey=$key" "-p:MsiUpgradeCode=$family" `
         "-p:BundleDisplayName=$($identity.ProductName)" "-p:BundleUpgradeCode=$bundleFamily" -p:EnableFaultInjection=1 /warnaserror
