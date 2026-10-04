@@ -6102,9 +6102,9 @@ Pull Request：{1}</value>
   <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] 检查插件“{0}”的更新失败：{1}</value></data>
   <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>此项目已有合并操作正在执行，请等待完成后重试。</value></data>
   <data name="MergeWorkspace_Back.Content" xml:space="preserve"><value>返回历史并保留</value></data>
-  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>审阅并合并分支</value></data>
-  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>合并将更新当前文件夹和目标分支；来源分支保持不变。</value></data>
-  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>合入来源</value></data>
+  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>合并分支</value></data>
+  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>确认合并后，会更新上方的本地文件夹和目标分支。来源分支保持不变。</value></data>
+  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>来源分支</value></data>
   <data name="MergeWorkspace_Analyze.Content" xml:space="preserve"><value>分析合并</value></data>
   <data name="MergeWorkspace_Sessions.Header" xml:space="preserve"><value>继续已有合并</value></data>
   <data name="MergeWorkspace_ShowCompleted.Content" xml:space="preserve"><value>显示已完成与已放弃</value></data>
@@ -6117,7 +6117,7 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_AbandonConfirm" xml:space="preserve"><value>将清理此合并的人工解决文件和临时结果。已经提交的历史备份不会被删除。</value></data>
   <data name="MergeWorkspace_Unresolved" xml:space="preserve"><value>未解决</value></data>
   <data name="MergeWorkspace_ChooseSource" xml:space="preserve"><value>选择来源分支，然后分析合并；也可以继续已有任务。</value></data>
-  <data name="MergeWorkspace_Saved" xml:space="preserve"><value>处理结果已保存</value></data>
+  <data name="MergeWorkspace_Saved" xml:space="preserve"><value>决定已保存</value></data>
   <data name="MergeWorkspace_Unsaved" xml:space="preserve"><value>处理结果尚未保存，请重试本次操作。</value></data>
   <data name="MergeWorkspace_Count" xml:space="preserve"><value>{0} 项变更 · {1} 项待解决</value></data>
   <data name="MergeWorkspace_Stage_Idle" xml:space="preserve"><value>就绪</value></data>
@@ -6148,7 +6148,7 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>决定已变化，无法撤销旧的一批处理。</value></data>
   <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>重新分析：保留 {0} 项决定，{1} 项决定已失效。</value></data>
   <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>自动处理</value></data>
-  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>勾选 {0} 项；未勾选时操作当前文件</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>已勾选 {0} 项</value></data>
   <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>采用</value></data>
   <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>采用删除</value></data>
   <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>正在读取预览…</value></data>
@@ -6171,8 +6171,8 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_EditDecisions.Content" xml:space="preserve"><value>返回修改决定</value></data>
   <data name="MergeWorkspace_ViewResult.Content" xml:space="preserve"><value>查看合并版本</value></data>
   <data name="MergeWorkspace_ViewProtection.Content" xml:space="preserve"><value>查看保护快照</value></data>
-  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>生成并审阅结果</value></data>
-  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>合并并更新当前文件夹</value></data>
+  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>审阅合并结果</value></data>
+  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>确认合并并写入</value></data>
   <data name="MergeWorkspace_Change_Added" xml:space="preserve"><value>新增</value></data>
   <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>修改</value></data>
   <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>删除</value></data>
@@ -6190,7 +6190,45 @@ Pull Request：{1}</value>
   <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>所选分支无效、与当前分支相同或存在多个分支头。</value></data>
   <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>这两个分支没有共同基点，无法进行三方合并。</value></data>
   <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>存在多个最佳共同基点，当前合并器无法安全选择。</value></data>
-  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>请在“来源分支与已有任务”中选择其他来源；必要时先解决分支分歧。</value></data>
+  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>请通过右上角任务菜单新建合并并选择其他来源；必要时先解决分支分歧。</value></data>
   <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>此文件由文件级规则自动处理，可在最终审阅中核对实际写入。</value></data>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>此类范围或来源冲突不提供文件级共同基点预览。</value></data>
+  <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>返回备份历史，保留合并任务</value></data>
+  <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>返回历史 · 任务将保留</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>以下操作仅应用于勾选项，不会影响全部搜索结果。</value></data>
+  <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>返回当前任务</value></data>
+  <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>清除决定</value></data>
+  <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>可在历史中查看合并版本与保护快照。</value></data>
+  <data name="MergeWorkspace_DiscardButton.Content" xml:space="preserve"><value>放弃此合并…</value></data>
+  <data name="MergeWorkspace_DownloadButton.Content" xml:space="preserve"><value>下载所需副本</value></data>
+  <data name="MergeWorkspace_Filter.Header" xml:space="preserve"><value>显示范围</value></data>
+  <data name="MergeWorkspace_NewTask.Content" xml:space="preserve"><value>新建合并</value></data>
+  <data name="MergeWorkspace_NextButton.Content" xml:space="preserve"><value>下一处冲突</value></data>
+  <data name="MergeWorkspace_NoChanges" xml:space="preserve"><value>没有需要处理的文件</value></data>
+  <data name="MergeWorkspace_NoMatches" xml:space="preserve"><value>没有匹配的文件</value></data>
+  <data name="MergeWorkspace_OursRole.Text" xml:space="preserve"><value>目标分支 · 当前版本</value></data>
+  <data name="MergeWorkspace_ReadyHint" xml:space="preserve"><value>所有冲突已解决，可以生成结果并进行最终审阅。</value></data>
+  <data name="MergeWorkspace_Reanalyze.Content" xml:space="preserve"><value>重新分析</value></data>
+  <data name="MergeWorkspace_ReturnHistory.Content" xml:space="preserve"><value>返回历史</value></data>
+  <data name="MergeWorkspace_ReviewHint" xml:space="preserve"><value>确认后将写入当前文件夹。</value></data>
+  <data name="MergeWorkspace_Search.Header" xml:space="preserve"><value>查找文件</value></data>
+  <data name="MergeWorkspace_SelectFile" xml:space="preserve"><value>选择一个文件进行比较</value></data>
+  <data name="MergeWorkspace_SelectFileHint" xml:space="preserve"><value>从文件列表选择一项，查看双方内容与处理方式。</value></data>
+  <data name="MergeWorkspace_SetupDescription.Text" xml:space="preserve"><value>先比较两个分支，再选择要保留的文件，最后确认写入。</value></data>
+  <data name="MergeWorkspace_SetupHint.Text" xml:space="preserve"><value>没有冲突的文件会自动处理。有冲突时，逐项比较并采用其中一侧，或导入解决文件。最终审阅前不会写入当前文件夹。</value></data>
+  <data name="MergeWorkspace_SetupNext.Text" xml:space="preserve"><value>分析后会发生什么</value></data>
+  <data name="MergeWorkspace_SetupTitle.Text" xml:space="preserve"><value>将另一分支的内容合入当前分支</value></data>
+  <data name="MergeWorkspace_StepDone" xml:space="preserve"><value>合并结果</value></data>
+  <data name="MergeWorkspace_StepResolve" xml:space="preserve"><value>第 2 步 · 检查文件与冲突</value></data>
+  <data name="MergeWorkspace_StepReview" xml:space="preserve"><value>第 3 步 · 确认合并</value></data>
+  <data name="MergeWorkspace_StepSetup" xml:space="preserve"><value>第 1 步 · 选择分支</value></data>
+  <data name="MergeWorkspace_StopButton.Content" xml:space="preserve"><value>停止并保留</value></data>
+  <data name="MergeWorkspace_TargetLabel.Text" xml:space="preserve"><value>合入当前分支</value></data>
+  <data name="MergeWorkspace_TaskMenu.AutomationProperties.Name" xml:space="preserve"><value>合并任务与更多操作</value></data>
+  <data name="MergeWorkspace_TaskMenu.ToolTipService.ToolTip" xml:space="preserve"><value>任务与更多操作</value></data>
+  <data name="MergeWorkspace_TaskTitle.Text" xml:space="preserve"><value>合并任务</value></data>
+  <data name="MergeWorkspace_TheirsRole.Text" xml:space="preserve"><value>来源分支 · 合入版本</value></data>
+  <data name="MergeWorkspace_UndoButton.Content" xml:space="preserve"><value>撤销批量决定</value></data>
+  <data name="MergeWorkspace_NoWorkingChanges.Text" xml:space="preserve"><value>当前文件夹内容无需新增、修改或删除。</value></data>
+  <data name="MergeWorkspace_NoBranchChanges.Text" xml:space="preserve"><value>结果文件与目标分支一致，无文件内容变更。</value></data>
 </root>

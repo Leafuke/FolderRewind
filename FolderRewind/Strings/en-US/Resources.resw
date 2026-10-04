@@ -6102,9 +6102,9 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] Failed to check for updates to plugin '{0}': {1}</value></data>
   <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>A merge operation is already running for this project. Wait for it to finish and retry.</value></data>
   <data name="MergeWorkspace_Back.Content" xml:space="preserve"><value>Back to history</value></data>
-  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>Review and merge branches</value></data>
-  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>Merging updates this folder and the target branch. The source branch stays unchanged.</value></data>
-  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>Merge from</value></data>
+  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>Merge branches</value></data>
+  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>Applying the merge updates the local folder shown above and the target branch. The source branch stays unchanged.</value></data>
+  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>Source branch</value></data>
   <data name="MergeWorkspace_Analyze.Content" xml:space="preserve"><value>Analyze merge</value></data>
   <data name="MergeWorkspace_Sessions.Header" xml:space="preserve"><value>Continue a saved merge</value></data>
   <data name="MergeWorkspace_ShowCompleted.Content" xml:space="preserve"><value>Show completed and abandoned</value></data>
@@ -6148,7 +6148,7 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>Decisions have changed; the previous batch can no longer be undone.</value></data>
   <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>Reanalyzed: retained {0} decisions; {1} decisions invalidated.</value></data>
   <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>Automatic</value></data>
-  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} checked; with none checked, actions affect the current file</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} items checked</value></data>
   <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>Use</value></data>
   <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>Use deletion</value></data>
   <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>Loading preview…</value></data>
@@ -6171,8 +6171,8 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_EditDecisions.Content" xml:space="preserve"><value>Back to decisions</value></data>
   <data name="MergeWorkspace_ViewResult.Content" xml:space="preserve"><value>View merged version</value></data>
   <data name="MergeWorkspace_ViewProtection.Content" xml:space="preserve"><value>View safety snapshots</value></data>
-  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>Build and review result</value></data>
-  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>Merge and update this folder</value></data>
+  <data name="MergeWorkspace_Generate.Content" xml:space="preserve"><value>Review merge result</value></data>
+  <data name="MergeWorkspace_ApplyReviewed.Content" xml:space="preserve"><value>Confirm and apply merge</value></data>
   <data name="MergeWorkspace_Change_Added" xml:space="preserve"><value>Add</value></data>
   <data name="MergeWorkspace_Change_Modified" xml:space="preserve"><value>Modify</value></data>
   <data name="MergeWorkspace_Change_Deleted" xml:space="preserve"><value>Delete</value></data>
@@ -6190,7 +6190,45 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>The selected branch is invalid, is the current branch, or has multiple tips.</value></data>
   <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>These branches have no common base for a three-way merge.</value></data>
   <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>There are multiple best common bases; this merge engine cannot safely select one.</value></data>
-  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>Choose another source under Source branch and saved tasks; reconcile branch divergence first if needed.</value></data>
+  <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>Start a new merge from the sessions menu and choose another source. Resolve branch divergence first if needed.</value></data>
   <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>This file is handled automatically by file-level rules. Review its actual writes before applying.</value></data>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>File-level base previews are unavailable for scope or source conflicts.</value></data>
+  <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>Return to backup history and keep this merge</value></data>
+  <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Back to history · Your merge is kept</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>These actions affect only checked items, not all search results.</value></data>
+  <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>Return to current merge</value></data>
+  <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>Clear decision</value></data>
+  <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>Find the merged version and protection snapshots in history.</value></data>
+  <data name="MergeWorkspace_DiscardButton.Content" xml:space="preserve"><value>Abandon this merge…</value></data>
+  <data name="MergeWorkspace_DownloadButton.Content" xml:space="preserve"><value>Download required copies</value></data>
+  <data name="MergeWorkspace_Filter.Header" xml:space="preserve"><value>Show</value></data>
+  <data name="MergeWorkspace_NewTask.Content" xml:space="preserve"><value>New merge</value></data>
+  <data name="MergeWorkspace_NextButton.Content" xml:space="preserve"><value>Next conflict</value></data>
+  <data name="MergeWorkspace_NoChanges" xml:space="preserve"><value>No files to resolve</value></data>
+  <data name="MergeWorkspace_NoMatches" xml:space="preserve"><value>No matching files</value></data>
+  <data name="MergeWorkspace_OursRole.Text" xml:space="preserve"><value>Target branch · Current version</value></data>
+  <data name="MergeWorkspace_ReadyHint" xml:space="preserve"><value>All conflicts are resolved. Generate the result for final review.</value></data>
+  <data name="MergeWorkspace_Reanalyze.Content" xml:space="preserve"><value>Analyze again</value></data>
+  <data name="MergeWorkspace_ReturnHistory.Content" xml:space="preserve"><value>Back to history</value></data>
+  <data name="MergeWorkspace_ReviewHint" xml:space="preserve"><value>Confirming will update your current folder.</value></data>
+  <data name="MergeWorkspace_Search.Header" xml:space="preserve"><value>Find files</value></data>
+  <data name="MergeWorkspace_SelectFile" xml:space="preserve"><value>Select a file to compare</value></data>
+  <data name="MergeWorkspace_SelectFileHint" xml:space="preserve"><value>Choose an item in the file list to see both versions and resolution options.</value></data>
+  <data name="MergeWorkspace_SetupDescription.Text" xml:space="preserve"><value>Compare both branches, choose which files to keep, then review the result before applying it.</value></data>
+  <data name="MergeWorkspace_SetupHint.Text" xml:space="preserve"><value>Files without conflicts are handled automatically. For conflicts, compare each file and choose a side or import a resolved file. Your current folder is only updated after the final review.</value></data>
+  <data name="MergeWorkspace_SetupNext.Text" xml:space="preserve"><value>What happens after analysis</value></data>
+  <data name="MergeWorkspace_SetupTitle.Text" xml:space="preserve"><value>Bring another branch into this one</value></data>
+  <data name="MergeWorkspace_StepDone" xml:space="preserve"><value>Merge result</value></data>
+  <data name="MergeWorkspace_StepResolve" xml:space="preserve"><value>Step 2 · Review files and conflicts</value></data>
+  <data name="MergeWorkspace_StepReview" xml:space="preserve"><value>Step 3 · Confirm merge</value></data>
+  <data name="MergeWorkspace_StepSetup" xml:space="preserve"><value>Step 1 · Choose branches</value></data>
+  <data name="MergeWorkspace_StopButton.Content" xml:space="preserve"><value>Stop and keep progress</value></data>
+  <data name="MergeWorkspace_TargetLabel.Text" xml:space="preserve"><value>Merge into current branch</value></data>
+  <data name="MergeWorkspace_TaskMenu.AutomationProperties.Name" xml:space="preserve"><value>Merge sessions and more actions</value></data>
+  <data name="MergeWorkspace_TaskMenu.ToolTipService.ToolTip" xml:space="preserve"><value>Sessions and more actions</value></data>
+  <data name="MergeWorkspace_TaskTitle.Text" xml:space="preserve"><value>Merge sessions</value></data>
+  <data name="MergeWorkspace_TheirsRole.Text" xml:space="preserve"><value>Source branch · Incoming version</value></data>
+  <data name="MergeWorkspace_UndoButton.Content" xml:space="preserve"><value>Undo batch decision</value></data>
+  <data name="MergeWorkspace_NoWorkingChanges.Text" xml:space="preserve"><value>No files need to be added, modified, or deleted in the current folder.</value></data>
+  <data name="MergeWorkspace_NoBranchChanges.Text" xml:space="preserve"><value>The result matches the target branch. No file contents change.</value></data>
 </root>

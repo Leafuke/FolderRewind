@@ -18,7 +18,6 @@ namespace FolderRewind.Views;
 public sealed partial class MergePage : Page
 {
     private bool _narrow, _showDetail, _syncScroll, _refreshingList;
-    private Guid? _displayedSession;
     private string? _announcedStatus;
     private ScrollViewer? _listScroll, _oursScroll, _theirsScroll;
     public MergePageViewModel ViewModel { get; } = new();
@@ -38,11 +37,6 @@ public sealed partial class MergePage : Page
                 foreach (ComboBoxItem item in FilterPicker.Items) if (item.Tag?.ToString() == ViewModel.Filter) { FilterPicker.SelectedItem = item; break; }
             _listScroll?.ChangeView(null, ViewModel.ViewState.ScrollOffset, null, true);
             _refreshingList = false;
-            if (_displayedSession != ViewModel.State.Session?.Id)
-            {
-                _displayedSession = ViewModel.State.Session?.Id;
-                ContextExpander.IsExpanded = _displayedSession is null;
-            }
         });
     }
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -60,10 +54,21 @@ public sealed partial class MergePage : Page
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (FilePanel is null) return;
-        _narrow = e.NewSize.Width < 720;
-        ListColumn.Width = _narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(e.NewSize.Width < 1000 ? 220 : ViewModel.ViewState.ListWidth);
-        CompareSecondColumn.Width = new GridLength(e.NewSize.Width >= 1000 ? 1 : 0, GridUnitType.Star);
-        Grid.SetColumn(TheirsPanel, e.NewSize.Width >= 1000 ? 1 : 0); Grid.SetRow(TheirsPanel, e.NewSize.Width >= 1000 ? 0 : 1);
+        var width = e.NewSize.Width - PageLayout.Padding.Left - PageLayout.Padding.Right;
+        _narrow = width < 720;
+        var sideBySide = width >= 1000;
+        ListColumn.Width = _narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(width < 1000 ? 240 : ViewModel.ViewState.ListWidth);
+        CompareSecondColumn.Width = new GridLength(sideBySide ? 1 : 0, GridUnitType.Star);
+        CompareSecondRow.Height = new GridLength(sideBySide ? 0 : 1, GridUnitType.Star);
+        Grid.SetColumn(TheirsPanel, sideBySide ? 1 : 0); Grid.SetRow(TheirsPanel, sideBySide ? 0 : 1);
+        TargetPairColumn.Width = new GridLength(_narrow ? 0 : 1, GridUnitType.Star);
+        Grid.SetColumn(TargetPair, _narrow ? 0 : 1); Grid.SetRow(TargetPair, _narrow ? 1 : 0);
+        Grid.SetColumn(FooterActions, width < 1000 ? 0 : 1);
+        Grid.SetRow(FooterActions, width < 1000 ? 1 : 0);
+        Grid.SetColumnSpan(FooterActions, width < 1000 ? 2 : 1);
+        FooterActions.HorizontalAlignment = width < 1000 ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        FooterActions.Orientation = width < 520 ? Orientation.Vertical : Orientation.Horizontal;
+        BatchButtons.Orientation = width < 1000 ? Orientation.Vertical : Orientation.Horizontal;
         UpdateNarrowLayout();
     }
     private void UpdateNarrowLayout()
@@ -74,7 +79,7 @@ public sealed partial class MergePage : Page
         Grid.SetColumnSpan(FilePanel, _narrow ? 3 : 1);
         BackToFiles.Visibility = _narrow ? Visibility.Visible : Visibility.Collapsed;
         ListSplitter.Visibility = _narrow ? Visibility.Collapsed : Visibility.Visible;
-        SplitColumn.Width = new GridLength(_narrow ? 0 : 8);
+        SplitColumn.Width = new GridLength(_narrow ? 0 : 16);
     }
     private void OnBackToFiles(object sender, RoutedEventArgs e) { _showDetail = false; UpdateNarrowLayout(); ChangeList.Focus(FocusState.Programmatic); }
     private void OnChangeClicked(object sender, ItemClickEventArgs e) { _showDetail = true; UpdateNarrowLayout(); }
@@ -121,6 +126,8 @@ public sealed partial class MergePage : Page
         };
     }
     private void OnSourceChanged(object sender, SelectionChangedEventArgs e) => ViewModel.Notify();
+    private void OnNewMerge(object sender, RoutedEventArgs e) { TaskFlyout.Hide(); ViewModel.BeginNewMerge(); SourcePicker.Focus(FocusState.Programmatic); }
+    private void OnCancelNew(object sender, RoutedEventArgs e) => ViewModel.CancelNewMerge();
     private async void OnSessionChanged(object sender, SelectionChangedEventArgs e)
     { if (SessionPicker.SelectedItem is MergeSessionChoice s) await ViewModel.SelectSessionAsync(s.Id); }
     private async void OnAnalyze(object sender, RoutedEventArgs e) => await ViewModel.AnalyzeAsync();

@@ -16,10 +16,12 @@ public sealed record MergeReviewLine(string Path, string Kind);
 public sealed partial class MergePageViewModel
 {
     public bool ShowCompletion => State.Result?.TargetCommitted == true || State.Session?.State == MergeSessionState.Committed;
-    public bool ShowReview => !ShowCompletion && Operations?.Review is not null;
-    public bool ShowWorkspace => !ShowCompletion && !ShowReview;
+    public bool ShowReview => !ShowSetup && !ShowCompletion && Operations?.Review is not null;
+    public bool ShowWorkspace => !ShowSetup && !ShowCompletion && !ShowReview && HasSession;
     public bool CanApplyReview => IsIdle && ShowReview && CanGenerate;
     public bool CanShowResult => IsIdle && ShowCompletion;
+    public bool HasBranchChanges => Operations?.Review?.BranchChanges.Length > 0;
+    public bool HasWorkingChanges => Operations?.Review?.WorkingChanges.Length > 0;
     public string ResultDiagnostic => State.Result?.Diagnostic ?? "";
     public string ProtectionText => I18n.GetString(Operations?.Review?.NeedsProtection == true ? "MergeWorkspace_ProtectionRequired" : "MergeWorkspace_ProtectionNotRequired");
     public string ReviewSummary => Operations?.Review is { } r

@@ -73,7 +73,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
         : State.Result is { } result ? I18n.GetString("Merge_Result_" + result.Status)
         : State.Notice is { } notice ? I18n.GetString(notice)
         : State.Session is { } session ? I18n.GetString("Merge_State_" + session.State) : I18n.GetString("MergeWorkspace_ChooseSource");
-    public string SaveStatus => I18n.GetString(State.IsSaved ? "MergeWorkspace_Saved" : "MergeWorkspace_Unsaved");
+    public string SaveStatus => HasSession ? I18n.GetString(State.IsSaved ? "MergeWorkspace_Saved" : "MergeWorkspace_Unsaved") : "";
     public string SourceAvailability => !_hasTarget ? I18n.GetString("MergeWorkspace_NoTarget")
         : Branches.Count == 0 ? I18n.GetString("MergeWorkspace_NoSource") : "";
     public string Error => _localError ?? State.Error ?? ((State.Result?.MergeDiagnostic ?? State.Session?.Diagnostic) is { } d
@@ -182,10 +182,18 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public void Notify() => OnPropertyChanged(string.Empty);
     public void ReportError(Exception ex) { _localError = ex.Message; Notify(); }
     public async Task ExecuteAsync(Func<Task> action) { _localError = null; try { await action(); } catch (Exception ex) { ReportError(ex); } Notify(); }
-    public Task AnalyzeAsync() => SelectedBranch is { } b && Operations is not null ? ExecuteAsync(() => Operations.StartAsync(b.Id)) : Task.CompletedTask;
+    public async Task AnalyzeAsync()
+    {
+        if (!CanAnalyze || SelectedBranch is not { } branch || Operations is null) return;
+        var previous = State.Session?.Id;
+        await ExecuteAsync(() => Operations.StartAsync(branch.Id));
+        if (State.Session is { } session && session.Id != previous) _choosingSource = false;
+        Notify();
+    }
     public async Task SelectSessionAsync(Guid id)
     {
-        if (State.Session?.Id == id || Operations is null || _switchingSession || State.IsBusy) return;
+        if (State.Session?.Id == id) { CancelNewMerge(); return; }
+        if (Operations is null || _switchingSession || State.IsBusy) return;
         await ExecuteAsync(async () =>
         {
             _switchingSession = true; Notify();
@@ -197,6 +205,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
                     await Task.Run(() => MergeViewStateStore.Save(oldRuntime.Repository.Paths.LocalStateRoot, previous.Id, presentation));
                 }
                 await Operations.LoadAsync(id);
+                _choosingSource = false;
                 if (Operations.Runtime is { } runtime && State.Session?.Id == id)
                 {
                     ViewState = await Task.Run(() => MergeViewStateStore.Load(runtime.Repository.Paths.LocalStateRoot, id));
