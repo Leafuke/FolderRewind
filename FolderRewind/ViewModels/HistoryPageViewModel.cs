@@ -101,6 +101,15 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public bool ShowGroupedRunHistory => IsGroupedRunView;
     public bool ShowPerSourceHistory => !IsGroupedRunView;
     public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder is not null;
+    public bool HasPendingMerges { get; private set; }
+    public HistoryReturnContext? CaptureReturnContext(double offset = 0) => _currentConfig is not null && _currentFolder is not null
+        ? new(_currentConfig.Id, _currentFolder.Id, SelectedBranch?.BranchId, CommentFilterText, _presentationMode, offset) : null;
+    public void OpenMergeWorkspace()
+    {
+        if (_currentConfig is null || _currentFolder is null) return;
+        NavigationService.NavigateTo("Merge", new MergeNavigationParameter(_currentConfig.Id, _currentFolder.Id,
+            SelectedBranch?.BranchId, ReturnContext: CaptureReturnContext()));
+    }
     public bool CanUseCloudHistoryActions => _currentConfig is not null
         && CloudSyncService.CanUseHistoryCloudActions(_currentConfig);
     public bool CanOpenConfigCloudSync => CanUseCloudHistoryActions;
@@ -203,6 +212,11 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
             if (!request.IsCurrent) return;
             _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
+            var pending = folder is not null && await Task.Run(() => runtime.MergeSessions.List().Any(s =>
+                s.Plan.Ours.SourceId.ToString() == folder.Id && s.State is not (History.LocalState.MergeSessionState.Committed or History.LocalState.MergeSessionState.Abandoned)), request.Token);
+            if (!request.IsCurrent) return;
+            HasPendingMerges = pending;
+            OnPropertyChanged(nameof(HasPendingMerges));
         }
         if (!request.IsCurrent) return;
         NotifyContextChanged();

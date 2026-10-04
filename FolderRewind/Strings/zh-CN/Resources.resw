@@ -6101,4 +6101,36 @@ Pull Request：{1}</value>
   <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] 打开链接失败：{0}</value></data>
   <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] 检查插件“{0}”的更新失败：{1}</value></data>
   <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>此项目已有合并操作正在执行，请等待完成后重试。</value></data>
+  <data name="MergeWorkspace_Back.Content" xml:space="preserve"><value>返回历史并保留</value></data>
+  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>审阅并合并分支</value></data>
+  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>合并将更新当前文件夹和目标分支；来源分支保持不变。</value></data>
+  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>合入来源</value></data>
+  <data name="MergeWorkspace_Analyze.Content" xml:space="preserve"><value>分析合并</value></data>
+  <data name="MergeWorkspace_Sessions.Header" xml:space="preserve"><value>继续已有合并</value></data>
+  <data name="MergeWorkspace_ShowCompleted.Content" xml:space="preserve"><value>显示已完成与已放弃</value></data>
+  <data name="MergeWorkspace_Import.Content" xml:space="preserve"><value>导入解决文件</value></data>
+  <data name="MergeWorkspace_Stop.Label" xml:space="preserve"><value>停止并保留</value></data>
+  <data name="MergeWorkspace_Download.Label" xml:space="preserve"><value>下载所需副本</value></data>
+  <data name="MergeWorkspace_Recompute.Label" xml:space="preserve"><value>重新分析</value></data>
+  <data name="MergeWorkspace_Recover.Label" xml:space="preserve"><value>继续准备 / 恢复事务</value></data>
+  <data name="MergeWorkspace_Abandon.Label" xml:space="preserve"><value>放弃此合并</value></data>
+  <data name="MergeWorkspace_AbandonConfirm" xml:space="preserve"><value>将清理此合并的人工解决文件和临时结果。已经提交的历史备份不会被删除。</value></data>
+  <data name="MergeWorkspace_Unresolved" xml:space="preserve"><value>未解决</value></data>
+  <data name="MergeWorkspace_ChooseSource" xml:space="preserve"><value>选择来源分支，然后分析合并；也可以继续已有任务。</value></data>
+  <data name="MergeWorkspace_Saved" xml:space="preserve"><value>处理结果已保存</value></data>
+  <data name="MergeWorkspace_Unsaved" xml:space="preserve"><value>处理结果尚未保存，请重试本次操作。</value></data>
+  <data name="MergeWorkspace_Count" xml:space="preserve"><value>{0} 项变更 · {1} 项待解决</value></data>
+  <data name="MergeWorkspace_Stage_Idle" xml:space="preserve"><value>就绪</value></data>
+  <data name="MergeWorkspace_Stage_Loading" xml:space="preserve"><value>读取合并任务</value></data>
+  <data name="MergeWorkspace_Stage_Analyzing" xml:space="preserve"><value>分析分支与输入</value></data>
+  <data name="MergeWorkspace_Stage_Downloading" xml:space="preserve"><value>下载所需副本 · 大小未知</value></data>
+  <data name="MergeWorkspace_Stage_Saving" xml:space="preserve"><value>保存决定</value></data>
+  <data name="MergeWorkspace_Stage_Building" xml:space="preserve"><value>生成候选结果 · 所需空间未知</value></data>
+  <data name="MergeWorkspace_Stage_Validating" xml:space="preserve"><value>验证候选结果</value></data>
+  <data name="MergeWorkspace_Stage_Protecting" xml:space="preserve"><value>保护当前工作</value></data>
+  <data name="MergeWorkspace_Stage_Writing" xml:space="preserve"><value>写入当前文件夹</value></data>
+  <data name="MergeWorkspace_Stage_Committing" xml:space="preserve"><value>安全提交中，请等待完成</value></data>
+  <data name="MergeWorkspace_Stage_Finishing" xml:space="preserve"><value>完成与清理</value></data>
+  <data name="MergeWorkspace_Stage_Recovering" xml:space="preserve"><value>恢复原事务 / 继续准备</value></data>
+  <data name="MergeWorkspace_Pending.Content" xml:space="preserve"><value>此文件夹有未完成合并，打开合并工作页</value></data>
 </root>

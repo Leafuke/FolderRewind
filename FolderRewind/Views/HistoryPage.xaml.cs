@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Media;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Views;
@@ -15,6 +16,7 @@ namespace FolderRewind.Views;
 public sealed partial class HistoryPage : Page
 {
     private bool _isNavigating;
+    private HistoryReturnContext? _mergeReturnContext;
 
     public HistoryPageViewModel ViewModel { get; }
 
@@ -22,6 +24,7 @@ public sealed partial class HistoryPage : Page
     {
         ViewModel = new HistoryPageViewModel(new HistoryInteractionService(() => XamlRoot));
         InitializeComponent();
+        NavigationCacheMode = NavigationCacheMode.Enabled;
         ViewModel.Initialize();
         Loaded += (_, _) => HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView ? RunHistoryViewItem : SourceHistoryViewItem;
         Loaded += OnLegacyMigrationLoaded;
@@ -157,6 +160,21 @@ public sealed partial class HistoryPage : Page
         _legacyNoticeActive = true;
         base.OnNavigatedTo(e);
 
+        var returnContext = e.Parameter as HistoryReturnContext ?? (e.NavigationMode == NavigationMode.Back ? _mergeReturnContext : null);
+        if (returnContext is not null)
+        {
+            var restoredFolder = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == returnContext.ConfigId)?.SourceFolders.FirstOrDefault(f => f.Id == returnContext.FolderId);
+            if (restoredFolder is not null)
+            {
+                await ApplySelectionFromNavigationAsync(returnContext.ConfigId, restoredFolder.Path);
+                await ViewModel.SetPresentationModeAsync(returnContext.Presentation);
+                ViewModel.CommentFilterText = returnContext.Search;
+                ViewModel.SelectedBranch = ViewModel.Branches.FirstOrDefault(b => b.BranchId == returnContext.SelectedBranch);
+                DispatcherQueue.TryEnqueue(() => { HistoryList.UpdateLayout(); FindHistoryScroll(HistoryList)?.ChangeView(null, returnContext.ScrollOffset, null, true); });
+                return;
+            }
+        }
+
         if (e.Parameter is ManagerNavigationParameter managerParameter)
         {
             await ApplySelectionFromNavigationAsync(managerParameter.ConfigId, managerParameter.FolderPath);
@@ -174,10 +192,21 @@ public sealed partial class HistoryPage : Page
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        if (e.SourcePageType == typeof(MergePage))
+            _mergeReturnContext = ViewModel.CaptureReturnContext(FindHistoryScroll(HistoryList)?.VerticalOffset ?? 0);
         _legacyNoticeActive = false;
         ResetLegacyMigrationNotice();
         ViewModel.Suspend();
         base.OnNavigatedFrom(e);
+    }
+
+    private void OnPendingMergeClick(object sender, RoutedEventArgs e) => ViewModel.OpenMergeWorkspace();
+    private static ScrollViewer? FindHistoryScroll(DependencyObject parent)
+    {
+        if (parent is ScrollViewer scroll) return scroll;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            if (FindHistoryScroll(VisualTreeHelper.GetChild(parent, i)) is { } found) return found;
+        return null;
     }
 
     private async Task ApplySelectionFromNavigationAsync(string? configId, string? folderPath)

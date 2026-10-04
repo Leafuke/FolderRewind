@@ -128,6 +128,7 @@ namespace FolderRewind.Views
                 "Manager" => typeof(FolderManagerPage),
                 "Tasks" => typeof(BackupTasksPage),
                 "History" => typeof(HistoryPage),
+                "Merge" => typeof(MergePage),
                 "Logs" => typeof(LogPage),
                 "Settings" => typeof(SettingsPage),
                 "GameDiscovery" => typeof(GameDiscoveryPage),
@@ -171,6 +172,7 @@ namespace FolderRewind.Views
 
         private void UpdateNavSelection(string pageTag)
         {
+            if (pageTag == "Merge") pageTag = "History";
             object? targetItem = pageTag == "Settings"
                 ? NavView.SettingsItem
                 : NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Tag?.ToString() == pageTag);
@@ -280,6 +282,7 @@ namespace FolderRewind.Views
             if (sourcePageType == typeof(FolderManagerPage)) return "Manager";
             if (sourcePageType == typeof(BackupTasksPage)) return "Tasks";
             if (sourcePageType == typeof(HistoryPage)) return "History";
+            if (sourcePageType == typeof(MergePage)) return "Merge";
             if (sourcePageType == typeof(LogPage)) return "Logs";
             if (sourcePageType == typeof(SettingsPage)) return "Settings";
             if (sourcePageType == typeof(GameDiscoveryPage)) return "GameDiscovery";

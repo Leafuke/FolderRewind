@@ -6101,4 +6101,36 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] Failed to open the link: {0}</value></data>
   <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] Failed to check for updates to plugin '{0}': {1}</value></data>
   <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>A merge operation is already running for this project. Wait for it to finish and retry.</value></data>
+  <data name="MergeWorkspace_Back.Content" xml:space="preserve"><value>Back to history</value></data>
+  <data name="MergeWorkspace_Title.Text" xml:space="preserve"><value>Review and merge branches</value></data>
+  <data name="MergeWorkspace_Impact.Text" xml:space="preserve"><value>Merging updates this folder and the target branch. The source branch stays unchanged.</value></data>
+  <data name="MergeWorkspace_Source.Header" xml:space="preserve"><value>Merge from</value></data>
+  <data name="MergeWorkspace_Analyze.Content" xml:space="preserve"><value>Analyze merge</value></data>
+  <data name="MergeWorkspace_Sessions.Header" xml:space="preserve"><value>Continue a saved merge</value></data>
+  <data name="MergeWorkspace_ShowCompleted.Content" xml:space="preserve"><value>Show completed and abandoned</value></data>
+  <data name="MergeWorkspace_Import.Content" xml:space="preserve"><value>Import resolved file</value></data>
+  <data name="MergeWorkspace_Stop.Label" xml:space="preserve"><value>Stop and keep progress</value></data>
+  <data name="MergeWorkspace_Download.Label" xml:space="preserve"><value>Download required copies</value></data>
+  <data name="MergeWorkspace_Recompute.Label" xml:space="preserve"><value>Analyze again</value></data>
+  <data name="MergeWorkspace_Recover.Label" xml:space="preserve"><value>Resume preparation / recover transaction</value></data>
+  <data name="MergeWorkspace_Abandon.Label" xml:space="preserve"><value>Abandon this merge</value></data>
+  <data name="MergeWorkspace_AbandonConfirm" xml:space="preserve"><value>This removes imported resolutions and temporary results for this merge. Committed backups are retained.</value></data>
+  <data name="MergeWorkspace_Unresolved" xml:space="preserve"><value>Unresolved</value></data>
+  <data name="MergeWorkspace_ChooseSource" xml:space="preserve"><value>Choose a source branch to analyze, or continue a saved merge.</value></data>
+  <data name="MergeWorkspace_Saved" xml:space="preserve"><value>Decisions saved</value></data>
+  <data name="MergeWorkspace_Unsaved" xml:space="preserve"><value>Decisions are not saved. Retry the operation.</value></data>
+  <data name="MergeWorkspace_Count" xml:space="preserve"><value>{0} changes · {1} unresolved</value></data>
+  <data name="MergeWorkspace_Stage_Idle" xml:space="preserve"><value>Ready</value></data>
+  <data name="MergeWorkspace_Stage_Loading" xml:space="preserve"><value>Loading merge</value></data>
+  <data name="MergeWorkspace_Stage_Analyzing" xml:space="preserve"><value>Analyzing branches and inputs</value></data>
+  <data name="MergeWorkspace_Stage_Downloading" xml:space="preserve"><value>Downloading required copies · size unknown</value></data>
+  <data name="MergeWorkspace_Stage_Saving" xml:space="preserve"><value>Saving decisions</value></data>
+  <data name="MergeWorkspace_Stage_Building" xml:space="preserve"><value>Building candidate result · required space unknown</value></data>
+  <data name="MergeWorkspace_Stage_Validating" xml:space="preserve"><value>Validating candidate result</value></data>
+  <data name="MergeWorkspace_Stage_Protecting" xml:space="preserve"><value>Protecting current work</value></data>
+  <data name="MergeWorkspace_Stage_Writing" xml:space="preserve"><value>Updating the working folder</value></data>
+  <data name="MergeWorkspace_Stage_Committing" xml:space="preserve"><value>Committing safely; please wait</value></data>
+  <data name="MergeWorkspace_Stage_Finishing" xml:space="preserve"><value>Finishing and cleaning up</value></data>
+  <data name="MergeWorkspace_Stage_Recovering" xml:space="preserve"><value>Recovering original transaction / resuming preparation</value></data>
+  <data name="MergeWorkspace_Pending.Content" xml:space="preserve"><value>This folder has unfinished merges. Open the merge workspace</value></data>
 </root>
