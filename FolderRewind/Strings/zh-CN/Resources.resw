@@ -6100,4 +6100,5 @@ Pull Request：{1}</value>
   <data name="Plugins_NotInstalled" xml:space="preserve"><value>该插件尚未安装。</value></data>
   <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] 打开链接失败：{0}</value></data>
   <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] 检查插件“{0}”的更新失败：{1}</value></data>
+  <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>此项目已有合并操作正在执行，请等待完成后重试。</value></data>
 </root>

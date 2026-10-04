@@ -28,7 +28,8 @@ internal static class HistoryMergeInteraction
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
         var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, token);
         await restore.RecoverIncompleteAsync(token);
-        var service = new HistoryMergeService(runtime, restore);
+        var operations = MergeOperationService.Get(config, sourceId);
+        await operations.LoadAsync();
         MergeSession? session = null;
         int offset = 0;
         var status = new TextBlock { TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
@@ -132,7 +133,11 @@ internal static class HistoryMergeInteraction
         {
             if (busy) return;
             busy = true; UpdateControls(); sessions.IsEnabled = false;
-            try { await action(); }
+            try
+            {
+                await action();
+                if (operations.Snapshot.Error is { } error) ShowDetails(error);
+            }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
                 status.Text = I18n.GetString("Merge_Cancelled");
@@ -171,36 +176,32 @@ internal static class HistoryMergeInteraction
         Button(false, "Merge_New", async () =>
         {
             if (source is null) throw new InvalidOperationException(I18n.GetString("Merge_SelectBranch"));
-            session = await NativeHistoryApplicationService.StartMergeAsync(config, source.Value, token);
+            await operations.StartAsync(source.Value);
+            session = operations.Snapshot.Session;
             offset = 0; RefreshSessions(); Refresh();
             if (session is null) status.Text = I18n.GetString("Merge_NoOp");
         });
         Button(false, "Merge_Recompute", async () =>
         {
             if (session is null) return;
-            session = await NativeHistoryApplicationService.RecomputeMergeAsync(config, session, token);
+            await operations.RecomputeAsync(); session = operations.Snapshot.Session;
             offset = 0; RefreshSessions(); Refresh();
         });
         Button(false, "Merge_PrepareReplicas", async () =>
         {
             if (session is null) return;
-            session = await NativeHistoryApplicationService.PrepareMergeReplicasAsync(config, session, token);
+            await operations.PrepareReplicasAsync(); session = operations.Snapshot.Session;
             RefreshSessions(); Refresh();
         });
         Button(false, "Merge_Resume", async () =>
         {
             if (session is null) return;
-            await restore.RecoverIncompleteAsync(token);
-            session = runtime.MergeSessions.Load(session.Id);
-            if (session.State == MergeSessionState.Preparing) session = await service.PrepareAsync(session, token);
+            await operations.ResumeAsync(); session = operations.Snapshot.Session;
             RefreshSessions(); Refresh();
         });
         Button(false, "Merge_Abandon", async () =>
         {
-            await using var lease = await runtime.MutationGate.EnterAsync(token);
-            if (session is not null) session = runtime.MergeSessions.Update(session, MergeSessionState.Abandoned);
-            var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token)).Value;
-            if (catalog is not null) runtime.MergeSessions.CleanupTerminalArtifacts(catalog);
+            await operations.AbandonAsync(); session = operations.Snapshot.Session;
             RefreshSessions(); Refresh();
         });
         dialog.PrimaryButtonClick += async (_, args) =>
@@ -209,26 +210,29 @@ internal static class HistoryMergeInteraction
             await Execute(async () =>
             {
                 if (session is null) return;
-                var result = await NativeHistoryApplicationService.ApplyMergeAsync(config, session, token);
-                RefreshSessions(); Refresh();
+                await operations.ApplyAsync();
+                var result = operations.Snapshot.Result;
+                if (result is null) { ShowDetails(operations.Snapshot.Error ?? ""); return; }
+                try { RefreshSessions(); Refresh(); }
+                catch (Exception ex) { ShowDetails(ex.Message); }
                 status.Text = I18n.GetString("Merge_Result_" + result.Status);
                 ShowDetails(result.MergeDiagnostic is null ? result.Diagnostic : DiagnosticText(result.MergeDiagnostic) + "\n" + result.Diagnostic);
             });
         };
         foreach (var choice in new[] { MergeResolutionChoice.Ours, MergeResolutionChoice.Theirs })
-            Button(true, "Merge_" + choice, () =>
+            Button(true, "Merge_" + choice, async () =>
             {
-                if (session is null) return Task.CompletedTask;
-                session = runtime.MergeSessions.ResolveBatch(session, list.SelectedItems.Cast<Row>().Select(row =>
+                if (session is null) return;
+                await operations.ResolveAsync(list.SelectedItems.Cast<Row>().Select(row =>
                     new MergeResolution(session.Plan.Revision, row.Conflict.Id, row.Conflict.InputSignature, choice)).ToArray());
-                Refresh(); return Task.CompletedTask;
+                session = operations.Snapshot.Session; Refresh();
             });
         Button(false, "Merge_Manual", async () =>
         {
             if (session is null || list.SelectedItems.Count != 1) return;
             var row = (Row)list.SelectedItem;
             var path = await MainWindowService.PickFilePathAsync(I18n.GetString("Merge_Manual"), "merge-manual", ["*"]);
-            if (path is not null) session = await service.ImportManualAsync(session, row.Conflict, path, token);
+            if (path is not null) { await operations.ImportAsync(row.Conflict, path); session = operations.Snapshot.Session; }
             Refresh();
         });
         Button(false, "Merge_Previous", () => { offset = Math.Max(0, offset - 100); Refresh(); return Task.CompletedTask; });
@@ -254,7 +258,7 @@ internal static class HistoryMergeInteraction
         sessions.SelectionChanged += async (_, _) =>
         {
             if (sessions.SelectedItem is ComboBoxItem { Tag: Guid id })
-                await Execute(() => { session = runtime.MergeSessions.Load(id); offset = 0; Refresh(); return Task.CompletedTask; });
+                await Execute(async () => { await operations.LoadAsync(id); session = operations.Snapshot.Session; offset = 0; Refresh(); });
         };
         RefreshSessions(); UpdateControls();
         Resize();

@@ -10,6 +10,33 @@ namespace FolderRewind.Tests;
 public sealed class HistoryMergeTests
 {
     [TestMethod]
+    public async Task OperationResultSurvivesRefreshFailureAndDetachedObservers()
+    {
+        var tracker = new MergeOperationTracker();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        Action observer = () => { };
+        tracker.Changed += observer;
+        var task = tracker.RunAsync(MergeOperationStage.Committing, async token =>
+        {
+            calls++; entered.SetResult(); await release.Task;
+            Assert.IsFalse(token.IsCancellationRequested);
+            tracker.ReportResult(new(HistoryRestoreStatus.Committed, "", true, []));
+            throw new IOException("session refresh unavailable");
+        }, false);
+        await entered.Task;
+        tracker.Changed -= observer;
+        tracker.Stop();
+        Assert.AreSame(task, tracker.RunAsync(MergeOperationStage.Committing, _ => { calls++; return Task.CompletedTask; }));
+        release.SetResult(); await task;
+        Assert.AreEqual(1, calls);
+        Assert.IsTrue(tracker.Snapshot.Result!.TargetCommitted);
+        Assert.AreEqual("session refresh unavailable", tracker.Snapshot.Error);
+        Assert.IsFalse(tracker.Snapshot.IsBusy);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task CachePostActionFailurePreservesCommittedFacts(bool invalidationFails)

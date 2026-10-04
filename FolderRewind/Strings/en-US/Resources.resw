@@ -6100,4 +6100,5 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="Plugins_NotInstalled" xml:space="preserve"><value>The plugin is not installed.</value></data>
   <data name="Sponsor_Log_OpenLinkFailed" xml:space="preserve"><value>[Sponsor] Failed to open the link: {0}</value></data>
   <data name="PluginService_CheckUpdateFailed" xml:space="preserve"><value>[Plugins] Failed to check for updates to plugin '{0}': {1}</value></data>
+  <data name="MergeWorkspace_ConfigBusy" xml:space="preserve"><value>A merge operation is already running for this project. Wait for it to finish and retry.</value></data>
 </root>
