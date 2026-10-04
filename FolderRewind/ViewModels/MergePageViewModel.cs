@@ -14,13 +14,15 @@ namespace FolderRewind.ViewModels;
 
 public sealed record MergeBranchChoice(BranchId Id, string Name);
 public sealed record MergeSessionChoice(Guid Id, string Label);
-public sealed class MergeChangeItem(MergeConflict conflict, MergeResolution? resolution) : ViewModelBase
+public sealed class MergeChangeItem(MergeConflict conflict, MergeResolution? resolution, bool automatic = false) : ViewModelBase
 {
+    public bool IsAutomatic { get; } = automatic;
+    public bool CanCheck => !IsAutomatic;
     public MergeConflict Conflict { get; } = conflict;
     public MergeResolution? Resolution { get; } = resolution;
     public string Id => Conflict.Id;
     public string Path => Conflict.Subject.Paths.IsEmpty ? I18n.GetString("Merge_WholeSource") : string.Join("\n", Conflict.Subject.Paths);
-    public string Description => I18n.GetString("Merge_Conflict_" + Conflict.Kind) + " · "
+    public string Description => IsAutomatic ? I18n.GetString("MergeWorkspace_Automatic") : I18n.GetString("Merge_Conflict_" + Conflict.Kind) + " · "
         + (Resolution is null ? I18n.GetString("MergeWorkspace_Unresolved") : I18n.GetString("Merge_" + Resolution.Choice));
     private bool _isChecked;
     public bool IsChecked { get => _isChecked; set => SetProperty(ref _isChecked, value); }
@@ -67,13 +69,13 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public string Error => _localError ?? State.Error ?? (State.Session?.Diagnostic is { } d
         ? I18n.GetString("Merge_Diagnostic_" + d.Code) + "\n" + I18n.GetString(d.NextActionKey) + "\n" + d.Detail : "");
     public bool HasError => !string.IsNullOrWhiteSpace(Error);
-    public string CountLabel => string.Format(I18n.GetString("MergeWorkspace_Count"), Changes.Count, Changes.Count(c => c.Resolution is null));
+    public string CountLabel => string.Format(I18n.GetString("MergeWorkspace_Count"), _total, _unresolved);
     public bool ShowCompleted { get => _showCompleted; set { if (SetProperty(ref _showCompleted, value)) RefreshSessions(); } }
     private MergeChangeItem? _selectedChange;
     public MergeChangeItem? SelectedChange { get => _selectedChange; set { if (SetProperty(ref _selectedChange, value)) SelectionChanged(); } }
     public string SelectedPath => SelectedChange?.Path ?? "";
     public string SelectedDescription => SelectedChange?.Description ?? "";
-    public bool CanImport => CanResolve && SelectedChange is { Conflict: var c }
+    public bool CanImport => CanResolve && CheckedCount == 0 && SelectedChange is { IsAutomatic: false, Conflict: var c }
         && c.Subject.Paths.Length == 1 && c.Kind is not (MergeConflictKind.PathStructure or MergeConflictKind.SourceRoster or MergeConflictKind.SourceBoundary);
     public event Action? ContentChanged;
 
@@ -100,6 +102,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
             SelectedBranch = Branches.FirstOrDefault(b => b.Id == parameter.SourceBranch) ?? Branches.FirstOrDefault();
             if (State.Session is { } session)
                 ViewState = await Task.Run(() => MergeViewStateStore.Load(runtime.Repository.Paths.LocalStateRoot, session.Id));
+            _search = ViewState.Search; _filter = ViewState.Filter;
         }
         await ReloadChangesAsync(); RefreshSessions(); Notify();
     }
@@ -136,11 +139,16 @@ public sealed partial class MergePageViewModel : ViewModelBase
         var session = State.Session;
         try
         {
-            var rows = Operations?.Runtime is { } runtime && session is not null
-                ? await Task.Run(() => runtime.MergeSessions.Conflicts(session)) : [];
+            var search = Search; var filter = Filter;
+            var page = Operations is { Runtime: not null } operations && session is not null
+                ? await Task.Run(() => operations.QueryChanges(session, search, filter, 0, Math.Max(100, Changes.Count))) : null;
             if (!_active || generation != _loadGeneration) return;
             var selected = SelectedChange?.Id ?? ViewState.SelectedId;
-            Changes.Clear(); foreach (var row in rows) Changes.Add(new(row.Conflict, row.Resolution));
+            var checkedIds = Changes.Where(c => c.IsChecked).Select(c => c.Id).ToHashSet();
+            foreach (var row in Changes) row.PropertyChanged -= OnRowChanged;
+            Changes.Clear();
+            foreach (var row in page?.Rows ?? []) AddRow(row.Conflict, row.Resolution, row.Automatic, checkedIds.Contains(row.Conflict.Id));
+            _total = page?.Total ?? 0; _unresolved = page?.Unresolved ?? 0; _matching = page?.Matching ?? 0;
             _loadedRevision = session is null ? "" : $"{session.Id}:{session.Revision}";
             SelectedChange = Changes.FirstOrDefault(c => c.Id == selected) ?? Changes.FirstOrDefault();
             Notify(); ContentChanged?.Invoke();
@@ -155,8 +163,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public Task AdoptAsync(MergeResolutionChoice choice)
     {
         if (!CanResolve || Operations is null || State.Session is not { } session) return Task.CompletedTask;
-        var selected = Changes.Where(c => c.IsChecked).ToArray();
-        if (selected.Length == 0 && SelectedChange is { } row) selected = [row];
+        var selected = SelectedDecisions();
         return ExecuteAsync(() => Operations.ResolveAsync(selected.Select(c => new MergeResolution(session.Plan.Revision, c.Id, c.Conflict.InputSignature, choice)).ToArray()));
     }
     partial void SelectionChanged();

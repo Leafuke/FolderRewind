@@ -6133,4 +6133,32 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_Stage_Finishing" xml:space="preserve"><value>Finishing and cleaning up</value></data>
   <data name="MergeWorkspace_Stage_Recovering" xml:space="preserve"><value>Recovering original transaction / resuming preparation</value></data>
   <data name="MergeWorkspace_Pending.Content" xml:space="preserve"><value>This folder has unfinished merges. Open the merge workspace</value></data>
+  <data name="MergeWorkspace_Search.PlaceholderText" xml:space="preserve"><value>Search file paths</value></data>
+  <data name="MergeWorkspace_Search.AutomationProperties.Name" xml:space="preserve"><value>Search changed files</value></data>
+  <data name="MergeWorkspace_FilterAll.Content" xml:space="preserve"><value>All changes</value></data>
+  <data name="MergeWorkspace_FilterUnresolved.Content" xml:space="preserve"><value>Unresolved</value></data>
+  <data name="MergeWorkspace_FilterResolved.Content" xml:space="preserve"><value>Resolved</value></data>
+  <data name="MergeWorkspace_FilterAutomatic.Content" xml:space="preserve"><value>Automatic</value></data>
+  <data name="MergeWorkspace_ImportAction.Label" xml:space="preserve"><value>Import resolved file</value></data>
+  <data name="MergeWorkspace_Clear.Label" xml:space="preserve"><value>Clear decision</value></data>
+  <data name="MergeWorkspace_Undo.Label" xml:space="preserve"><value>Undo last batch</value></data>
+  <data name="MergeWorkspace_Next.Label" xml:space="preserve"><value>Next unresolved</value></data>
+  <data name="MergeWorkspace_Base.Header" xml:space="preserve"><value>Common base</value></data>
+  <data name="MergeWorkspace_BackToFiles.Content" xml:space="preserve"><value>Back to files</value></data>
+  <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>Decisions have changed; the previous batch can no longer be undone.</value></data>
+  <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>Reanalyzed: retained {0} decisions; {1} decisions invalidated.</value></data>
+  <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>Automatic</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} checked; with none checked, actions affect the current file</value></data>
+  <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>Use</value></data>
+  <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>Use deletion</value></data>
+  <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>Loading preview…</value></data>
+  <data name="MergeWorkspace_GroupDecision" xml:space="preserve"><value>Resolve this conflict as a whole group. Single-file import is unavailable.</value></data>
+  <data name="MergeWorkspace_WholeFileNotice" xml:space="preserve"><value>Choosing a side uses the whole file. Diff markers: + added, − removed, ~ modified.</value></data>
+  <data name="MergeWorkspace_DeletionNotice" xml:space="preserve"><value>One side has no file. Choosing that side removes the file from the result.</value></data>
+  <data name="MergeWorkspace_Preview_Missing" xml:space="preserve"><value>File absent on this side</value></data>
+  <data name="MergeWorkspace_Preview_Empty" xml:space="preserve"><value>Empty text file</value></data>
+  <data name="MergeWorkspace_Preview_Text" xml:space="preserve"><value>Text preview</value></data>
+  <data name="MergeWorkspace_Preview_Binary" xml:space="preserve"><value>Binary or unsupported encoding</value></data>
+  <data name="MergeWorkspace_Preview_Limited" xml:space="preserve"><value>Preview truncated (512 KiB / 5,000 lines); full diff unavailable</value></data>
+  <data name="MergeWorkspace_Preview_Unavailable" xml:space="preserve"><value>Preview unavailable; prepare again</value></data>
 </root>

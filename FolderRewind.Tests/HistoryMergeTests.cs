@@ -247,7 +247,18 @@ public sealed class HistoryMergeTests
                 manual = (await MergeTreeManifest.ReadAsync(owned, _ => true, default)).Files["content"];
             }
             var choice = manual is not null ? MergeResolutionChoice.Manual : scenario == "theirs" ? MergeResolutionChoice.Theirs : MergeResolutionChoice.Ours;
+            Assert.AreEqual(session.Revision, store.ResolveBatch(session, []).Revision);
             session = store.Resolve(session, new(plan.Revision, conflict.Id, conflict.InputSignature, choice, manual));
+            if (scenario == "ours")
+            {
+                var saved = store.GetConflict(session, conflict.Id).Resolution;
+                session = store.SetResolutions(session, new Dictionary<string, MergeResolution?> { [conflict.Id] = null });
+                Assert.AreEqual(MergeSessionState.Resolving, session.State);
+                Assert.AreEqual(1, store.ConflictCounts(session).Unresolved);
+                Assert.IsNull(store.LoadPrepared(session));
+                session = store.SetResolutions(session, new Dictionary<string, MergeResolution?> { [conflict.Id] = saved });
+                Assert.HasCount(1, store.QueryConflicts(session, "file", true));
+            }
             store = new MergeSessionStore(root);
             Assert.AreEqual(MergeSessionState.Ready, store.Load(session.Id).State);
             Assert.AreEqual(choice, store.Conflicts(session).Single().Resolution!.Choice);
@@ -295,5 +306,28 @@ public sealed class HistoryMergeTests
             Assert.IsTrue(File.Exists(retained));
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    public async Task PreviewDistinguishesMissingEmptyEncodingAndLimits()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            async Task<MergeFilePreview> Read() => await MergeFilePreview.ReadAsync(new(path, "", new FileInfo(path).Length));
+            Assert.AreEqual(MergePreviewKind.Missing, (await MergeFilePreview.ReadAsync(null)).Kind);
+            Assert.AreEqual(MergePreviewKind.Empty, (await Read()).Kind);
+            await File.WriteAllTextAsync(path, "中文\ntext", new System.Text.UnicodeEncoding(false, true, true));
+            Assert.AreEqual("中文\ntext", (await Read()).Text);
+            await File.WriteAllTextAsync(path, "中文", new System.Text.UTF8Encoding(false, true));
+            Assert.AreEqual(MergePreviewKind.Text, (await Read()).Kind);
+            await File.WriteAllBytesAsync(path, [255, 0, 128]);
+            Assert.AreEqual(MergePreviewKind.Binary, (await Read()).Kind);
+            await File.WriteAllTextAsync(path, new string('x', 512 * 1024 + 1));
+            Assert.AreEqual(MergePreviewKind.Limited, (await Read()).Kind);
+            await File.WriteAllTextAsync(path, string.Concat(Enumerable.Repeat("line\n", 5001)));
+            Assert.AreEqual(MergePreviewKind.Limited, (await Read()).Kind);
+        }
+        finally { File.Delete(path); }
     }
 }

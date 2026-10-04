@@ -6133,4 +6133,32 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_Stage_Finishing" xml:space="preserve"><value>完成与清理</value></data>
   <data name="MergeWorkspace_Stage_Recovering" xml:space="preserve"><value>恢复原事务 / 继续准备</value></data>
   <data name="MergeWorkspace_Pending.Content" xml:space="preserve"><value>此文件夹有未完成合并，打开合并工作页</value></data>
+  <data name="MergeWorkspace_Search.PlaceholderText" xml:space="preserve"><value>搜索文件路径</value></data>
+  <data name="MergeWorkspace_Search.AutomationProperties.Name" xml:space="preserve"><value>搜索变更文件</value></data>
+  <data name="MergeWorkspace_FilterAll.Content" xml:space="preserve"><value>全部变更</value></data>
+  <data name="MergeWorkspace_FilterUnresolved.Content" xml:space="preserve"><value>未解决</value></data>
+  <data name="MergeWorkspace_FilterResolved.Content" xml:space="preserve"><value>已解决</value></data>
+  <data name="MergeWorkspace_FilterAutomatic.Content" xml:space="preserve"><value>自动处理</value></data>
+  <data name="MergeWorkspace_ImportAction.Label" xml:space="preserve"><value>导入解决文件</value></data>
+  <data name="MergeWorkspace_Clear.Label" xml:space="preserve"><value>清除决定</value></data>
+  <data name="MergeWorkspace_Undo.Label" xml:space="preserve"><value>撤销最近一批决定</value></data>
+  <data name="MergeWorkspace_Next.Label" xml:space="preserve"><value>下一处未解决</value></data>
+  <data name="MergeWorkspace_Base.Header" xml:space="preserve"><value>共同基点</value></data>
+  <data name="MergeWorkspace_BackToFiles.Content" xml:space="preserve"><value>返回文件列表</value></data>
+  <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>决定已变化，无法撤销旧的一批处理。</value></data>
+  <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>重新分析：保留 {0} 项决定，{1} 项决定已失效。</value></data>
+  <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>自动处理</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>勾选 {0} 项；未勾选时操作当前文件</value></data>
+  <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>采用</value></data>
+  <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>采用删除</value></data>
+  <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>正在读取预览…</value></data>
+  <data name="MergeWorkspace_GroupDecision" xml:space="preserve"><value>此冲突须按整组路径决定，不支持单文件导入。</value></data>
+  <data name="MergeWorkspace_WholeFileNotice" xml:space="preserve"><value>选择一侧将采用整个文件。差异标记：+ 新增，− 删除，~ 修改。</value></data>
+  <data name="MergeWorkspace_DeletionNotice" xml:space="preserve"><value>一侧不存在此文件；采用该侧将从结果中删除文件。</value></data>
+  <data name="MergeWorkspace_Preview_Missing" xml:space="preserve"><value>该侧不存在文件</value></data>
+  <data name="MergeWorkspace_Preview_Empty" xml:space="preserve"><value>空文本文件</value></data>
+  <data name="MergeWorkspace_Preview_Text" xml:space="preserve"><value>文本预览</value></data>
+  <data name="MergeWorkspace_Preview_Binary" xml:space="preserve"><value>二进制或不支持的编码</value></data>
+  <data name="MergeWorkspace_Preview_Limited" xml:space="preserve"><value>预览已截断（512 KiB / 5,000 行），未进行完整差异比较</value></data>
+  <data name="MergeWorkspace_Preview_Unavailable" xml:space="preserve"><value>预览文件不可用，请重新准备</value></data>
 </root>

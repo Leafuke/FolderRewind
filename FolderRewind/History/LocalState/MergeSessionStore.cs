@@ -37,7 +37,7 @@ public sealed record PreparedMergeDescriptor(Guid SessionId, Guid PlanRevision, 
     }
 }
 
-public sealed class MergeSessionStore
+public sealed partial class MergeSessionStore
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly string _path;
@@ -322,11 +322,24 @@ public sealed class MergeSessionStore
         => ResolveBatch(session, [resolution]);
 
     public MergeSession ResolveBatch(MergeSession session, IEnumerable<MergeResolution> resolutions)
+        => SetResolutions(session, resolutions.ToDictionary(r => r.ConflictId, r => (MergeResolution?)r));
+
+    public MergeSession SetResolutions(MergeSession session, IReadOnlyDictionary<string, MergeResolution?> resolutions)
     {
+        if (resolutions.Count == 0) return session;
         if (session.State is not (MergeSessionState.Resolving or MergeSessionState.Ready)) throw new InvalidOperationException("Session cannot accept resolutions.");
         using var db = Open(); using var tx = db.BeginTransaction();
-        foreach (var resolution in resolutions)
+        foreach (var pair in resolutions)
         {
+        var resolution = pair.Value;
+        if (resolution is null)
+        {
+            using var clear = Command(db, "UPDATE conflicts SET resolution=NULL WHERE session=$s AND revision=$r AND id=$id",
+                ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", pair.Key));
+            if (clear.ExecuteNonQuery() != 1) throw new InvalidDataException("Conflict is missing.");
+            continue;
+        }
+        if (pair.Key != resolution.ConflictId) throw new InvalidOperationException("Conflict identity mismatch.");
         if (!Enum.IsDefined(resolution.Choice)) throw new InvalidOperationException("Unknown resolution choice.");
         if (session.State is not (MergeSessionState.Resolving or MergeSessionState.Ready) || resolution.PlanRevision != session.Plan.Revision)
             throw new InvalidOperationException("Resolution belongs to another plan or Session state.");
@@ -339,6 +352,7 @@ public sealed class MergeSessionStore
         if (resolution.Choice != MergeResolutionChoice.Manual && resolution.Manual is not null)
             throw new InvalidOperationException("Whole-side resolution cannot attach manual content.");
         if (conflict.InputSignature != resolution.InputSignature) throw new InvalidOperationException("Conflict inputs changed.");
+        if (resolution.Manual is { } manual && !ManualIsOwnedAndValid(session, manual)) throw new InvalidDataException("Manual resolution is unavailable or changed.");
         using (var update = Command(db, "UPDATE conflicts SET resolution=$d WHERE session=$s AND revision=$r AND id=$id",
             ("$d", Encode(resolution)), ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", resolution.ConflictId))) update.ExecuteNonQuery();
         }

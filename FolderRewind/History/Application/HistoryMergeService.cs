@@ -95,7 +95,10 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
             MergeTreeManifest b = empty, o = empty, t = empty, automatic = empty;
             ImmutableArray<MergeConflict> conflicts = [];
             if (plan.Action == HistoryMergeSourceAction.Reuse)
+            {
                 automatic = await Materialize(plan.Ours?.VersionId == plan.ReuseVersionId ? plan.Ours : plan.Theirs);
+                o = await Materialize(plan.Ours);
+            }
             else if (plan.Action != HistoryMergeSourceAction.Remove)
             {
                 o = await Materialize(plan.Ours); t = await Materialize(plan.Theirs);

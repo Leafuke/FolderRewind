@@ -90,8 +90,12 @@ internal sealed partial class MergeOperationService
     });
     public Task RecomputeAsync() => Run(MergeOperationStage.Analyzing, async token =>
     {
+        var before = Runtime!.MergeSessions.ConflictCounts(RequireSession()).Resolved;
         SetSession(await NativeHistoryApplicationService.RecomputeMergeAsync(Config, RequireSession(), token).ConfigureAwait(false));
-        Tracker.Update(s => s with { Result = null }); Refresh();
+        var retained = Runtime.MergeSessions.ConflictCounts(RequireSession()).Resolved;
+        Tracker.Update(s => s with { Result = null });
+        RecomputeSummary = string.Format(I18n.GetString("MergeWorkspace_Recomputed"), retained, Math.Max(0, before - retained));
+        Refresh();
     });
     public Task PrepareReplicasAsync() => Run(MergeOperationStage.Downloading, async token =>
     {
@@ -115,8 +119,11 @@ internal sealed partial class MergeOperationService
     });
     public Task ResolveAsync(IReadOnlyList<MergeResolution> decisions) => Run(MergeOperationStage.Saving, _ =>
     {
-        SetSession(Runtime!.MergeSessions.ResolveBatch(RequireSession(), decisions)); Refresh(); return Task.CompletedTask;
+        var before = ReadPrevious(RequireSession(), decisions.Select(d => d.ConflictId));
+        var session = Runtime!.MergeSessions.ResolveBatch(RequireSession(), decisions);
+        Remember(session, before); SetSession(session); Refresh(); return Task.CompletedTask;
     });
+    public string? RecomputeSummary { get; private set; }
     public Task ImportAsync(MergeConflict conflict, string path) => Run(MergeOperationStage.Saving, async token =>
     {
         SetSession(await Core.ImportManualAsync(RequireSession(), conflict, path, token).ConfigureAwait(false)); Refresh();
