@@ -784,6 +784,64 @@ public sealed class HistoryCommitCoordinatorTests
         EffectiveSourceBoundarySnapshot? boundary = null)
         => new(sourceId, new SourceDescriptorSnapshot(displayName, $"C:\\{displayName}"), boundary);
 
+    [TestMethod]
+    public async Task ProtectedCaptureAndReusePinInSamePackWithoutRenamingVersion()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var id = SourceId.New(); var snapshot = Snapshot(Source(id, "source"));
+        var capture = CreateCapture(id, "protected", -1, null);
+        var original = Request(snapshot, null, capture);
+        var first = await runtime.Commit.CommitAsync(new HistoryCommitRequest(snapshot,
+            original.Invocation with { Comment = "original name" }, null, [capture], protect: true));
+        var version = first.NewVersions.Single().VersionId;
+        var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.Value);
+        Assert.HasCount(1, await runtime.Query.GetAnnotationUpdatesAsync(target, HistoryAnnotationKind.Pin));
+        Assert.IsTrue(first.Pack.Objects.Any(o => o.Kind == HistoryObjectKinds.HistoryAnnotationUpdate));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var unchanged = SourceCaptureResult.NoChanges(id, CaptureScope.FullSource, workspace.StateRevision,
+            version, "state-protected");
+        var next = Request(snapshot, workspace, unchanged);
+        var reused = await runtime.Commit.CommitAsync(new HistoryCommitRequest(snapshot,
+            next.Invocation with { Comment = "must not rename" }, workspace, [unchanged], protect: true,
+            validateProtectedReuse: (_, _) => Task.FromResult(true)));
+        Assert.IsEmpty(reused.NewVersions);
+        Assert.AreEqual(version, reused.Run.SourceResults.Single().VersionId);
+        var projection = HistoryAnnotationProjection.Project(target, await runtime.Query.GetAnnotationUpdatesAsync(target));
+        Assert.IsTrue(projection.IsPinned); Assert.AreEqual("original name", projection.EffectiveComment);
+    }
+
+    [TestMethod]
+    public async Task ProtectedCaptureRejectsFilteredBoundaryBeforeCommit()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var id = SourceId.New();
+        var boundary = new EffectiveSourceBoundarySnapshot(EffectiveBoundaryScopeMode.All, [],
+            EffectiveBoundaryFilterMode.Blacklist, ["playerdata"], false);
+        var capture = CreateCapture(id, "filtered", -1, null, boundary: boundary);
+        var snapshot = Snapshot(Source(id, "source")); var request = Request(snapshot, null, capture);
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(
+            new HistoryCommitRequest(snapshot, request.Invocation, null, [capture], protect: true)));
+        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task ProtectedReuseRejectsUnavailablePayloadWithoutCommittingPin()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var id = SourceId.New(); var snapshot = Snapshot(Source(id, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(id, "first", -1, null)));
+        var version = first.NewVersions.Single().VersionId;
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var unchanged = SourceCaptureResult.NoChanges(id, CaptureScope.FullSource, workspace.StateRevision, version, "state-first");
+        var request = Request(snapshot, workspace, unchanged);
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(
+            new HistoryCommitRequest(snapshot, request.Invocation, workspace, [unchanged], protect: true,
+                validateProtectedReuse: (_, _) => Task.FromResult(false))));
+        Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+        Assert.IsEmpty(await runtime.Query.GetAnnotationUpdatesAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.Value), HistoryAnnotationKind.Pin));
+    }
+
     private HistoryCommitRequest Request(
         HistoryConfigSnapshot snapshot,
         HistoryWorkspace? workspace,

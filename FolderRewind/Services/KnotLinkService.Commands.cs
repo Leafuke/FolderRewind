@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.Services.KnotLink;
@@ -142,6 +142,7 @@ namespace FolderRewind.Services
                 "AUTO_BACKUP" => await HandleAutoBackup(context),
                 "STOP_AUTO_BACKUP" => await HandleStopAutoBackup(context),
                 "MARK_IMPORTANT" => await HandleMarkImportant(context),
+                "GET_IMPORTANCE" => await HandleGetImportance(context),
                 _ => null
             };
         }
@@ -323,6 +324,7 @@ namespace FolderRewind.Services
 
             if (!TryCreateBackupOperationConfig(request, config!, out var effectiveConfig, out error))
                 return Task.FromResult("ERROR:" + error);
+            if (!TryGetBoolOption(request, "protect", false, out var protect, out error)) return Task.FromResult(error);
             var comment = request.GetStringOrDefault("comment");
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
 
@@ -334,7 +336,7 @@ namespace FolderRewind.Services
                     await BackupService.BackupFolderAsync(
                         effectiveConfig,
                         effectiveFolder,
-                        BackupInvocationOptions.ForRemote().WithComment(comment));
+                        BackupInvocationOptions.ForRemote().WithComment(comment).WithProtection(protect));
                 }
                 catch (Exception ex)
                 {
@@ -628,6 +630,21 @@ namespace FolderRewind.Services
             return Task.FromResult($"OK:Auto-backup task for folder '{folder.DisplayName}' has been stopped.");
         }
 
+        private static async Task<string> HandleGetImportance(KnotLinkCommandContext context)
+        {
+            var request = context.Request;
+            if (!TryResolveConfig(request, out var config, out var error)) return error;
+            if (!TryResolveFolder(request, config!, out var folder, out error)) return error;
+            var file = request.GetString("file");
+            if (string.IsNullOrWhiteSpace(file)) return "ERROR:Missing backup file.";
+            if (!Guid.TryParse(folder!.Id, out var source) || source == Guid.Empty)
+                return "ERROR:Managed source has no stable identity.";
+            var entry = await NativeHistoryCoreGateway.FindVersionByFileAsync(config!.Id, new SourceId(source), file).ConfigureAwait(false);
+            if (entry is null) return "ERROR:Backup entry not found: " + file;
+            return KnotLinkProtocolFormatter.FormatOk(context, new Dictionary<string, string?>
+            { ["file"] = file, ["important"] = entry.IsPinned ? "true" : "false" });
+        }
+
         private static async Task<string> HandleMarkImportant(KnotLinkCommandContext context)
         {
             var request = context.Request;
@@ -653,7 +670,8 @@ namespace FolderRewind.Services
                 ["important"] = isImportant.ToString()
             });
             BroadcastCommandLifecycle(context, "command_completed");
-            return $"OK:Backup '{backupFile}' {action}";
+            return KnotLinkProtocolFormatter.FormatOk(context, new Dictionary<string, string?>
+            { ["message"] = $"Backup '{backupFile}' {action}", ["file"] = backupFile, ["important"] = isImportant ? "true" : "false" });
         }
         #endregion
 

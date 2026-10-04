@@ -188,6 +188,21 @@
           "type": "input",
           "description": "Required caller identifier."
         },
+        "protect": {
+          "type": "optional",
+          "options": [
+            [
+              "true",
+              "true"
+            ],
+            [
+              "false",
+              "false"
+            ]
+          ],
+          "description": "BACKUP only: atomically pin a complete unfiltered backup; unchanged data reuses its existing version.",
+          "defaultVal": "false"
+        },
         "request_id": {
           "type": "input",
           "description": "Required request correlation ID."
@@ -370,6 +385,52 @@
         ]
       ]
     },
+    "get_importance": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Query a backup version pin, not its restore readiness.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "GET_IMPORTANCE",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
+        },
+        "file": {
+          "type": "input",
+          "description": "Required backup archive file name."
+        },
+        "folder": {
+          "type": "input",
+          "description": "Required folder name, path, stable ID or zero-based index."
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier."
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required request correlation ID."
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response file.",
+          "file"
+        ],
+        [
+          "Response important.",
+          "important"
+        ]
+      ]
+    },
     "get_status": {
       "appID": "0x00000020",
       "openSocketID": "0x00000010",
@@ -524,6 +585,14 @@
         [
           "Response message.",
           "message"
+        ],
+        [
+          "Response file.",
+          "file"
+        ],
+        [
+          "Response important.",
+          "important"
         ]
       ]
     },
@@ -979,8 +1048,14 @@
           "description": "Signal event name.",
           "verification": "command_completed"
         },
+        "file": {
+          "description": "Optional completed backup filename."
+        },
         "from": {
           "description": "Caller identifier when emitted in a command conversation."
+        },
+        "important": {
+          "description": "True only for a confirmed protected backup."
         },
         "progress": {
           "description": "Optional progress percentage."

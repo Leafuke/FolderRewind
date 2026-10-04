@@ -1,3 +1,4 @@
+using FolderRewind.History.Representation;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Migration;
@@ -178,7 +179,8 @@ public static class NativeHistoryCoreGateway
         string? comment = null,
         CancellationToken cancellationToken = default,
         HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
-        HistorySafetySnapshotIntent? safetySnapshotIntent = null)
+        HistorySafetySnapshotIntent? safetySnapshotIntent = null,
+        bool protect = false)
     {
         ArgumentNullException.ThrowIfNull(configSnapshot);
         ArgumentNullException.ThrowIfNull(results);
@@ -208,7 +210,16 @@ public static class NativeHistoryCoreGateway
             normalized,
             intent: intent,
             affectedSourceIds: normalized.Select(item => item.SourceId),
-            safetySnapshotIntent: safetySnapshotIntent), cancellationToken).ConfigureAwait(false);
+            safetySnapshotIntent: safetySnapshotIntent, protect: protect,
+            validateProtectedReuse: protect ? async (id, token) =>
+            {
+                var config = await UiDispatcherService.RunOnUiAsync(() => Task.FromResult(
+                    ConfigService.CurrentConfig.BackupConfigs.Single(c => configSnapshot.ConfigId.Matches(c.Id)))).ConfigureAwait(false);
+                var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, token).ConfigureAwait(false);
+                var assessment = await restore.AssessVersionAsync(id, MaterializationFidelity.Exact,
+                    FolderRewind.History.Representation.AssessmentDepth.Deep, token).ConfigureAwait(false);
+                return assessment.Readiness == HistoryReadiness.Ready && assessment.Selected is not null;
+            } : null), cancellationToken).ConfigureAwait(false);
         foreach (var result in normalized.Where(item => item.BaselineCandidate is not null))
         {
             var version = committed.NewVersions.Single(item => item.SourceId == result.SourceId);
