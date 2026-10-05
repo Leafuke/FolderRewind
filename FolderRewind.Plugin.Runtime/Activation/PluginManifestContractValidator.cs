@@ -149,6 +149,7 @@ public static class PluginManifestContractValidator
 
     private static IEnumerable<PluginCapabilityKind> GetKinds(IPluginCapability capability)
     {
+        if (capability is ISpatialPreviewCapability) yield return PluginCapabilityKind.SpatialPreview;
         if (capability is IDiscoveryCapability) yield return PluginCapabilityKind.Discovery;
         if (capability is IConfigReconciliationCapability) yield return PluginCapabilityKind.ConfigReconciliation;
         if (capability is IFilePolicyCapability) yield return PluginCapabilityKind.FilePolicy;

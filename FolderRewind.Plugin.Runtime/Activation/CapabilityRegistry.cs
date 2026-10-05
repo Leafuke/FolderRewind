@@ -40,6 +40,11 @@ internal sealed class CapabilityRegistrationSet
         foreach (var capability in capabilities)
         {
             var recognized = false;
+            if (capability is ISpatialPreviewCapability spatial)
+            {
+                Add("spatial-preview", spatial.Kind.ToString(), capability);
+                recognized = true;
+            }
             if (capability is IDiscoveryCapability discovery)
             {
                 Add("discovery", discovery.ProviderId.Value, capability);
