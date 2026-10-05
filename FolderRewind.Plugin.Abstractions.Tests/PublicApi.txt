@@ -1,4 +1,4 @@
-# Reviewed public API baseline for Plugin API 3.7.0. Ordinally sorted signatures; update only after review.
+# Reviewed public API baseline for Plugin API 3.8.0. Ordinally sorted signatures; update only after review.
 C public FolderRewind.Plugin.Abstractions.AddFolderChange(FolderRewind.Plugin.Abstractions.FolderDraft Folder)
 C public FolderRewind.Plugin.Abstractions.ArtifactContentHandle(System.String value)
 C public FolderRewind.Plugin.Abstractions.ArtifactFileEntry(System.String RelativePath,System.Int64 Length,System.String Sha256)
@@ -90,9 +90,11 @@ C public FolderRewind.Plugin.Abstractions.SpatialPreviewBounds(System.Double Min
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewDescription(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewLayer> Layers,FolderRewind.Plugin.Abstractions.LocalizedText HorizontalAxis,FolderRewind.Plugin.Abstractions.LocalizedText VerticalAxis,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewHeight(System.Int32 Minimum,System.Int32 Maximum,System.Int32 DefaultValue,FolderRewind.Plugin.Abstractions.LocalizedText Label)
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewLayer(System.String Id,FolderRewind.Plugin.Abstractions.LocalizedText Name,FolderRewind.Plugin.Abstractions.SpatialPreviewBounds Bounds,System.Double MinorGridSize,System.Double MajorGridSize,FolderRewind.Plugin.Abstractions.SpatialPreviewHeight Height)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewTarget> Targets,System.String DefaultTargetId)
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewPoint(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderMetadataField> Fields,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest(FolderRewind.Plugin.Abstractions.SpatialPreviewSource Source,System.String LayerId,System.Double X,System.Double Y,System.Nullable<System.Int32> MaximumHeight)
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewSource(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,System.Guid Generation)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewTarget(System.String Id,FolderRewind.Plugin.Abstractions.LocalizedText Group,FolderRewind.Plugin.Abstractions.LocalizedText Name,System.String LayerId,System.Double X,System.Double Y)
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewTile(System.Int32 Width,System.Int32 Height,System.ReadOnlyMemory<System.Byte> BgraPremultiplied,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
 C public FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest(FolderRewind.Plugin.Abstractions.SpatialPreviewSource Source,System.String LayerId,System.Double OriginX,System.Double OriginY,System.Double UnitsPerPixel,System.Nullable<System.Int32> MaximumHeight)
 C public FolderRewind.Plugin.Abstractions.StagedArtifactNode(FolderRewind.Plugin.Abstractions.ArtifactId ArtifactId,FolderRewind.Plugin.Abstractions.ArtifactStagingHandle Staging,FolderRewind.Plugin.Abstractions.ArtifactFormatRef Format,System.Int32 FormatVersion,FolderRewind.Plugin.Abstractions.RestoreStrategyId RestoreStrategyId,FolderRewind.Plugin.Abstractions.ArtifactCompleteness Completeness,FolderRewind.Plugin.Abstractions.CoreCaptureMode CoreCaptureMode,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactId> Dependencies)
@@ -218,6 +220,8 @@ M public virtual FolderRewind.Plugin.Abstractions.IBackupRequestService.RequestA
 M public virtual FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService.QueryAsync(System.Nullable<FolderRewind.Plugin.Abstractions.ConfigKindRef> kind,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigSnapshot>>
 M public virtual FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestAsync(System.String configId,System.Guid folderId,System.String versionId,FolderRewind.Plugin.Abstractions.RestoreRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
 M public virtual FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestQuickAsync(System.String configId,System.Guid folderId,FolderRewind.Plugin.Abstractions.RestoreRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public virtual FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.CloseAsync(FolderRewind.Plugin.Abstractions.SpatialPreviewSource source,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask
+M public virtual FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.GetNavigationTargetsAsync(FolderRewind.Plugin.Abstractions.SpatialPreviewSource source,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation>
 M public virtual FolderRewind.Plugin.Abstractions.RestoreMutationContinuation.BeginInvoke(System.Threading.CancellationToken cancellationToken,System.AsyncCallback callback,System.Object object):System.IAsyncResult
 M public virtual FolderRewind.Plugin.Abstractions.RestoreMutationContinuation.EndInvoke(System.IAsyncResult result):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
 M public virtual FolderRewind.Plugin.Abstractions.RestoreMutationContinuation.Invoke(System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
@@ -559,9 +563,12 @@ P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MaxX:System.Double { pub
 P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MaxY:System.Double { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MinX:System.Double { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MinY:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.CellLabel:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.HorizontalAxis:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.LayerLabel:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.Layers:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewLayer> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.NavigationLabel:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.VerticalAxis:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.DefaultValue:System.Int32 { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.Label:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
@@ -573,6 +580,9 @@ P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Id:System.String { public
 P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.MajorGridSize:System.Double { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.MinorGridSize:System.Double { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Name:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.DefaultTargetId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.QuickTargetId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.Targets:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewTarget> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewPoint.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewPoint.Fields:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderMetadataField> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest.LayerId:System.String { public get; public init; }
@@ -583,6 +593,12 @@ P FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest.Y:System.Double { 
 P FolderRewind.Plugin.Abstractions.SpatialPreviewSource.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewSource.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewSource.Generation:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Group:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Id:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.LayerId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Name:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.X:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Y:System.Double { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.BgraPremultiplied:System.ReadOnlyMemory<System.Byte> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Height:System.Int32 { public get; public init; }
@@ -741,9 +757,11 @@ T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewBounds : Sy
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewDescription : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewDescription>
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewHeight : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewHeight>
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewLayer : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewLayer>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation>
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewPoint : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewPoint>
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest>
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewSource : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewSource>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewTarget : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewTarget>
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewTile : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewTile>
 T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest>
 T public sealed class FolderRewind.Plugin.Abstractions.StagedArtifactNode : System.IEquatable<FolderRewind.Plugin.Abstractions.StagedArtifactNode>

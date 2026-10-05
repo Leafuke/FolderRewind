@@ -6,7 +6,7 @@ package instead of the FolderRewind application or UI projects.
 ## Compatibility
 
 - Target framework: `net10.0`.
-- Package version: `3.7.0`; Plugin API requirement: `3.7`.
+- Package version: `3.8.0`; Plugin API requirement: `3.8`.
 - Assembly version remains `3.0.0.0` throughout API 3.x.
 - A Host accepts a manifest only when its API major matches and its minor is at
   least the plugin's requested minor.

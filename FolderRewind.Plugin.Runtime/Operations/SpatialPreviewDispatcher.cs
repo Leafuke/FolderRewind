@@ -23,7 +23,35 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
                 throw new InvalidDataException("Invalid preview layer.");
             return l with { Name = Freeze(l.Name), Height = l.Height is { } height ? height with { Label = Freeze(height.Label) } : null };
         }).ToArray();
-        return new(Array.AsReadOnly(layers), Freeze(value.HorizontalAxis), Freeze(value.VerticalAxis), Freeze(value.Diagnostics));
+        return new(Array.AsReadOnly(layers), Freeze(value.HorizontalAxis), Freeze(value.VerticalAxis), Freeze(value.Diagnostics))
+        { LayerLabel = value.LayerLabel is { } label ? Freeze(label) : null,
+          NavigationLabel = value.NavigationLabel is { } navigation ? Freeze(navigation) : null,
+          CellLabel = value.CellLabel is { } cell ? Freeze(cell) : null };
+    }
+
+    public async ValueTask<SpatialPreviewNavigation> GetNavigationTargetsAsync(SpatialPreviewSource source, CancellationToken token)
+    {
+        using var lease = Acquire(source, token);
+        var value = await lease.Capability.GetNavigationTargetsAsync(source, lease.Context).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        if (value.Targets.Count > 4096 || value.Targets.Select(t => t.Id).Distinct(StringComparer.Ordinal).Count() != value.Targets.Count
+            || (value.DefaultTargetId is { } id && !value.Targets.Any(t => t.Id == id))
+            || (value.QuickTargetId is { } quick && !value.Targets.Any(t => t.Id == quick)))
+            throw new InvalidDataException("Invalid preview navigation inventory.");
+        var targets = value.Targets.Select(t =>
+        {
+            if (string.IsNullOrWhiteSpace(t.Id) || t.Id.Length > 256 || string.IsNullOrWhiteSpace(t.LayerId)
+                || t.LayerId.Length > 256 || !Finite(t.X, t.Y)) throw new InvalidDataException("Invalid preview target.");
+            return t with { Group = Freeze(t.Group), Name = Freeze(t.Name) };
+        }).ToArray();
+        return new(Array.AsReadOnly(targets), value.DefaultTargetId) { QuickTargetId = value.QuickTargetId };
+    }
+
+    public async ValueTask CloseAsync(SpatialPreviewSource source)
+    {
+        // A stopped plugin has already cleared its caches in Deactivate. Do not pin it or reactivate it for cleanup.
+        using var lease = runtime.TryAcquire<ISpatialPreviewCapability>(new(source.Config.Kind.OwnerId.Value), c => c.Kind == source.Config.Kind);
+        if (lease is not null) await lease.Capability.CloseAsync(source, lease.Context).ConfigureAwait(false);
     }
 
     public async ValueTask<SpatialPreviewTile> RenderAsync(SpatialPreviewTileRequest request, CancellationToken token)
