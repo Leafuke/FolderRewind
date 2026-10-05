@@ -42,6 +42,8 @@ internal sealed class CapabilityRegistrationSet
             var recognized = false;
             if (capability is ISpatialPreviewCapability spatial)
             {
+                if (spatial.Kind.OwnerId.Value != pluginId.Value)
+                    throw new InvalidOperationException("Spatial previews must be owned by the Config Kind owner.");
                 Add("spatial-preview", spatial.Kind.ToString(), capability);
                 recognized = true;
             }

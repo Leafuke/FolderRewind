@@ -206,6 +206,20 @@ namespace FolderRewind.Views
         private void OnOpenFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenFolderCommand, (sender as FrameworkElement)?.DataContext);
         private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenMiniWindowCommand, (sender as FrameworkElement)?.DataContext);
         private void OnShowFolderDetailsClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ShowDetailsCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnFolderActionsOpening(object sender, object args)
+        {
+            if (sender is not MenuFlyout flyout) return;
+            var available = ViewModel.CurrentConfig is { } config && Services.Plugins.V3.PluginV3SpatialPreview.CanPreview(config);
+            foreach (var item in flyout.Items)
+                if (item is MenuFlyoutItem { Tag: "SpatialPreview" } preview)
+                    preview.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+        }
+        private void OnSpatialPreviewClick(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is ManagedFolder folder && ViewModel.CurrentConfig is { } config
+                && Guid.TryParse(folder.Id, out var id))
+                NavigationService.NavigateTo("SpatialPreview", new SpatialPreviewNavigationParameter(config.Id, id));
+        }
         private void OnRenameFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RenameFolderCommand, (sender as FrameworkElement)?.DataContext);
         private void OnEditSourceScopeClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.EditSourceScopeCommand, (sender as FrameworkElement)?.DataContext);
         private void OnChangeIconClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ChangeIconCommand, (sender as FrameworkElement)?.DataContext);
