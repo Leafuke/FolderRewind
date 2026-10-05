@@ -111,7 +111,7 @@ public static class PluginPresetService
                 var install = await PluginV3PackageService.InstallAsync(
                     packagePath,
                     PluginInstallProvenance.BundledOfficial,
-                    action.Sha256,
+                    PluginV3OfflineUpgradeService.ReadBundledSha256(packagePath),
                     cancellationToken).ConfigureAwait(false);
                 if (!install.Success || install.InstalledPackage is null)
                 {
@@ -219,7 +219,7 @@ public static class PluginPresetService
         if (action.Type is not ("installBundledPlugin" or "enablePlugin" or "setHostFeature" or "setupExternalIntegration" or "notice"))
             throw new InvalidDataException("Preset contains a forbidden action type.");
         if (action.Type is "installBundledPlugin" or "enablePlugin") _ = new PluginId(action.PluginId!);
-        if (action.Type == "installBundledPlugin") RequireHashAndRelativePath(action.Sha256, action.PackagePath);
+        if (action.Type == "installBundledPlugin") RequireRelativePath(action.PackagePath);
         if (action.Type == "setHostFeature" && action.Feature != "knotLink") throw new InvalidDataException("Preset requests an unknown Host feature.");
         if (action.Type == "setupExternalIntegration")
         {
@@ -233,9 +233,8 @@ public static class PluginPresetService
             throw new InvalidDataException("Notice messageResourceKey is required.");
     }
 
-    private static void RequireHashAndRelativePath(string? hash, string? path)
+    private static void RequireRelativePath(string? path)
     {
-        RequireHash(hash);
         if (string.IsNullOrWhiteSpace(path) || Path.IsPathFullyQualified(path) || path.Contains("..", StringComparison.Ordinal))
             throw new InvalidDataException("Bundled package path must be relative.");
     }

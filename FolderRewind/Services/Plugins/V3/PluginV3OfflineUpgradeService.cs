@@ -19,20 +19,18 @@ internal sealed record PluginV3OfflineUpgradeResult(
 internal static class PluginV3OfflineUpgradeService
 {
     internal const string MineRewindId = "com.folderrewind.minerewind";
-    internal static string BundledSha256
+    internal static string BundledSha256 => ReadBundledSha256(ResolveBundledPackagePath());
+
+    internal static string ReadBundledSha256(string packagePath)
     {
-        get
-        {
-            var packagePath = ResolveBundledPackagePath();
-            var fields = File.ReadAllText(packagePath + ".sha256")
-                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (fields.Length != 2
-                || fields[0].Length != System.Security.Cryptography.SHA256.HashSizeInBytes * 2
-                || fields[0].Any(value => !Uri.IsHexDigit(value))
-                || !string.Equals(fields[1].TrimStart('*'), Path.GetFileName(packagePath), StringComparison.Ordinal))
-                throw new InvalidDataException("Bundled plugin checksum is invalid.");
-            return fields[0].ToLowerInvariant();
-        }
+        var fields = File.ReadAllText(packagePath + ".sha256")
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (fields.Length != 2
+            || fields[0].Length != System.Security.Cryptography.SHA256.HashSizeInBytes * 2
+            || fields[0].Any(value => !Uri.IsHexDigit(value))
+            || !string.Equals(fields[1].TrimStart('*'), Path.GetFileName(packagePath), StringComparison.Ordinal))
+            throw new InvalidDataException("Bundled plugin checksum is invalid.");
+        return fields[0].ToLowerInvariant();
     }
     private static readonly TimeSpan MigrationTimeout = TimeSpan.FromSeconds(30);
     private static readonly PluginId MineRewindPluginId = new(MineRewindId);
