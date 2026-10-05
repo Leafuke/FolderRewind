@@ -6301,12 +6301,28 @@ Pull Request：{1}</value>
   <data name="Preview_ZoomOut.Content" xml:space="preserve"><value>缩小</value></data>
   <data name="Preview_ZoomIn.Content" xml:space="preserve"><value>放大</value></data>
   <data name="Preview_Locate.Content" xml:space="preserve"><value>定位</value></data>
-  <data name="Preview_Help.Text" xml:space="preserve"><value>拖动平移，滚轮缩放。方向键平移，回车查看中心位置。近景显示地表，远景显示占用。黄色网纹：版本或压缩格式不支持；红色网纹：读取异常；紫色：未知方块。仅近似颜色，不使用游戏材质。</value></data>
+  <data name="Preview_Help.Text" xml:space="preserve"><value>拖动平移，滚轮围绕鼠标缩放；方向键平移，回车查看中心详情。定位玩家会切换到其上次保存位置所属的维度。地图使用版本化方块配色、生物群系染色、水深与地形阴影。灰色斜纹表示缺色，黄色网纹表示暂不支持，红色网纹表示读取异常。只读当前目录，游戏写入后请刷新；这不是一致性快照。</value></data>
   <data name="Preview_MapName" xml:space="preserve"><value>只读二维地图，使用方向键移动，回车查看详情</value></data>
   <data name="Preview_Loading" xml:space="preserve"><value>正在按需读取地图…</value></data>
-  <data name="Preview_ReadOnly" xml:space="preserve"><value>只读当前目录预览。游戏写入后请刷新；这不是一致性快照。</value></data>
-  <data name="Preview_Overview" xml:space="preserve"><value>占用概览：放大查看地表。空白不代表已完成读取；不支持的区块可点击查看原因。</value></data>
+  <data name="Preview_ReadOnly" xml:space="preserve"><value>只读 · 游戏写入后请刷新</value></data>
+  <data name="Preview_Overview" xml:space="preserve"><value>区块占用概览 · 放大查看地形</value></data>
   <data name="Preview_Empty" xml:space="preserve"><value>当前来源未提供可预览图层；格式可能尚未支持，或尚未生成空间数据。</value></data>
   <data name="Preview_Failed" xml:space="preserve"><value>预览读取失败：</value></data>
   <data name="Preview_SourceChanged" xml:space="preserve"><value>来源配置已变化，请刷新地图。</value></data>
+  <data name="Preview_Coordinates.Label" xml:space="preserve"><value>坐标…</value></data>
+  <data name="Preview_Display.Label" xml:space="preserve"><value>显示</value></data>
+  <data name="Preview_RefreshAction.Label" xml:space="preserve"><value>刷新</value></data>
+  <data name="Preview_HelpAction.Label" xml:space="preserve"><value>帮助</value></data>
+  <data name="Preview_ViewHeight.Header" xml:space="preserve"><value>查看高度</value></data>
+  <data name="Preview_Grid.Header" xml:space="preserve"><value>显示网格边界</value></data>
+  <data name="Preview_Fit.Content" xml:space="preserve"><value>适应世界范围</value></data>
+  <data name="Preview_CloseDetails.Content" xml:space="preserve"><value>关闭详情</value></data>
+  <data name="Preview_LayerLabel" xml:space="preserve"><value>图层</value></data>
+  <data name="Preview_NavigationLabel" xml:space="preserve"><value>定位</value></data>
+  <data name="Preview_CellLabel" xml:space="preserve"><value>网格</value></data>
+  <data name="Preview_NoTargets" xml:space="preserve"><value>未找到可用的保存位置。</value></data>
+  <data name="Preview_SavedPosition" xml:space="preserve"><value>定位到上次保存位置，并非游戏中的实时位置。</value></data>
+  <data name="Preview_TargetUnavailable" xml:space="preserve"><value>此位置所属的维度或图层暂时无法浏览。</value></data>
+  <data name="Preview_ZoomInName" xml:space="preserve"><value>放大</value></data>
+  <data name="Preview_ZoomOutName" xml:space="preserve"><value>缩小</value></data>
 </root>
