@@ -1366,10 +1366,10 @@
     <value>Minecraft 入门预设</value>
   </data>
   <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
-    <value>安装并启用随软件提供的 MineRewind 插件，开启 KnotLink，并说明后续游戏内集成步骤。</value>
+    <value>准备并启用 MineRewind 和 KnotLink，连接服务端，并说明后续游戏内集成步骤。</value>
   </data>
   <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
-    <value>预设使用经过校验的内置 MineRewind 包。只有确定不可变的官方 URL 与 SHA-256 后，才会运行外部 KnotLink 安装器。</value>
+    <value>优先复用已有兼容组件。缺少本机 KnotLink 时，在确认后下载并打开 3.2.0.0 安装器；完成安装后自动启动服务端并连接。</value>
   </data>
   <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
     <value>完成后还需要为 Minecraft 安装 MineBackup-Mod，才能在游戏内用指令调用存档时光机。</value>
@@ -1384,10 +1384,10 @@
     <value>云备份入门预设</value>
   </data>
   <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
-    <value>自动准备 rclone；百度网盘、阿里云盘等服务会额外准备 OpenList，并打开配置引导。</value>
+    <value>准备 rclone；百度网盘、阿里云盘等服务会额外准备 OpenList。已有可用工具会直接复用。</value>
   </data>
   <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
-    <value>选择云服务后开始配置。存档时光机会下载必要工具、写入全局 rclone 路径，并打开云存档文档。</value>
+    <value>选择云服务后开始准备。缺少工具时下载适配设备的 rclone 1.75.1 和必要的 OpenList 4.2.6，并保存工具路径；云连接仍需后续配置。</value>
   </data>
   <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
     <value>开始配置</value>
@@ -3225,10 +3225,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>确认开始云备份预设</value>
   </data>
   <data name="CloudOnboarding_ConfirmContent" xml:space="preserve">
-    <value>将为“{0}”准备云备份环境。{1} 过程中会从 GitHub Releases 下载 rclone，必要时下载 OpenList，完成后写入全局 rclone 路径并打开配置引导。</value>
+    <value>将为“{0}”准备云备份工具。{1} 优先复用已安装的可用工具；缺少时通过所选下载源获取适配设备的 rclone 1.75.1 和必要的 OpenList 4.2.6，验证后保存路径。云连接仍需后续配置。</value>
   </data>
   <data name="CloudOnboarding_ConfirmPrimary" xml:space="preserve">
-    <value>下载并开始</value>
+    <value>准备工具</value>
   </data>
   <data name="CloudOnboarding_NoProvider" xml:space="preserve">
     <value>请先选择一个云服务。</value>
@@ -6294,4 +6294,20 @@ Pull Request：{1}</value>
   <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>清理已提交，但之后的状态评估失败，请重新检查。</value></data>
   <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>历史提交已持久化，但本地状态需要恢复。后续源已停止处理，请修复历史后重试。</value></data>
   <data name="History_LoadMore.Content" xml:space="preserve"><value>加载更多</value></data>
+  <data name="Onboarding_ToolPlatformUnsupported" xml:space="preserve"><value>此 Windows 架构不支持自动安装云备份工具，请配置已安装的工具路径。</value></data>
+  <data name="Onboarding_ToolPrepared" xml:space="preserve"><value>工具已验证并准备完成：</value></data>
+  <data name="PluginPreset_KnotLinkConnected" xml:space="preserve"><value>KnotLink 服务端已就绪，FolderRewind 连接已初始化。</value></data>
+  <data name="PluginPreset_KnotLinkConnectionFailed" xml:space="preserve"><value>服务端端口可用，但 FolderRewind 未完成 KnotLink 连接，请检查互联设置。</value></data>
+  <data name="PluginPreset_KnotLinkInstalled" xml:space="preserve"><value>已检测到安装完成的兼容 KnotLink 服务端。</value></data>
+  <data name="PluginPreset_KnotLinkInstallPending" xml:space="preserve"><value>KnotLink 安装器仍在运行。请完成安装后重新执行预设；安装器未被终止。</value></data>
+  <data name="PluginPreset_KnotLinkInstallUnconfirmed" xml:space="preserve"><value>安装器已退出，但未检测到可用且兼容的 KnotLink 服务端。请确认是否取消了安装，然后重试。</value></data>
+  <data name="PluginPreset_KnotLinkNotReady" xml:space="preserve"><value>KnotLink 服务端端口尚不可连接，请检查服务端状态后重试。</value></data>
+  <data name="PluginPreset_KnotLinkRemote" xml:space="preserve"><value>当前使用远程 KnotLink 主机，已跳过本机服务端安装和启动。</value></data>
+  <data name="PluginPreset_KnotLinkStartFailed" xml:space="preserve"><value>无法启动本机 KnotLink 服务端，请检查安装或手动启动后重试。</value></data>
+  <data name="PluginPreset_Progress_KnotLinkCheck" xml:space="preserve"><value>正在检测已有 KnotLink 服务端...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkConnect" xml:space="preserve"><value>正在启动并连接 KnotLink 服务端...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkDownload" xml:space="preserve"><value>正在下载并验证 KnotLink 安装器...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkInstall" xml:space="preserve"><value>已打开 KnotLink 安装器，请完成安装。正在等待安装结束（最多五分钟）...</value></data>
+  <data name="PluginPreset_Step_KnotLinkInstaller" xml:space="preserve"><value>准备 KnotLink 服务端</value></data>
+  <data name="PluginPreset_StepFailed" xml:space="preserve"><value>步骤执行失败：{0}</value></data>
 </root>

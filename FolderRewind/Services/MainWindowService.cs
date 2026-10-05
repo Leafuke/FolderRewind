@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Windowing;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics;
 using Windows.Storage.Pickers;
@@ -72,12 +73,15 @@ namespace FolderRewind.Services
         }
 
         public static Task<bool> ConfirmAsync(string title, string message, string primaryButtonText) =>
+            ConfirmAsync(title, message, primaryButtonText, CancellationToken.None);
+
+        internal static Task<bool> ConfirmAsync(string title, string message, string primaryButtonText, CancellationToken cancellationToken) =>
             AppDialogService.Default.ConfirmAsync(
                 title,
                 message,
                 primaryButtonText,
-                GetXamlRoot(),
-                isDestructive: true);
+                isDestructive: true,
+                cancellationToken: cancellationToken);
 
         public static void InitializeStoreContext(object? storeContext)
         {

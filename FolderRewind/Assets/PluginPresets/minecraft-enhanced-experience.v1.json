@@ -16,17 +16,21 @@
       "pluginId": "com.folderrewind.minerewind"
     },
     {
-      "id": "enable-knotlink-host",
+      "id": "install-knotlink-server",
       "dependsOn": ["enable-minerewind"],
+      "type": "setupExternalIntegration",
+      "integration": "knotLinkServer",
+      "name": "KnotLink Service 3.2.0.0",
+      "url": "https://github.com/KnotLink-Protocol/KnotLinkService/releases/download/v3.2.0.0/KnotLinkService-3.2.0.0-windows-x86-Installer.exe",
+      "sha256": "968fffb74af12aa9b4c186f456b4594521d21c18faeaa57a8b5227cd9670bb12",
+      "fileName": "KnotLinkService-3.2.0.0-windows-x86-Installer.exe"
+    },
+    {
+      "id": "enable-knotlink-host",
+      "dependsOn": ["install-knotlink-server"],
       "type": "setHostFeature",
       "feature": "knotLink",
       "enabled": true
-    },
-    {
-      "id": "knotlink-installer-awaits-curation",
-      "type": "notice",
-      "severity": "warning",
-      "messageResourceKey": "PluginPreset_Notice_KnotLinkCuration"
     },
     {
       "id": "mine-backup-reminder",

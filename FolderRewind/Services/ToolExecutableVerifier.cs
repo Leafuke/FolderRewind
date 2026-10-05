@@ -14,6 +14,7 @@ internal static class ToolExecutableVerifier
     {
         if (tool is not ("rclone" or "openlist")) throw new ArgumentOutOfRangeException(nameof(tool));
         if (!Path.IsPathFullyQualified(path) || !File.Exists(path)
+            || !string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase)
             || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new IOException(I18n.GetString("Onboarding_ToolExecutableInvalid"));
         var start = new ProcessStartInfo(path)
