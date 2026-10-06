@@ -1,7 +1,7 @@
 <Project Sdk="WixToolset.Sdk/7.0.0">
   <PropertyGroup>
     <OutputType>Bundle</OutputType><AcceptEula>wix7</AcceptEula><InstallerPlatform>x86</InstallerPlatform><EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
-    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.4.0</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.6.0</ProductVersion>
     <PayloadArchitecture Condition="'$(PayloadArchitecture)'==''">x64</PayloadArchitecture>
     <BundleDisplayName Condition="'$(BundleDisplayName)'==''">FolderRewind</BundleDisplayName>
     <EnableFaultInjection Condition="'$(EnableFaultInjection)'==''">0</EnableFaultInjection>

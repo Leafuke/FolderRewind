@@ -66,12 +66,12 @@ namespace FolderRewind.Services
                 => new(MainWindowService.ConfirmAsync(
                     I18n.Format("PluginPreset_ConsentDownloadTitle", name),
                     I18n.Format("PluginPreset_ConsentDownloadContent", url, sha256),
-                    I18n.GetString("PluginPreset_ConsentDownloadButton")));
+                    I18n.GetString("PluginPreset_ConsentDownloadButton"), cancellationToken));
             public ValueTask<bool> ConfirmExternalLaunchAsync(string name, string localPath, CancellationToken cancellationToken)
                 => new(MainWindowService.ConfirmAsync(
                     I18n.Format("PluginPreset_ConsentLaunchTitle", name),
                     I18n.Format("PluginPreset_ConsentLaunchContent", localPath),
-                    I18n.GetString("PluginPreset_ConsentLaunchButton")));
+                    I18n.GetString("PluginPreset_ConsentLaunchButton"), cancellationToken));
         }
     }
 }

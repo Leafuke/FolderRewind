@@ -9,6 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\LocalizedTextSelector.cs" Link="Source\LocalizedTextSelector.cs" />
+    <Compile Include="..\FolderRewind\Services\PreviewCameraStore.cs" Link="Source\PreviewCameraStore.cs" />
+    <Compile Include="..\FolderRewind\Services\SpatialPreviewViewport.cs" Link="Source\SpatialPreviewViewport.cs" />
     <Compile Include="..\FolderRewind\Services\ConfigSnapshotCoordinator.cs" Link="Source\ConfigSnapshotCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\MergeOperationService.cs" Link="Source\MergeOperationService.cs" />
     <Compile Include="..\FolderRewind\Services\MergeOperationService.Decisions.cs" Link="Source\MergeOperationService.Decisions.cs" />

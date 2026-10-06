@@ -1366,10 +1366,10 @@
     <value>Minecraft 入门预设</value>
   </data>
   <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
-    <value>安装并启用随软件提供的 MineRewind 插件，开启 KnotLink，并说明后续游戏内集成步骤。</value>
+    <value>准备并启用 MineRewind 和 KnotLink，连接服务端，并说明后续游戏内集成步骤。</value>
   </data>
   <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
-    <value>预设使用经过校验的内置 MineRewind 包。只有确定不可变的官方 URL 与 SHA-256 后，才会运行外部 KnotLink 安装器。</value>
+    <value>优先复用已有兼容组件。缺少本机 KnotLink 时，在确认后下载并打开 3.2.0.0 安装器；完成安装后自动启动服务端并连接。</value>
   </data>
   <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
     <value>完成后还需要为 Minecraft 安装 MineBackup-Mod，才能在游戏内用指令调用存档时光机。</value>
@@ -1384,10 +1384,10 @@
     <value>云备份入门预设</value>
   </data>
   <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
-    <value>自动准备 rclone；百度网盘、阿里云盘等服务会额外准备 OpenList，并打开配置引导。</value>
+    <value>准备 rclone；百度网盘、阿里云盘等服务会额外准备 OpenList。已有可用工具会直接复用。</value>
   </data>
   <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
-    <value>选择云服务后开始配置。存档时光机会下载必要工具、写入全局 rclone 路径，并打开云存档文档。</value>
+    <value>选择云服务后开始准备。缺少工具时下载适配设备的 rclone 1.75.1 和必要的 OpenList 4.2.6，并保存工具路径；云连接仍需后续配置。</value>
   </data>
   <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
     <value>开始配置</value>
@@ -3225,10 +3225,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>确认开始云备份预设</value>
   </data>
   <data name="CloudOnboarding_ConfirmContent" xml:space="preserve">
-    <value>将为“{0}”准备云备份环境。{1} 过程中会从 GitHub Releases 下载 rclone，必要时下载 OpenList，完成后写入全局 rclone 路径并打开配置引导。</value>
+    <value>将为“{0}”准备云备份工具。{1} 优先复用已安装的可用工具；缺少时通过所选下载源获取适配设备的 rclone 1.75.1 和必要的 OpenList 4.2.6，验证后保存路径。云连接仍需后续配置。</value>
   </data>
   <data name="CloudOnboarding_ConfirmPrimary" xml:space="preserve">
-    <value>下载并开始</value>
+    <value>准备工具</value>
   </data>
   <data name="CloudOnboarding_NoProvider" xml:space="preserve">
     <value>请先选择一个云服务。</value>
@@ -5058,6 +5058,7 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>批量创建完成</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>已创建 {0} 个配置，跳过 {1} 个配置。</value></data>
   <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>可还原（精确）</value></data>
+  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>可还原（覆盖／导出）</value></data>
   <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>可从云端准备后还原</value></data>
   <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>需要插件或凭据</value></data>
   <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>备份数据不可用</value></data>
@@ -6294,4 +6295,57 @@ Pull Request：{1}</value>
   <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>清理已提交，但之后的状态评估失败，请重新检查。</value></data>
   <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>历史提交已持久化，但本地状态需要恢复。后续源已停止处理，请修复历史后重试。</value></data>
   <data name="History_LoadMore.Content" xml:space="preserve"><value>加载更多</value></data>
+  <data name="Onboarding_ToolPlatformUnsupported" xml:space="preserve"><value>此 Windows 架构不支持自动安装云备份工具，请配置已安装的工具路径。</value></data>
+  <data name="Onboarding_ToolPrepared" xml:space="preserve"><value>工具已验证并准备完成：</value></data>
+  <data name="PluginPreset_KnotLinkConnected" xml:space="preserve"><value>KnotLink 服务端已就绪，FolderRewind 连接已初始化。</value></data>
+  <data name="PluginPreset_KnotLinkConnectionFailed" xml:space="preserve"><value>服务端端口可用，但 FolderRewind 未完成 KnotLink 连接，请检查互联设置。</value></data>
+  <data name="PluginPreset_KnotLinkInstalled" xml:space="preserve"><value>已检测到安装完成的兼容 KnotLink 服务端。</value></data>
+  <data name="PluginPreset_KnotLinkInstallPending" xml:space="preserve"><value>KnotLink 安装器仍在运行。请完成安装后重新执行预设；安装器未被终止。</value></data>
+  <data name="PluginPreset_KnotLinkInstallUnconfirmed" xml:space="preserve"><value>安装器已退出，但未检测到可用且兼容的 KnotLink 服务端。请确认是否取消了安装，然后重试。</value></data>
+  <data name="PluginPreset_KnotLinkNotReady" xml:space="preserve"><value>KnotLink 服务端端口尚不可连接，请检查服务端状态后重试。</value></data>
+  <data name="PluginPreset_KnotLinkRemote" xml:space="preserve"><value>当前使用远程 KnotLink 主机，已跳过本机服务端安装和启动。</value></data>
+  <data name="PluginPreset_KnotLinkStartFailed" xml:space="preserve"><value>无法启动本机 KnotLink 服务端，请检查安装或手动启动后重试。</value></data>
+  <data name="PluginPreset_Progress_KnotLinkCheck" xml:space="preserve"><value>正在检测已有 KnotLink 服务端...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkConnect" xml:space="preserve"><value>正在启动并连接 KnotLink 服务端...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkDownload" xml:space="preserve"><value>正在下载并验证 KnotLink 安装器...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkInstall" xml:space="preserve"><value>已打开 KnotLink 安装器，请完成安装。正在等待安装结束（最多五分钟）...</value></data>
+  <data name="PluginPreset_Step_KnotLinkInstaller" xml:space="preserve"><value>准备 KnotLink 服务端</value></data>
+  <data name="PluginPreset_StepFailed" xml:space="preserve"><value>步骤执行失败：{0}</value></data>
+  <data name="Preview_Open.Text" xml:space="preserve"><value>地图预览</value></data>
+  <data name="Preview_Back.Content" xml:space="preserve"><value>返回</value></data>
+  <data name="Preview_Refresh.Content" xml:space="preserve"><value>刷新</value></data>
+  <data name="Preview_Layers.Header" xml:space="preserve"><value>图层</value></data>
+  <data name="Preview_ZoomOut.Content" xml:space="preserve"><value>缩小</value></data>
+  <data name="Preview_ZoomIn.Content" xml:space="preserve"><value>放大</value></data>
+  <data name="Preview_Locate.Content" xml:space="preserve"><value>定位</value></data>
+  <data name="Preview_Help.Text" xml:space="preserve"><value>拖动平移，滚轮围绕鼠标缩放；方向键平移，回车查看中心详情。定位玩家会切换到其上次保存位置所属的维度。地图使用版本化方块配色、生物群系染色、水深与地形阴影。灰色斜纹表示缺色，黄色网纹表示暂不支持，红色网纹表示读取异常。只读当前目录，游戏写入后请刷新；这不是一致性快照。</value></data>
+  <data name="Preview_MapName" xml:space="preserve"><value>只读二维地图，使用方向键移动，回车查看详情</value></data>
+  <data name="Preview_Loading" xml:space="preserve"><value>正在按需读取地图…</value></data>
+  <data name="Preview_ReadOnly" xml:space="preserve"><value>只读 · 游戏写入后请刷新</value></data>
+  <data name="Preview_Overview" xml:space="preserve"><value>区块占用概览与已缓存地形 · 放大以补全</value></data>
+  <data name="Preview_Empty" xml:space="preserve"><value>当前来源未提供可预览图层；格式可能尚未支持，或尚未生成空间数据。</value></data>
+  <data name="Preview_Failed" xml:space="preserve"><value>预览读取失败：</value></data>
+  <data name="Preview_SourceChanged" xml:space="preserve"><value>来源配置已变化，请刷新地图。</value></data>
+  <data name="Preview_Coordinates.Label" xml:space="preserve"><value>坐标…</value></data>
+  <data name="Preview_Display.Label" xml:space="preserve"><value>显示</value></data>
+  <data name="Preview_RefreshAction.Label" xml:space="preserve"><value>刷新</value></data>
+  <data name="Preview_HelpAction.Label" xml:space="preserve"><value>帮助</value></data>
+  <data name="Preview_ViewHeight.Header" xml:space="preserve"><value>查看高度</value></data>
+  <data name="Preview_Grid.Header" xml:space="preserve"><value>显示网格边界</value></data>
+  <data name="Preview_Fit.Content" xml:space="preserve"><value>适应世界范围</value></data>
+  <data name="Preview_CloseDetails.Content" xml:space="preserve"><value>关闭详情</value></data>
+  <data name="Preview_LayerLabel" xml:space="preserve"><value>图层</value></data>
+  <data name="Preview_NavigationLabel" xml:space="preserve"><value>定位</value></data>
+  <data name="Preview_CellLabel" xml:space="preserve"><value>网格</value></data>
+  <data name="Preview_NoTargets" xml:space="preserve"><value>未找到可用的保存位置。</value></data>
+  <data name="Preview_SavedPosition" xml:space="preserve"><value>定位到上次保存位置，并非游戏中的实时位置。</value></data>
+  <data name="Preview_TargetUnavailable" xml:space="preserve"><value>此位置所属的维度或图层暂时无法浏览。</value></data>
+  <data name="Preview_ZoomInName" xml:space="preserve"><value>放大</value></data>
+  <data name="Preview_ZoomOutName" xml:space="preserve"><value>缩小</value></data>
+  <data name="Preview_Partial" xml:space="preserve"><value>正在逐步补全地形…</value></data>
+  <data name="Preview_Ungenerated" xml:space="preserve"><value>此处尚未生成地形 · 可选择适应世界范围</value></data>
+  <data name="Preview_InvalidCoordinate" xml:space="preserve"><value>请输入合法范围内的有效坐标。</value></data>
+  <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}：{1:N0} 至 {2:N0}；{3}：{4:N0} 至 {5:N0}</value></data>
+  <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} 单位</value></data>
+  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>从该 Y 向下寻找首个表面，不是洞穴视图。玩家定位仅使用保存的 X/Z。</value></data>
 </root>

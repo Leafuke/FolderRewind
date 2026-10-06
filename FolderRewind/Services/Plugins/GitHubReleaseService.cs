@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -136,6 +137,12 @@ namespace FolderRewind.Services.Plugins
             public long DownloadCount { get; set; }
             public DateTimeOffset? UpdatedAt { get; set; }
         }
+
+        internal static Task<byte[]> DownloadVerifiedAssetAsync(string url, string expectedSha256,
+            CancellationToken ct, long maximumBytes = ToolArchiveInstaller.MaximumArchiveBytes)
+            => VerifiedAssetDownloader.DownloadAsync(Http, DownloadSourceService.BuildCandidates(url).Select(c => c.Url),
+                expectedSha256, maximumBytes, ct,
+                (source, error) => LogService.LogWarning($"Verified download failed: {source} - {error.Message}", nameof(GitHubReleaseService)));
 
         public static async Task<byte[]> DownloadAssetAsync(string url, CancellationToken ct, long maximumBytes = long.MaxValue)
         {

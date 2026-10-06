@@ -78,13 +78,21 @@ public static partial class LegacyArchiveNameParser
 
 public static class LegacySmartMetadataReader
 {
+    public static string MetadataDirectory(string archiveDirectory)
+    {
+        var directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(archiveDirectory));
+        var root = Path.GetDirectoryName(directory)
+            ?? throw new InvalidDataException("Legacy archive directory has no backup root.");
+        return Path.Combine(root, "_metadata", Path.GetFileName(directory));
+    }
+
     public static IReadOnlyList<LegacySmartRecordSnapshot> Read(IEnumerable<(SourceId SourceId, string ArchiveDirectory)> locations)
     {
         var all = new List<LegacySmartRecordSnapshot>();
         foreach (var location in locations.Distinct())
         {
             var selected = new Dictionary<string, (int Priority, LegacySmartRecordSnapshot Record)>(StringComparer.OrdinalIgnoreCase);
-            var metadata = Path.Combine(location.ArchiveDirectory, "_metadata");
+            var metadata = MetadataDirectory(location.ArchiveDirectory);
             void ReadFile(string path, int priority, bool aggregate)
             {
                 if (!File.Exists(path)) return;

@@ -385,7 +385,10 @@ namespace FolderRewind.ViewModels
 
         private async Task SaveIfDirtyAsync()
         {
-            if (!_isDirty) return;
+            // ForceExitRequested is set only after the final configuration save succeeds
+            // and the writer is sealed. Window unload must not enqueue a second save.
+            // Do not use IsShuttingDown: an attempted exit can still fail or be canceled.
+            if (!_isDirty || App.ForceExitRequested) return;
             _isDirty = false;
             try { await TaskObserver.SaveConfigAsync(); }
             catch (Exception ex)

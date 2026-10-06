@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 namespace FolderRewind.History.Migration;
 
 public sealed record LegacyTakeoverItem(string OriginKey, LegacyHistoryRecord Original, string Status,
-    string Diagnostic, string[] Candidates, SourceId? SourceId);
+    string Diagnostic, string[] Candidates, SourceId? SourceId, string? VerificationFingerprint = null);
 
 public sealed record LegacyTakeoverReport
 {
@@ -65,6 +65,7 @@ public sealed class LegacyTakeoverService(string configDirectory, HistoryConfigI
         var staging = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "legacy-validation", Guid.NewGuid().ToString("N"));
         try
         {
+            var fingerprint = VerificationFingerprint(item);
             var graph = await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
             var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value
                 ?? throw new InvalidDataException("Replica catalog requires recovery.");
@@ -73,10 +74,20 @@ public sealed class LegacyTakeoverService(string configDirectory, HistoryConfigI
             using var lease = await engine.LockVersionAsync(LegacyHistoryMigrationIdentityV1.Version(originKey), graph,
                 environment, MaterializationFidelity.Partial, token).ConfigureAwait(false);
             await engine.MaterializeAsync(lease.RepresentationId, graph, environment, MaterializationFidelity.Partial, staging, token).ConfigureAwait(false);
-            item = item with { Status = "RestrictedReady", Diagnostic = LegacyRecoveryPolicy.BoundaryDiagnostic };
+            if (fingerprint is null || fingerprint != VerificationFingerprint(item))
+                throw new IOException("Legacy archives or metadata changed during verification; recheck before restoring.");
+            item = item with { Status = "RestrictedReady", Diagnostic = LegacyRecoveryPolicy.BoundaryDiagnostic,
+                VerificationFingerprint = fingerprint };
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
-        { item = item with { Status = "Blocked", Diagnostic = ex.Message }; }
+        {
+            var diagnostic = ex is Merge.HistoryMergeBlockedException blocked
+                && !string.IsNullOrWhiteSpace(blocked.Diagnostic.Detail) ? blocked.Diagnostic.Detail : ex.Message;
+            var archive = item.Candidates.FirstOrDefault(File.Exists) ?? item.Candidates.FirstOrDefault();
+            if (archive is not null)
+                diagnostic += " Metadata directory: " + LegacySmartMetadataReader.MetadataDirectory(Path.GetDirectoryName(archive)!);
+            item = item with { Status = "Blocked", Diagnostic = diagnostic, VerificationFingerprint = null };
+        }
         finally { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
         SaveReport(report with { Items = report.Items.Select(i => i.OriginKey == originKey ? item : i).ToArray() });
         return item;
@@ -151,12 +162,27 @@ public sealed class LegacyTakeoverService(string configDirectory, HistoryConfigI
             }
         foreach (var entry in entries.Where(e => e.BackupType.Equals("Smart", StringComparison.OrdinalIgnoreCase)))
         {
-            try { _ = LegacySmartPlan.Build(entry.SourceId, entry.FileName, LegacySmartPlan.RecordsForTarget(entry.SourceId, entry.ResolvedArchivePath, smart)); }
+            var key = LegacyHistoryMigrationBuilder.OriginKey(configId, entry);
+            var index = items.FindIndex(i => i.OriginKey == key);
+            var archiveDirectory = Path.GetDirectoryName(entry.ResolvedArchivePath ?? "")
+                ?? items[index].Candidates.Select(Path.GetDirectoryName).FirstOrDefault(p => p is not null);
+            var metadataDiagnostic = archiveDirectory is null ? ""
+                : " Metadata directory: " + LegacySmartMetadataReader.MetadataDirectory(archiveDirectory);
+            try
+            {
+                var records = LegacySmartPlan.RecordsForTarget(entry.SourceId, entry.ResolvedArchivePath, smart);
+                var plan = LegacySmartPlan.Build(entry.SourceId, entry.FileName, records);
+                var missing = plan.Chain.Where(name => !File.Exists(records.Single(r => r.ArchiveFileName.Equals(name,
+                    StringComparison.OrdinalIgnoreCase)).ArchivePath)).ToArray();
+                if (missing.Length > 0)
+                    items[index] = items[index] with { Status = "Locate", Diagnostic = "Legacy dependency archives missing: "
+                        + string.Join(", ", missing) + metadataDiagnostic };
+                else
+                    items[index] = items[index] with { Diagnostic = items[index].Diagnostic + metadataDiagnostic };
+            }
             catch (InvalidDataException ex)
             {
-                var key = LegacyHistoryMigrationBuilder.OriginKey(configId, entry);
-                var index = items.FindIndex(i => i.OriginKey == key);
-                items[index] = items[index] with { Status = "Blocked", Diagnostic = ex.Message };
+                items[index] = items[index] with { Status = "Blocked", Diagnostic = ex.Message + metadataDiagnostic };
             }
         }
         foreach (var group in entries.GroupBy(e => (e.SourceId, File: e.FileName.ToUpperInvariant())).Where(g => g.Count() > 1))
@@ -172,6 +198,13 @@ public sealed class LegacyTakeoverService(string configDirectory, HistoryConfigI
         for (var index = 0; index < items.Count; index++)
             if (items[index].Status == "Verify" && !definitions.Contains(LegacyHistoryMigrationIdentityV1.Representation(items[index].OriginKey).ToString()))
                 items[index] = items[index] with { Status = "Blocked", Diagnostic = "Legacy representation metadata is incomplete or ambiguous; no independent archive was fabricated." };
+        var previousItems = previous.Items.ToDictionary(i => i.OriginKey);
+        for (var index = 0; index < items.Count; index++)
+            if (items[index].Status == "Verify" && previousItems.TryGetValue(items[index].OriginKey, out var verified)
+                && verified.Status == "RestrictedReady" && verified.SourceId == items[index].SourceId
+                && verified.VerificationFingerprint is { } verificationFingerprint && verificationFingerprint == VerificationFingerprint(items[index]))
+                items[index] = items[index] with { Status = "RestrictedReady", VerificationFingerprint = verificationFingerprint,
+                    Diagnostic = LegacyRecoveryPolicy.BoundaryDiagnostic + " " + items[index].Diagnostic };
         var report = previous with { InputStatus = status, InputSha256 = fingerprint, Diagnostic = diagnostic, Items = items.ToArray() };
         SaveReport(report);
         return (input, report);
@@ -192,10 +225,12 @@ public sealed class LegacyTakeoverService(string configDirectory, HistoryConfigI
         var existing = (await runtime.Repository.ReadAllPacksAsync(token).ConfigureAwait(false))
             .SelectMany(p => p.Pack.Objects).GroupBy(o => o.Key).ToDictionary(g => g.Key, g => g.First());
         var additions = build.Packs.SelectMany(p => p.Objects).Where(o => !existing.ContainsKey(o.Key)).ToArray();
-        var conflicts = build.Packs.SelectMany(p => p.Objects).Any(o => existing.TryGetValue(o.Key, out var old) && old.PayloadHash != o.PayloadHash);
-        if (conflicts)
+        var conflicts = build.Packs.SelectMany(p => p.Objects).Where(o => existing.TryGetValue(o.Key, out var old)
+            && old.PayloadHash != o.PayloadHash && !CanReuseFullWithoutManifest(old, o)).ToArray();
+        if (conflicts.Length > 0)
         {
-            report = report with { OperationStatus = "NeedsAttention", Diagnostic = "Saved legacy facts differ from the current input. Existing history was preserved; automatic completion is blocked." };
+            report = report with { OperationStatus = "NeedsAttention", Diagnostic = "Saved legacy facts differ from the current input. Existing history was preserved; automatic completion is blocked. Conflicting objects: "
+                + string.Join(", ", conflicts.Select(o => o.Kind + "/" + o.Id)) };
             SaveReport(report); return report;
         }
         var loaded = await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false);
@@ -243,6 +278,49 @@ public sealed class LegacyTakeoverService(string configDirectory, HistoryConfigI
         SaveReport(report);
         StageObserver?.Invoke("ReportSaved");
         return report;
+    }
+
+    private static bool CanReuseFullWithoutManifest(HistoryPackObject saved, HistoryPackObject incoming)
+    {
+        if (saved.Kind != HistoryObjectKinds.VersionRepresentation || incoming.Kind != saved.Kind
+            || saved.SchemaVersion != incoming.SchemaVersion) return false;
+        var codec = new HistoryPackCodec();
+        if (codec.DeserializeKnown(saved) is not VersionRepresentation old
+            || codec.DeserializeKnown(incoming) is not VersionRepresentation current
+            || old.Kind != RepresentationKind.LegacyArchive || current.Kind != RepresentationKind.LegacyArchive
+            || old.RepresentationSpecificMetadata.GetValueOrDefault("legacyBackupType") != "Full"
+            || old.RepresentationSpecificMetadata.GetValueOrDefault(LegacySmartPlan.ContractKey) != "1"
+            || old.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.FilesKey)
+            || !current.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.FilesKey)) return false;
+        var withoutManifest = new VersionRepresentation(current.RepresentationId, current.VersionId, current.Kind,
+            current.Format, current.DependencyRepresentationIds, current.Fidelity, current.LogicalSha256,
+            current.StateFingerprint, current.RepresentationSpecificMetadata.Remove(LegacySmartPlan.FilesKey));
+        return codec.CreateObject(withoutManifest, incoming.SchemaVersion).PayloadHash == saved.PayloadHash;
+    }
+
+    // A report's verification is reusable only while archive locations/stamps and metadata bytes stay unchanged.
+    private static string? VerificationFingerprint(LegacyTakeoverItem item)
+    {
+        var archive = item.Candidates.FirstOrDefault(File.Exists);
+        if (archive is null) return null;
+        try
+        {
+            var directory = Path.GetDirectoryName(archive)!;
+            var metadata = LegacySmartMetadataReader.MetadataDirectory(directory);
+            var inputs = Directory.EnumerateFiles(directory).Where(path => Path.GetExtension(path).ToLowerInvariant() is ".7z" or ".zip")
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase).Select(path =>
+                {
+                    var info = new FileInfo(path);
+                    return path + "|" + info.Length + "|" + info.LastWriteTimeUtc.Ticks;
+                }).ToList();
+            if (Directory.Exists(metadata))
+                inputs.AddRange(Directory.EnumerateFiles(metadata, "*.json", SearchOption.AllDirectories)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .Select(path => path + "|" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)))));
+            inputs.Add(archive);
+            return Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(string.Join("\n", inputs))));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
 
     private static void WriteAtomic(string path, byte[] bytes)

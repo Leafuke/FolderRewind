@@ -1366,10 +1366,10 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Minecraft starter preset</value>
   </data>
   <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
-    <value>Install and enable the bundled MineRewind plugin, turn on KnotLink, and explain the remaining in-game integration steps.</value>
+    <value>Prepare and enable MineRewind and KnotLink, connect to the server, and explain the remaining in-game integration steps.</value>
   </data>
   <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
-    <value>The preset uses the verified bundled MineRewind package. An external KnotLink installer will not run until its immutable official URL and SHA-256 are curated.</value>
+    <value>Reuse compatible installed components first. If local KnotLink is missing, download and open the 3.2.0.0 installer after confirmation, then start the server and connect.</value>
   </data>
   <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
     <value>After this, install MineBackup-Mod for Minecraft to use in-game commands with FolderRewind.</value>
@@ -1384,10 +1384,10 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Cloud backup starter preset</value>
   </data>
   <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
-    <value>Prepare rclone automatically. Services such as Baidu Netdisk and Aliyun Drive also get OpenList and a guided setup path.</value>
+    <value>Prepare rclone, plus OpenList for services such as Baidu Netdisk and Aliyun Drive. Reuse usable installed tools.</value>
   </data>
   <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
-    <value>Choose a cloud service, then start setup. FolderRewind will download required tools, save the global rclone path, and open the cloud archive guide.</value>
+    <value>Choose a cloud service to prepare its tools. Download rclone 1.75.1 and OpenList 4.2.6 when needed, matching your device, and save their paths. Configure the cloud connection afterwards.</value>
   </data>
   <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
     <value>Start setup</value>
@@ -3225,10 +3225,10 @@ Expected SHA-256:
     <value>Confirm cloud backup preset</value>
   </data>
   <data name="CloudOnboarding_ConfirmContent" xml:space="preserve">
-    <value>FolderRewind will prepare cloud backup for “{0}”. {1} It will download rclone from GitHub Releases, download OpenList when needed, save the global rclone path, and open the setup guide.</value>
+    <value>Prepare cloud backup tools for “{0}”. {1} Reuse usable installed tools first. When missing, download rclone 1.75.1 and OpenList 4.2.6 as needed for your device through the selected source, verify them, and save their paths. Configure the cloud connection afterwards.</value>
   </data>
   <data name="CloudOnboarding_ConfirmPrimary" xml:space="preserve">
-    <value>Download and start</value>
+    <value>Prepare tools</value>
   </data>
   <data name="CloudOnboarding_NoProvider" xml:space="preserve">
     <value>Choose a cloud service first.</value>
@@ -5058,6 +5058,7 @@ Pull request: {1}</value>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>Batch creation complete</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>Created {0} configuration(s) and skipped {1} configuration(s).</value></data>
   <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>Restorable (exact)</value></data>
+  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>Restorable (overwrite / export)</value></data>
   <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>Restorable after cloud preparation</value></data>
   <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>Plugin or credentials required</value></data>
   <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>Backup payload unavailable</value></data>
@@ -6294,4 +6295,57 @@ Retention count: {2} · {3}</value></data>
   <data name="Retention_Reason_AssessmentFailed" xml:space="preserve"><value>Cleanup was committed, but subsequent assessment failed. Check the state again.</value></data>
   <data name="Retention_Reason_RecoveryRequired" xml:space="preserve"><value>The history commit is durable, but local state requires recovery. Remaining sources were stopped. Recover history before retrying.</value></data>
   <data name="History_LoadMore.Content" xml:space="preserve"><value>Load more</value></data>
+  <data name="Onboarding_ToolPlatformUnsupported" xml:space="preserve"><value>Automatic cloud tool installation is unavailable for this Windows architecture. Configure an existing tool path.</value></data>
+  <data name="Onboarding_ToolPrepared" xml:space="preserve"><value>Tool verified and prepared:</value></data>
+  <data name="PluginPreset_KnotLinkConnected" xml:space="preserve"><value>The KnotLink server is ready and the FolderRewind connection has initialized.</value></data>
+  <data name="PluginPreset_KnotLinkConnectionFailed" xml:space="preserve"><value>The server ports are reachable, but FolderRewind could not initialize the KnotLink connection. Check integration settings.</value></data>
+  <data name="PluginPreset_KnotLinkInstalled" xml:space="preserve"><value>A compatible installed KnotLink server was detected.</value></data>
+  <data name="PluginPreset_KnotLinkInstallPending" xml:space="preserve"><value>The KnotLink installer is still running. Complete installation and run the preset again; the installer was left running.</value></data>
+  <data name="PluginPreset_KnotLinkInstallUnconfirmed" xml:space="preserve"><value>The installer exited, but no usable compatible KnotLink server was detected. Check whether installation was canceled, then retry.</value></data>
+  <data name="PluginPreset_KnotLinkNotReady" xml:space="preserve"><value>The KnotLink server ports are not reachable. Check the server and retry.</value></data>
+  <data name="PluginPreset_KnotLinkRemote" xml:space="preserve"><value>A remote KnotLink host is configured; local server installation and startup were skipped.</value></data>
+  <data name="PluginPreset_KnotLinkStartFailed" xml:space="preserve"><value>The local KnotLink server could not be started. Check the installation or start it manually, then retry.</value></data>
+  <data name="PluginPreset_Progress_KnotLinkCheck" xml:space="preserve"><value>Checking for an existing KnotLink server...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkConnect" xml:space="preserve"><value>Starting and connecting to the KnotLink server...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkDownload" xml:space="preserve"><value>Downloading and verifying the KnotLink installer...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkInstall" xml:space="preserve"><value>Complete installation in the KnotLink installer. Waiting for it to finish (up to five minutes)...</value></data>
+  <data name="PluginPreset_Step_KnotLinkInstaller" xml:space="preserve"><value>Prepare KnotLink server</value></data>
+  <data name="PluginPreset_StepFailed" xml:space="preserve"><value>Step failed: {0}</value></data>
+  <data name="Preview_Open.Text" xml:space="preserve"><value>Map preview</value></data>
+  <data name="Preview_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="Preview_Refresh.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Preview_Layers.Header" xml:space="preserve"><value>Layer</value></data>
+  <data name="Preview_ZoomOut.Content" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Preview_ZoomIn.Content" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Preview_Locate.Content" xml:space="preserve"><value>Go to</value></data>
+  <data name="Preview_Help.Text" xml:space="preserve"><value>Drag to pan; scroll to zoom around the pointer. Arrow keys pan; Enter inspects the center. Saved player locations include their dimension. Color comes from versioned block maps with biome, water and terrain shading. Gray marks missing colors, amber unsupported chunks, red read errors. This is a read-only live-directory preview, not an atomic snapshot.</value></data>
+  <data name="Preview_MapName" xml:space="preserve"><value>Read-only map. Use arrow keys to pan and Enter to inspect.</value></data>
+  <data name="Preview_Loading" xml:space="preserve"><value>Loading visible map data…</value></data>
+  <data name="Preview_ReadOnly" xml:space="preserve"><value>Read-only · refresh after game changes</value></data>
+  <data name="Preview_Overview" xml:space="preserve"><value>Occupancy overview with cached terrain · zoom in to refine</value></data>
+  <data name="Preview_Empty" xml:space="preserve"><value>This source has no preview layers. Its format may be unsupported or spatial data may not exist yet.</value></data>
+  <data name="Preview_Failed" xml:space="preserve"><value>Preview read failed:</value></data>
+  <data name="Preview_SourceChanged" xml:space="preserve"><value>Source configuration changed. Refresh the map.</value></data>
+  <data name="Preview_Coordinates.Label" xml:space="preserve"><value>Coordinates…</value></data>
+  <data name="Preview_Display.Label" xml:space="preserve"><value>Display</value></data>
+  <data name="Preview_RefreshAction.Label" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Preview_HelpAction.Label" xml:space="preserve"><value>Help</value></data>
+  <data name="Preview_ViewHeight.Header" xml:space="preserve"><value>View height</value></data>
+  <data name="Preview_Grid.Header" xml:space="preserve"><value>Show grid boundaries</value></data>
+  <data name="Preview_Fit.Content" xml:space="preserve"><value>Fit world</value></data>
+  <data name="Preview_CloseDetails.Content" xml:space="preserve"><value>Close details</value></data>
+  <data name="Preview_LayerLabel" xml:space="preserve"><value>Layer</value></data>
+  <data name="Preview_NavigationLabel" xml:space="preserve"><value>Go to</value></data>
+  <data name="Preview_CellLabel" xml:space="preserve"><value>Cell</value></data>
+  <data name="Preview_NoTargets" xml:space="preserve"><value>No saved locations are available.</value></data>
+  <data name="Preview_SavedPosition" xml:space="preserve"><value>Saved positions, not live player locations.</value></data>
+  <data name="Preview_TargetUnavailable" xml:space="preserve"><value>This location belongs to an unavailable layer.</value></data>
+  <data name="Preview_ZoomInName" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Preview_ZoomOutName" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Preview_Partial" xml:space="preserve"><value>Refining terrain…</value></data>
+  <data name="Preview_Ungenerated" xml:space="preserve"><value>No generated terrain here · Fit world to return</value></data>
+  <data name="Preview_InvalidCoordinate" xml:space="preserve"><value>Enter finite coordinates within the allowed range.</value></data>
+  <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}: {1:N0}–{2:N0}; {3}: {4:N0}–{5:N0}</value></data>
+  <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} units</value></data>
+  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>Scans downward from this Y to the first surface. This is not a cave view. Player navigation uses saved X/Z only.</value></data>
 </root>

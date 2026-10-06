@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,21 +10,6 @@ using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Packaging;
 
 namespace FolderRewind.Services.Plugins.V3;
-
-public enum PluginPresetStepOutcome { Success, SuccessWithWarnings, Blocked, Failed }
-public sealed record PluginPresetStepResult(string ActionId, PluginPresetStepOutcome Outcome, string Message);
-public sealed record PluginPresetRunResult(
-    PluginPresetStepOutcome Outcome,
-    IReadOnlyList<PluginPresetStepResult> Steps)
-{
-    public bool Success => Outcome is PluginPresetStepOutcome.Success or PluginPresetStepOutcome.SuccessWithWarnings;
-}
-
-public interface IPluginPresetConsentBroker
-{
-    ValueTask<bool> ConfirmExternalDownloadAsync(string name, string url, string sha256, CancellationToken cancellationToken);
-    ValueTask<bool> ConfirmExternalLaunchAsync(string name, string localPath, CancellationToken cancellationToken);
-}
 
 public static class PluginPresetService
 {
@@ -43,7 +27,7 @@ public static class PluginPresetService
         {
             if (selectedActions is not null && !selectedActions.Contains(action.Id)) continue;
             cancellationToken.ThrowIfCancellationRequested();
-            if (action.DependsOn.Any(id => !results.Any(r => r.ActionId == id && r.Outcome == PluginPresetStepOutcome.Success)))
+            if (!PluginPresetDependencyPolicy.CanExecute(action.DependsOn, results))
             {
                 results.Add(new(action.Id, PluginPresetStepOutcome.Blocked, I18n.GetString("Onboarding_DependencyBlocked")));
                 continue;
@@ -51,12 +35,17 @@ public static class PluginPresetService
             progress?.Report(GetProgressMessage(action.Id));
             try
             {
-                results.Add(await ExecuteActionAsync(action, consent, cancellationToken).ConfigureAwait(false));
+                results.Add(await ExecuteActionAsync(action, consent, progress, cancellationToken).ConfigureAwait(false));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
-                results.Add(new PluginPresetStepResult(action.Id, PluginPresetStepOutcome.Failed, ex.Message));
+                LogService.LogError($"Preset step '{action.Id}' failed.", nameof(PluginPresetService), ex);
+                var detail = string.IsNullOrWhiteSpace(ex.Message)
+                    ? $"{ex.GetType().Name} (0x{ex.HResult:X8})"
+                    : ex.Message;
+                results.Add(new PluginPresetStepResult(action.Id, PluginPresetStepOutcome.Failed,
+                    I18n.Format("PluginPreset_StepFailed", detail)));
             }
         }
         var outcome = results.Any(value => value.Outcome == PluginPresetStepOutcome.Failed)
@@ -81,7 +70,7 @@ public static class PluginPresetService
             "install-minerewind" => I18n.GetString("PluginPreset_Step_InstallMineRewind"),
             "enable-minerewind" => I18n.GetString("PluginPreset_Step_EnableMineRewind"),
             "enable-knotlink-host" => I18n.GetString("PluginPreset_Step_EnableKnotLink"),
-            "knotlink-installer-awaits-curation" => I18n.GetString("PluginPreset_Step_KnotLinkNotice"),
+            "install-knotlink-server" => I18n.GetString("PluginPreset_Step_KnotLinkInstaller"),
             "mine-backup-reminder" => I18n.GetString("PluginPreset_Step_MineBackupReminder"),
             _ => actionId
         };
@@ -92,7 +81,7 @@ public static class PluginPresetService
             "install-minerewind" => I18n.GetString("PluginPreset_Progress_InstallMineRewind"),
             "enable-minerewind" => I18n.GetString("PluginPreset_Progress_EnableMineRewind"),
             "enable-knotlink-host" => I18n.GetString("PluginPreset_Progress_EnableKnotLink"),
-            "knotlink-installer-awaits-curation" => I18n.GetString("PluginPreset_Progress_KnotLinkNotice"),
+            "install-knotlink-server" => I18n.GetString("PluginPreset_Progress_KnotLinkCheck"),
             "mine-backup-reminder" => I18n.GetString("PluginPreset_Progress_MineBackupReminder"),
             _ => actionId
         };
@@ -100,6 +89,7 @@ public static class PluginPresetService
     private static async ValueTask<PluginPresetStepResult> ExecuteActionAsync(
         PresetAction action,
         IPluginPresetConsentBroker consent,
+        IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
         switch (action.Type)
@@ -111,7 +101,7 @@ public static class PluginPresetService
                 var install = await PluginV3PackageService.InstallAsync(
                     packagePath,
                     PluginInstallProvenance.BundledOfficial,
-                    action.Sha256,
+                    PluginV3OfflineUpgradeService.ReadBundledSha256(packagePath),
                     cancellationToken).ConfigureAwait(false);
                 if (!install.Success || install.InstalledPackage is null)
                 {
@@ -143,9 +133,23 @@ public static class PluginPresetService
                         () => settings.EnableKnotLink = previous, () => ConfigService.SaveAsync(),
                         I18n.GetString("Common_Failed"), cancellationToken);
                 }).ConfigureAwait(false);
-                if (action.Enabled) await KnotLinkService.InitializeAsync(cancellationToken).ConfigureAwait(false);
+                if (action.Enabled)
+                {
+                    var host = ConfigService.CurrentConfig.GlobalSettings.KnotLinkHost;
+                    host = string.IsNullOrWhiteSpace(host) ? "127.0.0.1" : host.Trim();
+                    progress?.Report(I18n.GetString("PluginPreset_Progress_KnotLinkConnect"));
+                    var connection = await KnotLinkOnboardingWorkflow.ConnectAsync(
+                        KnotLinkOnboardingWorkflow.IsLocalHost(host),
+                        KnotLinkServerManagerService.IsServerProcessRunning, KnotLinkServerManagerService.TryStartServer,
+                        token => KnotLinkServerManagerService.WaitForServerReadyAsync(host, 30000, token),
+                        async token => { await KnotLinkService.InitializeAsync(token).ConfigureAwait(false); return KnotLinkService.IsInitialized; },
+                        cancellationToken).ConfigureAwait(false);
+                    return IntegrationResult(action, connection);
+                }
                 return Success(action, I18n.GetString("PluginPreset_KnotLinkConfigured"));
             case "setupExternalIntegration":
+                if (action.Integration == "knotLinkServer")
+                    return await PrepareKnotLinkAsync(action, consent, progress, cancellationToken).ConfigureAwait(false);
                 return await DownloadAndLaunchAsync(action, consent, cancellationToken).ConfigureAwait(false);
             case "notice":
                 return new PluginPresetStepResult(
@@ -171,10 +175,7 @@ public static class PluginPresetService
         var directory = Path.Combine(Path.GetTempPath(), "FolderRewind", "preset-downloads", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, action.FileName!);
-        var bytes = await GitHubReleaseService.DownloadAssetAsync(action.Url!, cancellationToken, ToolArchiveInstaller.MaximumArchiveBytes).ConfigureAwait(false);
-        var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-        if (!StringComparer.OrdinalIgnoreCase.Equals(hash, action.Sha256))
-            throw new InvalidDataException(I18n.GetString("PluginPreset_ExternalHashMismatch"));
+        var bytes = await GitHubReleaseService.DownloadVerifiedAssetAsync(action.Url!, action.Sha256!, cancellationToken).ConfigureAwait(false);
         await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
         if (!await consent.ConfirmExternalLaunchAsync(action.Name!, path, cancellationToken).ConfigureAwait(false))
             return new PluginPresetStepResult(
@@ -188,6 +189,48 @@ public static class PluginPresetService
         return new(action.Id, PluginPresetStepOutcome.SuccessWithWarnings,
             I18n.Format("PluginPreset_ExternalStarted", action.Name!) + "\n" + I18n.GetString("Onboarding_InstallerNeedsCheck"));
     }
+
+    private static async ValueTask<PluginPresetStepResult> PrepareKnotLinkAsync(PresetAction action,
+        IPluginPresetConsentBroker consent, IProgress<string>? progress, CancellationToken token)
+    {
+        if (!KnotLinkOnboardingWorkflow.IsLocalHost(ConfigService.CurrentConfig.GlobalSettings.KnotLinkHost))
+            return Success(action, I18n.GetString("PluginPreset_KnotLinkRemote"));
+        var result = await KnotLinkOnboardingWorkflow.EnsureInstalledAsync(
+            KnotLinkServerManagerService.InspectInstallation,
+            ct => consent.ConfirmExternalDownloadAsync(action.Name!, action.Url!, action.Sha256!, ct).AsTask(),
+            async ct =>
+            {
+                progress?.Report(I18n.GetString("PluginPreset_Progress_KnotLinkDownload"));
+                var bytes = await GitHubReleaseService.DownloadVerifiedAssetAsync(action.Url!, action.Sha256!, ct).ConfigureAwait(false);
+                var directory = Path.Combine(Path.GetTempPath(), "FolderRewind", "preset-downloads", Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(directory);
+                var path = Path.Combine(directory, action.FileName!);
+                await File.WriteAllBytesAsync(path, bytes, ct).ConfigureAwait(false);
+                return path;
+            },
+            (path, ct) => consent.ConfirmExternalLaunchAsync(action.Name!, path, ct).AsTask(),
+            async (path, timeout, ct) =>
+            {
+                progress?.Report(I18n.GetString("PluginPreset_Progress_KnotLinkInstall"));
+                using var process = Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true, Verb = "open" })
+                    ?? throw new IOException(I18n.GetString("Onboarding_InstallerNotStarted"));
+                try
+                {
+                    await process.WaitForExitAsync(ct).WaitAsync(timeout, ct).ConfigureAwait(false);
+                    return true;
+                }
+                catch (TimeoutException) { return false; } // Never terminate a user-owned installer.
+            }, token).ConfigureAwait(false);
+        return IntegrationResult(action, result);
+    }
+
+    private static PluginPresetStepResult IntegrationResult(PresetAction action, IntegrationPreparationResult result)
+        => new(action.Id, result.State switch
+        {
+            IntegrationPreparationState.Ready => PluginPresetStepOutcome.Success,
+            IntegrationPreparationState.Blocked => PluginPresetStepOutcome.Blocked,
+            _ => PluginPresetStepOutcome.Failed
+        }, I18n.GetString(result.MessageKey));
 
     private static PresetDocument Parse(string path)
     {
@@ -219,10 +262,11 @@ public static class PluginPresetService
         if (action.Type is not ("installBundledPlugin" or "enablePlugin" or "setHostFeature" or "setupExternalIntegration" or "notice"))
             throw new InvalidDataException("Preset contains a forbidden action type.");
         if (action.Type is "installBundledPlugin" or "enablePlugin") _ = new PluginId(action.PluginId!);
-        if (action.Type == "installBundledPlugin") RequireHashAndRelativePath(action.Sha256, action.PackagePath);
+        if (action.Type == "installBundledPlugin") RequireRelativePath(action.PackagePath);
         if (action.Type == "setHostFeature" && action.Feature != "knotLink") throw new InvalidDataException("Preset requests an unknown Host feature.");
         if (action.Type == "setupExternalIntegration")
         {
+            if (action.Integration is not (null or "knotLinkServer")) throw new InvalidDataException("Unknown external integration.");
             if (!Uri.TryCreate(action.Url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
                 throw new InvalidDataException("External integration URL must use HTTPS.");
             if (string.IsNullOrWhiteSpace(action.Name) || string.IsNullOrWhiteSpace(action.FileName)
@@ -233,9 +277,8 @@ public static class PluginPresetService
             throw new InvalidDataException("Notice messageResourceKey is required.");
     }
 
-    private static void RequireHashAndRelativePath(string? hash, string? path)
+    private static void RequireRelativePath(string? path)
     {
-        RequireHash(hash);
         if (string.IsNullOrWhiteSpace(path) || Path.IsPathFullyQualified(path) || path.Contains("..", StringComparison.Ordinal))
             throw new InvalidDataException("Bundled package path must be relative.");
     }
@@ -264,6 +307,7 @@ public static class PluginPresetService
         public string? Feature { get; set; }
         public bool Enabled { get; set; }
         public string? Name { get; set; }
+        public string? Integration { get; set; }
         public string? Url { get; set; }
         public string? FileName { get; set; }
         public string? Severity { get; set; }

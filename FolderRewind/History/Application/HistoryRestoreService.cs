@@ -23,6 +23,7 @@ public sealed class HistoryRestoreService
     private readonly Func<HistoryRestoreSourceBinding, string, CancellationToken, Task<bool>>? _prepareRestore;
     private readonly Func<CancellationToken, ValueTask<IAsyncDisposable>>? _finalGuard;
     internal Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, ValueTask<IAsyncDisposable>>? FinalGuardInsideOperation { get; init; }
+    internal Func<SourceVersion, CancellationToken, Task>? ValidateVersionTarget { get; init; }
 
     public HistoryRestoreService(
         HistoryRuntime history,
@@ -175,6 +176,8 @@ public sealed class HistoryRestoreService
             await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
             prepared = await PrepareOrdinaryRestoreAsync(prepared, cancellationToken).ConfigureAwait(false);
+            if (ValidateVersionTarget is not null)
+                await ValidateVersionTarget(version, cancellationToken).ConfigureAwait(false);
             var relation = prepared.Fidelity == MaterializationFidelity.Exact
                 && prepared.ApplyMode == HistoryRestoreApplyMode.Clean
                 ? WorkspaceBaselineRelation.Exact

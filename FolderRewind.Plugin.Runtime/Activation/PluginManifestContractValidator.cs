@@ -124,6 +124,9 @@ public static class PluginManifestContractValidator
         {
             throw new InvalidDataException("Runtime capability registrations do not match the static Manifest.");
         }
+        if (registrations.Capabilities.OfType<ISpatialPreviewCapability>()
+            .Any(preview => !manifest.ConfigKinds.Any(kind => kind.Kind == preview.Kind)))
+            throw new InvalidDataException("Spatial preview Kind is not declared by the Manifest.");
         var transformerIds = registrations.Capabilities
             .OfType<IBackupArtifactTransformerCapability>()
             .Select(value => value.TransformerId)
@@ -149,6 +152,7 @@ public static class PluginManifestContractValidator
 
     private static IEnumerable<PluginCapabilityKind> GetKinds(IPluginCapability capability)
     {
+        if (capability is ISpatialPreviewCapability) yield return PluginCapabilityKind.SpatialPreview;
         if (capability is IDiscoveryCapability) yield return PluginCapabilityKind.Discovery;
         if (capability is IConfigReconciliationCapability) yield return PluginCapabilityKind.ConfigReconciliation;
         if (capability is IFilePolicyCapability) yield return PluginCapabilityKind.FilePolicy;

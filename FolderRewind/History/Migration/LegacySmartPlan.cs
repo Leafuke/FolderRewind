@@ -42,8 +42,10 @@ public sealed record LegacySmartPlan(string[] Chain, IReadOnlyDictionary<string,
         {
             if (!SafeArchive(cursor) || !visiting.Add(cursor))
                 throw new InvalidDataException("Unsafe or cyclic legacy dependency chain.");
-            if (!map.TryGetValue(cursor, out var candidates) || candidates.Length != 1)
-                throw new InvalidDataException($"Legacy metadata missing or conflicting: {cursor}");
+            if (!map.TryGetValue(cursor, out var candidates))
+                throw new InvalidDataException($"Legacy metadata missing: {cursor}");
+            if (candidates.Length != 1)
+                throw new InvalidDataException($"Conflicting legacy metadata: {cursor}");
             var record = candidates[0];
             if (record.Diagnostic.Length != 0) throw new InvalidDataException(record.Diagnostic);
             reverse.Add(record);

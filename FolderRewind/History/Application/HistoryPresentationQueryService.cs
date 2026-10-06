@@ -44,7 +44,8 @@ public sealed record TimelineEntrySummary(
     CheckpointId? BranchableCheckpointId,
     int BranchableCheckpointCount,
     SourceVersionCreationKind CreationKind = SourceVersionCreationKind.Capture,
-    CheckpointId? CheckpointId = null, bool IsLocalPayloadMissing = false);
+    CheckpointId? CheckpointId = null, bool IsLocalPayloadMissing = false,
+    HistoricalBoundaryConfidence BoundaryConfidence = HistoricalBoundaryConfidence.Known);
 
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
@@ -186,6 +187,19 @@ public sealed class HistoryPresentationQueryService
             if (!pathCache.TryGetValue(path, out var exists)) pathCache[path] = exists = File.Exists(path) || Directory.Exists(path);
             return exists;
         }
+        var availability = new Dictionary<(RepresentationId, bool), bool>();
+        bool Available(VersionRepresentation representation, bool allowRemote, HashSet<RepresentationId> visiting)
+        {
+            var key = (representation.RepresentationId, allowRemote);
+            if (availability.TryGetValue(key, out var cached)) return cached;
+            if (!visiting.Add(representation.RepresentationId)) return false;
+            var present = localPaths[representation.RepresentationId].Any(Exists)
+                || (allowRemote && replicaGroups[representation.RepresentationId].Any(r => activeReplicas.Contains(r.ReplicaId)));
+            var complete = present && representation.DependencyRepresentationIds.All(id =>
+                representationMap.TryGetValue(id, out var dependency) && Available(dependency, allowRemote, visiting));
+            visiting.Remove(representation.RepresentationId);
+            return availability[key] = complete;
+        }
         var timeline = new List<TimelineEntrySummary>();
         foreach (var checkpoint in checkpoints.Where(c => byRun != true && c.CreationKind != CheckpointCreationKind.SafetySnapshot
                      && (sourceId is null || c.SourceId == sourceId)))
@@ -199,7 +213,8 @@ public sealed class HistoryPresentationQueryService
             cancellationToken.ThrowIfCancellationRequested();
             var policy = MaterializationPolicyProjection.Project(version.VersionId, policyGroups[version.VersionId]);
             var reps = representationGroups.GetValueOrDefault(version.VersionId) ?? [];
-            var state = Assess(reps, localPaths, replicaGroups, activeReplicas, policy, Exists);
+            var state = Assess(reps, localPaths, policy, Exists,
+                (representation, remote) => Available(representation, remote, new HashSet<RepresentationId>()));
             var selected = state.Representation;
             var localPath = state.LocalPath;
             var fileName = selected?.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
@@ -217,7 +232,7 @@ public sealed class HistoryPresentationQueryService
                 admission.IsReady ? checkpoint.CheckpointId : null,
                 admission.IsReady ? 1 : 0, checkpoint.CreationKind == CheckpointCreationKind.Merge ? SourceVersionCreationKind.Merge : version.CreationKind, checkpoint.CheckpointId,
                 reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any()
-                && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists)));
+                && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists), version.BoundaryConfidence));
         }
 
         var checkpointSummaries = new List<CheckpointSummary>();
@@ -285,9 +300,8 @@ public sealed class HistoryPresentationQueryService
         string? LocalPath) Assess(
         IReadOnlyList<VersionRepresentation> representations,
         ILookup<RepresentationId, string> localPaths,
-        ILookup<RepresentationId, StorageReplica> replicas,
-        IReadOnlySet<ReplicaId> activeReplicas,
-        MaterializationPolicyProjectionResult policy, Func<string, bool> exists)
+        MaterializationPolicyProjectionResult policy, Func<string, bool> exists,
+        Func<VersionRepresentation, bool, bool> available)
     {
         if (representations.Count == 0)
             return (HistoryPresentationReadiness.MetadataOnly, MaterializationFidelity.Unknown, null, null);
@@ -298,13 +312,14 @@ public sealed class HistoryPresentationQueryService
         foreach (var representation in ordered)
         {
             var localPath = localPaths[representation.RepresentationId].FirstOrDefault(exists);
-            if (localPath is not null)
+            if (localPath is not null && available(representation, false))
                 return (HistoryPresentationReadiness.Ready, Fidelity(representation), representation, localPath);
         }
         foreach (var representation in ordered)
         {
-            if (replicas[representation.RepresentationId].Any(replica => activeReplicas.Contains(replica.ReplicaId)))
-                return (HistoryPresentationReadiness.PreparationRequired, Fidelity(representation), representation, null);
+            if (available(representation, true))
+                return (HistoryPresentationReadiness.PreparationRequired, Fidelity(representation), representation,
+                    localPaths[representation.RepresentationId].FirstOrDefault(exists));
         }
         var fallback = ordered[0];
         if (ordered.Any(item => item.Kind == RepresentationKind.PluginArtifact))

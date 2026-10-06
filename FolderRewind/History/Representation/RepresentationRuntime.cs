@@ -141,8 +141,12 @@ public sealed class RepresentationRuntime
         if (requiredFidelity == MaterializationFidelity.Unknown) throw new ArgumentOutOfRangeException(nameof(requiredFidelity));
         var assessment = await AssessVersionAsync(versionId, representations, environment, AssessmentDepth.Deep, requiredFidelity, token).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
+        {
+            var diagnostics = string.Join("; ", assessment.Candidates.SelectMany(c => c.Diagnostics).Distinct());
             throw new Merge.HistoryMergeBlockedException(new(assessment.Readiness == HistoryReadiness.PreparationRequired
-                ? Merge.MergeDiagnosticCode.PreparationRequired : Merge.MergeDiagnosticCode.ExactUnavailable, VersionId: versionId));
+                ? Merge.MergeDiagnosticCode.PreparationRequired : Merge.MergeDiagnosticCode.ExactUnavailable,
+                VersionId: versionId, Detail: diagnostics));
+        }
         var graph = representations.ToDictionary(r => r.RepresentationId);
         var root = graph[assessment.Selected.RepresentationId];
         var assessments = new Dictionary<RepresentationId, RepresentationAssessment>();

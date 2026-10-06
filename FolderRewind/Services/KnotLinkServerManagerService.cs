@@ -17,70 +17,69 @@ namespace FolderRewind.Services
     {
         private const string RegistryAppPathsKey =
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\KnotLinkService.exe";
-        private const string RegistryUninstallKey =
-            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\KnotLinkService";
         private const string ServerProcessName = "KnotLinkService";
 
         private const string GitHubOwner = "KnotLink-Protocol";
         private const string GitHubRepo = "KnotLinkService";
         private const string GitHubReleasesUrl = "https://github.com/KnotLink-Protocol/KnotLinkService/releases";
         private const string DefaultInstallerFileName = "KnotLinkService-windows-x86-Installer.exe";
-        private static readonly Version MinimumSupportedServerVersionValue = new(3, 0, 0, 0);
+        private static readonly Version MinimumSupportedServerVersionValue = KnotLinkOnboardingWorkflow.MinimumSupportedVersion;
 
         public static Version MinimumSupportedServerVersion => MinimumSupportedServerVersionValue;
 
         public static string OfficialReleasesUrl => GitHubReleasesUrl;
 
-        /// <summary>
-        /// 通过注册表 App Paths 探测 KnotLinkService.exe 的完整路径。
-        /// 若注册表不存在或文件缺失则返回 null。
-        /// </summary>
-        public static string? GetServerExecutablePath()
-        {
-            var path = RegistryHelper.ReadLocalMachineString(RegistryAppPathsKey);
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
-            return path;
-        }
-
-        /// <summary>
-        /// 通过注册表 Uninstall 键读取 KnotLink 服务端的 DisplayVersion。
-        /// </summary>
-        public static string? GetServerVersion()
-        {
-            var version = RegistryHelper.ReadLocalMachineString(RegistryUninstallKey, "DisplayVersion");
-            // LogService.LogInfo($"KnotLink server version (registry): {version ?? "not found"}",
-            //     nameof(KnotLinkServerManagerService));
-            return version;
-        }
-
-        /// <summary>
-        /// 判断 KnotLink 服务端是否已安装（Uninstall 注册表存在 或 exe 路径存在）。
-        /// </summary>
+        public static string? GetServerExecutablePath() => InspectInstallation().ExecutablePath;
+        public static string? GetServerVersion() => InspectInstallation().DisplayVersion;
         public static bool IsServerInstalled()
         {
-            return GetServerVersion() != null || GetServerExecutablePath() != null;
+            var installed = InspectInstallation();
+            return installed.ExecutablePath is not null || installed.DisplayVersion is not null;
         }
 
-        /// <summary>
-        /// 读取本机 KnotLink 服务端兼容性。只要检测到安装但版本缺失、无法解析
-        /// 或低于最低支持版本，就要求用户更新。
-        /// </summary>
+        internal static KnotLinkInstallation InspectInstallation()
+        {
+            KnotLinkInstallation? found = null;
+            foreach (var hive in new[] { Microsoft.Win32.RegistryHive.CurrentUser, Microsoft.Win32.RegistryHive.LocalMachine })
+            foreach (var view in new[] { Microsoft.Win32.RegistryView.Registry64, Microsoft.Win32.RegistryView.Registry32 })
+            {
+                try
+                {
+                    using var root = Microsoft.Win32.RegistryKey.OpenBaseKey(hive, view);
+                    using var appPath = root.OpenSubKey(RegistryAppPathsKey);
+                    using var uninstall = root.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\KnotLinkService");
+                    var path = (appPath?.GetValue(null) as string)?.Trim().Trim('"');
+                    if (string.IsNullOrWhiteSpace(path) && uninstall?.GetValue("InstallLocation") is string location)
+                        path = Path.Combine(location.Trim().Trim('"'), "KnotLinkService.exe");
+                    if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path) || !File.Exists(path)
+                        || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) path = null;
+                    var display = uninstall?.GetValue("DisplayVersion") as string;
+                    var parsed = string.IsNullOrWhiteSpace(display) ? null : TryParseFileVersion(display);
+                    if (parsed is null && path is not null)
+                    {
+                        display = FileVersionInfo.GetVersionInfo(path).FileVersion;
+                        parsed = string.IsNullOrWhiteSpace(display) ? null : TryParseFileVersion(display);
+                    }
+                    var candidate = new KnotLinkInstallation(path, display, parsed);
+                    if (candidate.Compatible) return candidate;
+                    if (found is null && (path is not null || display is not null)) found = candidate;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException
+                    or ArgumentException or System.ComponentModel.Win32Exception) { }
+            }
+            return found ?? new(null, null, null);
+        }
+
         public static KnotLinkServerCompatibilityInfo GetServerCompatibilityInfo()
         {
-            var currentVersion = GetServerVersion();
-            var isInstalled = !string.IsNullOrWhiteSpace(currentVersion)
-                || GetServerExecutablePath() != null;
-            var parsedVersion = string.IsNullOrWhiteSpace(currentVersion)
-                ? null
-                : TryParseFileVersion(currentVersion);
-
+            var installation = InspectInstallation();
+            var isInstalled = installation.ExecutablePath is not null || installation.DisplayVersion is not null;
             return new KnotLinkServerCompatibilityInfo
             {
                 IsInstalled = isInstalled,
-                CurrentVersion = currentVersion,
-                ParsedVersion = parsedVersion,
-                RequiresUpdate = isInstalled
-                    && (parsedVersion == null || parsedVersion < MinimumSupportedServerVersionValue)
+                CurrentVersion = installation.DisplayVersion,
+                ParsedVersion = installation.Version,
+                RequiresUpdate = isInstalled && !installation.Compatible
             };
         }
 
@@ -92,7 +91,8 @@ namespace FolderRewind.Services
             try
             {
                 var processes = Process.GetProcessesByName(ServerProcessName);
-                return processes.Length > 0;
+                try { return processes.Length > 0; }
+                finally { foreach (var process in processes) process.Dispose(); }
             }
             catch
             {
@@ -110,7 +110,7 @@ namespace FolderRewind.Services
 
             try
             {
-                Process.Start(new ProcessStartInfo
+                using var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = path,
                     UseShellExecute = false,
@@ -118,7 +118,7 @@ namespace FolderRewind.Services
                 });
 
                 LogService.LogInfo($"KnotLink server started: {path}", nameof(KnotLinkServerManagerService));
-                return true;
+                return process is not null;
             }
             catch (Exception ex)
             {
