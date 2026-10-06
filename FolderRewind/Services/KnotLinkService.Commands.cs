@@ -390,15 +390,22 @@ namespace FolderRewind.Services
             if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
                 return "ERROR:invalid_source_identity";
             VersionId? versionId = null;
-            var effectiveMode = mode;
             if (!string.IsNullOrWhiteSpace(backupFile))
             {
                 var version = await NativeHistoryCoreGateway.FindVersionByFileAsync(
                     config!.Id, new SourceId(sourceGuid), backupFile).ConfigureAwait(false);
                 if (version is null) return "ERROR:history_version_not_found";
                 versionId = version.VersionId;
-                if (version.CaptureScope == CaptureScope.PartialSource) effectiveMode = BackupService.RestoreMode.Overwrite;
             }
+
+            var preparation = await NativeHistoryApplicationService.PrepareVersionRestoreAsync(config!, folder!, versionId, mode)
+                .ConfigureAwait(false);
+            if (preparation.Target is not { } target)
+            {
+                LogService.LogWarning(preparation.Diagnostic, "KnotLink");
+                return "ERROR:" + preparation.Diagnostic;
+            }
+            options = options with { Mode = target.EffectiveMode.ToString().ToLowerInvariant() };
 
             _ = Task.Run(async () =>
             {
@@ -408,12 +415,15 @@ namespace FolderRewind.Services
                     BroadcastCommandLifecycle(context, "command_started");
                     BroadcastEvent(context, "restore_started", new Dictionary<string, string?>
                         { ["config"] = config!.Id, ["folder"] = folder!.DisplayName });
-                    var restored = versionId.HasValue
-                        ? await NativeHistoryApplicationService.RestoreVersionAsync(config!, folder!, versionId.Value,
-                            mode, options: options).ConfigureAwait(false)
-                        : await NativeHistoryApplicationService.QuickRestoreAsync(config!, folder!, options: options).ConfigureAwait(false);
-                    if (!restored.Succeeded)
-                        throw new InvalidOperationException(restored.Diagnostic);
+                    var restored = await NativeHistoryApplicationService.ExecutePreparedRestoreAsync(config!, folder!, target,
+                        options: options).ConfigureAwait(false);
+                    if (!restored.Succeeded && restored.Status != HistoryRestoreStatus.NoChanges)
+                    {
+                        LogService.LogWarning(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, restored.Diagnostic), "KnotLink");
+                        NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", restored.Diagnostic));
+                        BroadcastRestoreFailure(context, config!.Id, folder!.DisplayName, restored.Status.ToString(), restored.Diagnostic);
+                        return;
+                    }
                     BroadcastEvent(context, "restore_success", new Dictionary<string, string?>
                         { ["config"] = config!.Id, ["folder"] = folder!.DisplayName, ["result"] = restored.Status.ToString() });
                     BroadcastCommandLifecycle(context, "command_completed", new Dictionary<string, string?>
@@ -423,24 +433,23 @@ namespace FolderRewind.Services
                 {
                     LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, ex.Message), "KnotLink", ex);
                     NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
-                    BroadcastCommandLifecycle(context, "command_failed", new Dictionary<string, string?>
-                    {
-                        ["reason"] = "exception",
-                        ["error"] = ex.Message
-                    });
-                    BroadcastEvent(context, "restore_failed", new Dictionary<string, string?>
-                    {
-                        ["config"] = config!.Id,
-                        ["folder"] = folder!.DisplayName,
-                        ["error"] = ex.Message
-                    });
+                    BroadcastRestoreFailure(context, config!.Id, folder!.DisplayName, "exception", ex.Message);
                 }
             });
 
             return
                 $"OK:Restore started for folder '{folder!.DisplayName}';" +
                 $"requested_mode={mode.ToString().ToLowerInvariant()};" +
-                $"effective_mode={effectiveMode.ToString().ToLowerInvariant()}";
+                $"effective_mode={target.EffectiveMode.ToString().ToLowerInvariant()}";
+        }
+
+        private static void BroadcastRestoreFailure(KnotLinkCommandContext context, string configId, string folder,
+            string reason, string diagnostic)
+        {
+            BroadcastCommandLifecycle(context, "command_failed", new Dictionary<string, string?>
+                { ["reason"] = reason, ["error"] = diagnostic });
+            BroadcastEvent(context, "restore_failed", new Dictionary<string, string?>
+                { ["config"] = configId, ["folder"] = folder, ["error"] = diagnostic });
         }
 
         private static Task<string> HandleBackupAll(KnotLinkCommandContext context)

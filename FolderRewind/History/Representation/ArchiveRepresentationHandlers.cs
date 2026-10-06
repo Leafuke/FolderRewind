@@ -63,6 +63,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
     {
         var fidelity = GetEffectiveFidelity(context);
         var localCandidates = context.Environment.GetLocalCandidates(context.Representation.RepresentationId);
+        var failures = new List<string>();
         foreach (var local in localCandidates.Where(item => item.Availability == ReplicaAvailabilityObservation.Available))
         {
             if (context.Depth == AssessmentDepth.Fast)
@@ -76,14 +77,19 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 {
                     await using var input = new FileStream(local.ResolvedPath!, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                     var digest = Convert.ToHexString(await SHA256.HashDataAsync(input, cancellationToken).ConfigureAwait(false));
-                    if (!StringComparer.OrdinalIgnoreCase.Equals(expected, digest)) continue;
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(expected, digest))
+                    {
+                        failures.Add($"Storage hash mismatch: {local.ResolvedPath}");
+                        continue;
+                    }
                 }
                 var verification = await _backend.VerifyAsync(context.Representation, local.ResolvedPath!, cancellationToken).ConfigureAwait(false);
                 if (verification.Success)
                     return Ready(context.Representation, fidelity, local.ResolvedPath!, ReplicaIntegrityObservation.Verified, verification.Evidence);
+                failures.Add($"{local.ResolvedPath}: {verification.Diagnostic}");
             }
-            catch (IOException) { /* A different registered replica may still prove Exact. */ }
-            catch (UnauthorizedAccessException) { }
+            catch (IOException ex) { failures.Add($"{local.ResolvedPath}: {ex.Message}"); }
+            catch (UnauthorizedAccessException ex) { failures.Add($"{local.ResolvedPath}: {ex.Message}"); }
 
         }
 
@@ -125,9 +131,11 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 hadLocalPayload && context.Depth == AssessmentDepth.Deep
                     ? ReplicaIntegrityObservation.Corrupt
                     : ReplicaIntegrityObservation.Unknown)),
-            [hadLocalPayload
+            new[] { hadLocalPayload
                 ? "Every available local payload failed deep verification."
-                : "No usable local or shared replica is known."]);
+                : "No usable local or shared replica is known." }
+                .Concat(failures).Concat(localCandidates.Where(c => c.Availability != ReplicaAvailabilityObservation.Available)
+                    .Select(c => $"{c.ResolvedPath}: {c.Diagnostic}")));
     }
 
     protected static RepresentationAssessment? EvaluateDependencies(RepresentationAssessmentContext context)
@@ -151,7 +159,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                     HistoryReadiness.PreparationRequired,
                     GetEffectiveFidelity(context),
                     dependency.Evidence,
-                    [$"Dependency '{dependencyId}' requires preparation."]);
+                    new[] { $"Dependency '{dependencyId}' requires preparation." }.Concat(dependency.Diagnostics));
             }
 
             if (dependency.Readiness != HistoryReadiness.Ready)
@@ -161,7 +169,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                     HistoryReadiness.Blocked,
                     GetEffectiveFidelity(context),
                     dependency.Evidence,
-                    [$"Dependency '{dependencyId}' is not materializable."]);
+                    new[] { $"Dependency '{dependencyId}' is not materializable." }.Concat(dependency.Diagnostics));
             }
         }
 

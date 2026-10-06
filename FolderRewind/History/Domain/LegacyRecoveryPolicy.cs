@@ -7,6 +7,10 @@ public static class LegacyRecoveryPolicy
 {
     public const string BoundaryDiagnostic = "Historical deletion boundary is unknown. Export to a new directory or use non-deleting overwrite; create a new full backup for branches, checkout and merge.";
 
+    public static bool RequiresOverwrite(SourceVersion version)
+        => version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
+            || version.CaptureScope == CaptureScope.PartialSource;
+
     public static void RequireKnownBoundary(SourceVersion version)
     {
         if (version.BoundaryConfidence != HistoricalBoundaryConfidence.Known)

@@ -5058,6 +5058,7 @@ Pull request: {1}</value>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>Batch creation complete</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>Created {0} configuration(s) and skipped {1} configuration(s).</value></data>
   <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>Restorable (exact)</value></data>
+  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>Restorable (overwrite / export)</value></data>
   <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>Restorable after cloud preparation</value></data>
   <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>Plugin or credentials required</value></data>
   <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>Backup payload unavailable</value></data>

@@ -5058,6 +5058,7 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>批量创建完成</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>已创建 {0} 个配置，跳过 {1} 个配置。</value></data>
   <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>可还原（精确）</value></data>
+  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>可还原（覆盖／导出）</value></data>
   <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>可从云端准备后还原</value></data>
   <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>需要插件或凭据</value></data>
   <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>备份数据不可用</value></data>

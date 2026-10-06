@@ -100,14 +100,18 @@ public sealed partial class HistoryPage
         try
         {
             var store = new LegacyTakeoverService(ConfigService.ConfigDirectory, new HistoryConfigId(config.Id));
+            string? selectedOrigin = null;
             while (true)
             {
                 var report = await NativeHistoryCoreGateway.RecheckLegacyAsync(config);
                 var panel = new StackPanel { Spacing = 12 };
                 panel.Children.Add(new TextBlock { Text = I18n.GetString("LegacyMigration_Notice"), TextWrapping = TextWrapping.Wrap });
-                panel.Children.Add(new TextBlock { Text = string.Join(" · ", report.Items.GroupBy(i => i.Status)
-                    .Select(g => I18n.GetString("LegacyMigration_Status_" + g.Key) + ": " + g.Count())) + "\n" + report.InputStatus + " · " + report.OperationStatus + "\n" + report.Diagnostic,
-                    TextWrapping = TextWrapping.Wrap });
+                var summary = new TextBlock { TextWrapping = TextWrapping.Wrap };
+                string ReportSummary() => string.Join(" · ", report.Items.GroupBy(i => i.Status)
+                    .Select(g => I18n.GetString("LegacyMigration_Status_" + g.Key) + ": " + g.Count()))
+                    + "\n" + report.InputStatus + " · " + report.OperationStatus + "\n" + report.Diagnostic;
+                summary.Text = ReportSummary();
+                panel.Children.Add(summary);
                 var records = new ComboBox { Header = I18n.GetString("LegacyMigration_Record"), HorizontalAlignment = HorizontalAlignment.Stretch };
                 foreach (var item in report.Items) records.Items.Add(item.Original.FolderName + " / " + item.Original.FileName + " · " + I18n.GetString("LegacyMigration_Status_" + item.Status));
                 var detail = new TextBlock { TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
@@ -124,26 +128,58 @@ public sealed partial class HistoryPage
                 Task? verificationTask = null;
                 var verify = new Button { Content = I18n.GetString("LegacyMigration_Verify"), IsEnabled = false };
                 AutomationProperties.SetAutomationId(verify, "LegacyMigrationVerify");
+                void SaveSelection()
+                {
+                    if (records.SelectedIndex < 0) return;
+                    var item = report.Items[records.SelectedIndex];
+                    selectedOrigin = item.OriginKey;
+                    // Merge into the current report so a completed verification cannot be overwritten by the dialog's snapshot.
+                    var current = store.ReadReport();
+                    if (item.Status == "Unassigned" && sources.SelectedIndex > 0)
+                        current.SourceSelections[item.OriginKey] = Guid.Parse(sourceChoices[sources.SelectedIndex - 1].Id);
+                    if (!string.IsNullOrWhiteSpace(location.Text))
+                        current.ArchiveSelections[item.OriginKey] = System.IO.Path.GetFullPath(location.Text.Trim());
+                    store.SaveReport(current);
+                }
                 async Task VerifySelectionAsync()
                 {
                     if (records.SelectedIndex < 0) return;
                     var item = report.Items[records.SelectedIndex];
                     verify.IsEnabled = false;
                     records.IsEnabled = false;
+                    sources.IsEnabled = false;
+                    location.IsEnabled = false;
                     try
                     {
+                        SaveSelection();
+                        report = await NativeHistoryCoreGateway.RecheckLegacyAsync(config);
                         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, verificationCancellation.Token);
                         var task = Task.Run(() => store.VerifyAsync(runtime, item.OriginKey,
                             new SevenZipHistoryArchiveBackend(config), verificationCancellation.Token));
                         var verified = await task;
+                        report = store.ReadReport();
+                        summary.Text = ReportSummary();
+                        var selection = Array.FindIndex(report.Items, i => i.OriginKey == item.OriginKey);
+                        if (selection >= 0)
+                        {
+                            records.Items[selection] = verified.Original.FolderName + " / " + verified.Original.FileName
+                                + " · " + I18n.GetString("LegacyMigration_Status_" + verified.Status);
+                            records.SelectedIndex = selection;
+                        }
                         detail.Text = I18n.GetString("LegacyMigration_Status_" + verified.Status) + "\n" + verified.Diagnostic;
+                        await ViewModel.RefreshCurrentHistoryAsync(verificationCancellation.Token);
                     }
                     catch (OperationCanceledException) { }
                     catch (Exception ex) { detail.Text = ex.Message; }
                     finally
                     {
                         if (!verificationCancellation.IsCancellationRequested)
-                        { verify.IsEnabled = true; records.IsEnabled = true; }
+                        {
+                            verify.IsEnabled = records.SelectedIndex >= 0 && report.Items[records.SelectedIndex].SourceId is not null;
+                            records.IsEnabled = true;
+                            sources.IsEnabled = records.SelectedIndex >= 0 && report.Items[records.SelectedIndex].Status == "Unassigned";
+                            location.IsEnabled = true;
+                        }
                     }
                 }
                 verify.Click += async (_, _) => { verificationTask = VerifySelectionAsync(); await verificationTask; };
@@ -151,6 +187,7 @@ public sealed partial class HistoryPage
                 AutomationProperties.SetAutomationId(browse, "LegacyMigrationBrowse");
                 browse.Click += async (_, _) =>
                 {
+                    if (verificationTask?.IsCompleted == false) return;
                     try
                     {
                         var selected = await MainWindowService.PickFilePathAsync(I18n.GetString("LegacyMigration_Browse"), "Legacy182Archive", [".7z", ".zip"]);
@@ -162,12 +199,15 @@ public sealed partial class HistoryPage
                 {
                     if (records.SelectedIndex < 0) return;
                     var item = report.Items[records.SelectedIndex];
+                    selectedOrigin = item.OriginKey;
                     verify.IsEnabled = item.SourceId is not null && verificationTask?.IsCompleted != false;
                     detail.Text = item.Diagnostic + "\n" + string.Join("\n", item.Candidates);
                     sources.SelectedIndex = 0;
                     sources.IsEnabled = item.Status == "Unassigned";
                     location.Text = report.ArchiveSelections.GetValueOrDefault(item.OriginKey, "");
                 };
+                if (selectedOrigin is not null)
+                    records.SelectedIndex = Array.FindIndex(report.Items, i => i.OriginKey == selectedOrigin);
                 panel.Children.Add(records); panel.Children.Add(detail); panel.Children.Add(verify); panel.Children.Add(sources); panel.Children.Add(location); panel.Children.Add(browse);
                 var dialog = new ContentDialog
                 {
@@ -184,12 +224,7 @@ public sealed partial class HistoryPage
                 if (result == ContentDialogResult.None) break;
                 if (result == ContentDialogResult.Primary && records.SelectedIndex >= 0)
                 {
-                    var item = report.Items[records.SelectedIndex];
-                    if (item.Status == "Unassigned" && sources.SelectedIndex > 0)
-                        report.SourceSelections[item.OriginKey] = Guid.Parse(sourceChoices[sources.SelectedIndex - 1].Id);
-                    if (!string.IsNullOrWhiteSpace(location.Text))
-                        report.ArchiveSelections[item.OriginKey] = System.IO.Path.GetFullPath(location.Text.Trim());
-                    store.SaveReport(report);
+                    SaveSelection();
                 }
             }
         }
@@ -197,6 +232,7 @@ public sealed partial class HistoryPage
         finally
         {
             _legacyReportOpen = false;
+            await ViewModel.RefreshCurrentHistoryAsync();
             await RefreshLegacyMigrationNoticeAsync();
         }
     }

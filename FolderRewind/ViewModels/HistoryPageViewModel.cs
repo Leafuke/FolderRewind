@@ -1173,7 +1173,8 @@ public sealed class NativeHistoryVersionViewItem(
     public HistoryPresentationReadiness Readiness => summary.Readiness;
     public string ReadinessText => summary.Readiness switch
     {
-        HistoryPresentationReadiness.Ready => I18n.GetString("History_NativeReadiness_Ready"),
+        HistoryPresentationReadiness.Ready => I18n.GetString(summary.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
+            || IsPartialBackup ? "History_NativeReadiness_RestrictedReady" : "History_NativeReadiness_Ready"),
         HistoryPresentationReadiness.PreparationRequired => I18n.GetString("History_NativeReadiness_PreparationRequired"),
         HistoryPresentationReadiness.PluginOrCredentialRequired => I18n.GetString("History_NativeReadiness_PluginRequired"),
         HistoryPresentationReadiness.PayloadReleased => I18n.GetString("History_NativeReadiness_Released"),
