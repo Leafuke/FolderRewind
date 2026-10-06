@@ -2,7 +2,7 @@ namespace FolderRewind.Plugin.Abstractions;
 
 public readonly record struct PluginApiVersion(int Major, int Minor)
 {
-    public static PluginApiVersion HostVersion { get; } = new(3, 6);
+    public static PluginApiVersion HostVersion { get; } = new(3, 8);
 
     public bool IsSatisfiedBy(PluginApiVersion host)
         => Major == host.Major && host.Minor >= Minor;

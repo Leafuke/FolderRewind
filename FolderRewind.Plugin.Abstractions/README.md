@@ -6,7 +6,7 @@ package instead of the FolderRewind application or UI projects.
 ## Compatibility
 
 - Target framework: `net10.0`.
-- Package version: `3.6.0`; Plugin API requirement: `3.6`.
+- Package version: `3.8.0`; Plugin API requirement: `3.8`.
 - Assembly version remains `3.0.0.0` throughout API 3.x.
 - A Host accepts a manifest only when its API major matches and its minor is at
   least the plugin's requested minor.
@@ -57,3 +57,20 @@ API 3.6 is the baseline for FolderRewind 1.9.3 and MineRewind 1.9.5. Before docu
 and restore it with an empty package cache. Building a local package does not
 prove public availability. FolderRewind App 1.9.3, MineRewind 1.9.5, package
 3.6.0, and assembly identity 3.0.0.0 are separate version numbers.
+
+## API 3.7: read-only spatial previews
+
+`ISpatialPreviewCapability` is kind-owned and statically declared as `spatialPreview`.
+Describe returns opaque layer IDs, coordinate bounds, grid intervals and optional height controls;
+Render returns a 256 × 256 BGRA8 premultiplied tile; Inspect returns localized metadata fields.
+Requests use immutable Config/Folder snapshots and a browsing generation. Refresh changes the
+generation; it is not an atomic filesystem snapshot. Raster origins and units-per-pixel use
+provider coordinates, not pixels or paths. Bounds are half-open. The Host validates and freezes
+outputs, owns navigation/cancellation, and takes a short capability lease for each call.
+Providers must observe cancellation, bound work and cache memory, and perform no workspace
+mutation. The API contains no Minecraft or WinUI types. Existing 3.6 plugins remain loadable;
+plugins declaring this capability require 3.7. Assembly identity remains 3.0.0.0.
+
+The 3.7 package is a local development candidate until separately published. For cross-repository
+validation, pack it to a temporary local feed and supply that feed to restore alongside nuget.org;
+never add a reference from a plugin to the Host application project.

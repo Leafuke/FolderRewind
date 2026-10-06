@@ -6311,4 +6311,35 @@ Retention count: {2} · {3}</value></data>
   <data name="PluginPreset_Progress_KnotLinkInstall" xml:space="preserve"><value>Complete installation in the KnotLink installer. Waiting for it to finish (up to five minutes)...</value></data>
   <data name="PluginPreset_Step_KnotLinkInstaller" xml:space="preserve"><value>Prepare KnotLink server</value></data>
   <data name="PluginPreset_StepFailed" xml:space="preserve"><value>Step failed: {0}</value></data>
+  <data name="Preview_Open.Text" xml:space="preserve"><value>Map preview</value></data>
+  <data name="Preview_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="Preview_Refresh.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Preview_Layers.Header" xml:space="preserve"><value>Layer</value></data>
+  <data name="Preview_ZoomOut.Content" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Preview_ZoomIn.Content" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Preview_Locate.Content" xml:space="preserve"><value>Go to</value></data>
+  <data name="Preview_Help.Text" xml:space="preserve"><value>Drag to pan; scroll to zoom around the pointer. Arrow keys pan; Enter inspects the center. Saved player locations include their dimension. Color comes from versioned block maps with biome, water and terrain shading. Gray marks missing colors, amber unsupported chunks, red read errors. This is a read-only live-directory preview, not an atomic snapshot.</value></data>
+  <data name="Preview_MapName" xml:space="preserve"><value>Read-only map. Use arrow keys to pan and Enter to inspect.</value></data>
+  <data name="Preview_Loading" xml:space="preserve"><value>Loading visible map data…</value></data>
+  <data name="Preview_ReadOnly" xml:space="preserve"><value>Read-only · refresh after game changes</value></data>
+  <data name="Preview_Overview" xml:space="preserve"><value>Chunk occupancy overview · zoom in for terrain</value></data>
+  <data name="Preview_Empty" xml:space="preserve"><value>This source has no preview layers. Its format may be unsupported or spatial data may not exist yet.</value></data>
+  <data name="Preview_Failed" xml:space="preserve"><value>Preview read failed:</value></data>
+  <data name="Preview_SourceChanged" xml:space="preserve"><value>Source configuration changed. Refresh the map.</value></data>
+  <data name="Preview_Coordinates.Label" xml:space="preserve"><value>Coordinates…</value></data>
+  <data name="Preview_Display.Label" xml:space="preserve"><value>Display</value></data>
+  <data name="Preview_RefreshAction.Label" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Preview_HelpAction.Label" xml:space="preserve"><value>Help</value></data>
+  <data name="Preview_ViewHeight.Header" xml:space="preserve"><value>View height</value></data>
+  <data name="Preview_Grid.Header" xml:space="preserve"><value>Show grid boundaries</value></data>
+  <data name="Preview_Fit.Content" xml:space="preserve"><value>Fit world</value></data>
+  <data name="Preview_CloseDetails.Content" xml:space="preserve"><value>Close details</value></data>
+  <data name="Preview_LayerLabel" xml:space="preserve"><value>Layer</value></data>
+  <data name="Preview_NavigationLabel" xml:space="preserve"><value>Go to</value></data>
+  <data name="Preview_CellLabel" xml:space="preserve"><value>Cell</value></data>
+  <data name="Preview_NoTargets" xml:space="preserve"><value>No saved locations are available.</value></data>
+  <data name="Preview_SavedPosition" xml:space="preserve"><value>Saved positions, not live player locations.</value></data>
+  <data name="Preview_TargetUnavailable" xml:space="preserve"><value>This location belongs to an unavailable layer.</value></data>
+  <data name="Preview_ZoomInName" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Preview_ZoomOutName" xml:space="preserve"><value>Zoom out</value></data>
 </root>

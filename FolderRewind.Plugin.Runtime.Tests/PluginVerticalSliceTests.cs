@@ -207,6 +207,31 @@ public sealed class PluginVerticalSliceTests
         Assert.AreEqual(new ConfigRevision("revision-1"), store.CurrentRevision);
     }
 
+    [TestMethod]
+    public async Task PreviewCancellationReleasesLeaseAndRasterOutputIsFrozen()
+    {
+        var events = new List<string>();
+        var plugin = new FakeVerticalPlugin(events);
+        var fixture = await ActivateFakeAsync(events, plugin);
+        var (config, folder) = Snapshot(FakeKind, "C:\\Data");
+        var dispatcher = new SpatialPreviewDispatcher(fixture.Manager);
+        using var cancellation = new CancellationTokenSource();
+        var render = dispatcher.RenderAsync(new(new(config, folder, Guid.NewGuid()), "layer", 0, 0, 1, null), cancellation.Token).AsTask();
+        await plugin.PreviewStarted.Task;
+        Assert.AreEqual(1, fixture.Manager.GetSnapshot(FakePluginId).ActiveLeases);
+        cancellation.Cancel();
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => render);
+        Assert.AreEqual(0, fixture.Manager.GetSnapshot(FakePluginId).ActiveLeases);
+        Assert.IsTrue((await fixture.Manager.DeactivateAsync(FakePluginId)).Success);
+
+        var bytes = new byte[256 * 256 * 4]; bytes[0] = 42;
+        var frozen = SpatialPreviewDispatcher.FreezeTile(new(256, 256, bytes, []));
+        bytes[0] = 9;
+        Assert.AreEqual((byte)42, frozen.BgraPremultiplied.Span[0]);
+        Assert.ThrowsExactly<InvalidDataException>(() => SpatialPreviewDispatcher.FreezeTile(new(512, 256, bytes, [])));
+        Assert.ThrowsExactly<InvalidDataException>(() => SpatialPreviewDispatcher.FreezeTile(new(256, 256, new byte[4], [])));
+    }
+
     private static async Task<RuntimeFixture> ActivateFakeAsync(
         List<string> events,
         FakeVerticalPlugin? plugin = null)
@@ -319,8 +344,20 @@ public sealed class PluginVerticalSliceTests
         IConfigReconciliationCapability,
         IBackupConsistencyCapability,
         IRestoreCoordinatorCapability,
-        IPluginCommandCapability
+        IPluginCommandCapability,
+        ISpatialPreviewCapability
     {
+        public TaskCompletionSource PreviewStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public ValueTask<SpatialPreviewDescription> DescribeAsync(SpatialPreviewSource source, PluginInvocationContext context)
+            => throw new NotSupportedException();
+        public async ValueTask<SpatialPreviewTile> RenderAsync(SpatialPreviewTileRequest request, PluginInvocationContext context)
+        {
+            PreviewStarted.TrySetResult();
+            await Task.Delay(Timeout.Infinite, context.OperationCancellation);
+            throw new InvalidOperationException("Cancellation was not observed.");
+        }
+        public ValueTask<SpatialPreviewPoint> InspectAsync(SpatialPreviewPointRequest request, PluginInvocationContext context)
+            => throw new NotSupportedException();
         public ConfigChangeProposal? ReconciliationProposal { get; init; }
         public DiscoveryProviderId ProviderId { get; } = new(FakePluginId.Value);
         public ConfigKindRef Kind => FakeKind;
