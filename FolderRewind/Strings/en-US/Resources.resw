@@ -6322,7 +6322,7 @@ Retention count: {2} · {3}</value></data>
   <data name="Preview_MapName" xml:space="preserve"><value>Read-only map. Use arrow keys to pan and Enter to inspect.</value></data>
   <data name="Preview_Loading" xml:space="preserve"><value>Loading visible map data…</value></data>
   <data name="Preview_ReadOnly" xml:space="preserve"><value>Read-only · refresh after game changes</value></data>
-  <data name="Preview_Overview" xml:space="preserve"><value>Chunk occupancy overview · zoom in for terrain</value></data>
+  <data name="Preview_Overview" xml:space="preserve"><value>Occupancy overview with cached terrain · zoom in to refine</value></data>
   <data name="Preview_Empty" xml:space="preserve"><value>This source has no preview layers. Its format may be unsupported or spatial data may not exist yet.</value></data>
   <data name="Preview_Failed" xml:space="preserve"><value>Preview read failed:</value></data>
   <data name="Preview_SourceChanged" xml:space="preserve"><value>Source configuration changed. Refresh the map.</value></data>
@@ -6342,4 +6342,10 @@ Retention count: {2} · {3}</value></data>
   <data name="Preview_TargetUnavailable" xml:space="preserve"><value>This location belongs to an unavailable layer.</value></data>
   <data name="Preview_ZoomInName" xml:space="preserve"><value>Zoom in</value></data>
   <data name="Preview_ZoomOutName" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Preview_Partial" xml:space="preserve"><value>Refining terrain…</value></data>
+  <data name="Preview_Ungenerated" xml:space="preserve"><value>No generated terrain here · Fit world to return</value></data>
+  <data name="Preview_InvalidCoordinate" xml:space="preserve"><value>Enter finite coordinates within the allowed range.</value></data>
+  <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}: {1:N0}–{2:N0}; {3}: {4:N0}–{5:N0}</value></data>
+  <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} units</value></data>
+  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>Scans downward from this Y to the first surface. This is not a cave view. Player navigation uses saved X/Z only.</value></data>
 </root>

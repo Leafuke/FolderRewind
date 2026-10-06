@@ -16,16 +16,16 @@ public sealed record PreviewLayerChoice(SpatialPreviewLayer Layer)
     public string Name => PluginV3SpatialPreview.Localize(Layer.Name);
 }
 
-public sealed record PreviewTargetChoice(SpatialPreviewTarget Target)
+public sealed record PreviewTargetChoice(SpatialPreviewTarget Target, string LayerName)
 {
     public string Name => PluginV3SpatialPreview.Localize(Target.Name);
-    public string Description => $"{PluginV3SpatialPreview.Localize(Target.Group)} · {Target.LayerId} · {Target.X:0}, {Target.Y:0}";
+    public string Description => $"{PluginV3SpatialPreview.Localize(Target.Group)} · {LayerName} · {Target.X:0}, {Target.Y:0}";
 }
-public sealed record PreviewCameraState(string LayerId, double X, double Y, double Scale, int? Height);
+
 
 public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.ComponentModel.ObservableObject, IDisposable
 {
-    private static readonly Dictionary<(string Config, Guid Folder, string Path, string Layer), PreviewCameraState> Cameras = [];
+    private static readonly PreviewCameraStore Cameras = new();
     public ObservableCollection<PreviewTargetChoice> Targets { get; } = [];
     public SpatialPreviewNavigation? Navigation { get; private set; }
     [ObservableProperty] public partial string LayerLabel { get; set; } = I18n.GetString("Preview_LayerLabel");
@@ -66,7 +66,7 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
             Status = I18n.GetString(Layers.Count == 0 ? "Preview_Empty" : "Preview_ReadOnly");
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (_epoch.IsCurrent(revision)) Status = I18n.GetString("Preview_Failed") + " " + ex.Message; }
+        catch (Exception ex) { if (_epoch.IsCurrent(revision)) Status = I18n.GetString("Preview_Failed"); LogService.LogWarning(ex.ToString(), "SpatialPreview"); }
         finally
         {
             if (_epoch.IsCurrent(revision))
@@ -85,24 +85,22 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
             var navigation = await session.GetNavigationTargetsAsync(_epoch.Token);
             if (!_epoch.IsCurrent(revision) || !ReferenceEquals(Session, session)) return;
             Navigation = navigation;
-            foreach (var target in navigation.Targets) Targets.Add(new(target));
+            foreach (var target in navigation.Targets) Targets.Add(new(target, Layers.FirstOrDefault(l => l.Layer.Id == target.LayerId)?.Name ?? target.LayerId));
             NavigationStatus = Targets.Count == 0 ? I18n.GetString("Preview_NoTargets") : I18n.GetString("Preview_SavedPosition");
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (_epoch.IsCurrent(revision)) NavigationStatus = I18n.GetString("Preview_Failed") + " " + ex.Message; }
+        catch (Exception ex) { if (_epoch.IsCurrent(revision)) NavigationStatus = I18n.GetString("Preview_Failed"); LogService.LogWarning(ex.ToString(), "SpatialPreview"); }
     }
     public void SaveCamera(string layer, double x, double y, double scale, int? height)
     {
         if (Session is not { } session) return;
-        var key = (session.Source.Config.ConfigId, session.Source.Folder.FolderId, session.Source.Folder.Path, layer);
-        Cameras.Remove(key); Cameras.Add(key, new(layer, x, y, scale, height));
-        while (Cameras.Count > 128) Cameras.Remove(Cameras.Keys.First());
+        Cameras.Save(new(session.Source.Config.ConfigId, session.Source.Folder.FolderId, session.Source.Folder.Path),
+            new(layer, x, y, scale, height));
     }
     public PreviewCameraState? SavedCamera(string? layer = null)
     {
         if (Session is not { } session) return null;
-        return Cameras.Where(p => p.Key.Config == session.Source.Config.ConfigId && p.Key.Folder == session.Source.Folder.FolderId
-            && p.Key.Path == session.Source.Folder.Path && (layer is null || p.Key.Layer == layer)).Select(p => p.Value).LastOrDefault();
+        return Cameras.Get(new(session.Source.Config.ConfigId, session.Source.Folder.FolderId, session.Source.Folder.Path), layer);
     }
     public void UpdateCursor(double x, double y, SpatialPreviewLayer layer)
         => CursorText = $"{HorizontalAxis}: {Math.Floor(x):N0}  {VerticalAxis}: {Math.Floor(y):N0} · {CellLabel}: {Math.Floor(x / layer.MinorGridSize):N0}, {Math.Floor(y / layer.MinorGridSize):N0}";

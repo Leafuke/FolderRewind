@@ -51,6 +51,8 @@
                         <StackPanel Width="224" Spacing="12">
                             <NumberBox x:Name="CoordinateX" Header="{x:Bind ViewModel.HorizontalAxis, Mode=OneWay}" AutomationProperties.AutomationId="PreviewCoordinateX" Minimum="-1000000000" Maximum="1000000000"/>
                             <NumberBox x:Name="CoordinateY" Header="{x:Bind ViewModel.VerticalAxis, Mode=OneWay}" AutomationProperties.AutomationId="PreviewCoordinateY" Minimum="-1000000000" Maximum="1000000000"/>
+                            <TextBlock x:Name="CoordinateRange" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                            <TextBlock x:Name="CoordinateError" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
                             <Button x:Uid="Preview_Locate" HorizontalAlignment="Right" AutomationProperties.AutomationId="PreviewLocate" Click="OnLocate"/>
                         </StackPanel>
                     </Flyout>
@@ -61,6 +63,7 @@
                     <Flyout>
                         <StackPanel Width="224" Spacing="12">
                             <NumberBox x:Name="MaximumHeight" x:Uid="Preview_ViewHeight" AutomationProperties.AutomationId="PreviewHeight" ValueChanged="OnHeightChanged" SpinButtonPlacementMode="Compact"/>
+                            <TextBlock x:Uid="Preview_HeightHelp" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
                             <ToggleSwitch x:Name="GridToggle" x:Uid="Preview_Grid" AutomationProperties.AutomationId="PreviewGrid" Toggled="OnGridToggled"/>
                             <Button x:Uid="Preview_Fit" AutomationProperties.AutomationId="PreviewFit" Click="OnFit"/>
                         </StackPanel>
@@ -89,6 +92,15 @@
                 <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Spacing="4">
                     <Button x:Name="ZoomInButton" Content="+" Width="40" AutomationProperties.AutomationId="PreviewZoomIn" Click="OnZoomIn"/>
                     <Button x:Name="ZoomOutButton" Content="−" Width="40" AutomationProperties.AutomationId="PreviewZoomOut" Click="OnZoomOut"/>
+                </StackPanel>
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Spacing="4">
+                    <Button x:Uid="Preview_Fit" AutomationProperties.AutomationId="PreviewFitMap" Click="OnFit"/>
+                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="ScaleLabel" Style="{StaticResource CaptionTextBlockStyle}"/>
+                            <Border x:Name="ScaleBar" Height="6" BorderThickness="1,0,1,1" BorderBrush="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                 <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" IsHitTestVisible="False" Width="32" Height="32"/>
             </Grid>

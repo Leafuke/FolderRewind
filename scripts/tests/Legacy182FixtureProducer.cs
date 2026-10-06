@@ -64,7 +64,9 @@ namespace FolderRewind.Services
 
         public static async Task Produce(string directory, string sevenZip, string name, string type, Dictionary<string, string> tree, int generation)
         {
-            var metadata = Path.Combine(directory, "_metadata");
+            if (!TryResolveBackupStoragePaths(Path.GetDirectoryName(directory)!, Path.GetFileName(directory), null,
+                out _, out _, out var metadata))
+                throw new InvalidOperationException("Cannot resolve released backup storage layout.");
             var previous = ConvertToAggregateMetadata(await LoadBackupMetadataAsync(metadata));
             var states = tree.ToDictionary(p => p.Key, p => new FileState
             {

@@ -17,7 +17,11 @@ public interface ISpatialPreviewCapability : IPluginCapability
 public sealed record SpatialPreviewSource(ConfigSnapshot Config, FolderSnapshot Folder, Guid Generation);
 public sealed record SpatialPreviewBounds(double MinX, double MinY, double MaxX, double MaxY);
 public sealed record SpatialPreviewLayer(string Id, LocalizedText Name, SpatialPreviewBounds Bounds,
-    double MinorGridSize, double MajorGridSize, SpatialPreviewHeight? Height);
+    double MinorGridSize, double MajorGridSize, SpatialPreviewHeight? Height)
+{
+    /// <summary>Legal navigation coordinates, independent of the generated data bounds.</summary>
+    public SpatialPreviewBounds? CoordinateBounds { get; init; }
+}
 public sealed record SpatialPreviewHeight(int Minimum, int Maximum, int DefaultValue, LocalizedText Label);
 public sealed record SpatialPreviewDescription(IReadOnlyList<SpatialPreviewLayer> Layers,
     LocalizedText HorizontalAxis, LocalizedText VerticalAxis, IReadOnlyList<PluginDiagnostic> Diagnostics)
@@ -38,7 +42,11 @@ public sealed record SpatialPreviewNavigation(IReadOnlyList<SpatialPreviewTarget
 public sealed record SpatialPreviewTileRequest(SpatialPreviewSource Source, string LayerId,
     double OriginX, double OriginY, double UnitsPerPixel, int? MaximumHeight);
 public sealed record SpatialPreviewTile(int Width, int Height, ReadOnlyMemory<byte> BgraPremultiplied,
-    IReadOnlyList<PluginDiagnostic> Diagnostics);
+    IReadOnlyList<PluginDiagnostic> Diagnostics)
+{
+    /// <summary>False requests another bounded refinement call while the tile is visible.</summary>
+    public bool IsFinal { get; init; } = true;
+}
 public sealed record SpatialPreviewPointRequest(SpatialPreviewSource Source, string LayerId,
     double X, double Y, int? MaximumHeight);
 public sealed record SpatialPreviewPoint(IReadOnlyList<FolderMetadataField> Fields,

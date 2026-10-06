@@ -21,6 +21,7 @@ public sealed class Legacy182RecoveryTests
     [TestInitialize] public void Initialize() { _root = Path.Combine(Path.GetTempPath(), "FolderRewindLegacy182", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(_root); }
     [TestCleanup] public void Cleanup() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
     private string BackupDirectory => Path.Combine(_root, "backups", "Save");
+    private string MetadataDirectory => Path.Combine(_root, "backups", "_metadata", "Save");
     private LegacyMigrationSourceSnapshot Source => new(_source, Path.Combine(_root, "source"), "Save", BackupDirectory);
     private LegacyHistoryEntrySnapshot Entry(string file, string type = "Smart") => new(_source, Source.OriginalPath, "Save", file,
         new DateTime(2026, 1, 1), type, "comment", true, false, true, "remote/old");
@@ -205,7 +206,7 @@ public sealed class Legacy182RecoveryTests
     [TestMethod]
     public void MetadataReaderUsesReleasedRecordPrecedenceAndPreservesAbsentVersusEmpty()
     {
-        var metadata = Path.Combine(BackupDirectory, "_metadata");
+        var metadata = MetadataDirectory;
         Directory.CreateDirectory(Path.Combine(metadata, "records"));
         File.WriteAllText(Path.Combine(metadata, "metadata.json"), "{\"backupRecords\":[{\"archiveFileName\":\"x.7z\",\"backupType\":\"Full\",\"fullFileList\":[\"stale\"]}]}");
         File.WriteAllText(Path.Combine(metadata, "records", "x.json"), "{\"archiveFileName\":\"x.7z\",\"backupType\":\"Full\",\"fullFileList\":[]}");
@@ -319,7 +320,7 @@ public sealed class Legacy182RecoveryTests
             await runtime.InitializeAsync();
             await ArchiveAsync("full.7z", new() { ["a.txt"] = "old", ["gone.txt"] = "old", ["switch"] = "file" });
             await ArchiveAsync("delta.7z", new() { ["a.txt"] = "new", ["switch/new.txt"] = "child" });
-            var directory = Path.Combine(BackupDirectory, "_metadata", "records"); Directory.CreateDirectory(directory);
+            var directory = Path.Combine(MetadataDirectory, "records"); Directory.CreateDirectory(directory);
             foreach (var metadata in Records) File.WriteAllText(Path.Combine(directory, metadata.ArchiveFileName + ".json"), JsonSerializer.Serialize(metadata));
             var failing = new LegacyTakeoverService(_root, _config) { StageObserver = point => { if (point == stage) throw new IOException("Injected completion interruption"); } };
             await Assert.ThrowsAsync<IOException>(() => failing.ResumeAsync(runtime, [Source], Path.Combine(_root, "backups")));

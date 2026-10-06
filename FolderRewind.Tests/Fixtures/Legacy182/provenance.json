@@ -25,5 +25,7 @@
   ],
   "sevenZip": "\nNanaZip 7.0 , version 2609.2 (x64) : (c) M2-Team and Contributors. All rights reserved.\n\n",
   "generatedUtc": "2026-10-02T13:31:09.7128707Z",
-  "installerAcceptance": "pending manual verification"
+  "installerAcceptance": "pending manual verification",
+  "layout": "Archives: <root>/<format>/; metadata: <root>/_metadata/<format>/",
+  "layoutCorrection": "2026-10-06: moved existing metadata files to the released storage layout without changing archive or metadata bytes."
 }

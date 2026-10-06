@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Windows.ApplicationModel.Resources.Core;
-using Windows.Globalization;
+using ApplicationLanguages = Microsoft.Windows.Globalization.ApplicationLanguages;
 using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
 namespace FolderRewind.Services
@@ -49,12 +48,15 @@ namespace FolderRewind.Services
 
         private static void ApplyPlatformLanguageOverride(string languageOverride)
         {
+            // MRT Core owns XAML x:Uid lookup in both packaged and unpackaged WinUI.
+            // Updating only our ResourceLoader's context leaves XAML in the system language.
+            ApplicationLanguages.PrimaryLanguageOverride = LocalizedTextSelector.EffectiveLanguage(
+                string.IsNullOrWhiteSpace(languageOverride) ? _startupUiCulture.Name : languageOverride);
             if (AppRuntimeInfo.IsPackaged)
             {
-                ApplicationLanguages.PrimaryLanguageOverride = languageOverride;
                 if (string.IsNullOrWhiteSpace(languageOverride))
                 {
-                    ResourceContext.ResetGlobalQualifierValues(new[] { "Language" });
+                    ResourceContext.SetGlobalQualifierValue("Language", LocalizedTextSelector.EffectiveLanguage(_startupUiCulture.Name));
                 }
                 else
                 {
@@ -62,9 +64,8 @@ namespace FolderRewind.Services
                 }
             }
 
-            var uiCulture = string.IsNullOrWhiteSpace(languageOverride)
-                ? _startupUiCulture
-                : CultureInfo.GetCultureInfo(languageOverride);
+            var uiCulture = CultureInfo.GetCultureInfo(LocalizedTextSelector.EffectiveLanguage(
+                string.IsNullOrWhiteSpace(languageOverride) ? _startupUiCulture.Name : languageOverride));
             var culture = string.IsNullOrWhiteSpace(languageOverride)
                 ? _startupCulture
                 : uiCulture;
@@ -78,7 +79,8 @@ namespace FolderRewind.Services
         private static void SetEffectiveLanguageOverride(string languageOverride)
         {
             _languageOverride = languageOverride;
-            AppResourceLoader.SetLanguageOverride(languageOverride);
+            AppResourceLoader.SetLanguageOverride(LocalizedTextSelector.EffectiveLanguage(
+                string.IsNullOrWhiteSpace(languageOverride) ? _startupUiCulture.Name : languageOverride));
         }
 
         public static string GetCurrentUiLanguage()
@@ -103,7 +105,7 @@ namespace FolderRewind.Services
                 }
             }
 
-            return CultureInfo.CurrentUICulture.Name;
+            return LocalizedTextSelector.EffectiveLanguage(CultureInfo.CurrentUICulture.Name);
         }
 
         public static string GetString(string key)
@@ -142,125 +144,8 @@ namespace FolderRewind.Services
         /// </summary>
         public static string? PickBest(IReadOnlyDictionary<string, string>? localized, string? fallback)
         {
-            if (localized == null || localized.Count == 0)
-            {
-                return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
-            }
-
-            string? GetValue(string tag)
-            {
-                if (string.IsNullOrWhiteSpace(tag)) return null;
-
-                if (localized.TryGetValue(tag, out var exact) && !string.IsNullOrWhiteSpace(exact))
-                {
-                    return exact;
-                }
-
-                foreach (var kv in localized)
-                {
-                    if (string.Equals(NormalizeTag(kv.Key), tag, StringComparison.OrdinalIgnoreCase)
-                        && !string.IsNullOrWhiteSpace(kv.Value))
-                    {
-                        return kv.Value;
-                    }
-                }
-
-                return null;
-            }
-
-            foreach (var lang in GetLanguageCandidates())
-            {
-                if (string.IsNullOrWhiteSpace(lang)) continue;
-
-                var exact = GetValue(lang);
-                if (!string.IsNullOrWhiteSpace(exact))
-                {
-                    return exact;
-                }
-
-                // 尝试语言前缀（en-US -> en）
-                var dash = lang.IndexOf('-', StringComparison.Ordinal);
-                if (dash > 0)
-                {
-                    var prefix = lang[..dash];
-                    var pref = GetValue(prefix);
-                    if (!string.IsNullOrWhiteSpace(pref))
-                    {
-                        return pref;
-                    }
-                }
-
-                // 脚本/地区互通：zh-Hans <-> zh-CN, zh-Hant <-> zh-TW
-                if (lang.StartsWith("zh-", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (lang.Contains("Hans", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var zhCn = GetValue("zh-CN");
-                        if (!string.IsNullOrWhiteSpace(zhCn)) return zhCn;
-                    }
-                    else if (lang.Contains("Hant", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var zhTw = GetValue("zh-TW");
-                        if (!string.IsNullOrWhiteSpace(zhTw)) return zhTw;
-                    }
-                }
-            }
-
-            // 兜底
-            var first = localized.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
-            if (!string.IsNullOrWhiteSpace(first)) return first;
-
-            return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+            return LocalizedTextSelector.Select(localized, fallback, GetCurrentUiLanguage());
         }
 
-        private static IEnumerable<string> GetLanguageCandidates()
-        {
-            var result = new List<string>();
-
-            // App override（设置页会写入 PrimaryLanguageOverride）
-            var primary = GetCurrentUiLanguage();
-            if (!string.IsNullOrWhiteSpace(primary))
-            {
-                result.Add(NormalizeTag(primary));
-            }
-
-            if (AppRuntimeInfo.IsPackaged)
-            {
-                try
-                {
-                    foreach (var l in ApplicationLanguages.Languages)
-                    {
-                        if (!string.IsNullOrWhiteSpace(l)) result.Add(NormalizeTag(l));
-                    }
-                }
-                catch
-                {
-                }
-            }
-
-            try
-            {
-                var c = CultureInfo.CurrentUICulture?.Name;
-                if (!string.IsNullOrWhiteSpace(c)) result.Add(NormalizeTag(c));
-            }
-            catch
-            {
-
-            }
-
-            // 兜底
-            result.Add("en-US");
-            result.Add("zh-CN");
-
-            return result
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-        }
-
-        private static string NormalizeTag(string tag)
-        {
-            return tag.Trim().Replace('_', '-');
-        }
     }
 }

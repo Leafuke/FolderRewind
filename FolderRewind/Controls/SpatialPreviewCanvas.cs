@@ -36,9 +36,16 @@ public sealed class SpatialPreviewCanvas : Grid
     private readonly Dictionary<PreviewTileKey, Image> _images = [];
     private readonly LinkedList<PreviewTileKey> _lru = new();
     private readonly Dictionary<PreviewTileKey, CancellationTokenSource> _pending = [];
-    private readonly Dictionary<PreviewTileKey, string> _diagnostics = [];
+    private readonly Dictionary<PreviewTileKey, (DiagnosticSeverity Severity, string Text)> _diagnostics = [];
     private readonly HashSet<PreviewTileKey> _failed = [];
     private HashSet<PreviewTileKey> _wanted = [];
+    private readonly Dictionary<PreviewTileKey, long> _refinements = [];
+    private readonly Dictionary<PreviewTileKey, long> _requestOrder = [];
+    private readonly HashSet<PreviewTileKey> _completed = [];
+    private readonly HashSet<PreviewTileKey> _empty = [];
+    private long _requestSequence;
+    private int _lod;
+
     private readonly DispatcherTimer _schedule = new() { Interval = TimeSpan.FromMilliseconds(40) };
     private PluginV3SpatialPreview? _session;
     private SpatialPreviewLayer? _layer;
@@ -57,6 +64,7 @@ public sealed class SpatialPreviewCanvas : Grid
     public event Action<string>? DetailsChanged;
     public event Action<double, double>? PositionChanged;
     public event Action<double, double>? CursorChanged;
+    public event Action<double, double>? ScaleChanged;
     internal (double X, double Y, double Scale) Camera => (_camera.CenterX, _camera.CenterY, _camera.Scale);
     public bool ShowGrid { get => _showGrid; set { _showGrid = value; DrawGrid(); } }
 
@@ -87,6 +95,7 @@ public sealed class SpatialPreviewCanvas : Grid
         _epoch.Advance(); _inspection++; _schedule.Stop();
         foreach (var cancellation in _pending.Values.ToArray()) cancellation.Cancel();
         _pending.Clear(); _wanted.Clear(); _failed.Clear(); _diagnostics.Clear();
+        _refinements.Clear(); _requestOrder.Clear(); _completed.Clear(); _empty.Clear(); _lod = 0;
         _session = session; _layer = layer; _height = maximumHeight; _active = session is not null && layer is not null;
         _bitmaps.Clear(); _lru.Clear(); _images.Clear(); _tiles.Children.Clear(); _grid.Children.Clear(); _markers.Children.Clear(); _markerShape = null;
         _pressed = null; ReleasePointerCaptures(); _marker = null;
@@ -116,12 +125,12 @@ public sealed class SpatialPreviewCanvas : Grid
         _camera.CenterX += before.X - after.X; _camera.CenterY += before.Y - after.Y;
         QueueRender();
     }
-    public void Locate(double x, double y)
+    public bool Locate(double x, double y)
     {
-        if (!double.IsFinite(x) || !double.IsFinite(y) || Math.Abs(x) > 1e9 || Math.Abs(y) > 1e9) return;
+        if (!SpatialPreviewCoordinates.Contains(_layer?.CoordinateBounds, x, y)) return false;
         Interacted?.Invoke();
         _camera.CenterX = x; _camera.CenterY = y; _camera.SetScale(Math.Max(1, _camera.Scale));
-        _marker = new(x, y); QueueRender();
+        _marker = new(x, y); QueueRender(); return true;
     }
     private void QueueRender()
     {
@@ -135,6 +144,8 @@ public sealed class SpatialPreviewCanvas : Grid
         _gridTransform.TranslateY = (_gridY - _camera.CenterY) * _camera.Scale + ActualHeight / 2 * (1 - _camera.Scale / _gridScale);
         DrawMarker();
         PositionChanged?.Invoke(_camera.CenterX, _camera.CenterY);
+        var scale = PreviewScaleBar.Calculate(_camera.Scale);
+        ScaleChanged?.Invoke(scale.Units, scale.Pixels);
         if (!_schedule.IsEnabled) _schedule.Start(); // Throttle, not a restart-on-every-move debounce.
     }
     private bool Intersects(PreviewTileKey key)
@@ -150,6 +161,12 @@ public sealed class SpatialPreviewCanvas : Grid
         if (!session.IsCurrent()) { Clear(); StatusChanged?.Invoke(I18n.GetString("Preview_SourceChanged")); return; }
         _wanted = _camera.Tiles(ActualWidth, ActualHeight).Where(k => k.OriginX < layer.Bounds.MaxX && k.OriginY < layer.Bounds.MaxY
             && k.OriginX + 256d * k.UnitsPerPixel > layer.Bounds.MinX && k.OriginY + 256d * k.UnitsPerPixel > layer.Bounds.MinY).ToHashSet();
+        var lod = _wanted.FirstOrDefault().UnitsPerPixel;
+        if (lod != _lod)
+        {
+            foreach (var key in _wanted.Where(_bitmaps.ContainsKey)) _refinements[key] = 0;
+            _lod = lod;
+        }
         foreach (var pair in _pending.ToArray()) if (!_wanted.Contains(pair.Key)) pair.Value.Cancel();
         _failed.RemoveWhere(k => !_wanted.Contains(k));
         if (_wanted.Any(k => !_bitmaps.ContainsKey(k)))
@@ -167,16 +184,16 @@ public sealed class SpatialPreviewCanvas : Grid
             Canvas.SetLeft(image, key.OriginX - _anchorX); Canvas.SetTop(image, key.OriginY - _anchorY);
             _images.Add(key, image); _tiles.Children.Add(image);
         }
-        Canvas.SetZIndex(image, _wanted.Contains(key) ? 1 : 0);
+        Canvas.SetZIndex(image, _wanted.Contains(key) ? (_refinements.ContainsKey(key) ? 0 : 2) : 1);
         image.Source = bitmap; Touch(key);
     }
     private void PruneImages()
     {
-        var complete = _wanted.All(k => _bitmaps.ContainsKey(k) || _failed.Contains(k));
+        var complete = _wanted.All(k => (_bitmaps.ContainsKey(k) && !_refinements.ContainsKey(k)) || _failed.Contains(k));
         foreach (var pair in _images.ToArray())
         {
             if (!Intersects(pair.Key) || (complete && !_wanted.Contains(pair.Key))) RemoveImage(pair.Key);
-            else Canvas.SetZIndex(pair.Value, _wanted.Contains(pair.Key) ? 1 : 0);
+            else Canvas.SetZIndex(pair.Value, _wanted.Contains(pair.Key) ? (_refinements.ContainsKey(pair.Key) ? 0 : 2) : 1);
         }
     }
     private void RemoveImage(PreviewTileKey key)
@@ -186,14 +203,18 @@ public sealed class SpatialPreviewCanvas : Grid
     private void Pump()
     {
         if (!_active || _session is not { } session || _layer is not { } layer) return;
-        foreach (var key in _wanted.Where(k => !_bitmaps.ContainsKey(k) && !_pending.ContainsKey(k) && !_failed.Contains(k))
-            .OrderBy(k => Math.Abs(k.OriginX + 128d * k.UnitsPerPixel - _camera.CenterX) + Math.Abs(k.OriginY + 128d * k.UnitsPerPixel - _camera.CenterY)).ToArray())
+        foreach (var key in _wanted.Where(k => (!_bitmaps.ContainsKey(k) || _refinements.ContainsKey(k))
+            && !_pending.ContainsKey(k) && !_failed.Contains(k) && (!_refinements.TryGetValue(k, out var due) || Environment.TickCount64 >= due))
+            .OrderBy(k => _bitmaps.ContainsKey(k) ? 1 : 0)
+            .ThenBy(k => _requestOrder.GetValueOrDefault(k))
+            .ThenBy(k => Math.Abs(k.OriginX + 128d * k.UnitsPerPixel - _camera.CenterX) + Math.Abs(k.OriginY + 128d * k.UnitsPerPixel - _camera.CenterY)).ToArray())
         {
             if (_running >= 4) break;
             var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_epoch.Token);
-            _pending.Add(key, cancellation); _running++;
+            _pending.Add(key, cancellation); _running++; _requestOrder[key] = ++_requestSequence;
             Observe(LoadAsync(session, layer.Id, _height, key, cancellation, _epoch.Revision));
         }
+        if (_wanted.Any(k => _refinements.ContainsKey(k) && !_failed.Contains(k)) && !_schedule.IsEnabled) _schedule.Start();
     }
     private async Task LoadAsync(PluginV3SpatialPreview session, string layer, int? height, PreviewTileKey key, CancellationTokenSource cancellation, long revision)
     {
@@ -204,7 +225,21 @@ public sealed class SpatialPreviewCanvas : Grid
             var bitmap = new WriteableBitmap(256, 256);
             using (var stream = bitmap.PixelBuffer.AsStream()) stream.Write(result.BgraPremultiplied.Span);
             bitmap.Invalidate(); _bitmaps[key] = bitmap; Touch(key);
-            if (result.Diagnostics.Count > 0) _diagnostics[key] = string.Join(" · ", result.Diagnostics.Select(d => I18n.PickBest(d.Arguments, d.Code) ?? d.Code));
+            if (!result.IsFinal) _refinements[key] = Environment.TickCount64 + 100;
+            else
+            {
+                _refinements.Remove(key);
+                if (_completed.Add(key))
+                    foreach (var neighbor in _wanted.Where(k => k.UnitsPerPixel == key.UnitsPerPixel && k != key
+                        && Math.Abs(k.X - key.X) + Math.Abs(k.Y - key.Y) == 1 && _completed.Contains(k)))
+                        _refinements[neighbor] = Environment.TickCount64 + 100;
+            }
+            _diagnostics.Remove(key);
+            var hasPixels = false;
+            for (var i = 3; i < result.BgraPremultiplied.Length; i += 4)
+                if (result.BgraPremultiplied.Span[i] != 0) { hasPixels = true; break; }
+            if (!hasPixels && result.IsFinal && result.Diagnostics.Count == 0) _empty.Add(key); else _empty.Remove(key);
+            if (result.Diagnostics.Count > 0) _diagnostics[key] = (result.Diagnostics.Max(d => d.Severity), string.Join(" · ", result.Diagnostics.OrderByDescending(d => d.Severity).Select(d => I18n.PickBest(d.Arguments, d.Code) ?? d.Code).Distinct()));
             if (_wanted.Contains(key)) Show(key);
             PruneImages(); Trim();
         }
@@ -212,7 +247,7 @@ public sealed class SpatialPreviewCanvas : Grid
         catch (Exception ex)
         {
             if (_epoch.IsCurrent(revision) && !cancellation.IsCancellationRequested)
-            { _failed.Add(key); _diagnostics[key] = I18n.GetString("Preview_Failed") + " " + ex.Message; }
+            { _failed.Add(key); _refinements.Remove(key); _diagnostics[key] = (DiagnosticSeverity.Error, I18n.GetString("Preview_Failed")); LogService.LogWarning(ex.ToString(), "SpatialPreview"); }
         }
         finally
         {
@@ -224,9 +259,13 @@ public sealed class SpatialPreviewCanvas : Grid
     private void UpdateStatus()
     {
         if (!_active) return;
-        var diagnostic = _wanted.Where(_diagnostics.ContainsKey).Select(k => _diagnostics[k]).FirstOrDefault();
-        StatusChanged?.Invoke(diagnostic ?? I18n.GetString(_wanted.Any(k => !_bitmaps.ContainsKey(k) && !_failed.Contains(k))
-            ? "Preview_Loading" : _wanted.Any(k => k.UnitsPerPixel >= 16) ? "Preview_Overview" : "Preview_ReadOnly"));
+        var diagnostics = _wanted.Where(_diagnostics.ContainsKey).Select(k => _diagnostics[k]).OrderByDescending(d => d.Severity).Select(d => d.Text).Distinct().ToArray();
+        var state = _wanted.Count == 0 ? "Preview_Ungenerated"
+            : _wanted.Any(k => _refinements.ContainsKey(k)) ? "Preview_Partial"
+            : _wanted.Any(k => !_bitmaps.ContainsKey(k) && !_failed.Contains(k)) ? "Preview_Loading"
+            : _wanted.All(_empty.Contains) ? "Preview_Ungenerated"
+            : _wanted.Any(k => k.UnitsPerPixel >= 16) ? "Preview_Overview" : "Preview_ReadOnly";
+        StatusChanged?.Invoke(I18n.GetString(state) + (diagnostics.Length == 0 ? "" : " · " + string.Join(" · ", diagnostics)));
     }
     private void Touch(PreviewTileKey key) { _lru.Remove(key); _lru.AddFirst(key); }
     private void Trim()
@@ -237,9 +276,10 @@ public sealed class SpatialPreviewCanvas : Grid
             var candidate = last;
             while (candidate is not null && _wanted.Contains(candidate.Value)) candidate = candidate.Previous;
             if (candidate is null) break;
-            RemoveImage(candidate.Value); _bitmaps.Remove(candidate.Value); _diagnostics.Remove(candidate.Value); _lru.Remove(candidate);
+            RemoveImage(candidate.Value); _bitmaps.Remove(candidate.Value); _diagnostics.Remove(candidate.Value); _refinements.Remove(candidate.Value); _requestOrder.Remove(candidate.Value); _completed.Remove(candidate.Value); _empty.Remove(candidate.Value); _lru.Remove(candidate);
         }
         foreach (var key in _diagnostics.Keys.Where(k => !_wanted.Contains(k) && !_bitmaps.ContainsKey(k)).ToArray()) _diagnostics.Remove(key);
+        foreach (var key in _requestOrder.Keys.Where(k => !_wanted.Contains(k) && !_bitmaps.ContainsKey(k) && !_pending.ContainsKey(k)).ToArray()) _requestOrder.Remove(key);
     }
     private void DrawGrid()
     {
@@ -302,6 +342,8 @@ public sealed class SpatialPreviewCanvas : Grid
         if (_session is not { } session || _layer is not { } layer) return;
         var revision = _epoch.Revision; var inspection = ++_inspection; var token = _epoch.Token;
         var point = _camera.ToWorld(x, y, ActualWidth, ActualHeight);
+        if (!SpatialPreviewCoordinates.Contains(layer.CoordinateBounds, point.X, point.Y))
+        { StatusChanged?.Invoke(I18n.GetString("Preview_InvalidCoordinate")); return; }
         try
         {
             var result = await session.InspectAsync(new(session.Source, layer.Id, point.X, point.Y, _height), token);
@@ -309,19 +351,18 @@ public sealed class SpatialPreviewCanvas : Grid
                 DetailsChanged?.Invoke(string.Join(Environment.NewLine, result.Fields.Select(f => PluginV3SpatialPreview.Localize(f.DisplayName) + ": " + PluginV3SpatialPreview.Localize(f.Value))));
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (_epoch.IsCurrent(revision)) StatusChanged?.Invoke(I18n.GetString("Preview_Failed") + " " + ex.Message); }
+        catch (Exception ex) { if (_epoch.IsCurrent(revision)) StatusChanged?.Invoke(I18n.GetString("Preview_Failed")); LogService.LogWarning(ex.ToString(), "SpatialPreview"); }
     }
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (!_active) return;
         Interacted?.Invoke();
-        var step = 64 / _camera.Scale;
         switch (e.Key)
         {
-            case VirtualKey.Left: _camera.CenterX -= step; break;
-            case VirtualKey.Right: _camera.CenterY -= step; break;
-            case VirtualKey.Up: _camera.CenterY -= step; break;
-            case VirtualKey.Down: _camera.CenterY += step; break;
+            case VirtualKey.Left: _camera.Pan(-1, 0); break;
+            case VirtualKey.Right: _camera.Pan(1, 0); break;
+            case VirtualKey.Up: _camera.Pan(0, -1); break;
+            case VirtualKey.Down: _camera.Pan(0, 1); break;
             case VirtualKey.Add: Zoom(2); e.Handled = true; return;
             case VirtualKey.Subtract: Zoom(.5); e.Handled = true; return;
             case VirtualKey.Enter: Observe(InspectAsync(ActualWidth / 2, ActualHeight / 2)); e.Handled = true; return;

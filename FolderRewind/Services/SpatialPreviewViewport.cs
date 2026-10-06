@@ -16,6 +16,7 @@ internal sealed class SpatialPreviewViewport
     public double CenterX { get; set; }
     public double CenterY { get; set; }
     public double Scale { get; private set; } = 1;
+    public void Pan(int x, int y) { CenterX += x * 64 / Scale; CenterY += y * 64 / Scale; }
     public void SetScale(double value) { if (double.IsFinite(value)) Scale = Math.Clamp(value, 1d / 4096, 16); }
     public (double X, double Y) ToWorld(double x, double y, double width, double height)
         => (CenterX + (x - width / 2) / Scale, CenterY + (y - height / 2) / Scale);
@@ -49,4 +50,21 @@ internal sealed class PreviewRequestEpoch : IDisposable
     }
     public bool IsCurrent(long revision) => revision == Revision && !_cancellation.IsCancellationRequested;
     public void Dispose() { Revision++; _cancellation.Cancel(); _cancellation.Dispose(); }
+}
+
+internal static class SpatialPreviewCoordinates
+{
+    internal static bool Contains(FolderRewind.Plugin.Abstractions.SpatialPreviewBounds? bounds, double x, double y)
+        => double.IsFinite(x) && double.IsFinite(y) && Math.Abs(x) <= 1e9 && Math.Abs(y) <= 1e9
+            && (bounds is null || x >= bounds.MinX && x <= bounds.MaxX && y >= bounds.MinY && y <= bounds.MaxY);
+}
+internal static class PreviewScaleBar
+{
+    internal static (double Units, double Pixels) Calculate(double scale)
+    {
+        var target = 100 / scale;
+        var power = Math.Pow(10, Math.Floor(Math.Log10(target)));
+        var units = (target / power >= 5 ? 5 : target / power >= 2 ? 2 : 1) * power;
+        return (units, units * scale);
+    }
 }

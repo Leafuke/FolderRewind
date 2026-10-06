@@ -575,6 +575,7 @@ P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.Label:FolderRewind.Plugi
 P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.Maximum:System.Int32 { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.Minimum:System.Int32 { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Bounds:FolderRewind.Plugin.Abstractions.SpatialPreviewBounds { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.CoordinateBounds:FolderRewind.Plugin.Abstractions.SpatialPreviewBounds { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Height:FolderRewind.Plugin.Abstractions.SpatialPreviewHeight { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Id:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.MajorGridSize:System.Double { public get; public init; }
@@ -602,6 +603,7 @@ P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Y:System.Double { public
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.BgraPremultiplied:System.ReadOnlyMemory<System.Byte> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Height:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.IsFinal:System.Boolean { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Width:System.Int32 { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.LayerId:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.MaximumHeight:System.Nullable<System.Int32> { public get; public init; }

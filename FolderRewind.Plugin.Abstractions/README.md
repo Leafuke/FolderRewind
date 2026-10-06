@@ -6,7 +6,7 @@ package instead of the FolderRewind application or UI projects.
 ## Compatibility
 
 - Target framework: `net10.0`.
-- Package version: `3.8.0`; Plugin API requirement: `3.8`.
+- Package version: `3.9.0`; Plugin API requirement: `3.9`.
 - Assembly version remains `3.0.0.0` throughout API 3.x.
 - A Host accepts a manifest only when its API major matches and its minor is at
   least the plugin's requested minor.
@@ -74,3 +74,6 @@ plugins declaring this capability require 3.7. Assembly identity remains 3.0.0.0
 The 3.7 package is a local development candidate until separately published. For cross-repository
 validation, pack it to a temporary local feed and supply that feed to restore alongside nuget.org;
 never add a reference from a plugin to the Host application project.
+API 3.9 adds `SpatialPreviewTile.IsFinal` (defaults to true) for bounded, pull-based refinement and optional `SpatialPreviewLayer.CoordinateBounds` for legal navigation coordinates. Hosts retain partial pixels, request visible unfinished tiles no more often than every 100ms, and freeze both properties. `Bounds` continues to describe generated data.
+
+For coordinated local preview builds, run `scripts/Build-WorldPreview.ps1` from the host checkout. It creates an immutable content-addressed API prerelease in an isolated feed and package cache, builds MineRewind, and verifies the bundled package. Nothing is published.

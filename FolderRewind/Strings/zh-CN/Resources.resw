@@ -6322,7 +6322,7 @@ Pull Request：{1}</value>
   <data name="Preview_MapName" xml:space="preserve"><value>只读二维地图，使用方向键移动，回车查看详情</value></data>
   <data name="Preview_Loading" xml:space="preserve"><value>正在按需读取地图…</value></data>
   <data name="Preview_ReadOnly" xml:space="preserve"><value>只读 · 游戏写入后请刷新</value></data>
-  <data name="Preview_Overview" xml:space="preserve"><value>区块占用概览 · 放大查看地形</value></data>
+  <data name="Preview_Overview" xml:space="preserve"><value>区块占用概览与已缓存地形 · 放大以补全</value></data>
   <data name="Preview_Empty" xml:space="preserve"><value>当前来源未提供可预览图层；格式可能尚未支持，或尚未生成空间数据。</value></data>
   <data name="Preview_Failed" xml:space="preserve"><value>预览读取失败：</value></data>
   <data name="Preview_SourceChanged" xml:space="preserve"><value>来源配置已变化，请刷新地图。</value></data>
@@ -6342,4 +6342,10 @@ Pull Request：{1}</value>
   <data name="Preview_TargetUnavailable" xml:space="preserve"><value>此位置所属的维度或图层暂时无法浏览。</value></data>
   <data name="Preview_ZoomInName" xml:space="preserve"><value>放大</value></data>
   <data name="Preview_ZoomOutName" xml:space="preserve"><value>缩小</value></data>
+  <data name="Preview_Partial" xml:space="preserve"><value>正在逐步补全地形…</value></data>
+  <data name="Preview_Ungenerated" xml:space="preserve"><value>此处尚未生成地形 · 可选择适应世界范围</value></data>
+  <data name="Preview_InvalidCoordinate" xml:space="preserve"><value>请输入合法范围内的有效坐标。</value></data>
+  <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}：{1:N0} 至 {2:N0}；{3}：{4:N0} 至 {5:N0}</value></data>
+  <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} 单位</value></data>
+  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>从该 Y 向下寻找首个表面，不是洞穴视图。玩家定位仅使用保存的 X/Z。</value></data>
 </root>

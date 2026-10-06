@@ -30,6 +30,7 @@ public sealed partial class SpatialPreviewPage : Page
         Map.DetailsChanged += text => { ViewModel.Details = text; DetailLayout.IsPaneOpen = true; };
         Map.Interacted += () => _interactionRevision++;
         Map.PositionChanged += (x, y) => { if (_currentLayer is { } layer) ViewModel.UpdateCursor(x, y, layer.Layer); };
+        Map.ScaleChanged += (units, pixels) => { ScaleBar.Width = pixels; ScaleLabel.Text = I18n.Format("Preview_Scale", units); };
         Map.CursorChanged += (x, y) => { if (_currentLayer is { } layer) ViewModel.UpdateCursor(x, y, layer.Layer); };
         SizeChanged += (_, e) => DetailLayout.DisplayMode = e.NewSize.Width < 900 ? SplitViewDisplayMode.Overlay : SplitViewDisplayMode.Inline;
         AutomationProperties.SetName(ZoomInButton, I18n.GetString("Preview_ZoomInName"));
@@ -85,6 +86,7 @@ public sealed partial class SpatialPreviewPage : Page
         _currentLayer = choice; _settingHeight = true;
         var height = choice.Layer.Height; var saved = ViewModel.SavedCamera(choice.Layer.Id);
         MaximumHeight.IsEnabled = height is not null;
+        MaximumHeight.Header = height is null ? I18n.GetString("Preview_ViewHeight.Header") : PluginV3SpatialPreview.Localize(height.Label);
         MaximumHeight.Minimum = height?.Minimum ?? 0; MaximumHeight.Maximum = height?.Maximum ?? 1;
         MaximumHeight.Value = height is null ? 0 : Math.Clamp(saved?.Height ?? height.DefaultValue, height.Minimum, height.Maximum);
         _settingHeight = false; ViewModel.Details = ""; DetailLayout.IsPaneOpen = false;
@@ -103,12 +105,21 @@ public sealed partial class SpatialPreviewPage : Page
     private void OnGridToggled(object sender, RoutedEventArgs e) { if (Map is not null) Map.ShowGrid = GridToggle.IsOn; }
     private void OnCloseDetails(object sender, RoutedEventArgs e) { DetailLayout.IsPaneOpen = false; Map.Focus(FocusState.Programmatic); }
     private void OnCoordinateOpening(object sender, object e)
-    { var camera = Map.Camera; CoordinateX.Value = Math.Floor(camera.X); CoordinateY.Value = Math.Floor(camera.Y); }
+    {
+        var camera = Map.Camera; CoordinateX.Value = Math.Floor(camera.X); CoordinateY.Value = Math.Floor(camera.Y);
+        CoordinateError.Text = "";
+        CoordinateRange.Text = _currentLayer?.Layer.CoordinateBounds is { } b
+            ? I18n.Format("Preview_CoordinateRange", ViewModel.HorizontalAxis, b.MinX, b.MaxX, ViewModel.VerticalAxis, b.MinY, b.MaxY) : "";
+    }
     private void OnLocate(object sender, RoutedEventArgs e)
     {
         if (double.TryParse(CoordinateX.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var x)
             && double.TryParse(CoordinateY.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var y))
-        { Map.Locate(x, y); CoordinateFlyout.Hide(); }
+        {
+            if (Map.Locate(x, y)) { CoordinateError.Text = ""; CoordinateFlyout.Hide(); }
+            else CoordinateError.Text = I18n.GetString("Preview_InvalidCoordinate");
+        }
+        else CoordinateError.Text = I18n.GetString("Preview_InvalidCoordinate");
     }
     private void OnQuickNavigate(SplitButton sender, SplitButtonClickEventArgs args)
     {
@@ -121,7 +132,9 @@ public sealed partial class SpatialPreviewPage : Page
     {
         var layer = ViewModel.Layers.FirstOrDefault(l => l.Layer.Id == target.LayerId);
         if (layer is null) { ViewModel.NavigationStatus = I18n.GetString("Preview_TargetUnavailable"); return; }
-        Layers.SelectedItem = layer; Map.Locate(target.X, target.Y); NavigationFlyout.Hide();
+        Layers.SelectedItem = layer;
+        if (Map.Locate(target.X, target.Y)) NavigationFlyout.Hide();
+        else ViewModel.NavigationStatus = I18n.GetString("Preview_InvalidCoordinate");
     }
     private void OnRefresh(object sender, RoutedEventArgs e) => TaskObserver.Observe(LoadAsync(), nameof(SpatialPreviewPage));
 }

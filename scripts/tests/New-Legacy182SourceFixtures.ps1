@@ -37,6 +37,7 @@ if ($LASTEXITCODE -ne 0) { throw "Released-source producer failed. Scratch retai
     sources = @($provenance)
     sevenZip = (& $executable i | Select-Object -First 4) -join "`n"
     generatedUtc = [DateTime]::UtcNow.ToString('O')
+    layout = 'Archives: <root>/<format>/; metadata: <root>/_metadata/<format>/'
     installerAcceptance = 'pending manual verification'
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'provenance.json') -Encoding utf8
 Write-Output $output

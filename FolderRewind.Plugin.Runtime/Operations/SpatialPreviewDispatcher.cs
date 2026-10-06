@@ -21,6 +21,9 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
                 || l.Bounds.MinX >= l.Bounds.MaxX || l.Bounds.MinY >= l.Bounds.MaxY || l.MinorGridSize <= 0 || l.MajorGridSize < l.MinorGridSize
                 || (l.Height is { } h && (h.Minimum > h.DefaultValue || h.DefaultValue > h.Maximum)))
                 throw new InvalidDataException("Invalid preview layer.");
+            if (l.CoordinateBounds is { } b && (!Finite(b.MinX, b.MinY, b.MaxX, b.MaxY)
+                || b.MinX >= b.MaxX || b.MinY >= b.MaxY))
+                throw new InvalidDataException("Invalid preview coordinate bounds.");
             return l with { Name = Freeze(l.Name), Height = l.Height is { } height ? height with { Label = Freeze(height.Label) } : null };
         }).ToArray();
         return new(Array.AsReadOnly(layers), Freeze(value.HorizontalAxis), Freeze(value.VerticalAxis), Freeze(value.Diagnostics))
@@ -78,7 +81,7 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
     {
         if (value.Width != TileSize || value.Height != TileSize || value.BgraPremultiplied.Length != TileSize * TileSize * 4)
             throw new InvalidDataException("Invalid preview raster dimensions or buffer length.");
-        return new(TileSize, TileSize, value.BgraPremultiplied.ToArray(), Freeze(value.Diagnostics));
+        return new(TileSize, TileSize, value.BgraPremultiplied.ToArray(), Freeze(value.Diagnostics)) { IsFinal = value.IsFinal };
     }
 
     private PluginCapabilityLease<ISpatialPreviewCapability> Acquire(SpatialPreviewSource source, CancellationToken token)
