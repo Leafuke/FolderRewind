@@ -1,0 +1,37 @@
+<UserControl
+    x:Class="FolderRewind.Views.Settings.OpenListEnvironmentControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
+    <toolkit:SettingsExpander x:Name="EnvironmentExpander" x:Uid="OpenList_Environment"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              AutomationProperties.AutomationId="OpenListEnvironmentExpander">
+        <toolkit:SettingsExpander.HeaderIcon><FontIcon Glyph="&#xE753;"/></toolkit:SettingsExpander.HeaderIcon>
+        <toolkit:SettingsExpander.Items>
+            <toolkit:SettingsCard x:Uid="OpenList_Executable" SizeChanged="OnEnvironmentCardSizeChanged">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBox x:Name="Executable" x:Uid="OpenList_Executable_Input" HorizontalAlignment="Stretch" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListExecutable"/>
+                    <Button Grid.Column="1" x:Uid="SettingsPage_BrowseButton" Click="OnPickExecutable" AutomationProperties.AutomationId="OpenListPickExecutable"/>
+                </Grid>
+            </toolkit:SettingsCard>
+            <toolkit:SettingsCard x:Uid="OpenList_ServiceUri" SizeChanged="OnEnvironmentCardSizeChanged">
+                <TextBox x:Name="ServiceUri" x:Uid="OpenList_ServiceUri_Input" HorizontalAlignment="Stretch" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListServiceUri"/>
+            </toolkit:SettingsCard>
+        </toolkit:SettingsExpander.Items>
+        <toolkit:SettingsExpander.ItemsFooter>
+            <StackPanel Spacing="8" Padding="16,12,16,16">
+                <Grid ColumnSpacing="8" SizeChanged="OnActionsSizeChanged">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Uid="OpenList_Save" Click="OnSave" AutomationProperties.AutomationId="OpenListSave"/>
+                        <Button x:Uid="CloudSetup_OpenManagement" Click="OnOpenManagement" AutomationProperties.AutomationId="OpenListOpenManagement"/>
+                    </StackPanel>
+                    <HyperlinkButton x:Name="ManualGuide" Grid.Column="1" x:Uid="OpenList_ManualGuide" NavigateUri="https://doc.oplist.org/guide/installation/manual" AutomationProperties.AutomationId="OpenListManualGuide"/>
+                </Grid>
+                <TextBlock x:Name="Result" Visibility="Collapsed" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.LiveSetting="Polite"/>
+            </StackPanel>
+        </toolkit:SettingsExpander.ItemsFooter>
+    </toolkit:SettingsExpander>
+</UserControl>

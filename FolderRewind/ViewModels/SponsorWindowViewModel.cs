@@ -36,7 +36,7 @@ namespace FolderRewind.ViewModels
 
         public string PurchaseActionText => AppRuntimeInfo.IsMsiDistribution
             ? I18n.GetString("SponsorWindow_StoreOnlyAction")
-            : I18n.GetString("SponsorWindow_PurchaseText");
+            : I18n.GetString("SponsorWindow_PurchaseText.Text");
 
         public SponsorWindowViewModel()
         {

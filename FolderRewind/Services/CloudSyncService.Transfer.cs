@@ -15,55 +15,15 @@ namespace FolderRewind.Services
 {
     public static partial class CloudSyncService
     {
-        private static async Task<(bool Success, int Count, string Message)> ImportHistoryFromCloudCoreAsync(
-            string remoteHistoryPath,
-            bool merge,
-            string taskName,
-            string failureMessage)
-        {
-            string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_history_import_{Guid.NewGuid():N}.json");
-            var settings = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault()?.Cloud ?? new CloudSettings();
-
-            var downloadResult = await DownloadJsonToTempAsync(remoteHistoryPath, taskName, failureMessage, tempFilePath, settings).ConfigureAwait(false);
-            if (!downloadResult.Success)
-            {
-                TryDeleteTempFile(tempFilePath);
-                return (false, 0, downloadResult.Message);
-            }
-
-            try
-            {
-                var importResult = HistoryService.ImportHistory(tempFilePath, merge);
-                string message = importResult.Success
-                    ? I18n.Format("CloudSync_Notification_HistoryImportSucceeded", importResult.Count)
-                    : failureMessage;
-
-                if (importResult.Success)
-                {
-                    NotificationService.ShowSuccess(message, I18n.GetString("CloudSync_Notification_Title"));
-                }
-                else
-                {
-                    NotificationService.ShowError(message, I18n.GetString("CloudSync_Notification_Title"));
-                }
-
-                return (importResult.Success, importResult.Count, message);
-            }
-            finally
-            {
-                TryDeleteTempFile(tempFilePath);
-            }
-        }
-
         private static async Task<(bool Success, string Message)> ImportJsonFromCloudAsync(
             string remoteFilePath,
             string taskName,
             string successMessage,
             string failureMessage,
-            Func<string, bool> importAction)
+            Func<string, bool> importAction,
+            CloudSettings settings)
         {
             string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_cloud_import_{Guid.NewGuid():N}.json");
-            var settings = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault()?.Cloud ?? new CloudSettings();
 
             var downloadResult = await DownloadJsonToTempAsync(remoteFilePath, taskName, failureMessage, tempFilePath, settings).ConfigureAwait(false);
             if (!downloadResult.Success)
@@ -99,10 +59,10 @@ namespace FolderRewind.Services
             string taskName,
             string successMessage,
             string failureMessage,
-            Func<string, bool> exportAction)
+            Func<string, bool> exportAction,
+            CloudSettings settings)
         {
             string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_cloud_export_{Guid.NewGuid():N}.json");
-            var settings = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault()?.Cloud ?? new CloudSettings();
 
             try
             {
@@ -246,86 +206,19 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task<(string MetadataRecordRemotePath, string MetadataStateRemotePath, string? WarningMessage)> UploadAutomaticMetadataAsync(
-
-            BackupTask task,
-            CloudSettings settings,
-            CloudCommandContext context)
-        {
-            if (settings.CommandMode != CloudCommandMode.Rclone || settings.TemplateKind == CloudTemplateKind.Custom)
-            {
-                return (string.Empty, string.Empty, null);
-            }
-
-            string executablePath = ResolveRcloneExecutable(settings);
-            string workingDirectory = settings.WorkingDirectory?.Trim() ?? string.Empty;
-            var remotePaths = BuildDefaultRemotePaths(context.ConfigName, context.FolderName, context.ArchiveFileName, settings.RemoteBasePath);
-
-            string metadataStateRemotePath = string.Empty;
-            string metadataRecordRemotePath = string.Empty;
-            string? metadataWarning = null;
-
-            if (BackupMetadataStoreService.TryGetStateFilePath(context.MetadataDir, out var stateFilePath) && File.Exists(stateFilePath))
-            {
-                await RunOnUIAsync(() => task.Progress = 70).ConfigureAwait(false);
-                var stateCommand = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(stateFilePath, remotePaths.MetadataStateRemotePath));
-                var stateResult = await ExecuteCommandWithRetryAsync(
-                    task,
-                    settings,
-                    stateCommand,
-                    I18n.GetString("CloudSync_Task_UploadingMetadata"),
-                    context.FolderName).ConfigureAwait(false);
-
-                if (stateResult.Success)
-                {
-                    metadataStateRemotePath = remotePaths.MetadataStateRemotePath;
-                }
-                else
-                {
-                    metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-                    LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", context.ArchiveFileName, stateResult.ErrorMessage), nameof(CloudSyncService));
-                }
-            }
-            else
-            {
-                metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-            }
-
-            if (BackupMetadataStoreService.TryGetRecordFilePath(context.MetadataDir, context.ArchiveFileName, out var recordFilePath) && File.Exists(recordFilePath))
-            {
-                await RunOnUIAsync(() => task.Progress = 85).ConfigureAwait(false);
-                var recordCommand = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(recordFilePath, remotePaths.MetadataRecordRemotePath));
-                var recordResult = await ExecuteCommandWithRetryAsync(
-                    task,
-                    settings,
-                    recordCommand,
-                    I18n.GetString("CloudSync_Task_UploadingMetadata"),
-                    context.FolderName).ConfigureAwait(false);
-
-                if (recordResult.Success)
-                {
-                    metadataRecordRemotePath = remotePaths.MetadataRecordRemotePath;
-                }
-                else
-                {
-                    metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-                    LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", context.ArchiveFileName, recordResult.ErrorMessage), nameof(CloudSyncService));
-                }
-            }
-            else
-            {
-                metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-            }
-
-            return (metadataRecordRemotePath, metadataStateRemotePath, metadataWarning);
-        }
-
         private static bool TryResolveSharedRcloneRuntime(
             CloudSettings? fallbackSettings,
             out string executablePath,
             out string workingDirectory,
             out string errorMessage)
         {
+            if (!string.IsNullOrWhiteSpace(fallbackSettings?.RcloneConfigPath))
+            {
+                // 新连接只解析本次选择和主机工具缺省，不借用其他项目的程序或工作目录。
+                executablePath = ResolveRcloneExecutable(fallbackSettings);
+                workingDirectory = fallbackSettings.WorkingDirectory.Trim();
+                return ValidateExecutableAndWorkingDirectory(executablePath, workingDirectory, out errorMessage);
+            }
             // 运行时优先级：全局设置 -> 已配置任务中可复用值 -> 当前回退设置。
             executablePath = ConfigService.CurrentConfig?.GlobalSettings?.RcloneExecutablePath?.Trim() ?? string.Empty;
             workingDirectory = string.Empty;
@@ -366,31 +259,9 @@ namespace FolderRewind.Services
             return ValidateExecutableAndWorkingDirectory(executablePath, workingDirectory, out errorMessage);
         }
 
-        private static async Task<List<string>> ListRemoteFilesAsync(
-            string executablePath,
-            string workingDirectory,
-            CloudSettings settings,
-            string remoteFolderRoot)
-        {
-            var command = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneListFileArguments(remoteFolderRoot));
-            var result = await RunSilentCommandAsync(command, Math.Clamp(settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
-            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
-            {
-                return new List<string>();
-            }
 
-            var outputSpan = result.Output.AsSpan();
-            var lines = new List<string>();
-            foreach (var line in outputSpan.EnumerateLines())
-            {
-                var trimmed = line.Trim();
-                if (!trimmed.IsEmpty)
-                    lines.Add(trimmed.ToString());
-            }
-            return lines;
-        }
 
-        private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds)
+        private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -409,7 +280,10 @@ namespace FolderRewind.Services
                     startInfo.WorkingDirectory = command.WorkingDirectory;
                 }
 
+                if (command.Execution is { } connection) startInfo = connection.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments));
                 using var process = new Process { StartInfo = startInfo };
+                cancellationToken.ThrowIfCancellationRequested();
+                command.Execution?.RequireUnchanged();
                 if (!process.Start())
                 {
                     return (false, -1, string.Empty, I18n.GetString("CloudSync_Error_StartFailed"));
@@ -418,24 +292,8 @@ namespace FolderRewind.Services
                 Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
                 Task<string> errorTask = process.StandardError.ReadToEndAsync();
 
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-                try
+                if (!await ProcessWaitService.WaitAsync(process, TimeSpan.FromSeconds(timeoutSeconds), cancellationToken).ConfigureAwait(false))
                 {
-                    await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    try
-                    {
-                        if (!process.HasExited)
-                        {
-                            process.Kill(entireProcessTree: true);
-                        }
-                    }
-                    catch
-                    {
-                    }
-
                     return (false, -1, string.Empty, I18n.Format("CloudSync_Task_Timeout", timeoutSeconds));
                 }
 
@@ -444,9 +302,13 @@ namespace FolderRewind.Services
                 string errorMessage = GetBestErrorMessage(process.ExitCode, error, output);
                 return (process.ExitCode == 0, process.ExitCode, output, errorMessage);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                return (false, -1, string.Empty, ex.Message);
+                return (false, -1, string.Empty, CloudCommandSecurity.Redact(ex.Message));
             }
         }
 

@@ -15,6 +15,24 @@ namespace FolderRewind.ViewModels
 {
     public sealed partial class SettingsPageViewModel : ViewModelBase, IDisposable
     {
+        private string _startupStatusDescription = I18n.GetString("SettingsPage_RunOnStartupDesc.Text");
+        private bool _startupStateKnown = true;
+        public string StartupStatusDescription { get => _startupStatusDescription; private set => SetProperty(ref _startupStatusDescription, value); }
+        public bool StartupStateKnown { get => _startupStateKnown; private set => SetProperty(ref _startupStateKnown, value); }
+        public async Task RefreshStartupStatusAsync()
+        {
+            try
+            {
+                var state = await StartupService.GetStartupStateAsync();
+                StartupStateKnown = true;
+                StartupStatusDescription = state == StartupTaskState.DisabledByUser ? I18n.GetString("Startup_DisabledByUser") : I18n.GetString("SettingsPage_RunOnStartupDesc.Text");
+            }
+            catch
+            {
+                StartupStateKnown = false;
+                StartupStatusDescription = I18n.GetString("Startup_StateUnknown");
+            }
+        }
         public void HandleCloseBehaviorSelectionChanged(int selectedIndex)
         {
             CloseBehaviorSelectedIndex = selectedIndex;
@@ -134,8 +152,10 @@ namespace FolderRewind.ViewModels
             StartupTaskState state = StartupTaskState.Disabled;
             if (!success && desired)
             {
-                state = await StartupService.GetStartupStateAsync();
+                try { state = await StartupService.GetStartupStateAsync(); }
+                catch { StartupStateKnown = false; }
             }
+            await RefreshStartupStatusAsync();
 
             return new StartupToggleResult
             {

@@ -59,14 +59,19 @@ namespace FolderRewind.Services
                 return string.Empty;
             }
 
-            if (!string.IsNullOrWhiteSpace(_languageOverride)
-                && _mrtCoreManager != null
-                && _mrtCoreResourceMap != null)
+            // PRI stores RESW property keys such as Control.Text as Control/Text.
+            // Normalize once so MRT Core and the packaged fallback use the same path.
+            key = key.Replace('.', '/');
+
+            if (_mrtCoreManager != null && _mrtCoreResourceMap != null)
             {
                 try
                 {
                     var context = _mrtCoreManager.CreateResourceContext();
-                    context.QualifierValues["Language"] = _languageOverride;
+                    if (!string.IsNullOrWhiteSpace(_languageOverride))
+                    {
+                        context.QualifierValues["Language"] = _languageOverride;
+                    }
                     var candidate = _mrtCoreResourceMap.TryGetValue(key, context);
                     if (!string.IsNullOrWhiteSpace(candidate?.ValueAsString))
                     {

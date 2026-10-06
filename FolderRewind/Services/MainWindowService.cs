@@ -1,7 +1,9 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Windowing;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics;
 using Windows.Storage.Pickers;
@@ -69,6 +71,17 @@ namespace FolderRewind.Services
             var window = GetMainWindow();
             return window == null ? IntPtr.Zero : WindowNative.GetWindowHandle(window);
         }
+
+        public static Task<bool> ConfirmAsync(string title, string message, string primaryButtonText) =>
+            ConfirmAsync(title, message, primaryButtonText, CancellationToken.None);
+
+        internal static Task<bool> ConfirmAsync(string title, string message, string primaryButtonText, CancellationToken cancellationToken) =>
+            AppDialogService.Default.ConfirmAsync(
+                title,
+                message,
+                primaryButtonText,
+                isDestructive: true,
+                cancellationToken: cancellationToken);
 
         public static void InitializeStoreContext(object? storeContext)
         {
@@ -210,6 +223,36 @@ namespace FolderRewind.Services
             });
         }
 
+        public static async Task<IReadOnlyList<string>> PickRulePathsAsync(
+            Microsoft.UI.WindowId owner, bool folders, string settingsIdentifier)
+        {
+            try
+            {
+                return await UiDispatcherService.RunOnUiAsync<IReadOnlyList<string>>(async () =>
+                {
+                    if (folders)
+                    {
+                        var picker = new Microsoft.Windows.Storage.Pickers.FolderPicker(owner) { SettingsIdentifier = settingsIdentifier };
+                        var result = await picker.PickSingleFolderAsync();
+                        return result is null ? Array.Empty<string>() : new[] { result.Path };
+                    }
+                    var filePicker = new Microsoft.Windows.Storage.Pickers.FileOpenPicker(owner) { SettingsIdentifier = settingsIdentifier };
+                    filePicker.FileTypeFilter.Add("*");
+                    var results = await filePicker.PickMultipleFilesAsync();
+                    var paths = new List<string>();
+                    if (results is not null)
+                        foreach (var result in results) paths.Add(result.Path);
+                    return paths;
+                });
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("Picker_Log_OpenFailed", ex.Message), nameof(MainWindowService), ex);
+                NotificationService.ShowError(I18n.Format("Picker_OpenFailedWithReason", ex.Message));
+                return Array.Empty<string>();
+            }
+        }
+
         public static Task<string?> PickFilePathAsync(
             string title,
             string settingsIdentifier,
@@ -301,7 +344,7 @@ namespace FolderRewind.Services
             const int height = 400;
             var size = new SizeInt32(width, height);
             appWindow.Resize(size);
-            appWindow.Title = I18n.GetString("SponsorWindow_Title");
+            appWindow.Title = I18n.GetString("SponsorWindow_Title.Text");
 
             var owner = GetMainWindow()?.AppWindow;
             if (owner != null)

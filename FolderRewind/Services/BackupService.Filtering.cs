@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Capture;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -204,68 +205,45 @@ namespace FolderRewind.Services
             return files.Where(file => ShouldIncludeInBackup(file, filters, matcher)).ToList();
         }
 
-        private static List<string> EnumerateBackupRelativeFiles(string path, FilterSettings? filters = null, string? originalSourcePath = null)
+        private static List<string> EnumerateBackupRelativeFiles(
+            string path,
+            FilterSettings? filters = null,
+            string? originalSourcePath = null,
+            BackupSourceScope? selection = null)
         {
-            var result = new List<string>();
-            var dirInfo = new DirectoryInfo(path);
-            var enumOptions = new EnumerationOptions
-            {
-                RecurseSubdirectories = true,
-                IgnoreInaccessible = true,
-                AttributesToSkip = FileAttributes.System
-            };
-
             var originalRoot = originalSourcePath ?? path;
             var matcher = CreateBackupMatcher(path, originalRoot, filters);
-            foreach (var file in dirInfo.EnumerateFiles("*", enumOptions))
-            {
-                if (!ShouldIncludeInBackup(file.FullName, filters, matcher))
-                {
-                    continue;
-                }
-
-                result.Add(Path.GetRelativePath(path, file.FullName));
-            }
-
-            return result;
+            return BackupSourceFileEnumerator.Enumerate(
+                    path,
+                    selection,
+                    file => ShouldIncludeInBackup(file, filters, matcher))
+                .Select(file => file.RelativePath)
+                .ToList();
         }
 
         // --- 辅助：元数据处理 ---
-        private static Dictionary<string, FileState> ScanDirectory(string path, FilterSettings? filters = null, string? originalSourcePath = null)
+        /// <summary>
+        /// 扫描源目录构建"相对路径 → 文件状态"字典——这是全模式差异比对（增量基准）的唯一数据源。
+        /// Hash 刻意留空：默认口径是大小 + 修改时间比对（与 MineBackup 一致），计算哈希代价过高。
+        /// 配置了黑/白名单却扫出 0 项时，探测无过滤枚举是否有文件，有则警告过滤器可能过宽。
+        /// </summary>
+        private static Dictionary<string, SourceCaptureFileState> ScanDirectory(
+            string path,
+            FilterSettings? filters = null,
+            string? originalSourcePath = null,
+            BackupSourceScope? selection = null)
         {
             // 预估容量以减少字典扩容开销
-            var result = new Dictionary<string, FileState>(1024, StringComparer.OrdinalIgnoreCase);
-            var dirInfo = new DirectoryInfo(path);
-
-            // 使用 EnumerationOptions 跳过无法访问的文件，避免异常导致的性能损失
-            var enumOptions = new EnumerationOptions
-            {
-                RecurseSubdirectories = true,
-                IgnoreInaccessible = true,
-                AttributesToSkip = FileAttributes.System // 跳过系统文件
-            };
-
+            var result = new Dictionary<string, SourceCaptureFileState>(1024, StringComparer.OrdinalIgnoreCase);
             var originalRoot = originalSourcePath ?? path;
             var matcher = CreateBackupMatcher(path, originalRoot, filters);
 
-            // 获取所有文件，使用相对路径作为 Key，采用流式枚举避免一次性加载大目录列表。
-            foreach (var file in dirInfo.EnumerateFiles("*", enumOptions))
+            foreach (var file in BackupSourceFileEnumerator.Enumerate(
+                         path,
+                         selection,
+                         candidate => ShouldIncludeInBackup(candidate, filters, matcher)))
             {
-                // 统一检查备份过滤模式：黑名单排除，白名单纳入。
-                if (!ShouldIncludeInBackup(file.FullName, filters, matcher))
-                {
-                    continue;
-                }
-
-                string relPath = Path.GetRelativePath(path, file.FullName);
-                result[relPath] = new FileState
-                {
-                    Size = file.Length,
-                    LastWriteTimeUtc = file.LastWriteTimeUtc,
-                    // 只有在真正需要的时候才算 Hash，因为很慢。
-                    // 这里暂且留空或仅在严格模式计算。MineBackup 默认也是优先比对 Time/Size
-                    Hash = ""
-                };
+                result[file.RelativePath] = new SourceCaptureFileState(file.Size, file.LastWriteTimeUtc);
             }
 
             if (result.Count == 0 && filters != null
@@ -274,7 +252,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    bool hasAnyFile = dirInfo.EnumerateFiles("*", enumOptions).Any();
+                    bool hasAnyFile = BackupSourceFileEnumerator.Enumerate(path, selection).Count > 0;
                     if (hasAnyFile)
                     {
                         Log($"[Filter][Warning] File state scan returned 0 items while source has files. Source={path}. Check blacklist rules for over-broad matches.", LogLevel.Warning);

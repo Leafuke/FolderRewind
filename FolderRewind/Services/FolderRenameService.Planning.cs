@@ -81,24 +81,18 @@ public static partial class FolderRenameService
             out string newStorageFolderName);
 
         int affectedReferenceCount;
-        int affectedHistoryCount;
         if (cachedImpact != null)
         {
             affectedReferenceCount = cachedImpact.AffectedConfigCount;
-            affectedHistoryCount = cachedImpact.AffectedHistoryCount;
         }
         else
         {
-            HistoryService.Initialize();
             var affectedConfigs = ConfigService.CurrentConfig?.BackupConfigs?
                 .Where(config => config?.SourceFolders != null)
                 .ToList() ?? [];
             affectedReferenceCount = affectedConfigs
                 .SelectMany(config => config.SourceFolders)
                 .Count(item => item != null && AreSamePath(item.Path, oldPath));
-            affectedHistoryCount = affectedConfigs
-                .SelectMany(config => HistoryService.GetEntriesForConfig(config.Id))
-                .Count(item => AreSamePath(item.FolderPath, oldPath));
         }
         bool changesPath = !AreSamePath(oldPath, newPath);
 
@@ -115,7 +109,7 @@ public static partial class FolderRenameService
             OldStorageFolderName = oldStorageFolderName,
             NewStorageFolderName = newStorageFolderName,
             AffectedConfigCount = affectedReferenceCount,
-            AffectedHistoryCount = affectedHistoryCount
+            AffectedHistoryCount = 0
         };
     }
 
@@ -129,53 +123,6 @@ public static partial class FolderRenameService
             StringComparison.OrdinalIgnoreCase)
             ? newLeafName
             : currentDisplayName ?? string.Empty;
-
-    public static string ResolveUpdatedHistoryFolderName(
-        string currentHistoryFolderName,
-        string oldStorageFolderName,
-        string newStorageFolderName)
-        => string.Equals(
-            (currentHistoryFolderName ?? string.Empty).Trim(),
-            oldStorageFolderName,
-            StringComparison.OrdinalIgnoreCase)
-            ? newStorageFolderName
-            : currentHistoryFolderName ?? string.Empty;
-
-    internal static bool TryResolveHistoryIdentityUpdate(
-        string configId,
-        string folderPath,
-        string folderName,
-        IReadOnlyList<FolderRenameReferencePlan> references,
-        out string newPath,
-        out string newFolderName)
-    {
-        var matchingReferences = (references ?? Array.Empty<FolderRenameReferencePlan>())
-            .Where(reference =>
-                string.Equals(
-                    configId,
-                    reference.ConfigId,
-                    StringComparison.OrdinalIgnoreCase)
-                && AreSamePath(folderPath, reference.OldPath))
-            .ToList();
-        if (matchingReferences.Count == 0)
-        {
-            newPath = folderPath ?? string.Empty;
-            newFolderName = folderName ?? string.Empty;
-            return false;
-        }
-
-        newPath = matchingReferences[0].NewPath;
-        var identityReference = matchingReferences.FirstOrDefault(reference =>
-            string.Equals(
-                folderName?.Trim(),
-                reference.OldStorageFolderName,
-                StringComparison.OrdinalIgnoreCase));
-        newFolderName = identityReference?.NewStorageFolderName
-            ?? folderName
-            ?? string.Empty;
-        return true;
-    }
-
 
     private static bool TryBuildReferencePlans(
         FolderRenamePreview preview,

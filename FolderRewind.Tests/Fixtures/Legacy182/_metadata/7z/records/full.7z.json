@@ -1,0 +1,19 @@
+{
+  "ArchiveFileName": "full.7z",
+  "BackupType": "Full",
+  "BasedOnFullBackup": "full.7z",
+  "PreviousBackupFileName": "",
+  "CreatedAtUtc": "2026-10-02T13:31:09.2995661Z",
+  "AddedFiles": [
+    "a.txt",
+    "deleted.txt",
+    "switch"
+  ],
+  "ModifiedFiles": [],
+  "DeletedFiles": [],
+  "FullFileList": [
+    "a.txt",
+    "deleted.txt",
+    "switch"
+  ]
+}

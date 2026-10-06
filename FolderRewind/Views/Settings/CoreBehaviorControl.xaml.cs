@@ -13,6 +13,7 @@ namespace FolderRewind.Views.Settings
     public sealed partial class CoreBehaviorControl : UserControl
     {
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
+        private bool _handlingStartupToggle;
 
         public CoreBehaviorControl()
         {
@@ -30,25 +31,26 @@ namespace FolderRewind.Views.Settings
             if (sender is ToggleSwitch ts)
             {
                 var desired = ts.IsOn;
-                var result = await ViewModel.HandleRunOnStartupToggledAsync(desired);
-
-                if (!result.Success && desired)
+                if (_handlingStartupToggle || ViewModel == null || desired == ViewModel.RunOnStartup) return;
+                _handlingStartupToggle = true;
+                try
                 {
-                    ts.IsOn = false;
-
-                    if (result.DisabledByUser)
+                    var result = await ViewModel.HandleRunOnStartupToggledAsync(desired);
+                    if (!result.Success && desired)
                     {
-                        var dialog = new ContentDialog
+                        ts.IsOn = false;
+                        if (result.DisabledByUser)
                         {
-                            Title = I18n.GetString("Startup_DisabledByUser_Title"),
-                            Content = I18n.GetString("Startup_DisabledByUser_Content"),
-                            CloseButtonText = I18n.GetString("Common_Ok"),
-                            XamlRoot = this.XamlRoot
-                        };
-                        ThemeService.ApplyThemeToDialog(dialog);
-                        await dialog.ShowAsync();
+                            await AppDialogService.Default.ShowMessageAsync(
+                                I18n.GetString("Startup_DisabledByUser_Title"),
+                                I18n.GetString("Startup_DisabledByUser_Content"),
+                                this.XamlRoot);
+                            await Launcher.LaunchUriAsync(new Uri("ms-settings:startupapps"));
+                        }
                     }
                 }
+                catch (Exception error) { NotificationService.ShowError(I18n.Format("Startup_SetFailed", error.Message)); }
+                finally { _handlingStartupToggle = false; }
 
             }
         }
@@ -187,9 +189,7 @@ namespace FolderRewind.Views.Settings
                 XamlRoot = this.XamlRoot,
                 DefaultButton = ContentDialogButton.Primary,
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (result == ContentDialogResult.Primary)
             {
                 if (captured == null)
@@ -213,21 +213,21 @@ namespace FolderRewind.Views.Settings
                     }
                 }
 
-                ViewModel.SetHotkeyOverride(hotkeyId, candidate);
+                await ViewModel.SetHotkeyOverrideAsync(hotkeyId, candidate);
             }
             else if (result == ContentDialogResult.Secondary)
             {
-                ViewModel.SetHotkeyOverride(hotkeyId, string.Empty);
+                await ViewModel.SetHotkeyOverrideAsync(hotkeyId, string.Empty);
             }
         }
 
-        private void OnResetHotkeyClick(object sender, RoutedEventArgs e)
+        private async void OnResetHotkeyClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn) return;
             var hotkeyId = btn.Tag as string;
             if (string.IsNullOrWhiteSpace(hotkeyId)) return;
 
-            ViewModel.ResetHotkeyOverride(hotkeyId);
+            await ViewModel.ResetHotkeyOverrideAsync(hotkeyId);
         }
 
         private HotkeyDefinition? FindHotkeyDefinition(string id)
@@ -235,17 +235,11 @@ namespace FolderRewind.Views.Settings
             return ViewModel.FindHotkeyDefinition(id);
         }
 
-        private async Task ShowSimpleMessageAsync(string message)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Tip"),
-                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-                CloseButtonText = I18n.GetString("Common_Close"),
-                XamlRoot = this.XamlRoot,
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
-        }
+        private Task ShowSimpleMessageAsync(string message) =>
+            AppDialogService.Default.ShowMessageAsync(
+                I18n.GetString("Common_Tip"),
+                message,
+                this.XamlRoot,
+                I18n.GetString("Common_Close"));
     }
 }

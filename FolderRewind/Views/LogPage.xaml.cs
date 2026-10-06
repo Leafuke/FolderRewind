@@ -2,25 +2,22 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
+using Microsoft.UI.Dispatching;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.UI;
 
 namespace FolderRewind.Views
 {
     public sealed partial class LogPage : Page
     {
-        // _allEntries is a plain List — never bound to UI.
-        // ObservableCollection would fire CollectionChanged for every Add/Remove/Clear
-        // even though no view listens to it, wasting CPU on event dispatch.
-        private readonly System.Collections.Generic.List<LogEntry> _allEntries = new();
-        public ObservableCollection<LogEntry> FilteredEntries { get; } = new();
+        private readonly LogPresentationController _presentation = new();
+        public ObservableCollection<LogEntry> FilteredEntries => _presentation.FilteredEntries;
+        private Action<LogEntry>? _entryPublishedHandler;
 
         // 该页面启用了 NavigationCacheMode=Required。
         // 仅在构造函数里订阅事件 + 在 Unloaded 里退订，会导致：
@@ -29,8 +26,9 @@ namespace FolderRewind.Views
         // 最终表现为“日志仍在写入，但日志页列表不再更新”。
         // 因此这里改为在 OnNavigatedTo/OnNavigatedFrom 进行订阅管理。
         private bool _isSubscribed;
+        private readonly ConcurrentQueue<(LogEntry Entry, long Generation)> _pending = new();
+        private DispatcherQueueTimer? _batchTimer;
 
-        private bool _isLive = true;
         private string _keyword = string.Empty;
         private LogLevel? _filterLevel;
 
@@ -60,90 +58,50 @@ namespace FolderRewind.Views
         private void EnsureSubscribed()
         {
             if (_isSubscribed) return;
-            LogService.EntryPublished += OnEntryPublished;
+            var generation = _presentation.BeginSession();
+            _entryPublishedHandler = entry => OnEntryPublished(entry, generation);
+            LogService.EntryPublished += _entryPublishedHandler;
             _isSubscribed = true;
+            _batchTimer ??= DispatcherQueue.CreateTimer();
+            _batchTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _batchTimer.Tick += OnBatchTick;
+            _batchTimer.Start();
         }
 
         private void Unsubscribe()
         {
             if (!_isSubscribed) return;
-            LogService.EntryPublished -= OnEntryPublished;
+            LogService.EntryPublished -= _entryPublishedHandler;
+            _entryPublishedHandler = null;
+            _presentation.EndSession();
             _isSubscribed = false;
+            if (_batchTimer is not null) { _batchTimer.Stop(); _batchTimer.Tick -= OnBatchTick; }
+            _pending.Clear();
         }
 
         private void ReloadSnapshot()
         {
-            _allEntries.Clear();
-            foreach (var entry in LogService.GetEntriesSnapshot())
-            {
-                _allEntries.Add(entry);
-            }
-
-            RefreshFiltered();
+            _presentation.LoadSnapshot(LogService.GetEntriesSnapshot());
             ScrollToEnd();
         }
 
-        private void OnEntryPublished(LogEntry entry)
+        private void OnEntryPublished(LogEntry entry, long generation) => _pending.Enqueue((entry, generation));
+
+        private void OnBatchTick(DispatcherQueueTimer sender, object args)
         {
-            _ = DispatcherQueue.TryEnqueue(() =>
-            {
-                _allEntries.Add(entry);
-                TrimLocalBuffer();
-
-                if (!_isLive) return;
-                if (!Passes(entry)) return;
-
-                FilteredEntries.Add(entry);
-                ScrollToEnd();
-            });
-        }
-
-        private void TrimLocalBuffer()
-        {
-            const int localMax = 5000;
-            if (_allEntries.Count <= localMax) return;
-
-            var remove = _allEntries.Count - localMax;
-            // RemoveRange(0, remove) is O(n) — looped RemoveAt(0) on a List would
-            // shift elements N times, making it O(n^2). On ObservableCollection it
-            // would also fire CollectionChanged for every single removal.
-            _allEntries.RemoveRange(0, remove);
-
-            RefreshFiltered();
+            var changed = false;
+            for (var count = 0; count < 200 && _pending.TryDequeue(out var item); count++)
+                changed |= _presentation.Append(item.Entry, item.Generation);
+            if (changed) ScrollToEnd();
         }
 
         private void RefreshFiltered()
         {
-            FilteredEntries.Clear();
-
-            foreach (var entry in _allEntries)
-            {
-                if (Passes(entry))
-                {
-                    FilteredEntries.Add(entry);
-                }
-            }
-
-            if (_isLive)
+            _presentation.SetFilter(_filterLevel, _keyword);
+            if (_presentation.IsLive)
             {
                 ScrollToEnd();
             }
-        }
-
-        private bool Passes(LogEntry entry)
-        {
-            if (_filterLevel.HasValue && entry.Level != _filterLevel.Value)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(_keyword))
-            {
-                var text = $"{entry.Message} {entry.Exception} {entry.Source}";
-                if (text.IndexOf(_keyword, StringComparison.OrdinalIgnoreCase) < 0) return false;
-            }
-
-            return true;
         }
 
         private void ScrollToEnd()
@@ -177,18 +135,16 @@ namespace FolderRewind.Views
 
         private void OnLiveToggled(object sender, RoutedEventArgs e)
         {
-            _isLive = LiveToggle.IsOn;
-            if (_isLive)
-            {
-                RefreshFiltered();
-            }
+            _presentation.SetLive(LiveToggle.IsOn);
+            if (_presentation.IsLive) ScrollToEnd();
         }
 
         private void OnClearClick(object sender, RoutedEventArgs e)
         {
+            Unsubscribe();
             LogService.Clear();
-            _allEntries.Clear();
-            FilteredEntries.Clear();
+            EnsureSubscribed();
+            ReloadSnapshot();
         }
 
         private void OnCopyClick(object sender, RoutedEventArgs e)
@@ -213,11 +169,12 @@ namespace FolderRewind.Views
             LogService.OpenLogFolder();
         }
 
-        private void OnOpenFileClick(object sender, RoutedEventArgs e)
+        private async void OnOpenFileClick(object sender, RoutedEventArgs e)
         {
             var path = LogService.GetLogFilePath();
             try
             {
+                await LogService.FlushAsync();
                 if (!File.Exists(path))
                 {
                     File.WriteAllText(path, string.Empty);
@@ -236,65 +193,4 @@ namespace FolderRewind.Views
         }
     }
 
-    internal class LogLevelToBrushConverter : IValueConverter
-    {
-        private static readonly SolidColorBrush InfoBrush = new(Color.FromArgb(255, 37, 99, 235));
-        private static readonly SolidColorBrush WarningBrush = new(Color.FromArgb(255, 180, 83, 9));
-        private static readonly SolidColorBrush ErrorBrush = new(Color.FromArgb(255, 185, 28, 28));
-        private static readonly SolidColorBrush DebugBrush = new(Color.FromArgb(255, 71, 85, 105));
-        private static readonly SolidColorBrush NeutralBrush = new(Color.FromArgb(255, 75, 85, 99));
-
-        private static readonly SolidColorBrush InfoBackground = CreateTint(InfoBrush);
-        private static readonly SolidColorBrush WarningBackground = CreateTint(WarningBrush);
-        private static readonly SolidColorBrush ErrorBackground = CreateTint(ErrorBrush);
-        private static readonly SolidColorBrush DebugBackground = CreateTint(DebugBrush);
-        private static readonly SolidColorBrush NeutralBackground = CreateTint(NeutralBrush);
-
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            var mode = parameter as string;
-
-            if (string.Equals(mode, "background", StringComparison.OrdinalIgnoreCase))
-            {
-                return value is LogLevel levelBg ? GetBackgroundBrush(levelBg) : NeutralBackground;
-            }
-
-            return value is LogLevel level ? GetAccentBrush(level) : NeutralBrush;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, string language)
-        {
-            throw new NotSupportedException();
-        }
-
-        private static Brush GetAccentBrush(LogLevel level)
-        {
-            return level switch
-            {
-                LogLevel.Info => InfoBrush,
-                LogLevel.Warning => WarningBrush,
-                LogLevel.Error => ErrorBrush,
-                LogLevel.Debug => DebugBrush,
-                _ => NeutralBrush
-            };
-        }
-
-        private static Brush GetBackgroundBrush(LogLevel level)
-        {
-            return level switch
-            {
-                LogLevel.Info => InfoBackground,
-                LogLevel.Warning => WarningBackground,
-                LogLevel.Error => ErrorBackground,
-                LogLevel.Debug => DebugBackground,
-                _ => NeutralBackground
-            };
-        }
-
-        private static SolidColorBrush CreateTint(SolidColorBrush source)
-        {
-            var c = source.Color;
-            return new SolidColorBrush(Color.FromArgb(28, c.R, c.G, c.B));
-        }
-    }
 }

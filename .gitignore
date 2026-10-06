@@ -61,7 +61,7 @@ BenchmarkDotNet.Artifacts/
 # .NET Core
 project.lock.json
 project.fragment.lock.json
-artifacts/
+/artifacts/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
@@ -363,10 +363,15 @@ MigrationBackup/
 FodyWeavers.xsd
 
 *.txt
+!/Installer/LICENSE.WiX.txt
+!/Installer/LICENSE.7-Zip.txt
 /.vs
 /.vscode
 /.claude
 /FolderRewind-Site/
+/FolderRewind-Plugin-Minecraft/
+/FolderRewind-Plugin-Catalog/
+/folderrewind-official-templates/
 /FolderRewind/Assets/*
 !/FolderRewind/Assets/LockScreenLogo.scale-200.png
 !/FolderRewind/Assets/SplashScreen.scale-200.png
@@ -376,12 +381,31 @@ FodyWeavers.xsd
 !/FolderRewind/Assets/StoreLogo.png
 !/FolderRewind/Assets/Wide310x150Logo.scale-200.png
 !/FolderRewind/Assets/logo.ico
+!/FolderRewind/Assets/MsiApp.ico
 !/FolderRewind/Assets/qq_group_light.jpg
+!/FolderRewind/Assets/Plugins/
+!/FolderRewind/Assets/Plugins/*
+!/FolderRewind/Assets/PluginPresets/
+!/FolderRewind/Assets/PluginPresets/*
 /FolderRewind/obj
 /FolderRewind/Properties
 /Reference
 /docs/*
 !/docs/SponsorEdition.md
 !/docs/SPONSORS.md
+!/docs/adr/
+!/docs/adr/*.md
+!/docs/plans/
+!/docs/plans/FolderRewind_Plugin_System_v3_Execution_Plan.md
+!/docs/plans/MineRewind_Launcher_Discovery_Execution_Plan.md
+!/docs/research/
+/docs/research/*
+!/docs/research/2026-10-02-pcl-static-discovery-evidence.md
+!/docs/release/
+!/docs/release/*.md
+!/docs/plugin-v3/
+!/docs/plugin-v3/*.md
+/repos/
+/.catalog-appdata/
 *.exe
 /.superpowers

@@ -234,11 +234,11 @@ namespace FolderRewind.Services
                 {
                     if (task.IsCompletedSuccessfully)
                     {
-                        await TemplateDialogCoordinatorService.HideAsync(dialog);
+                        await AppDialogService.Default.HideCustomAsync(dialog);
                     }
                 }, TaskScheduler.Default).Unwrap();
 
-                var dialogResult = await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot, ct);
+                var dialogResult = await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot, ct);
                 if (dialogResult == ContentDialogResult.None && !callbackTask.IsCompleted)
                 {
                     cts.Cancel();

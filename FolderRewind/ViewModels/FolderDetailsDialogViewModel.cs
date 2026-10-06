@@ -31,11 +31,12 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
         string sizeLabel = I18n.GetString("FolderDetailsDialog_Size");
         string fileCountLabel = I18n.GetString("FolderDetailsDialog_FileCount");
         string directoryCountLabel = I18n.GetString("FolderDetailsDialog_DirectoryCount");
+        string matchStatusLabel = I18n.GetString("FolderDetailsDialog_MatchStatus");
         var basicItems = Sections[0].Items;
 
         try
         {
-            var stats = await FolderDetailsService.ComputeStatisticsAsync(folder.Path, cancellationToken);
+            var stats = await FolderDetailsService.ComputeStatisticsAsync(config, folder, cancellationToken);
             if (stats.TotalBytes < 1024.0 * 1024.0)
             {
                 SetItemValue(basicItems, sizeLabel, $"{stats.TotalBytes / 1024.0:F2} KB");
@@ -46,6 +47,15 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
             }
             SetItemValue(basicItems, fileCountLabel, stats.FileCount.ToString());
             SetItemValue(basicItems, directoryCountLabel, stats.DirectoryCount.ToString());
+            if (folder.SourceScope?.Mode == BackupSourceScopeMode.Include)
+            {
+                SetItemValue(
+                    basicItems,
+                    matchStatusLabel,
+                    stats.FileCount == 0
+                        ? I18n.GetString("FolderDetailsDialog_NoMatchingFiles")
+                        : I18n.Format("FolderDetailsDialog_MatchingFiles", stats.FileCount));
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -60,6 +70,7 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
             SetItemError(basicItems, sizeLabel, ex.Message);
             SetItemError(basicItems, fileCountLabel, ex.Message);
             SetItemError(basicItems, directoryCountLabel, ex.Message);
+            SetItemError(basicItems, matchStatusLabel, ex.Message);
         }
     }
 

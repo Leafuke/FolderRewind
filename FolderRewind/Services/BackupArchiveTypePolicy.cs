@@ -16,6 +16,11 @@ namespace FolderRewind.Services
                 return "Smart";
             }
 
+            if (backupFileName.Contains("[Rolling]", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Rolling";
+            }
+
             if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
             {
                 return "Overwrite";
@@ -29,6 +34,20 @@ namespace FolderRewind.Services
             return !string.IsNullOrWhiteSpace(backupType)
                 && (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase)
                     || backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// A self-contained archive can restore its snapshot without another archive.
+        /// Overwrite is accepted only as a legacy on-disk type; new writes use Rolling.
+        /// </summary>
+        public static bool IsSelfContained(string? backupType, string? archiveFileName = null)
+        {
+            string effectiveType = string.IsNullOrWhiteSpace(backupType)
+                ? InferFromFileName(archiveFileName)
+                : backupType;
+            return effectiveType.Equals("Full", StringComparison.OrdinalIgnoreCase)
+                || effectiveType.Equals("Rolling", StringComparison.OrdinalIgnoreCase)
+                || effectiveType.Equals("Overwrite", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

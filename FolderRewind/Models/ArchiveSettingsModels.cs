@@ -48,7 +48,6 @@ namespace FolderRewind.Models
         private bool _safeRestoreEnabled = true;     // 安全还原（Clean 模式前做目录快照，失败可回滚）
         private bool _verifyArchiveBeforeRestore = true; // 还原前完整性校验（7z t）
         private int _maxSmartBackupsPerFull = 5;    // 智能备份链长度限制，默认 5
-        private bool _safeDeleteEnabled = true;     // 安全删除：删除增量备份时自动合并内容到下一个备份
         private bool _runCompressionAtLowPriority = false; // 备份侧 7-Zip 进程以较低优先级运行
         private string _additionalSevenZipArguments = string.Empty;
 
@@ -93,14 +92,6 @@ namespace FolderRewind.Models
         /// 参考 MineBackup 的 maxSmartBackupsPerFull 逻辑。
         /// </summary>
         public int MaxSmartBackupsPerFull { get => _maxSmartBackupsPerFull; set => SetProperty(ref _maxSmartBackupsPerFull, value); }
-
-        /// <summary>
-        /// 安全删除模式：在自动清理旧备份或手动删除时，
-        /// 如果被删文件是增量链的一部分，会先将其内容合并到下一个备份中，再执行删除。
-        /// 这样可以避免增量链断裂导致还原失败。
-        /// 参考 MineBackup 的 DoSafeDeleteBackup 逻辑。
-        /// </summary>
-        public bool SafeDeleteEnabled { get => _safeDeleteEnabled; set => SetProperty(ref _safeDeleteEnabled, value); }
 
         /// <summary>
         /// 备份侧压缩任务使用较低的进程优先级，减少对前台游戏/应用的抢占。

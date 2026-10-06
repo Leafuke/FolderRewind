@@ -16,7 +16,7 @@ namespace FolderRewind.Services
         private sealed class WatcherEntry : IDisposable
         {
             public FileSystemWatcher Watcher { get; set; } = null!;
-            public volatile bool HasChanges;
+            public ChangeTrackingState Changes { get; init; } = new();
 
             public void Dispose()
             {
@@ -54,15 +54,16 @@ namespace FolderRewind.Services
                 var entry = new WatcherEntry
                 {
                     Watcher = watcher,
-                    HasChanges = initialHasChanges
+                    Changes = new ChangeTrackingState(initialHasChanges)
                 };
 
-                watcher.Changed += (_, __) => entry.HasChanges = true;
-                watcher.Created += (_, __) => entry.HasChanges = true;
-                watcher.Deleted += (_, __) => entry.HasChanges = true;
-                watcher.Renamed += (_, __) => entry.HasChanges = true;
+                watcher.Changed += (_, __) => entry.Changes.MarkChanged();
+                watcher.Created += (_, __) => entry.Changes.MarkChanged();
+                watcher.Deleted += (_, __) => entry.Changes.MarkChanged();
+                watcher.Renamed += (_, __) => entry.Changes.MarkChanged();
                 watcher.Error += (_, args) =>
                 {
+                    entry.Changes.MarkChanged();
                     LogService.Log(I18n.Format("MiniWindow_Log_WatcherError", folderPath, args.GetException()?.Message ?? "Unknown"));
                 };
 
@@ -97,7 +98,15 @@ namespace FolderRewind.Services
         public static bool HasChanges(string folderPath)
         {
             if (string.IsNullOrWhiteSpace(folderPath)) return false;
-            return _watchers.TryGetValue(folderPath, out var entry) && entry.HasChanges;
+            return _watchers.TryGetValue(folderPath, out var entry) && entry.Changes.HasChanges;
+        }
+
+        internal static long GetChangeRevision(string path)
+            => _watchers.TryGetValue(path, out var entry) ? entry.Changes.Revision : 0;
+
+        internal static void ResetChangesThrough(string path, long revision)
+        {
+            if (_watchers.TryGetValue(path, out var entry)) entry.Changes.Acknowledge(revision);
         }
 
         public static bool IsWatching(string folderPath)
@@ -111,7 +120,7 @@ namespace FolderRewind.Services
             if (!string.IsNullOrWhiteSpace(folderPath)
                 && _watchers.TryGetValue(folderPath, out var entry))
             {
-                entry.HasChanges = true;
+                entry.Changes.MarkChanged();
             }
         }
 
@@ -123,7 +132,7 @@ namespace FolderRewind.Services
             if (string.IsNullOrWhiteSpace(folderPath)) return;
             if (_watchers.TryGetValue(folderPath, out var entry))
             {
-                entry.HasChanges = false;
+                entry.Changes.Acknowledge(entry.Changes.Revision);
             }
         }
 

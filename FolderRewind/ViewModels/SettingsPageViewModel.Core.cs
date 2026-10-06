@@ -3,7 +3,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,6 +15,7 @@ namespace FolderRewind.ViewModels
     public sealed partial class SettingsPageViewModel : ViewModelBase, IDisposable
     {
         private bool _initialized;
+        private bool _active;
         private bool _pluginsRefreshed;
         private bool _pluginsRefreshing;
         private bool _fontFamiliesLoading;
@@ -29,7 +29,7 @@ namespace FolderRewind.ViewModels
         private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-        private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        private SemanticStatus _knotLinkStatus = SemanticStatus.Neutral;
 
         private string _knotLinkServerVersionText = I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
         private bool _knotLinkServerInstalled;
@@ -38,7 +38,7 @@ namespace FolderRewind.ViewModels
         private bool _knotLinkServerUpdateChecking;
         private string _knotLinkServerLatestVersion = string.Empty;
         private KnotLinkUpdateInfo? _knotLinkServerUpdateInfo;
-        private Brush _knotLinkServerStatusBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        private SemanticStatus _knotLinkServerStatus = SemanticStatus.Neutral;
 
         private bool _isDirty;
 
@@ -204,11 +204,13 @@ namespace FolderRewind.ViewModels
             private set => SetProperty(ref _knotLinkStatusMessage, value ?? string.Empty);
         }
 
-        public Brush KnotLinkStatusColor
+        public SemanticStatus KnotLinkStatus
         {
-            get => _knotLinkStatusColor;
-            private set => SetProperty(ref _knotLinkStatusColor, value);
+            get => _knotLinkStatus;
+            private set => SetProperty(ref _knotLinkStatus, value);
         }
+
+        public string KnotLinkStatusGlyph => "\uE774";
 
         public string KnotLinkServerVersionText
         {
@@ -245,11 +247,13 @@ namespace FolderRewind.ViewModels
 
         public bool KnotLinkServerUpdateEnabled => !KnotLinkServerUpdateChecking && KnotLinkServerHasUpdate;
 
-        public Brush KnotLinkServerStatusBrush
+        public SemanticStatus KnotLinkServerStatus
         {
-            get => _knotLinkServerStatusBrush;
-            private set => SetProperty(ref _knotLinkServerStatusBrush, value);
+            get => _knotLinkServerStatus;
+            private set => SetProperty(ref _knotLinkServerStatus, value);
         }
+
+        public string KnotLinkServerStatusGlyph => "\uE7F8";
 
         public bool IsCoreValidationRunning => CoreFeatureValidationService.IsRunning;
 
@@ -268,7 +272,9 @@ namespace FolderRewind.ViewModels
                     return I18n.GetString("CoreValidation_LastRun_None");
                 }
 
-                return I18n.Format("CoreValidation_LastRun_Value", Settings.LastCoreValidationUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"));
+                return I18n.Format(
+                    "CoreValidation_LastRun_Value",
+                    UserDisplayFormatter.LongDateTime(Settings.LastCoreValidationUtc.ToLocalTime()));
             }
         }
 
@@ -300,9 +306,9 @@ namespace FolderRewind.ViewModels
                 async () => { await RunSponsorOperationAsync(() => SponsorService.RefreshLicenseAsync(true)); },
                 () => IsSponsorOperationIdle);
 
-            ClearSponsorBackgroundCommand = new RelayCommand(ClearSponsorBackground, () => SponsorService.IsUnlocked);
+            ClearSponsorBackgroundCommand = new AsyncRelayCommand(ClearSponsorBackgroundAsync, () => SponsorService.IsUnlocked);
             PreviewCompletionSoundCommand = new RelayCommand(PreviewCompletionSound);
-            ClearCustomCompletionSoundCommand = new RelayCommand(ClearCustomCompletionSound, () => SponsorService.IsUnlocked);
+            ClearCustomCompletionSoundCommand = new AsyncRelayCommand(ClearCustomCompletionSoundAsync, () => SponsorService.IsUnlocked);
 
             RefreshCloudPresetOptions();
             RefreshSponsorOptionLists();
@@ -310,6 +316,7 @@ namespace FolderRewind.ViewModels
 
         public async Task InitializeAsync()
         {
+            Activate();
             if (_initialized)
             {
                 return;
@@ -325,6 +332,14 @@ namespace FolderRewind.ViewModels
             RefreshCoreValidationState();
             RefreshSponsorState();
 
+            await RefreshStartupStatusAsync();
+        }
+
+        public void Activate()
+        {
+            if (_active) return;
+            _active = true;
+            ObserveBindableSettings();
             try
             {
                 HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
@@ -342,21 +357,45 @@ namespace FolderRewind.ViewModels
             SponsorService.StatusChanged -= SponsorService_StateChanged;
             SponsorService.StatusChanged += SponsorService_StateChanged;
 
-            await Task.CompletedTask;
+        }
+
+        public void Deactivate()
+        {
+            if (!_active) return;
+            _active = false;
+            StopObservingBindableSettings();
+            CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
+            SponsorService.StateChanged -= SponsorService_StateChanged;
+            SponsorService.StatusChanged -= SponsorService_StateChanged;
+            HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
         }
 
         public void OnNavigatedTo()
         {
+            Activate();
+            TaskObserver.Observe(RefreshStartupStatusAsync(), nameof(SettingsPageViewModel));
             UpdateKnotLinkStatus();
             RefreshKnotLinkServerInfo();
         }
 
         public void SaveIfDirty()
         {
-            if (_isDirty)
+            TaskObserver.Observe(SaveIfDirtyAsync(), nameof(SettingsPageViewModel));
+        }
+
+        private async Task SaveIfDirtyAsync()
+        {
+            // ForceExitRequested is set only after the final configuration save succeeds
+            // and the writer is sealed. Window unload must not enqueue a second save.
+            // Do not use IsShuttingDown: an attempted exit can still fail or be canceled.
+            if (!_isDirty || App.ForceExitRequested) return;
+            _isDirty = false;
+            try { await TaskObserver.SaveConfigAsync(); }
+            catch (Exception ex)
             {
-                ConfigService.Save();
-                _isDirty = false;
+                _isDirty = true;
+                NotificationService.ShowError(ex.Message);
+                throw;
             }
         }
 
@@ -373,12 +412,14 @@ namespace FolderRewind.ViewModels
                 // 先让出当前帧，避免在展开动画开始前同步阻塞 UI。
                 await Task.Yield();
 
-                PluginService.RefreshAndLoadEnabled();
+                PluginService.RefreshRuntimeUi();
                 _pluginsRefreshed = true;
                 OnPropertyChanged(nameof(InstalledPlugins));
             }
-            catch
+            catch (Exception ex)
             {
+                LogService.LogError(ex.Message, nameof(SettingsPageViewModel), ex);
+                throw;
             }
             finally
             {
@@ -386,20 +427,7 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public void Dispose()
-        {
-            // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
-            CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
-            SponsorService.StateChanged -= SponsorService_StateChanged;
-            SponsorService.StatusChanged -= SponsorService_StateChanged;
-            try
-            {
-                HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
-            }
-            catch
-            {
-            }
-        }
+        public void Dispose() => Deactivate();
 
     }
 }

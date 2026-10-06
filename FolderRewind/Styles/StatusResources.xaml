@@ -1,0 +1,53 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="LogInfoBrush" Color="#2563EB" />
+            <SolidColorBrush x:Key="LogInfoBackgroundBrush" Color="#1C2563EB" />
+            <SolidColorBrush x:Key="LogWarningBrush" Color="#B45309" />
+            <SolidColorBrush x:Key="LogWarningBackgroundBrush" Color="#1CB45309" />
+            <SolidColorBrush x:Key="LogErrorBrush" Color="#B91C1C" />
+            <SolidColorBrush x:Key="LogErrorBackgroundBrush" Color="#1CB91C1C" />
+            <SolidColorBrush x:Key="LogDebugBrush" Color="#475569" />
+            <SolidColorBrush x:Key="LogDebugBackgroundBrush" Color="#1C475569" />
+            <SolidColorBrush x:Key="FavoriteSelectedBrush" Color="#FFD700" />
+            <SolidColorBrush x:Key="FavoriteUnselectedBrush" Color="#808080" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="LogInfoBrush" Color="#2563EB" />
+            <SolidColorBrush x:Key="LogInfoBackgroundBrush" Color="#1C2563EB" />
+            <SolidColorBrush x:Key="LogWarningBrush" Color="#B45309" />
+            <SolidColorBrush x:Key="LogWarningBackgroundBrush" Color="#1CB45309" />
+            <SolidColorBrush x:Key="LogErrorBrush" Color="#B91C1C" />
+            <SolidColorBrush x:Key="LogErrorBackgroundBrush" Color="#1CB91C1C" />
+            <SolidColorBrush x:Key="LogDebugBrush" Color="#475569" />
+            <SolidColorBrush x:Key="LogDebugBackgroundBrush" Color="#1C475569" />
+            <SolidColorBrush x:Key="FavoriteSelectedBrush" Color="#FFD700" />
+            <SolidColorBrush x:Key="FavoriteUnselectedBrush" Color="#808080" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="LogInfoBrush" Color="#60A5FA" />
+            <SolidColorBrush x:Key="LogInfoBackgroundBrush" Color="#1C60A5FA" />
+            <SolidColorBrush x:Key="LogWarningBrush" Color="#FBBF24" />
+            <SolidColorBrush x:Key="LogWarningBackgroundBrush" Color="#1CFBBF24" />
+            <SolidColorBrush x:Key="LogErrorBrush" Color="#F87171" />
+            <SolidColorBrush x:Key="LogErrorBackgroundBrush" Color="#1CF87171" />
+            <SolidColorBrush x:Key="LogDebugBrush" Color="#94A3B8" />
+            <SolidColorBrush x:Key="LogDebugBackgroundBrush" Color="#1C94A3B8" />
+            <SolidColorBrush x:Key="FavoriteSelectedBrush" Color="#FFD700" />
+            <SolidColorBrush x:Key="FavoriteUnselectedBrush" Color="#A0A0A0" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <StaticResource x:Key="LogInfoBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="LogInfoBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="LogWarningBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="LogWarningBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="LogErrorBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="LogErrorBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="LogDebugBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="LogDebugBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="FavoriteSelectedBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="FavoriteUnselectedBrush" ResourceKey="SystemColorWindowTextBrush" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

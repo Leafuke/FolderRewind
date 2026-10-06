@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services
 {
-    public static partial class TemplateService
+    public static partial class BackupPresetService
     {
         private static ObservableCollection<TemplatePathRule> InferPathRules(BackupConfig sourceConfig)
         {

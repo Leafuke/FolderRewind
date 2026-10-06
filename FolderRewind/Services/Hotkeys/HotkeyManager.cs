@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using System;
@@ -31,6 +32,7 @@ namespace FolderRewind.Services.Hotkeys
         private static Window? _window;
         private static UIElement? _root;
         private static NativeHotkeyService? _native;
+        private static DispatcherQueue? _dispatcherQueue;
 
         private static readonly Dictionary<string, HotkeyDefinition> _definitions = new(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, Func<HotkeyTrigger, Task>> _handlers = new(StringComparer.OrdinalIgnoreCase);
@@ -46,6 +48,7 @@ namespace FolderRewind.Services.Hotkeys
             {
                 _window = window;
                 _root = rootElement;
+                _dispatcherQueue = rootElement.DispatcherQueue;
 
                 try
                 {
@@ -110,8 +113,7 @@ namespace FolderRewind.Services.Hotkeys
 
             if (changed)
             {
-                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
-                ApplyBindingsToUiAndNative();
+                NotifyDefinitionsChangedAndApplyBindings();
             }
         }
 
@@ -140,8 +142,7 @@ namespace FolderRewind.Services.Hotkeys
 
             if (changed)
             {
-                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
-                ApplyBindingsToUiAndNative();
+                NotifyDefinitionsChangedAndApplyBindings();
             }
         }
 
@@ -185,31 +186,49 @@ namespace FolderRewind.Services.Hotkeys
             return string.Empty;
         }
 
-        public static void SetGestureOverride(string hotkeyId, string? gestureString)
+        public static async Task SetGestureOverrideAsync(string hotkeyId, string? gestureString)
         {
-            var global = ConfigService.CurrentConfig?.GlobalSettings;
-            if (global == null) return;
-            if (global.Hotkeys == null) global.Hotkeys = new HotkeySettings();
+            var global = ConfigService.CurrentConfig.GlobalSettings;
+            global.Hotkeys ??= new HotkeySettings();
             global.Hotkeys.Bindings ??= new Dictionary<string, string>();
-
-            global.Hotkeys.Bindings[hotkeyId] = gestureString ?? string.Empty;
-            ConfigService.Save();
+            var bindings = global.Hotkeys.Bindings;
+            var existed = bindings.TryGetValue(hotkeyId, out var previous);
+            await ConfigEditTransaction.ApplyAsync(
+                () => bindings[hotkeyId] = gestureString ?? string.Empty,
+                () => { if (existed) bindings[hotkeyId] = previous!; else bindings.Remove(hotkeyId); },
+                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
             ApplyBindingsToUiAndNative();
         }
 
-        public static void ResetGestureOverride(string hotkeyId)
+        public static async Task ResetGestureOverrideAsync(string hotkeyId)
         {
-            var settings = ConfigService.CurrentConfig?.GlobalSettings?.Hotkeys;
-            if (settings?.Bindings == null) return;
-            if (settings.Bindings.Remove(hotkeyId))
-            {
-                ConfigService.Save();
-                ApplyBindingsToUiAndNative();
-            }
+            var bindings = ConfigService.CurrentConfig.GlobalSettings.Hotkeys?.Bindings;
+            if (bindings is null || !bindings.TryGetValue(hotkeyId, out var previous)) return;
+            await ConfigEditTransaction.ApplyAsync(
+                () => bindings.Remove(hotkeyId), () => bindings[hotkeyId] = previous,
+                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+            ApplyBindingsToUiAndNative();
         }
 
         public static void ApplyBindingsToUiAndNative()
         {
+            DispatcherQueue? dispatcherQueue;
+            lock (_lock)
+            {
+                dispatcherQueue = _dispatcherQueue;
+            }
+
+            if (dispatcherQueue != null && !dispatcherQueue.HasThreadAccess)
+            {
+                if (!dispatcherQueue.TryEnqueue(ApplyBindingsToUiAndNative))
+                {
+                    LogService.LogWarning(
+                        "Failed to enqueue hotkey binding refresh on the UI thread.",
+                        nameof(HotkeyManager));
+                }
+                return;
+            }
+
             lock (_lock)
             {
                 if (_root == null) return;
@@ -285,6 +304,34 @@ namespace FolderRewind.Services.Hotkeys
             }
         }
 
+        private static void NotifyDefinitionsChangedAndApplyBindings()
+        {
+            DispatcherQueue? dispatcherQueue;
+            lock (_lock)
+            {
+                dispatcherQueue = _dispatcherQueue;
+            }
+
+            void NotifyAndApply()
+            {
+                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
+                ApplyBindingsToUiAndNative();
+            }
+
+            if (dispatcherQueue != null && !dispatcherQueue.HasThreadAccess)
+            {
+                if (!dispatcherQueue.TryEnqueue(NotifyAndApply))
+                {
+                    LogService.LogWarning(
+                        "Failed to enqueue hotkey definition refresh on the UI thread.",
+                        nameof(HotkeyManager));
+                }
+                return;
+            }
+
+            NotifyAndApply();
+        }
+
         public static async Task InvokeAsync(string hotkeyId, HotkeyTrigger trigger)
         {
             try
@@ -305,50 +352,6 @@ namespace FolderRewind.Services.Hotkeys
             catch (Exception ex)
             {
                 LogService.LogError(I18n.Format("Hotkeys_InvokeFailed", ex.Message), nameof(HotkeyManager), ex);
-            }
-        }
-
-        public static void RegisterPluginHotkeys(PluginInstallManifest manifest, IFolderRewindPlugin instance)
-        {
-            if (manifest == null || instance == null) return;
-
-            if (instance is IFolderRewindHotkeyProvider provider)
-            {
-                try
-                {
-                    var defs = provider.GetHotkeyDefinitions() ?? Array.Empty<PluginHotkeyDefinition>();
-                    var normalized = defs
-                        .Where(d => d != null && !string.IsNullOrWhiteSpace(d.Id))
-                        .Select(d => new HotkeyDefinition
-                        {
-                            Id = $"plugin.{manifest.Id}.{d.Id}",
-                            DisplayName = d.DisplayName ?? d.Id,
-                            Description = d.Description,
-                            DefaultGesture = d.DefaultGesture ?? string.Empty,
-                            Scope = d.IsGlobalHotkey ? HotkeyScope.GlobalHotkey : HotkeyScope.Shortcut,
-                            OwnerPluginId = manifest.Id,
-                            OwnerPluginName = manifest.Name,
-                        })
-                        .ToList();
-
-                    RegisterDefinitions(normalized);
-
-                    foreach (var d in defs)
-                    {
-                        if (d == null || string.IsNullOrWhiteSpace(d.Id)) continue;
-                        var fullId = $"plugin.{manifest.Id}.{d.Id}";
-                        RegisterHandler(fullId, async trig =>
-                        {
-                            var settings = PluginService.GetPluginSettings(manifest.Id);
-                            var ctx = PluginHostContext.CreateForCurrentApp(manifest.Id, manifest.Name);
-                            await provider.OnHotkeyInvokedAsync(d.Id, trig == HotkeyTrigger.GlobalHotkey, settings, ctx);
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogService.LogError(I18n.Format("Hotkeys_PluginRegisterFailed", manifest.Id, ex.Message), nameof(HotkeyManager), ex);
-                }
             }
         }
     }

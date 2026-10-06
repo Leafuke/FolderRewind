@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace FolderRewind.Services.KnotLink
 {
@@ -16,13 +17,18 @@ namespace FolderRewind.Services.KnotLink
         {
             Command = (command ?? string.Empty).ToUpperInvariant();
             RawPayload = rawPayload ?? string.Empty;
-            Options = options;
-            _encodedOptions = encodedOptions;
+            Options = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(options, StringComparer.OrdinalIgnoreCase));
+            _encodedOptions = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(encodedOptions, StringComparer.OrdinalIgnoreCase));
         }
 
         public string Command { get; }
 
         public string RawPayload { get; }
+
+        public FolderRewind.Plugin.Abstractions.KnotLinkTarget? ResolvedTarget { get; private init; }
+
+        public KnotLinkCommandRequest WithResolvedTarget(FolderRewind.Plugin.Abstractions.KnotLinkTarget target)
+            => new(Command, RawPayload, Options, _encodedOptions) { ResolvedTarget = target };
 
         public IReadOnlyDictionary<string, string> Options { get; }
 
@@ -58,6 +64,27 @@ namespace FolderRewind.Services.KnotLink
             return _encodedOptions.TryGetValue(NormalizeKey(key), out var value)
                 ? KnotLinkKeyValueCodec.DecodeList(value)
                 : Array.Empty<string>();
+        }
+
+        /// <summary>
+        /// Preserve selectors forbid commas inside paths, so this parameter alone can
+        /// accept legacy whole-value encoding without ambiguity for valid selectors.
+        /// Generic lists must keep encoded commas inside individual items.
+        /// </summary>
+        public IReadOnlyList<string> GetRestorePreservePaths()
+        {
+            if (!_encodedOptions.TryGetValue("restore_preserve_paths", out var value)
+                || string.IsNullOrEmpty(value)) return Array.Empty<string>();
+            if (value.Contains(',')) return KnotLinkKeyValueCodec.DecodeList(value);
+
+            // Decode exactly once: a literal "%2C" path must not become a separator.
+            var decoded = KnotLinkKeyValueCodec.DecodeValue(value);
+            var result = new List<string>();
+            foreach (var item in decoded.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(item)) result.Add(item);
+            }
+            return result;
         }
 
         public static string NormalizeKey(string key) => KnotLinkKeyValueCodec.NormalizeKey(key);

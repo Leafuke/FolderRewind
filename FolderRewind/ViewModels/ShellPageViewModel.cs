@@ -1,10 +1,7 @@
 using FolderRewind.Services;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Windows.Storage;
 using Windows.UI;
 using Windows.UI.ViewManagement;
 
@@ -13,20 +10,32 @@ namespace FolderRewind.ViewModels
     public sealed class ShellPageViewModel : ViewModelBase, IDisposable
     {
         private bool _disposed;
-        private BitmapImage? _sponsorBackgroundImageSource;
+        private string? _sponsorBackgroundImagePath;
         private bool _isSponsorBackgroundVisible;
         private SponsorBackgroundImageState _backgroundImageState;
         private int _backgroundLoadVersion;
 
         public string TitleText => GetTitleText();
 
+        public FolderRewind.Models.GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
+
+        public void PersistPaneState(bool isOpen)
+        {
+            if (Settings is not { } settings || settings.IsNavPaneOpen == isOpen) return;
+            var previous = settings.IsNavPaneOpen;
+            TaskObserver.Observe(ConfigEditTransaction.ApplyAsync(() => settings.IsNavPaneOpen = isOpen,
+                () => { if (settings.IsNavPaneOpen == isOpen) settings.IsNavPaneOpen = previous; },
+                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed")), nameof(ShellPageViewModel));
+        }
+
         public string TitleIconGlyph => GetTitleIconGlyph();
 
         public bool IsSponsorBackgroundVisible => _isSponsorBackgroundVisible;
 
-        public ImageSource? SponsorBackgroundImageSource => _sponsorBackgroundImageSource;
+        public string? SponsorBackgroundImagePath => _sponsorBackgroundImagePath;
+        public int SponsorBackgroundRevision => _backgroundLoadVersion;
 
-        public Stretch SponsorBackgroundStretch => GetSponsorBackgroundStretch();
+        public int SponsorBackgroundStretchIndex => GetSponsorBackgroundStretchIndex();
 
         public double SponsorBackgroundOpacity => Math.Clamp(
             ConfigService.CurrentConfig?.GlobalSettings?.SponsorBackgroundImageOpacity ?? 0.28,
@@ -38,12 +47,13 @@ namespace FolderRewind.ViewModels
             0,
             1);
 
-        public Brush SponsorBackgroundOverlayBrush => new SolidColorBrush(GetBackgroundOverlayColor());
+        public Color SponsorBackgroundOverlayColor => GetBackgroundOverlayColor();
 
         public ShellPageViewModel()
         {
             ConfigService.Saved += OnStateChanged;
             SponsorService.StateChanged += OnStateChanged;
+            ThemeService.ThemeChanged += OnThemeChanged;
         }
 
         public async Task RefreshVisualsAsync(bool forceBackgroundImageReload = false)
@@ -55,9 +65,9 @@ namespace FolderRewind.ViewModels
 
             OnPropertyChanged(nameof(TitleText));
             OnPropertyChanged(nameof(TitleIconGlyph));
-            OnPropertyChanged(nameof(SponsorBackgroundStretch));
+            OnPropertyChanged(nameof(SponsorBackgroundStretchIndex));
             OnPropertyChanged(nameof(SponsorBackgroundOpacity));
-            OnPropertyChanged(nameof(SponsorBackgroundOverlayBrush));
+            OnPropertyChanged(nameof(SponsorBackgroundOverlayColor));
             OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacity));
 
             await RefreshBackgroundImageAsync(forceBackgroundImageReload);
@@ -74,11 +84,18 @@ namespace FolderRewind.ViewModels
             _backgroundLoadVersion++;
             ConfigService.Saved -= OnStateChanged;
             SponsorService.StateChanged -= OnStateChanged;
+            ThemeService.ThemeChanged -= OnThemeChanged;
+        }
+
+        private void OnThemeChanged(Microsoft.UI.Xaml.ElementTheme theme)
+        {
+            TaskObserver.Observe(RefreshVisualsAsync(), nameof(ShellPageViewModel));
         }
 
         private void OnStateChanged()
         {
-            EnqueueOnUiThread(() => _ = RefreshVisualsAsync());
+            CoreFeatureValidationService.TryScheduleInitialValidation();
+            EnqueueOnUiThread(() => TaskObserver.Observe(RefreshVisualsAsync(), nameof(ShellPageViewModel)));
         }
 
         private static string GetTitleText()
@@ -110,7 +127,11 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            var requestVersion = ++_backgroundLoadVersion;
             var currentState = GetSponsorBackgroundImageState();
+            var exists = await Task.Run(() => File.Exists(currentState.Path));
+            if (!SponsorBackgroundImageCachePolicy.IsCurrentLoad(requestVersion, _backgroundLoadVersion, _disposed)) return;
+            currentState = currentState with { FileExists = exists };
             if (SponsorBackgroundImageCachePolicy.ShouldClear(currentState))
             {
                 _backgroundImageState = currentState;
@@ -122,7 +143,7 @@ namespace FolderRewind.ViewModels
             var shouldReload = SponsorBackgroundImageCachePolicy.ShouldReload(
                 _backgroundImageState,
                 currentState,
-                _sponsorBackgroundImageSource != null,
+                _sponsorBackgroundImagePath != null,
                 forceReload);
             if (!shouldReload)
             {
@@ -130,11 +151,10 @@ namespace FolderRewind.ViewModels
             }
 
             _backgroundImageState = currentState;
-            var requestVersion = ++_backgroundLoadVersion;
 
             try
             {
-                var bitmap = await LoadSponsorBackgroundImageAsync(currentState.Path);
+                var imagePath = currentState.Path;
                 if (!SponsorBackgroundImageCachePolicy.IsCurrentLoad(
                         requestVersion,
                         _backgroundLoadVersion,
@@ -143,8 +163,8 @@ namespace FolderRewind.ViewModels
                     return;
                 }
 
-                // 保留旧图直到新图完整解码成功，避免导航或换图时出现空白帧。
-                SetSponsorBackgroundImage(bitmap, isVisible: true);
+                SetSponsorBackgroundImage(imagePath, isVisible: true);
+                OnPropertyChanged(nameof(SponsorBackgroundRevision));
             }
             catch (Exception ex)
             {
@@ -162,7 +182,7 @@ namespace FolderRewind.ViewModels
 
                 // 如果没有旧图，失败后保持隐藏；如果已有旧图，则继续显示旧图，
                 // 避免一次加载失败让整个 Shell 突然变空。
-                if (_sponsorBackgroundImageSource == null)
+                if (_sponsorBackgroundImagePath == null)
                 {
                     SetSponsorBackgroundImage(null, isVisible: false);
                 }
@@ -173,37 +193,28 @@ namespace FolderRewind.ViewModels
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             var path = settings?.SponsorBackgroundImagePath?.Trim() ?? string.Empty;
-            var fileExists = !string.IsNullOrWhiteSpace(path) && File.Exists(path);
+            var fileExists = !string.IsNullOrWhiteSpace(path);
+            var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
+                settings?.SponsorBackgroundEnabled == true, SponsorService.IsUnlocked, AccessibilityThemeService.IsHighContrast);
 
             return new SponsorBackgroundImageState(
                 path,
-                settings?.SponsorBackgroundEnabled == true,
+                appearance.BackgroundEnabled,
                 SponsorService.IsUnlocked,
                 fileExists);
         }
 
-        private static async Task<BitmapImage> LoadSponsorBackgroundImageAsync(string path)
+        private void SetSponsorBackgroundImage(string? imagePath, bool isVisible)
         {
-            // BitmapImage 是 UI 绑定对象；此方法由 UI 调度入口调用，且不使用
-            // ConfigureAwait(false)，保证创建和填充过程留在 XAML 所属线程。
-            var file = await StorageFile.GetFileFromPathAsync(path);
-            var bitmap = new BitmapImage();
-            using var stream = await file.OpenAsync(FileAccessMode.Read);
-            await bitmap.SetSourceAsync(stream);
-            return bitmap;
-        }
-
-        private void SetSponsorBackgroundImage(BitmapImage? image, bool isVisible)
-        {
-            var imageChanged = !ReferenceEquals(_sponsorBackgroundImageSource, image);
+            var imageChanged = _sponsorBackgroundImagePath != imagePath;
             var visibilityChanged = _isSponsorBackgroundVisible != isVisible;
 
-            _sponsorBackgroundImageSource = image;
+            _sponsorBackgroundImagePath = imagePath;
             _isSponsorBackgroundVisible = isVisible;
 
             if (imageChanged)
             {
-                OnPropertyChanged(nameof(SponsorBackgroundImageSource));
+                OnPropertyChanged(nameof(SponsorBackgroundImagePath));
             }
 
             if (visibilityChanged)
@@ -212,15 +223,10 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        private static Stretch GetSponsorBackgroundStretch()
+        private static int GetSponsorBackgroundStretchIndex()
         {
             var index = ConfigService.CurrentConfig?.GlobalSettings?.SponsorBackgroundStretchIndex ?? 0;
-            return Math.Clamp(index, 0, 2) switch
-            {
-                1 => Stretch.Uniform,
-                2 => Stretch.Fill,
-                _ => Stretch.UniformToFill
-            };
+            return Math.Clamp(index, 0, 2);
         }
 
         private static Color GetBackgroundOverlayColor()

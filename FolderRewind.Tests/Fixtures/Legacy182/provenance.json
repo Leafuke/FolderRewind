@@ -1,0 +1,31 @@
+{
+  "origin": "v1.8.2 tagged metadata writer and change detection, invoked by a console harness; not an installed-app UI acceptance run",
+  "commit": "f21de877539ca4542e4569eb28e9bb5b46ca529e",
+  "sources": [
+    {
+      "path": "FolderRewind/Models/BackupMetadata.cs",
+      "gitBlob": "e24ea01d191acbc05eb84805741a9bbe4144247c"
+    },
+    {
+      "path": "FolderRewind/Services/BackupService.Metadata.cs",
+      "gitBlob": "85525474b66c85d40f41f7b282337834c6491d80"
+    },
+    {
+      "path": "FolderRewind/Services/BackupMetadataStoreService.cs",
+      "gitBlob": "fe91380ab954b78f5a4ccf4055c638f07d3dcaba"
+    },
+    {
+      "path": "FolderRewind/Services/BackupMetadataDeletionPolicy.cs",
+      "gitBlob": "c799901a16c2cfcecd53396318c6a397ea2e2a0d"
+    },
+    {
+      "path": "FolderRewind/Services/BackupStoragePathService.cs",
+      "gitBlob": "208c03b04e51dc536cfaf71eb6322a52a1b9b46d"
+    }
+  ],
+  "sevenZip": "\nNanaZip 7.0 , version 2609.2 (x64) : (c) M2-Team and Contributors. All rights reserved.\n\n",
+  "generatedUtc": "2026-10-02T13:31:09.7128707Z",
+  "installerAcceptance": "pending manual verification",
+  "layout": "Archives: <root>/<format>/; metadata: <root>/_metadata/<format>/",
+  "layoutCorrection": "2026-10-06: moved existing metadata files to the released storage layout without changing archive or metadata bytes."
+}

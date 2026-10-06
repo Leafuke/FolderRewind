@@ -1,0 +1,295 @@
+using FolderRewind.History.Application;
+using FolderRewind.History.Domain;
+using FolderRewind.History.Storage;
+
+namespace FolderRewind.Tests;
+
+[TestClass]
+public sealed class HistoryPresentationQueryTests
+{
+    private string _root = null!;
+
+    [TestInitialize]
+    public void Initialize()
+    {
+        _root = Path.Combine(Path.GetTempPath(), "FolderRewindPresentationTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_root);
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        if (Directory.Exists(_root)) Directory.Delete(_root, true);
+    }
+
+    [TestMethod]
+    public async Task PagedQuery_SearchesUnloadedRowsAndInvalidatesChangedRevision()
+    {
+        var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(config,
+            new HistoryRepositoryPaths(Path.Combine(_root, "pages"))));
+        await runtime.InitializeAsync();
+        var source = SourceId.New();
+        var other = SourceId.New();
+        var codec = new HistoryPackCodec();
+        var facts = new List<object>();
+        SourceVersion? target = null;
+        for (var i = 0; i < 210; i++)
+        {
+            var version = Version(config, i < 205 ? source : other, i == 0 ? "needle" : "item");
+            target ??= version;
+            facts.AddRange([version, ExactRepresentation(version), Checkpoint(config, version.SourceId, version)]);
+        }
+        await runtime.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            facts.Select(f => codec.CreateObject(f))));
+        var service = new HistoryPresentationQueryService(runtime);
+        var request = new HistoryPageRequest(source, false, false, null, "");
+        var first = await service.QueryPageAsync(request);
+        var second = await service.QueryPageAsync(request with { Cursor = first.Next });
+        var third = await service.QueryPageAsync(request with { Cursor = second.Next });
+        Assert.AreEqual(205, first.TotalCount);
+        Assert.AreEqual(205, first.Snapshot.Timeline.Concat(second.Snapshot.Timeline).Concat(third.Snapshot.Timeline)
+            .Select(v => v.CheckpointId).Distinct().Count());
+        Assert.IsNull(third.Next);
+        Assert.AreEqual(1, (await service.QueryPageAsync(request with { Keyword = "needle" })).TotalCount);
+        await runtime.Annotations.SetCommentAsync(new(HistoryAnnotationTargetKind.Version, target!.VersionId.Value), "updated");
+        var changed = await service.QueryPageAsync(request with { Cursor = first.Next });
+        Assert.IsTrue(changed.CursorInvalidated);
+        Assert.HasCount(100, changed.Snapshot.Timeline);
+    }
+
+    [TestMethod]
+    public async Task TimelineKeepsParentlessAndDivergentVersionsWhileMultiTipCommandsAreDisabled()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(
+            configId, new HistoryRepositoryPaths(Path.Combine(_root, "repository"))));
+        await runtime.InitializeAsync();
+        var sourceId = SourceId.New();
+        var first = Version(configId, sourceId, "first");
+        var second = Version(configId, sourceId, "second");
+        var checkpointOne = Checkpoint(configId, sourceId, first);
+        var duplicateCheckpointForFirst = Checkpoint(configId, sourceId, first);
+        var checkpointTwo = Checkpoint(configId, sourceId, second);
+        var safetySnapshot = new SafetySnapshot(
+            SafetySnapshotId.New(),
+            checkpointOne.CheckpointId,
+            DateTimeOffset.UtcNow,
+            SafetySnapshotReason.BeforeCheckout);
+        var branchId = BranchId.New();
+        var tipOne = new BranchUpdate(
+            BranchUpdateId.New(), branchId, [], "main", checkpointOne.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: checkpointOne.SourceId);
+        var tipTwo = new BranchUpdate(
+            BranchUpdateId.New(), branchId, [], "main", checkpointTwo.CheckpointId, false,
+            DateTimeOffset.UtcNow.AddTicks(1), BranchUpdateReason.Backup, sourceId: checkpointTwo.SourceId);
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[]
+            {
+                first, second, ExactRepresentation(first), ExactRepresentation(second),
+                checkpointOne, duplicateCheckpointForFirst, checkpointTwo,
+                tipOne, tipTwo, safetySnapshot
+            }
+                .Select(item => codec.CreateObject(item))));
+
+        var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
+
+        CollectionAssert.AreEquivalent(
+            new[] { checkpointOne.CheckpointId, duplicateCheckpointForFirst.CheckpointId, checkpointTwo.CheckpointId },
+            snapshot.Timeline.Select(item => item.CheckpointId!.Value).ToArray());
+        Assert.HasCount(2, snapshot.Timeline.Where(item => item.VersionId == first.VersionId));
+        Assert.IsTrue(snapshot.Timeline.All(item => item.ParentVersionIds.IsEmpty));
+        var branch = snapshot.Branches.Single();
+        Assert.IsTrue(branch.IsMultiTip);
+        Assert.IsFalse(branch.CanRename);
+        Assert.IsFalse(branch.CanDelete);
+        Assert.IsTrue(branch.HasCheckoutTarget);
+        foreach (var firstTimeline in snapshot.Timeline.Where(item => item.VersionId == first.VersionId))
+        {
+            Assert.AreEqual(1, firstTimeline.BranchableCheckpointCount);
+            Assert.AreEqual(firstTimeline.CheckpointId, firstTimeline.BranchableCheckpointId);
+        }
+        var secondTimeline = snapshot.Timeline.Single(item => item.VersionId == second.VersionId);
+        Assert.AreEqual(checkpointTwo.CheckpointId, secondTimeline.BranchableCheckpointId);
+        Assert.AreEqual(safetySnapshot.SnapshotId, snapshot.ActiveSafetySnapshots.Single().Snapshot.SnapshotId);
+    }
+
+    [TestMethod]
+    public async Task CompletedRunStillReportsPartialCaptureFromItsSourceVersion()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(
+            configId, new HistoryRepositoryPaths(Path.Combine(_root, "partial-run-repository"))));
+        await runtime.InitializeAsync();
+        var sourceId = SourceId.New();
+        var parent = new SourceVersion(
+            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow.AddSeconds(-1), null,
+            CaptureScope.FullSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("partial", "partial"), null, HistoryProvenance.Native("test"));
+        var version = new SourceVersion(
+            VersionId.New(), configId, sourceId, [parent.VersionId], DateTimeOffset.UtcNow, null,
+            CaptureScope.PartialSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("partial", "partial"), null, HistoryProvenance.Native("test"));
+        var run = new BackupRun(
+            RunId.New(), configId, DateTimeOffset.UtcNow.AddSeconds(-1), DateTimeOffset.UtcNow,
+            BackupInvocationKind.Manual, BackupRunOutcome.Completed,
+            [new BackupRunSourceResult(sourceId, BackupRunSourceOutcome.Captured, version.VersionId, [])],
+            diagnostics: []);
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            [codec.CreateObject(parent), codec.CreateObject(version), codec.CreateObject(run)]));
+
+        var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
+
+        Assert.IsTrue(snapshot.Runs.Single().HasPartialCapture);
+    }
+
+    [TestMethod]
+    public async Task BranchMembershipAndActiveBranchAreProjectedForTimelineFiltering()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(
+            configId, new HistoryRepositoryPaths(Path.Combine(_root, "branch-membership-repository"))));
+        await runtime.InitializeAsync();
+        var sourceId = SourceId.New();
+        var shared = Version(configId, sourceId, "shared");
+        var mainOnly = Version(configId, sourceId, "main-only");
+        var featureOnly = Version(configId, sourceId, "feature-only");
+        var sharedCheckpoint = Checkpoint(configId, sourceId, shared);
+        var mainCheckpoint = Checkpoint(configId, sourceId, mainOnly);
+        var featureCheckpoint = Checkpoint(configId, sourceId, featureOnly);
+        var mainId = BranchId.New();
+        var featureId = BranchId.New();
+        var mainRoot = new BranchUpdate(
+            BranchUpdateId.New(), mainId, [], "main", sharedCheckpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: sharedCheckpoint.SourceId);
+        var mainTip = new BranchUpdate(
+            BranchUpdateId.New(), mainId, [mainRoot.UpdateId], "main", mainCheckpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow.AddTicks(1), BranchUpdateReason.Backup, sourceId: mainCheckpoint.SourceId);
+        var featureRoot = new BranchUpdate(
+            BranchUpdateId.New(), featureId, [], "feature", sharedCheckpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow.AddTicks(2), BranchUpdateReason.Created, sourceId: sharedCheckpoint.SourceId);
+        var featureTip = new BranchUpdate(
+            BranchUpdateId.New(), featureId, [featureRoot.UpdateId], "feature", featureCheckpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow.AddTicks(3), BranchUpdateReason.Backup, sourceId: featureCheckpoint.SourceId);
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[]
+            {
+                shared, mainOnly, featureOnly,
+                ExactRepresentation(shared), ExactRepresentation(mainOnly), ExactRepresentation(featureOnly),
+                sharedCheckpoint, mainCheckpoint, featureCheckpoint,
+                mainRoot, mainTip, featureRoot, featureTip
+            }.Select(item => codec.CreateObject(item))));
+        await runtime.WorkspaceStore.SaveAsync(
+            new FolderRewind.History.LocalState.HistoryWorkspace(
+                configId,
+                0, HistoryFixture.SourceStates(
+                [new FolderRewind.History.LocalState.WorkspaceSourceBaseline(
+                    sourceId,
+                    featureOnly.VersionId,
+                    FolderRewind.History.LocalState.WorkspaceBaselineRelation.Exact)],
+                featureId,
+                featureTip.UpdateId,null)),
+            FolderRewind.History.LocalState.HistoryWorkspaceStore.MissingRevision);
+
+        var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
+
+        Assert.IsNull(snapshot.ActiveBranchId);
+        Assert.IsNull(snapshot.ActiveBranchUpdateId);
+        var sourceSnapshot = await new HistoryPresentationQueryService(runtime).QueryAsync(sourceId);
+        Assert.AreEqual(featureId, sourceSnapshot.ActiveBranchId);
+        Assert.AreEqual(featureTip.UpdateId, sourceSnapshot.ActiveBranchUpdateId);
+        var activeBranch = snapshot.Branches.Single(branch => branch.BranchId == featureId);
+        Assert.IsTrue(activeBranch.IsActive);
+        Assert.IsTrue(activeBranch.IsWorkspaceAnchoredAtTip);
+        CollectionAssert.AreEquivalent(
+            new[] { mainId, featureId },
+            snapshot.Timeline.Single(item => item.VersionId == shared.VersionId).BranchIds.ToArray());
+        CollectionAssert.AreEqual(
+            new[] { mainId },
+            snapshot.Timeline.Single(item => item.VersionId == mainOnly.VersionId).BranchIds.ToArray());
+        CollectionAssert.AreEqual(
+            new[] { featureId },
+            snapshot.Timeline.Single(item => item.VersionId == featureOnly.VersionId).BranchIds.ToArray());
+
+        await runtime.WorkspaceStore.SaveAsync(
+            new FolderRewind.History.LocalState.HistoryWorkspace(
+                configId,
+                1, HistoryFixture.SourceStates(
+                [new FolderRewind.History.LocalState.WorkspaceSourceBaseline(
+                    sourceId,
+                    shared.VersionId,
+                    FolderRewind.History.LocalState.WorkspaceBaselineRelation.Exact)],
+                featureId,
+                featureRoot.UpdateId,null)),
+            expectedRevision: 0);
+        var staleAnchorSnapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
+        Assert.IsFalse(staleAnchorSnapshot.Branches
+            .Single(branch => branch.BranchId == featureId)
+            .IsWorkspaceAnchoredAtTip);
+    }
+
+    [TestMethod]
+    public async Task BatchProjectionKeepsReplicaLifecycleAndReleasePolicyIsolatedByVersion()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "replica-projections"))));
+        await runtime.InitializeAsync();
+        var sourceId = SourceId.New();
+        var available = Version(configId, sourceId, "available");
+        var released = Version(configId, sourceId, "released");
+        var activeRep = new VersionRepresentation(RepresentationId.New(), available.VersionId, RepresentationKind.CoreFull,
+            "7z", [], MaterializationFidelity.Exact, null, null, []);
+        var retiredRep = new VersionRepresentation(RepresentationId.New(), released.VersionId, RepresentationKind.CoreFull,
+            "7z", [], MaterializationFidelity.Exact, null, null, []);
+        var activeReplica = new StorageReplica(ReplicaId.New(), activeRep.RepresentationId, ReplicaProviderKind.Cloud,
+            "not-a-network-endpoint", null, null, HistoryProvenance.Native("test"));
+        var retiredReplica = activeReplica with { ReplicaId = ReplicaId.New(), RepresentationId = retiredRep.RepresentationId };
+        var oldActive = new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), retiredReplica.ReplicaId, [],
+            ReplicaLifecycleState.Active, DateTimeOffset.UtcNow, "active");
+        var facts = new object[]
+        {
+            available, released, activeRep, retiredRep,
+            Checkpoint(configId, sourceId, available), Checkpoint(configId, sourceId, released),
+            activeReplica, retiredReplica, oldActive,
+            new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), retiredReplica.ReplicaId, [oldActive.UpdateId],
+                ReplicaLifecycleState.Retired, DateTimeOffset.UtcNow, "retired"),
+            new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), activeReplica.ReplicaId, [],
+                ReplicaLifecycleState.Active, DateTimeOffset.UtcNow, "active"),
+            new MaterializationPolicyUpdate(MaterializationPolicyUpdateId.New(), released.VersionId, [],
+                MaterializationPolicyState.Released, DateTimeOffset.UtcNow, "released")
+        };
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            facts.Select(item => codec.CreateObject(item))));
+        var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync(sourceId);
+        Assert.AreEqual(HistoryPresentationReadiness.PreparationRequired, snapshot.Timeline.Single(item => item.VersionId == available.VersionId).Readiness);
+        Assert.AreEqual(HistoryPresentationReadiness.PayloadReleased, snapshot.Timeline.Single(item => item.VersionId == released.VersionId).Readiness);
+    }
+
+    private static VersionRepresentation ExactRepresentation(SourceVersion version)
+        => new(RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "7z", [],
+            MaterializationFidelity.Exact, null, null, []);
+
+    private static SourceVersion Version(HistoryConfigId configId, SourceId sourceId, string name)
+        => new(
+            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            CaptureScope.FullSource, CaptureOutcome.Recovered, [],
+            new SourceDescriptorSnapshot(name, name), name, HistoryProvenance.Native("test"));
+
+    private static SourceCheckpoint Checkpoint(
+        HistoryConfigId configId,
+        SourceId sourceId,
+        SourceVersion version)
+        => new(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(
+                sourceId, version.SourceDescriptorSnapshot, version.VersionId,
+                CheckpointSourceDisposition.CarriedForward)]);
+}

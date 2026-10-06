@@ -22,6 +22,8 @@ namespace FolderRewind.ViewModels
 
         public BackupConfig Config => _config;
 
+        public string RemoteBasePath => _config.Cloud?.RemoteBasePath ?? string.Empty;
+
         public string EffectiveExecutablePath => CloudSyncService.GetEffectiveExecutablePath(_config);
 
         public bool IsBusy

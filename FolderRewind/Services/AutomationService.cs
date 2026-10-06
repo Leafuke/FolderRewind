@@ -1,6 +1,5 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,314 +8,427 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {
+    /// <summary>
+    /// 自动备份调度：维护两条可取消异步循环——60 秒的调度/间隔轮询与
+    /// 10 秒的条件轮询（文件解锁触发）。
+    /// 触发的备份经配置级/文件夹级运行态互斥排队执行，避免同一配置的自动备份重叠；
+    /// 循环随配置保存动态启停。
+    /// </summary>
     public static class AutomationService
     {
-        private static Timer? _scheduleTimer;
-        private static Timer? _conditionTimer;
-        private static bool _isRunning;
-        private static bool _scheduleTimerEnabled;
-        private static bool _conditionTimerEnabled;
-
-        private static readonly SemaphoreSlim _tickLock = new(1, 1);
-        private static readonly SemaphoreSlim _conditionTickLock = new(1, 1);
-
-        private static readonly ConcurrentDictionary<string, ConditionFileState> _conditionStates
-            = new(StringComparer.OrdinalIgnoreCase);
-
+        private static readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+        private static readonly AutomationConditionStateTracker _conditionStates = new();
         private static readonly object _runStateLock = new();
         private static readonly HashSet<string> _activeConfigRuns = new(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> _activeFolderRuns = new(StringComparer.OrdinalIgnoreCase);
+        private static TimeProvider _timeProvider = TimeProvider.System;
+        private static AsyncPeriodicLoop? _scheduleLoop;
+        private static AsyncPeriodicLoop? _conditionLoop;
+        private static CancellationTokenSource? _stopSource;
+        private static Task _startupBackupsTask = Task.CompletedTask;
+        private static bool _isRunning;
 
-        private enum ConditionFileState
-        {
-            Missing = 0,
-            Locked = 1,
-            Unlocked = 2
-        }
+        public static Task StartAsync(CancellationToken cancellationToken = default)
+            => StartAsync(TimeProvider.System, cancellationToken);
 
-        public static void Start()
+        internal static async Task StartAsync(
+            TimeProvider timeProvider,
+            CancellationToken cancellationToken = default)
         {
-            if (_isRunning)
+            ArgumentNullException.ThrowIfNull(timeProvider);
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                return;
+                if (_isRunning)
+                    return;
+
+                _timeProvider = timeProvider;
+                _stopSource = new CancellationTokenSource();
+                _scheduleLoop = new AsyncPeriodicLoop(
+                    _timeProvider,
+                    TimeSpan.FromSeconds(60),
+                    runImmediately: true,
+                    RunScheduleRoundAsync,
+                    ex => LogLoopFailure("schedule", ex));
+                _conditionLoop = new AsyncPeriodicLoop(
+                    _timeProvider,
+                    TimeSpan.FromSeconds(10),
+                    runImmediately: false,
+                    RunConditionRoundAsync,
+                    ex => LogLoopFailure("condition", ex));
+                _isRunning = true;
+                ConfigService.Saved += OnConfigSaved;
+
+                await EvaluateLoopsAsync(_stopSource.Token).ConfigureAwait(false);
+                _startupBackupsTask = RunStartupBackupsAsync(_stopSource.Token);
             }
-
-            _isRunning = true;
-
-            EvaluateTimers();
-            ConfigService.Saved += OnConfigSaved;
-
-            CheckStartupBackups();
-        }
-
-        public static void Stop()
-        {
-            ConfigService.Saved -= OnConfigSaved;
-
-            StopScheduleTimer();
-            StopConditionTimer();
-
-            _conditionStates.Clear();
-
-            lock (_runStateLock)
+            catch
             {
-                _activeConfigRuns.Clear();
-                _activeFolderRuns.Clear();
+                ConfigService.Saved -= OnConfigSaved;
+                _isRunning = false;
+                _stopSource?.Cancel();
+                if (_scheduleLoop is not null)
+                    await _scheduleLoop.StopAsync().ConfigureAwait(false);
+                if (_conditionLoop is not null)
+                    await _conditionLoop.StopAsync().ConfigureAwait(false);
+                _stopSource?.Dispose();
+                _stopSource = null;
+                _scheduleLoop = null;
+                _conditionLoop = null;
+                throw;
             }
-
-            _isRunning = false;
+            finally
+            {
+                _lifecycleGate.Release();
+            }
         }
 
-        private static void CheckStartupBackups()
+        public static async Task StopAsync(CancellationToken cancellationToken = default)
         {
-            var now = DateTime.Now;
-
-            foreach (var config in GetBackupConfigs())
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                if (config?.Automation == null || !config.Automation.AutoBackupEnabled || !config.Automation.RunOnAppStart)
+                if (!_isRunning)
+                    return;
+
+                _isRunning = false;
+                ConfigService.Saved -= OnConfigSaved;
+                _stopSource?.Cancel();
+
+                if (_scheduleLoop is not null)
+                    await _scheduleLoop.StopAsync().ConfigureAwait(false);
+                if (_conditionLoop is not null)
+                    await _conditionLoop.StopAsync().ConfigureAwait(false);
+                await _startupBackupsTask.ConfigureAwait(false);
+
+                _conditionStates.Clear();
+                lock (_runStateLock)
                 {
-                    continue;
+                    _activeConfigRuns.Clear();
+                    _activeFolderRuns.Clear();
                 }
 
-                _ = Task.Run(() => QueueAutoBackupAsync(
-                    config,
-                    now,
-                    I18n.GetString("AutoBackup_Reason_AppStart"),
-                    isScheduledTrigger: false,
-                    targetFolder: null,
-                    updateAutomationState: true));
+                _stopSource?.Dispose();
+                _stopSource = null;
+                _scheduleLoop = null;
+                _conditionLoop = null;
+                _startupBackupsTask = Task.CompletedTask;
+            }
+            finally
+            {
+                _lifecycleGate.Release();
             }
         }
 
-        // ── Timer lifecycle ─────────────────────────────────────────
-
-        private static bool HasConditionalConfigs()
+        private static async Task RunStartupBackupsAsync(CancellationToken cancellationToken)
         {
-            return GetBackupConfigs()
-                .Any(c => c?.Automation?.AutoBackupEnabled == true &&
-                          c.Automation.ConditionalModeEnabled &&
-                          c.Automation.ConditionType == AutomationConditionType.FileUnlocked);
+            try
+            {
+                var configs = await CaptureStartupConfigsAsync(cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                var tasks = configs.Select(config => QueueAutoBackupAsync(
+                    config.Config,
+                    I18n.GetString("AutoBackup_Reason_AppStart"),
+                    config.TargetFolder,
+                    config.RequiresSingleFolder,
+                    updateAutomationState: true));
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                LogLoopFailure("startup", ex);
+            }
         }
 
-        private static bool HasScheduledOrIntervalConfigs()
+        // ── Loop lifecycle ──────────────────────────────────────────
+
+        private static async Task EvaluateLoopsAsync(CancellationToken cancellationToken)
         {
-            return GetBackupConfigs()
-                .Any(c => c?.Automation?.AutoBackupEnabled == true &&
-                          (c.Automation.ScheduledMode || c.Automation.IntervalMode));
-        }
+            var requirements = await CaptureLoopRequirementsAsync(cancellationToken).ConfigureAwait(false);
+            if (_conditionLoop is not null)
+            {
+                if (requirements.NeedsConditionLoop)
+                    await _conditionLoop.StartAsync(_stopSource?.Token ?? cancellationToken).ConfigureAwait(false);
+                else
+                    await _conditionLoop.StopAsync().ConfigureAwait(false);
+            }
 
-        private static void EvaluateTimers()
-        {
-            var needConditional = HasConditionalConfigs();
-            var needScheduleOrInterval = HasScheduledOrIntervalConfigs();
-
-            if (needConditional && !_conditionTimerEnabled)
-                StartConditionTimer();
-            else if (!needConditional && _conditionTimerEnabled)
-                StopConditionTimer();
-
-            if (needScheduleOrInterval && !_scheduleTimerEnabled)
-                StartScheduleTimer();
-            else if (!needScheduleOrInterval && _scheduleTimerEnabled)
-                StopScheduleTimer();
-        }
-
-        private static void StartScheduleTimer()
-        {
-            _scheduleTimer = new Timer(OnTick, null, TimeSpan.Zero, TimeSpan.FromSeconds(60));
-            _scheduleTimerEnabled = true;
-        }
-
-        private static void StopScheduleTimer()
-        {
-            _scheduleTimer?.Dispose();
-            _scheduleTimer = null;
-            _scheduleTimerEnabled = false;
-        }
-
-        private static void StartConditionTimer()
-        {
-            _conditionTimer = new Timer(OnConditionTick, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
-            _conditionTimerEnabled = true;
-        }
-
-        private static void StopConditionTimer()
-        {
-            _conditionTimer?.Dispose();
-            _conditionTimer = null;
-            _conditionTimerEnabled = false;
+            if (_scheduleLoop is not null)
+            {
+                if (requirements.NeedsScheduleLoop)
+                    await _scheduleLoop.StartAsync(_stopSource?.Token ?? cancellationToken).ConfigureAwait(false);
+                else
+                    await _scheduleLoop.StopAsync().ConfigureAwait(false);
+            }
         }
 
         private static void OnConfigSaved()
         {
-            EvaluateTimers();
+            _ = RefreshLoopRequirementsAsync();
         }
 
-        // ── Timer tick handlers ─────────────────────────────────────
-
-        private static async void OnTick(object? state)
+        private static async Task RefreshLoopRequirementsAsync()
         {
-            if (!await _tickLock.WaitAsync(0))
-            {
-                return;
-            }
-
             try
             {
-                var now = DateTime.Now;
-                var utcNow = DateTime.UtcNow;
-
-                foreach (var config in GetBackupConfigs())
+                await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+                try
                 {
-                    if (config?.Automation == null)
-                    {
-                        continue;
-                    }
-
-                    var automation = config.Automation;
-                    automation.Normalize(config.SourceFolders);
-
-                    if (!automation.AutoBackupEnabled)
-                    {
-                        continue;
-                    }
-
-                    bool scheduledTriggered = false;
-
-                    if (automation.ScheduledMode)
-                    {
-                        foreach (var entry in automation.ScheduleEntries)
-                        {
-                            if (!entry.ShouldTriggerNow(now))
-                            {
-                                continue;
-                            }
-
-                            if (entry.LastTriggeredUtc != DateTime.MinValue &&
-                                (utcNow - entry.LastTriggeredUtc) < TimeSpan.FromMinutes(2))
-                            {
-                                continue;
-                            }
-
-                            string desc = FormatScheduleDescription(entry);
-                            _ = Task.Run(() => QueueAutoBackupAsync(
-                                config,
-                                now,
-                                I18n.Format("AutoBackup_Reason_Scheduled", desc),
-                                isScheduledTrigger: true,
-                                targetFolder: null,
-                                updateAutomationState: true));
-                            entry.LastTriggeredUtc = utcNow;
-                            scheduledTriggered = true;
-                            break;
-                        }
-                    }
-
-                    if (scheduledTriggered || !automation.IntervalMode)
-                    {
-                        continue;
-                    }
-
-                    var intervalMinutes = Math.Clamp(automation.IntervalMinutes, 1, 10080);
-                    var lastUtc = automation.LastAutoBackupUtc;
-                    var due = lastUtc == DateTime.MinValue || (utcNow - lastUtc) >= TimeSpan.FromMinutes(intervalMinutes);
-
-                    if (!due)
-                    {
-                        continue;
-                    }
-
-                    _ = Task.Run(() => QueueAutoBackupAsync(
-                        config,
-                        now,
-                        I18n.Format("AutoBackup_Reason_Interval", intervalMinutes),
-                        isScheduledTrigger: false,
-                        targetFolder: null,
-                        updateAutomationState: true));
+                    if (_isRunning && _stopSource is { IsCancellationRequested: false })
+                        await EvaluateLoopsAsync(_stopSource.Token).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _lifecycleGate.Release();
                 }
             }
-            finally
+            catch (OperationCanceledException) when (_stopSource?.IsCancellationRequested != false)
             {
-                _tickLock.Release();
+            }
+            catch (Exception ex)
+            {
+                LogLoopFailure("configuration refresh", ex);
             }
         }
 
-        private static async void OnConditionTick(object? state)
+        private static void LogLoopFailure(string loopName, Exception exception)
         {
-            if (!await _conditionTickLock.WaitAsync(0))
+            LogService.LogError(
+                $"[AutomationService] The {loopName} loop iteration failed: {exception.Message}",
+                nameof(AutomationService),
+                exception);
+        }
+
+        // ── Loop iterations ─────────────────────────────────────────
+
+        /// <summary>
+        /// 调度/间隔轮询（每 60 秒）：先处理计划任务条目，同一配置每轮只触发
+        /// 第一个命中的条目且 2 分钟内不重复触发；计划已触发则本轮跳过间隔判断。
+        /// 间隔模式按"距上次自动备份的分钟数"到期触发，间隔被钳制在 1–10080 分钟。
+        /// 周期循环串行等待本轮备份完成，慢任务不会与下一轮重叠。
+        /// </summary>
+        private static async Task RunScheduleRoundAsync(CancellationToken cancellationToken)
+        {
+            var nowLocal = _timeProvider.GetLocalNow().LocalDateTime;
+            var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+            var configs = await CaptureScheduleConfigsAsync(cancellationToken).ConfigureAwait(false);
+            var backupTasks = new List<Task>();
+
+            foreach (var config in configs)
             {
-                return;
+                cancellationToken.ThrowIfCancellationRequested();
+                var decision = AutomationSchedulePolicy.Evaluate(
+                    nowLocal,
+                    utcNow,
+                    config.ScheduledMode,
+                    config.ScheduleEntries,
+                    config.IntervalMode,
+                    config.IntervalMinutes,
+                    config.LastAutoBackupUtc);
+                if (decision.Kind == AutomationTriggerKind.None)
+                    continue;
+
+                string reason;
+                if (decision.Kind == AutomationTriggerKind.Scheduled)
+                {
+                    await MarkScheduleTriggeredAsync(
+                        config.Config.Id,
+                        decision.ScheduleEntryIndex,
+                        utcNow,
+                        cancellationToken).ConfigureAwait(false);
+                    reason = I18n.Format(
+                        "AutoBackup_Reason_Scheduled",
+                        FormatScheduleDescription(config.ScheduleEntries[decision.ScheduleEntryIndex]));
+                }
+                else
+                {
+                    reason = I18n.Format("AutoBackup_Reason_Interval", decision.IntervalMinutes);
+                }
+
+                backupTasks.Add(QueueAutoBackupAsync(
+                    config.Config,
+                    reason,
+                    config.TargetFolder,
+                    config.RequiresSingleFolder,
+                    updateAutomationState: true));
             }
 
-            try
+            await Task.WhenAll(backupTasks).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 条件轮询（每 10 秒）：按"配置|文件夹|相对路径"三元组跟踪条件文件的状态
+        /// （Missing/Locked/Unlocked），仅在状态迁移时动作（Locked→Unlocked 触发备份）；
+        /// 首次观测只记录基线不触发。轮末清理不再活跃的三元组，防止配置删除后残留。
+        /// </summary>
+        private static async Task RunConditionRoundAsync(CancellationToken cancellationToken)
+        {
+            var configs = await CaptureConditionConfigsAsync(cancellationToken).ConfigureAwait(false);
+            var activeStateKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var backupTasks = new List<Task>();
+
+            foreach (var config in configs)
             {
-                var activeStateKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                foreach (var config in GetBackupConfigs())
+                foreach (var folder in config.Folders)
                 {
-                    if (config?.Automation == null)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var stateKey = BuildConditionStateKey(config.Config.Id, folder.Path, config.RelativePath);
+                    activeStateKeys.Add(stateKey);
+                    var filePath = TryBuildConditionFilePath(folder, config.RelativePath);
+                    var transition = _conditionStates.Observe(stateKey, EvaluateConditionFileState(filePath));
+                    if (transition == AutomationConditionTransition.BecameUnlocked)
                     {
-                        continue;
-                    }
-
-                    var automation = config.Automation;
-                    automation.Normalize(config.SourceFolders);
-
-                    if (!automation.AutoBackupEnabled ||
-                        !automation.ConditionalModeEnabled ||
-                        automation.ConditionType != AutomationConditionType.FileUnlocked)
-                    {
-                        continue;
-                    }
-
-                    string relativePath = NormalizeConditionRelativePath(automation.ConditionRelativePath);
-                    if (string.IsNullOrWhiteSpace(relativePath))
-                    {
-                        continue;
-                    }
-
-                    foreach (var folder in ResolveConditionFolders(config))
-                    {
-                        string stateKey = BuildConditionStateKey(config.Id, folder.Path, relativePath);
-                        activeStateKeys.Add(stateKey);
-
-                        string? conditionFilePath = TryBuildConditionFilePath(folder, relativePath);
-                        var currentState = EvaluateConditionFileState(conditionFilePath);
-
-                        if (!_conditionStates.TryGetValue(stateKey, out var previousState))
-                        {
-                            _conditionStates[stateKey] = currentState;
-                            continue;
-                        }
-
-                        if (previousState == currentState)
-                        {
-                            continue;
-                        }
-
-                        _conditionStates[stateKey] = currentState;
-
-                        await HandleConditionStateChangedAsync(
-                            config,
+                        LogService.Log(I18n.Format(
+                            "AutoBackup_Log_ConditionUnlocked",
+                            config.Config.Name,
+                            GetFolderDisplayName(folder),
+                            config.RelativePath));
+                        backupTasks.Add(QueueAutoBackupAsync(
+                            config.Config,
+                            I18n.Format("AutoBackup_Reason_FileUnlocked", config.RelativePath),
                             folder,
-                            relativePath,
-                            previousState,
-                            currentState);
+                            requiresSingleFolder: false,
+                            updateAutomationState: config.UpdateAutomationState));
+                    }
+                    else if (transition == AutomationConditionTransition.BecameLocked)
+                    {
+                        LogService.Log(I18n.Format(
+                            "AutoBackup_Log_ConditionLocked",
+                            config.Config.Name,
+                            GetFolderDisplayName(folder),
+                            config.RelativePath));
                     }
                 }
+            }
 
-                CleanupConditionStates(activeStateKeys);
-            }
-            finally
-            {
-                _conditionTickLock.Release();
-            }
+            _conditionStates.RetainOnly(activeStateKeys);
+            await Task.WhenAll(backupTasks).ConfigureAwait(false);
         }
 
-        private static IReadOnlyList<BackupConfig> GetBackupConfigs()
+        private static Task<LoopRequirements> CaptureLoopRequirementsAsync(CancellationToken cancellationToken)
+            => UiDispatcherService.RunOnUiAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var configs = ConfigService.CurrentConfig?.BackupConfigs ?? [];
+                var needsConditionLoop = configs.Any(config =>
+                    config?.Automation is
+                    {
+                        AutoBackupEnabled: true,
+                        ConditionalModeEnabled: true,
+                        ConditionType: AutomationConditionType.FileUnlocked
+                    });
+                var needsScheduleLoop = configs.Any(config =>
+                    config?.Automation?.AutoBackupEnabled == true
+                    && (config.Automation.ScheduledMode || config.Automation.IntervalMode));
+                return Task.FromResult(new LoopRequirements(needsScheduleLoop, needsConditionLoop));
+            });
+
+        private static Task<IReadOnlyList<AutomationInvocationSnapshot>> CaptureStartupConfigsAsync(
+            CancellationToken cancellationToken)
+            => UiDispatcherService.RunOnUiAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                IReadOnlyList<AutomationInvocationSnapshot> snapshots =
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? [])
+                    .Where(config => config?.Automation is { AutoBackupEnabled: true, RunOnAppStart: true })
+                    .Select(CreateInvocationSnapshot)
+                    .ToArray();
+                return Task.FromResult(snapshots);
+            });
+
+        private static Task<IReadOnlyList<ScheduleConfigSnapshot>> CaptureScheduleConfigsAsync(
+            CancellationToken cancellationToken)
+            => UiDispatcherService.RunOnUiAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                IReadOnlyList<ScheduleConfigSnapshot> snapshots =
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? [])
+                    .Where(config => config?.Automation?.AutoBackupEnabled == true)
+                    .Select(config =>
+                    {
+                        config.Automation.Normalize(config.SourceFolders);
+                        var invocation = CreateInvocationSnapshot(config);
+                        return new ScheduleConfigSnapshot(
+                            config,
+                            invocation.TargetFolder,
+                            invocation.RequiresSingleFolder,
+                            config.Automation.ScheduledMode,
+                            config.Automation.ScheduleEntries.Select(entry => new AutomationScheduleCandidate(
+                                entry.MonthSelection,
+                                entry.DaySelection,
+                                entry.Hour,
+                                entry.Minute,
+                                entry.LastTriggeredUtc)).ToArray(),
+                            config.Automation.IntervalMode,
+                            config.Automation.IntervalMinutes,
+                            config.Automation.LastAutoBackupUtc);
+                    })
+                    .ToArray();
+                return Task.FromResult(snapshots);
+            });
+
+        private static Task<IReadOnlyList<ConditionConfigSnapshot>> CaptureConditionConfigsAsync(
+            CancellationToken cancellationToken)
+            => UiDispatcherService.RunOnUiAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                IReadOnlyList<ConditionConfigSnapshot> snapshots =
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? [])
+                    .Where(config => config?.Automation is
+                    {
+                        AutoBackupEnabled: true,
+                        ConditionalModeEnabled: true,
+                        ConditionType: AutomationConditionType.FileUnlocked
+                    })
+                    .Select(config =>
+                    {
+                        config.Automation.Normalize(config.SourceFolders);
+                        return new ConditionConfigSnapshot(
+                            config,
+                            NormalizeConditionRelativePath(config.Automation.ConditionRelativePath),
+                            ResolveConditionFolders(config).ToArray(),
+                            config.Automation.Scope == AutomationScope.SingleFolder);
+                    })
+                    .Where(snapshot => !string.IsNullOrWhiteSpace(snapshot.RelativePath))
+                    .ToArray();
+                return Task.FromResult(snapshots);
+            });
+
+        private static AutomationInvocationSnapshot CreateInvocationSnapshot(BackupConfig config)
         {
-            var configs = ConfigService.CurrentConfig?.BackupConfigs;
-            return configs == null ? Array.Empty<BackupConfig>() : configs.ToList();
+            config.Automation.Normalize(config.SourceFolders);
+            var requiresSingleFolder = config.Automation.Scope == AutomationScope.SingleFolder;
+            return new AutomationInvocationSnapshot(
+                config,
+                requiresSingleFolder ? ResolveSingleTargetFolder(config) : null,
+                requiresSingleFolder);
+        }
+
+        private static async Task MarkScheduleTriggeredAsync(
+            string configId,
+            int scheduleEntryIndex,
+            DateTime triggeredUtc,
+            CancellationToken cancellationToken)
+        {
+            var result = await ConfigService.UpdateAndSaveAsync(current =>
+            {
+                var liveConfig = current.BackupConfigs.FirstOrDefault(config =>
+                    string.Equals(config.Id, configId, StringComparison.OrdinalIgnoreCase));
+                if (liveConfig is null
+                    || scheduleEntryIndex < 0
+                    || scheduleEntryIndex >= liveConfig.Automation.ScheduleEntries.Count)
+                    return;
+                liveConfig.Automation.ScheduleEntries[scheduleEntryIndex].LastTriggeredUtc = triggeredUtc;
+            }, cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (!result.Success)
+            {
+                LogService.LogWarning(
+                    $"Failed to persist scheduled automation trigger for '{configId}': {result.ErrorMessage}",
+                    nameof(AutomationService));
+            }
         }
 
         private static IEnumerable<ManagedFolder> ResolveConditionFolders(BackupConfig config)
@@ -365,24 +477,23 @@ namespace FolderRewind.Services
                 string.Equals(folder.Path, targetFolderPath, StringComparison.OrdinalIgnoreCase));
         }
 
+        /// <summary>
+        /// 排队执行一次自动备份：SingleFolder 作用域先解析目标文件夹（缺失即放弃），
+        /// 再经 TryEnterRunState 互斥进入运行态，执行完毕 finally 释放。
+        /// </summary>
         private static async Task QueueAutoBackupAsync(
             BackupConfig config,
-            DateTime nowLocal,
             string reason,
-            bool isScheduledTrigger,
             ManagedFolder? targetFolder,
+            bool requiresSingleFolder,
             bool updateAutomationState)
         {
             ManagedFolder? effectiveTargetFolder = targetFolder;
 
-            if (effectiveTargetFolder == null && config.Automation.Scope == AutomationScope.SingleFolder)
+            if (effectiveTargetFolder == null && requiresSingleFolder)
             {
-                effectiveTargetFolder = ResolveSingleTargetFolder(config);
-                if (effectiveTargetFolder == null)
-                {
-                    LogService.Log(I18n.Format("AutoBackup_Log_SingleTargetMissing", config.Name));
-                    return;
-                }
+                LogService.Log(I18n.Format("AutoBackup_Log_SingleTargetMissing", config.Name));
+                return;
             }
 
             if (!TryEnterRunState(config, effectiveTargetFolder))
@@ -394,9 +505,7 @@ namespace FolderRewind.Services
             {
                 await RunAutoBackupAsync(
                     config,
-                    nowLocal,
                     reason,
-                    isScheduledTrigger,
                     effectiveTargetFolder,
                     updateAutomationState);
             }
@@ -406,6 +515,11 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 尝试进入自动备份运行态（配置级与文件夹级互斥）：
+        /// 整配置运行（targetFolder=null）要求该配置没有任何进行中的运行；
+        /// 单文件夹运行要求配置级无运行且同文件夹无运行。已占用时返回 false 静默放弃。
+        /// </summary>
         private static bool TryEnterRunState(BackupConfig config, ManagedFolder? targetFolder)
         {
             lock (_runStateLock)
@@ -436,6 +550,9 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 退出运行态，释放对应的配置级或文件夹级占用。
+        /// </summary>
         private static void ExitRunState(BackupConfig config, ManagedFolder? targetFolder)
         {
             lock (_runStateLock)
@@ -454,54 +571,6 @@ namespace FolderRewind.Services
         private static string BuildFolderRunKey(string configId, string? folderPath)
         {
             return $"{configId}|{folderPath?.Trim() ?? string.Empty}";
-        }
-
-        private static async Task HandleConditionStateChangedAsync(
-            BackupConfig config,
-            ManagedFolder folder,
-            string conditionRelativePath,
-            ConditionFileState previousState,
-            ConditionFileState currentState)
-        {
-            if (previousState == ConditionFileState.Locked && currentState == ConditionFileState.Unlocked)
-            {
-                LogService.Log(I18n.Format(
-                    "AutoBackup_Log_ConditionUnlocked",
-                    config.Name,
-                    GetFolderDisplayName(folder),
-                    conditionRelativePath));
-
-                bool updateAutomationState = config.Automation.Scope == AutomationScope.SingleFolder;
-
-                _ = Task.Run(() => QueueAutoBackupAsync(
-                    config,
-                    DateTime.Now,
-                    I18n.Format("AutoBackup_Reason_FileUnlocked", conditionRelativePath),
-                    isScheduledTrigger: false,
-                    targetFolder: folder,
-                    updateAutomationState: updateAutomationState));
-                return;
-            }
-
-            if (previousState == ConditionFileState.Unlocked && currentState == ConditionFileState.Locked)
-            {
-                LogService.Log(I18n.Format(
-                    "AutoBackup_Log_ConditionLocked",
-                    config.Name,
-                    GetFolderDisplayName(folder),
-                    conditionRelativePath));
-            }
-        }
-
-        private static void CleanupConditionStates(HashSet<string> activeKeys)
-        {
-            foreach (var existingKey in _conditionStates.Keys)
-            {
-                if (!activeKeys.Contains(existingKey))
-                {
-                    _conditionStates.TryRemove(existingKey, out _);
-                }
-            }
         }
 
         private static string BuildConditionStateKey(string configId, string? folderPath, string relativePath)
@@ -530,6 +599,10 @@ namespace FolderRewind.Services
             return normalized.TrimStart(Path.DirectorySeparatorChar);
         }
 
+        /// <summary>
+        /// 在文件夹根内解析条件文件路径：拒绝根路径输入，展开后必须仍位于文件夹根内
+        /// （路径穿越守卫），否则返回 null。
+        /// </summary>
         private static string? TryBuildConditionFilePath(ManagedFolder folder, string relativePath)
         {
             if (folder == null || string.IsNullOrWhiteSpace(folder.Path) || string.IsNullOrWhiteSpace(relativePath))
@@ -563,30 +636,32 @@ namespace FolderRewind.Services
             }
         }
 
-        private static ConditionFileState EvaluateConditionFileState(string? filePath)
+        private static AutomationConditionFileState EvaluateConditionFileState(string? filePath)
         {
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             {
-                return ConditionFileState.Missing;
+                return AutomationConditionFileState.Missing;
             }
 
             return FileLockService.IsFileLocked(filePath)
-                ? ConditionFileState.Locked
-                : ConditionFileState.Unlocked;
+                ? AutomationConditionFileState.Locked
+                : AutomationConditionFileState.Unlocked;
         }
 
-        private static string FormatScheduleDescription(ScheduleEntry entry)
+        private static string FormatScheduleDescription(AutomationScheduleCandidate entry)
         {
             string month = entry.MonthSelection == 0 ? "*" : entry.MonthSelection.ToString();
             string day = entry.DaySelection == 0 ? "*" : entry.DaySelection.ToString();
             return $"{month}/{day} {entry.Hour:D2}:{entry.Minute:D2}";
         }
 
+        /// <summary>
+        /// 执行一次自动备份并更新自动化状态：记录 LastAutoBackupUtc、应用无变化停用策略、
+        /// 保存配置；异常只记录与通知，不向外抛出。
+        /// </summary>
         private static async Task RunAutoBackupAsync(
             BackupConfig config,
-            DateTime nowLocal,
             string reason,
-            bool isScheduledTrigger,
             ManagedFolder? targetFolder,
             bool updateAutomationState)
         {
@@ -611,22 +686,34 @@ namespace FolderRewind.Services
 
             try
             {
-                bool hadChanges = targetFolder == null
+                var result = targetFolder == null
                     ? await BackupService.BackupConfigAsync(config, BackupInvocationOptions.ForAutomatic())
                     : await BackupService.BackupFolderAsync(
                         config,
                         targetFolder,
                         invocationOptions: BackupInvocationOptions.ForAutomatic());
 
+                LogService.Log($"Automatic backup '{config.Name}': {result.ProtocolResult} ({result.Outcome}).");
                 if (updateAutomationState)
                 {
-                    config.Automation.LastAutoBackupUtc = DateTime.UtcNow;
-                    if (isScheduledTrigger)
+                    var saveResult = await ConfigService.UpdateAndSaveAsync(current =>
                     {
-                    }
+                        var liveConfig = current.BackupConfigs.FirstOrDefault(item =>
+                            string.Equals(item.Id, config.Id, StringComparison.OrdinalIgnoreCase));
+                        if (liveConfig is null)
+                        {
+                            return;
+                        }
 
-                    ApplyNoChangeStopPolicy(config, hadChanges);
-                    ConfigService.Save();
+                        liveConfig.Automation.LastAutoBackupUtc = _timeProvider.GetUtcNow().UtcDateTime;
+                        ApplyNoChangeStopPolicy(liveConfig, result);
+                    }).ConfigureAwait(false);
+                    if (!saveResult.Success)
+                    {
+                        LogService.LogWarning(
+                            $"Failed to persist automation state for '{config.Name}': {saveResult.ErrorMessage}",
+                            nameof(AutomationService));
+                    }
                 }
             }
             catch (Exception ex)
@@ -642,21 +729,21 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void ApplyNoChangeStopPolicy(BackupConfig config, bool hadChanges)
+        /// <summary>
+        /// 无变化停用策略：连续 N 次自动备份都无变更时自动关闭该配置的自动备份。
+        /// 例外：任一源文件夹的 level.dat（Minecraft 存档锁文件）仍被锁定时本轮跳过停用
+        /// ——游戏仍在运行、变更大概率还会出现，待下一轮再检查。
+        /// </summary>
+        private static void ApplyNoChangeStopPolicy(BackupConfig config, BackupOperationResult result)
         {
             if (!config.Automation.StopAfterNoChangeEnabled)
             {
                 return;
             }
 
-            if (hadChanges)
-            {
-                config.Automation.ConsecutiveNoChangeCount = 0;
-                return;
-            }
-
-            config.Automation.ConsecutiveNoChangeCount++;
-            if (config.Automation.ConsecutiveNoChangeCount < config.Automation.StopAfterNoChangeCount)
+            config.Automation.ConsecutiveNoChangeCount = result.NextNoChangeCount(config.Automation.ConsecutiveNoChangeCount);
+            if (!result.CanStopForNoChanges
+                || config.Automation.ConsecutiveNoChangeCount < config.Automation.StopAfterNoChangeCount)
             {
                 return;
             }
@@ -690,6 +777,29 @@ namespace FolderRewind.Services
 
             config.Automation.ConsecutiveNoChangeCount = 0;
         }
+
+        private sealed record LoopRequirements(bool NeedsScheduleLoop, bool NeedsConditionLoop);
+
+        private sealed record AutomationInvocationSnapshot(
+            BackupConfig Config,
+            ManagedFolder? TargetFolder,
+            bool RequiresSingleFolder);
+
+        private sealed record ScheduleConfigSnapshot(
+            BackupConfig Config,
+            ManagedFolder? TargetFolder,
+            bool RequiresSingleFolder,
+            bool ScheduledMode,
+            IReadOnlyList<AutomationScheduleCandidate> ScheduleEntries,
+            bool IntervalMode,
+            int IntervalMinutes,
+            DateTime LastAutoBackupUtc);
+
+        private sealed record ConditionConfigSnapshot(
+            BackupConfig Config,
+            string RelativePath,
+            IReadOnlyList<ManagedFolder> Folders,
+            bool UpdateAutomationState);
 
         private static string GetFolderDisplayName(ManagedFolder folder)
         {

@@ -1,9 +1,9 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -13,11 +13,6 @@ namespace FolderRewind.Services
 {
     public static class CloudOnboardingService
     {
-        private const string RcloneOwner = "rclone";
-        private const string RcloneRepo = "rclone";
-        private const string OpenListOwner = "OpenListTeam";
-        private const string OpenListRepo = "OpenList";
-
         public static IReadOnlyList<CloudOnboardingProviderOption> GetProviderOptions()
         {
             return new[]
@@ -48,12 +43,7 @@ namespace FolderRewind.Services
                 progress?.Report(I18n.GetString("CloudOnboarding_Status_Start"));
 
                 var rclonePath = await EnsureToolAsync(
-                    RcloneOwner,
-                    RcloneRepo,
                     "rclone",
-                    "rclone.exe",
-                    SelectRcloneAsset,
-                    I18n.GetString("CloudOnboarding_Status_DownloadRclone"),
                     progress,
                     ct).ConfigureAwait(false);
 
@@ -61,27 +51,21 @@ namespace FolderRewind.Services
                 if (provider.RequiresOpenList)
                 {
                     openListPath = await EnsureToolAsync(
-                        OpenListOwner,
-                        OpenListRepo,
                         "openlist",
-                        "openlist.exe",
-                        SelectOpenListAsset,
-                        I18n.GetString("CloudOnboarding_Status_DownloadOpenList"),
                         progress,
                         ct).ConfigureAwait(false);
                 }
 
                 progress?.Report(I18n.GetString("CloudOnboarding_Status_SaveSettings"));
-                ApplyRclonePath(rclonePath, provider.SuggestedRemoteBasePath);
-
-                OpenGuidance(rclonePath, openListPath);
+                await ApplyToolPathsAsync(rclonePath, openListPath, ct).ConfigureAwait(false);
 
                 var message = provider.RequiresOpenList
                     ? I18n.Format("CloudOnboarding_Success_WithOpenList", provider.DisplayName, rclonePath, openListPath, provider.SuggestedRemoteBasePath)
                     : I18n.Format("CloudOnboarding_Success_RcloneOnly", provider.DisplayName, rclonePath, provider.SuggestedRemoteBasePath);
 
                 LogService.LogInfo(I18n.Format("CloudOnboarding_Log_Success", provider.Id, rclonePath, openListPath), nameof(CloudOnboardingService));
-                NotificationService.ShowSuccess(message, I18n.GetString("CloudOnboarding_Title"), 10000);
+                message += Environment.NewLine + I18n.GetString("Onboarding_ToolsPrepared");
+                NotificationService.ShowInfo(message, I18n.GetString("CloudOnboarding_Title"), 10000);
 
                 return new CloudOnboardingResult
                 {
@@ -124,143 +108,50 @@ namespace FolderRewind.Services
             };
         }
 
-        private static async Task<string> EnsureToolAsync(
-            string owner,
-            string repo,
-            string toolDirectoryName,
-            string executableFileName,
-            Func<IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset>, GitHubReleaseService.GitHubReleaseAsset?> assetSelector,
-            string downloadStatus,
-            IProgress<string>? progress,
-            CancellationToken ct)
-        {
-            progress?.Report(downloadStatus);
-
-            var release = await GitHubReleaseService.GetLatestReleaseAsync(owner, repo, ct).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(release.ErrorMessage))
-            {
-                throw new InvalidOperationException(release.ErrorMessage);
-            }
-
-            var tagName = string.IsNullOrWhiteSpace(release.TagName) ? "latest" : SanitizePathSegment(release.TagName);
-            var installDir = Path.Combine(ConfigService.ConfigDirectory, "tools", toolDirectoryName, tagName);
-            var existingExecutable = FindExecutable(installDir, executableFileName);
-            if (!string.IsNullOrWhiteSpace(existingExecutable))
-            {
-                LogService.LogInfo(I18n.Format("CloudOnboarding_Log_ReuseTool", toolDirectoryName, existingExecutable), nameof(CloudOnboardingService));
-                return existingExecutable;
-            }
-
-            var asset = assetSelector(release.Assets)
-                ?? throw new InvalidOperationException(I18n.Format("CloudOnboarding_AssetMissing", repo));
-
-            var downloadDir = Path.Combine(ConfigService.ConfigDirectory, "tools", "_downloads");
-            Directory.CreateDirectory(downloadDir);
-            Directory.CreateDirectory(installDir);
-
-            var zipPath = Path.Combine(downloadDir, $"{Guid.NewGuid():N}-{asset.Name}");
-            try
-            {
-                var bytes = await GitHubReleaseService.DownloadAssetAsync(asset.DownloadUrl, ct).ConfigureAwait(false);
-                await File.WriteAllBytesAsync(zipPath, bytes, ct).ConfigureAwait(false);
-
-                // Release 包通常自带一层版本目录。递归查找 exe，避免把资产内部结构写死。
-                ZipFile.ExtractToDirectory(zipPath, installDir, overwriteFiles: true);
-                var executable = FindExecutable(installDir, executableFileName);
-                if (string.IsNullOrWhiteSpace(executable))
-                {
-                    throw new FileNotFoundException(I18n.Format("CloudOnboarding_ExecutableMissing", executableFileName), installDir);
-                }
-
-                LogService.LogInfo(I18n.Format("CloudOnboarding_Log_ToolInstalled", toolDirectoryName, release.TagName ?? "latest", executable), nameof(CloudOnboardingService));
-                return executable;
-            }
-            finally
-            {
-                try { File.Delete(zipPath); } catch { }
-            }
-        }
-
-        private static GitHubReleaseService.GitHubReleaseAsset? SelectRcloneAsset(IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> assets)
-        {
-            var arch = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "windows-arm64" : "windows-amd64";
-            return assets.FirstOrDefault(asset =>
-                asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                && asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private static GitHubReleaseService.GitHubReleaseAsset? SelectOpenListAsset(IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> assets)
-        {
-            var arch = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "windows-arm64" : "windows-amd64";
-            var candidates = assets
-                .Where(asset =>
-                    asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                    && asset.Name.Contains(arch, StringComparison.OrdinalIgnoreCase)
-                    && !asset.Name.Contains("windows7", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            return candidates.FirstOrDefault(asset => !asset.Name.Contains("lite", StringComparison.OrdinalIgnoreCase))
-                ?? candidates.FirstOrDefault();
-        }
-
-        private static string FindExecutable(string directory, string executableFileName)
-        {
-            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
-            {
-                return string.Empty;
-            }
-
-            return Directory
-                .EnumerateFiles(directory, executableFileName, SearchOption.AllDirectories)
-                .FirstOrDefault() ?? string.Empty;
-        }
-
-        private static void ApplyRclonePath(string rclonePath, string suggestedRemoteBasePath)
+        private static Task<string> EnsureToolAsync(string tool, IProgress<string>? progress, CancellationToken ct)
         {
             var settings = ConfigService.CurrentConfig.GlobalSettings;
-            settings.RcloneExecutablePath = rclonePath;
-            if (!string.IsNullOrWhiteSpace(suggestedRemoteBasePath)
-                && string.Equals(settings.DefaultCloudRemoteBasePath, "remote:FolderRewind", StringComparison.OrdinalIgnoreCase))
-            {
-                // 只在默认占位值时替换，避免覆盖用户已有 remote 名称。
-                settings.DefaultCloudRemoteBasePath = suggestedRemoteBasePath;
-            }
-
-            ConfigService.Save();
+            var configuredPath = tool == "rclone" ? settings.RcloneExecutablePath : settings.OpenListRuntime.ExecutablePath;
+            return OnboardingToolInstaller.EnsureAsync(tool, configuredPath,
+                Path.Combine(ConfigService.ConfigDirectory, "tools"), RuntimeInformation.OSArchitecture,
+                OnboardingToolInstaller.PathCandidates(tool + ".exe", Environment.GetEnvironmentVariable("PATH"))
+                    .Concat(AppPathCandidates(tool + ".exe")),
+                (asset, token) => GitHubReleaseService.DownloadVerifiedAssetAsync(asset.Url, asset.Sha256, token),
+                ToolExecutableVerifier.VerifyAsync,
+                message => { progress?.Report(message); LogService.LogInfo(message, nameof(CloudOnboardingService)); }, ct);
         }
 
-        private static void OpenGuidance(string rclonePath, string openListPath)
+        private static IEnumerable<string> AppPathCandidates(string executableName)
         {
-            var rcloneDir = Path.GetDirectoryName(rclonePath) ?? ConfigService.ConfigDirectory;
-            if (!ShellPathService.TryOpenCommandPromptAt(rcloneDir, out var cmdError))
+            var paths = new List<string>();
+            foreach (var hive in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
             {
-                LogService.LogWarning(I18n.Format("CloudOnboarding_Log_OpenCommandPromptFailed", cmdError ?? string.Empty), nameof(CloudOnboardingService));
-            }
-
-            if (!string.IsNullOrWhiteSpace(openListPath))
-            {
-                var openListDir = Path.GetDirectoryName(openListPath) ?? ConfigService.ConfigDirectory;
-                if (!ShellPathService.TryOpenPath(openListDir, out var openListError))
+                try
                 {
-                    LogService.LogWarning(I18n.Format("CloudOnboarding_Log_OpenOpenListFolderFailed", openListError ?? string.Empty), nameof(CloudOnboardingService));
+                    using var root = RegistryKey.OpenBaseKey(hive, view);
+                    using var key = root.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" + executableName);
+                    if (key?.GetValue(null) is string path) paths.Add(path.Trim().Trim('"'));
                 }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException) { }
             }
-
-            if (!ShellPathService.TryOpenPath(OfficialLinksService.GetCloudGuideUrl(), out var guideError))
-            {
-                LogService.LogWarning(I18n.Format("CloudOnboarding_Log_OpenGuideFailed", guideError ?? string.Empty), nameof(CloudOnboardingService));
-            }
+            return paths;
         }
 
-        private static string SanitizePathSegment(string value)
-        {
-            var safe = string.IsNullOrWhiteSpace(value) ? "latest" : value.Trim();
-            foreach (var c in Path.GetInvalidFileNameChars())
+        private static Task ApplyToolPathsAsync(string rclonePath, string openListPath, CancellationToken token)
+            => UiDispatcherService.RunOnUiAsync(async () =>
             {
-                safe = safe.Replace(c, '_');
-            }
-
-            return string.IsNullOrWhiteSpace(safe) ? "latest" : safe;
-        }
+                var settings = ConfigService.CurrentConfig.GlobalSettings;
+                var previousRclone = settings.RcloneExecutablePath;
+                var openList = settings.OpenListRuntime;
+                var previousOpenList = openList.ExecutablePath;
+                await ConfigEditTransaction.ApplyAsync(() =>
+                    {
+                        settings.RcloneExecutablePath = rclonePath;
+                        if (openListPath.Length != 0) openList.ExecutablePath = openListPath;
+                    },
+                    () => { settings.RcloneExecutablePath = previousRclone; openList.ExecutablePath = previousOpenList; },
+                    () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"), token);
+            });
     }
 }

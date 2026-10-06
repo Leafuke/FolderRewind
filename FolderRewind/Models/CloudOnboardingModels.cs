@@ -24,5 +24,9 @@ namespace FolderRewind.Models
         public string OpenListExecutablePath { get; init; } = string.Empty;
 
         public bool OpenListInstalled => !string.IsNullOrWhiteSpace(OpenListExecutablePath);
+
+        // Success 仅表示工具准备动作；连接必须单独检查。
+        public OnboardingCheckState ConnectionState => Success
+            ? OnboardingCheckState.NeedsInput : OnboardingCheckState.Unknown;
     }
 }

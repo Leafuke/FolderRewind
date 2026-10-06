@@ -22,12 +22,10 @@ public sealed class FolderRenameServiceTests
         ConfigService.CurrentConfig = new AppConfig();
         ConfigService.SaveResults.Clear();
         ConfigService.BeforeSave = null;
-        HistoryService.SaveResults.Clear();
-        HistoryService.GetEntriesForConfigCallCount = 0;
     }
 
     [TestMethod]
-    public void ExecuteMovePlanMovesAllTypedDirectories()
+    public async Task ExecuteMovePlanMovesAllTypedDirectories()
     {
         string root = CreateRoot();
         string source = CreateDirectory(root, "source-old");
@@ -37,7 +35,7 @@ public sealed class FolderRenameServiceTests
         string backupNew = Path.Combine(root, "backup-new");
         string metadataNew = Path.Combine(root, "metadata-new");
 
-        var result = FolderRenameService.ExecuteMovePlan(
+        var result = await FolderRenameService.ExecuteMovePlanAsync(
         [
             Move(source, sourceNew, FolderMoveOperationKind.SourceFolder),
             Move(backup, backupNew, FolderMoveOperationKind.BackupDirectory),
@@ -51,13 +49,13 @@ public sealed class FolderRenameServiceTests
     }
 
     [TestMethod]
-    public void ExistingDestinationFailsBeforeAnyMove()
+    public async Task ExistingDestinationFailsBeforeAnyMove()
     {
         string root = CreateRoot();
         string source = CreateDirectory(root, "source");
         string destination = CreateDirectory(root, "destination");
 
-        var result = FolderRenameService.ExecuteMovePlan(
+        var result = await FolderRenameService.ExecuteMovePlanAsync(
         [
             Move(source, destination, FolderMoveOperationKind.SourceFolder)
         ]);
@@ -93,7 +91,7 @@ public sealed class FolderRenameServiceTests
     }
 
     [TestMethod]
-    public void DisplayAndHistoryNamesOnlyChangeWhenTheyMatchOldIdentity()
+    public void DisplayNameOnlyChangesWhenItMatchesOldIdentity()
     {
         Assert.AreEqual(
             "renamed",
@@ -101,18 +99,6 @@ public sealed class FolderRenameServiceTests
         Assert.AreEqual(
             "custom",
             FolderRenameService.ResolveUpdatedDisplayName("custom", "old", "renamed"));
-        Assert.AreEqual(
-            "new-storage",
-            FolderRenameService.ResolveUpdatedHistoryFolderName(
-                "old-storage",
-                "old-storage",
-                "new-storage"));
-        Assert.AreEqual(
-            "custom-storage",
-            FolderRenameService.ResolveUpdatedHistoryFolderName(
-                "custom-storage",
-                "old-storage",
-                "new-storage"));
     }
 
     [TestMethod]
@@ -134,25 +120,6 @@ public sealed class FolderRenameServiceTests
         Assert.IsFalse(Directory.Exists(setup.NewPath));
         Assert.AreEqual(setup.OldPath, setup.Folder.Path);
         Assert.AreEqual("world", setup.Folder.DisplayName);
-    }
-
-    [TestMethod]
-    public async Task HistorySaveFailureRollsBackBeforeConfigIsPublished()
-    {
-        var setup = CreateRenameSetup();
-        HistoryService.SaveResults.Enqueue(new HistorySaveResult
-        {
-            Success = false,
-            ErrorMessage = "injected history failure"
-        });
-        HistoryService.SaveResults.Enqueue(new HistorySaveResult { Success = true });
-
-        var result = await FolderRenameService.RenameAsync(setup.Folder, "renamed");
-
-        Assert.IsFalse(result.Success);
-        Assert.IsTrue(result.RollbackSucceeded);
-        Assert.IsTrue(Directory.Exists(setup.OldPath));
-        Assert.AreEqual(setup.OldPath, setup.Folder.Path);
     }
 
     [TestMethod]
@@ -194,77 +161,6 @@ public sealed class FolderRenameServiceTests
 
         Assert.AreEqual("new", File.ReadAllText(destination));
         Assert.IsEmpty(Directory.GetFiles(root, "*.tmp"));
-    }
-
-    [TestMethod]
-    public void CachedPreviewRevalidatesWithoutRescanningHistory()
-    {
-        var setup = CreateRenameSetup();
-        var initial = FolderRenameService.PreviewRename(setup.Folder, "world");
-        int callsAfterInitialPreview = HistoryService.GetEntriesForConfigCallCount;
-
-        var updated = FolderRenameService.PreviewRenameWithCachedImpact(
-            setup.Folder,
-            "renamed",
-            initial);
-
-        Assert.IsTrue(updated.IsValid);
-        Assert.AreEqual(
-            callsAfterInitialPreview,
-            HistoryService.GetEntriesForConfigCallCount);
-        Assert.AreEqual(initial.AffectedConfigCount, updated.AffectedConfigCount);
-    }
-
-    [TestMethod]
-    public void HistoryIdentityUpdateIsIsolatedByConfigAndOldStorageIdentity()
-    {
-        string oldPath = Path.Combine(CreateRoot(), "world");
-        string newPath = Path.Combine(Path.GetDirectoryName(oldPath)!, "renamed");
-        var firstConfig = new BackupConfig { Id = "config-a" };
-        var secondConfig = new BackupConfig { Id = "config-b" };
-        var references = new[]
-        {
-            Reference(
-                firstConfig,
-                oldPath,
-                newPath,
-                oldStorage: "world",
-                newStorage: "renamed"),
-            Reference(
-                secondConfig,
-                oldPath,
-                newPath,
-                oldStorage: "custom",
-                newStorage: "custom")
-        };
-
-        Assert.IsTrue(FolderRenameService.TryResolveHistoryIdentityUpdate(
-            "config-a",
-            oldPath,
-            "world",
-            references,
-            out string firstPath,
-            out string firstName));
-        Assert.AreEqual(newPath, firstPath);
-        Assert.AreEqual("renamed", firstName);
-
-        Assert.IsTrue(FolderRenameService.TryResolveHistoryIdentityUpdate(
-            "config-b",
-            oldPath,
-            "world",
-            references,
-            out string secondPath,
-            out string secondName));
-        Assert.AreEqual(newPath, secondPath);
-        Assert.AreEqual("world", secondName);
-
-        Assert.IsFalse(FolderRenameService.TryResolveHistoryIdentityUpdate(
-            "config-c",
-            oldPath,
-            "world",
-            references,
-            out _,
-            out _));
     }
 
     private string CreateRoot()
@@ -319,29 +215,4 @@ public sealed class FolderRenameServiceTests
             Kind = kind
         };
 
-    private static FolderRenameReferencePlan Reference(
-        BackupConfig config,
-        string oldPath,
-        string newPath,
-        string oldStorage,
-        string newStorage)
-    {
-        var folder = new ManagedFolder
-        {
-            Path = oldPath,
-            DisplayName = oldStorage
-        };
-        return new FolderRenameReferencePlan
-        {
-            ConfigId = config.Id,
-            OldPath = oldPath,
-            NewPath = newPath,
-            OldDisplayName = oldStorage,
-            NewDisplayName = newStorage,
-            OldStorageFolderName = oldStorage,
-            NewStorageFolderName = newStorage,
-            Config = config,
-            Folder = folder
-        };
-    }
 }

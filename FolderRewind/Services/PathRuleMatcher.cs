@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services;
@@ -122,7 +121,12 @@ internal sealed class PathRuleMatcher
         }
     }
 
-    public static PathRuleMatcher CreateForBackup(
+        /// <summary>
+        /// 构建备份用的匹配器：识别 regex: 前缀规则（可按设置禁用），通配符规则同时
+        /// 匹配文件名与相对路径。backupSourceRoot 与 originalSourceRoot 分离用于快照源路径
+        /// （插件热备份把源替换为快照目录后仍按原路径规则匹配）。
+        /// </summary>
+        public static PathRuleMatcher CreateForBackup(
         IEnumerable<string>? rules,
         string backupSourceRoot,
         string originalSourceRoot,
@@ -135,7 +139,10 @@ internal sealed class PathRuleMatcher
             enableRegexRules,
             matchWildcardAgainstRelativePath: true);
 
-    public static PathRuleMatcher CreateForRestore(
+        /// <summary>
+        /// 构建恢复白名单用的匹配器：不识别正则规则，通配符只匹配完整路径段（不匹配相对路径）。
+        /// </summary>
+        public static PathRuleMatcher CreateForRestore(
         IEnumerable<string>? rules,
         string comparisonRoot)
         => new(
@@ -157,9 +164,15 @@ internal sealed class PathRuleMatcher
     public static void ValidateRestoreRules(IEnumerable<string>? rules)
         => _ = CreateForRestore(rules, string.Empty);
 
-    public bool IsMatch(string candidatePath)
+        /// <summary>
+        /// 判断候选路径是否命中任一规则，按字面量 → 通配符 → 正则的顺序匹配。
+        /// 候选先换算为相对源根的路径再参与匹配；正则规则的执行带 250ms 超时
+        /// （<see cref="RegexTimeout"/>），防止病态模式拖垮备份。
+        /// </summary>
+        public bool IsMatch(string candidatePath)
     {
-        if (string.IsNullOrWhiteSpace(candidatePath))
+        if ((_literalRules.Count == 0 && _wildcardRules.Count == 0 && _regexRules.Count == 0)
+            || string.IsNullOrWhiteSpace(candidatePath))
         {
             return false;
         }
@@ -168,7 +181,8 @@ internal sealed class PathRuleMatcher
         string relativePath = TryGetRelativePath(_backupSourceRoot, fullPath);
         string fileName = Path.GetFileName(fullPath);
 
-        if (MatchesLiteralPath(fullPath)
+        if (_literalRules.Contains(fullPath) || _literalRules.Contains(relativePath)
+            || MatchesLiteralPath(fullPath)
             || (!string.IsNullOrWhiteSpace(relativePath) && MatchesLiteralPath(relativePath)))
         {
             return true;
@@ -176,7 +190,7 @@ internal sealed class PathRuleMatcher
 
         foreach (Regex wildcard in _wildcardRules)
         {
-            if ((!string.IsNullOrEmpty(fileName) && wildcard.IsMatch(NormalizePath(fileName)))
+            if ((!string.IsNullOrEmpty(fileName) && wildcard.IsMatch(fileName))
                 || (_matchWildcardAgainstRelativePath
                     && !string.IsNullOrWhiteSpace(relativePath)
                     && wildcard.IsMatch(relativePath)))
@@ -222,42 +236,26 @@ internal sealed class PathRuleMatcher
 
     private bool MatchesLiteralPath(string path)
     {
-        string normalized = NormalizePath(path);
-        if (string.IsNullOrWhiteSpace(normalized))
+        if (_literalRules.Count == 0 || path.Length == 0) return false;
+        var lookup = _literalRules.GetAlternateLookup<ReadOnlySpan<char>>();
+        var span = path.AsSpan();
+        for (var start = 0; start < span.Length; start++)
         {
-            return false;
-        }
-
-        string[] segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length == 0)
-        {
-            return false;
-        }
-
-        // Check all segment-bounded contiguous subpaths. This preserves the old
-        // boundary semantics while making lookup independent of rule count.
-        for (int start = 0; start < segments.Length; start++)
-        {
-            var builder = new StringBuilder();
-            for (int end = start; end < segments.Length; end++)
+            if (start > 0 && span[start - 1] != '/') continue;
+            for (var end = start + 1; end <= span.Length; end++)
             {
-                if (builder.Length > 0)
-                {
-                    builder.Append('/');
-                }
-
-                builder.Append(segments[end]);
-                if (_literalRules.Contains(builder.ToString()))
-                {
-                    return true;
-                }
+                if (end != span.Length && span[end] != '/') continue;
+                if (lookup.Contains(span[start..end])) return true;
             }
         }
 
         return false;
     }
 
-    private static string TryGetRelativePath(string root, string candidate)
+        /// <summary>
+        /// 计算候选路径相对根的规范化路径；候选不在根内（结果为根路径或以 ../ 开头）时返回空串。
+        /// </summary>
+        private static string TryGetRelativePath(string root, string candidate)
     {
         if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(candidate))
         {

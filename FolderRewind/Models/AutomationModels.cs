@@ -41,7 +41,7 @@ namespace FolderRewind.Models
             get
             {
                 var next = CalculateNextRun(DateTime.Now);
-                return next.HasValue ? next.Value.ToString("yyyy-MM-dd HH:mm") : "-";
+                return next.HasValue ? UserDisplayFormatter.ShortDateTime(next.Value) : "-";
             }
         }
 

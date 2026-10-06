@@ -16,6 +16,7 @@ namespace FolderRewind.Models
     public sealed class BackupConfig
     {
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        public string ConfigRevision { get; set; } = Guid.NewGuid().ToString("N");
         public string DestinationPath { get; set; } = string.Empty;
         public ObservableCollection<ManagedFolder> SourceFolders { get; set; } = [];
         public AutomationSettings Automation { get; set; } = new();
@@ -33,12 +34,6 @@ namespace FolderRewind.Models
         public GlobalSettings GlobalSettings { get; set; } = new();
     }
 
-    public sealed class HistoryItem
-    {
-        public string ConfigId { get; set; } = string.Empty;
-        public string FolderPath { get; set; } = string.Empty;
-        public string FolderName { get; set; } = string.Empty;
-    }
 }
 
 namespace FolderRewind.Services
@@ -63,47 +58,10 @@ namespace FolderRewind.Services
                 : new ConfigSaveResult { Success = true };
         }
 
+        public static Task<ConfigSaveResult> SaveAsync(bool publishSavedEvent = true, CancellationToken cancellationToken = default)
+            => Task.FromResult(SaveWithResult(publishSavedEvent));
+
         internal static void PublishSaved()
-        {
-        }
-    }
-
-    public static class HistoryService
-    {
-        public static Queue<HistorySaveResult> SaveResults { get; } = new();
-        public static int GetEntriesForConfigCallCount { get; set; }
-
-        public static void Initialize()
-        {
-        }
-
-        public static List<HistoryItem> GetEntriesForConfig(string configId)
-        {
-            GetEntriesForConfigCallCount++;
-            return [];
-        }
-
-        internal static HistoryFolderIdentityUpdate UpdateFolderIdentities(
-            IReadOnlyList<FolderRenameReferencePlan> references)
-            => new();
-
-        internal static void RestoreFolderIdentities(
-            IReadOnlyList<HistoryFolderIdentitySnapshot> snapshots)
-        {
-        }
-
-        internal static Task<HistorySaveResult> SaveNowAsync(
-            bool publishChangedEvent,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(
-                SaveResults.Count > 0
-                    ? SaveResults.Dequeue()
-                    : new HistorySaveResult { Success = true });
-        }
-
-        internal static void PublishChanged()
         {
         }
     }

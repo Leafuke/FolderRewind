@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "presetId": "minecraft-enhanced-experience",
+  "name": "Minecraft Enhanced Experience",
+  "actions": [
+    {
+      "id": "install-minerewind",
+      "type": "installBundledPlugin",
+      "pluginId": "com.folderrewind.minerewind",
+      "packagePath": "Assets/Plugins/MineRewind-1.9.8.frplugin"
+    },
+    {
+      "id": "enable-minerewind",
+      "dependsOn": ["install-minerewind"],
+      "type": "enablePlugin",
+      "pluginId": "com.folderrewind.minerewind"
+    },
+    {
+      "id": "install-knotlink-server",
+      "dependsOn": ["enable-minerewind"],
+      "type": "setupExternalIntegration",
+      "integration": "knotLinkServer",
+      "name": "KnotLink Service 3.2.0.0",
+      "url": "https://github.com/KnotLink-Protocol/KnotLinkService/releases/download/v3.2.0.0/KnotLinkService-3.2.0.0-windows-x86-Installer.exe",
+      "sha256": "968fffb74af12aa9b4c186f456b4594521d21c18faeaa57a8b5227cd9670bb12",
+      "fileName": "KnotLinkService-3.2.0.0-windows-x86-Installer.exe"
+    },
+    {
+      "id": "enable-knotlink-host",
+      "dependsOn": ["install-knotlink-server"],
+      "type": "setHostFeature",
+      "feature": "knotLink",
+      "enabled": true
+    },
+    {
+      "id": "mine-backup-reminder",
+      "type": "notice",
+      "severity": "information",
+      "messageResourceKey": "PluginPreset_Notice_MineBackupReminder"
+    }
+  ]
+}

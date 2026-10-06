@@ -1,4 +1,6 @@
 using FolderRewind.Models;
+using FolderRewind.History.Capture;
+using FolderRewind.History.Domain;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -14,39 +16,38 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
-        private static async Task<(bool Success, string? FileName)> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
+        /// <summary>
+        /// 模式 1：全量备份。压缩源目录内全部匹配文件，并返回可删除重建的 capture baseline candidate，
+        /// 仅在 Native History 提交成功后由 runtime 更新本机缓存。
+        /// </summary>
+        /// <remarks>
+        /// SkipIfUnchanged 短路需同时满足两个前提：确无变更，且缓存引用的上个归档文件仍然存在
+        /// （防止基于已被手动删除的 payload 判定"无变化"）。FileTypeRules 追加压缩失败只记警告。
+        /// </remarks>
+        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
-            BackupMetadata? oldMeta = null;
-            if (!string.IsNullOrEmpty(metaDir))
+            if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
             {
-                var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
-                oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
-                if (oldMeta == null && metadataLoadResult.StateLoadFailed)
-                {
-                    Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
-                }
+                return SourceCaptureResult.Blocked(
+                    sourceId,
+                    captureScope,
+                    "Partial capture requires an Exact parent patch and cannot be represented by CoreFull.");
             }
-
-            var currentStates = ScanDirectory(source, config.Filters);
-            var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
-
-            if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir) && oldMeta != null)
+            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
-                bool referencedBackupExists = true;
-                if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
-                {
-                    string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
-                    if (!File.Exists(referencedBackupPath))
-                    {
-                        referencedBackupExists = false;
-                        Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
-                    }
-                }
+                return SourceCaptureResult.Unavailable(sourceId, captureScope);
+            }
+            var changeSet = CompareFileStates(currentStates, baseline?.FileStates);
+
+            if (config.Archive.SkipIfUnchanged && baseline is not null)
+            {
+                bool referencedBackupExists = File.Exists(baseline.PayloadPath);
 
                 if (referencedBackupExists && !changeSet.HasChanges)
                 {
                     Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                    return (true, null);
+                    return SourceCaptureResult.NoChanges(sourceId, captureScope);
                 }
             }
 
@@ -56,17 +57,17 @@ namespace FolderRewind.Services
             // 获取加密密码
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return (false, null);
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate, selection);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -74,120 +75,116 @@ namespace FolderRewind.Services
                 }
             }
 
-            // 3. 如果成功，生成新的元数据（为后续可能的增量备份做基准）
+            // 3. 如果成功，生成 Native Representation 与下一次 capture baseline candidate。
             if (result)
             {
-                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldMeta, currentStates, changeSet, config.Filters);
-                if (!metadataSaved)
-                {
-                    return (false, null);
-                }
-
-                return (true, fileName);
+                var sevenZipExe = ResolveSevenZipExecutable();
+                return await VerifyAndCreateArchiveCaptureAsync(
+                    sourceId,
+                    captureScope,
+                    destDir,
+                    fileName,
+                    RepresentationKind.CoreFull,
+                    config.Archive.Format,
+                    currentStates,
+                    currentStates,
+                    allowDeletionMarker: false,
+                    baseline: baseline,
+                    dependencies: [],
+                    consecutiveSmartCaptures: 0,
+                    password: password,
+                    sevenZipExe: sevenZipExe,
+                    taskToUpdate: taskToUpdate).ConfigureAwait(false);
             }
-            return (false, null);
+            return SourceCaptureResult.Failed(sourceId, captureScope);
         }
 
         // --- 模式 2: 智能增量备份 ---
-        // 返回 (Success, FileName)
-        private static async Task<(bool Success, string? FileName)> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
+        // 返回归档执行结果，并显式区分无变化、不可用和失败。
+        /// <summary>
+        /// 模式 2：智能增量备份。与本机 capture baseline 对比后仅压缩有变更的文件；
+        /// 删除类变更用只含内部标记文件的"仅删除"归档表达。
+        /// </summary>
+        /// <remarks>
+        /// 三种情况强制回退为全量：baseline cache 缺失（含损坏）、缓存引用的归档文件已被删除
+        /// （增量链断裂）、或最近一次 Full 之后的 Smart 数量达到 MaxSmartBackupsPerFull 上限
+        /// （截断链条）。变更文件会先按 FileTypeRules 拆分：不匹配规则的进主列表文件，
+        /// 匹配的留给追加压缩阶段处理；若变更全部由删除构成，则跳过主压缩直接生成仅删除归档。
+        /// </remarks>
+        private static async Task<SourceCaptureResult> DoSmartBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
-            var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
-            BackupMetadata? oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
-
-            if (oldMeta == null && metadataLoadResult.StateLoadFailed)
+            if (baseline is null)
             {
-                Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
-            }
-
-            // 如果没有元数据，强制全量
-            if (oldMeta == null)
-            {
+                if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+                {
+                    return SourceCaptureResult.Blocked(
+                        sourceId,
+                        captureScope,
+                        "Partial capture requires an Exact logical baseline.");
+                }
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline: null, baseName, config, selection, comment, taskToUpdate);
             }
-
-            // 校验元数据引用的备份文件是否仍然存在
-            // 如果用户删除了最近的备份文件，增量链已断裂，应强制全量备份
-            if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
+            if (!File.Exists(baseline.PayloadPath))
             {
-                string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
-                if (!File.Exists(referencedBackupPath))
+                if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
                 {
-                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                    return SourceCaptureResult.Blocked(
+                        sourceId,
+                        captureScope,
+                        "The Exact logical parent must be prepared before partial capture.",
+                        expectedBaseVersionId: baseline.BaseVersionId);
                 }
-            }
-            if (!string.IsNullOrEmpty(oldMeta.BasedOnFullBackup) && oldMeta.BasedOnFullBackup != oldMeta.LastBackupFileName)
-            {
-                string baseBackupPath = Path.Combine(destDir, oldMeta.BasedOnFullBackup);
-                if (!File.Exists(baseBackupPath))
-                {
-                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.BasedOnFullBackup), LogLevel.Warning);
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
-                }
+                Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
             }
 
             // 2. 智能备份链长度检查（参考 MineBackup maxSmartBackupsPerFull 逻辑）
             // 当连续的增量备份数量达到上限时，强制执行全量备份以截断链条
             int maxChain = config.Archive.MaxSmartBackupsPerFull;
-            if (maxChain > 0)
+            if (maxChain > 0 && baseline.ConsecutiveSmartCaptures >= maxChain)
             {
-                bool forceFullDueToChainLimit = false;
-                try
+                if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
                 {
-                    var dirInfo = new DirectoryInfo(destDir);
-                    if (dirInfo.Exists)
-                    {
-                        // 获取所有备份文件，按时间降序排列
-                        var allBackups = dirInfo.GetFiles($"*.{config.Archive.Format}")
-                            .OrderByDescending(f => f.LastWriteTimeUtc)
-                            .ToList();
-
-                        // 从最新备份往回计数，统计最近一次 Full 备份之后的 Smart 备份数量
-                        int smartCount = 0;
-                        bool fullFound = false;
-                        foreach (var bkFile in allBackups)
-                        {
-                            if (IsFullBackupFile(bkFile, config, baseName))
-                            {
-                                fullFound = true;
-                                break;
-                            }
-                            if (IsIncrementalBackupFile(bkFile, config, baseName))
-                            {
-                                smartCount++;
-                            }
-                        }
-
-                        // 只有找到了 Full 基准且 Smart 数量已达上限时才强制全量
-                        if (fullFound && smartCount >= maxChain)
-                        {
-                            forceFullDueToChainLimit = true;
-                            Log(I18n.Format("BackupService_Log_SmartChainLimitReached", maxChain), LogLevel.Info);
-                        }
-                    }
+                    return SourceCaptureResult.Blocked(
+                        sourceId,
+                        captureScope,
+                        "Partial capture cannot truncate its dependency chain with a partial CoreFull payload.",
+                        expectedBaseVersionId: baseline.BaseVersionId);
                 }
-                catch (Exception ex)
-                {
-                    Log(I18n.Format("BackupService_Log_SmartChainCheckFailed", ex.Message), LogLevel.Warning);
-                }
-
-                if (forceFullDueToChainLimit)
-                {
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
-                }
+                Log(I18n.Format("BackupService_Log_SmartChainLimitReached", maxChain), LogLevel.Info);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
             }
 
             // 2. 扫描并对比文件（带黑名单过滤）
             Log(I18n.Format("BackupService_Log_AnalyzingDiff"), LogLevel.Info);
-            var currentStates = ScanDirectory(source, config.Filters);
-            var changeSet = CompareFileStates(currentStates, oldMeta.FileStates);
+            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
+            {
+                return SourceCaptureResult.Unavailable(sourceId, captureScope);
+            }
+            BackupChangeSet changeSet;
+            if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+            {
+                // 只在本次 captured scope 内计算删除；范围外父状态必须原样继承。
+                var scoped = ScopeAwareSourceCaptureDiff.Compute(
+                    baseline.FileStates,
+                    currentStates,
+                    path => IsWithinOperationSelection(path, selection));
+                changeSet = new BackupChangeSet();
+                changeSet.AddedFiles.AddRange(scoped.AddedFiles);
+                changeSet.ModifiedFiles.AddRange(scoped.ModifiedFiles);
+                changeSet.DeletedFiles.AddRange(scoped.DeletedFiles);
+            }
+            else
+            {
+                changeSet = CompareFileStates(currentStates, baseline.FileStates);
+            }
 
             if (!changeSet.HasChanges)
             {
                 Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                return (true, null);
+                return SourceCaptureResult.NoChanges(sourceId, captureScope);
             }
 
             var contentChangedFiles = changeSet.AddedFiles
@@ -231,7 +228,7 @@ namespace FolderRewind.Services
             var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return (false, null);
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
             bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
             bool result;
@@ -242,7 +239,7 @@ namespace FolderRewind.Services
             }
             else if (!string.IsNullOrWhiteSpace(listFile))
             {
-                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
+                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
             }
             else
             {
@@ -253,7 +250,7 @@ namespace FolderRewind.Services
             // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
             if (result && hasFileTypeRules && contentChangedFiles.Count > 0)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password, taskToUpdate);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password, taskToUpdate, selection);
                 if (!ruleResult)
                 {
                     if (string.IsNullOrWhiteSpace(listFile))
@@ -267,151 +264,310 @@ namespace FolderRewind.Services
                 }
             }
 
-            // 5. 更新元数据
             if (result)
             {
                 try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
 
                 if (!File.Exists(destFile))
                 {
-                    return (false, null);
+                    return SourceCaptureResult.Failed(sourceId, captureScope);
                 }
 
-                // 更新元数据：基准文件保持不变（指向最初的Full），LastBackup指向自己
-                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, "Smart", oldMeta, currentStates, changeSet, config.Filters);
-                if (!metadataSaved)
-                {
-                    return (false, null);
-                }
-
-                return (true, fileName);
+                var expectedDeltaStates = contentChangedFiles.ToDictionary(
+                    path => path,
+                    path => currentStates[path],
+                    StringComparer.OrdinalIgnoreCase);
+                var sevenZipExe = ResolveSevenZipExecutable();
+                return await VerifyAndCreateArchiveCaptureAsync(
+                    sourceId,
+                    captureScope,
+                    destDir,
+                    fileName,
+                    RepresentationKind.CoreSmartDelta,
+                    config.Archive.Format,
+                    currentStates,
+                    expectedDeltaStates,
+                    allowDeletionMarker: deletionOnlyChange,
+                    baseline: baseline,
+                    dependencies: [baseline.BaseRepresentationId],
+                    consecutiveSmartCaptures: checked(baseline.ConsecutiveSmartCaptures + 1),
+                    password: password,
+                    sevenZipExe: sevenZipExe,
+                    taskToUpdate: taskToUpdate,
+                    expectedBaseVersionId: baseline.BaseVersionId,
+                    deletedFiles: changeSet.DeletedFiles).ConfigureAwait(false);
             }
             else
             {
                 try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
-                return (false, null);
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
         }
 
-        // --- 模式 3: 覆写备份 ---
-        // 返回 (Success, FileName)
-        private static async Task<(bool Success, string? FileName)> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
+        // --- 模式 3: Rolling copy-on-write 备份 ---
+        /// <summary>
+        /// 从元数据指定的、已验证的自包含基线创建唯一 staging copy，在 copy 上应用增删改，
+        /// 校验通过后再以 create-once 语义安装为新归档。任何时候都不修改已提交的基线字节。
+        /// </summary>
+        /// <remarks>
+        /// 基线缺失、类型不明、缓存损坏、归档校验失败或不能证明选择范围精确时，保守回退为 Full。
+        /// </remarks>
+        private static async Task<SourceCaptureResult> DoRollingBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
-            BackupMetadata? oldMeta = null;
-            if (!string.IsNullOrEmpty(metaDir))
+            if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
             {
-                var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
-                oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
-                if (oldMeta == null && metadataLoadResult.StateLoadFailed)
-                {
-                    Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
-                }
+                return SourceCaptureResult.Blocked(
+                    sourceId,
+                    captureScope,
+                    "Partial capture must use an Exact-parent SmartDelta patch.");
+            }
+            async Task<SourceCaptureResult> FallbackToFullAsync()
+                => await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
+
+            if (baseline is null
+                || selection.Mode == BackupSourceScopeMode.Include
+                || baseline.BaseRepresentationKind is not (RepresentationKind.CoreFull or RepresentationKind.CoreRolling)
+                || !File.Exists(baseline.PayloadPath))
+            {
+                Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
+                return await FallbackToFullAsync();
             }
 
-            var currentStates = ScanDirectory(source, config.Filters);
-            var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
+            string baselinePath = baseline.PayloadPath;
+            string baselineFileName = Path.GetFileName(baselinePath);
 
-            // 1. 寻找最近的备份文件
-            var dirInfo = new DirectoryInfo(destDir);
-            var files = dirInfo.GetFiles($"*.{config.Archive.Format}")
-                               .OrderByDescending(f => f.LastWriteTime)
-                               .ToList();
-
-            if (files.Count == 0)
+            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
-                Log(I18n.Format("BackupService_Log_NoExistingBackupFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
 
-            FileInfo targetFile = files[0];
-            Log(I18n.Format("BackupService_Log_OverwriteUpdating", targetFile.Name), LogLevel.Info);
+            var changeSet = CompareFileStates(currentStates, baseline.FileStates);
+            if (config.Archive.SkipIfUnchanged && !changeSet.HasChanges)
+            {
+                Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
+                return SourceCaptureResult.NoChanges(sourceId, captureScope);
+            }
 
-            // 2. 执行 update 命令 (u)（带黑名单过滤 + 自定义文件类型排除）
-            // 7z u <archive_name> <file_names>
-            // u 指令会更新已存在的文件并添加新文件
-            var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return (false, null);
-            }
-            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
-
-            // 2.5 自定义文件类型追加压缩
-            if (result && config.Archive.FileTypeHandlingEnabled)
-            {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, targetFile.FullName, config.Archive, null, config.Filters, password, taskToUpdate);
-                if (!ruleResult)
-                {
-                    Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
-                }
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
 
-            string? resultingFileName = null;
-
-            if (result)
+            string? sevenZipExe = ResolveSevenZipExecutable();
+            if (string.IsNullOrWhiteSpace(sevenZipExe)
+                || !await ValidateRestoreChainAsync(new List<FileInfo> { new(baselinePath) }, sevenZipExe, password, taskToUpdate).ConfigureAwait(false))
             {
-                // 3. 重命名文件以更新时间戳 (参考 MineBackup 逻辑)
-                // 假设文件名格式包含 [YYYY-MM-DD...]，我们要替换它
-                string oldName = targetFile.Name;
-                string newTimeStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                Log(I18n.Format("BackupService_Log_RestoreIntegrityArchiveCheckFailed", baselineFileName), LogLevel.Warning);
+                return await FallbackToFullAsync();
+            }
 
-                // 使用正则表达式精确匹配时间戳部分
-                string newName = oldName;
-                var timeRegex = new Regex(@"\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]");
-                var match = timeRegex.Match(oldName);
+            string finalFileName = CreateUniqueRollingFileName(destDir, baseName, config.Archive.Format, comment);
+            string finalPath = Path.Combine(destDir, finalFileName);
+            string? changedListFile = null;
+            string? deletedListFile = null;
+            bool committed = false;
 
-                if (match.Success)
-                {
-                    newName = oldName.Substring(0, match.Index) + $"[{newTimeStr}]" + oldName.Substring(match.Index + match.Length);
-                }
-                else
-                {
-                    // 如果格式不对，就重新构造名字，保留类型前缀与后缀
-                    string extension = Path.GetExtension(oldName);
-                    // 去掉已存在的方括号信息尽量简化构造
-                    string simpleBase = baseName;
-                    newName = GenerateFileName(simpleBase, config.Archive.Format, "Overwrite", comment);
-                }
+            try
+            {
+                using var transaction = RollingArchiveTransaction.Create(baselinePath, destDir);
+                Log(I18n.Format("BackupService_Log_RollingUpdating", baselineFileName), LogLevel.Info);
 
-                resultingFileName = newName;
+                var changedFiles = changeSet.AddedFiles
+                    .Concat(changeSet.ModifiedFiles)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var fileTypeRules = config.Archive.FileTypeRules;
+                bool hasFileTypeRules = config.Archive.FileTypeHandlingEnabled
+                    && fileTypeRules != null
+                    && fileTypeRules.Count > 0;
+                var fileTypeMatchers = hasFileTypeRules
+                    ? CompileFileTypeWildcardPatterns(fileTypeRules!.Select(rule => rule.Pattern))
+                    : Array.Empty<Regex>();
+                var mainChangedFiles = hasFileTypeRules
+                    ? changedFiles.Where(path => !MatchesAnyFileTypePattern(path, fileTypeMatchers)).ToList()
+                    : changedFiles;
 
-                if (newName != oldName)
+                bool updated = true;
+                if (mainChangedFiles.Count > 0)
                 {
-                    string newPath = Path.Combine(destDir, newName);
-                    try
-                    {
-                        File.Move(targetFile.FullName, newPath);
-                        Log(I18n.Format("BackupService_Log_RenamedTo", newName), LogLevel.Info);
-                    }
-                    catch { /* 忽略重命名错误 */ resultingFileName = targetFile.Name; }
-                }
-                else
-                {
-                    resultingFileName = oldName;
-                }
-
-                if (!string.IsNullOrWhiteSpace(resultingFileName))
-                {
-                    bool metadataSaved = await UpdateMetadataAsync(
+                    changedListFile = Path.GetTempFileName();
+                    await File.WriteAllLinesAsync(changedListFile, mainChangedFiles, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)).ConfigureAwait(false);
+                    updated = await Run7zCommandAsync(
+                        "u",
                         source,
-                        metaDir,
-                        resultingFileName,
-                        resultingFileName,
-                        "Overwrite",
-                        oldMeta,
-                        currentStates,
-                        changeSet,
-                        config.Filters);
-                    if (!metadataSaved)
-                    {
-                        return (false, null);
-                    }
+                        transaction.StagingPath,
+                        config.Archive,
+                        password,
+                        changedListFile,
+                        filters: null,
+                        fileTypeExclusions: null,
+                        taskToUpdate,
+                        applyAdditionalArguments: true).ConfigureAwait(false);
                 }
-            }
 
-            return (result, resultingFileName ?? targetFile.Name);
+                if (updated && hasFileTypeRules && changedFiles.Count > 0)
+                {
+                    updated = await RunFileTypeRulePassesAsync(
+                        source,
+                        transaction.StagingPath,
+                        config.Archive,
+                        changedFiles,
+                        filters: null,
+                        password,
+                        taskToUpdate).ConfigureAwait(false);
+                }
+
+                if (updated && changeSet.DeletedFiles.Count > 0)
+                {
+                    deletedListFile = Path.GetTempFileName();
+                    await File.WriteAllLinesAsync(deletedListFile, changeSet.DeletedFiles, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)).ConfigureAwait(false);
+                    updated = await Run7zCommandAsync(
+                        "d",
+                        source,
+                        transaction.StagingPath,
+                        config.Archive,
+                        password,
+                        deletedListFile,
+                        filters: null,
+                        fileTypeExclusions: null,
+                        taskToUpdate).ConfigureAwait(false);
+                }
+
+                bool exactArchiveState = updated
+                    && await ValidateRestoreChainAsync(new List<FileInfo> { new(transaction.StagingPath) }, sevenZipExe, password, taskToUpdate).ConfigureAwait(false)
+                    && await ValidateArchiveLogicalStateAsync(sevenZipExe, transaction.StagingPath, password, currentStates).ConfigureAwait(false);
+                if (!exactArchiveState)
+                {
+                    transaction.Dispose();
+                    return await FallbackToFullAsync();
+                }
+
+                transaction.Commit(finalPath);
+                committed = true;
+
+                return CreateArchiveCapture(
+                    sourceId,
+                    captureScope,
+                    destDir,
+                    finalFileName,
+                    RepresentationKind.CoreRolling,
+                    config.Archive.Format,
+                    currentStates,
+                    baseline,
+                    dependencies: [],
+                    consecutiveSmartCaptures: 0);
+            }
+            catch (Exception ex)
+            {
+                Log($"[Rolling] {ex.Message}", LogLevel.Error);
+                if (committed)
+                {
+                    try { File.Delete(finalPath); } catch { }
+                }
+                return SourceCaptureResult.Failed(sourceId, captureScope);
+            }
+            finally
+            {
+                try { if (!string.IsNullOrWhiteSpace(changedListFile)) File.Delete(changedListFile); } catch { }
+                try { if (!string.IsNullOrWhiteSpace(deletedListFile)) File.Delete(deletedListFile); } catch { }
+            }
         }
 
+        private static bool IsWithinOperationSelection(string relativePath, BackupSourceScope selection)
+            => selection.Mode == BackupSourceScopeMode.All
+                || BackupSourceScopePatternSet.Compile(selection.IncludePatterns).IsMatch(relativePath);
+
+        private static async Task<SourceCaptureResult> VerifyAndCreateArchiveCaptureAsync(
+            SourceId sourceId,
+            FolderRewind.History.Domain.CaptureScope captureScope,
+            string destinationDirectory,
+            string fileName,
+            RepresentationKind kind,
+            string format,
+            IReadOnlyDictionary<string, SourceCaptureFileState> currentStates,
+            IReadOnlyDictionary<string, SourceCaptureFileState> expectedArchiveStates,
+            bool allowDeletionMarker,
+            SourceCaptureBaseline? baseline,
+            IEnumerable<RepresentationId> dependencies,
+            int consecutiveSmartCaptures,
+            string? password,
+            string? sevenZipExe,
+            BackupTask? taskToUpdate,
+            VersionId? expectedBaseVersionId = null,
+            IEnumerable<string>? deletedFiles = null)
+        {
+            var archivePath = Path.GetFullPath(Path.Combine(destinationDirectory, fileName));
+            var verified = !string.IsNullOrWhiteSpace(sevenZipExe)
+                && File.Exists(archivePath)
+                && await ValidateRestoreChainAsync(
+                    [new FileInfo(archivePath)],
+                    sevenZipExe,
+                    password,
+                    taskToUpdate).ConfigureAwait(false)
+                && await ValidateArchiveLogicalStateAsync(
+                    sevenZipExe,
+                    archivePath,
+                    password,
+                    expectedArchiveStates,
+                    allowDeletionMarker).ConfigureAwait(false);
+            if (!verified)
+            {
+                TryDeleteUncommittedArchive(archivePath);
+                return SourceCaptureResult.Failed(
+                    sourceId,
+                    captureScope,
+                    I18n.GetString("BackupService_HistoryCaptureVerificationFailed"));
+            }
+
+            return CreateArchiveCapture(
+                sourceId,
+                captureScope,
+                destinationDirectory,
+                fileName,
+                kind,
+                format,
+                currentStates,
+                baseline,
+                dependencies,
+                consecutiveSmartCaptures,
+                expectedBaseVersionId,
+                deletedFiles);
+        }
+
+        private static void TryDeleteUncommittedArchive(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return;
+                File.SetAttributes(path, FileAttributes.Normal);
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log($"[History] Failed to clean an uncommitted archive: {ex.Message}", LogLevel.Warning);
+            }
+        }
+
+
+
+        private static string CreateUniqueRollingFileName(string destinationDirectory, string baseName, string format, string comment)
+        {
+            string candidate = GenerateFileName(baseName, format, "Rolling", comment);
+            if (!File.Exists(Path.Combine(destinationDirectory, candidate)))
+            {
+                return candidate;
+            }
+
+            string extension = Path.GetExtension(candidate);
+            string stem = Path.GetFileNameWithoutExtension(candidate);
+            return $"{stem}-{Guid.NewGuid():N}{extension}";
+        }
+
+        /// <summary>
+        /// 创建"仅删除"归档：只包含一个内部标记文件（不含任何用户数据），
+        /// 恢复阶段据此识别该历史点的变更全部为文件删除。临时目录在 finally 中尽力清理。
+        /// </summary>
         private static async Task<bool> CreateDeletionOnlyArchiveAsync(string archivePath, ArchiveSettings settings, string? password, BackupTask? taskToUpdate)
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind_DeleteOnly_" + Guid.NewGuid().ToString("N"));

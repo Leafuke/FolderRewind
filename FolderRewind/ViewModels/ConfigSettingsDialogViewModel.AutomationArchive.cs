@@ -121,7 +121,7 @@ namespace FolderRewind.ViewModels
             {
                 if (!ConditionalModeEnabled)
                 {
-                    return I18n.GetString("ConfigSettingsDialog_ConditionalModeDesc");
+                    return I18n.GetString("ConfigSettingsDialog_ConditionalModeDesc.Text");
                 }
 
                 if (string.IsNullOrWhiteSpace(ConditionRelativePathText))
@@ -139,24 +139,19 @@ namespace FolderRewind.ViewModels
         }
 
         public IReadOnlyList<string> PerformancePresetOptions { get; } =
-        [
-            I18n.GetString("ConfigSettingsDialog_PerformancePreset_Auto"),
-            I18n.GetString("ConfigSettingsDialog_PerformancePreset_Light"),
-            I18n.GetString("ConfigSettingsDialog_PerformancePreset_VeryLight"),
-            I18n.GetString("ConfigSettingsDialog_PerformancePreset_Custom")
-        ];
+            BackupPerformancePolicy.Presets.Select(item => I18n.GetString(item.NameKey)).ToArray();
 
-        public int LightPerformanceThreadCount => Math.Max(1, _cpuThreadMax / 2);
+        public int LightPerformanceThreadCount => BackupPerformancePolicy.LightThreads(_cpuThreadMax);
 
-        public int VeryLightPerformanceThreadCount => Math.Min(2, Math.Max(1, _cpuThreadMax));
+        public int VeryLightPerformanceThreadCount => BackupPerformancePolicy.VeryLightThreads(_cpuThreadMax);
 
         public int PerformancePresetSelectedIndex
         {
             get => DerivePerformancePresetIndex();
-            set => ApplyPerformancePreset(value);
+            set => PerformanceChoice = value;
         }
 
-        public string PerformancePresetDescription => I18n.GetString("ConfigSettingsDialog_PerformancePresetDesc");
+        public string PerformancePresetDescription => I18n.GetString(SelectedPerformancePreset.DescriptionKey);
 
         public double CpuThreadsValue
         {

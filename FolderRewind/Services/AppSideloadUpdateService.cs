@@ -49,7 +49,8 @@ namespace FolderRewind.Services
                 Path.GetTempPath(),
                 "FolderRewind",
                 "AppUpdate",
-                $"{DateTime.Now:yyyyMMdd_HHmmss}_{SanitizePathPart(update.LatestVersion)}");
+                FormattableString.Invariant(
+                    $"{DateTime.Now:yyyyMMdd_HHmmss}_{SanitizePathPart(update.LatestVersion)}"));
 
             Directory.CreateDirectory(workingRoot);
 

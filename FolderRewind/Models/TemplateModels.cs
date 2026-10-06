@@ -92,7 +92,46 @@ namespace FolderRewind.Models
         }
     }
 
-    public class ConfigTemplate : ObservableObject
+    public enum BackupPresetDiscoverySourceKind
+    {
+        InlinePathRules = 0,
+        ProviderReference = 1
+    }
+
+    public class BackupPresetDiscoverySource : ObservableObject
+    {
+        private BackupPresetDiscoverySourceKind _kind;
+        private string _providerId = string.Empty;
+        private string _definitionId = string.Empty;
+        private ObservableCollection<TemplatePathRule> _pathRules = new();
+        private Dictionary<string, string> _externalIds = new(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, string> _properties = new(StringComparer.OrdinalIgnoreCase);
+
+        public BackupPresetDiscoverySourceKind Kind { get => _kind; set => SetProperty(ref _kind, value); }
+        public string ProviderId { get => _providerId; set => SetProperty(ref _providerId, value?.Trim() ?? string.Empty); }
+        public string DefinitionId { get => _definitionId; set => SetProperty(ref _definitionId, value?.Trim() ?? string.Empty); }
+        public ObservableCollection<TemplatePathRule> PathRules
+        {
+            get => _pathRules;
+            set => SetProperty(ref _pathRules, value ?? new ObservableCollection<TemplatePathRule>());
+        }
+        public Dictionary<string, string> ExternalIds
+        {
+            get => _externalIds;
+            set => SetProperty(ref _externalIds, value == null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(value, StringComparer.OrdinalIgnoreCase));
+        }
+        public Dictionary<string, string> Properties
+        {
+            get => _properties;
+            set => SetProperty(ref _properties, value == null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(value, StringComparer.OrdinalIgnoreCase));
+        }
+    }
+
+    public class BackupPreset : ObservableObject
     {
         private string _id = Guid.NewGuid().ToString("N");
         private string _shareId = Guid.NewGuid().ToString("N");
@@ -103,7 +142,8 @@ namespace FolderRewind.Models
         private string _gameName = string.Empty;
         private int? _steamAppId;
         private string _version = "1.0";
-        private string _baseConfigType = "Default";
+        private int _schemaVersion = 1;
+        private ConfigKindReference _kind = new();
         private bool _isEncrypted;
         private string _iconGlyph = "\uE8B7";
         private string _defaultConfigName = string.Empty;
@@ -114,9 +154,11 @@ namespace FolderRewind.Models
         private FilterSettings _filters = new();
         private BackupScopeSettings _backupScope = new();
         private CloudSettings _cloud = new();
-        private Dictionary<string, string> _extendedProperties = new();
         private ObservableCollection<string> _requiredPluginIds = new();
         private ObservableCollection<TemplatePathRule> _pathRules = new();
+        private ObservableCollection<BackupPresetDiscoverySource> _discoverySources = new();
+        private bool _isBuiltIn;
+        private bool _isRecommended;
 
         public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
         public string ShareId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
@@ -127,7 +169,10 @@ namespace FolderRewind.Models
         public string GameName { get => _gameName; set => SetProperty(ref _gameName, value ?? string.Empty); }
         public int? SteamAppId { get => _steamAppId; set => SetProperty(ref _steamAppId, value); }
         public string Version { get => _version; set => SetProperty(ref _version, value ?? "1.0"); }
-        public string BaseConfigType { get => _baseConfigType; set => SetProperty(ref _baseConfigType, value ?? "Default"); }
+        public int SchemaVersion { get => _schemaVersion; set => SetProperty(ref _schemaVersion, value); }
+        public ConfigKindReference Kind { get => _kind; set => SetProperty(ref _kind, value ?? new ConfigKindReference()); }
+        [JsonIgnore]
+        public string KindDisplay => $"{Kind.OwnerId}/{Kind.KindId}";
         public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value ?? string.Empty); }
         public string DefaultConfigName { get => _defaultConfigName; set => SetProperty(ref _defaultConfigName, value ?? string.Empty); }
@@ -164,22 +209,54 @@ namespace FolderRewind.Models
             set => SetProperty(ref _cloud, value ?? new CloudSettings());
         }
 
-        public Dictionary<string, string> ExtendedProperties
-        {
-            get => _extendedProperties;
-            set => SetProperty(ref _extendedProperties, value ?? new Dictionary<string, string>());
-        }
-
         public ObservableCollection<string> RequiredPluginIds
         {
             get => _requiredPluginIds;
             set => SetProperty(ref _requiredPluginIds, value ?? new ObservableCollection<string>());
         }
 
+        public Dictionary<string, PresetProviderDefaults> ProviderDefaults { get; set; } =
+            new(StringComparer.OrdinalIgnoreCase);
+
         public ObservableCollection<TemplatePathRule> PathRules
         {
             get => _pathRules;
             set => SetProperty(ref _pathRules, value ?? new ObservableCollection<TemplatePathRule>());
+        }
+
+        public ObservableCollection<BackupPresetDiscoverySource> DiscoverySources
+        {
+            get => _discoverySources;
+            set => SetProperty(ref _discoverySources, value ?? new ObservableCollection<BackupPresetDiscoverySource>());
+        }
+
+        [JsonIgnore]
+        public bool IsBuiltIn { get => _isBuiltIn; set => SetProperty(ref _isBuiltIn, value); }
+        public bool IsRecommended { get => _isRecommended; set => SetProperty(ref _isRecommended, value); }
+
+        public void NormalizeDiscoverySources()
+        {
+            DiscoverySources ??= new ObservableCollection<BackupPresetDiscoverySource>();
+            PathRules ??= new ObservableCollection<TemplatePathRule>();
+
+            var inlineSource = DiscoverySources.FirstOrDefault(source =>
+                source?.Kind == BackupPresetDiscoverySourceKind.InlinePathRules);
+            if (inlineSource == null && PathRules.Count > 0)
+            {
+                DiscoverySources.Insert(0, new BackupPresetDiscoverySource
+                {
+                    Kind = BackupPresetDiscoverySourceKind.InlinePathRules,
+                    PathRules = PathRules
+                });
+            }
+            else if (inlineSource != null)
+            {
+                inlineSource.PathRules ??= new ObservableCollection<TemplatePathRule>();
+                if (PathRules.Count == 0)
+                {
+                    PathRules = inlineSource.PathRules;
+                }
+            }
         }
     }
 
@@ -218,11 +295,22 @@ namespace FolderRewind.Models
         public string Magic { get; set; } = string.Empty;
         public string SchemaVersion { get; set; } = string.Empty;
         public DateTime ExportedAtUtc { get; set; } = DateTime.UtcNow;
-        public ConfigTemplate Template { get; set; } = new();
+        public BackupPreset Template { get; set; } = new();
+    }
+
+    public class BackupPresetShareEnvelope
+    {
+        public string Magic { get; set; } = string.Empty;
+        public string SchemaVersion { get; set; } = string.Empty;
+        public DateTime ExportedAtUtc { get; set; } = DateTime.UtcNow;
+        public BackupPreset Preset { get; set; } = new();
     }
 
     public class RemoteTemplateIndexItem
     {
+        [JsonPropertyName("shareId")]
+        public string ShareId { get; set; } = string.Empty;
+
         [JsonPropertyName("shareCode")]
         public string ShareCode { get; set; } = string.Empty;
 
@@ -259,11 +347,23 @@ namespace FolderRewind.Models
         [JsonPropertyName("fileUrl")]
         public string FileUrl { get; set; } = string.Empty;
 
+        [JsonPropertyName("contentPath")]
+        public string ContentPath { get; set; } = string.Empty;
+
+        [JsonPropertyName("matches")]
+        public ObservableCollection<RemoteBackupPresetMatchKey> Matches { get; set; } = new();
+
+        [JsonPropertyName("isRecommended")]
+        public bool IsRecommended { get; set; }
+
         [JsonPropertyName("sha256")]
         public string Sha256 { get; set; } = string.Empty;
 
         [JsonPropertyName("isDisabled")]
         public bool IsDisabled { get; set; }
+
+        [JsonIgnore]
+        public bool IsV2 { get; set; }
 
         [JsonIgnore]
         public string DisplayName
@@ -278,6 +378,33 @@ namespace FolderRewind.Models
                 return Name;
             }
         }
+    }
+
+    public class RemoteBackupPresetMatchKey
+    {
+        [JsonPropertyName("providerId")]
+        public string ProviderId { get; set; } = string.Empty;
+
+        [JsonPropertyName("definitionId")]
+        public string DefinitionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("externalIds")]
+        public Dictionary<string, string> ExternalIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public class RemoteBackupPresetIndexDocument
+    {
+        [JsonPropertyName("magic")]
+        public string Magic { get; set; } = string.Empty;
+
+        [JsonPropertyName("schemaVersion")]
+        public string SchemaVersion { get; set; } = string.Empty;
+
+        [JsonPropertyName("generatedAtUtc")]
+        public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
+
+        [JsonPropertyName("presets")]
+        public ObservableCollection<RemoteTemplateIndexItem> Presets { get; set; } = new();
     }
 
     public class RemoteTemplateIndexDocument

@@ -119,7 +119,12 @@ namespace FolderRewind.Services
 
             if (value.IndexOf(Path.DirectorySeparatorChar) >= 0
                 || value.IndexOf(Path.AltDirectorySeparatorChar) >= 0
-                || value.IndexOf('\0') >= 0)
+                || value.IndexOf('\0') >= 0
+                // Windows 将冒号解释为 NTFS Alternate Data Stream 分隔符，不能只依赖 Path.GetFileName。
+                || value.IndexOf(':') >= 0
+                || value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || value.EndsWith(' ')
+                || value.EndsWith('.'))
             {
                 return false;
             }

@@ -1,0 +1,8 @@
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="en-US">
+  <String Id="NewerVersion" Value="A newer version of FolderRewind is already installed.">
+  </String>
+  <String Id="MainFeature" Value="FolderRewind application">
+  </String>
+  <String Id="DesktopFeature" Value="Create a desktop shortcut">
+  </String>
+</WixLocalization>

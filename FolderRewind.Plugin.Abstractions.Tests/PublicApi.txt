@@ -1,0 +1,789 @@
+# Reviewed public API baseline for Plugin API 3.8.0. Ordinally sorted signatures; update only after review.
+C public FolderRewind.Plugin.Abstractions.AddFolderChange(FolderRewind.Plugin.Abstractions.FolderDraft Folder)
+C public FolderRewind.Plugin.Abstractions.ArtifactContentHandle(System.String value)
+C public FolderRewind.Plugin.Abstractions.ArtifactFileEntry(System.String RelativePath,System.Int64 Length,System.String Sha256)
+C public FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration(FolderRewind.Plugin.Abstractions.ArtifactFormatRef Format,System.Int32 MinimumVersion,System.Int32 MaximumVersion,FolderRewind.Plugin.Abstractions.LocalizedText DisplayName)
+C public FolderRewind.Plugin.Abstractions.ArtifactFormatRef(FolderRewind.Plugin.Abstractions.OwnerId ownerId,System.String formatId)
+C public FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange(FolderRewind.Plugin.Abstractions.ArtifactFormatRef Format,System.Int32 MinimumVersion,System.Int32 MaximumVersion)
+C public FolderRewind.Plugin.Abstractions.ArtifactGraphPatch(FolderRewind.Plugin.Abstractions.ArtifactGraphRevision ExpectedRevision,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.StagedArtifactNode> AddedArtifacts,FolderRewind.Plugin.Abstractions.ArtifactId ResultRootArtifactId)
+C public FolderRewind.Plugin.Abstractions.ArtifactGraphRevision(System.String value)
+C public FolderRewind.Plugin.Abstractions.ArtifactId(System.Guid value)
+C public FolderRewind.Plugin.Abstractions.ArtifactStagingAllocation(FolderRewind.Plugin.Abstractions.ArtifactId ArtifactId,FolderRewind.Plugin.Abstractions.ArtifactStagingHandle Staging)
+C public FolderRewind.Plugin.Abstractions.ArtifactStagingHandle(System.String value)
+C public FolderRewind.Plugin.Abstractions.ArtifactTransformPolicy(FolderRewind.Plugin.Abstractions.ArtifactTransformerId TransformerId,System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> Parameters,FolderRewind.Plugin.Abstractions.ArtifactTransformFailureBehavior FailureBehavior)
+C public FolderRewind.Plugin.Abstractions.ArtifactTransformRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,System.String VersionId,FolderRewind.Plugin.Abstractions.ArtifactGraphRevision ExpectedGraphRevision,FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot Primary,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot> CompatibleCandidates,System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> Parameters,FolderRewind.Plugin.Abstractions.IArtifactReadService ArtifactRead,FolderRewind.Plugin.Abstractions.IArtifactTransformStaging Staging,FolderRewind.Plugin.Abstractions.IPluginOperationProgress Progress)
+C public FolderRewind.Plugin.Abstractions.ArtifactTransformResult(FolderRewind.Plugin.Abstractions.OperationOutcome Outcome,FolderRewind.Plugin.Abstractions.ArtifactGraphPatch Patch,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration(FolderRewind.Plugin.Abstractions.ArtifactTransformerId TransformerId,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigKindRef> CompatibleConfigKinds,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.CoreCaptureMode> CompatibleCoreModes,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactCompleteness> CompatibleCompleteness,System.Text.Json.JsonElement ParameterSchema,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactTransformFailureBehavior> SupportedFailureBehaviors)
+C public FolderRewind.Plugin.Abstractions.ArtifactTransformerId(FolderRewind.Plugin.Abstractions.PluginId pluginId,System.String transformerId)
+C public FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot(FolderRewind.Plugin.Abstractions.ArtifactId ArtifactId,FolderRewind.Plugin.Abstractions.ArtifactFormatRef Format,System.Int32 FormatVersion,FolderRewind.Plugin.Abstractions.RestoreStrategyId RestoreStrategyId,FolderRewind.Plugin.Abstractions.ArtifactContentHandle Content,System.String LogicalSha256,System.Int64 LogicalSize,FolderRewind.Plugin.Abstractions.ArtifactCompleteness Completeness,FolderRewind.Plugin.Abstractions.CoreCaptureMode CoreCaptureMode,System.String ConfigId,System.Guid FolderId,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactId> Dependencies)
+C public FolderRewind.Plugin.Abstractions.BackupCompletionObserverResult(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot(System.String RunVersionId,FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,System.String VersionId,System.String RepresentationId,FolderRewind.Plugin.Abstractions.ArtifactId RootArtifactId,FolderRewind.Plugin.Abstractions.ArtifactGraphRevision GraphRevision,FolderRewind.Plugin.Abstractions.OperationOutcome CoreOutcome,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics,System.Boolean CloudQueueCommitted)
+C public FolderRewind.Plugin.Abstractions.BackupConsistencyRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,FolderRewind.Plugin.Abstractions.ConsistencyIntent Intent)
+C public FolderRewind.Plugin.Abstractions.BackupRequestOptions()
+C public FolderRewind.Plugin.Abstractions.BackupScopeDescriptor(FolderRewind.Plugin.Abstractions.BackupScopeId Id,System.String DisplayName,System.Text.Json.JsonElement FormSchema)
+C public FolderRewind.Plugin.Abstractions.BackupScopeId(FolderRewind.Plugin.Abstractions.OwnerId ownerId,System.String scopeId)
+C public FolderRewind.Plugin.Abstractions.BackupScopeRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,FolderRewind.Plugin.Abstractions.BackupScopeId ScopeId,System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> Parameters)
+C public FolderRewind.Plugin.Abstractions.BackupScopeResult(FolderRewind.Plugin.Abstractions.OperationReadiness Readiness,System.Collections.Generic.IReadOnlyList<System.String> IncludePatterns,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.CapturedVersionMetadata(System.String SchemaId,System.Int32 SchemaVersion,System.Text.Json.JsonElement Payload)
+C public FolderRewind.Plugin.Abstractions.ConfigChangeProposal(System.String ProposalId,System.String ConfigId,FolderRewind.Plugin.Abstractions.ConfigRevision ExpectedRevision,System.String Reason,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigChange> Changes,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.ConfigDraft(FolderRewind.Plugin.Abstractions.ConfigKindRef Kind,System.String SuggestedName,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderDraft> Folders,System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateDraft> ProviderStates)
+C public FolderRewind.Plugin.Abstractions.ConfigKindDeclaration(FolderRewind.Plugin.Abstractions.ConfigKindRef Kind,FolderRewind.Plugin.Abstractions.LocalizedText DisplayName,FolderRewind.Plugin.Abstractions.LocalizedText Description,System.String Icon,FolderRewind.Plugin.Abstractions.BackupFallbackPolicy BackupFallback,FolderRewind.Plugin.Abstractions.RestoreCoordinationPolicy RestoreCoordination)
+C public FolderRewind.Plugin.Abstractions.ConfigKindRef(FolderRewind.Plugin.Abstractions.OwnerId ownerId,System.String kindId)
+C public FolderRewind.Plugin.Abstractions.ConfigReconciliationRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,System.String Reason)
+C public FolderRewind.Plugin.Abstractions.ConfigRevision(System.String value)
+C public FolderRewind.Plugin.Abstractions.ConfigSnapshot(System.String ConfigId,FolderRewind.Plugin.Abstractions.ConfigRevision Revision,FolderRewind.Plugin.Abstractions.ConfigKindRef Kind,System.String Name,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderSnapshot> Folders,System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateSnapshot> ProviderStates)
+C public FolderRewind.Plugin.Abstractions.DiscoveryCandidate(System.String CandidateId,System.String DisplayName,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigDraft> ConfigDrafts)
+C public FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor(System.String DefinitionId,System.String DisplayName,System.Collections.Generic.IReadOnlyList<System.String> Aliases,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> ExternalIds)
+C public FolderRewind.Plugin.Abstractions.DiscoveryProviderId(System.String value)
+C public FolderRewind.Plugin.Abstractions.DiscoveryRequest(System.Collections.Generic.IReadOnlyList<System.String> UserRoots)
+C public FolderRewind.Plugin.Abstractions.DiscoveryResult(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.DiscoveryCandidate> Candidates,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.FilePolicyRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder)
+C public FolderRewind.Plugin.Abstractions.FilePolicyResult(System.Collections.Generic.IReadOnlyList<System.String> RequiredExclusions,System.Collections.Generic.IReadOnlyList<System.String> RequiredInclusions,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.FolderDraft(System.String Path,System.String DisplayName,System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateDraft> ProviderStates)
+C public FolderRewind.Plugin.Abstractions.FolderMetadataField(System.String Key,FolderRewind.Plugin.Abstractions.LocalizedText DisplayName,FolderRewind.Plugin.Abstractions.LocalizedText Value)
+C public FolderRewind.Plugin.Abstractions.FolderMetadataRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder)
+C public FolderRewind.Plugin.Abstractions.FolderMetadataResult(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderMetadataField> Fields,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.FolderSnapshot(System.Guid FolderId,System.String Path,System.String DisplayName,System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateSnapshot> ProviderStates)
+C public FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot(System.String VersionId,System.Guid SourceId,System.String PathHint,System.String ArchiveFileName,System.DateTimeOffset CreatedAt,FolderRewind.Plugin.Abstractions.OperationOutcome Outcome)
+C public FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor(System.String Name,System.String Description)
+C public FolderRewind.Plugin.Abstractions.KnotLinkArgumentOption(System.String Description,System.String Value)
+C public FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor(System.String Command,System.String Description)
+C public FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor(System.String Name,System.String Description,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> Fields)
+C public FolderRewind.Plugin.Abstractions.KnotLinkTarget(System.String ConfigId,System.Guid FolderId)
+C public FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution(FolderRewind.Plugin.Abstractions.KnotLinkTarget Target,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.LocalizedText(System.String Default,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> Translations)
+C public FolderRewind.Plugin.Abstractions.OperationResolution(FolderRewind.Plugin.Abstractions.OperationReadiness Readiness,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.OwnerId(System.String value)
+C public FolderRewind.Plugin.Abstractions.PluginActivationPatch(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ProviderStatePatch> ProviderStatePatches)
+C public FolderRewind.Plugin.Abstractions.PluginActivationResult(FolderRewind.Plugin.Abstractions.PluginActivationPatch Patch)
+C public FolderRewind.Plugin.Abstractions.PluginApiVersion(System.Int32 Major,System.Int32 Minor)
+C public FolderRewind.Plugin.Abstractions.PluginCommandDescriptor(FolderRewind.Plugin.Abstractions.PluginCommandId Id,System.String DisplayName,System.Text.Json.JsonElement ArgumentSchema)
+C public FolderRewind.Plugin.Abstractions.PluginCommandId(FolderRewind.Plugin.Abstractions.PluginId pluginId,System.String commandId)
+C public FolderRewind.Plugin.Abstractions.PluginCommandRequest(FolderRewind.Plugin.Abstractions.PluginCommandId Id,System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> Arguments)
+C public FolderRewind.Plugin.Abstractions.PluginCommandResult(FolderRewind.Plugin.Abstractions.OperationOutcome Outcome,System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> Values,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.PluginDiagnostic(System.String Code,FolderRewind.Plugin.Abstractions.DiagnosticSeverity Severity,System.String Capability,System.String Owner,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> Arguments)
+C public FolderRewind.Plugin.Abstractions.PluginId(System.String value)
+C public FolderRewind.Plugin.Abstractions.PluginInvocationContext(FolderRewind.Plugin.Abstractions.PluginId PluginId,FolderRewind.Plugin.Abstractions.IPluginHostServices HostServices,System.Threading.CancellationToken OperationCancellation,System.Threading.CancellationToken PluginLifetime)
+C public FolderRewind.Plugin.Abstractions.PluginManifestContract(FolderRewind.Plugin.Abstractions.PluginId PluginId,System.String Version,FolderRewind.Plugin.Abstractions.PluginApiVersion RequiredApi,System.String EntryAssembly,System.String EntryType,FolderRewind.Plugin.Abstractions.LocalizedText Name,FolderRewind.Plugin.Abstractions.LocalizedText Description,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigKindDeclaration> ConfigKinds,System.String SettingsSchema,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.HostServiceKind> RequestedHostServices,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginCapabilityKind> Capabilities,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration> ArtifactFormats,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration> ArtifactTransformers,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration> RestoreStrategies,System.Boolean HasBackupCompletionObserver)
+C public FolderRewind.Plugin.Abstractions.PluginProgress(System.Double Fraction,System.String Stage,System.String Message)
+C public FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot(FolderRewind.Plugin.Abstractions.PluginId PluginId,System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> Values)
+C public FolderRewind.Plugin.Abstractions.ProviderStateDraft(FolderRewind.Plugin.Abstractions.StateOwnerId StateOwnerId,System.Int32 SchemaVersion,System.Text.Json.JsonElement Data)
+C public FolderRewind.Plugin.Abstractions.ProviderStateLocation(System.String ConfigId,System.Nullable<System.Guid> FolderId)
+C public FolderRewind.Plugin.Abstractions.ProviderStatePatch(FolderRewind.Plugin.Abstractions.ProviderStateLocation Location,FolderRewind.Plugin.Abstractions.StateOwnerId StateOwnerId,System.Int32 ExpectedSchemaVersion,System.Int32 SchemaVersion,System.Text.Json.JsonElement Data)
+C public FolderRewind.Plugin.Abstractions.ProviderStateSnapshot(FolderRewind.Plugin.Abstractions.ProviderStateLocation Location,FolderRewind.Plugin.Abstractions.StateOwnerId StateOwnerId,System.Int32 SchemaVersion,System.Text.Json.JsonElement Data)
+C public FolderRewind.Plugin.Abstractions.RemoveFolderChange(System.Guid FolderId)
+C public FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderSnapshot> Folders,System.String TargetIdentity,System.Guid OperationId,FolderRewind.Plugin.Abstractions.WorkspaceOperationKind OperationKind,FolderRewind.Plugin.Abstractions.RestoreMutationContinuation ContinueMutationAsync)
+C public FolderRewind.Plugin.Abstractions.RestoreCoordinatorResult(FolderRewind.Plugin.Abstractions.OperationOutcome Outcome,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,System.String VersionId,FolderRewind.Plugin.Abstractions.ArtifactId RootArtifactId,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot> ArtifactsTopologicallySorted,FolderRewind.Plugin.Abstractions.RestoreMode RequestedMode,FolderRewind.Plugin.Abstractions.RestoreMode EffectiveMode,FolderRewind.Plugin.Abstractions.IArtifactReadService ArtifactRead,FolderRewind.Plugin.Abstractions.IRestoreMaterializationWorkspace Workspace,FolderRewind.Plugin.Abstractions.IPluginOperationProgress Progress)
+C public FolderRewind.Plugin.Abstractions.RestoreMaterializationResult(FolderRewind.Plugin.Abstractions.OperationOutcome Outcome,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.RestoreMutationContinuation(System.Object object,System.IntPtr method)
+C public FolderRewind.Plugin.Abstractions.RestoreRequestOptions(System.Boolean PreservePlayerData=false)
+C public FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal(System.String RelativePath,System.ReadOnlyMemory<System.Byte> Content)
+C public FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest(System.Guid OperationId,FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,System.Guid FolderId,FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView Current,FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView Target,System.Boolean PreservePlayerData)
+C public FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal> Files,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration(FolderRewind.Plugin.Abstractions.RestoreStrategyId RestoreStrategyId,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange> SupportedFormats,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactCompleteness> SupportedCompleteness,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.RestoreMode> SupportedRestoreModes)
+C public FolderRewind.Plugin.Abstractions.RestoreStrategyId(FolderRewind.Plugin.Abstractions.PluginId pluginId,System.String strategyId)
+C public FolderRewind.Plugin.Abstractions.SetArtifactTransformPolicyChange(System.Nullable<FolderRewind.Plugin.Abstractions.ArtifactTransformerId> TransformerId)
+C public FolderRewind.Plugin.Abstractions.SetProviderOptionsChange(FolderRewind.Plugin.Abstractions.StateOwnerId StateOwnerId,System.Int32 SchemaVersion,System.Text.Json.JsonElement Options)
+C public FolderRewind.Plugin.Abstractions.SetUserPolicyChange(System.String PolicyId,System.Text.Json.JsonElement Value)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewBounds(System.Double MinX,System.Double MinY,System.Double MaxX,System.Double MaxY)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewDescription(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewLayer> Layers,FolderRewind.Plugin.Abstractions.LocalizedText HorizontalAxis,FolderRewind.Plugin.Abstractions.LocalizedText VerticalAxis,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewHeight(System.Int32 Minimum,System.Int32 Maximum,System.Int32 DefaultValue,FolderRewind.Plugin.Abstractions.LocalizedText Label)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewLayer(System.String Id,FolderRewind.Plugin.Abstractions.LocalizedText Name,FolderRewind.Plugin.Abstractions.SpatialPreviewBounds Bounds,System.Double MinorGridSize,System.Double MajorGridSize,FolderRewind.Plugin.Abstractions.SpatialPreviewHeight Height)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewTarget> Targets,System.String DefaultTargetId)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewPoint(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderMetadataField> Fields,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest(FolderRewind.Plugin.Abstractions.SpatialPreviewSource Source,System.String LayerId,System.Double X,System.Double Y,System.Nullable<System.Int32> MaximumHeight)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewSource(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,System.Guid Generation)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewTarget(System.String Id,FolderRewind.Plugin.Abstractions.LocalizedText Group,FolderRewind.Plugin.Abstractions.LocalizedText Name,System.String LayerId,System.Double X,System.Double Y)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewTile(System.Int32 Width,System.Int32 Height,System.ReadOnlyMemory<System.Byte> BgraPremultiplied,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest(FolderRewind.Plugin.Abstractions.SpatialPreviewSource Source,System.String LayerId,System.Double OriginX,System.Double OriginY,System.Double UnitsPerPixel,System.Nullable<System.Int32> MaximumHeight)
+C public FolderRewind.Plugin.Abstractions.StagedArtifactNode(FolderRewind.Plugin.Abstractions.ArtifactId ArtifactId,FolderRewind.Plugin.Abstractions.ArtifactStagingHandle Staging,FolderRewind.Plugin.Abstractions.ArtifactFormatRef Format,System.Int32 FormatVersion,FolderRewind.Plugin.Abstractions.RestoreStrategyId RestoreStrategyId,FolderRewind.Plugin.Abstractions.ArtifactCompleteness Completeness,FolderRewind.Plugin.Abstractions.CoreCaptureMode CoreCaptureMode,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactId> Dependencies)
+C public FolderRewind.Plugin.Abstractions.StateOwnerId(System.String value)
+C public FolderRewind.Plugin.Abstractions.UpdateFolderChange(System.Guid FolderId,System.String Path,System.String DisplayName)
+C public FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView Source)
+C public FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.CapturedVersionMetadata> Snapshots,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+E FolderRewind.Plugin.Abstractions.ArtifactCompleteness.Complete=0
+E FolderRewind.Plugin.Abstractions.ArtifactCompleteness.Partial=1
+E FolderRewind.Plugin.Abstractions.ArtifactTransformFailureBehavior.KeepPrimaryWithWarnings=0
+E FolderRewind.Plugin.Abstractions.ArtifactTransformFailureBehavior.RequireTransform=1
+E FolderRewind.Plugin.Abstractions.BackupFallbackPolicy.Block=0
+E FolderRewind.Plugin.Abstractions.BackupFallbackPolicy.RawWithWarnings=1
+E FolderRewind.Plugin.Abstractions.ConfigChangeImpact.Additive=0
+E FolderRewind.Plugin.Abstractions.ConfigChangeImpact.Destructive=2
+E FolderRewind.Plugin.Abstractions.ConfigChangeImpact.Mutating=1
+E FolderRewind.Plugin.Abstractions.ConfigFieldOwnership.Provider=0
+E FolderRewind.Plugin.Abstractions.ConfigFieldOwnership.User=1
+E FolderRewind.Plugin.Abstractions.ConsistencyIntent.Prefer=0
+E FolderRewind.Plugin.Abstractions.ConsistencyIntent.Require=1
+E FolderRewind.Plugin.Abstractions.CoreCaptureMode.Full=0
+E FolderRewind.Plugin.Abstractions.CoreCaptureMode.Rolling=2
+E FolderRewind.Plugin.Abstractions.CoreCaptureMode.Smart=1
+E FolderRewind.Plugin.Abstractions.DiagnosticSeverity.Error=2
+E FolderRewind.Plugin.Abstractions.DiagnosticSeverity.Information=0
+E FolderRewind.Plugin.Abstractions.DiagnosticSeverity.Warning=1
+E FolderRewind.Plugin.Abstractions.HostServiceKind.ArtifactRead=9
+E FolderRewind.Plugin.Abstractions.HostServiceKind.ArtifactTransformStaging=10
+E FolderRewind.Plugin.Abstractions.HostServiceKind.BackupRequest=1
+E FolderRewind.Plugin.Abstractions.HostServiceKind.ConfigQuery=0
+E FolderRewind.Plugin.Abstractions.HostServiceKind.DataStore=6
+E FolderRewind.Plugin.Abstractions.HostServiceKind.HistoryQuery=3
+E FolderRewind.Plugin.Abstractions.HostServiceKind.KnotLink=5
+E FolderRewind.Plugin.Abstractions.HostServiceKind.Logging=8
+E FolderRewind.Plugin.Abstractions.HostServiceKind.Notification=4
+E FolderRewind.Plugin.Abstractions.HostServiceKind.RestoreMaterializationWorkspace=11
+E FolderRewind.Plugin.Abstractions.HostServiceKind.RestoreRequest=2
+E FolderRewind.Plugin.Abstractions.HostServiceKind.TemporaryStorage=7
+E FolderRewind.Plugin.Abstractions.OperationOutcome.Blocked=5
+E FolderRewind.Plugin.Abstractions.OperationOutcome.Canceled=3
+E FolderRewind.Plugin.Abstractions.OperationOutcome.CommittedRecoveryRequired=7
+E FolderRewind.Plugin.Abstractions.OperationOutcome.Failed=4
+E FolderRewind.Plugin.Abstractions.OperationOutcome.NoChanges=2
+E FolderRewind.Plugin.Abstractions.OperationOutcome.RecoveryRequired=6
+E FolderRewind.Plugin.Abstractions.OperationOutcome.Success=0
+E FolderRewind.Plugin.Abstractions.OperationOutcome.SuccessWithWarnings=1
+E FolderRewind.Plugin.Abstractions.OperationReadiness.Blocked=2
+E FolderRewind.Plugin.Abstractions.OperationReadiness.Degraded=1
+E FolderRewind.Plugin.Abstractions.OperationReadiness.Ready=0
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.BackupArtifactTransformer=10
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.BackupCompletionObserver=11
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.BackupConsistency=4
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.BackupScope=3
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.ConfigReconciliation=1
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.Discovery=0
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.FilePolicy=2
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.FolderMetadata=5
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.KnotLinkIntegration=8
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.PluginCommand=7
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.ProviderStateMigration=9
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.RestoreCoordinator=6
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.RestoreMaterializer=12
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.RestoreStagingPreparation=14
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.SpatialPreview=15
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.VersionMetadataProvider=13
+E FolderRewind.Plugin.Abstractions.PluginRuntimeState.Activating=1
+E FolderRewind.Plugin.Abstractions.PluginRuntimeState.Active=2
+E FolderRewind.Plugin.Abstractions.PluginRuntimeState.Deactivating=4
+E FolderRewind.Plugin.Abstractions.PluginRuntimeState.Draining=3
+E FolderRewind.Plugin.Abstractions.PluginRuntimeState.Failed=5
+E FolderRewind.Plugin.Abstractions.PluginRuntimeState.Inactive=0
+E FolderRewind.Plugin.Abstractions.RestoreCoordinationPolicy.None=0
+E FolderRewind.Plugin.Abstractions.RestoreCoordinationPolicy.Required=1
+E FolderRewind.Plugin.Abstractions.RestoreMode.Clean=0
+E FolderRewind.Plugin.Abstractions.RestoreMode.Overwrite=1
+E FolderRewind.Plugin.Abstractions.WorkspaceOperationKind.Checkout=1
+E FolderRewind.Plugin.Abstractions.WorkspaceOperationKind.Merge=2
+E FolderRewind.Plugin.Abstractions.WorkspaceOperationKind.Restore=0
+M public FolderRewind.Plugin.Abstractions.PluginApiVersion.IsSatisfiedBy(FolderRewind.Plugin.Abstractions.PluginApiVersion host):System.Boolean
+M public abstract FolderRewind.Plugin.Abstractions.IArtifactReadService.ListFilesAsync(FolderRewind.Plugin.Abstractions.ArtifactContentHandle content,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactFileEntry>>
+M public abstract FolderRewind.Plugin.Abstractions.IArtifactReadService.OpenReadAsync(FolderRewind.Plugin.Abstractions.ArtifactContentHandle content,System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IArtifactTransformStaging.CreateArtifactAsync(System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.ArtifactStagingAllocation>
+M public abstract FolderRewind.Plugin.Abstractions.IArtifactTransformStaging.OpenWriteAsync(FolderRewind.Plugin.Abstractions.ArtifactStagingHandle staging,System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IBackupArtifactTransformerCapability.TransformAsync(FolderRewind.Plugin.Abstractions.ArtifactTransformRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.ArtifactTransformResult>
+M public abstract FolderRewind.Plugin.Abstractions.IBackupCompletionObserverCapability.ObserveAsync(FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot snapshot,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.BackupCompletionObserverResult>
+M public abstract FolderRewind.Plugin.Abstractions.IBackupConsistencyCapability.AcquireAsync(FolderRewind.Plugin.Abstractions.BackupConsistencyRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.IConsistencyLease>
+M public abstract FolderRewind.Plugin.Abstractions.IBackupRequestService.RequestAsync(System.String configId,System.Nullable<System.Guid> folderId,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public abstract FolderRewind.Plugin.Abstractions.IBackupScopeCapability.ResolveAsync(FolderRewind.Plugin.Abstractions.BackupScopeRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.BackupScopeResult>
+M public abstract FolderRewind.Plugin.Abstractions.IConfigReconciliationCapability.ProposeAsync(FolderRewind.Plugin.Abstractions.ConfigReconciliationRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.ConfigChangeProposal>
+M public abstract FolderRewind.Plugin.Abstractions.IDiscoveryCapability.DiscoverAsync(FolderRewind.Plugin.Abstractions.DiscoveryRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.DiscoveryResult>
+M public abstract FolderRewind.Plugin.Abstractions.IDiscoveryDefinitionCatalog.ResolveDefinitionId(FolderRewind.Plugin.Abstractions.DiscoveryCandidate candidate):System.String
+M public abstract FolderRewind.Plugin.Abstractions.IFilePolicyCapability.ResolveAsync(FolderRewind.Plugin.Abstractions.FilePolicyRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.FilePolicyResult>
+M public abstract FolderRewind.Plugin.Abstractions.IFolderMetadataCapability.ReadAsync(FolderRewind.Plugin.Abstractions.FolderMetadataRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.FolderMetadataResult>
+M public abstract FolderRewind.Plugin.Abstractions.IFolderRewindPlugin.ActivateAsync(FolderRewind.Plugin.Abstractions.IPluginActivationContext context,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.PluginActivationResult>
+M public abstract FolderRewind.Plugin.Abstractions.IFolderRewindPlugin.DeactivateAsync(System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IHistoryQueryService.QueryAsync(System.String configId,System.Nullable<System.Guid> folderId,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot>>
+M public abstract FolderRewind.Plugin.Abstractions.IKnotLinkHostService.SendAsync(System.String eventName,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> arguments,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability.ExecuteAsync(System.String command,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> arguments,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.PluginCommandResult>
+M public abstract FolderRewind.Plugin.Abstractions.IKnotLinkTargetResolver.ResolveTargetAsync(System.String command,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> arguments,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution>
+M public abstract FolderRewind.Plugin.Abstractions.IPluginActivationContext.RegisterCapability<TCapability>(TCapability capability):System.Void
+M public abstract FolderRewind.Plugin.Abstractions.IPluginCommandCapability.ExecuteAsync(FolderRewind.Plugin.Abstractions.PluginCommandRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.PluginCommandResult>
+M public abstract FolderRewind.Plugin.Abstractions.IPluginDataStore.OpenReadAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IPluginDataStore.OpenWriteAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IPluginLogger.Log(FolderRewind.Plugin.Abstractions.DiagnosticSeverity severity,System.String message,System.Exception exception=null):System.Void
+M public abstract FolderRewind.Plugin.Abstractions.IPluginNotificationService.ShowAsync(System.String title,System.String message,FolderRewind.Plugin.Abstractions.DiagnosticSeverity severity,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IPluginOperationProgress.Report(FolderRewind.Plugin.Abstractions.PluginProgress progress):System.Void
+M public abstract FolderRewind.Plugin.Abstractions.IPluginTemporaryStorage.CreateDirectoryAsync(System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.String>
+M public abstract FolderRewind.Plugin.Abstractions.IProviderStateMigrationCapability.MigrateAsync(FolderRewind.Plugin.Abstractions.ProviderStateSnapshot state,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.ProviderStatePatch>
+M public abstract FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService.FindAsync(System.String configId,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.ConfigSnapshot>
+M public abstract FolderRewind.Plugin.Abstractions.IRestoreCoordinatorCapability.CoordinateAsync(FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.RestoreCoordinatorResult>
+M public abstract FolderRewind.Plugin.Abstractions.IRestoreMaterializationWorkspace.OpenWriteAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IRestoreMaterializerCapability.MaterializeAsync(FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.RestoreMaterializationResult>
+M public abstract FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestAsync(System.String configId,System.Guid folderId,System.String versionId,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public abstract FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestQuickAsync(System.String configId,System.Guid folderId,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public abstract FolderRewind.Plugin.Abstractions.IRestoreStagingPreparationCapability.PrepareAsync(FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult>
+M public abstract FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.DescribeAsync(FolderRewind.Plugin.Abstractions.SpatialPreviewSource source,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.SpatialPreviewDescription>
+M public abstract FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.InspectAsync(FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.SpatialPreviewPoint>
+M public abstract FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.RenderAsync(FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.SpatialPreviewTile>
+M public abstract FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapability.CaptureAsync(FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult>
+M public abstract FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView.OpenReadAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public static FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands.Find(System.String command):FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor
+M public virtual FolderRewind.Plugin.Abstractions.IBackupRequestService.RequestAsync(System.String configId,System.Nullable<System.Guid> folderId,FolderRewind.Plugin.Abstractions.BackupRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public virtual FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService.QueryAsync(System.Nullable<FolderRewind.Plugin.Abstractions.ConfigKindRef> kind,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigSnapshot>>
+M public virtual FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestAsync(System.String configId,System.Guid folderId,System.String versionId,FolderRewind.Plugin.Abstractions.RestoreRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public virtual FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestQuickAsync(System.String configId,System.Guid folderId,FolderRewind.Plugin.Abstractions.RestoreRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public virtual FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.CloseAsync(FolderRewind.Plugin.Abstractions.SpatialPreviewSource source,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask
+M public virtual FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.GetNavigationTargetsAsync(FolderRewind.Plugin.Abstractions.SpatialPreviewSource source,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation>
+M public virtual FolderRewind.Plugin.Abstractions.RestoreMutationContinuation.BeginInvoke(System.Threading.CancellationToken cancellationToken,System.AsyncCallback callback,System.Object object):System.IAsyncResult
+M public virtual FolderRewind.Plugin.Abstractions.RestoreMutationContinuation.EndInvoke(System.IAsyncResult result):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public virtual FolderRewind.Plugin.Abstractions.RestoreMutationContinuation.Invoke(System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+P FolderRewind.Plugin.Abstractions.AddFolderChange.Folder:FolderRewind.Plugin.Abstractions.FolderDraft { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactContentHandle.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.ArtifactFileEntry.Length:System.Int64 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFileEntry.RelativePath:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFileEntry.Sha256:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration.DisplayName:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration.Format:FolderRewind.Plugin.Abstractions.ArtifactFormatRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration.MaximumVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration.MinimumVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatRef.FormatId:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatRef.OwnerId:FolderRewind.Plugin.Abstractions.OwnerId { public get; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange.Format:FolderRewind.Plugin.Abstractions.ArtifactFormatRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange.MaximumVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange.MinimumVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactGraphPatch.AddedArtifacts:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.StagedArtifactNode> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactGraphPatch.ExpectedRevision:FolderRewind.Plugin.Abstractions.ArtifactGraphRevision { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactGraphPatch.ResultRootArtifactId:FolderRewind.Plugin.Abstractions.ArtifactId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactGraphRevision.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.ArtifactId.Value:System.Guid { public get; }
+P FolderRewind.Plugin.Abstractions.ArtifactStagingAllocation.ArtifactId:FolderRewind.Plugin.Abstractions.ArtifactId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactStagingAllocation.Staging:FolderRewind.Plugin.Abstractions.ArtifactStagingHandle { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactStagingHandle.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformPolicy.FailureBehavior:FolderRewind.Plugin.Abstractions.ArtifactTransformFailureBehavior { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformPolicy.Parameters:System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformPolicy.TransformerId:FolderRewind.Plugin.Abstractions.ArtifactTransformerId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.ArtifactRead:FolderRewind.Plugin.Abstractions.IArtifactReadService { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.CompatibleCandidates:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.ExpectedGraphRevision:FolderRewind.Plugin.Abstractions.ArtifactGraphRevision { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.Parameters:System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.Primary:FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.Progress:FolderRewind.Plugin.Abstractions.IPluginOperationProgress { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.Staging:FolderRewind.Plugin.Abstractions.IArtifactTransformStaging { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformRequest.VersionId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformResult.Outcome:FolderRewind.Plugin.Abstractions.OperationOutcome { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformResult.Patch:FolderRewind.Plugin.Abstractions.ArtifactGraphPatch { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration.CompatibleCompleteness:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactCompleteness> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration.CompatibleConfigKinds:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigKindRef> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration.CompatibleCoreModes:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.CoreCaptureMode> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration.ParameterSchema:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration.SupportedFailureBehaviors:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactTransformFailureBehavior> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration.TransformerId:FolderRewind.Plugin.Abstractions.ArtifactTransformerId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerId.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; }
+P FolderRewind.Plugin.Abstractions.ArtifactTransformerId.TransformerId:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.ArtifactId:FolderRewind.Plugin.Abstractions.ArtifactId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.Completeness:FolderRewind.Plugin.Abstractions.ArtifactCompleteness { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.ConfigId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.Content:FolderRewind.Plugin.Abstractions.ArtifactContentHandle { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.CoreCaptureMode:FolderRewind.Plugin.Abstractions.CoreCaptureMode { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.Dependencies:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactId> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.FolderId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.Format:FolderRewind.Plugin.Abstractions.ArtifactFormatRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.FormatVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.LogicalSha256:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.LogicalSize:System.Int64 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot.RestoreStrategyId:FolderRewind.Plugin.Abstractions.RestoreStrategyId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionObserverResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.CloudQueueCommitted:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.CoreOutcome:FolderRewind.Plugin.Abstractions.OperationOutcome { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.GraphRevision:FolderRewind.Plugin.Abstractions.ArtifactGraphRevision { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.RepresentationId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.RootArtifactId:FolderRewind.Plugin.Abstractions.ArtifactId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.RunVersionId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.VersionId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupConsistencyRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupConsistencyRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupConsistencyRequest.Intent:FolderRewind.Plugin.Abstractions.ConsistencyIntent { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupRequestOptions.Comment:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupRequestOptions.Default:FolderRewind.Plugin.Abstractions.BackupRequestOptions { public static get; }
+P FolderRewind.Plugin.Abstractions.BackupScopeDescriptor.DisplayName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeDescriptor.FormSchema:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeDescriptor.Id:FolderRewind.Plugin.Abstractions.BackupScopeId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeId.OwnerId:FolderRewind.Plugin.Abstractions.OwnerId { public get; }
+P FolderRewind.Plugin.Abstractions.BackupScopeId.ScopeId:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.BackupScopeRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeRequest.Parameters:System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeRequest.ScopeId:FolderRewind.Plugin.Abstractions.BackupScopeId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeResult.IncludePatterns:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupScopeResult.Readiness:FolderRewind.Plugin.Abstractions.OperationReadiness { public get; public init; }
+P FolderRewind.Plugin.Abstractions.CapturedVersionMetadata.Payload:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.CapturedVersionMetadata.SchemaId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.CapturedVersionMetadata.SchemaVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChange.Impact:FolderRewind.Plugin.Abstractions.ConfigChangeImpact { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChange.Ownership:FolderRewind.Plugin.Abstractions.ConfigFieldOwnership { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChangeProposal.Changes:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigChange> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChangeProposal.ConfigId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChangeProposal.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChangeProposal.ExpectedRevision:FolderRewind.Plugin.Abstractions.ConfigRevision { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChangeProposal.ProposalId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigChangeProposal.Reason:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigDraft.Folders:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderDraft> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigDraft.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigDraft.ProviderStates:System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateDraft> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigDraft.SuggestedName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigKindDeclaration.BackupFallback:FolderRewind.Plugin.Abstractions.BackupFallbackPolicy { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigKindDeclaration.Description:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigKindDeclaration.DisplayName:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigKindDeclaration.Icon:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigKindDeclaration.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigKindDeclaration.RestoreCoordination:FolderRewind.Plugin.Abstractions.RestoreCoordinationPolicy { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigKindRef.KindId:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.ConfigKindRef.OwnerId:FolderRewind.Plugin.Abstractions.OwnerId { public get; }
+P FolderRewind.Plugin.Abstractions.ConfigReconciliationRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigReconciliationRequest.Reason:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigRevision.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.ConfigSnapshot.ConfigId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigSnapshot.Folders:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderSnapshot> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigSnapshot.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigSnapshot.Name:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigSnapshot.ProviderStates:System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateSnapshot> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ConfigSnapshot.Revision:FolderRewind.Plugin.Abstractions.ConfigRevision { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryCandidate.CandidateId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryCandidate.ConfigDrafts:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigDraft> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryCandidate.DisplayName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor.Aliases:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor.DefinitionId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor.DisplayName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor.ExternalIds:System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryProviderId.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.DiscoveryRequest.IncludeKnownLocations:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryRequest.UserRoots:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryResult.Candidates:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.DiscoveryCandidate> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.DiscoveryResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FilePolicyRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FilePolicyRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FilePolicyResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FilePolicyResult.RequiredExclusions:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FilePolicyResult.RequiredInclusions:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderDraft.DisplayName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderDraft.Path:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderDraft.ProviderStates:System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateDraft> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderMetadataField.DisplayName:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderMetadataField.Key:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderMetadataField.Value:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderMetadataRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderMetadataRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderMetadataResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderMetadataResult.Fields:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderMetadataField> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderSnapshot.DisplayName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderSnapshot.FolderId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderSnapshot.Path:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.FolderSnapshot.ProviderStates:System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateSnapshot> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot.ArchiveFileName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot.CreatedAt:System.DateTimeOffset { public get; public init; }
+P FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot.Outcome:FolderRewind.Plugin.Abstractions.OperationOutcome { public get; public init; }
+P FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot.PathHint:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot.SourceId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot.VersionId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.IBackupArtifactTransformerCapability.TransformerId:FolderRewind.Plugin.Abstractions.ArtifactTransformerId { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IBackupConsistencyCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IBackupScopeCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IBackupScopeCapability.Scopes:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.BackupScopeDescriptor> { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IConfigReconciliationCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IConsistencyLease.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IConsistencyLease.IsStableSourceView:System.Boolean { public virtual get; }
+P FolderRewind.Plugin.Abstractions.IConsistencyLease.SourcePath:System.String { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IDiscoveryCapability.ProviderId:FolderRewind.Plugin.Abstractions.DiscoveryProviderId { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IDiscoveryDefinitionCatalog.Definitions:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor> { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IFilePolicyCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IFolderMetadataCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IKnotLinkHostService.IsAvailable:System.Boolean { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability.Commands:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor> { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability.Signals:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor> { public virtual get; }
+P FolderRewind.Plugin.Abstractions.IPluginActivationContext.Configs:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigSnapshot> { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginActivationContext.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginActivationContext.Settings:FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginCommandCapability.Commands:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginCommandDescriptor> { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.Backups:FolderRewind.Plugin.Abstractions.IBackupRequestService { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.Configs:FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.DataStore:FolderRewind.Plugin.Abstractions.IPluginDataStore { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.History:FolderRewind.Plugin.Abstractions.IHistoryQueryService { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.KnotLink:FolderRewind.Plugin.Abstractions.IKnotLinkHostService { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.Logger:FolderRewind.Plugin.Abstractions.IPluginLogger { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.Notifications:FolderRewind.Plugin.Abstractions.IPluginNotificationService { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.Restores:FolderRewind.Plugin.Abstractions.IRestoreRequestService { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IPluginHostServices.TemporaryStorage:FolderRewind.Plugin.Abstractions.IPluginTemporaryStorage { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IProviderStateMigrationCapability.CurrentSchemaVersion:System.Int32 { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IProviderStateMigrationCapability.StateOwnerId:FolderRewind.Plugin.Abstractions.StateOwnerId { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IRestoreCoordinatorCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IRestoreMaterializerCapability.RestoreStrategyId:FolderRewind.Plugin.Abstractions.RestoreStrategyId { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IRestoreSourceView.RelativePaths:System.Collections.Generic.IReadOnlyList<System.String> { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IRestoreStagingPreparationCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IRestoreStagingPreparationCapability.SupportsPlayerDataOverride:System.Boolean { public virtual get; }
+P FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor.DefaultValue:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor.Description:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor.Name:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor.Options:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.KnotLinkArgumentOption> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor.Type:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor.Value:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentOption.Description:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkArgumentOption.Value:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor.Arguments:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor.Command:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor.Description:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor.FunctionName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor.IsTargetSelector:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor.RequiredArguments:System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor.Returns:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands.Commands:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor> { public static get; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands.ConversationCommands:System.Collections.Generic.IReadOnlySet<System.String> { public static get; }
+P FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands.FolderCommands:System.Collections.Generic.IReadOnlySet<System.String> { public static get; }
+P FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor.Description:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor.Fields:System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor.Name:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkTarget.ConfigId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkTarget.FolderId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution.Target:FolderRewind.Plugin.Abstractions.KnotLinkTarget { public get; public init; }
+P FolderRewind.Plugin.Abstractions.LocalizedText.Default:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.LocalizedText.Translations:System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.OperationResolution.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.OperationResolution.Readiness:FolderRewind.Plugin.Abstractions.OperationReadiness { public get; public init; }
+P FolderRewind.Plugin.Abstractions.OwnerId.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.PluginActivationPatch.Empty:FolderRewind.Plugin.Abstractions.PluginActivationPatch { public static get; }
+P FolderRewind.Plugin.Abstractions.PluginActivationPatch.ProviderStatePatches:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ProviderStatePatch> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginActivationResult.Empty:FolderRewind.Plugin.Abstractions.PluginActivationResult { public static get; }
+P FolderRewind.Plugin.Abstractions.PluginActivationResult.Patch:FolderRewind.Plugin.Abstractions.PluginActivationPatch { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginApiVersion.HostVersion:FolderRewind.Plugin.Abstractions.PluginApiVersion { public static get; }
+P FolderRewind.Plugin.Abstractions.PluginApiVersion.Major:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginApiVersion.Minor:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandDescriptor.ArgumentSchema:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandDescriptor.DefaultHotkey:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandDescriptor.DisplayName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandDescriptor.Id:FolderRewind.Plugin.Abstractions.PluginCommandId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandDescriptor.IsGlobalHotkey:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandId.CommandId:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.PluginCommandId.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; }
+P FolderRewind.Plugin.Abstractions.PluginCommandRequest.Arguments:System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandRequest.Id:FolderRewind.Plugin.Abstractions.PluginCommandId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandResult.Outcome:FolderRewind.Plugin.Abstractions.OperationOutcome { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginCommandResult.Values:System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginDiagnostic.Arguments:System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginDiagnostic.Capability:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginDiagnostic.Code:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginDiagnostic.Owner:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginDiagnostic.Severity:FolderRewind.Plugin.Abstractions.DiagnosticSeverity { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginId.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.PluginInvocationContext.HostServices:FolderRewind.Plugin.Abstractions.IPluginHostServices { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginInvocationContext.OperationCancellation:System.Threading.CancellationToken { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginInvocationContext.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginInvocationContext.PluginLifetime:System.Threading.CancellationToken { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.ArtifactFormats:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.ArtifactTransformers:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.Capabilities:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginCapabilityKind> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.ConfigKinds:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigKindDeclaration> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.Description:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.EntryAssembly:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.EntryType:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.HasBackupCompletionObserver:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.Name:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.RequestedHostServices:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.HostServiceKind> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.RequiredApi:FolderRewind.Plugin.Abstractions.PluginApiVersion { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.RestoreStrategies:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.SettingsSchema:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.Version:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginProgress.Fraction:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginProgress.Message:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginProgress.Stage:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot.Values:System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateDraft.Data:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateDraft.SchemaVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateDraft.StateOwnerId:FolderRewind.Plugin.Abstractions.StateOwnerId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateLocation.ConfigId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateLocation.FolderId:System.Nullable<System.Guid> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStatePatch.Data:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStatePatch.ExpectedSchemaVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStatePatch.Location:FolderRewind.Plugin.Abstractions.ProviderStateLocation { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStatePatch.SchemaVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStatePatch.StateOwnerId:FolderRewind.Plugin.Abstractions.StateOwnerId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateSnapshot.Data:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateSnapshot.Location:FolderRewind.Plugin.Abstractions.ProviderStateLocation { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateSnapshot.SchemaVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.ProviderStateSnapshot.StateOwnerId:FolderRewind.Plugin.Abstractions.StateOwnerId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RemoveFolderChange.FolderId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest.ContinueMutationAsync:FolderRewind.Plugin.Abstractions.RestoreMutationContinuation { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest.Folders:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderSnapshot> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest.OperationId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest.OperationKind:FolderRewind.Plugin.Abstractions.WorkspaceOperationKind { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest.TargetIdentity:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreCoordinatorResult.Outcome:FolderRewind.Plugin.Abstractions.OperationOutcome { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.ArtifactRead:FolderRewind.Plugin.Abstractions.IArtifactReadService { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.ArtifactsTopologicallySorted:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.EffectiveMode:FolderRewind.Plugin.Abstractions.RestoreMode { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.Progress:FolderRewind.Plugin.Abstractions.IPluginOperationProgress { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.RequestedMode:FolderRewind.Plugin.Abstractions.RestoreMode { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.RootArtifactId:FolderRewind.Plugin.Abstractions.ArtifactId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.VersionId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest.Workspace:FolderRewind.Plugin.Abstractions.IRestoreMaterializationWorkspace { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreMaterializationResult.Outcome:FolderRewind.Plugin.Abstractions.OperationOutcome { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.Mode:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.PreservePlayerData:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.PreservePlayerDataOverride:System.Nullable<System.Boolean> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.RestorePreservePaths:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreRequestOptions.RestoreWhitelist:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal.Content:System.ReadOnlyMemory<System.Byte> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal.RelativePath:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest.Current:FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest.FolderId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest.OperationId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest.PreservePlayerData:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest.PreservePlayerDataOverride:System.Nullable<System.Boolean> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest.Target:FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult.Files:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration.RestoreStrategyId:FolderRewind.Plugin.Abstractions.RestoreStrategyId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration.SupportedCompleteness:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactCompleteness> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration.SupportedFormats:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration.SupportedRestoreModes:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.RestoreMode> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.RestoreStrategyId.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; }
+P FolderRewind.Plugin.Abstractions.RestoreStrategyId.StrategyId:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.SetArtifactTransformPolicyChange.TransformerId:System.Nullable<FolderRewind.Plugin.Abstractions.ArtifactTransformerId> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SetProviderOptionsChange.Options:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SetProviderOptionsChange.SchemaVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SetProviderOptionsChange.StateOwnerId:FolderRewind.Plugin.Abstractions.StateOwnerId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SetUserPolicyChange.PolicyId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SetUserPolicyChange.Value:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MaxX:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MaxY:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MinX:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewBounds.MinY:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.CellLabel:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.HorizontalAxis:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.LayerLabel:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.Layers:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewLayer> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.NavigationLabel:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewDescription.VerticalAxis:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.DefaultValue:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.Label:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.Maximum:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewHeight.Minimum:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Bounds:FolderRewind.Plugin.Abstractions.SpatialPreviewBounds { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.CoordinateBounds:FolderRewind.Plugin.Abstractions.SpatialPreviewBounds { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Height:FolderRewind.Plugin.Abstractions.SpatialPreviewHeight { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Id:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.MajorGridSize:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.MinorGridSize:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewLayer.Name:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.DefaultTargetId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.QuickTargetId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.Targets:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewTarget> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewPoint.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewPoint.Fields:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderMetadataField> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest.LayerId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest.MaximumHeight:System.Nullable<System.Int32> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest.Source:FolderRewind.Plugin.Abstractions.SpatialPreviewSource { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest.X:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest.Y:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewSource.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewSource.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewSource.Generation:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Group:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Id:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.LayerId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Name:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.X:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTarget.Y:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.BgraPremultiplied:System.ReadOnlyMemory<System.Byte> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Height:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.IsFinal:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTile.Width:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.LayerId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.MaximumHeight:System.Nullable<System.Int32> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.OriginX:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.OriginY:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.Source:FolderRewind.Plugin.Abstractions.SpatialPreviewSource { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest.UnitsPerPixel:System.Double { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.ArtifactId:FolderRewind.Plugin.Abstractions.ArtifactId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.Completeness:FolderRewind.Plugin.Abstractions.ArtifactCompleteness { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.CoreCaptureMode:FolderRewind.Plugin.Abstractions.CoreCaptureMode { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.Dependencies:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactId> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.Format:FolderRewind.Plugin.Abstractions.ArtifactFormatRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.FormatVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.RestoreStrategyId:FolderRewind.Plugin.Abstractions.RestoreStrategyId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StagedArtifactNode.Staging:FolderRewind.Plugin.Abstractions.ArtifactStagingHandle { public get; public init; }
+P FolderRewind.Plugin.Abstractions.StateOwnerId.Value:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.UpdateFolderChange.DisplayName:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.UpdateFolderChange.FolderId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.UpdateFolderChange.Path:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
+P FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest.Source:FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView { public get; public init; }
+P FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult.Snapshots:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.CapturedVersionMetadata> { public get; public init; }
+T public abstract class FolderRewind.Plugin.Abstractions.ConfigChange : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChange>
+T public enum FolderRewind.Plugin.Abstractions.ArtifactCompleteness : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.ArtifactTransformFailureBehavior : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.BackupFallbackPolicy : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.ConfigChangeImpact : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.ConfigFieldOwnership : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.ConsistencyIntent : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.CoreCaptureMode : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.DiagnosticSeverity : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.HostServiceKind : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.OperationOutcome : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.OperationReadiness : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.PluginCapabilityKind : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.PluginRuntimeState : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.RestoreCoordinationPolicy : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.RestoreMode : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.WorkspaceOperationKind : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public interface FolderRewind.Plugin.Abstractions.IArtifactReadService
+T public interface FolderRewind.Plugin.Abstractions.IArtifactTransformStaging
+T public interface FolderRewind.Plugin.Abstractions.IBackupArtifactTransformerCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IBackupCompletionObserverCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IBackupConsistencyCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IBackupRequestService
+T public interface FolderRewind.Plugin.Abstractions.IBackupScopeCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IConfigReconciliationCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IConsistencyLease : System.IAsyncDisposable
+T public interface FolderRewind.Plugin.Abstractions.IDiscoveryCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IDiscoveryDefinitionCatalog
+T public interface FolderRewind.Plugin.Abstractions.IFilePolicyCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IFolderMetadataCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IFolderRewindPlugin
+T public interface FolderRewind.Plugin.Abstractions.IHistoryQueryService
+T public interface FolderRewind.Plugin.Abstractions.IKnotLinkHostService
+T public interface FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IKnotLinkTargetResolver
+T public interface FolderRewind.Plugin.Abstractions.IPluginActivationContext
+T public interface FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IPluginCommandCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IPluginDataStore
+T public interface FolderRewind.Plugin.Abstractions.IPluginHostServices
+T public interface FolderRewind.Plugin.Abstractions.IPluginLogger
+T public interface FolderRewind.Plugin.Abstractions.IPluginNotificationService
+T public interface FolderRewind.Plugin.Abstractions.IPluginOperationProgress
+T public interface FolderRewind.Plugin.Abstractions.IPluginTemporaryStorage
+T public interface FolderRewind.Plugin.Abstractions.IProviderStateMigrationCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService
+T public interface FolderRewind.Plugin.Abstractions.IRestoreCoordinatorCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IRestoreMaterializationWorkspace
+T public interface FolderRewind.Plugin.Abstractions.IRestoreMaterializerCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IRestoreRequestService
+T public interface FolderRewind.Plugin.Abstractions.IRestoreSourceView : FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView
+T public interface FolderRewind.Plugin.Abstractions.IRestoreStagingPreparationCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.ISpatialPreviewCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView
+T public sealed class FolderRewind.Plugin.Abstractions.AddFolderChange : FolderRewind.Plugin.Abstractions.ConfigChange,System.IEquatable<FolderRewind.Plugin.Abstractions.AddFolderChange>,System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChange>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactFileEntry : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactFileEntry>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactFormatDeclaration>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactFormatVersionRange>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactGraphPatch : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactGraphPatch>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactStagingAllocation : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactStagingAllocation>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactTransformPolicy : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactTransformPolicy>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactTransformRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactTransformRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactTransformResult : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactTransformResult>
+T public sealed class FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactTransformerDeclaration>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupArtifactSnapshot>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupCompletionObserverResult : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupCompletionObserverResult>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupConsistencyRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupConsistencyRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupRequestOptions : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupRequestOptions>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupScopeDescriptor : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupScopeDescriptor>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupScopeRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupScopeRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupScopeResult : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupScopeResult>
+T public sealed class FolderRewind.Plugin.Abstractions.CapturedVersionMetadata : System.IEquatable<FolderRewind.Plugin.Abstractions.CapturedVersionMetadata>
+T public sealed class FolderRewind.Plugin.Abstractions.ConfigChangeProposal : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChangeProposal>
+T public sealed class FolderRewind.Plugin.Abstractions.ConfigDraft : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigDraft>
+T public sealed class FolderRewind.Plugin.Abstractions.ConfigKindDeclaration : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigKindDeclaration>
+T public sealed class FolderRewind.Plugin.Abstractions.ConfigReconciliationRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigReconciliationRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.ConfigSnapshot : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigSnapshot>
+T public sealed class FolderRewind.Plugin.Abstractions.DiscoveryCandidate : System.IEquatable<FolderRewind.Plugin.Abstractions.DiscoveryCandidate>
+T public sealed class FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor : System.IEquatable<FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor>
+T public sealed class FolderRewind.Plugin.Abstractions.DiscoveryRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.DiscoveryRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.DiscoveryResult : System.IEquatable<FolderRewind.Plugin.Abstractions.DiscoveryResult>
+T public sealed class FolderRewind.Plugin.Abstractions.FilePolicyRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.FilePolicyRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.FilePolicyResult : System.IEquatable<FolderRewind.Plugin.Abstractions.FilePolicyResult>
+T public sealed class FolderRewind.Plugin.Abstractions.FolderDraft : System.IEquatable<FolderRewind.Plugin.Abstractions.FolderDraft>
+T public sealed class FolderRewind.Plugin.Abstractions.FolderMetadataField : System.IEquatable<FolderRewind.Plugin.Abstractions.FolderMetadataField>
+T public sealed class FolderRewind.Plugin.Abstractions.FolderMetadataRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.FolderMetadataRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.FolderMetadataResult : System.IEquatable<FolderRewind.Plugin.Abstractions.FolderMetadataResult>
+T public sealed class FolderRewind.Plugin.Abstractions.FolderSnapshot : System.IEquatable<FolderRewind.Plugin.Abstractions.FolderSnapshot>
+T public sealed class FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot : System.IEquatable<FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot>
+T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor>
+T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkArgumentOption : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkArgumentOption>
+T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor>
+T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor>
+T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkTarget : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkTarget>
+T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution>
+T public sealed class FolderRewind.Plugin.Abstractions.LocalizedText : System.IEquatable<FolderRewind.Plugin.Abstractions.LocalizedText>
+T public sealed class FolderRewind.Plugin.Abstractions.OperationResolution : System.IEquatable<FolderRewind.Plugin.Abstractions.OperationResolution>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginActivationPatch : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginActivationPatch>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginActivationResult : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginActivationResult>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginCommandDescriptor : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginCommandDescriptor>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginCommandRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginCommandRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginCommandResult : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginCommandResult>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginDiagnostic : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginDiagnostic>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginInvocationContext : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginInvocationContext>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginManifestContract : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginManifestContract>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginProgress : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginProgress>
+T public sealed class FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot>
+T public sealed class FolderRewind.Plugin.Abstractions.ProviderStateDraft : System.IEquatable<FolderRewind.Plugin.Abstractions.ProviderStateDraft>
+T public sealed class FolderRewind.Plugin.Abstractions.ProviderStateLocation : System.IEquatable<FolderRewind.Plugin.Abstractions.ProviderStateLocation>
+T public sealed class FolderRewind.Plugin.Abstractions.ProviderStatePatch : System.IEquatable<FolderRewind.Plugin.Abstractions.ProviderStatePatch>
+T public sealed class FolderRewind.Plugin.Abstractions.ProviderStateSnapshot : System.IEquatable<FolderRewind.Plugin.Abstractions.ProviderStateSnapshot>
+T public sealed class FolderRewind.Plugin.Abstractions.RemoveFolderChange : FolderRewind.Plugin.Abstractions.ConfigChange,System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChange>,System.IEquatable<FolderRewind.Plugin.Abstractions.RemoveFolderChange>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreCoordinatorResult : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreCoordinatorResult>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreMaterializationResult : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreMaterializationResult>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreMutationContinuation : System.MulticastDelegate,System.ICloneable,System.Runtime.Serialization.ISerializable
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreRequestOptions : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreRequestOptions>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult>
+T public sealed class FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration>
+T public sealed class FolderRewind.Plugin.Abstractions.SetArtifactTransformPolicyChange : FolderRewind.Plugin.Abstractions.ConfigChange,System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChange>,System.IEquatable<FolderRewind.Plugin.Abstractions.SetArtifactTransformPolicyChange>
+T public sealed class FolderRewind.Plugin.Abstractions.SetProviderOptionsChange : FolderRewind.Plugin.Abstractions.ConfigChange,System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChange>,System.IEquatable<FolderRewind.Plugin.Abstractions.SetProviderOptionsChange>
+T public sealed class FolderRewind.Plugin.Abstractions.SetUserPolicyChange : FolderRewind.Plugin.Abstractions.ConfigChange,System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChange>,System.IEquatable<FolderRewind.Plugin.Abstractions.SetUserPolicyChange>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewBounds : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewBounds>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewDescription : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewDescription>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewHeight : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewHeight>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewLayer : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewLayer>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewPoint : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewPoint>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewPointRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewSource : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewSource>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewTarget : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewTarget>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewTile : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewTile>
+T public sealed class FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.SpatialPreviewTileRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.StagedArtifactNode : System.IEquatable<FolderRewind.Plugin.Abstractions.StagedArtifactNode>
+T public sealed class FolderRewind.Plugin.Abstractions.UpdateFolderChange : FolderRewind.Plugin.Abstractions.ConfigChange,System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChange>,System.IEquatable<FolderRewind.Plugin.Abstractions.UpdateFolderChange>
+T public sealed class FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult : System.IEquatable<FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult>
+T public static class FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands
+T public struct FolderRewind.Plugin.Abstractions.ArtifactContentHandle : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactContentHandle>
+T public struct FolderRewind.Plugin.Abstractions.ArtifactFormatRef : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactFormatRef>
+T public struct FolderRewind.Plugin.Abstractions.ArtifactGraphRevision : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactGraphRevision>
+T public struct FolderRewind.Plugin.Abstractions.ArtifactId : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactId>
+T public struct FolderRewind.Plugin.Abstractions.ArtifactStagingHandle : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactStagingHandle>
+T public struct FolderRewind.Plugin.Abstractions.ArtifactTransformerId : System.IEquatable<FolderRewind.Plugin.Abstractions.ArtifactTransformerId>
+T public struct FolderRewind.Plugin.Abstractions.BackupScopeId : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupScopeId>
+T public struct FolderRewind.Plugin.Abstractions.ConfigKindRef : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigKindRef>
+T public struct FolderRewind.Plugin.Abstractions.ConfigRevision : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigRevision>
+T public struct FolderRewind.Plugin.Abstractions.DiscoveryProviderId : System.IEquatable<FolderRewind.Plugin.Abstractions.DiscoveryProviderId>
+T public struct FolderRewind.Plugin.Abstractions.OwnerId : System.IEquatable<FolderRewind.Plugin.Abstractions.OwnerId>
+T public struct FolderRewind.Plugin.Abstractions.PluginApiVersion : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginApiVersion>
+T public struct FolderRewind.Plugin.Abstractions.PluginCommandId : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginCommandId>
+T public struct FolderRewind.Plugin.Abstractions.PluginId : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginId>
+T public struct FolderRewind.Plugin.Abstractions.RestoreStrategyId : System.IEquatable<FolderRewind.Plugin.Abstractions.RestoreStrategyId>
+T public struct FolderRewind.Plugin.Abstractions.StateOwnerId : System.IEquatable<FolderRewind.Plugin.Abstractions.StateOwnerId>

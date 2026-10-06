@@ -3,6 +3,7 @@
     x:Class="FolderRewind.Views.ShellPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:FolderRewind.Controls"
     KeyboardAcceleratorPlacementMode="Hidden">
 
     <Grid>
@@ -12,22 +13,26 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Image Grid.RowSpan="3"
-               Source="{x:Bind ViewModel.SponsorBackgroundImageSource, Mode=OneWay}"
-               Stretch="{x:Bind ViewModel.SponsorBackgroundStretch, Mode=OneWay}"
+        <controls:AsyncFileImage Grid.RowSpan="3" ReloadVersion="{x:Bind ViewModel.SponsorBackgroundRevision, Mode=OneWay}"
+               SourcePath="{x:Bind ViewModel.SponsorBackgroundImagePath, Mode=OneWay}"
+               Stretch="{x:Bind ViewModel.SponsorBackgroundStretchIndex, Mode=OneWay, Converter={StaticResource IntToStretchConverter}}"
                Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
         <Border Grid.RowSpan="3"
-                Background="{x:Bind ViewModel.SponsorBackgroundOverlayBrush, Mode=OneWay}"
                 Opacity="{x:Bind ViewModel.SponsorBackgroundOverlayOpacity, Mode=OneWay}"
-                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <Border.Background>
+                <SolidColorBrush Color="{x:Bind ViewModel.SponsorBackgroundOverlayColor, Mode=OneWay}"/>
+            </Border.Background>
+        </Border>
 
         <Border x:Name="AppTitleBar"
                 Grid.Row="0"
                 Height="44"
                 Background="Transparent"
             Padding="12,0,12,0"
-            KeyboardAcceleratorPlacementMode="Hidden">
+            xmlns:controls="using:FolderRewind.Controls"
+    KeyboardAcceleratorPlacementMode="Hidden">
             <Grid ColumnSpacing="12" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -49,7 +54,9 @@
                  IsOpen="False"
                  IsClosable="True"
                  Margin="12,0,12,8"
-                 Closed="GlobalInfoBar_Closed" />
+                 Closed="GlobalInfoBar_Closed"
+                 PointerEntered="GlobalInfoBar_PointerEntered"
+                 PointerExited="GlobalInfoBar_PointerExited" />
 
         <NavigationView x:Name="NavView"
                         Grid.Row="2"
@@ -66,7 +73,8 @@
                         PaneOpened="NavView_PaneOpened"
                         PaneClosed="NavView_PaneClosed"
                 BackRequested="NavView_BackRequested"
-                KeyboardAcceleratorPlacementMode="Hidden">
+                xmlns:controls="using:FolderRewind.Controls"
+    KeyboardAcceleratorPlacementMode="Hidden">
 
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home"
@@ -108,7 +116,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <Frame x:Name="ContentFrame" CacheSize="10" />
+            <Frame x:Name="ContentFrame" CacheSize="2" />
         </NavigationView>
     </Grid>
 </Page>

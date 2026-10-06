@@ -39,13 +39,14 @@ namespace FolderRewind.Services.KnotLink
                 {
                     backupMode = "Full";
                 }
-                else if (requestedMode.Equals("incremental", StringComparison.OrdinalIgnoreCase))
+                else if (requestedMode.Equals("smart", StringComparison.OrdinalIgnoreCase)
+                         || requestedMode.Equals("incremental", StringComparison.OrdinalIgnoreCase))
                 {
-                    backupMode = "Incremental";
+                    backupMode = "Smart";
                 }
                 else
                 {
-                    error = $"Invalid backup_mode '{requestedMode}'. Allowed values: full, incremental.";
+                    error = $"Invalid backup_mode '{requestedMode}'. Allowed values: full, smart.";
                     return false;
                 }
             }

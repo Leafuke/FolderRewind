@@ -12,12 +12,30 @@ namespace FolderRewind.Services
 {
     public static class WindowIconHelper
     {
+        public static void ApplyBeforeShow(Window window)
+        {
+            try
+            {
+                var icon = Path.Combine(AppRuntimeInfo.ApplicationBaseDirectory, "Assets", "MsiApp.ico");
+                if (!File.Exists(icon)) throw new FileNotFoundException("MSI window icon is missing.", icon);
+                window.AppWindow.SetIcon(icon);
+                if (!AppRuntimeInfo.IsPackaged)
+                    ShellShortcutIdentity.SetWindowIdentity(WindowNative.GetWindowHandle(window),
+                        AppRuntimeInfo.IsMsiDistribution ? ShellShortcutIdentity.MsiAppId : "Leafuke.FolderRewind.Unpackaged",
+                        AppRuntimeInfo.ExecutablePath);
+            }
+            catch (Exception error)
+            {
+                LogService.LogError("Could not set the window icon.", nameof(WindowIconHelper), error);
+            }
+        }
         private const int WM_SETICON = 0x0080;
         private const int ICON_SMALL = 0;
         private const int ICON_BIG = 1;
 
         public static async Task TryApplyAsync(Window window)
         {
+            if (File.Exists(Path.Combine(AppRuntimeInfo.ApplicationBaseDirectory, "Assets", "MsiApp.ico"))) { ApplyBeforeShow(window); return; }
             try
             {
                 var hwnd = WindowNative.GetWindowHandle(window);
@@ -47,9 +65,9 @@ namespace FolderRewind.Services
 
                 window.Closed += (_, __) => Cleanup(hIconSmall, hIconBig);
             }
-            catch
+            catch (Exception error)
             {
-                // ignore
+                LogService.LogError("Could not set the window icon.", nameof(WindowIconHelper), error);
             }
         }
 

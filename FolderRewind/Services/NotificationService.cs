@@ -41,6 +41,20 @@ namespace FolderRewind.Services
     }
 
     /// <summary>
+    /// 应用内通知请求模型
+    /// </summary>
+    public sealed class InAppNotificationRequest
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public NotificationSeverity Severity { get; set; } = NotificationSeverity.Informational;
+        public int AutoCloseMs { get; set; } = 5000;
+        public string? ActionText { get; set; }
+        public Action? Action { get; set; }
+        public DateTime CreatedTime { get; } = DateTime.Now;
+    }
+
+    /// <summary>
     /// 综合通知服务：支持 InfoBar (应用内)、AppNotification (系统 Toast)、Badge Notification
     /// 用户可在设置中全局关闭所有提醒，也可单独设置 Toast 通知等级。
     /// </summary>
@@ -63,7 +77,7 @@ namespace FolderRewind.Services
         }
 
         // 应用内 InfoBar 回调（由 ShellPage 订阅）
-        public static event Action<string, string, NotificationSeverity, int, Action?>? InfoBarRequested;
+        public static event Action<InAppNotificationRequest>? InfoBarRequested;
 
         // Badge 计数变更事件
         public static event Action<int>? BadgeCountChanged;
@@ -77,7 +91,6 @@ namespace FolderRewind.Services
         private static int _suppressionCount = 0;
         private static bool _taskBadgeTrackingInitialized;
         private static readonly object TaskTrackingLock = new();
-        private static readonly HashSet<BackupTask> TrackedTasks = new();
 
         /// <summary>
         /// 当前是否启用通知（全局开关）
@@ -102,11 +115,7 @@ namespace FolderRewind.Services
                 }
 
                 _taskBadgeTrackingInitialized = true;
-                BackupService.ActiveTasks.CollectionChanged += OnActiveTasksCollectionChanged;
-                foreach (var task in BackupService.ActiveTasks)
-                {
-                    TrackTask(task);
-                }
+                BackupService.TaskRegistry.RunningCountChanged += RefreshRunningTaskBadgeState;
             }
 
             RefreshRunningTaskBadgeState();
@@ -142,15 +151,15 @@ namespace FolderRewind.Services
         #region InfoBar（应用内通知）
 
         /// <summary>
-        /// 发送应用内 InfoBar 通知
+        /// 发送应用内 InfoBar 请求对象
         /// </summary>
-        public static void ShowInfoBar(string title, string message, NotificationSeverity severity = NotificationSeverity.Informational, int autoCloseMs = 5000, Action? action = null)
+        public static void ShowInfoBar(InAppNotificationRequest request)
         {
-            if (!IsNotificationEnabled) return;
+            if (!IsNotificationEnabled || request == null) return;
 
             try
             {
-                InfoBarRequested?.Invoke(title, message, severity, autoCloseMs, action);
+                InfoBarRequested?.Invoke(request);
             }
             catch
             {
@@ -158,28 +167,44 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
+        /// 发送应用内 InfoBar 通知
+        /// </summary>
+        public static void ShowInfoBar(string title, string message, NotificationSeverity severity = NotificationSeverity.Informational, int autoCloseMs = 5000, Action? action = null, string? actionText = null)
+        {
+            ShowInfoBar(new InAppNotificationRequest
+            {
+                Title = title,
+                Message = message,
+                Severity = severity,
+                AutoCloseMs = autoCloseMs,
+                Action = action,
+                ActionText = actionText
+            });
+        }
+
+        /// <summary>
         /// 发送成功通知（InfoBar only）
         /// </summary>
-        public static void ShowSuccess(string message, string? title = null, int autoCloseMs = 4000)
+        public static void ShowSuccess(string message, string? title = null, int autoCloseMs = 4000, Action? action = null, string? actionText = null)
         {
-            ShowInfoBar(title ?? I18n.GetString("Notification_Success_Title"), message, NotificationSeverity.Success, autoCloseMs);
+            ShowInfoBar(title ?? I18n.GetString("Notification_Success_Title"), message, NotificationSeverity.Success, autoCloseMs, action, actionText);
         }
 
         /// <summary>
         /// 发送警告通知（InfoBar only）
         /// </summary>
-        public static void ShowWarning(string message, string? title = null, int autoCloseMs = 6000)
+        public static void ShowWarning(string message, string? title = null, int autoCloseMs = 6000, Action? action = null, string? actionText = null)
         {
-            ShowInfoBar(title ?? I18n.GetString("Notification_Warning_Title"), message, NotificationSeverity.Warning, autoCloseMs);
+            ShowInfoBar(title ?? I18n.GetString("Notification_Warning_Title"), message, NotificationSeverity.Warning, autoCloseMs, action, actionText);
         }
 
         /// <summary>
         /// 发送错误通知（InfoBar + Toast + Badge）
         /// </summary>
-        public static void ShowError(string message, string? title = null, int autoCloseMs = 8000)
+        public static void ShowError(string message, string? title = null, int autoCloseMs = 8000, Action? action = null, string? actionText = null)
         {
             var resolvedTitle = title ?? I18n.GetString("Notification_Error_Title");
-            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, autoCloseMs);
+            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, autoCloseMs, action, actionText);
             IncrementBadge();
 
             if (ShouldShowToast(NotificationImportance.Error))
@@ -198,18 +223,18 @@ namespace FolderRewind.Services
         /// <summary>
         /// 发送信息通知（InfoBar only）
         /// </summary>
-        public static void ShowInfo(string message, string? title = null, int autoCloseMs = 5000)
+        public static void ShowInfo(string message, string? title = null, int autoCloseMs = 5000, Action? action = null, string? actionText = null)
         {
-            ShowInfoBar(title ?? I18n.GetString("Notification_Info_Title"), message, NotificationSeverity.Informational, autoCloseMs);
+            ShowInfoBar(title ?? I18n.GetString("Notification_Info_Title"), message, NotificationSeverity.Informational, autoCloseMs, action, actionText);
         }
 
         /// <summary>
         /// 发送重要通知（InfoBar + Toast，适用于自动备份停止等重要但非错误事件）
         /// </summary>
-        public static void ShowImportant(string message, string? title = null, int autoCloseMs = 6000)
+        public static void ShowImportant(string message, string? title = null, int autoCloseMs = 6000, Action? action = null, string? actionText = null)
         {
             var resolvedTitle = title ?? I18n.GetString("Notification_Important_Title");
-            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Warning, autoCloseMs);
+            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Warning, autoCloseMs, action, actionText);
 
             if (ShouldShowToast(NotificationImportance.Important))
             {
@@ -232,11 +257,11 @@ namespace FolderRewind.Services
         /// 发送系统 Toast 通知（AppNotification）。
         /// 通常不直接调用，由 ShowError/ShowImportant/NotifyXxx 根据等级自动决定。
         /// </summary>
-        public static void ShowToast(string title, string message)
+        public static void ShowToast(string title, string message, IDictionary<string, string>? arguments = null, string? tag = null, string? group = null)
         {
             if (!IsNotificationEnabled) return;
 
-            if (AppRuntimeInfo.IsMsiDistribution)
+            if (AppRuntimeInfo.IsMsiDistribution || !AppRuntimeInfo.IsPackaged)
             {
                 App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
                 return;
@@ -247,6 +272,24 @@ namespace FolderRewind.Services
                 var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
                     .AddText(title)
                     .AddText(message);
+
+                if (arguments != null)
+                {
+                    foreach (var kvp in arguments)
+                    {
+                        builder.AddArgument(kvp.Key, kvp.Value);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    builder.SetTag(tag);
+                }
+
+                if (!string.IsNullOrWhiteSpace(group))
+                {
+                    builder.SetGroup(group);
+                }
 
                 var notification = builder.BuildNotification();
                 Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Show(notification);
@@ -254,17 +297,18 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotificationService] Toast failed: {ex.Message}");
+                App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
             }
         }
 
         /// <summary>
         /// 发送带图标的系统 Toast 通知
         /// </summary>
-        public static void ShowToastWithLogo(string title, string message, Uri? logoUri = null)
+        public static void ShowToastWithLogo(string title, string message, Uri? logoUri = null, IDictionary<string, string>? arguments = null, string? tag = null, string? group = null)
         {
             if (!IsNotificationEnabled) return;
 
-            if (AppRuntimeInfo.IsMsiDistribution)
+            if (AppRuntimeInfo.IsMsiDistribution || !AppRuntimeInfo.IsPackaged)
             {
                 App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
                 return;
@@ -275,6 +319,24 @@ namespace FolderRewind.Services
                 var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
                     .AddText(title)
                     .AddText(message);
+
+                if (arguments != null)
+                {
+                    foreach (var kvp in arguments)
+                    {
+                        builder.AddArgument(kvp.Key, kvp.Value);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    builder.SetTag(tag);
+                }
+
+                if (!string.IsNullOrWhiteSpace(group))
+                {
+                    builder.SetGroup(group);
+                }
 
                 if (logoUri != null)
                 {
@@ -287,6 +349,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotificationService] Toast with logo failed: {ex.Message}");
+                App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
             }
         }
 
@@ -380,14 +443,30 @@ namespace FolderRewind.Services
                 // 成功通知仅在用户设为 All 且应用在后台时发 Toast
                 if (ShouldShowToast(NotificationImportance.Info) && !IsAppForeground())
                 {
-                    ShowToast(I18n.GetString("Notification_BackupCompleted_Title"), message);
+                    var args = new Dictionary<string, string> { ["target"] = "Home" };
+                    ShowToast(I18n.GetString("Notification_BackupCompleted_Title"), message, args, tag: $"backup_{folderName}");
                 }
             }
             else
             {
                 var message = I18n.Format("Notification_BackupCompleted_Failed", folderName, errorMessage ?? "");
-                // ShowError 内部已包含 Badge 递增和 Toast 发送。
-                ShowError(message, I18n.GetString("Notification_BackupFailed_Title"));
+                var resolvedTitle = I18n.GetString("Notification_BackupFailed_Title");
+                var args = new Dictionary<string, string> { ["target"] = "Tasks" };
+
+                ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, 8000);
+                IncrementBadge();
+
+                if (ShouldShowToast(NotificationImportance.Error))
+                {
+                    if (AppRuntimeInfo.IsMsiDistribution)
+                    {
+                        App.TryShowTrayNotification(resolvedTitle, message, NotificationSeverity.Error);
+                    }
+                    else
+                    {
+                        ShowToast(resolvedTitle, message, args, tag: $"backup_{folderName}");
+                    }
+                }
             }
         }
 
@@ -407,13 +486,30 @@ namespace FolderRewind.Services
 
                 if (ShouldShowToast(NotificationImportance.Info) && !IsAppForeground())
                 {
-                    ShowToast(I18n.GetString("Notification_RestoreCompleted_Title"), message);
+                    var args = new Dictionary<string, string> { ["target"] = "History" };
+                    ShowToast(I18n.GetString("Notification_RestoreCompleted_Title"), message, args, tag: $"restore_{folderName}");
                 }
             }
             else
             {
                 var message = I18n.Format("Notification_RestoreCompleted_Failed", folderName, errorMessage ?? "");
-                ShowError(message, I18n.GetString("Notification_Error_Title"));
+                var resolvedTitle = I18n.GetString("Notification_Error_Title");
+                var args = new Dictionary<string, string> { ["target"] = "History" };
+
+                ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, 8000);
+                IncrementBadge();
+
+                if (ShouldShowToast(NotificationImportance.Error))
+                {
+                    if (AppRuntimeInfo.IsMsiDistribution)
+                    {
+                        App.TryShowTrayNotification(resolvedTitle, message, NotificationSeverity.Error);
+                    }
+                    else
+                    {
+                        ShowToast(resolvedTitle, message, args, tag: $"restore_{folderName}");
+                    }
+                }
             }
         }
 
@@ -425,92 +521,9 @@ namespace FolderRewind.Services
             return MainWindowService.IsMainWindowVisible();
         }
 
-        private static void OnActiveTasksCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            lock (TaskTrackingLock)
-            {
-                if (e.Action == NotifyCollectionChangedAction.Reset)
-                {
-                    foreach (var task in TrackedTasks)
-                    {
-                        task.PropertyChanged -= OnTrackedTaskPropertyChanged;
-                    }
-
-                    TrackedTasks.Clear();
-                    foreach (var task in BackupService.ActiveTasks)
-                    {
-                        TrackTask(task);
-                    }
-                }
-                else
-                {
-                    if (e.OldItems != null)
-                    {
-                        foreach (var task in e.OldItems)
-                        {
-                            if (task is BackupTask removedTask)
-                            {
-                                UntrackTask(removedTask);
-                            }
-                        }
-                    }
-
-                    if (e.NewItems != null)
-                    {
-                        foreach (var task in e.NewItems)
-                        {
-                            if (task is BackupTask newTask)
-                            {
-                                TrackTask(newTask);
-                            }
-                        }
-                    }
-                }
-            }
-
-            RefreshRunningTaskBadgeState();
-        }
-
-        private static void TrackTask(BackupTask task)
-        {
-            if (!TrackedTasks.Add(task))
-            {
-                return;
-            }
-
-            task.PropertyChanged += OnTrackedTaskPropertyChanged;
-        }
-
-        private static void UntrackTask(BackupTask task)
-        {
-            if (!TrackedTasks.Remove(task))
-            {
-                return;
-            }
-
-            task.PropertyChanged -= OnTrackedTaskPropertyChanged;
-        }
-
-        private static void OnTrackedTaskPropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (!string.IsNullOrWhiteSpace(e.PropertyName) && e.PropertyName != nameof(BackupTask.IsCompleted))
-            {
-                return;
-            }
-
-            RefreshRunningTaskBadgeState();
-        }
-
         private static void RefreshRunningTaskBadgeState()
         {
-            int nextRunningTaskCount = 0;
-            foreach (var task in BackupService.ActiveTasks)
-            {
-                if (!task.IsCompleted)
-                {
-                    nextRunningTaskCount++;
-                }
-            }
+            int nextRunningTaskCount = BackupService.TaskRegistry.RunningCount;
 
             if (_runningTaskCount == nextRunningTaskCount)
             {

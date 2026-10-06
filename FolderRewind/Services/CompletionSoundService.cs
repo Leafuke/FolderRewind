@@ -37,16 +37,19 @@ namespace FolderRewind.Services
             };
         }
 
+        private const uint SuccessBeep = 0x00000040; // MB_ICONASTERISK
+        private const uint ErrorBeep = 0x00000010;   // MB_ICONHAND
+
         public static void PlayConfiguredCompletionSound(bool success)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            Play(settings?.CompletionSoundIndex ?? 0);
+            Play(settings?.CompletionSoundIndex ?? 0, success);
         }
 
         public static void PreviewConfiguredSound()
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            Play(settings?.CompletionSoundIndex ?? 0);
+            Play(settings?.CompletionSoundIndex ?? 0, true);
         }
 
         public static async Task<bool> ApplyCustomSoundAsync(string sourcePath)
@@ -75,13 +78,19 @@ namespace FolderRewind.Services
                 var targetDir = Path.Combine(ConfigService.ConfigDirectory, SoundDirectoryName);
                 Directory.CreateDirectory(targetDir);
 
-                var targetPath = Path.Combine(targetDir, $"completion{extension.ToLowerInvariant()}");
+                var targetPath = Path.Combine(targetDir, $"completion-{Guid.NewGuid():N}{extension.ToLowerInvariant()}");
                 await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true)).ConfigureAwait(false);
 
-                var settings = ConfigService.CurrentConfig.GlobalSettings;
-                settings.CompletionSoundCustomPath = targetPath;
-                settings.CompletionSoundIndex = 1;
-                ConfigService.Save();
+                await UiDispatcherService.RunOnUiAsync(async () =>
+                {
+                    var settings = ConfigService.CurrentConfig.GlobalSettings;
+                    var previousPath = settings.CompletionSoundCustomPath;
+                    var previousIndex = settings.CompletionSoundIndex;
+                    await ConfigEditTransaction.ApplyAsync(
+                        () => { settings.CompletionSoundCustomPath = targetPath; settings.CompletionSoundIndex = 1; },
+                        () => { settings.CompletionSoundCustomPath = previousPath; settings.CompletionSoundIndex = previousIndex; },
+                        () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+                });
 
                 NotificationService.ShowSuccess(I18n.GetString("CompletionSound_CustomApplied"), I18n.GetString("Sponsor_Title"));
                 return true;
@@ -94,7 +103,7 @@ namespace FolderRewind.Services
             }
         }
 
-        public static bool ClearCustomSound()
+        public static async Task<bool> ClearCustomSoundAsync()
         {
             if (!SponsorService.IsUnlocked)
             {
@@ -103,8 +112,12 @@ namespace FolderRewind.Services
 
             try
             {
-                ConfigService.CurrentConfig.GlobalSettings.CompletionSoundCustomPath = string.Empty;
-                ConfigService.Save();
+                var settings = ConfigService.CurrentConfig.GlobalSettings;
+                var previous = settings.CompletionSoundCustomPath;
+                await ConfigEditTransaction.ApplyAsync(
+                    () => settings.CompletionSoundCustomPath = string.Empty,
+                    () => settings.CompletionSoundCustomPath = previous,
+                    () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
                 NotificationService.ShowSuccess(I18n.GetString("CompletionSound_CustomCleared"), I18n.GetString("Sponsor_Title"));
                 return true;
             }
@@ -122,7 +135,7 @@ namespace FolderRewind.Services
                 && SupportedAudioExtensions.Contains(extension.Trim(), StringComparer.OrdinalIgnoreCase);
         }
 
-        private static void Play(int index)
+        private static void Play(int index, bool success)
         {
             if (Math.Clamp(index, 0, PresetCount - 1) == 0)
             {
@@ -130,22 +143,24 @@ namespace FolderRewind.Services
             }
 
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            if (SponsorService.IsUnlocked
+            if (success
+                && SponsorService.IsUnlocked
                 && !string.IsNullOrWhiteSpace(settings?.CompletionSoundCustomPath)
                 && File.Exists(settings.CompletionSoundCustomPath))
             {
-                PlayCustom(settings.CompletionSoundCustomPath);
+                PlayCustom(settings.CompletionSoundCustomPath, success);
                 return;
             }
 
-            PlayDefault();
+            PlayDefault(success);
         }
 
-        private static void PlayDefault()
+        private static void PlayDefault(bool success)
         {
             try
             {
-                _ = Task.Run(() => MessageBeep(DefaultBeep));
+                var beepType = success ? SuccessBeep : ErrorBeep;
+                _ = Task.Run(() => MessageBeep(beepType));
             }
             catch (Exception ex)
             {
@@ -153,7 +168,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void PlayCustom(string path)
+        private static void PlayCustom(string path, bool fallbackSuccess)
         {
             try
             {
@@ -164,7 +179,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 LogService.LogWarning(I18n.Format("CompletionSound_Log_PlayFailed", ex.Message), ServiceName);
-                PlayDefault();
+                PlayDefault(fallbackSuccess);
             }
         }
 

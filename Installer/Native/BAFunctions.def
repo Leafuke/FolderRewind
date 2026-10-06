@@ -1,0 +1,15 @@
+LIBRARY FolderRewind.BAFunctions.dll
+EXPORTS
+    PrepareShortcutIcons=_PrepareShortcutIcons@4
+    FinalizeShortcutIcons=_FinalizeShortcutIcons@4
+    BAFunctionsCreate=_BAFunctionsCreate@8
+    BAFunctionsDestroy=_BAFunctionsDestroy@8
+    InstallerPreflight=_InstallerPreflight@4
+    PrepareStartupCleanup=_PrepareStartupCleanup@4
+    CleanupStartup=_CleanupStartup@4
+    RollbackStartup=_RollbackStartup@4
+    CommitStartup=_CommitStartup@4
+    PrepareBundleLocation=_PrepareBundleLocation@4
+    WriteBundleLocation=_WriteBundleLocation@4
+    RollbackBundleLocation=_RollbackBundleLocation@4
+    CommitBundleLocation=_CommitBundleLocation@4

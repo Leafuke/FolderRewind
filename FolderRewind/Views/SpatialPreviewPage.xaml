@@ -1,0 +1,116 @@
+<Page
+    x:Class="FolderRewind.Views.SpatialPreviewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:FolderRewind.ViewModels"
+    xmlns:controls="using:FolderRewind.Controls">
+    <Grid Padding="16" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="{x:Bind ViewModel.Title, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" TextTrimming="CharacterEllipsis"/>
+        <CommandBar Grid.Row="1" DefaultLabelPosition="Right" IsOpen="False" IsDynamicOverflowEnabled="True"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <CommandBar.Content>
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.LayerLabel, Mode=OneWay}" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="Layers" MinWidth="112" MaxWidth="180" HorizontalContentAlignment="Stretch"
+                              AutomationProperties.AutomationId="PreviewLayers" AutomationProperties.Name="{x:Bind ViewModel.LayerLabel, Mode=OneWay}"
+                              ItemsSource="{x:Bind ViewModel.Layers, Mode=OneWay}" SelectionChanged="OnLayerChanged">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:PreviewLayerChoice">
+                            <TextBlock Text="{x:Bind Name, Mode=OneTime}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Name, Mode=OneTime}"/>
+                        </DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </CommandBar.Content>
+            <AppBarElementContainer>
+                <SplitButton x:Name="NavigateButton" Margin="4,0" Content="{x:Bind ViewModel.NavigationLabel, Mode=OneWay}"
+                             AutomationProperties.AutomationId="PreviewNavigate" AutomationProperties.Name="{x:Bind ViewModel.NavigationLabel, Mode=OneWay}" Click="OnQuickNavigate">
+                    <SplitButton.Flyout>
+                        <Flyout x:Name="NavigationFlyout">
+                            <StackPanel Spacing="8" Width="304">
+                                <TextBlock Text="{x:Bind ViewModel.NavigationStatus, Mode=OneWay}" TextWrapping="Wrap"/>
+                                <ListView ItemsSource="{x:Bind ViewModel.Targets, Mode=OneWay}" MaxHeight="360" SelectionMode="None" IsItemClickEnabled="True" ItemClick="OnTargetClicked"
+                                          AutomationProperties.AutomationId="PreviewTargets" AutomationProperties.Name="{x:Bind ViewModel.NavigationLabel, Mode=OneWay}">
+                                    <ListView.ItemTemplate><DataTemplate x:DataType="vm:PreviewTargetChoice">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{x:Bind Name, Mode=OneTime}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Name, Mode=OneTime}"/>
+                                            <TextBlock Text="{x:Bind Description, Mode=OneTime}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                        </StackPanel>
+                                    </DataTemplate></ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
+                        </Flyout>
+                    </SplitButton.Flyout>
+                </SplitButton>
+            </AppBarElementContainer>
+            <AppBarButton x:Uid="Preview_Coordinates" Icon="Find" AutomationProperties.AutomationId="PreviewCoordinates">
+                <AppBarButton.Flyout>
+                    <Flyout x:Name="CoordinateFlyout" Opening="OnCoordinateOpening">
+                        <StackPanel Width="224" Spacing="12">
+                            <NumberBox x:Name="CoordinateX" Header="{x:Bind ViewModel.HorizontalAxis, Mode=OneWay}" AutomationProperties.AutomationId="PreviewCoordinateX" Minimum="-1000000000" Maximum="1000000000"/>
+                            <NumberBox x:Name="CoordinateY" Header="{x:Bind ViewModel.VerticalAxis, Mode=OneWay}" AutomationProperties.AutomationId="PreviewCoordinateY" Minimum="-1000000000" Maximum="1000000000"/>
+                            <TextBlock x:Name="CoordinateRange" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                            <TextBlock x:Name="CoordinateError" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+                            <Button x:Uid="Preview_Locate" HorizontalAlignment="Right" AutomationProperties.AutomationId="PreviewLocate" Click="OnLocate"/>
+                        </StackPanel>
+                    </Flyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Uid="Preview_Display" Icon="Setting" AutomationProperties.AutomationId="PreviewDisplay">
+                <AppBarButton.Flyout>
+                    <Flyout>
+                        <StackPanel Width="224" Spacing="12">
+                            <NumberBox x:Name="MaximumHeight" x:Uid="Preview_ViewHeight" AutomationProperties.AutomationId="PreviewHeight" ValueChanged="OnHeightChanged" SpinButtonPlacementMode="Compact"/>
+                            <TextBlock x:Uid="Preview_HeightHelp" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                            <ToggleSwitch x:Name="GridToggle" x:Uid="Preview_Grid" AutomationProperties.AutomationId="PreviewGrid" Toggled="OnGridToggled"/>
+                            <Button x:Uid="Preview_Fit" AutomationProperties.AutomationId="PreviewFit" Click="OnFit"/>
+                        </StackPanel>
+                    </Flyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Uid="Preview_RefreshAction" Icon="Refresh" AutomationProperties.AutomationId="PreviewRefresh" Click="OnRefresh"/>
+            <CommandBar.SecondaryCommands>
+                <AppBarButton x:Uid="Preview_HelpAction" Icon="Help" AutomationProperties.AutomationId="PreviewHelp">
+                    <AppBarButton.Flyout><Flyout><TextBlock x:Uid="Preview_Help" MaxWidth="320" TextWrapping="Wrap"/></Flyout></AppBarButton.Flyout>
+                </AppBarButton>
+            </CommandBar.SecondaryCommands>
+        </CommandBar>
+        <SplitView x:Name="DetailLayout" Grid.Row="2" PanePlacement="Right" DisplayMode="Inline" OpenPaneLength="280" IsPaneOpen="False">
+            <SplitView.Pane>
+                <Grid Padding="16" RowSpacing="12">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Button x:Uid="Preview_CloseDetails" HorizontalAlignment="Right" AutomationProperties.AutomationId="PreviewCloseDetails" Click="OnCloseDetails"/>
+                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock Text="{x:Bind ViewModel.Details, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                    </ScrollViewer>
+                </Grid>
+            </SplitView.Pane>
+            <Grid>
+                <controls:SpatialPreviewCanvas x:Name="Map" Background="{ThemeResource LayerFillColorAltBrush}" FlowDirection="LeftToRight"/>
+                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Spacing="4">
+                    <Button x:Name="ZoomInButton" Content="+" Width="40" AutomationProperties.AutomationId="PreviewZoomIn" Click="OnZoomIn"/>
+                    <Button x:Name="ZoomOutButton" Content="−" Width="40" AutomationProperties.AutomationId="PreviewZoomOut" Click="OnZoomOut"/>
+                </StackPanel>
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Spacing="4">
+                    <Button x:Uid="Preview_Fit" AutomationProperties.AutomationId="PreviewFitMap" Click="OnFit"/>
+                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="ScaleLabel" Style="{StaticResource CaptionTextBlockStyle}"/>
+                            <Border x:Name="ScaleBar" Height="6" BorderThickness="1,0,1,1" BorderBrush="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" IsHitTestVisible="False" Width="32" Height="32"/>
+            </Grid>
+        </SplitView>
+        <Grid Grid.Row="3" ColumnSpacing="16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <TextBlock Text="{x:Bind ViewModel.CursorText, Mode=OneWay}" TextTrimming="CharacterEllipsis" Style="{StaticResource CaptionTextBlockStyle}"/>
+            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Status, Mode=OneWay}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Right"
+                       ToolTipService.ToolTip="{x:Bind ViewModel.Status, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                       AutomationProperties.AutomationId="PreviewStatus"/>
+        </Grid>
+    </Grid>
+</Page>
