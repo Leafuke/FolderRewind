@@ -1,5 +1,7 @@
 # P3 开发验收记录（未通过发布准入）
 
+> 下方原始开发记录保留。当前结果见文末「2026-10-07 性能优化复核」；周期 checkpoint、测试规模等后续决策以该节及修订计划为准。
+
 日期：2026-10-07。Host 起点 `4ee0efd`，MineRewind 起点 `b0812d3`；两仓库开发分支 `codex/native-artifact-incremental`。
 
 **结论：已实现并验证语义增量的核心开发闭环；整份 P3 计划尚未完成，正常用户入口保持阻断。** 本记录不把 P2 结果重复计为 P3 验收，也不把小样本 smoke 当作性能 Gate。
@@ -53,3 +55,73 @@ dotnet build FolderRewind/FolderRewind.csproj -c Debug -p:Platform=x64 -p:Folder
 构建脚本使用按合同源码 hash 命名的 prerelease、本地隔离 feed/cache，独立构建插件并核验包内没有 Abstractions DLL。`build.json` 记录精确版本和包 SHA。没有向 NuGet 或插件商店发布。
 
 request 字段沿用 P2 的 Workspace/Phase/Package/PackageSha256/SevenZip/Source/SourceId/Encrypted，可选 Rclone；P3 设置 `Incremental=true`，`Iterations` 控制辅助文件序列。`Lifecycle=true` 要求从一个 Version 开始，执行真实分支/恢复/Merge 工作流。所有 Workspace 必须是新的、与 Source 不重叠的隔离目录。退出成功不能替代本记录列出的未完成 Gate。
+
+## 2026-10-07 性能优化复核
+
+**结论：优化与本轮安全回归完成，P3 仍未通过整体准入。** 日常稀疏增量与全部恢复场景通过缩减性能阈值；密集变化最大耗时超限约 79ms，显式自包含 checkpoint 明显超限。没有放宽阈值、牺牲 Exact 或开放正常入口。
+
+### 精确产物与测量边界
+
+- 起点：Host `d7691a8`、MineRewind `64ef042`，在此前未提交调优上继续；未纳入用户的 `AGENTS.md` 修改。
+- 本轮代码提交：Host `0370cd4`（Runtime/验证）、`07462b6`（变化视图/策略/测量）；MineRewind `19e11a7`（流式验证/布局/codec 复用）。
+- 独立插件包 SHA-256：`6A614E3A63D4C83C70FA8F0676B3CE175DD6069B25B5BADFFB5806AE9A0B40AC`。
+- 验收 Host DLL SHA-256：`B7196D963FB56AF472030F38B04CDC6AE5123CC2B546263FFD61DA43A6CF7919`。本地留存于 `artifacts/incremental-p3/optimization/FolderRewind.acceptance.dll`，与随后普通构建区分。
+- 同一提供的真实世界，829 个源文件、约 563 MB；操作隔离副本，未改原世界。有效范围排除 `session.lock`。Core/P3 相同输入序列、稳定快照、默认压缩条件；每个对应版本恢复树摘要相等。
+- 普通场景一次预热、三次测量；表中取最大值，checkpoint 一次。未控制 OS 冷缓存，不称为 p95。没有并行运行基准、构建或测试。
+- 结果：`artifacts/incremental-p3/optimization/{core-final,semantic-final}/benchmark-results.json`；比较：`performance-gate.json`。这些私有语料/运行结果不提交 Git。
+- `profile-01`、`profile-02`、`semantic-03` 是中间诊断，不挑选其中较快值替代最终结果。profile-01 的 `logical.hash` 标记误放在分配步骤，最终已修正，不能把该中间字段当作逻辑摘要计时。
+
+### 缩减性能矩阵
+
+| 场景 | Core 备份 ms | P3 备份 ms | P3 允许 ms | Core 恢复 ms | P3 恢复 ms | 结果 |
+|---|---:|---:|---:|---:|---:|---|
+| 无变化 | 1139 | 1141 | 1503 | 5176 | 5758 | 通过 |
+| 稀疏 3 chunk | 1958 | 2111 | 2850 | 7208 | 5874 | 通过 |
+| 同 region 密集变化 | 1725 | 3235 | 3156 | 9607 | 6026 | 备份耗时未过；恢复通过 |
+| 纯删除 | 1415 | 1516 | 2768 | 10885 | 6040 | 耗时通过 |
+| 显式 checkpoint | 13091 | 24624 | 17364 | 5585 | 5837 | 备份耗时未过；恢复通过 |
+
+稀疏新增存储/密文上传：Core 12,385,529 B，P3 275,639 B，约减少 97.8%。密集变化分别为 12,576,232 / 10,821,122 B；checkpoint 为 424,639,372 / 434,876,804 B（P3 多约 2.4%）。相应存储阈值均通过。
+
+纯删除仍有完整目录 root 的固定开销：Core 230 B，P3 98,384 B。此场景原本没有比例阈值，不能将「StoragePassed」解释成空间优于 Core。
+
+上传数字是本地对象 transport 实际复制并校验的密文 payload，不含 descriptor、receipt、协议流量；真实 rclone local 闭包上传/下载另行验证。未伪称远端网络性能。
+
+### 瓶颈证据与资源成本
+
+最终 checkpoint 的墙钟阶段：旧闭包打开/验证约 3.74s、语义重打包约 2.66s、新 envelope 封存约 14.47s、候选完整字节验证约 1.16s。封存包含压缩和真实往返解包验证。并行 worker 的 inclusive 耗时存在重叠，不可相加冒充端到端耗时。
+
+对象顺序读取不再先完整 hash 后倒回重复消费；流池改为 32 项 LRU 后，完整恢复从此前约 12–13s 降至约 5.8–6.0s。稀疏候选验证不再为一个 region 解包混装的整个 64 MiB data pack。新布局增加了 pack 数量，最终 checkpoint 闭包为 57 个新 Artifact，仍须计入节点和长期保留成本。
+
+Host 峰值工作集 211,144,704 B；checkpoint 中同时运行的已观测 7z 子进程工作集，25ms 采样峰值 598,949,888 B。二者是分别测得的峰值，不声称同一时刻相加即精确整树峰值。原计划的插件缓冲限制不能被偷换成忽略子进程内存。子进程最多四个 envelope worker，不随世界大小增加。
+
+checkpoint 的 Host 读/写约 4.82 GB / 1.27 GB（不含 7z，另列 stage counters），仍有显著 I/O 放大。无变化源快照仍读/写约 563 MB；不能宣称整条路径是 O(changes)。初始基线中 region payload 约 291.5 MB、Exact residual 约 182.2 MB；尚未隔离其压缩后独立成本，不能由原始体积推断放弃 Exact 的收益。
+
+### 实际安全验证
+
+| 验证 | 最新结果 | 证据/范围 |
+|---|---|---|
+| Host 单元/集成测试 | 816 通过 | 显式指定仓库 7za，完整 suite |
+| Runtime 测试 | 159 通过 | 含并行上限、解码失败等待全部 worker、候选验证复用、受控路径 |
+| Abstractions 测试 | 15 通过 | 兼容契约回归 |
+| MineRewind domain | 74 通过 | 含 mcc/opaque/容器保真、显式 checkpoint、顺序流失败/取消/截断/部分消费 |
+| MineRewind 插件 | 93 通过 | 独立 API feed 构建 |
+| 首次提交故障 | 12/12 通过 | `optimization/crash-initial/results.json` |
+| 已有基线提交故障 | 4/4 通过 | `optimization/crash-delta/results.json` |
+| 分支/恢复/通用 Merge | 通过 | `optimization/lifecycle/p3-capture-result.json`；5 versions |
+| 连续 30 版本 | 通过 | `optimization/thirty-versions/p3-capture-result.json`；每版 Exact 恢复和 NoChanges |
+| 缓存丢失 / 插件缺失 | 通过 | 明确基线修复；缺插件不推进 History |
+| 加密 + rclone local | 通过 | 3 个单语义表示，实际对象闭包上传/下载 |
+| WinUI 构建 | 通过 | 验收构建及普通 x64 构建均 0 警告、0 错误；未修改 UI |
+
+直接变化视图不产生临时 Core archive，因此 PrimaryCleanup 两切点不再存在于新正常路径；旧 transport 清理代码、既有 14/6 点历史证据保留。工具 `-Transport` 可针对旧 transport 构建继续验证，不能把不存在的切点声称成新路径注入成功。
+
+30 版本测试是小语料生命周期 smoke，**不是**大世界完整周期/Retention 后物理成本 Gate。全部 mcc 组合由领域 fixtures 覆盖；提供的大世界本身没有 mcc。没有将单元测试包装成真实世界独立样本。
+
+### 保留的限制与处理决定
+
+- 普通入口继续关闭，既有配置不迁移。P3 的整体 `PerformanceGatePassed=false`。
+- 语义路径不再按次数、70% 变化或局部放大自动全量重打包；Core Smart 策略未改变。首次/失效重建与显式自包含仍保留。不得用降低触发频率把必要 checkpoint 的失败隐藏掉。
+- 自动 compaction 暂不启用。下一步应针对 envelope 封存/解封的剩余成本，以及 Host 可证明的全局回收收益开展独立工作；不能通过关闭摘要、路径、预算、candidate 字节验证或偷偷改变 fidelity 来达标。
+- 没有实现新的随机访问加密封装、Normalized fidelity 或局部 compaction。若扩大到这些存储设计，需要相应的新格式及故障矩阵，不能在本轮验收中默认为已完成。
+- 完整临时空间峰值、30 版本大世界 Retention 成本、Cloud 退役未回收空间 UI、所有新增 witness/descriptor 故障切点仍不是本轮已验证事实。原有发布准入缺口不会因性能改善而自动消失。
