@@ -584,6 +584,7 @@ namespace FolderRewind.Services
                     (captureConfig, _) = PluginV3ModelMapper.CloneForOperation(runtimeConfig, runtimeFolder);
                     captureConfig.Archive.Format = "7z";
                     captureConfig.Archive.CompressionLevel = 0;
+                    captureConfig.Archive.Method = "Copy";
                     captureConfig.Archive.FileTypeHandlingEnabled = false;
                     captureConfig.Archive.AdditionalSevenZipArguments = string.Empty;
                 }
@@ -593,7 +594,50 @@ namespace FolderRewind.Services
                     folder.StatusText = I18n.Format("BackupService_Folder_BackupRunning");
                 });
 
-                switch (config.Archive.Mode)
+                var directSemantic = incremental && v3Session.HasStableSourceView && config.Archive.Mode != BackupMode.Rolling;
+                if (directSemantic)
+                {
+                    try
+                    {
+                        var states = ScanDirectory(sourcePath, runtimeConfig.Filters, selection: runtimeFolder.SourceScope);
+                        var changes = CompareFileStates(states, captureBaseline?.FileStates);
+                        if (captureScope != CaptureScope.FullSource) throw new InvalidOperationException("Semantic capture requires the complete effective boundary.");
+                        if (BackupSourceAvailabilityPolicy.IsUnavailable(runtimeFolder.SourceScope, states.Count))
+                            captureResult = SourceCaptureResult.Unavailable(sourceId, captureScope);
+                        else if (captureBaseline is not null && !changes.HasChanges
+                            && (config.Archive.Mode == BackupMode.Smart || config.Archive.SkipIfUnchanged)
+                            && !NativeArtifactHostService.ExplicitCheckpointRequested)
+                            captureResult = SourceCaptureResult.NoChanges(sourceId, captureScope);
+                        else
+                        {
+                            var fileStates = states.ToImmutableSortedDictionary(StringComparer.Ordinal);
+                            var plan = FileChangeCapturePlan.Create(fileStates, captureBaseline, effectiveBoundary,
+                                captureBaseline is not null && config.Archive.Mode == BackupMode.Smart,
+                                NativeArtifactHostService.ExplicitCheckpointRequested);
+                            var witness = new SourceCaptureBaselineCandidate(captureBaseline?.Revision ?? -1, string.Empty, 0,
+                                fileStates, effectiveBoundary.Fingerprint)
+                            { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) };
+                            captureResult = await NativeArtifactHostService.CaptureDirectAsync(runtimeConfig,
+                                v3Session.SourceResolution, plan, witness, effectiveBoundary, sourcePath, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception transformError) when (transformError is not OperationCanceledException
+                        && runtimeConfig.ArtifactTransformPolicy?.FailureBehavior == PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
+                    {
+                        // No transport archive exists. A fresh CoreFull from the same stable lease
+                        // is independently restorable and cannot depend on a semantic root.
+                        captureResult = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, null,
+                            folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                        if (captureResult.BaselineCandidate is { } fallbackStats)
+                            captureResult = captureResult.WithBaselineCandidate(fallbackStats with { ExpectedRevision = captureBaseline?.Revision ?? -1 });
+                        captureResult = captureResult.WithVersionMetadata([], [new HistoryDiagnostic("plugin.artifact_primary_kept",
+                            HistoryDiagnosticSeverity.Warning, transformError.Message)]);
+                    }
+                    success = captureResult.Success;
+                    sourceUnavailable = captureResult.IsUnavailable;
+                    generatedFileName = captureResult.FileName;
+                }
+                else switch (config.Archive.Mode)
                 {
                     case BackupMode.Smart:
                         {
@@ -636,8 +680,9 @@ namespace FolderRewind.Services
                         { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) });
                     try
                     {
-                        captureResult = await NativeArtifactHostService.TransformAsync(runtimeConfig,
-                            v3Session.SourceResolution, captureResult, cancellationToken, captureBaseline, v3Session.HasStableSourceView).ConfigureAwait(false);
+                        if (!directSemantic)
+                            captureResult = await NativeArtifactHostService.TransformAsync(runtimeConfig,
+                                v3Session.SourceResolution, captureResult, cancellationToken, captureBaseline, v3Session.HasStableSourceView).ConfigureAwait(false);
                     }
                     catch (Exception transformError) when (transformError is not OperationCanceledException
                         && incremental && runtimeConfig.ArtifactTransformPolicy?.FailureBehavior == PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)

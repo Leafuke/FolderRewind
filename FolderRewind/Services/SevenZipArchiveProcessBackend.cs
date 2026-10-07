@@ -17,8 +17,10 @@ namespace FolderRewind.Services;
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
     bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend,
-    FolderRewind.Plugin.Runtime.Artifacts.IArtifactEnvelopeCodec, IBoundedPrimaryArchiveBackend
+    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, IBoundedPrimaryArchiveBackend
 {
+    // Bound independently of world size. Envelope jobs operate on disjoint immutable packs.
+    public int MaximumConcurrency => Math.Min(4, Math.Max(1, Environment.ProcessorCount / 2));
     public async Task MaterializePrimaryAsync(string archive, string directory, CancellationToken token)
     {
         await UnpackLogicalTreeAsync(archive, directory, token).ConfigureAwait(false);
@@ -274,6 +276,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);
         using var process = new Process { StartInfo = start };
         if (!process.Start()) return (false, "7z process did not start.", "");
+        using var observation = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.ObserveProcess(process, operation);
         process.StandardInput.Close(); // 缺少密码时失败关闭，不等待不可见的交互输入。
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();

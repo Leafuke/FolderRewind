@@ -119,6 +119,7 @@ namespace FolderRewind.Services
                 };
 
                 p.Start();
+                using var observation = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.ObserveProcess(p, "core");
                 ApplyLowPriorityIfRequested(p, runAtLowPriority);
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();

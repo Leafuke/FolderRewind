@@ -30,22 +30,25 @@ internal static partial class NativeArtifactAcceptance
             var committed = request.CrashAt is not null && (request.CrashAt.StartsWith("HistoryPackCommitted:")
                 || request.CrashAt.StartsWith("LocalStateApplied:") || request.CrashAt.StartsWith("Complete:")
                 || request.CrashAt.StartsWith("PrimaryCleanup:"));
-            if (versions.Count != (committed ? 1 : 0) || representations.Count != versions.Count
+            if (versions.Count != request.PreviousVersions + (committed ? 1 : 0) || representations.Count != versions.Count
                 || representations.Any(r => r.Kind != RepresentationKind.PluginArtifact))
                 throw new InvalidDataException("P3 crash recovery manufactured or lost committed History.");
             var store = NativeArtifactHostService.Store(config);
             if (store.Pending().Count != 0) throw new InvalidDataException("Pending capture survived recovery.");
             await store.CollectAsync(representations.Select(r => new FolderRewind.Plugin.Abstractions.ArtifactId(
                 Guid.Parse(r.RepresentationSpecificMetadata["artifactRootId"]))), default);
-            if (committed)
+            if (versions.Count > 0)
             {
                 var restored = Path.Combine(root, "p3-recovered");
+                var current = (await history.WorkspaceStore.LoadAsync()).Value!.SourceBaselines.Single().BaseVersionId;
                 await new RepresentationRuntime([NativeArtifactHostService.Handler(config, history)]).MaterializeAsync(
-                    representations.Single().RepresentationId, representations,
+                    representations.Single(r => r.VersionId == current).RepresentationId, representations,
                     await NativeHistoryApplicationService.BuildEnvironmentAsync(history, default), MaterializationFidelity.Exact, restored);
                 var expected = await MergeTreeManifest.ReadAsync(config.SourceFolders.Single().Path,
                     p => !p.Equals("session.lock", StringComparison.OrdinalIgnoreCase), default);
-                if ((await MergeTreeManifest.ReadAsync(restored, _ => true, default)).Digest != expected.Digest)
+                var witness = Path.Combine(root, committed ? "p3-after-digest" : "p3-before-digest");
+                var expectedDigest = File.Exists(witness) ? await File.ReadAllTextAsync(witness) : expected.Digest;
+                if ((await MergeTreeManifest.ReadAsync(restored, _ => true, default)).Digest != expectedDigest)
                     throw new InvalidDataException("Recovered bytes differ.");
             }
             await File.WriteAllTextAsync(Path.Combine(root, "p3-recover-result.json"), JsonSerializer.Serialize(new
@@ -58,14 +61,33 @@ internal static partial class NativeArtifactAcceptance
             if (!result.CreatedNewArchive) throw new InvalidDataException("Initial semantic capture failed: " + JsonSerializer.Serialize(result));
         }
         var source = config.SourceFolders.Single();
+        if (request.Phase == "cache-loss")
+        {
+            var cached = await history.CaptureBaselines.LoadAsync(new(Guid.Parse(source.Id)));
+            if (cached is not null) await history.CaptureBaselines.RemoveAsync(cached.SourceId, cached.Revision);
+        }
+        if (request.Phase == "plugin-missing")
+        {
+            var versionsBefore = (await history.Query.GetAllVersionsAsync()).Count;
+            await PluginV3RuntimeService.Runtime.DeactivateAsync(new("com.folderrewind.minerewind"));
+            var result = await BackupService.BackupConfigAsync(config);
+            if (result.CreatedNewArchive || (await history.Query.GetAllVersionsAsync()).Count != versionsBefore)
+                throw new InvalidDataException("Missing plugin advanced History.");
+            await File.WriteAllTextAsync(Path.Combine(root, "p3-plugin-missing-result.json"), "{\"Success\":true}");
+            return 0;
+        }
         for (var i = 0; i < request.Iterations && request.Phase != "recover"; i++)
         {
             if (request.Phase != "capture" || i > 0)
             {
+                await File.WriteAllTextAsync(Path.Combine(root, "p3-before-digest"),
+                    (await MergeTreeManifest.ReadAsync(source.Path, p => p != "session.lock", default)).Digest);
                 // Domain-neutral auxiliary file exercises real Smart add/change/delete without corrupting the test world.
                 var file = Path.Combine(source.Path, "p3-verification.bin");
                 if (i % 3 == 2 && File.Exists(file)) File.Delete(file);
                 else { await File.WriteAllBytesAsync(file, new byte[] { 80, 51, (byte)i, 7 }); File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddSeconds(i + 1)); }
+                await File.WriteAllTextAsync(Path.Combine(root, "p3-after-digest"),
+                    (await MergeTreeManifest.ReadAsync(source.Path, p => p != "session.lock", default)).Digest);
                 var before = (await NativeArtifactHostService.Store(config).Ledger.LoadAsync()).Artifacts.Sum(a => a.StorageSize);
                 var watch = System.Diagnostics.Stopwatch.StartNew();
                 var result = await BackupService.BackupConfigAsync(config);

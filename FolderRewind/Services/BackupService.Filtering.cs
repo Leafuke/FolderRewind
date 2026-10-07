@@ -233,6 +233,7 @@ namespace FolderRewind.Services
             string? originalSourcePath = null,
             BackupSourceScope? selection = null)
         {
+            using var stage = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.Source.StartActivity("source.scan");
             // 预估容量以减少字典扩容开销
             var result = new Dictionary<string, SourceCaptureFileState>(1024, StringComparer.OrdinalIgnoreCase);
             var originalRoot = originalSourcePath ?? path;

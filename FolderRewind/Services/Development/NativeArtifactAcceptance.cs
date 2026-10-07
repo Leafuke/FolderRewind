@@ -30,7 +30,7 @@ internal static partial class NativeArtifactAcceptance
     private static extern bool GetProcessIoCounters(IntPtr process, out IoCounters counters);
     internal sealed record Request(string Workspace, string Phase, string Package, string PackageSha256,
         string SevenZip, string Source, string SourceId, bool Encrypted, string? Rclone = null, string? CrashAt = null,
-        bool Incremental = false, int Iterations = 1, bool Lifecycle = false);
+        bool Incremental = false, int Iterations = 1, bool Lifecycle = false, bool Benchmark = false, int PreviousVersions = 0);
     private static string? _crashAt;
     internal static void Observe(string phase)
     {
@@ -77,13 +77,21 @@ internal static partial class NativeArtifactAcceptance
                         FailureBehavior = PersistedArtifactTransformFailureBehavior.RequireTransform } };
                 config.Archive.Mode = request.Incremental ? BackupMode.Smart : BackupMode.Full; config.Archive.KeepCount = 0;
                 if (request.Incremental) config.ArtifactTransformPolicy.Parameters["representation"] = JsonSerializer.SerializeToElement("incremental-v1");
+                if (request.Benchmark)
+                {
+                    config.Archive.Mode = BackupMode.Smart;
+                    config.Archive.MaxSmartBackupsPerFull = 0;
+                    if (!request.Incremental) config.ArtifactTransformPolicy = null;
+                }
                 config.SourceFolders.Add(new ManagedFolder { Id = request.SourceId, Path = source, DisplayName = "world" });
                 var saved = await ConfigService.UpdateAndSaveAsync(c => { c.BackupConfigs.Clear(); c.BackupConfigs.Add(config); c.GlobalSettings.SevenZipPath = request.SevenZip; });
                 if (!saved.Success) throw new IOException(saved.ErrorMessage);
                 if (request.Encrypted) EncryptionService.StorePassword(config.Id, "p2-isolated-acceptance-only");
             }
             else config = ConfigService.CurrentConfig.BackupConfigs.Single();
-            var install = await new PluginPackageInstaller(Path.Combine(root, "plugins")).InstallAsync(request.Package,
+            var packageIdentity = Convert.ToHexString(Convert.FromHexString(request.PackageSha256));
+            if (packageIdentity.Length != 64) throw new InvalidDataException("Invalid acceptance package SHA.");
+            var install = await new PluginPackageInstaller(Path.Combine(root, "plugins", packageIdentity)).InstallAsync(request.Package,
                 PluginInstallProvenance.Manual, request.PackageSha256);
             var manifest = install.Manifest.Contract;
             using var loaded = PluginAssemblyLoader.Load(new(manifest.PluginId, install.InstalledPath,
@@ -95,6 +103,7 @@ internal static partial class NativeArtifactAcceptance
             if (!activation.Success) throw new InvalidOperationException(JsonSerializer.Serialize(activation.Diagnostics));
             using var enabled = NativeHistoryArtifactTransformPolicy.EnterAcceptance(config.Id);
             _crashAt = request.Phase == "recover" ? null : request.CrashAt;
+            if (request.Benchmark) return await RunBenchmarkAsync(request, config, root);
             if (request.Incremental) return await RunIncrementalAsync(request, config, root, started);
             if (request.Phase == "capture")
             {

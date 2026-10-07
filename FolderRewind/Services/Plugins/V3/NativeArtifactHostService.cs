@@ -131,6 +131,26 @@ internal static class NativeArtifactHostService
 #endif
             );
 
+    internal static Task<SourceCaptureResult> CaptureDirectAsync(BackupConfig config, PluginV3BackupSourceResolution resolution,
+        FileChangeCapturePlan plan, SourceCaptureBaselineCandidate statistics, EffectiveSourceBoundarySnapshot boundary,
+        string stableSource, CancellationToken token)
+    {
+        if (!NativeHistoryArtifactTransformPolicy.IsEnabled(config.Id)) throw new InvalidOperationException("Native transform acceptance is disabled.");
+        var settings = config.ArtifactTransformPolicy ?? throw new InvalidOperationException("Transform policy required.");
+        var policy = new ArtifactTransformPolicy(new(new(settings.Transformer.PluginId), settings.Transformer.TransformerId),
+            settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
+        return new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config),
+            new SevenZipHistoryArchiveBackend(config), config.IsEncrypted).TransformAsync(null, plan,
+                resolution.ConfigSnapshot!, resolution.FolderSnapshot!, policy, token, stableSource, boundary, statistics);
+    }
+
+    internal static bool ExplicitCheckpointRequested =>
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        Development.NativeArtifactAcceptance.ForceCheckpoint;
+#else
+        false;
+#endif
+
     internal static async Task<SourceCaptureResult> TransformAsync(BackupConfig config, PluginV3BackupSourceResolution resolution,
         SourceCaptureResult capture, CancellationToken token, SourceCaptureBaseline? baseline = null, bool stableSource = false)
     {
@@ -143,7 +163,7 @@ internal static class NativeArtifactHostService
                 settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
             return await new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config),
                 new SevenZipHistoryArchiveBackend(config), config.IsEncrypted).TransformAsync(capture,
-                FileChangeCapturePlan.Create(capture, baseline, config.Archive.MaxSmartBackupsPerFull),
+                FileChangeCapturePlan.Create(capture, baseline, ExplicitCheckpointRequested),
                 resolution.ConfigSnapshot!, resolution.FolderSnapshot!, incrementalPolicy, token);
         }
         if (config.Archive.Mode != BackupMode.Full)

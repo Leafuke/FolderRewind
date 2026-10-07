@@ -19,17 +19,30 @@ namespace FolderRewind.History.Representation;
 public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager plugins, NativeArtifactStore store,
     IArchiveRepresentationBackend archives, bool encrypted)
 {
-    public async Task<SourceCaptureResult> TransformAsync(SourceCaptureResult capture, FileChangeCapturePlan plan,
-        ConfigSnapshot config, FolderSnapshot folder, ArtifactTransformPolicy policy, CancellationToken token)
+    public async Task<SourceCaptureResult> TransformAsync(SourceCaptureResult? capture, FileChangeCapturePlan plan,
+        ConfigSnapshot config, FolderSnapshot folder, ArtifactTransformPolicy policy, CancellationToken token,
+        string? stableSourceDirectory = null, EffectiveSourceBoundarySnapshot? directBoundary = null,
+        SourceCaptureBaselineCandidate? directStatistics = null)
     {
         var version = VersionId.New(); var representation = RepresentationId.New();
         var work = System.IO.Path.Combine(store.Root, ".capture", Guid.NewGuid().ToString("N"));
-        var primary = System.IO.Path.Combine(work, "primary"); Directory.CreateDirectory(work);
+        var primary = stableSourceDirectory ?? System.IO.Path.Combine(work, "primary"); Directory.CreateDirectory(work);
+        var boundary = capture?.EffectiveSourceBoundary ?? directBoundary ?? throw new InvalidOperationException("Source boundary required.");
+        var statistics = capture?.BaselineCandidate ?? directStatistics ?? throw new InvalidOperationException("Capture witness required.");
+        if (plan.FileStates.Count > ArtifactTransformLimits.Default.MaximumFiles
+            || plan.FileStates.Any(f => f.Value.Size < 0)
+            || plan.FileStates.Sum(f => f.Value.Size) > ArtifactTransformLimits.Default.MaximumBytes)
+            throw new InvalidDataException("Capture source exceeds the Artifact input budget.");
         try
         {
-            if (archives is not IBoundedPrimaryArchiveBackend bounded) throw new InvalidOperationException("Bounded primary extraction required.");
-            await bounded.MaterializePrimaryAsync(capture.PayloadCandidate!.AbsolutePath, primary, token);
-            var readPrimary = new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [new("primary")] = primary });
+            if (stableSourceDirectory is null)
+            {
+                if (archives is not IBoundedPrimaryArchiveBackend bounded) throw new InvalidOperationException("Bounded primary extraction required.");
+                using (ArtifactDiagnostics.Source.StartActivity("primary.extract"))
+                    await bounded.MaterializePrimaryAsync(capture!.PayloadCandidate!.AbsolutePath, primary, token);
+            }
+            var readPrimary = new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [new("primary")] = primary },
+                stableSourceDirectory is null ? null : plan.Input.AddedFiles.Concat(plan.Input.ModifiedFiles).ToHashSet(StringComparer.Ordinal));
             var physical = await readPrimary.ListFilesAsync(new("primary"), token);
             if (!physical.Select(f => f.RelativePath).ToHashSet(StringComparer.Ordinal)
                 .SetEquals(plan.Input.AddedFiles.Concat(plan.Input.ModifiedFiles)))
@@ -57,8 +70,8 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 plan.FileStates, plan.Input.Checkpoint ? 0 : checked((plan.Baseline?.ConsecutiveSmartCaptures ?? 0) + 1));
             var evidenceBytes = JsonSerializer.SerializeToUtf8Bytes(document);
             await using var prepared = await store.PrepareAsync(plugins, config, folder, version.ToString(), representation.ToString(), primary,
-                policy, encrypted, token, capture.PayloadCandidate.AbsolutePath, capture.RepresentationCandidate!.RepresentationId.ToString(), plan.Input,
-                repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document));
+                policy, encrypted, token, capture?.PayloadCandidate?.AbsolutePath, capture?.RepresentationCandidate?.RepresentationId.ToString(), plan.Input,
+                repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document), new(new("primary"), readPrimary));
             try
             {
                 if (prepared.RequiresFullVerification)
@@ -75,7 +88,8 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 {
                     if (prepared.BaselineRead is { } oldRead && plan.Input.BaseRootArtifactId is { } oldRoot)
                         oldView = await provider.OpenFileViewAsync(new(config, folder, plan.Input.BaseVersionId!, oldRoot, oldRead.Artifacts, oldRead.Read), materializer.Context);
-                    await document.ValidateViewAsync(view, oldView, plan.Input with { Checkpoint = plan.Input.Checkpoint || prepared.RequiresFullVerification }, token);
+                    using (ArtifactDiagnostics.Source.StartActivity("candidate.validate"))
+                        await document.ValidateViewAsync(view, oldView, plan.Input with { Checkpoint = plan.Input.Checkpoint || prepared.RequiresFullVerification }, token);
                 }
                 finally { if (oldView is not null) await oldView.DisposeAsync(); }
                 var stored = prepared.Ledger.Artifacts.Single(n => n.ArtifactId == node.ArtifactId);
@@ -89,15 +103,15 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 };
                 var candidate = new RepresentationCandidate(representation, RepresentationKind.PluginArtifact, node.Format.FormatId,
                     [], MaterializationFidelity.Exact, fingerprint, fingerprint, metadata);
-                var baselineCandidate = new SourceCaptureBaselineCandidate(capture.BaselineCandidate!.ExpectedRevision, path,
+                var baselineCandidate = new SourceCaptureBaselineCandidate(statistics.ExpectedRevision, path,
                     document.CapturesSinceCheckpoint, plan.FileStates, document.BoundaryFingerprint)
                     { ArtifactRootId = node.ArtifactId.Value, EvidenceIdentity = metadata["captureEvidenceSha256"],
-                        SourcePathFingerprint = capture.BaselineCandidate.SourcePathFingerprint };
-                return new SourceCaptureResult(capture.SourceId, SourceCaptureOutcome.Captured, CaptureScope.FullSource, fingerprint,
+                        SourcePathFingerprint = statistics.SourcePathFingerprint };
+                return new SourceCaptureResult(new(folder.FolderId), SourceCaptureOutcome.Captured, CaptureScope.FullSource, fingerprint,
                     null, candidate, new(LocalReplicaId.New(), representation, LocalReplicaLocator.ControlledAbsolute(path), CapturePayloadState.VerifiedFinal, DateTimeOffset.UtcNow),
-                    new(path, CapturePayloadState.VerifiedFinal, stored.StorageSize, stored.StorageSha256), capture.ExpectedWorkspaceRevision,
-                    capture.ExpectedBaseVersionId, capture.CleanupHandle, capture.Diagnostics, capture.ExpectedMaterializationPolicyTipIds,
-                    baselineCandidate, capture.EffectiveSourceBoundary, capture.VersionMetadataCandidates)
+                    new(path, CapturePayloadState.VerifiedFinal, stored.StorageSize, stored.StorageSha256), capture?.ExpectedWorkspaceRevision ?? -1,
+                    capture?.ExpectedBaseVersionId ?? plan.Baseline?.BaseVersionId, capture?.CleanupHandle, capture?.Diagnostics ?? [], capture?.ExpectedMaterializationPolicyTipIds ?? [],
+                    baselineCandidate, boundary, capture?.VersionMetadataCandidates ?? [])
                 { ReservedVersionId = version, CommitParticipant = new NativeArtifactCaptureService.Participant(store, prepared.Intent, cleanupPrimary: true) };
             }
             catch { store.CompletePending(prepared.Intent.Id); throw; }
