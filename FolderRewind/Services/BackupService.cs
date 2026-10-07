@@ -588,6 +588,8 @@ namespace FolderRewind.Services
                     captureResult = captureResult.WithVersionMetadata(
                         metadata.Candidates,
                         metadata.Diagnostics);
+                    captureResult = await NativeArtifactHostService.TransformAsync(runtimeConfig,
+                        v3Session.SourceResolution, captureResult, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -604,6 +606,7 @@ namespace FolderRewind.Services
 
             var operationDiagnostics = v3Session.Diagnostics.ToList();
             var completionOutcome = operationDiagnostics.Any(value => value.Severity == DiagnosticSeverity.Warning)
+                || captureResult?.Diagnostics.Any(value => value.Severity == HistoryDiagnosticSeverity.Warning) == true
                 ? OperationOutcome.SuccessWithWarnings
                 : OperationOutcome.Success;
             try
@@ -633,6 +636,14 @@ namespace FolderRewind.Services
             }
             if (!success)
             {
+                if (captureResult?.Outcome == SourceCaptureOutcome.Captured)
+                {
+                    if (captureResult.CommitParticipant is { } participant)
+                        await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false);
+                    if (captureResult.CleanupHandle is { } cleanup)
+                        await cleanup.CleanupAsync(CancellationToken.None).ConfigureAwait(false);
+                    captureResult = null;
+                }
                 return CreateSourceOutcome(
                     folder,
                     BackupSourceExecutionStatus.Failed,
@@ -723,6 +734,11 @@ namespace FolderRewind.Services
         private static async Task CleanupUncommittedOutcomesAsync(
             IEnumerable<BackupSourceExecutionOutcome> outcomes)
         {
+            foreach (var participant in outcomes.Select(o => o.CaptureResult?.CommitParticipant).OfType<ICaptureCommitParticipant>())
+            {
+                try { await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false); }
+                catch { }
+            }
             foreach (var cleanup in outcomes
                          .Select(item => item.CaptureResult?.CleanupHandle)
                          .Where(item => item is not null))

@@ -200,7 +200,9 @@ public static class NativeHistoryCoreGateway
                 result.ExistingVersionId, result.RepresentationCandidate, result.LocalReplicaCandidate,
                 result.PayloadCandidate, revision, result.ExpectedBaseVersionId ?? baseline?.BaseVersionId, result.CleanupHandle,
                 result.Diagnostics, tips.Select(item => item.UpdateId), result.BaselineCandidate,
-                result.EffectiveSourceBoundary, result.VersionMetadataCandidates));
+                result.EffectiveSourceBoundary, result.VersionMetadataCandidates)
+                { ReservedVersionId = result.ReservedVersionId, AdditionalRepresentations = result.AdditionalRepresentations,
+                    CommitParticipant = result.CommitParticipant });
         }
         var committed = await runtime.Commit.CommitAsync(new HistoryCommitRequest(
             configSnapshot,
@@ -223,7 +225,8 @@ public static class NativeHistoryCoreGateway
         foreach (var result in normalized.Where(item => item.BaselineCandidate is not null))
         {
             var version = committed.NewVersions.Single(item => item.SourceId == result.SourceId);
-            var representation = committed.NewRepresentations.Single(item => item.VersionId == version.VersionId);
+            var representation = committed.NewRepresentations.Single(item => item.VersionId == version.VersionId
+                && item.RepresentationId == result.RepresentationCandidate!.RepresentationId);
             try
             {
                 await runtime.CaptureBaselines.SaveAsync(
@@ -293,6 +296,7 @@ public static class NativeHistoryCoreGateway
             // Cached Runtime instances can acquire a pending journal after initialization.
             // Report readiness now; the caller's config-operation recovery entry owns repair.
             runtime.ObservePendingRecovery();
+            await Services.Plugins.V3.NativeArtifactHostService.RecoverOnceAsync(config, runtime, cancellationToken).ConfigureAwait(false);
             Failed.TryRemove(configId.Value, out _);
             return runtime;
         }

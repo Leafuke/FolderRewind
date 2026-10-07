@@ -132,4 +132,3 @@ public sealed partial class NativeArtifactStore
         return PayloadPath((await Ledger.LoadAsync(token)).Artifacts.Single(n => n.ArtifactId == expectedRoot));
     }
 }
-

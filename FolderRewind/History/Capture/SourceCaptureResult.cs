@@ -126,6 +126,17 @@ public interface ICaptureCleanupHandle
     ValueTask CleanupAsync(CancellationToken cancellationToken);
 }
 
+public sealed record AdditionalCaptureRepresentation(RepresentationCandidate Representation,
+    LocalReplicaCandidate LocalReplica, CapturePayloadCandidate Payload);
+
+public interface ICaptureCommitParticipant
+{
+    Task PrepareCommitAsync(PackId packId, HistoryTransactionId transactionId, CancellationToken token);
+    Task HistoryCommittedAsync(CancellationToken token);
+    Task CompleteCommitAsync(CancellationToken token);
+    Task AbortCommitAsync(CancellationToken token);
+}
+
 public sealed record SourceCaptureResult
 {
     public SourceCaptureResult(
@@ -183,6 +194,9 @@ public sealed record SourceCaptureResult
     public SourceCaptureBaselineCandidate? BaselineCandidate { get; }
     public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
     public ImmutableArray<VersionMetadataCandidate> VersionMetadataCandidates { get; }
+    public VersionId? ReservedVersionId { get; init; }
+    public ImmutableArray<AdditionalCaptureRepresentation> AdditionalRepresentations { get; init; } = [];
+    public ICaptureCommitParticipant? CommitParticipant { get; init; }
 
     public SourceCaptureResult WithEffectiveSourceBoundary(EffectiveSourceBoundarySnapshot boundary)
     {
@@ -205,7 +219,7 @@ public sealed record SourceCaptureResult
                 ? null
                 : BaselineCandidate with { BoundaryFingerprint = boundary.Fingerprint },
             boundary,
-            VersionMetadataCandidates);
+            VersionMetadataCandidates) { ReservedVersionId = ReservedVersionId, AdditionalRepresentations = AdditionalRepresentations, CommitParticipant = CommitParticipant };
     }
 
     public SourceCaptureResult WithVersionMetadata(
@@ -227,7 +241,7 @@ public sealed record SourceCaptureResult
             ExpectedMaterializationPolicyTipIds,
             BaselineCandidate,
             EffectiveSourceBoundary,
-            candidates);
+            candidates) { ReservedVersionId = ReservedVersionId, AdditionalRepresentations = AdditionalRepresentations, CommitParticipant = CommitParticipant };
 
     // Backup UI 只消费这些便捷投影；Native coordinator 仍以上面的结构化字段为准。
     public bool Success => Outcome is SourceCaptureOutcome.Captured

@@ -299,6 +299,9 @@ public sealed class HistoryCommitCoordinator
                 currentCatalog,
                 cancellationToken).ConfigureAwait(false);
             preparedPack = batch.Pack;
+            foreach (var capture in request.SourceCaptureResults)
+                if (capture.CommitParticipant is { } participant)
+                    await participant.PrepareCommitAsync(batch.Pack.PackId, batch.Pack.TransactionId, cancellationToken).ConfigureAwait(false);
             var intents = new List<HistoryLocalStateIntent>(2);
             if (batch.UpdatedWorkspace is not null)
             {
@@ -323,8 +326,14 @@ public sealed class HistoryCommitCoordinator
                 _runtime.LocalReplicaCatalogStore);
             try
             {
+                foreach (var capture in request.SourceCaptureResults)
+                    if (capture.CommitParticipant is { } participant)
+                        await participant.HistoryCommittedAsync(CancellationToken.None).ConfigureAwait(false);
                 await recovery.ApplyCommittedStateAsync(journal, cancellationToken).ConfigureAwait(false);
                 _runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.LocalStateApplied });
+                foreach (var capture in request.SourceCaptureResults)
+                    if (capture.CommitParticipant is { } participant)
+                        await participant.CompleteCommitAsync(CancellationToken.None).ConfigureAwait(false);
                 _runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.Complete });
             }
             catch (Exception ex)
@@ -462,7 +471,10 @@ public sealed class HistoryCommitCoordinator
                             throw new HistoryCommitConflictException(
                                 "A boundary-changing capture must use a self-contained Representation.");
                         }
-                        var versionId = VersionId.New();
+                        var versionId = capture.ReservedVersionId ?? VersionId.New();
+                        if (await _runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false) is not null
+                            || versions.Any(v => v.VersionId == versionId))
+                            throw new HistoryCommitConflictException("Reserved Version identity already exists.");
                         var parents = reliableBaseline is { } parent ? new[] { parent } : Array.Empty<VersionId>();
                         var version = new SourceVersion(
                             versionId,
@@ -482,6 +494,25 @@ public sealed class HistoryCommitCoordinator
                         var representation = capture.RepresentationCandidate!.ToFact(versionId);
                         versions.Add(version);
                         representations.Add(representation);
+                        if (capture.AdditionalRepresentations.Length > 1 || capture.AdditionalRepresentations.Length > 0
+                            && (capture.ReservedVersionId is null || representation.Kind != RepresentationKind.CoreFull || capture.CaptureScope != CaptureScope.FullSource))
+                            throw new HistoryCommitConflictException("Native paired capture requires a reserved identity and a Full Core control.");
+                        foreach (var extra in capture.AdditionalRepresentations)
+                        {
+                            if (extra.Representation.Kind != RepresentationKind.PluginArtifact
+                                || extra.Representation.Fidelity != MaterializationFidelity.Exact
+                                || extra.Representation.DependencyRepresentationIds.Length != 0
+                                || extra.Representation.Metadata.GetValueOrDefault("pairedCoreRepresentationId") != representation.RepresentationId.ToString())
+                                throw new HistoryCommitConflictException("Invalid paired native Artifact representation.");
+                            var verification = new SourceCaptureResult(capture.SourceId, SourceCaptureOutcome.Captured,
+                                capture.CaptureScope, capture.StateFingerprint, null, extra.Representation, extra.LocalReplica,
+                                extra.Payload, capture.ExpectedWorkspaceRevision, capture.ExpectedBaseVersionId, null, [],
+                                effectiveSourceBoundary: capture.EffectiveSourceBoundary);
+                            await ValidateCapturedResultAsync(verification, baseline, cancellationToken).ConfigureAwait(false);
+                            representations.Add(extra.Representation.ToFact(versionId));
+                            localEntries.Add(new LocalReplicaCatalogEntry(extra.LocalReplica.RepresentationId, extra.LocalReplica.LocalReplicaId,
+                                extra.LocalReplica.Locator, extra.LocalReplica.CapturedAtUtc));
+                        }
                         foreach (var candidate in capture.VersionMetadataCandidates)
                         {
                             metadataSnapshots.Add(VersionMetadataSnapshot.Create(
@@ -1035,6 +1066,11 @@ public sealed class HistoryCommitCoordinator
     private static async Task CleanupUncommittedCaptureAsync(
         IEnumerable<SourceCaptureResult> captures)
     {
+        foreach (var participant in captures.Select(c => c.CommitParticipant).OfType<ICaptureCommitParticipant>().Distinct())
+        {
+            try { await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { /* Keep the pending root for restart recovery. */ }
+        }
         foreach (var handle in captures
                      .Select(capture => capture.CleanupHandle)
                      .Where(handle => handle is not null)

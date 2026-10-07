@@ -58,6 +58,7 @@ public sealed class RepresentationRuntime
         var selected = candidateAssessments
             .Where(item => Satisfies(item.Fidelity, requiredFidelity))
             .OrderBy(SelectionScore)
+            .ThenBy(item => graph[item.RepresentationId].Kind == RepresentationKind.CoreFull ? 0 : 1)
             .ThenBy(item => item.RepresentationId.ToString(), StringComparer.Ordinal)
             .FirstOrDefault();
         if (selected is null)

@@ -415,7 +415,8 @@ internal static partial class NativeHistoryApplicationService
         var representations = new RepresentationRuntime(
         [
             new CoreArchiveRepresentationHandler(archive),
-            new SmartDeltaRepresentationHandler(archive)
+            new SmartDeltaRepresentationHandler(archive),
+            Plugins.V3.NativeArtifactHostService.Handler(config, runtime)
         ]);
         return new HistoryRestoreService(
             runtime,
@@ -621,9 +622,16 @@ internal static partial class NativeHistoryApplicationService
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(config.DestinationPath)) return;
+            var native = Plugins.V3.NativeArtifactHostService.Store(config);
+            var nativeLedger = await native.Ledger.LoadAsync(cancellationToken).ConfigureAwait(false);
+            var nativeIds = nativeLedger.Artifacts.Select(a => a.ArtifactId.Value).ToHashSet();
+            await native.CollectAsync(protectedArtifactRootIds.Where(nativeIds.Contains).Select(id => new ArtifactId(id)), cancellationToken);
             var store = new FileArtifactLedgerStore(config.DestinationPath);
+            var legacy = await store.LoadAsync(cancellationToken).ConfigureAwait(false);
+            // A destination may be shared by configurations; never collect another config's nodes.
+            var foreign = legacy.Artifacts.Where(a => a.ConfigId != config.Id).Select(a => a.ArtifactId);
             await store.GarbageCollectUnreachableAsync(
-                protectedArtifactRootIds.Select(id => new ArtifactId(id)),
+                protectedArtifactRootIds.Where(id => !nativeIds.Contains(id)).Select(id => new ArtifactId(id)).Concat(foreign),
                 dryRun: false,
                 cancellationToken).ConfigureAwait(false);
         }
