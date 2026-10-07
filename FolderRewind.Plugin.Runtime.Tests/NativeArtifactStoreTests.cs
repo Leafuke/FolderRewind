@@ -15,6 +15,74 @@ public sealed class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    public async Task ObjectClosureUploadsOnlyMissingBytesAndRejectsCorruptDownload()
+    {
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        var node = (await store.Ledger.LoadAsync()).Artifacts.Single(n => n.ArtifactId == root);
+        var transport = new ObjectTransport(); var descriptor = Path.Combine(fixture.Root, "objects.json");
+        await store.ExportObjectsAsync(root, descriptor, transport, default);
+        var firstDescriptor = File.ReadAllBytes(descriptor);
+        Assert.AreEqual(2, transport.Uploads);
+        await store.ExportObjectsAsync(root, descriptor, transport, default);
+        Assert.AreEqual(2, transport.Uploads);
+        CollectionAssert.AreEqual(firstDescriptor, File.ReadAllBytes(descriptor));
+        var imported = new NativeArtifactStore(Path.Combine(fixture.Root, "objects-import"), new ZipCodec());
+        await imported.ImportObjectsAsync(descriptor, root, node.StorageSha256, "config", fixture.Folder.FolderId, transport, default);
+        await using (var read = await imported.OpenAsync(root, default)) Assert.HasCount(2, read.Artifacts);
+        var key = transport.Bytes.Keys.First(); transport.Bytes[key][0] ^= 0x40;
+        var rejected = new NativeArtifactStore(Path.Combine(fixture.Root, "rejected"), new ZipCodec());
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => rejected.ImportObjectsAsync(descriptor, root,
+            node.StorageSha256, "config", fixture.Folder.FolderId, transport, default));
+        Assert.IsEmpty((await rejected.Ledger.LoadAsync()).Artifacts);
+        // A corrupt object is no longer considered present; retry repairs just that object.
+        await store.ExportObjectsAsync(root, descriptor, transport, default);
+        Assert.AreEqual(3, transport.Uploads);
+    }
+
+    [TestMethod]
+    public async Task CanceledObjectUploadCannotPublishDescriptor()
+    {
+        using var fixture = new Fixture(); var (store, root) = await fixture.CaptureAsync();
+        var descriptor = Path.Combine(fixture.Root, "objects.json"); var transport = new ObjectTransport { CancelUpload = true };
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => store.ExportObjectsAsync(root, descriptor, transport, default));
+        Assert.IsFalse(File.Exists(descriptor));
+    }
+
+    private sealed class ObjectTransport : INativeArtifactObjectTransport
+    {
+        public Dictionary<string, byte[]> Bytes { get; } = [];
+        public int Uploads { get; private set; }
+        public bool CancelUpload { get; init; }
+        public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token)
+            => Task.FromResult(Bytes.TryGetValue(key, out var bytes) && bytes.LongLength == size
+                && StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)), sha256));
+        public Task UploadObjectAsync(string key, string path, long size, string sha256, CancellationToken token)
+        { if (CancelUpload) throw new OperationCanceledException(); Bytes[key] = File.ReadAllBytes(path); Uploads++; return Task.CompletedTask; }
+        public Task DownloadObjectAsync(string key, string path, CancellationToken token) => File.WriteAllBytesAsync(path, Bytes[key], token);
+    }
+
+    [TestMethod]
+    public async Task LazyLeaseDoesNotReadUntouchedDependencyButStillRejectsItWhenOpened()
+    {
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        var ledger = await store.Ledger.LoadAsync();
+        var dependency = ledger.Artifacts.Single(n => n.ArtifactId != root);
+        var path = store.PayloadPath(dependency);
+        var bytes = File.ReadAllBytes(path); bytes[bytes.Length / 2] ^= 0x40; File.WriteAllBytes(path, bytes);
+        await using (var read = await store.OpenLazyAsync(root, default))
+        {
+            var rootHandle = read.Artifacts.Single(a => a.ArtifactId == root).Content;
+            Assert.AreEqual("root.txt", (await read.Read.ListFilesAsync(rootHandle, default)).Single().RelativePath);
+            var badHandle = read.Artifacts.Single(a => a.ArtifactId != root).Content;
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(async () => await read.Read.ListFilesAsync(badHandle, default));
+        }
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.OpenAsync(root, default));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.OpenLazyAsync(root, default));
+    }
+
+    [TestMethod]
     public async Task ClosureRoundtripPreservesIdentitiesAndDetectsStorageCorruption()
     {
         using var fixture = new Fixture();

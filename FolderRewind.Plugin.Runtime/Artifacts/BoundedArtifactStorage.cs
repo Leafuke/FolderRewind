@@ -8,6 +8,7 @@ namespace FolderRewind.Plugin.Runtime.Artifacts;
 public sealed class HostArtifactReadService : IArtifactReadService
 {
     private readonly IReadOnlyDictionary<ArtifactContentHandle, string> _roots;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ArtifactContentHandle, IReadOnlyList<ArtifactFileEntry>> _inventories = new();
 
     public HostArtifactReadService(IReadOnlyDictionary<ArtifactContentHandle, string> roots)
     {
@@ -21,11 +22,13 @@ public sealed class HostArtifactReadService : IArtifactReadService
     {
         cancellationToken.ThrowIfCancellationRequested();
         var root = RequireRoot(content);
+        if (_inventories.TryGetValue(content, out var cached)) return ValueTask.FromResult(cached);
         if (File.Exists(root))
         {
             using var stream = new FileStream(root, FileMode.Open, FileAccess.Read, FileShare.Read);
             IReadOnlyList<ArtifactFileEntry> single =
             [new("payload", stream.Length, Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant())];
+            _inventories.TryAdd(content, single);
             return ValueTask.FromResult(single);
         }
         IReadOnlyList<ArtifactFileEntry> entries = EnumerateSafeFiles(root)
@@ -36,6 +39,8 @@ public sealed class HostArtifactReadService : IArtifactReadService
                 return new ArtifactFileEntry(file.RelativePath, stream.Length, Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant());
             })
             .ToArray();
+        entries = Array.AsReadOnly(entries.ToArray());
+        _inventories.TryAdd(content, entries);
         return ValueTask.FromResult(entries);
     }
 
@@ -246,7 +251,8 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
 
     public async ValueTask<IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts>> SealAsync(
         string contentPathPrefix,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlySet<ArtifactStagingHandle>? includedHandles = null)
     {
         lock (_allocations)
         {
@@ -258,6 +264,7 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
         var facts = new Dictionary<ArtifactStagingHandle, StagedArtifactFacts>();
         foreach (var (handle, allocation) in _allocations)
         {
+            if (includedHandles is not null && !includedHandles.Contains(handle)) continue;
             cancellationToken.ThrowIfCancellationRequested();
             var (logicalHash, total) = await HostArtifactReadService.ComputeLogicalFactsAsync(
                 allocation.Path,

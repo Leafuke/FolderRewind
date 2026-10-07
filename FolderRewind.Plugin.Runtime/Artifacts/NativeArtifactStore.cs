@@ -19,6 +19,8 @@ public sealed record NativeArtifactPending(string Id, string VersionId, string R
 {
     public string? CorePayloadPath { get; init; }
     public string? CoreRepresentationId { get; init; }
+    public bool TemporaryCoreInput { get; init; }
+    public string? CorePayloadSha256 { get; init; }
 }
 public sealed record NativeArtifactTransfer(string Id, ArtifactId Root, string RepresentationId, string ReplicaId, bool Complete);
 
@@ -106,6 +108,7 @@ public sealed partial class NativeArtifactStore
             var committed = await isCommitted(intent, token); // inconsistent/corrupt pack must throw and retain roots
             if (!committed && intent.CorePayloadPath is not null)
                 await WriteAsync(Path.Combine(Root, "orphans", intent.Id + ".json"), intent, token);
+            if (committed && intent.TemporaryCoreInput) await CleanupPrimaryAsync(intent, token);
             // Committed roots are protected by History; orphan roots become eligible for normal GC.
             CompletePending(intent.Id);
         }
@@ -121,31 +124,50 @@ public sealed partial class NativeArtifactStore
 
     public async Task<PreparedNativeArtifact> PrepareAsync(PluginRuntimeManager runtime, ConfigSnapshot config,
         FolderSnapshot folder, string versionId, string representationId, string primaryDirectory,
-        ArtifactTransformPolicy policy, bool encrypted, CancellationToken token, string? corePayloadPath = null, string? coreRepresentationId = null)
+        ArtifactTransformPolicy policy, bool encrypted, CancellationToken token, string? corePayloadPath = null, string? coreRepresentationId = null,
+        ArtifactIncrementalInput? incrementalInput = null, Func<bool, byte[]>? hostCaptureEvidence = null)
     {
         var held = await EnterAsync(token);
         PluginCapabilityLease<IBackupArtifactTransformerCapability>? lease = null;
         ArtifactTransformStagingArea? staging = null;
+        NativeArtifactReadLease? baselineRead = null;
         try
         {
             var manifest = runtime.GetActiveManifest(policy.TransformerId.PluginId) ?? throw new InvalidOperationException("Active declared transformer required.");
             var declaration = manifest.ArtifactTransformers.SingleOrDefault(d => d.TransformerId == policy.TransformerId)
                 ?? throw new InvalidOperationException("Transformer is undeclared.");
-            if (!declaration.CompatibleConfigKinds.Contains(config.Kind) || !declaration.CompatibleCoreModes.Contains(CoreCaptureMode.Full)
-                || !declaration.CompatibleCompleteness.Contains(ArtifactCompleteness.Complete)
+            var mode = incrementalInput?.Kind == ArtifactCaptureInputKind.ChangesOnly ? CoreCaptureMode.Smart : CoreCaptureMode.Full;
+            var completeness = mode == CoreCaptureMode.Smart ? ArtifactCompleteness.Partial : ArtifactCompleteness.Complete;
+            if (incrementalInput is not null && !declaration.SupportsIncrementalInput)
+                throw new InvalidOperationException("Transformer does not declare incremental input support.");
+            if (!declaration.CompatibleConfigKinds.Contains(config.Kind) || !declaration.CompatibleCoreModes.Contains(mode)
+                || !declaration.CompatibleCompleteness.Contains(completeness)
                 || !declaration.SupportedFailureBehaviors.Contains(policy.FailureBehavior)) throw new InvalidOperationException("Transformer policy is incompatible.");
             lease = runtime.TryAcquire<IBackupArtifactTransformerCapability>(policy.TransformerId.PluginId,
                 c => c.TransformerId == policy.TransformerId, token) ?? throw new InvalidOperationException("Transformer unavailable.");
             var current = await Ledger.LoadAsync(token);
+            if (incrementalInput?.BaseRootArtifactId is { } baseRoot)
+            {
+                baselineRead = OpenLazyWithoutGate(current, baseRoot, new ActionLease(() => { }));
+                if (baselineRead.Artifacts.Any(a => a.ConfigId != config.ConfigId || a.FolderId != folder.FolderId))
+                    throw new InvalidDataException("Incremental baseline belongs to another source.");
+            }
+            if (mode == CoreCaptureMode.Smart && baselineRead is null)
+                throw new InvalidDataException("Changes-only input requires an explicit readable baseline.");
             var transaction = Guid.NewGuid().ToString("N");
             staging = Ledger.CreateStagingArea(transaction, ArtifactTransformLimits.Default.MaximumFiles, ArtifactTransformLimits.Default.MaximumBytes);
             var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N"));
-            var primaryFacts = await HostArtifactReadService.ComputeLogicalFactsAsync(primaryDirectory, token);
+            var primaryFacts = incrementalInput is not null && HostArtifactReadService.EnumerateSafeFiles(primaryDirectory).Count == 0
+                ? (Sha256: Convert.ToHexString(SHA256.HashData(Array.Empty<byte>())).ToLowerInvariant(), Size: 0L)
+                : await HostArtifactReadService.ComputeLogicalFactsAsync(primaryDirectory, token);
             var primary = new BackupArtifactSnapshot(new(Guid.NewGuid()), new(new OwnerId("folderrewind.core"), "archive-set"), 1,
                 new(new PluginId("folderrewind.core"), "archive-materializer"), handle, primaryFacts.Sha256, primaryFacts.Size,
-                ArtifactCompleteness.Complete, CoreCaptureMode.Full, config.ConfigId, folder.FolderId, []);
-            var request = new ArtifactTransformRequest(config, folder, versionId, current.Revision, primary, [], policy.Parameters,
-                new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [handle] = primaryDirectory }), staging, NullPluginOperationProgress.Instance);
+                completeness, mode, config.ConfigId, folder.FolderId, []);
+            var primaryRead = new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [handle] = primaryDirectory });
+            var request = new ArtifactTransformRequest(config, folder, versionId, current.Revision, primary,
+                baselineRead?.Artifacts.Where(a => a.ArtifactId == incrementalInput!.BaseRootArtifactId).ToArray() ?? [], policy.Parameters,
+                new CombinedArtifactReadService(handle, primaryRead, baselineRead?.Read), staging, NullPluginOperationProgress.Instance)
+            { IncrementalInput = incrementalInput, ReadableArtifacts = baselineRead?.Artifacts ?? [] };
             var result = await lease.Capability.TransformAsync(request, lease.Context);
             lease.Context.OperationCancellation.ThrowIfCancellationRequested();
             if (result.Outcome is not (OperationOutcome.Success or OperationOutcome.SuccessWithWarnings) || result.Patch is null
@@ -162,26 +184,42 @@ public sealed partial class NativeArtifactStore
                     c => c.RestoreStrategyId == node.RestoreStrategyId, token);
                 if (materializer is null) throw new InvalidDataException("Declared materializer is unavailable.");
             }
-            var facts = await staging.SealAsync("artifacts", token);
+            if (hostCaptureEvidence is not null)
+            {
+                var evidence = hostCaptureEvidence(result.RequiresFullVerification);
+                if (incrementalInput is null || evidence.Length > 64 * 1024 * 1024)
+                    throw new InvalidDataException("Invalid Host capture evidence.");
+                var rootStaging = result.Patch.AddedArtifacts.Single(n => n.ArtifactId == result.Patch.ResultRootArtifactId).Staging;
+                await using var evidenceStream = await staging.OpenWriteAsync(rootStaging, "_host/capture-evidence.json", token);
+                await evidenceStream.WriteAsync(evidence, token);
+            }
+            var facts = await staging.SealAsync("artifacts", token, result.Patch.AddedArtifacts.Select(n => n.Staging).ToHashSet());
             var candidate = ArtifactGraphPatchApplier.Apply(current, result.Patch,
-                new(policy.TransformerId.PluginId, config.ConfigId, folder.FolderId, new HashSet<ArtifactId>(), transaction,
+                new(policy.TransformerId.PluginId, config.ConfigId, folder.FolderId, baselineRead?.Artifacts.Select(a => a.ArtifactId).ToHashSet() ?? [], transaction,
                     new(Guid.NewGuid().ToString("N"))), facts);
             var closure = ArtifactLedgerValidator.BuildClosure(candidate, [result.Patch.ResultRootArtifactId]);
+            if (result.Patch.AddedArtifacts.Any(node => !closure.Reachable.Contains(node.ArtifactId)))
+                throw new InvalidDataException("Transform patch contains an unreachable new Artifact.");
             var resultNode = candidate.Artifacts.Single(a => a.ArtifactId == result.Patch.ResultRootArtifactId);
-            if (resultNode.Completeness != ArtifactCompleteness.Complete || resultNode.CoreCaptureMode != CoreCaptureMode.Full)
+            if (resultNode.Completeness != ArtifactCompleteness.Complete || resultNode.CoreCaptureMode != mode)
                 throw new InvalidDataException("Native Full root must preserve complete Full capture semantics.");
-            if (closure.Reachable.Count != result.Patch.AddedArtifacts.Count)
+            if (incrementalInput is null && closure.Reachable.Count != result.Patch.AddedArtifacts.Count)
                 throw new InvalidDataException("Native Full artifacts must be a self-contained new closure.");
+            if (result.RequiresFullVerification && !closure.Reachable.All(id => result.Patch.AddedArtifacts.Any(a => a.ArtifactId == id)))
+                throw new InvalidDataException("Compaction must produce a self-contained new closure.");
             var pending = new NativeArtifactPending(transaction, versionId, representationId, result.Patch.ResultRootArtifactId, "Prepared")
-                { CorePayloadPath = corePayloadPath, CoreRepresentationId = coreRepresentationId };
+                { CorePayloadPath = corePayloadPath, CoreRepresentationId = coreRepresentationId, TemporaryCoreInput = incrementalInput is not null,
+                    CorePayloadSha256 = incrementalInput is not null && corePayloadPath is not null
+                        ? Convert.ToHexString(await HashFileAsync(corePayloadPath, token)) : null };
             await SavePendingAsync(pending, token);
             Active.TryAdd(Path.Combine(Root, transaction), 0);
             return new PreparedNativeArtifact(this, runtime, config, folder, versionId, current, candidate,
-                staging, facts, pending, lease, held, result.Diagnostics, encrypted);
+                staging, facts, pending, lease, held, result.Diagnostics, encrypted, baselineRead, result.RequiresFullVerification);
         }
         catch
         {
             if (staging is not null) await staging.DisposeAsync();
+            if (baselineRead is not null) await baselineRead.DisposeAsync();
             lease?.Dispose(); held.Dispose(); throw;
         }
     }
@@ -241,13 +279,22 @@ public sealed partial class NativeArtifactStore
                     if (envelope.Version != 1) throw new InvalidDataException("Unknown envelope version.");
                     using (var blob = File.OpenRead(PayloadPath(node)))
                         if (blob.Length != node.StorageSize || !StringComparer.OrdinalIgnoreCase.Equals(
-                            Convert.ToHexString(await SHA256.HashDataAsync(blob, token)), node.StorageSha256)) throw new InvalidDataException("Artifact ciphertext/storage hash mismatch.");
+                            Convert.ToHexString(await SHA256.HashDataAsync(blob, token)), node.StorageSha256))
+                        {
+                            await RecordCorruptionAsync(node, token);
+                            throw new InvalidDataException("Artifact ciphertext/storage hash mismatch.");
+                        }
                     logicalDirectory = Path.Combine(temporary, id.Value.ToString("N"));
                     await _codec.UnpackAsync(PayloadPath(node), logicalDirectory, envelope.Encrypted, token);
                 }
                 var logical = await HostArtifactReadService.ComputeLogicalFactsAsync(logicalDirectory, token);
                 if (logical.Size != node.LogicalSize || !StringComparer.OrdinalIgnoreCase.Equals(logical.Sha256, node.LogicalSha256))
+                {
+                    await RecordCorruptionAsync(node, token);
                     throw new InvalidDataException("Artifact logical tree mismatch.");
+                }
+                // Only a fresh full verification clears an observed failure (for example after replica repair).
+                if (File.Exists(CorruptionPath(node))) File.Delete(CorruptionPath(node));
                 var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N")); roots.Add(handle, logicalDirectory);
                 snapshots.Add(new(node.ArtifactId, node.Format, node.FormatVersion, node.RestoreStrategyId, handle,
                     node.LogicalSha256, node.LogicalSize, node.Completeness, node.CoreCaptureMode, node.ConfigId, node.FolderId, node.Dependencies));
@@ -283,6 +330,26 @@ public sealed partial class NativeArtifactStore
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
     }
+    private static async Task<byte[]> HashFileAsync(string path, CancellationToken token)
+    { await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true); return await SHA256.HashDataAsync(input, token); }
+
+    public async Task CleanupPrimaryAsync(NativeArtifactPending intent, CancellationToken token)
+    {
+        if (!intent.TemporaryCoreInput || intent.CorePayloadPath is not { } path || !File.Exists(path)) return;
+        // The owner is the configuration's backup destination, never an arbitrary journal path.
+        var destination = Directory.GetParent(Root)?.Parent?.Parent?.FullName ?? throw new InvalidDataException("Invalid Artifact store layout.");
+        var relative = Path.GetRelativePath(destination, Path.GetFullPath(path));
+        if (Path.IsPathRooted(relative) || relative.Split(Path.DirectorySeparatorChar).Any(p => p == "..")
+            || path.StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || intent.CorePayloadSha256 is null)
+            throw new InvalidDataException("Temporary primary escaped its capture owner.");
+        HostArtifactReadService.EnsureNoReparsePoints(destination, path);
+        if (!StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(await HashFileAsync(path, token)), intent.CorePayloadSha256))
+            throw new InvalidDataException("Temporary primary changed; retaining it for recovery.");
+        _observe?.Invoke("PrimaryCleanup:before");
+        File.Delete(path);
+        _observe?.Invoke("PrimaryCleanup:after");
+    }
     internal static void DeleteDirectory(string path)
     { if (Directory.Exists(path)) Directory.Delete(path, true); }
     private static string RequireId(string id) => Guid.TryParseExact(id, "N", out _) ? id : throw new InvalidDataException("Invalid intent identity.");
@@ -296,8 +363,8 @@ public sealed class NativeArtifactReadLease(IReadOnlyList<BackupArtifactSnapshot
     public IReadOnlyList<ArtifactLedgerEntry> Nodes { get; } = nodes;
     public IReadOnlyList<BackupArtifactSnapshot> Artifacts { get; } = artifacts;
     public IArtifactReadService Read { get; } = read;
-    public ValueTask DisposeAsync()
-    { try { NativeArtifactStore.DeleteDirectory(temporary); } finally { held.Dispose(); } return ValueTask.CompletedTask; }
+    public async ValueTask DisposeAsync()
+    { try { if (Read is IAsyncDisposable disposable) await disposable.DisposeAsync(); if (temporary.Length != 0) NativeArtifactStore.DeleteDirectory(temporary); } finally { held.Dispose(); } }
 }
 
 public sealed class PreparedNativeArtifact : IAsyncDisposable
@@ -309,16 +376,20 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     private readonly IDisposable _held;
     private readonly ArtifactLedgerDocument _before;
     private readonly bool _encrypted;
+    private readonly NativeArtifactReadLease? _baselineRead;
     public ArtifactLedgerDocument Ledger { get; private set; }
     public NativeArtifactPending Intent { get; private set; }
     public IReadOnlyList<PluginDiagnostic> Diagnostics { get; }
+    public NativeArtifactReadLease? BaselineRead => _baselineRead;
+    public bool RequiresFullVerification { get; }
     internal PreparedNativeArtifact(NativeArtifactStore store, PluginRuntimeManager runtime, ConfigSnapshot config,
         FolderSnapshot folder, string version, ArtifactLedgerDocument before, ArtifactLedgerDocument after,
         ArtifactTransformStagingArea staging, IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts> facts,
         NativeArtifactPending intent, PluginCapabilityLease<IBackupArtifactTransformerCapability> lease, IDisposable held,
-        IReadOnlyList<PluginDiagnostic> diagnostics, bool encrypted)
+        IReadOnlyList<PluginDiagnostic> diagnostics, bool encrypted, NativeArtifactReadLease? baselineRead = null, bool requiresFullVerification = false)
     { _store = store; _before = before; Ledger = after; _staging = staging; _facts = facts; Intent = intent;
-        _lease = lease; _held = held; Diagnostics = diagnostics; _encrypted = encrypted; }
+        _lease = lease; _held = held; Diagnostics = diagnostics; _encrypted = encrypted; _baselineRead = baselineRead;
+        RequiresFullVerification = requiresFullVerification; }
     public async Task SealAndCommitGraphAsync(CancellationToken token)
     {
         _lease.Context.OperationCancellation.ThrowIfCancellationRequested();
@@ -332,6 +403,8 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     }
     public Task<NativeArtifactReadLease> OpenAsync(CancellationToken token)
         => _store.OpenWithoutGateAsync(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }), token);
+    public NativeArtifactReadLease OpenLazy()
+        => _store.OpenLazyWithoutGate(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }));
     public async ValueTask DisposeAsync()
-    { try { await _staging.DisposeAsync(); } finally { _lease.Dispose(); _held.Dispose(); } }
+    { try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); await _staging.DisposeAsync(); } finally { _lease.Dispose(); _held.Dispose(); } }
 }
