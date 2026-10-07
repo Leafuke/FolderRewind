@@ -39,6 +39,8 @@ public static class PluginManifestContractValidator
         }
         foreach (var transformer in manifest.ArtifactTransformers)
         {
+            if (transformer.SupportsIncrementalInput && manifest.RequiredApi.Minor < 10)
+                throw new InvalidDataException("Incremental Artifact input requires Plugin API 3.10.");
             if (transformer.TransformerId.PluginId != expectedPluginId
                 || transformer.CompatibleConfigKinds.Count == 0
                 || transformer.CompatibleCoreModes.Count == 0
