@@ -22,14 +22,15 @@ using FolderRewind.Plugin.Runtime.Packaging;
 namespace FolderRewind.Services.Development;
 
 // Compiled only into a deliberately opted-in development build; no production command/UI.
-internal static class NativeArtifactAcceptance
+internal static partial class NativeArtifactAcceptance
 {
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct IoCounters { public ulong ReadOperations, WriteOperations, OtherOperations, ReadBytes, WriteBytes, OtherBytes; }
     [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetProcessIoCounters(IntPtr process, out IoCounters counters);
     internal sealed record Request(string Workspace, string Phase, string Package, string PackageSha256,
-        string SevenZip, string Source, string SourceId, bool Encrypted, string? Rclone = null, string? CrashAt = null);
+        string SevenZip, string Source, string SourceId, bool Encrypted, string? Rclone = null, string? CrashAt = null,
+        bool Incremental = false, int Iterations = 1, bool Lifecycle = false);
     private static string? _crashAt;
     internal static void Observe(string phase)
     {
@@ -74,7 +75,8 @@ internal static class NativeArtifactAcceptance
                     RequiredPluginId = "com.folderrewind.minerewind", IsEncrypted = request.Encrypted,
                     ArtifactTransformPolicy = new() { Transformer = new() { PluginId = "com.folderrewind.minerewind", TransformerId = "minecraft-world-full" },
                         FailureBehavior = PersistedArtifactTransformFailureBehavior.RequireTransform } };
-                config.Archive.Mode = BackupMode.Full; config.Archive.KeepCount = 0;
+                config.Archive.Mode = request.Incremental ? BackupMode.Smart : BackupMode.Full; config.Archive.KeepCount = 0;
+                if (request.Incremental) config.ArtifactTransformPolicy.Parameters["representation"] = JsonSerializer.SerializeToElement("incremental-v1");
                 config.SourceFolders.Add(new ManagedFolder { Id = request.SourceId, Path = source, DisplayName = "world" });
                 var saved = await ConfigService.UpdateAndSaveAsync(c => { c.BackupConfigs.Clear(); c.BackupConfigs.Add(config); c.GlobalSettings.SevenZipPath = request.SevenZip; });
                 if (!saved.Success) throw new IOException(saved.ErrorMessage);
@@ -92,7 +94,8 @@ internal static class NativeArtifactAcceptance
                 new PluginV3ActivationStore(), manifest));
             if (!activation.Success) throw new InvalidOperationException(JsonSerializer.Serialize(activation.Diagnostics));
             using var enabled = NativeHistoryArtifactTransformPolicy.EnterAcceptance(config.Id);
-            _crashAt = request.CrashAt;
+            _crashAt = request.Phase == "recover" ? null : request.CrashAt;
+            if (request.Incremental) return await RunIncrementalAsync(request, config, root, started);
             if (request.Phase == "capture")
             {
                 var result = await BackupService.BackupConfigAsync(config);

@@ -218,13 +218,43 @@ namespace FolderRewind.Services
                 => throw new InvalidOperationException("Replica retirement requires an explicit retention workflow.");
         }
 
-        private sealed class RcloneHistoryReplicaTransport : IHistoryReplicaTransport
+        private sealed class RcloneHistoryReplicaTransport : IHistoryReplicaTransport, FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport
         {
             private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
             private readonly string _executable;
             private readonly string _workingDirectory;
             private readonly CloudSettings _settings;
             private readonly string _remoteBasePath;
+
+            private RcloneArtifactObjectTransport Objects => new(
+                key => AppendRemotePath(_remoteBasePath, InternalCloudStateDirectoryName, "artifact-objects", key),
+                CopyToAsync, ReadObjectBytesAsync, ObjectSizeAsync);
+            public Task<bool> HasVerifiedObjectAsync(string key, long size, string hash, CancellationToken token) => Objects.HasVerifiedObjectAsync(key, size, hash, token);
+            public Task UploadObjectAsync(string key, string path, long size, string hash, CancellationToken token) => Objects.UploadObjectAsync(key, path, size, hash, token);
+            public Task DownloadObjectAsync(string key, string path, CancellationToken token) => Objects.DownloadObjectAsync(key, path, token);
+            private async Task<byte[]> ReadObjectBytesAsync(string remote, CancellationToken token)
+            {
+                var path = Temporary();
+                try
+                {
+                    await CopyToAsync(remote, path, false, token).ConfigureAwait(false);
+                    if (new FileInfo(path).Length > 4096) throw new InvalidDataException("Oversized Artifact receipt.");
+                    return await File.ReadAllBytesAsync(path, token).ConfigureAwait(false);
+                }
+                finally { TryDeleteTempFile(path); }
+            }
+            private async Task<long?> ObjectSizeAsync(string remote, CancellationToken token)
+            {
+                var result = await RunSilentCommandAsync(CreateDirectCommand(_executable, _workingDirectory,
+                    $"lsjson {Quote(remote)} --stat"), Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), token).ConfigureAwait(false);
+                if (!result.Success)
+                {
+                    if (result.ExitCode is 3 or 4) return null;
+                    throw new IOException(result.ErrorMessage);
+                }
+                using var json = JsonDocument.Parse(result.Output);
+                return json.RootElement.GetProperty("Size").GetInt64();
+            }
 
             public RcloneHistoryReplicaTransport(
                 string executable,

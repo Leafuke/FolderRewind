@@ -116,7 +116,7 @@ public sealed class NativeArtifactCaptureService(PluginRuntimeManager plugins, N
         return resultRoot;
     }
 
-    private sealed class Participant(NativeArtifactStore store, NativeArtifactPending intent) : ICaptureCommitParticipant
+    internal sealed class Participant(NativeArtifactStore store, NativeArtifactPending intent, bool cleanupPrimary = false) : ICaptureCommitParticipant
     {
         public async Task PrepareCommitAsync(PackId packId, HistoryTransactionId transactionId, CancellationToken token)
         {
@@ -139,6 +139,7 @@ public sealed class NativeArtifactCaptureService(PluginRuntimeManager plugins, N
             using var held = await store.EnterAsync(token);
             await store.SavePendingAsync(intent with { Phase = "LocalStateApplied" }, token);
             await store.SavePendingAsync(intent with { Phase = "Complete" }, token);
+            if (cleanupPrimary) await store.CleanupPrimaryAsync(intent, token);
             store.CompletePending(intent.Id);
         }
     }

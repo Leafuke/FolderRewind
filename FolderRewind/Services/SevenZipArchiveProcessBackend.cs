@@ -46,9 +46,9 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
     public async Task UnpackLogicalTreeAsync(string payload, string target, CancellationToken token)
     {
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()) throw new IOException("Envelope workspace must be empty.");
-        var test = await RunAsync("t", payload, null, null, token).ConfigureAwait(false);
         var list = await RunAsync("l", payload, null, null, token).ConfigureAwait(false);
-        if (!test.Success || !list.Success || !SevenZipArchiveListingParser.TryParse(list.Output, out var entries)
+        // Extraction validates CRC/decryption too; avoid a redundant complete test pass.
+        if (!list.Success || !SevenZipArchiveListingParser.TryParse(list.Output, out var entries)
             || entries.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
             || entries.Values.Sum(e => e.Size) > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes)
             throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");

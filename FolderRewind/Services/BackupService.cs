@@ -509,13 +509,31 @@ namespace FolderRewind.Services
             SourceCaptureResult? captureResult = null;
             var sourceId = new SourceId(Guid.Parse(folder.Id));
             SourceCaptureBaseline? captureBaseline;
+            CaptureConcurrencyFence? captureFence = null;
             try
             {
+                if (NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig))
+                {
+                    var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                    var workspace = (await history.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+                    var baseVersion = workspace?.GetSourceState(sourceId).BaseVersionId;
+                    var tips = baseVersion is { } id ? await history.Query.GetMaterializationPolicyTipsAsync(id, cancellationToken).ConfigureAwait(false) : [];
+                    captureFence = new(workspace?.StateRevision ?? -1, baseVersion, tips.Select(t => t.UpdateId).ToImmutableArray());
+                }
                 captureBaseline = await NativeHistoryCoreGateway.LoadCaptureBaselineAsync(
                     config.Id,
                     sourceId,
                     cancellationToken).ConfigureAwait(false);
-                if (captureBaseline is null)
+                if (captureBaseline?.ArtifactRootId is not null && NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig)
+                    && !await NativeArtifactHostService.IsIncrementalBaselineAvailableAsync(runtimeConfig, captureBaseline, cancellationToken).ConfigureAwait(false))
+                {
+                    var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                    await history.CaptureBaselines.RemoveAsync(sourceId, captureBaseline.Revision, cancellationToken).ConfigureAwait(false);
+                    captureBaseline = null;
+                }
+                if (captureBaseline is null && NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig))
+                    captureBaseline = await NativeArtifactHostService.RebuildIncrementalBaselineAsync(runtimeConfig, sourceId.Value, cancellationToken).ConfigureAwait(false);
+                if (captureBaseline is null && !NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig))
                 {
                     var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                     var archive = new SevenZipHistoryArchiveBackend(config);
@@ -539,11 +557,36 @@ namespace FolderRewind.Services
                     captureBaseline.BoundaryFingerprint,
                     effectiveBoundary.Fingerprint))
             {
+                var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                await history.CaptureBaselines.RemoveAsync(sourceId, captureBaseline.Revision, cancellationToken).ConfigureAwait(false);
                 captureBaseline = null;
             }
             var captureScope = CaptureScopePolicy.Determine(effectiveBoundary, effectiveBoundary);
             try
             {
+                var incremental = NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig);
+                if (captureBaseline is not null && ((incremental && captureBaseline.ArtifactRootId is null)
+                    || (!incremental && captureBaseline.BaseRepresentationKind == RepresentationKind.PluginArtifact)))
+                {
+                    var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                    await history.CaptureBaselines.RemoveAsync(sourceId, captureBaseline.Revision, cancellationToken).ConfigureAwait(false);
+                    captureBaseline = null;
+                }
+                if (incremental && captureBaseline is not null
+                    && captureBaseline.SourcePathFingerprint != NativeArtifactHostService.SourcePathFingerprint(folder.Path))
+                    captureBaseline = captureBaseline with { RequiresContentValidation = true };
+                if (incremental && captureBaseline?.RequiresContentValidation == true)
+                    captureBaseline = await NativeArtifactHostService.RevalidateStatisticsAsync(runtimeConfig, sourcePath, captureBaseline,
+                        ScanDirectory(sourcePath, runtimeConfig.Filters, selection: runtimeFolder.SourceScope), cancellationToken).ConfigureAwait(false);
+                var captureConfig = runtimeConfig;
+                if (incremental)
+                {
+                    (captureConfig, _) = PluginV3ModelMapper.CloneForOperation(runtimeConfig, runtimeFolder);
+                    captureConfig.Archive.Format = "7z";
+                    captureConfig.Archive.CompressionLevel = 0;
+                    captureConfig.Archive.FileTypeHandlingEnabled = false;
+                    captureConfig.Archive.AdditionalSevenZipArguments = string.Empty;
+                }
                 await RunOnUIAsync(() =>
                 {
                     task.Status = I18n.Format("BackupService_Task_Processing");
@@ -554,7 +597,7 @@ namespace FolderRewind.Services
                 {
                     case BackupMode.Smart:
                         {
-                            var res = await DoSmartBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoSmartBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, captureConfig, runtimeFolder.SourceScope, comment, task);
                             captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
@@ -573,7 +616,7 @@ namespace FolderRewind.Services
                     case BackupMode.Full:
                     default:
                         {
-                            var res = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, captureConfig, runtimeFolder.SourceScope, comment, task);
                             captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
@@ -588,9 +631,54 @@ namespace FolderRewind.Services
                     captureResult = captureResult.WithVersionMetadata(
                         metadata.Candidates,
                         metadata.Diagnostics);
-                    captureResult = await NativeArtifactHostService.TransformAsync(runtimeConfig,
-                        v3Session.SourceResolution, captureResult, cancellationToken).ConfigureAwait(false);
+                    if (captureResult.BaselineCandidate is { } captureStats)
+                        captureResult = captureResult.WithBaselineCandidate(captureStats with
+                        { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) });
+                    try
+                    {
+                        captureResult = await NativeArtifactHostService.TransformAsync(runtimeConfig,
+                            v3Session.SourceResolution, captureResult, cancellationToken, captureBaseline, v3Session.HasStableSourceView).ConfigureAwait(false);
+                    }
+                    catch (Exception transformError) when (transformError is not OperationCanceledException
+                        && incremental && runtimeConfig.ArtifactTransformPolicy?.FailureBehavior == PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
+                    {
+                        if (captureResult.RepresentationCandidate?.Kind == RepresentationKind.CoreSmartDelta
+                            && captureBaseline?.BaseRepresentationKind == RepresentationKind.PluginArtifact)
+                        {
+                            var expectedCacheRevision = captureResult.BaselineCandidate?.ExpectedRevision ?? -1;
+                            var capturedMetadata = captureResult.VersionMetadataCandidates;
+                            if (captureResult.CleanupHandle is { } cleanup) await cleanup.CleanupAsync(CancellationToken.None);
+                            captureResult = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, null,
+                                folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            captureResult = captureResult.WithEffectiveSourceBoundary(effectiveBoundary);
+                            if (captureResult.BaselineCandidate is { } fallbackStats)
+                                captureResult = captureResult.WithBaselineCandidate(fallbackStats with
+                                { ExpectedRevision = expectedCacheRevision,
+                                    SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) });
+                            captureResult = captureResult.WithVersionMetadata(capturedMetadata, []);
+                        }
+                        success = captureResult.Success;
+                        sourceUnavailable = captureResult.IsUnavailable;
+                        generatedFileName = captureResult.FileName;
+                        captureResult = captureResult.WithVersionMetadata(captureResult.VersionMetadataCandidates,
+                            [new HistoryDiagnostic("plugin.artifact_primary_kept", HistoryDiagnosticSeverity.Warning, transformError.Message)]);
+                    }
                 }
+                else if (incremental && captureResult?.Outcome == SourceCaptureOutcome.NoChanges && captureBaseline is not null)
+                {
+                    var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                    var representation = await history.Query.GetRepresentationAsync(captureBaseline.BaseRepresentationId, cancellationToken).ConfigureAwait(false);
+                    if (representation is not null)
+                        await history.CaptureBaselines.SaveAsync(sourceId,
+                            new(captureBaseline.Revision, captureBaseline.PayloadPath, captureBaseline.ConsecutiveSmartCaptures,
+                                captureBaseline.FileStates, captureBaseline.BoundaryFingerprint)
+                            { ArtifactRootId = captureBaseline.ArtifactRootId, EvidenceIdentity = captureBaseline.EvidenceIdentity,
+                                ContentRealizationId = (await history.WorkspaceStore.LoadAsync(cancellationToken)).Value!.GetSourceState(sourceId).ContentRealizationId,
+                                SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) },
+                            captureBaseline.BaseVersionId, representation, cancellationToken).ConfigureAwait(false);
+                }
+                if (captureResult is not null && captureFence is not null)
+                    captureResult = captureResult with { ConcurrencyFence = captureFence };
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

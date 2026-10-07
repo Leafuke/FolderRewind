@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,76 @@ namespace FolderRewind.Services.Plugins.V3;
 
 internal static class NativeArtifactHostService
 {
+    internal static string SourcePathFingerprint(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+        System.Text.Encoding.UTF8.GetBytes(Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)).ToUpperInvariant())));
+    internal static bool IsIncrementalPolicy(BackupConfig config)
+        => config.ArtifactTransformPolicy?.Parameters.TryGetValue("representation", out var value) == true
+            && value.ValueKind == System.Text.Json.JsonValueKind.String && value.GetString() == "incremental-v1";
+
+    internal static async Task<SourceCaptureBaseline?> RebuildIncrementalBaselineAsync(BackupConfig config,
+        Guid sourceId, CancellationToken token)
+    {
+        var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
+        var workspace = (await history.WorkspaceStore.LoadAsync(token)).Value;
+        var state = workspace?.SourceBaselines.SingleOrDefault(s => s.SourceId.Value == sourceId);
+        if (state?.Relation != History.LocalState.WorkspaceBaselineRelation.Exact || state.BaseVersionId is not { } version) return null;
+        var representations = (await history.Query.GetAllRepresentationsAsync(token)).Where(r => r.VersionId == version
+            && r.Kind == RepresentationKind.PluginArtifact && r.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence"))
+            .OrderBy(r => r.RepresentationId.ToString(), StringComparer.Ordinal);
+        var store = Store(config);
+        foreach (var representation in representations)
+        {
+            try
+            {
+                var root = new ArtifactId(Guid.Parse(representation.RepresentationSpecificMetadata["artifactRootId"]));
+                await using var read = await store.OpenLazyAsync(root, token);
+                var evidence = await IncrementalCaptureEvidence.ReadAsync(read, root, token);
+                if (evidence.SourceId != sourceId || evidence.VersionId != version.ToString()
+                    || evidence.RepresentationId != representation.RepresentationId.ToString()
+                    || evidence.Fingerprint() != representation.StateFingerprint) throw new InvalidDataException("Capture evidence mismatch.");
+                var current = await history.CaptureBaselines.LoadAsync(new(sourceId), token);
+                return new(new(sourceId), current?.Revision ?? -1, version, representation.RepresentationId, RepresentationKind.PluginArtifact,
+                    store.PayloadPath(read.Nodes.Single(n => n.ArtifactId == root)), evidence.CapturesSinceCheckpoint,
+                    evidence.FileStates.ToImmutableSortedDictionary(StringComparer.Ordinal), evidence.BoundaryFingerprint)
+                { ArtifactRootId = root.Value, EvidenceIdentity = representation.RepresentationSpecificMetadata["captureEvidenceSha256"],
+                    RequiresContentValidation = true, ContentRealizationId = state.ContentRealizationId };
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException) { /* Try another representation of this exact Version only. */ }
+        }
+        return null;
+    }
+
+    internal static async Task<bool> IsIncrementalBaselineAvailableAsync(BackupConfig config, SourceCaptureBaseline baseline, CancellationToken token)
+    {
+        if (baseline.ArtifactRootId is not { } root) return false;
+        try
+        {
+            var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
+            var workspace = (await history.WorkspaceStore.LoadAsync(token)).Value;
+            if (workspace?.GetSourceState(baseline.SourceId).Relation != History.LocalState.WorkspaceBaselineRelation.Exact) return false;
+            await using var lease = await Store(config).OpenLazyAsync(new(root), token);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException) { return false; }
+    }
+
+    internal static async Task<SourceCaptureBaseline> RevalidateStatisticsAsync(BackupConfig config, string source,
+        SourceCaptureBaseline baseline, System.Collections.Generic.IReadOnlyDictionary<string, SourceCaptureFileState> current, CancellationToken token)
+    {
+        await using var read = await Store(config).OpenLazyAsync(new(baseline.ArtifactRootId!.Value), token);
+        var evidence = await IncrementalCaptureEvidence.ReadAsync(read, new(baseline.ArtifactRootId.Value), token);
+        var states = baseline.FileStates.ToBuilder();
+        foreach (var file in evidence.Files)
+        {
+            if (!current.TryGetValue(file.RelativePath, out var stat)) continue;
+            var path = ArtifactPathRules.ResolveUnderRoot(source, file.RelativePath);
+            await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            var hash = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(input, token));
+            states[file.RelativePath] = input.Length == file.Length && StringComparer.OrdinalIgnoreCase.Equals(hash, file.Sha256)
+                ? stat : new SourceCaptureFileState(-1, DateTime.MinValue);
+        }
+        return baseline with { FileStates = states.ToImmutable(), RequiresContentValidation = false };
+    }
     internal static async ValueTask<IAsyncDisposable> AcquireCompatibilityGuardAsync(PluginManifestContract manifest, CancellationToken token)
     {
         var gates = new System.Collections.Generic.List<IDisposable>();
@@ -61,10 +132,20 @@ internal static class NativeArtifactHostService
             );
 
     internal static async Task<SourceCaptureResult> TransformAsync(BackupConfig config, PluginV3BackupSourceResolution resolution,
-        SourceCaptureResult capture, CancellationToken token)
+        SourceCaptureResult capture, CancellationToken token, SourceCaptureBaseline? baseline = null, bool stableSource = false)
     {
         if (config.ArtifactTransformPolicy is not { } settings || capture.Outcome != SourceCaptureOutcome.Captured) return capture;
         if (!NativeHistoryArtifactTransformPolicy.IsEnabled(config.Id)) throw new InvalidOperationException("Native transform acceptance is disabled.");
+        if (IsIncrementalPolicy(config))
+        {
+            if (!stableSource) throw new InvalidOperationException("Incremental Artifact capture requires a stable source view.");
+            var incrementalPolicy = new ArtifactTransformPolicy(new(new(settings.Transformer.PluginId), settings.Transformer.TransformerId),
+                settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
+            return await new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config),
+                new SevenZipHistoryArchiveBackend(config), config.IsEncrypted).TransformAsync(capture,
+                FileChangeCapturePlan.Create(capture, baseline, config.Archive.MaxSmartBackupsPerFull),
+                resolution.ConfigSnapshot!, resolution.FolderSnapshot!, incrementalPolicy, token);
+        }
         if (config.Archive.Mode != BackupMode.Full)
         {
             if (settings.FailureBehavior == PersistedArtifactTransformFailureBehavior.RequireTransform)

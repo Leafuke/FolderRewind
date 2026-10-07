@@ -15,9 +15,18 @@ namespace FolderRewind.Services;
 
 // 既有 Native History 服务的 rclone 适配器；共用一个不可变任务上下文。
 public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context, int timeoutSeconds = 600)
-    : IHistoryMetadataTransport, IHistoryReplicaTransport
+    : IHistoryMetadataTransport, IHistoryReplicaTransport, FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport
 {
     private readonly TimeSpan _timeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 86400));
+    private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key), CopyAsync, ReadBytesAsync, ObjectSizeAsync);
+    public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token) => Objects.HasVerifiedObjectAsync(key, size, sha256, token);
+    public Task UploadObjectAsync(string key, string path, long size, string sha256, CancellationToken token) => Objects.UploadObjectAsync(key, path, size, sha256, token);
+    public Task DownloadObjectAsync(string key, string path, CancellationToken token) => Objects.DownloadObjectAsync(key, path, token);
+    private async Task<long?> ObjectSizeAsync(string remote, CancellationToken token)
+    {
+        try { using var doc = JsonDocument.Parse(await RunAsync(["lsjson", remote, "--stat"], token)); return doc.RootElement.GetProperty("Size").GetInt64(); }
+        catch (RcloneProcessException ex) when (ex.ExitCode is 3 or 4) { return null; }
+    }
     private string Append(params string[] parts) => string.Join('/', new[] { context.RemoteRoot.TrimEnd('/') }.Concat(parts));
     private string HistoryRoot(HistoryConfigId id) => Append("_folderrewind", "history", HistoryRepositoryPaths.EncodeConfigPathSegment(id));
     private string PackPath(HistoryConfigId id, PackId pack) => HistoryRoot(id) + "/packs/" + pack.ToString()[..2] + "/" + pack + ".frpack";

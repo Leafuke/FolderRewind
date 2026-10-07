@@ -22,8 +22,15 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
     {
         if (plugins.GetActiveManifest(new(pluginId)) is null)
             return new(false, false, MaterializationFidelity.Unknown, "Required plugin is inactive.");
-        var result = await VerifyAsync(root, pluginId, token);
-        return new(true, result.Success, result.Success ? MaterializationFidelity.Exact : MaterializationFidelity.Unknown, result.Diagnostic);
+        try
+        {
+            var binding = await resolve(root, token);
+            await using var read = await Store.OpenLazyAsync(new(root), token);
+            Validate(read, root, pluginId, binding);
+            return new(true, true, MaterializationFidelity.Exact, "metadata-and-availability-only");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        { return new(true, false, MaterializationFidelity.Unknown, ex.Message); }
     }
 
     public async ValueTask<PayloadVerificationResult> VerifyAsync(Guid root, string pluginId, CancellationToken token)
@@ -45,6 +52,23 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
             throw new IOException("Materialization requires an empty workspace.");
         var binding = await resolve(root, token);
         var store = Store;
+        if (binding.Representation.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence"))
+        {
+            await using var read = await store.OpenLazyAsync(new(root), token);
+            Validate(read, root, pluginId, binding);
+            var node = read.Artifacts.Single(a => a.ArtifactId.Value == root);
+            using var lease = plugins.TryAcquire<IRestoreMaterializerCapability>(node.RestoreStrategyId.PluginId,
+                c => c.RestoreStrategyId == node.RestoreStrategyId, token) ?? throw new InvalidOperationException("Materializer unavailable.");
+            if (lease.Capability is not IArtifactFileViewProvider provider) throw new InvalidOperationException("File-view provider unavailable.");
+            var evidence = await IncrementalCaptureEvidence.ReadAsync(read, new(root), token);
+            if (evidence.VersionId != binding.Representation.VersionId.ToString()
+                || evidence.RepresentationId != binding.Representation.RepresentationId.ToString()
+                || evidence.Fingerprint() != binding.Representation.StateFingerprint) throw new InvalidDataException("Capture evidence binding mismatch.");
+            await using var view = await provider.OpenFileViewAsync(new(binding.Config, binding.Folder, evidence.VersionId,
+                new(root), read.Artifacts, read.Read), lease.Context);
+            await evidence.CopyViewToAsync(view, stagingDirectory, token);
+            return;
+        }
         var work = Path.Combine(store.Root, ".materialize", Guid.NewGuid().ToString("N"));
         try
         {

@@ -18,6 +18,8 @@ public sealed class HistoryReplicaSyncService
 {
     private readonly HistoryRuntime _history;
     private readonly IHistoryReplicaTransport _transport;
+    public FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport? ArtifactObjects
+        => _transport as FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport;
     private readonly Func<CancellationToken, Task<HistoryMetadataSyncResult>> _syncMetadata;
     private readonly IHistoryReplicaRetirementGuard _retirementGuard;
     private readonly HistoryPackCodec _codec = new();

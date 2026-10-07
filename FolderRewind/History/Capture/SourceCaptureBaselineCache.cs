@@ -25,8 +25,13 @@ public sealed record SourceCaptureBaseline(
     ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates,
     string BoundaryFingerprint = "")
 {
-    public const int CurrentFormatVersion = 2;
+    public const int CurrentFormatVersion = 3;
     public int FormatVersion => CurrentFormatVersion;
+    public Guid? ArtifactRootId { get; init; }
+    public string? EvidenceIdentity { get; init; }
+    public bool RequiresContentValidation { get; init; }
+    public Guid ContentRealizationId { get; init; }
+    public string SourcePathFingerprint { get; init; } = "";
 }
 
 public sealed record SourceCaptureBaselineCandidate(
@@ -34,7 +39,14 @@ public sealed record SourceCaptureBaselineCandidate(
     string PayloadPath,
     int ConsecutiveSmartCaptures,
     ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates,
-    string BoundaryFingerprint = "");
+    string BoundaryFingerprint = "")
+{
+    public Guid? ArtifactRootId { get; init; }
+    public string? EvidenceIdentity { get; init; }
+    public bool RequiresContentValidation { get; init; }
+    public Guid ContentRealizationId { get; init; }
+    public string SourcePathFingerprint { get; init; } = "";
+}
 
 public static class SourceCaptureBaselinePolicy
 {
@@ -114,7 +126,13 @@ public sealed class SourceCaptureBaselineCache : IDisposable
                 Path.GetFullPath(candidate.PayloadPath),
                 Math.Max(0, candidate.ConsecutiveSmartCaptures),
                 candidate.FileStates,
-                candidate.BoundaryFingerprint);
+                candidate.BoundaryFingerprint)
+            { ArtifactRootId = candidate.ArtifactRootId ?? (committedRepresentation.Kind == RepresentationKind.PluginArtifact
+                    && committedRepresentation.RepresentationSpecificMetadata.TryGetValue("artifactRootId", out var rootText)
+                    && Guid.TryParse(rootText, out var parsedRoot) ? parsedRoot : null),
+                EvidenceIdentity = candidate.EvidenceIdentity ?? committedRepresentation.RepresentationSpecificMetadata.GetValueOrDefault("captureEvidenceSha256"),
+                RequiresContentValidation = candidate.RequiresContentValidation,
+                ContentRealizationId = candidate.ContentRealizationId, SourcePathFingerprint = candidate.SourcePathFingerprint };
             await AtomicFileService.WriteAsync(
                 PathFor(sourceId),
                 (stream, token) => JsonSerializer.SerializeAsync(stream, baseline, JsonOptions, token),
@@ -167,7 +185,7 @@ public sealed class SourceCaptureBaselineCache : IDisposable
             using var document = JsonDocument.Parse(bytes);
             if (!document.RootElement.TryGetProperty("formatVersion", out var formatVersion)
                 || !formatVersion.TryGetInt32(out var parsedFormatVersion)
-                || parsedFormatVersion != SourceCaptureBaseline.CurrentFormatVersion)
+                || parsedFormatVersion is not (2 or SourceCaptureBaseline.CurrentFormatVersion))
                 return null;
             var value = JsonSerializer.Deserialize<SourceCaptureBaseline>(bytes, JsonOptions);
             if (value is null

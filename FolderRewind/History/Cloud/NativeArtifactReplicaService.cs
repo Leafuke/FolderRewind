@@ -31,7 +31,10 @@ public sealed class NativeArtifactReplicaService(NativeArtifactStore store, Hist
         if (File.Exists(temp)) File.Delete(temp);
         try
         {
-            await store.ExportAsync(root, temp, token);
+            if (representation.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence"))
+                await store.ExportObjectsAsync(root, temp, replicas.ArtifactObjects
+                    ?? throw new InvalidOperationException("Cloud transport does not support incremental Artifact objects."), token);
+            else await store.ExportAsync(root, temp, token);
             File.Move(temp, bundle, true);
             var result = await replicas.UploadAsync(representation.RepresentationId, bundle, root.Value, token,
                 ReplicaId.Parse(intent.ReplicaId));
@@ -59,7 +62,10 @@ public sealed class NativeArtifactReplicaService(NativeArtifactStore store, Hist
         using (await store.EnterAsync(token)) await NativeArtifactStore.WriteAsync(path, intent, token);
         var bundle = Path.Combine(directory, id + ".bundle");
         var result = await replicas.DownloadAsync(manifest, bundle, token,
-            (file, ct) => store.ImportAsync(file, root, representation.RepresentationSpecificMetadata["storageSha256"], configId, folderId, ct));
+            (file, ct) => representation.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence")
+                ? store.ImportObjectsAsync(file, root, representation.RepresentationSpecificMetadata["storageSha256"], configId, folderId,
+                    replicas.ArtifactObjects ?? throw new InvalidOperationException("Cloud transport does not support incremental Artifact objects."), ct)
+                : store.ImportAsync(file, root, representation.RepresentationSpecificMetadata["storageSha256"], configId, folderId, ct));
         if (result.Status == HistoryReplicaOperationStatus.Succeeded)
         {
             using (await store.EnterAsync(token)) await NativeArtifactStore.WriteAsync(path, intent with { Complete = true }, token);

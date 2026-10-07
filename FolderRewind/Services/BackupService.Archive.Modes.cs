@@ -142,7 +142,8 @@ namespace FolderRewind.Services
             // 2. 智能备份链长度检查（参考 MineBackup maxSmartBackupsPerFull 逻辑）
             // 当连续的增量备份数量达到上限时，强制执行全量备份以截断链条
             int maxChain = config.Archive.MaxSmartBackupsPerFull;
-            if (maxChain > 0 && baseline.ConsecutiveSmartCaptures >= maxChain)
+            if (maxChain > 0 && baseline.ConsecutiveSmartCaptures >= maxChain
+                && !Plugins.V3.NativeArtifactHostService.IsIncrementalPolicy(config))
             {
                 if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
                 {

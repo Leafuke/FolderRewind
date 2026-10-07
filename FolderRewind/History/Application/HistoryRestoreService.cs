@@ -130,7 +130,7 @@ public sealed class HistoryRestoreService
                     item.Fidelity == MaterializationFidelity.Exact
                         && item.ApplyMode == HistoryRestoreApplyMode.Clean
                         ? WorkspaceBaselineRelation.Exact
-                        : WorkspaceBaselineRelation.Derived)));
+                        : WorkspaceBaselineRelation.Derived) { ContentRealizationId = Guid.NewGuid() }));
             var desired = current.WithContentBaselines(baselines);
             return await ExecuteMutationAsync(prepared, current, desired, cancellationToken).ConfigureAwait(false);
         }
@@ -184,7 +184,7 @@ public sealed class HistoryRestoreService
                 : WorkspaceBaselineRelation.Derived;
             var baselines = current.SourceBaselines
                 .Where(item => item.SourceId != source.SourceId)
-                .Append(new WorkspaceSourceBaseline(source.SourceId, versionId, relation));
+                .Append(new WorkspaceSourceBaseline(source.SourceId, versionId, relation) { ContentRealizationId = Guid.NewGuid() });
             var desired = current.WithContentBaselines(baselines);
             return await ExecuteMutationAsync(
                 [prepared], current, desired, cancellationToken).ConfigureAwait(false);
