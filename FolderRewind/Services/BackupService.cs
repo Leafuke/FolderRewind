@@ -29,6 +29,13 @@ namespace FolderRewind.Services
     /// </summary>
     public static partial class BackupService
     {
+        internal static async Task<BackupOperationResult> CreateSemanticCheckpointAsync(BackupConfig config, CancellationToken token)
+        {
+            var result = await ExecuteBackupTransactionAsync(config, config.SourceFolders,
+                BackupInvocationOptions.ForManual(I18n.GetString("SemanticBackup_CheckpointHistoryComment")).WithSemanticCheckpoint(),
+                HistoryCommitIntent.AdvanceBranch, cancellationToken: token).ConfigureAwait(false);
+            return new(result.Outcome, result.CreatedNewArchive, result.HistoryRecoveryRequired);
+        }
         internal static BackupTaskCollection TaskRegistry { get; } = new();
         public static ObservableCollection<BackupTask> ActiveTasks => TaskRegistry;
 
@@ -325,7 +332,7 @@ namespace FolderRewind.Services
                     ? "The v3 plugin policy blocked this backup."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
-                        : $"{diagnostic.Code} ({diagnostic.Owner})";
+                        : ExperimentalArtifactPolicyService.Describe(diagnostic);
                 Log($"[PluginV3] {message}", LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
@@ -595,6 +602,8 @@ namespace FolderRewind.Services
                 });
 
                 var directSemantic = incremental && v3Session.HasStableSourceView && config.Archive.Mode != BackupMode.Rolling;
+                if (invocationOptions.RequestSemanticCheckpoint && !directSemantic)
+                    throw new InvalidOperationException(I18n.GetString("SemanticBackup_CheckpointStableRequired"));
                 if (directSemantic)
                 {
                     try
@@ -606,14 +615,14 @@ namespace FolderRewind.Services
                             captureResult = SourceCaptureResult.Unavailable(sourceId, captureScope);
                         else if (captureBaseline is not null && !changes.HasChanges
                             && (config.Archive.Mode == BackupMode.Smart || config.Archive.SkipIfUnchanged)
-                            && !NativeArtifactHostService.ExplicitCheckpointRequested)
+                            && !invocationOptions.RequestSemanticCheckpoint)
                             captureResult = SourceCaptureResult.NoChanges(sourceId, captureScope);
                         else
                         {
                             var fileStates = states.ToImmutableSortedDictionary(StringComparer.Ordinal);
                             var plan = FileChangeCapturePlan.Create(fileStates, captureBaseline, effectiveBoundary,
                                 captureBaseline is not null && config.Archive.Mode == BackupMode.Smart,
-                                NativeArtifactHostService.ExplicitCheckpointRequested);
+                                invocationOptions.RequestSemanticCheckpoint);
                             var witness = new SourceCaptureBaselineCandidate(captureBaseline?.Revision ?? -1, string.Empty, 0,
                                 fileStates, effectiveBoundary.Fingerprint)
                             { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) };
@@ -621,7 +630,7 @@ namespace FolderRewind.Services
                                 v3Session.SourceResolution, plan, witness, effectiveBoundary, sourcePath, cancellationToken).ConfigureAwait(false);
                         }
                     }
-                    catch (Exception transformError) when (transformError is not OperationCanceledException
+                    catch (Exception transformError) when (transformError is not OperationCanceledException && !invocationOptions.RequestSemanticCheckpoint
                         && runtimeConfig.ArtifactTransformPolicy?.FailureBehavior == PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
                     {
                         // No transport archive exists. A fresh CoreFull from the same stable lease
@@ -684,7 +693,7 @@ namespace FolderRewind.Services
                             captureResult = await NativeArtifactHostService.TransformAsync(runtimeConfig,
                                 v3Session.SourceResolution, captureResult, cancellationToken, captureBaseline, v3Session.HasStableSourceView).ConfigureAwait(false);
                     }
-                    catch (Exception transformError) when (transformError is not OperationCanceledException
+                    catch (Exception transformError) when (transformError is not OperationCanceledException && !invocationOptions.RequestSemanticCheckpoint
                         && incremental && runtimeConfig.ArtifactTransformPolicy?.FailureBehavior == PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
                     {
                         if (captureResult.RepresentationCandidate?.Kind == RepresentationKind.CoreSmartDelta

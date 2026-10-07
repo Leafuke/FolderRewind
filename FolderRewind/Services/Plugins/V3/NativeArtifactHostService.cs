@@ -19,8 +19,7 @@ internal static class NativeArtifactHostService
     internal static string SourcePathFingerprint(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
         System.Text.Encoding.UTF8.GetBytes(Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)).ToUpperInvariant())));
     internal static bool IsIncrementalPolicy(BackupConfig config)
-        => config.ArtifactTransformPolicy?.Parameters.TryGetValue("representation", out var value) == true
-            && value.ValueKind == System.Text.Json.JsonValueKind.String && value.GetString() == "incremental-v1";
+        => NativeHistoryArtifactTransformPolicy.IsIncremental(config.ArtifactTransformPolicy);
 
     internal static async Task<SourceCaptureBaseline?> RebuildIncrementalBaselineAsync(BackupConfig config,
         Guid sourceId, CancellationToken token)
@@ -135,7 +134,8 @@ internal static class NativeArtifactHostService
         FileChangeCapturePlan plan, SourceCaptureBaselineCandidate statistics, EffectiveSourceBoundarySnapshot boundary,
         string stableSource, CancellationToken token)
     {
-        if (!NativeHistoryArtifactTransformPolicy.IsEnabled(config.Id)) throw new InvalidOperationException("Native transform acceptance is disabled.");
+        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id))
+            throw new InvalidOperationException("Artifact transformation has not been explicitly enabled.");
         var settings = config.ArtifactTransformPolicy ?? throw new InvalidOperationException("Transform policy required.");
         var policy = new ArtifactTransformPolicy(new(new(settings.Transformer.PluginId), settings.Transformer.TransformerId),
             settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
@@ -144,18 +144,12 @@ internal static class NativeArtifactHostService
                 resolution.ConfigSnapshot!, resolution.FolderSnapshot!, policy, token, stableSource, boundary, statistics);
     }
 
-    internal static bool ExplicitCheckpointRequested =>
-#if NATIVE_ARTIFACT_ACCEPTANCE
-        Development.NativeArtifactAcceptance.ForceCheckpoint;
-#else
-        false;
-#endif
-
     internal static async Task<SourceCaptureResult> TransformAsync(BackupConfig config, PluginV3BackupSourceResolution resolution,
         SourceCaptureResult capture, CancellationToken token, SourceCaptureBaseline? baseline = null, bool stableSource = false)
     {
         if (config.ArtifactTransformPolicy is not { } settings || capture.Outcome != SourceCaptureOutcome.Captured) return capture;
-        if (!NativeHistoryArtifactTransformPolicy.IsEnabled(config.Id)) throw new InvalidOperationException("Native transform acceptance is disabled.");
+        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id))
+            throw new InvalidOperationException("Artifact transformation has not been explicitly enabled.");
         if (IsIncrementalPolicy(config))
         {
             if (!stableSource) throw new InvalidOperationException("Incremental Artifact capture requires a stable source view.");
@@ -163,7 +157,7 @@ internal static class NativeArtifactHostService
                 settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
             return await new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config),
                 new SevenZipHistoryArchiveBackend(config), config.IsEncrypted).TransformAsync(capture,
-                FileChangeCapturePlan.Create(capture, baseline, ExplicitCheckpointRequested),
+                FileChangeCapturePlan.Create(capture, baseline),
                 resolution.ConfigSnapshot!, resolution.FolderSnapshot!, incrementalPolicy, token);
         }
         if (config.Archive.Mode != BackupMode.Full)

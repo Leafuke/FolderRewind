@@ -30,7 +30,8 @@ internal static partial class NativeArtifactAcceptance
     private static extern bool GetProcessIoCounters(IntPtr process, out IoCounters counters);
     internal sealed record Request(string Workspace, string Phase, string Package, string PackageSha256,
         string SevenZip, string Source, string SourceId, bool Encrypted, string? Rclone = null, string? CrashAt = null,
-        bool Incremental = false, int Iterations = 1, bool Lifecycle = false, bool Benchmark = false, int PreviousVersions = 0);
+        bool Incremental = false, int Iterations = 1, bool Lifecycle = false, bool Benchmark = false, int PreviousVersions = 0,
+        bool ExperimentalDelivery = false);
     private static string? _crashAt;
     internal static void Observe(string phase)
     {
@@ -101,8 +102,9 @@ internal static partial class NativeArtifactAcceptance
                 new PluginV3HostServices(manifest.PluginId, Path.Combine(root, "plugin-data"), Path.Combine(root, "plugin-temp")),
                 new PluginV3ActivationStore(), manifest));
             if (!activation.Success) throw new InvalidOperationException(JsonSerializer.Serialize(activation.Diagnostics));
-            using var enabled = NativeHistoryArtifactTransformPolicy.EnterAcceptance(config.Id);
+            using var enabled = request.ExperimentalDelivery ? null : NativeHistoryArtifactTransformPolicy.EnterAcceptance(config.Id);
             _crashAt = request.Phase == "recover" ? null : request.CrashAt;
+            if (request.ExperimentalDelivery) return await RunExperimentalDeliveryAsync(config, root);
             if (request.Benchmark) return await RunBenchmarkAsync(request, config, root);
             if (request.Incremental) return await RunIncrementalAsync(request, config, root, started);
             if (request.Phase == "capture")

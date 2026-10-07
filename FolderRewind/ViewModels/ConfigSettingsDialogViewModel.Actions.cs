@@ -26,6 +26,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     private void InitializeActions(IConfigSettingsActions actions)
     {
         _actions = actions;
+        InitializeSemanticCommands();
         EditCommand = new RelayCommand<ConfigSettingsEditRequest>(ApplyDraftEdit);
         ActionCommand = new AsyncRelayCommand<ConfigSettingsAction>(
             (action, token) => _actionLifetime.RunAsync(ct => _actions.ExecuteAsync(action, ct), token),
@@ -51,6 +52,9 @@ public sealed partial class ConfigSettingsDialogViewModel
 
     private string? ValidateForSave()
     {
+        RefreshSemanticAvailability();
+        if (ExperimentalSemanticBackupEnabled && _semanticUnavailableReason is not null)
+            return I18n.GetString(_semanticUnavailableReason);
         foreach (var folder in Config.SourceFolders ?? new ObservableCollection<ManagedFolder>())
         {
             if (!BackupStoragePathService.TryResolveBackupStoragePaths(

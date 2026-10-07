@@ -1,5 +1,7 @@
 # P3：Smart 文件变化筛选与语义增量
 
+> 当前交付：用户已批准显式启用的实验性 P3 与手动 checkpoint 入口。原严格性能 Gate 的失败记录保留；本轮不运行 UI 自动测试，人工步骤见验收记录文末。
+
 实施基线：Host 4ee0efd、MineRewind b0812d3。分支 codex/native-artifact-incremental。
 用户批准的实施合同来自本次对话；用户 AGENTS.md 改动不纳入提交。只进行本地提交，不发布。
 
@@ -76,3 +78,17 @@ P2验收为已完成历史事实。本阶段的实际命令、结果、未通过
 使用 BCL ActivitySource 做可关闭的阶段测量，无新的公共 Plugin capability。嵌套/并行阶段报告 inclusive 耗时，不相加冒充端到端耗时。区分 Host I/O、已观测 7z 子进程 I/O、25ms 采样的并发子进程工作集，以及未观测的网络协议开销。调优中间结果不作为最终 Gate。
 
 保留独立 Merge Provider 的后续路线；文本插件无需采用这些语义备份格式。正常入口继续受性能及安全 Gate 控制。
+
+## 实验性交付决策与产品入口
+
+用户后续明确批准按「性能例外公开、安全要求不降级」交付实验性 P3，并要求提供启用和手动 checkpoint 入口。本节覆盖前文「入口仍关闭」的阶段状态，不覆盖历史测试数据。
+
+- 不宣称原性能 Gate 已通过：密集变化略超阈值、checkpoint 明显慢于 Core 的记录保留。显式 checkpoint 作为低频维护操作呈现，不重新启用周期重打包。
+- 配置设置 → 备份策略 → 语义备份（实验性）。持久化 `ArtifactTransformPolicy.ExperimentalEnabled`，缺省 false，普通配置不迁移。策略仍使用现有 Transformer、Runtime、History、Artifact 管线。
+- 根据当前活动插件的声明和能力匹配入口：增量输入、Full/Smart、完整/变化输入、file-view materializer、兼容 Config Kind。MineRewind 声明只覆盖 Java Kind；Bedrock、Rolling、选区/子集来源不开放。
+- 可选择普通语义捕获转换失败后回退独立 CoreFull 并记录 warning，或停止。缺插件/无法安全捕获不强行回退；手动 checkpoint 一律禁止 Core 回退。
+- 「保存并创建 checkpoint」先保存草稿，随后经同一配置操作门和备份事务为全部来源建立自包含版本。未变化也会执行；请求标志仅存在于当前 `BackupInvocationOptions`，不持久化、不影响下一次普通备份。提供取消、运行与结果状态。
+- 关闭后下次普通备份建立 CoreFull，保留已有语义历史。界面说明恢复的插件依赖、额外时间/空间，以及云端副本退役不保证共享数据物理回收。
+- UI 按用户要求只提供人工验收步骤。本轮自动验证限于构建、非 UI 测试和真实服务集成，不将人工 UI 验收列为已通过。
+
+后续仍独立安排：收益驱动 compaction、更大世界长期成本、随机访问存储封装、云端空间分类面板。P4 语义 Merge 和文本 Provider 的独立能力边界不变。

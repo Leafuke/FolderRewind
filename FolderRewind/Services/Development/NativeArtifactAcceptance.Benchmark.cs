@@ -23,7 +23,6 @@ namespace FolderRewind.Services.Development;
 
 internal static partial class NativeArtifactAcceptance
 {
-    internal static bool ForceCheckpoint { get; private set; }
     private sealed record BenchmarkRow(string Scenario, int Iteration, bool Warmup, double BackupMilliseconds,
         long AddedStorageBytes, long UploadedBytes, double RestoreMilliseconds, ulong HostReadBytes,
         ulong HostWriteBytes, long HostPeakWorkingSet, bool ByteExact, string StateDigest,
@@ -127,10 +126,9 @@ internal static partial class NativeArtifactAcceptance
                 GetProcessIoCounters(Process.GetCurrentProcess().Handle, out var beforeIo);
                 stages.Take();
                 var watch = Stopwatch.StartNew();
-                ForceCheckpoint = request.Incremental && scenario == "checkpoint";
-                BackupOperationResult result;
-                try { result = await BackupService.BackupConfigAsync(config); }
-                finally { ForceCheckpoint = false; }
+                var result = await BackupService.BackupConfigAsync(config,
+                    request.Incremental && scenario == "checkpoint"
+                        ? BackupInvocationOptions.ForManual().WithSemanticCheckpoint() : BackupInvocationOptions.Default);
                 watch.Stop(); var elapsed = watch.Elapsed.TotalMilliseconds;
                 GetProcessIoCounters(Process.GetCurrentProcess().Handle, out var afterIo);
                 var backupStages = stages.Take();

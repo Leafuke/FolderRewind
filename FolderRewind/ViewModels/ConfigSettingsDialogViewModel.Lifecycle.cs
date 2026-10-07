@@ -269,6 +269,7 @@ namespace FolderRewind.ViewModels
 
         private void RaiseBackupScopeUiProperties()
         {
+            RefreshSemanticAvailability();
             OnPropertyChanged(nameof(BackupScopeOptions));
             OnPropertyChanged(nameof(BackupScopeSelectedIndex));
             OnPropertyChanged(nameof(HasPluginBackupScopeOptions));

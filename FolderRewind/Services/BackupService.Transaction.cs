@@ -118,6 +118,12 @@ public static partial class BackupService
         await using var ownedOperation = existingOperation is null ? await NativeHistoryConfigurationOperationGate
             .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false) : null;
         var operationLease = existingOperation ?? ownedOperation!;
+        if (invocationOptions.RequestSemanticCheckpoint
+            && (invocationOptions.Source != BackupInvocationSource.Manual
+                || !NativeHistoryArtifactTransformPolicy.IsIncremental(config.ArtifactTransformPolicy)
+                || NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id)
+                || !ExperimentalArtifactPolicyService.SupportsConfiguration(config)))
+            return BackupTransactionExecutionResult.Blocked(I18n.GetString("SemanticBackup_CheckpointUnavailable"));
         timing.MarkPhase("preflight");
         var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
         await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
@@ -142,7 +148,7 @@ public static partial class BackupService
                     ? $"The v3 plugin policy could not resolve effective boundary for folder '{folder.DisplayName}'."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
-                        : $"{diagnostic.Code} ({diagnostic.Owner})";
+                        : ExperimentalArtifactPolicyService.Describe(diagnostic);
                 Log($"[PluginV3] {message}", LogLevel.Error);
 
                 await RunOnUIAsync(() =>
@@ -188,7 +194,7 @@ public static partial class BackupService
                     ? $"The v3 plugin policy blocked backup capture for '{folder.DisplayName}'."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
-                        : $"{diagnostic.Code} ({diagnostic.Owner})";
+                        : ExperimentalArtifactPolicyService.Describe(diagnostic);
                 Log($"[PluginV3] {message}", LogLevel.Error);
 
                 await RunOnUIAsync(() =>

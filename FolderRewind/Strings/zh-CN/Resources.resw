@@ -1135,7 +1135,7 @@
     <value>智能备份链长度 (0 为不限制)</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChainDesc.Text" xml:space="preserve">
-    <value>达到此数量后重新生成完整备份，仅智能备份有效。</value>
+    <value>达到此数量后重新生成完整备份，仅普通文件级智能备份有效。实验性语义备份不按此数量重打包。</value>
   </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>增量备份链长度已达上限 ({0})，强制执行全量备份</value>
@@ -5075,7 +5075,7 @@ Pull Request：{1}</value>
   <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>这会用所选分支检查点精确替换当前备份项目中的所有源目录内容。请确认当前未提交的更改可以丢弃。</value></data>
   <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>丢弃当前更改并切换</value></data>
   <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>归档验证失败，未写入原生历史记录。</value></data>
-  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>当前版本尚未完成插件产物转换与原生历史记录的集成。请先关闭此配置的产物转换策略。</value></data>
+  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>此配置的产物转换策略尚未显式启用，或不属于受支持的实验策略。请在配置设置中选择兼容的实验性语义备份策略，或移除此转换策略。</value></data>
   <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>历史记录初始化失败</value></data>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>无法为“{0}”初始化原生历史：{1}</value></data>
   <data name="HistoryPage_BranchFilter.Header" xml:space="preserve"><value>查看分支</value></data>
@@ -6348,4 +6348,32 @@ Pull Request：{1}</value>
   <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}：{1:N0} 至 {2:N0}；{3}：{4:N0} 至 {5:N0}</value></data>
   <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} 单位</value></data>
   <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>从该 Y 向下寻找首个表面，不是洞穴视图。玩家定位仅使用保存的 X/Z。</value></data>
+  <data name="SettingsCard_SemanticBackup.Header" xml:space="preserve"><value>语义备份（实验性）</value></data>
+  <data name="SemanticBackup_Description.Text" xml:space="preserve"><value>使用兼容插件按领域内容保存增量，并保持字节一致恢复。默认关闭；稀疏变化节省空间，密集变化和自包含检查点可能更慢。</value></data>
+  <data name="SemanticBackup_Enable.Header" xml:space="preserve"><value>启用实验性语义增量备份</value></data>
+  <data name="SemanticBackup_Enable.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="SemanticBackup_Enable.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SemanticBackup_Refresh.Content" xml:space="preserve"><value>刷新插件可用性</value></data>
+  <data name="SemanticBackup_ExperimentalWarning.Text" xml:space="preserve"><value>恢复这些历史版本需要兼容插件。关闭本功能不会删除已有语义版本；下一次普通备份将建立完整文件基线。云端副本退役不等于共享数据已回收，旧数据仍可能占用空间。</value></data>
+  <data name="SemanticBackup_Fallback.Header" xml:space="preserve"><value>转换失败时允许回退完整文件备份</value></data>
+  <data name="SemanticBackup_Fallback.OnContent" xml:space="preserve"><value>回退并记录警告</value></data>
+  <data name="SemanticBackup_Fallback.OffContent" xml:space="preserve"><value>停止，不创建新版本</value></data>
+  <data name="SemanticBackup_FallbackHint.Text" xml:space="preserve"><value>仅在来源仍可安全捕获时回退。插件缺失可能阻断备份；手动 checkpoint 失败不会由普通备份替代。</value></data>
+  <data name="SemanticBackup_CheckpointDescription.Text" xml:space="preserve"><value>为本配置的全部来源创建自包含检查点（checkpoint），即使文件没有变化。操作会先保存设置，需要额外时间和空间，且不保证回收旧数据。恢复检查点仍需要兼容插件。</value></data>
+  <data name="SemanticBackup_CancelCheckpoint.Content" xml:space="preserve"><value>取消 checkpoint</value></data>
+  <data name="SemanticBackup_UnsupportedConfiguration" xml:space="preserve"><value>仅支持完整来源的智能或完整备份。请先添加来源，并关闭选区/子集备份；滚动备份不支持。</value></data>
+  <data name="SemanticBackup_ProviderUnavailable" xml:space="preserve"><value>没有可用的兼容转换与恢复插件，或现有策略不匹配。请安装并启用支持此功能的插件后刷新。MineRewind 当前支持 Java 存档。</value></data>
+  <data name="SemanticBackup_EnabledHint" xml:space="preserve"><value>已在当前设置中启用；保存后生效。智能模式只处理变化文件中的内容，首次备份建立完整基线。</value></data>
+  <data name="SemanticBackup_DisabledHint" xml:space="preserve"><value>当前未启用。已有配置不会自动迁移。</value></data>
+  <data name="SemanticBackup_SaveCheckpoint" xml:space="preserve"><value>保存并创建 checkpoint</value></data>
+  <data name="SemanticBackup_CreateCheckpoint" xml:space="preserve"><value>创建 checkpoint</value></data>
+  <data name="SemanticBackup_CheckpointRunning" xml:space="preserve"><value>正在保存设置并创建自包含检查点……</value></data>
+  <data name="SemanticBackup_CheckpointSucceeded" xml:space="preserve"><value>检查点已提交，可在历史中查看。</value></data>
+  <data name="SemanticBackup_CheckpointWarnings" xml:space="preserve"><value>检查点已提交，但后续处理有警告，请查看日志。</value></data>
+  <data name="SemanticBackup_CheckpointCanceled" xml:space="preserve"><value>操作已取消。请在历史中确认是否已在取消前完成提交。</value></data>
+  <data name="SemanticBackup_CheckpointFailed" xml:space="preserve"><value>检查点未完成，请查看日志；没有将普通备份作为检查点提交。</value></data>
+  <data name="SemanticBackup_CheckpointRecoveryRequired" xml:space="preserve"><value>历史提交需要恢复处理。请先处理历史恢复提示，勿重复创建检查点。</value></data>
+  <data name="SemanticBackup_CheckpointStableRequired" xml:space="preserve"><value>创建语义检查点需要兼容插件提供稳定来源视图。</value></data>
+  <data name="SemanticBackup_CheckpointUnavailable" xml:space="preserve"><value>请先显式启用实验性语义备份，并使用完整来源的智能或完整备份配置。</value></data>
+  <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>手动语义 checkpoint</value></data>
 </root>

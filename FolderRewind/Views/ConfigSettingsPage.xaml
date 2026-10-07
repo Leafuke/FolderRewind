@@ -137,6 +137,36 @@
                         <StackPanel x:Name="BackupScopeParametersPanel" Spacing="10" Visibility="{x:Bind ViewModel.IsPluginBackupScopeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                     </StackPanel>
                 </settings:SettingsCard>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_SemanticBackup">
+                    <StackPanel Spacing="10">
+                        <TextBlock x:Uid="SemanticBackup_Description" TextWrapping="Wrap"/>
+                        <ToggleSwitch x:Uid="SemanticBackup_Enable" IsOn="{x:Bind ViewModel.ExperimentalSemanticBackupEnabled, Mode=TwoWay}"
+                                      IsEnabled="{x:Bind ViewModel.CanToggleSemanticBackup, Mode=OneWay}" AutomationProperties.AutomationId="SemanticBackupEnable"/>
+                        <TextBlock Text="{x:Bind ViewModel.SemanticBackupAvailability, Mode=OneWay}" TextWrapping="Wrap"
+                                   Style="{StaticResource CaptionTextBlockStyle}" AutomationProperties.AutomationId="SemanticBackupAvailability"/>
+                        <Button x:Uid="SemanticBackup_Refresh" Command="{x:Bind ViewModel.RefreshSemanticAvailabilityCommand}" HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="SemanticBackupRefresh"/>
+                        <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.ExperimentalSemanticBackupEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <Border Style="{StaticResource CautionCardStyle}">
+                                <TextBlock x:Uid="SemanticBackup_ExperimentalWarning" TextWrapping="Wrap"/>
+                            </Border>
+                            <ToggleSwitch x:Uid="SemanticBackup_Fallback" IsOn="{x:Bind ViewModel.SemanticBackupFallbackEnabled, Mode=TwoWay}"
+                                          IsEnabled="{x:Bind ViewModel.CanEditSemanticBackup, Mode=OneWay}" AutomationProperties.AutomationId="SemanticBackupFallback"/>
+                            <TextBlock x:Uid="SemanticBackup_FallbackHint" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                            <TextBlock x:Uid="SemanticBackup_CheckpointDescription" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnCleanupButtonsSizeChanged">
+                                <Button Content="{x:Bind ViewModel.SemanticCheckpointLabel, Mode=OneWay}" Command="{x:Bind ViewModel.SemanticCheckpointCommand}"
+                                        IsEnabled="{x:Bind ViewModel.CanCreateSemanticCheckpoint, Mode=OneWay}" AutomationProperties.AutomationId="SemanticCheckpointCreate"/>
+                                <Button x:Uid="SemanticBackup_CancelCheckpoint" Command="{x:Bind ViewModel.CancelSemanticCheckpointCommand}"
+                                        IsEnabled="{x:Bind ViewModel.IsSemanticCheckpointRunning, Mode=OneWay}" AutomationProperties.AutomationId="SemanticCheckpointCancel"/>
+                            </StackPanel>
+                            <ProgressRing Width="24" Height="24" HorizontalAlignment="Left" IsActive="{x:Bind ViewModel.IsSemanticCheckpointRunning, Mode=OneWay}"
+                                          Visibility="{x:Bind ViewModel.IsSemanticCheckpointRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                            <TextBlock Text="{x:Bind ViewModel.SemanticCheckpointStatus, Mode=OneWay}" TextWrapping="Wrap"
+                                       AutomationProperties.LiveSetting="Polite" AutomationProperties.AutomationId="SemanticCheckpointStatus"/>
+                        </StackPanel>
+                    </StackPanel>
+                </settings:SettingsCard>
                 <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
                     <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged_CardInput" IsOn="{x:Bind ViewModel.SkipIfUnchanged, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_SkipIfUnchanged"/>
                 </settings:SettingsCard>
@@ -156,7 +186,7 @@
                 </settings:SettingsCard>
                 <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_MaxSmartChain">
                     <StackPanel Spacing="4">
-                        <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain_CardInput" Value="{x:Bind ViewModel.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100" AutomationProperties.AutomationId="ConfigSettingsDialog_MaxSmartChain"/>
+                        <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain_CardInput" Value="{x:Bind ViewModel.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100" IsEnabled="{x:Bind ViewModel.CanConfigureCoreSmartChain, Mode=OneWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_MaxSmartChain"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_MaxSmartChainDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </settings:SettingsCard>

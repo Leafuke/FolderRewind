@@ -1,8 +1,10 @@
 # API 3.10 / P3 开发合同
 
-状态：实验性实现，未发布 NuGet、插件或用户入口。跨仓库测试引用按契约源码摘要标识的隔离 feed 包，assembly identity 仍为 `3.0.0.0`。既有构造器、enum 数值和 Full v1 reader 保留。
+状态：实验性实现；用户已批准本地应用的显式启用与手动 checkpoint 入口，未向 NuGet/插件商店发布。跨仓库测试引用按契约源码摘要标识的隔离 feed 包，assembly identity 仍为 `3.0.0.0`。既有构造器、enum 数值和 Full v1 reader 保留。
 
 ## Host 边界
+
+应用配置使用默认 false 的 `ArtifactTransformPolicy.ExperimentalEnabled` 记录用户选择，并由显式 snapshot mapper 复制；旧配置缺字段不自动启用。入口及运行时均检查活动 provider 与 Config Kind、模式、完整来源兼容性，Host 不引入 Minecraft 类型。手动 checkpoint 通过 Host 的单次 `BackupInvocationOptions.RequestSemanticCheckpoint` 传递，最终仍映射现有 `ArtifactIncrementalInput.Checkpoint`，没有新增公共 Plugin API。
 
 `ArtifactTransformRequest.IncrementalInput` 固定 CaptureId、Full/ChangesOnly、boundary、size-mtime-v1、BaseVersion、BaseRepresentation、base root 和增删改集合。`ReadableArtifacts` 是本次授权闭包，不是全 store 查询入口。Manifest 的 `SupportsIncrementalInput` 默认 false；旧 provider 不收到增量请求。
 

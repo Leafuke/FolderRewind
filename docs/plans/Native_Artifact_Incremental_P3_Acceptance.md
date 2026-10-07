@@ -1,4 +1,6 @@
-# P3 开发验收记录（未通过发布准入）
+# P3 验收记录（实验性交付；原性能门未全部通过）
+
+> 当前状态：用户已批准有限的**实验性交付**，提供显式启用与手动 checkpoint 入口；原严格性能 Gate 仍未通过。最新入口验证与人工验收步骤见文末。本轮未进行 UI 自动测试。
 
 > 下方原始开发记录保留。当前结果见文末「2026-10-07 性能优化复核」；周期 checkpoint、测试规模等后续决策以该节及修订计划为准。
 
@@ -125,3 +127,45 @@ checkpoint 的 Host 读/写约 4.82 GB / 1.27 GB（不含 7z，另列 stage coun
 - 自动 compaction 暂不启用。下一步应针对 envelope 封存/解封的剩余成本，以及 Host 可证明的全局回收收益开展独立工作；不能通过关闭摘要、路径、预算、candidate 字节验证或偷偷改变 fidelity 来达标。
 - 没有实现新的随机访问加密封装、Normalized fidelity 或局部 compaction。若扩大到这些存储设计，需要相应的新格式及故障矩阵，不能在本轮验收中默认为已完成。
 - 完整临时空间峰值、30 版本大世界 Retention 成本、Cloud 退役未回收空间 UI、所有新增 witness/descriptor 故障切点仍不是本轮已验证事实。原有发布准入缺口不会因性能改善而自动消失。
+
+## 显式实验入口与手动 checkpoint 交付
+
+用户在接受上述性能限制后授权实验性交付，并明确不运行 UI 自动测试。这里记录产品范围的批准，不把此前 `PerformanceGatePassed=false` 改成 true。
+
+### 已实现
+
+配置设置的「备份策略」新增实验卡片：默认关闭的启用开关、兼容性提示及刷新、失败回退开关、保存并创建 checkpoint、取消与结果状态。新文本同步中英文。兼容性来自插件 manifest 与活动 capability；不将 Java/region 类型引入 Host Core。
+
+`ExperimentalEnabled` 默认 false，旧配置不自动启用，配置复制/保存保留用户选择。Rolling、选区/子集、无来源及不兼容插件阻止启用/保存；运行时独立复检。关闭后普通备份先建立 CoreFull，已有语义历史不删除。
+
+手动 checkpoint 是一次有取消令牌的普通 Host 备份事务，仍经过配置操作门、固定基线、candidate 字节验证和原子 History 提交。无文件变化也创建新的自包含 Artifact 闭包。失败时不会提交 CoreFull 冒充 checkpoint；下一次普通备份不会继承强制标志。界面说明额外空间/耗时、恢复插件依赖及云端共享数据可能未回收。
+
+checkpoint 写回备份时间后，仅重基设置草稿中的该项运行时事实；其他并发配置变更仍触发 stale-draft 保护，避免覆盖用户或其他操作的修改。
+
+### 本轮实际验证
+
+- 普通 WinUI x64 构建、专用 headless 验收构建成功，0 警告、0 错误；最终普通构建不包含验收入口。
+- Host 测试 **819/819 通过**，包括默认不启用、明确 opt-in、非法策略拒绝、Rolling/partial 拒绝，以及单次 checkpoint 标志复制及不泄漏。
+- 真实插件包仍为 `6A614E3A63D4C83C70FA8F0676B3CE175DD6069B25B5BADFFB5806AE9A0B40AC`，本轮没有修改 MineRewind 或公开 API。
+- 非 UI 服务集成分别在未加密和加密配置通过，**没有调用 EnterAcceptance 绕过产品门**。验证默认阻断、显式启用、NoChanges、无变化手动 checkpoint、自包含闭包不引用旧 Artifact、Exact 恢复、草稿操作后仍可保存、RequireTransform 失败、真实转换失败后的 CoreFull warning 回退、checkpoint 禁止回退、关闭后 CoreFull、缺插件阻断、预取消及 Rolling 拒绝。
+- 注入转换失败使用独立构造的合法容器/超解码预算压缩 payload；第一次 fixture 位于未识别维度而被正确作为 raw 保存，未满足注入目的。修正为合法 namespaced dimension 后完成失败/回退测试，没有修改 opaque 策略来迎合测试。
+- 测试产物位于 `artifacts/incremental-p3/experimental-delivery-02/experimental-delivery-result.json` 与 `experimental-delivery-encrypted/experimental-delivery-result.json`；均 `UiAutomated=false`。专用 Host DLL 留存 `experimental-delivery-tested.dll`，SHA-256 `8E1E4DC32D98A8B4BA61AF005F397F772797E10134D1B22F038A0F623E95275E`。
+- 对应日志：`experimental-full-tests.log`、`experimental-delivery-build.log`、`experimental-production-build.log`。28 条新中英文资源项已检查对应存在。
+- **UI 的显示、交互与视觉效果未自动验证，留给以下人工验收。** 没有执行 winapp UI 脚本或宣称其通过。
+
+### 人工验收步骤
+
+先使用本轮 FolderRewind 构建，安装并启用本地 `artifacts/incremental-p3/build/MineRewind-incremental.frplugin`（API 3.10 兼容包）。建议选择世界副本及独立备份目标。若从工程启动，可手动运行：
+
+```powershell
+winapp run .\FolderRewind\FolderRewind.csproj --arch x64 --detach
+```
+
+1. **默认关闭与保存**：打开一个 Java 存档配置 → 配置设置 → 备份策略 →「语义备份（实验性）」。确认默认关闭。选择智能模式、完整来源，点击刷新；启用后保存，离开再打开，确认状态保留。先启用后放弃未保存修改，确认不改变实际配置。
+2. **正常备份**：执行第一次备份，检查历史新增版本；再执行无变化备份，应不新增。修改世界副本中的少量内容后备份，确认产生新版本且可恢复。历史语义版本恢复需要保持兼容插件启用。
+3. **无变化 checkpoint**：不改文件，点击「创建 checkpoint」。有未保存设置时应显示「保存并创建 checkpoint」。检查按钮防重复、运行指示及取消入口；完成后历史新增带「手动语义 checkpoint」备注的版本，恢复该版本验证内容。随后普通备份应重新按无变化跳过。
+4. **草稿与取消**：checkpoint 完成后继续编辑并保存设置，不应仅因备份时间变化而提示草稿过期。创建另一个 checkpoint 并在运行中取消，查看最终状态与历史：取消前已 durable 提交的版本可以存在，不能根据点击取消就推断已提交版本被删除。取消不会撤销已保存设置。
+5. **兼容性与禁用**：尝试滚动模式或区域/子集范围，确认提示不兼容，不能在该状态保存启用的实验策略。禁用插件并刷新，确认入口报告不可用、checkpoint 不可执行；重新启用插件再刷新恢复可用。不要删除插件包后期待语义历史能无插件恢复。
+6. **关闭实验**：关闭并保存。下一次普通备份应建立 CoreFull，之后恢复普通 Smart 行为；已有语义版本仍在。不要自动删除旧包或原历史作为切换的一部分。
+7. **失败设置**：检查「允许回退完整文件备份」开关能保存并重开保留。正常转换失败的回退必须有 warning；关闭回退或手动 checkpoint 失败时不应报告普通备份为 checkpoint 成功。实际故障注入已由上述非 UI 测试完成，人工不必破坏真实世界。
+8. **文案与布局**：分别查看中文、英文及窄窗口，确认警告可读、按钮不重叠，键盘可操作；留意恢复插件依赖、首次基线、额外时间/空间和云端未回收说明。「智能备份链长度」在实验开启时禁用且说明仅适用于普通 Smart。
