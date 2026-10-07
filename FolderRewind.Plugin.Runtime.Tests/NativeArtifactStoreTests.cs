@@ -98,17 +98,24 @@ public sealed class NativeArtifactStoreTests
     }
 
     [TestMethod]
-    public void ConfigsSharingDestinationHaveSeparateNativeStores()
+    public async Task CollectingOneConfigDoesNotRemoveAnotherConfigAtTheSameDestination()
     {
-        var destination = Path.GetFullPath("destination");
-        Assert.AreNotEqual(NativeArtifactStore.ForConfig(destination, "one"), NativeArtifactStore.ForConfig(destination, "two"));
+        using var first = new Fixture(); using var second = new Fixture();
+        var destination = Path.Combine(first.Root, "shared-destination");
+        var one = await first.CaptureAsync(storageRoot: NativeArtifactStore.ForConfig(destination, "one"), configId: "one");
+        var two = await second.CaptureAsync(storageRoot: NativeArtifactStore.ForConfig(destination, "two"), configId: "two");
+        Assert.HasCount(2, await one.Store.CollectAsync([], default));
+        await using var read = await two.Store.OpenAsync(two.Root, default);
+        Assert.HasCount(2, read.Artifacts);
+        Assert.IsTrue(read.Artifacts.All(a => a.ConfigId == "two"));
     }
 
     private sealed class Fixture : IDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeArtifactTests", Guid.NewGuid().ToString("N"));
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
-        public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false)
+        public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
+            string? storageRoot = null, string configId = "config")
         {
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
@@ -122,10 +129,10 @@ public sealed class NativeArtifactStoreTests
                 [new(new(Id, "full"), [Kind], [CoreCaptureMode.Full], [ArtifactCompleteness.Complete],
                     JsonDocument.Parse("{\"type\":\"object\"}").RootElement.Clone(), [ArtifactTransformFailureBehavior.RequireTransform])],
                 [new(Strategy, [new(Format, 1, 1)], [ArtifactCompleteness.Complete], [RestoreMode.Clean])], false);
-            var config = new ConfigSnapshot("config", new("revision"), Kind, "world", [Folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
+            var config = new ConfigSnapshot(configId, new("revision"), Kind, "world", [Folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
             var result = await runtime.ActivateAsync(new(Id, () => new GraphPlugin(diamond), new(Id, new Dictionary<string, JsonElement>()), [config], new Host(), new ActivationStore(), manifest));
             Assert.IsTrue(result.Success, JsonSerializer.Serialize(result.Diagnostics));
-            var store = new NativeArtifactStore(Path.Combine(Root, "store"), new ZipCodec());
+            var store = new NativeArtifactStore(storageRoot ?? Path.Combine(Root, "store"), new ZipCodec());
             await using var prepared = await store.PrepareAsync(runtime, config, Folder, Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
                 new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default);
             await prepared.SealAndCommitGraphAsync(default);

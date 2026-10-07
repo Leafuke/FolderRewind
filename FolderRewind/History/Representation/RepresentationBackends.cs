@@ -28,6 +28,12 @@ public interface IArchiveRepresentationBackend
         CancellationToken cancellationToken);
 }
 
+/// <summary>Internal Host seam: reject oversized primary views before extraction.</summary>
+public interface IBoundedPrimaryArchiveBackend
+{
+    Task MaterializePrimaryAsync(string archive, string directory, CancellationToken token);
+}
+
 public sealed record PluginArtifactProbeResult(
     bool PluginAvailable,
     bool ArtifactAvailable,

@@ -36,7 +36,9 @@ public sealed class NativeArtifactCaptureService(PluginRuntimeManager plugins, N
                 var core = capture.RepresentationCandidate.ToFact(version);
                 var validation = await archives.VerifyAsync(core, capture.PayloadCandidate!.AbsolutePath, token);
                 if (!validation.Success) throw new InvalidDataException(validation.Diagnostic);
-                await archives.MaterializeAsync([new(core, capture.PayloadCandidate.AbsolutePath)], primary, token);
+                if (archives is not IBoundedPrimaryArchiveBackend bounded)
+                    throw new InvalidOperationException("Native transform requires a bounded primary materializer.");
+                await bounded.MaterializePrimaryAsync(capture.PayloadCandidate.AbsolutePath, primary, token);
                 var expected = await MergeTreeManifest.ReadAsync(primary, _ => true, token);
                 await using var prepared = await store.PrepareAsync(plugins, config, folder, version.ToString(), representation.ToString(), primary, policy, encrypted, token,
                     capture.PayloadCandidate.AbsolutePath, core.RepresentationId.ToString());

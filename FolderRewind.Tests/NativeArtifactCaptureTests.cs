@@ -53,8 +53,10 @@ public sealed class NativeArtifactCaptureTests
         public Task PackAsync(string source, string target, bool encrypted, CancellationToken token) => throw new AssertFailedException("Unexpected envelope capture.");
         public Task UnpackAsync(string source, string target, bool encrypted, CancellationToken token) => throw new AssertFailedException("Unexpected envelope restore.");
     }
-    private sealed class PrimaryBackend : IArchiveRepresentationBackend
+    private sealed class PrimaryBackend : IArchiveRepresentationBackend, IBoundedPrimaryArchiveBackend
     {
+        public Task MaterializePrimaryAsync(string input, string target, CancellationToken token)
+        { Directory.CreateDirectory(target); File.WriteAllText(Path.Combine(target, "file"), "x"); return Task.CompletedTask; }
         public ValueTask<PayloadVerificationResult> VerifyAsync(VersionRepresentation representation, string path, CancellationToken token)
         { token.ThrowIfCancellationRequested(); return ValueTask.FromResult(new PayloadVerificationResult(true, "test-primary", "")); }
         public ValueTask MaterializeAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string target, CancellationToken token)

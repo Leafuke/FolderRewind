@@ -17,8 +17,14 @@ namespace FolderRewind.Services;
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
     bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend,
-    FolderRewind.Plugin.Runtime.Artifacts.IArtifactEnvelopeCodec
+    FolderRewind.Plugin.Runtime.Artifacts.IArtifactEnvelopeCodec, IBoundedPrimaryArchiveBackend
 {
+    public async Task MaterializePrimaryAsync(string archive, string directory, CancellationToken token)
+    {
+        await UnpackLogicalTreeAsync(archive, directory, token).ConfigureAwait(false);
+        var marker = Path.Combine(directory, restoreMarkerDirectory);
+        if (Directory.Exists(marker)) Directory.Delete(marker, true);
+    }
     public Task PackAsync(string source, string payload, bool requiresEncryption, CancellationToken token)
     {
         if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
