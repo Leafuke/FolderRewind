@@ -48,7 +48,7 @@ namespace FolderRewind.Services
                             .Select(item => item.Locator.AbsolutePath)
                             .FirstOrDefault(File.Exists);
                         if (path is null) continue;
-                        var result = await replicas.UploadAsync(representationId, path).ConfigureAwait(false);
+                        var result = await UploadNativeRepresentationAsync(config, runtime, replicas, representationId, path, CancellationToken.None).ConfigureAwait(false);
                         if (result.Status != HistoryReplicaOperationStatus.Succeeded)
                             LogService.LogWarning(
                                 "[Cloud Replica] " + CloudCommandSecurity.Redact(result.Diagnostic),
@@ -83,10 +83,7 @@ namespace FolderRewind.Services
                     CreateReplicaTransport(config),
                     token => metadata.SyncAsync(token),
                     new UploadOnlyRetirementGuard());
-                var result = await service.UploadAsync(
-                    representationId,
-                    localPath,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                var result = await UploadNativeRepresentationAsync(config, runtime, service, representationId, localPath, cancellationToken).ConfigureAwait(false);
                 return result.Status == HistoryReplicaOperationStatus.Succeeded;
             }
             catch (Exception ex)
@@ -135,6 +132,20 @@ namespace FolderRewind.Services
                     ?? throw new InvalidDataException("Cloud replica metadata does not include an expected size.");
                 var expectedStorageSha256 = replica.ExpectedStorageSha256
                     ?? throw new InvalidDataException("Cloud replica metadata does not include an expected storage hash.");
+                var representation = await runtime.Query.GetRepresentationAsync(representationId, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidDataException("Representation is missing.");
+                if (representation.Kind == RepresentationKind.PluginArtifact)
+                {
+                    var nativeService = new HistoryReplicaSyncService(runtime, CreateReplicaTransport(config),
+                        token => new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).SyncAsync(token), new UploadOnlyRetirementGuard());
+                    var nativeManifest = new HistoryReplicaManifest(representationId, replica.ReplicaId,
+                        Guid.Parse(representation.RepresentationSpecificMetadata["artifactRootId"]), replica.ObjectKey, expectedSize, expectedStorageSha256);
+                    var version = await runtime.Query.GetVersionAsync(representation.VersionId, cancellationToken).ConfigureAwait(false)
+                        ?? throw new InvalidDataException("Version is missing.");
+                    var nativeResult = await new NativeArtifactReplicaService(Plugins.V3.NativeArtifactHostService.Store(config), nativeService)
+                        .DownloadAsync(representation, nativeManifest, config.Id, version.SourceId.Value, cancellationToken).ConfigureAwait(false);
+                    return nativeResult.Status == HistoryReplicaOperationStatus.Succeeded;
+                }
                 if (!BackupStoragePathService.TryResolveBackupStoragePaths(
                         config.DestinationPath,
                         folder.DisplayName,
@@ -170,6 +181,16 @@ namespace FolderRewind.Services
                     nameof(CloudSyncService));
                 return false;
             }
+        }
+
+        private static async Task<HistoryReplicaOperationResult> UploadNativeRepresentationAsync(BackupConfig config,
+            HistoryRuntime runtime, HistoryReplicaSyncService service, RepresentationId id, string path, CancellationToken token)
+        {
+            var representation = await runtime.Query.GetRepresentationAsync(id, token).ConfigureAwait(false)
+                ?? throw new InvalidDataException("Representation is missing.");
+            return representation.Kind == RepresentationKind.PluginArtifact
+                ? await new NativeArtifactReplicaService(Plugins.V3.NativeArtifactHostService.Store(config), service).UploadAsync(representation, token).ConfigureAwait(false)
+                : await service.UploadAsync(id, path, cancellationToken: token).ConfigureAwait(false);
         }
 
         private static IHistoryReplicaTransport CreateReplicaTransport(BackupConfig config)

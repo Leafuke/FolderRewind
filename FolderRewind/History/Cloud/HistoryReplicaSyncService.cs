@@ -38,9 +38,10 @@ public sealed class HistoryReplicaSyncService
         RepresentationId representationId,
         string localPath,
         Guid? artifactRootId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ReplicaId? stableReplicaId = null)
     {
-        var replicaId = ReplicaId.New();
+        var replicaId = stableReplicaId ?? ReplicaId.New();
         try
         {
             if (await _history.Query.GetRepresentationAsync(representationId, cancellationToken).ConfigureAwait(false) is null)
@@ -64,7 +65,11 @@ public sealed class HistoryReplicaSyncService
             var active = new ReplicaLifecycleUpdate(
                 ReplicaLifecycleUpdateId.New(), replicaId, [], ReplicaLifecycleState.Active,
                 DateTimeOffset.UtcNow, "Physical payload and manifest verified.");
-            await CommitFactsAsync([replica, active], cancellationToken).ConfigureAwait(false);
+            var existing = (await _history.Query.GetStorageReplicasAsync(representationId, cancellationToken).ConfigureAwait(false))
+                .SingleOrDefault(r => r.ReplicaId == replicaId);
+            if (existing is null) await CommitFactsAsync([replica, active], cancellationToken).ConfigureAwait(false);
+            else if (existing.ExpectedSize != replica.ExpectedSize || !StringComparer.OrdinalIgnoreCase.Equals(existing.ExpectedStorageSha256, replica.ExpectedStorageSha256))
+                throw new InvalidDataException("Retried Replica identity differs from durable facts.");
             var sync = await _syncMetadata(cancellationToken).ConfigureAwait(false);
             if (!sync.Succeeded) throw new InvalidOperationException("Replica facts are durable locally but metadata sync failed: " + sync.Diagnostic);
             return new(HistoryReplicaOperationStatus.Succeeded, replicaId, string.Empty);
@@ -79,7 +84,8 @@ public sealed class HistoryReplicaSyncService
     public async Task<HistoryReplicaOperationResult> DownloadAsync(
         HistoryReplicaManifest manifest,
         string finalLocalPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<string, CancellationToken, Task<string>>? importVerifiedPayload = null)
     {
         var staging = finalLocalPath + ".download-" + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -98,7 +104,9 @@ public sealed class HistoryReplicaSyncService
             {
                 File.Move(staging, finalLocalPath, false);
             }
-            await RegisterLocalAsync(manifest.RepresentationId, finalLocalPath, cancellationToken).ConfigureAwait(false);
+            var registrationPath = importVerifiedPayload is null ? finalLocalPath
+                : await importVerifiedPayload(finalLocalPath, cancellationToken).ConfigureAwait(false);
+            await RegisterLocalAsync(manifest.RepresentationId, registrationPath, cancellationToken).ConfigureAwait(false);
             await _history.Index.UpsertObservationAsync(new HistoryReplicaObservation(
                 manifest.ReplicaId.ToString(), ReplicaAvailabilityObservation.Available,
                 ReplicaIntegrityObservation.Verified, DateTimeOffset.UtcNow, "Downloaded and verified."), cancellationToken)
