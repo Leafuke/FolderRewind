@@ -186,12 +186,16 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
     }
 
     public ValueTask<ArtifactStagingAllocation> CreateArtifactAsync(CancellationToken cancellationToken)
+        => CreateArtifactAsync(new ArtifactId(Guid.NewGuid()), cancellationToken);
+
+    internal ValueTask<ArtifactStagingAllocation> CreateArtifactAsync(ArtifactId artifactId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_allocations)
         {
             ThrowIfSealed();
-            var artifactId = new ArtifactId(Guid.NewGuid());
+            if (artifactId.Value == Guid.Empty || _allocations.Values.Any(a => a.ArtifactId == artifactId))
+                throw new InvalidDataException("Duplicate or empty Artifact identity.");
             var handle = new ArtifactStagingHandle(Guid.NewGuid().ToString("N"));
             var path = Path.Combine(_root, artifactId.Value.ToString("N"));
             Directory.CreateDirectory(path);
