@@ -101,3 +101,5 @@ dotnet build FolderRewind/FolderRewind.csproj -c Debug -p:Platform=x64 -p:Folder
 - 提交前进程崩溃可能留下未登记的 Core archive。恢复保留 orphan 审计记录，不猜测路径自动删除；它们不成为可见成功 Version。
 - deep probe/物化有重复解封和临时 I/O 成本；保留现有配额，超限依失败策略处理。磁盘耗尽通过异常/限额测试覆盖，没有填满用户磁盘。
 - 默认用户路径仍关闭；后续 P3 需单独实施和验收。公共 Merge/Capture 协议尚未冻结。
+
+后继方案：[P3 实施计划](Native_Artifact_Incremental_P3.md) 与 [P3 独立验收记录](Native_Artifact_Incremental_P3_Acceptance.md)。上述 P2 历史验收及范围保持原义，不代表 P3 Gate 已通过。

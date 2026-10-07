@@ -401,6 +401,7 @@ FodyWeavers.xsd
 !/docs/research/
 /docs/research/*
 !/docs/research/2026-10-02-pcl-static-discovery-evidence.md
+!/docs/research/2026-10-07-semantic-backup-merge-roadmap.md
 !/docs/release/
 !/docs/release/*.md
 !/docs/plugin-v3/
