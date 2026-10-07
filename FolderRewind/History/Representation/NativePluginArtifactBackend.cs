@@ -15,8 +15,11 @@ public sealed record NativeArtifactBinding(VersionRepresentation Representation,
 
 /// <summary>Reads only the committed Artifact closure; never falls back to the paired Core archive.</summary>
 public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Func<NativeArtifactStore> storeFactory,
-    Func<Guid, CancellationToken, Task<NativeArtifactBinding>> resolve) : IPluginArtifactBackend
+    Func<Guid, CancellationToken, Task<NativeArtifactBinding>> resolve) : IPluginArtifactBackend, IInlineVerifiedMaterializer
 {
+    public bool CanVerifyDuringMaterialization(VersionRepresentation representation)
+        => representation.Kind == RepresentationKind.PluginArtifact
+            && representation.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence");
     private NativeArtifactStore Store => storeFactory();
     public async ValueTask<PluginArtifactProbeResult> ProbeAsync(Guid root, string pluginId, CancellationToken token)
     {
@@ -54,7 +57,8 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
         var store = Store;
         if (binding.Representation.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence"))
         {
-            await using var read = await store.OpenLazyAsync(new(root), token);
+            // Verify every node once and retain those decoded bytes for the actual file reconstruction.
+            await using var read = await store.OpenAsync(new(root), token);
             Validate(read, root, pluginId, binding);
             var node = read.Artifacts.Single(a => a.ArtifactId.Value == root);
             using var lease = plugins.TryAcquire<IRestoreMaterializerCapability>(node.RestoreStrategyId.PluginId,

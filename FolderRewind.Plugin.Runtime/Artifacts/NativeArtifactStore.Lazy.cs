@@ -15,7 +15,8 @@ public sealed partial class NativeArtifactStore
         catch { held.Dispose(); throw; }
     }
 
-    internal NativeArtifactReadLease OpenLazyWithoutGate(ArtifactLedgerDocument ledger, ArtifactId root, IDisposable held)
+    internal NativeArtifactReadLease OpenLazyWithoutGate(ArtifactLedgerDocument ledger, ArtifactId root, IDisposable held,
+        IReadOnlyDictionary<ArtifactId, string>? verifiedDirectories = null, NativeArtifactReadLease? baseline = null)
     {
         var closure = ArtifactLedgerValidator.BuildClosure(ledger, [root]);
         var map = ledger.Artifacts.ToDictionary(a => a.ArtifactId);
@@ -38,11 +39,12 @@ public sealed partial class NativeArtifactStore
                 node.LogicalSha256, node.LogicalSize, node.Completeness, node.CoreCaptureMode,
                 node.ConfigId, node.FolderId, node.Dependencies));
         }
-        return new(snapshots.AsReadOnly(), new LazyRead(this, ledger, handles), held, string.Empty, nodes);
+        return new(snapshots.AsReadOnly(), new LazyRead(this, ledger, handles, verifiedDirectories, baseline), held, string.Empty, nodes);
     }
 
     private sealed class LazyRead(NativeArtifactStore store, ArtifactLedgerDocument ledger,
-        IReadOnlyDictionary<ArtifactContentHandle, ArtifactLedgerEntry> handles) : IArtifactReadService, IAsyncDisposable
+        IReadOnlyDictionary<ArtifactContentHandle, ArtifactLedgerEntry> handles,
+        IReadOnlyDictionary<ArtifactId, string>? verifiedDirectories, NativeArtifactReadLease? baseline) : IArtifactReadService, IAsyncDisposable
     {
         private readonly Dictionary<ArtifactContentHandle, NativeArtifactReadLease> _opened = [];
         private readonly SemaphoreSlim _gate = new(1, 1);
@@ -55,6 +57,21 @@ public sealed partial class NativeArtifactStore
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 if (_opened.TryGetValue(handle, out var old)) return old;
                 if (!handles.TryGetValue(handle, out var node)) throw new InvalidDataException("Handle is outside the pinned closure.");
+                var snapshot = new BackupArtifactSnapshot(node.ArtifactId, node.Format, node.FormatVersion, node.RestoreStrategyId, handle,
+                    node.LogicalSha256, node.LogicalSize, node.Completeness, node.CoreCaptureMode, node.ConfigId, node.FolderId, node.Dependencies);
+                if (verifiedDirectories?.TryGetValue(node.ArtifactId, out var verified) == true)
+                {
+                    var reused = new NativeArtifactReadLease([snapshot], new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string>
+                        { [handle] = verified }), new ActionLease(() => { }), string.Empty, [node]);
+                    _opened.Add(handle, reused); return reused;
+                }
+                var prior = baseline?.Artifacts.SingleOrDefault(a => a.ArtifactId == node.ArtifactId);
+                if (prior is not null)
+                {
+                    var reused = new NativeArtifactReadLease([snapshot], new ReadAlias(baseline!.Read, prior.Content),
+                        new ActionLease(() => { }), string.Empty, [node]);
+                    _opened.Add(handle, reused); return reused;
+                }
                 var isolated = ledger with { Artifacts = [node with { Dependencies = [] }] };
                 var opened = await store.OpenWithoutGateAsync(isolated, node.ArtifactId, new ActionLease(() => { }), token);
                 _opened.Add(handle, opened);
@@ -72,6 +89,15 @@ public sealed partial class NativeArtifactStore
             try { if (_disposed) return; _disposed = true; foreach (var lease in _opened.Values) await lease.DisposeAsync(); _opened.Clear(); }
             finally { _gate.Release(); }
         }
+    }
+
+    // Non-owning alias: the prepared operation owns the baseline lease until candidate views close.
+    private sealed class ReadAlias(IArtifactReadService read, ArtifactContentHandle original) : IArtifactReadService
+    {
+        public ValueTask<IReadOnlyList<ArtifactFileEntry>> ListFilesAsync(ArtifactContentHandle handle, CancellationToken token)
+            => read.ListFilesAsync(original, token);
+        public ValueTask<Stream> OpenReadAsync(ArtifactContentHandle handle, string path, CancellationToken token)
+            => read.OpenReadAsync(original, path, token);
     }
 }
 

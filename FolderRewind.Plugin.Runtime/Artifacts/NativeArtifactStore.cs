@@ -13,6 +13,12 @@ public interface IArtifactEnvelopeCodec
     Task UnpackAsync(string payload, string logicalDirectory, bool encrypted, CancellationToken token);
 }
 
+/// <summary>Host codec opt-in for independent envelopes; implementations bound their worker resources.</summary>
+public interface IConcurrentArtifactEnvelopeCodec : IArtifactEnvelopeCodec
+{
+    int MaximumConcurrency { get; }
+}
+
 public sealed record NativeEnvelope(int Version, bool Encrypted);
 public sealed record NativeArtifactPending(string Id, string VersionId, string RepresentationId, ArtifactId Root,
     string Phase, string? HistoryPackId = null, string? HistoryTransactionId = null)
@@ -23,6 +29,8 @@ public sealed record NativeArtifactPending(string Id, string VersionId, string R
     public string? CorePayloadSha256 { get; init; }
 }
 public sealed record NativeArtifactTransfer(string Id, ArtifactId Root, string RepresentationId, string ReplicaId, bool Complete);
+/// <summary>Host-owned, operation-scoped input; never persisted as a Representation.</summary>
+public sealed record NativeArtifactPrimaryInput(ArtifactContentHandle Content, HostArtifactReadService Read);
 
 /// <summary>Config-isolated payload storage. The artifact DAG stays in the existing ledger.</summary>
 public sealed partial class NativeArtifactStore
@@ -32,6 +40,8 @@ public sealed partial class NativeArtifactStore
     private readonly SemaphoreSlim _gate;
     private readonly IArtifactEnvelopeCodec _codec;
     private readonly Action<string>? _observe;
+    private int EnvelopeConcurrency => _codec is IConcurrentArtifactEnvelopeCodec concurrent
+        ? Math.Clamp(concurrent.MaximumConcurrency, 1, 4) : 1;
     public string Root { get; }
     public FileArtifactLedgerStore Ledger { get; }
     public static string ForConfig(string destination, string configId)
@@ -125,7 +135,8 @@ public sealed partial class NativeArtifactStore
     public async Task<PreparedNativeArtifact> PrepareAsync(PluginRuntimeManager runtime, ConfigSnapshot config,
         FolderSnapshot folder, string versionId, string representationId, string primaryDirectory,
         ArtifactTransformPolicy policy, bool encrypted, CancellationToken token, string? corePayloadPath = null, string? coreRepresentationId = null,
-        ArtifactIncrementalInput? incrementalInput = null, Func<bool, byte[]>? hostCaptureEvidence = null)
+        ArtifactIncrementalInput? incrementalInput = null, Func<bool, byte[]>? hostCaptureEvidence = null,
+        NativeArtifactPrimaryInput? primaryInput = null)
     {
         var held = await EnterAsync(token);
         PluginCapabilityLease<IBackupArtifactTransformerCapability>? lease = null;
@@ -148,7 +159,9 @@ public sealed partial class NativeArtifactStore
             var current = await Ledger.LoadAsync(token);
             if (incrementalInput?.BaseRootArtifactId is { } baseRoot)
             {
-                baselineRead = OpenLazyWithoutGate(current, baseRoot, new ActionLease(() => { }));
+                baselineRead = incrementalInput.Checkpoint
+                    ? await OpenWithoutGateAsync(current, baseRoot, new ActionLease(() => { }), token)
+                    : OpenLazyWithoutGate(current, baseRoot, new ActionLease(() => { }));
                 if (baselineRead.Artifacts.Any(a => a.ConfigId != config.ConfigId || a.FolderId != folder.FolderId))
                     throw new InvalidDataException("Incremental baseline belongs to another source.");
             }
@@ -156,19 +169,21 @@ public sealed partial class NativeArtifactStore
                 throw new InvalidDataException("Changes-only input requires an explicit readable baseline.");
             var transaction = Guid.NewGuid().ToString("N");
             staging = Ledger.CreateStagingArea(transaction, ArtifactTransformLimits.Default.MaximumFiles, ArtifactTransformLimits.Default.MaximumBytes);
-            var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N"));
-            var primaryFacts = incrementalInput is not null && HostArtifactReadService.EnumerateSafeFiles(primaryDirectory).Count == 0
-                ? (Sha256: Convert.ToHexString(SHA256.HashData(Array.Empty<byte>())).ToLowerInvariant(), Size: 0L)
-                : await HostArtifactReadService.ComputeLogicalFactsAsync(primaryDirectory, token);
+            var handle = primaryInput?.Content ?? new ArtifactContentHandle(Guid.NewGuid().ToString("N"));
+            var primaryRead = primaryInput?.Read ?? new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [handle] = primaryDirectory });
+            var primaryFiles = await primaryRead.ListFilesAsync(handle, token);
+            if (incrementalInput is null && primaryFiles.Count == 0) throw new InvalidDataException("Full primary cannot be empty.");
+            var primaryFacts = HostArtifactReadService.ComputeInventoryFacts(primaryFiles);
             var primary = new BackupArtifactSnapshot(new(Guid.NewGuid()), new(new OwnerId("folderrewind.core"), "archive-set"), 1,
                 new(new PluginId("folderrewind.core"), "archive-materializer"), handle, primaryFacts.Sha256, primaryFacts.Size,
                 completeness, mode, config.ConfigId, folder.FolderId, []);
-            var primaryRead = new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [handle] = primaryDirectory });
             var request = new ArtifactTransformRequest(config, folder, versionId, current.Revision, primary,
                 baselineRead?.Artifacts.Where(a => a.ArtifactId == incrementalInput!.BaseRootArtifactId).ToArray() ?? [], policy.Parameters,
                 new CombinedArtifactReadService(handle, primaryRead, baselineRead?.Read), staging, NullPluginOperationProgress.Instance)
             { IncrementalInput = incrementalInput, ReadableArtifacts = baselineRead?.Artifacts ?? [] };
-            var result = await lease.Capability.TransformAsync(request, lease.Context);
+            ArtifactTransformResult result;
+            using (ArtifactDiagnostics.Source.StartActivity("transform"))
+                result = await lease.Capability.TransformAsync(request, lease.Context);
             lease.Context.OperationCancellation.ThrowIfCancellationRequested();
             if (result.Outcome is not (OperationOutcome.Success or OperationOutcome.SuccessWithWarnings) || result.Patch is null
                 || result.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
@@ -193,7 +208,9 @@ public sealed partial class NativeArtifactStore
                 await using var evidenceStream = await staging.OpenWriteAsync(rootStaging, "_host/capture-evidence.json", token);
                 await evidenceStream.WriteAsync(evidence, token);
             }
-            var facts = await staging.SealAsync("artifacts", token, result.Patch.AddedArtifacts.Select(n => n.Staging).ToHashSet());
+            IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts> facts;
+            using (ArtifactDiagnostics.Source.StartActivity("staging.seal"))
+                facts = await staging.SealAsync("artifacts", token, result.Patch.AddedArtifacts.Select(n => n.Staging).ToHashSet());
             var candidate = ArtifactGraphPatchApplier.Apply(current, result.Patch,
                 new(policy.TransformerId.PluginId, config.ConfigId, folder.FolderId, baselineRead?.Artifacts.Select(a => a.ArtifactId).ToHashSet() ?? [], transaction,
                     new(Guid.NewGuid().ToString("N"))), facts);
@@ -226,31 +243,43 @@ public sealed partial class NativeArtifactStore
 
     internal async Task<IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts>> SealEnvelopesAsync(
         ArtifactTransformStagingArea staging, IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts> facts,
-        bool encrypted, CancellationToken token)
+        bool encrypted, CancellationToken token, IDictionary<ArtifactId, string>? verifiedDirectories = null)
     {
-        var result = new Dictionary<ArtifactStagingHandle, StagedArtifactFacts>();
-        foreach (var (handle, fact) in facts)
+        using var phase = ArtifactDiagnostics.Source.StartActivity("envelopes.seal.wall");
+        var result = new ConcurrentDictionary<ArtifactStagingHandle, StagedArtifactFacts>();
+        await Parallel.ForEachAsync(facts, new ParallelOptions { MaxDegreeOfParallelism = EnvelopeConcurrency, CancellationToken = token }, async (pair, workerToken) =>
         {
+            var (handle, fact) = pair;
+            var token = workerToken;
+            using var stage = ArtifactDiagnostics.Source.StartActivity("envelope.seal");
+            stage?.SetTag("logical.bytes", fact.LogicalSize);
             var source = staging.GetAllocationPath(handle); var sealedRoot = source + "-envelope";
             Directory.CreateDirectory(sealedRoot);
             var payload = Path.Combine(sealedRoot, "payload.7z");
-            await _codec.PackAsync(source, payload, encrypted, token);
+            using (ArtifactDiagnostics.Source.StartActivity("envelope.pack"))
+                await _codec.PackAsync(source, payload, encrypted, token);
             await WriteAsync(Path.Combine(sealedRoot, "envelope.json"), new NativeEnvelope(1, encrypted), token);
             var verify = source + "-verify";
+            var verified = false;
             try
             {
-                await _codec.UnpackAsync(payload, verify, encrypted, token);
+                using (ArtifactDiagnostics.Source.StartActivity("envelope.roundtrip.unpack"))
+                    await _codec.UnpackAsync(payload, verify, encrypted, token);
                 var logical = await HostArtifactReadService.ComputeLogicalFactsAsync(verify, token);
                 if (logical.Sha256 != fact.LogicalSha256 || logical.Size != fact.LogicalSize) throw new InvalidDataException("Envelope roundtrip mismatch.");
+                verified = true;
+                if (verifiedDirectories is not null)
+                    lock (verifiedDirectories) verifiedDirectories.Add(fact.ArtifactId, verify);
             }
-            finally { DeleteDirectory(verify); }
+            finally { if (!verified || verifiedDirectories is null) DeleteDirectory(verify); }
             using (var input = File.OpenRead(payload))
             {
                 var hash = Convert.ToHexString(await SHA256.HashDataAsync(input, token)).ToLowerInvariant();
-                result.Add(handle, fact with { StorageSha256 = hash, StorageSize = input.Length });
+                if (!result.TryAdd(handle, fact with { StorageSha256 = hash, StorageSize = input.Length }))
+                    throw new InvalidDataException("Duplicate sealed Artifact handle.");
             }
             DeleteDirectory(source); Directory.Move(sealedRoot, source);
-        }
+        });
         return result;
     }
 
@@ -262,15 +291,22 @@ public sealed partial class NativeArtifactStore
     }
     internal async Task<NativeArtifactReadLease> OpenWithoutGateAsync(ArtifactLedgerDocument ledger, ArtifactId root, IDisposable held, CancellationToken token)
     {
+        using var phase = ArtifactDiagnostics.Source.StartActivity("closure.open.wall");
         var closure = ArtifactLedgerValidator.BuildClosure(ledger, [root]);
         var rows = ledger.Artifacts.ToDictionary(a => a.ArtifactId);
-        var roots = new Dictionary<ArtifactContentHandle, string>(); var snapshots = new List<BackupArtifactSnapshot>();
+        var roots = new ConcurrentDictionary<ArtifactContentHandle, string>();
+        var snapshots = new ConcurrentDictionary<ArtifactId, BackupArtifactSnapshot>();
         var temporary = Path.Combine(Root, ".read", Guid.NewGuid().ToString("N"));
         try
         {
-            foreach (var id in closure.TopologicallySorted)
+            await Parallel.ForEachAsync(closure.TopologicallySorted,
+                new ParallelOptions { MaxDegreeOfParallelism = EnvelopeConcurrency, CancellationToken = token }, async (id, workerToken) =>
             {
+                var token = workerToken;
+                using var stage = ArtifactDiagnostics.Source.StartActivity("artifact.open.verify");
                 var node = rows[id]; var directory = ArtifactPathRules.ResolveUnderRoot(Root, node.ContentRelativePath);
+                stage?.SetTag("logical.bytes", node.LogicalSize);
+                stage?.SetTag("storage.bytes", node.StorageSize);
                 var envelopePath = Path.Combine(directory, "envelope.json");
                 var logicalDirectory = directory;
                 if (File.Exists(envelopePath))
@@ -285,7 +321,8 @@ public sealed partial class NativeArtifactStore
                             throw new InvalidDataException("Artifact ciphertext/storage hash mismatch.");
                         }
                     logicalDirectory = Path.Combine(temporary, id.Value.ToString("N"));
-                    await _codec.UnpackAsync(PayloadPath(node), logicalDirectory, envelope.Encrypted, token);
+                    using (ArtifactDiagnostics.Source.StartActivity("artifact.unpack"))
+                        await _codec.UnpackAsync(PayloadPath(node), logicalDirectory, envelope.Encrypted, token);
                 }
                 var logical = await HostArtifactReadService.ComputeLogicalFactsAsync(logicalDirectory, token);
                 if (logical.Size != node.LogicalSize || !StringComparer.OrdinalIgnoreCase.Equals(logical.Sha256, node.LogicalSha256))
@@ -295,11 +332,11 @@ public sealed partial class NativeArtifactStore
                 }
                 // Only a fresh full verification clears an observed failure (for example after replica repair).
                 if (File.Exists(CorruptionPath(node))) File.Delete(CorruptionPath(node));
-                var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N")); roots.Add(handle, logicalDirectory);
-                snapshots.Add(new(node.ArtifactId, node.Format, node.FormatVersion, node.RestoreStrategyId, handle,
+                var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N")); roots.TryAdd(handle, logicalDirectory);
+                snapshots.TryAdd(id, new(node.ArtifactId, node.Format, node.FormatVersion, node.RestoreStrategyId, handle,
                     node.LogicalSha256, node.LogicalSize, node.Completeness, node.CoreCaptureMode, node.ConfigId, node.FolderId, node.Dependencies));
-            }
-            return new(snapshots, new HostArtifactReadService(roots), held, temporary, closure.TopologicallySorted.Select(id => rows[id]).ToArray());
+            });
+            return new(closure.TopologicallySorted.Select(id => snapshots[id]).ToArray(), new HostArtifactReadService(roots), held, temporary, closure.TopologicallySorted.Select(id => rows[id]).ToArray());
         }
         catch { DeleteDirectory(temporary); throw; }
     }
@@ -377,6 +414,7 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     private readonly ArtifactLedgerDocument _before;
     private readonly bool _encrypted;
     private readonly NativeArtifactReadLease? _baselineRead;
+    private readonly Dictionary<ArtifactId, string> _verifiedDirectories = [];
     public ArtifactLedgerDocument Ledger { get; private set; }
     public NativeArtifactPending Intent { get; private set; }
     public IReadOnlyList<PluginDiagnostic> Diagnostics { get; }
@@ -393,7 +431,7 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     public async Task SealAndCommitGraphAsync(CancellationToken token)
     {
         _lease.Context.OperationCancellation.ThrowIfCancellationRequested();
-        _facts = await _store.SealEnvelopesAsync(_staging, _facts, _encrypted, token);
+        _facts = await _store.SealEnvelopesAsync(_staging, _facts, _encrypted, token, _verifiedDirectories);
         var byId = _facts.Values.ToDictionary(f => f.ArtifactId);
         Ledger = Ledger with { Artifacts = Ledger.Artifacts.Select(a => byId.TryGetValue(a.ArtifactId, out var f)
             ? a with { StorageSha256 = f.StorageSha256, StorageSize = f.StorageSize } : a).ToArray() };
@@ -404,7 +442,7 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     public Task<NativeArtifactReadLease> OpenAsync(CancellationToken token)
         => _store.OpenWithoutGateAsync(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }), token);
     public NativeArtifactReadLease OpenLazy()
-        => _store.OpenLazyWithoutGate(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }));
+        => _store.OpenLazyWithoutGate(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }), _verifiedDirectories, _baselineRead);
     public async ValueTask DisposeAsync()
     { try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); await _staging.DisposeAsync(); } finally { _lease.Dispose(); _held.Dispose(); } }
 }

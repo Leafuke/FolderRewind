@@ -15,6 +15,28 @@ public sealed class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    public async Task ParallelEnvelopeJobsStayBoundedAndCorruptionDoesNotReturnAReadLease()
+    {
+        using var fixture = new Fixture();
+        var codec = new ZipCodec(2);
+        var (store, root) = await fixture.CaptureAsync(diamond: true, suppliedCodec: codec);
+        Assert.AreEqual(2, codec.PeakWorkers);
+        await using (var read = await store.OpenAsync(root, default)) Assert.HasCount(4, read.Artifacts);
+        codec.FailUnpack = true;
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.OpenAsync(root, default));
+        Assert.AreEqual(0, codec.Workers);
+        Assert.IsFalse(Directory.Exists(Path.Combine(store.Root, ".read"))
+            && Directory.EnumerateDirectories(Path.Combine(store.Root, ".read")).Any());
+    }
+
+    [TestMethod]
+    public async Task PreparedCandidateReusesFreshlyVerifiedOutputsWithoutUnpackingAgain()
+    {
+        using var fixture = new Fixture();
+        await fixture.CaptureAsync(validatePrepared: true);
+    }
+
+    [TestMethod]
     public async Task ObjectClosureUploadsOnlyMissingBytesAndRejectsCorruptDownload()
     {
         using var fixture = new Fixture();
@@ -183,7 +205,7 @@ public sealed class NativeArtifactStoreTests
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeArtifactTests", Guid.NewGuid().ToString("N"));
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
-            string? storageRoot = null, string configId = "config")
+            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null)
         {
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
@@ -200,10 +222,24 @@ public sealed class NativeArtifactStoreTests
             var config = new ConfigSnapshot(configId, new("revision"), Kind, "world", [Folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
             var result = await runtime.ActivateAsync(new(Id, () => new GraphPlugin(diamond), new(Id, new Dictionary<string, JsonElement>()), [config], new Host(), new ActivationStore(), manifest));
             Assert.IsTrue(result.Success, JsonSerializer.Serialize(result.Diagnostics));
-            var store = new NativeArtifactStore(storageRoot ?? Path.Combine(Root, "store"), new ZipCodec());
+            var codec = suppliedCodec ?? new ZipCodec();
+            var store = new NativeArtifactStore(storageRoot ?? Path.Combine(Root, "store"), codec);
             await using var prepared = await store.PrepareAsync(runtime, config, Folder, Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
                 new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default);
             await prepared.SealAndCommitGraphAsync(default);
+            if (validatePrepared)
+            {
+                var unpacked = codec.Unpacks;
+                await using var candidate = prepared.OpenLazy();
+                foreach (var node in candidate.Artifacts)
+                {
+                    var file = (await candidate.Read.ListFilesAsync(node.Content, default)).Single();
+                    await using var input = await candidate.Read.OpenReadAsync(node.Content, file.RelativePath, default);
+                    using var bytes = new MemoryStream(); await input.CopyToAsync(bytes);
+                    Assert.IsGreaterThan(0, bytes.Length);
+                }
+                Assert.AreEqual(unpacked, codec.Unpacks, "Already verified candidate bytes must not be decompressed a second time.");
+            }
             if (complete) store.CompletePending(prepared.Intent.Id);
             return (store, prepared.Intent.Root);
         }
@@ -261,11 +297,25 @@ public sealed class NativeArtifactStoreTests
         public IPluginTemporaryStorage TemporaryStorage => throw new NotSupportedException();
         public IPluginLogger Logger => throw new NotSupportedException();
     }
-    private sealed class ZipCodec : IArtifactEnvelopeCodec
+    private sealed class ZipCodec(int concurrency = 1) : IConcurrentArtifactEnvelopeCodec
     {
+        private int _unpacks;
+        public int Unpacks => _unpacks;
+        public int MaximumConcurrency => concurrency;
+        public int Workers, PeakWorkers;
+        public bool FailUnpack;
+        private async Task Work(Action action, CancellationToken token)
+        {
+            var count = Interlocked.Increment(ref Workers);
+            int old;
+            do { old = PeakWorkers; } while (old < count && Interlocked.CompareExchange(ref PeakWorkers, count, old) != old);
+            try { if (concurrency > 1) await Task.Delay(20, token); action(); }
+            finally { Interlocked.Decrement(ref Workers); }
+        }
         public Task PackAsync(string source, string payload, bool encrypted, CancellationToken token)
-        { ZipFile.CreateFromDirectory(source, payload); return Task.CompletedTask; }
+            => Work(() => ZipFile.CreateFromDirectory(source, payload), token);
         public Task UnpackAsync(string payload, string target, bool encrypted, CancellationToken token)
-        { ZipFile.ExtractToDirectory(payload, target); return Task.CompletedTask; }
+            => Work(() => { if (FailUnpack) throw new InvalidDataException("Injected decoder failure.");
+                Interlocked.Increment(ref _unpacks); ZipFile.ExtractToDirectory(payload, target); }, token);
     }
 }

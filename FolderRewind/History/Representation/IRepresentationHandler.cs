@@ -5,6 +5,13 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Representation;
 
+/// <summary>Host-only opt-in: verifies the complete payload closure inside the same materialization lease.
+/// A successful return must include full byte verification; explicit Deep Verify is unaffected.</summary>
+public interface IInlineVerifiedMaterializer
+{
+    bool CanVerifyDuringMaterialization(VersionRepresentation representation);
+}
+
 public sealed record RepresentationAssessmentContext(
     VersionRepresentation Representation,
     IReadOnlyDictionary<RepresentationId, VersionRepresentation> RepresentationGraph,

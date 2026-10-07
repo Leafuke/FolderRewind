@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Representation;
 
-public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
+public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler, IInlineVerifiedMaterializer
 {
     public const string ArtifactRootIdMetadataKey = "artifactRootId";
     public const string PluginIdMetadataKey = "pluginId";
@@ -17,6 +17,10 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
 
     public bool CanHandle(VersionRepresentation representation)
         => representation.Kind == RepresentationKind.PluginArtifact;
+
+    public bool CanVerifyDuringMaterialization(VersionRepresentation representation)
+        => representation.DependencyRepresentationIds.IsEmpty && _backend is IInlineVerifiedMaterializer verifier
+            && verifier.CanVerifyDuringMaterialization(representation);
 
     public async ValueTask<RepresentationAssessment> AssessAsync(
         RepresentationAssessmentContext context,
