@@ -6350,15 +6350,16 @@ Retention count: {2} · {3}</value></data>
   <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>Scans downward from this Y to the first surface. This is not a cave view. Player navigation uses saved X/Z only.</value></data>
   <data name="SettingsCard_SemanticBackup.Header" xml:space="preserve"><value>Semantic backup (experimental)</value></data>
   <data name="SemanticBackup_Description.Text" xml:space="preserve"><value>Use a compatible plugin to store domain-level changes with byte-exact restoration. Off by default. Sparse changes save space; dense changes and self-contained checkpoints may be slower.</value></data>
-  <data name="SemanticBackup_Enable.Header" xml:space="preserve"><value>Enable experimental semantic incremental backup</value></data>
+  <data name="SemanticBackup_EnableLabel.Text" xml:space="preserve"><value>Enable experimental semantic incremental backup</value></data>
   <data name="SemanticBackup_Enable.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="SemanticBackup_Enable.OffContent" xml:space="preserve"><value>Off</value></data>
   <data name="SemanticBackup_Refresh.Content" xml:space="preserve"><value>Refresh plugin availability</value></data>
   <data name="SemanticBackup_ExperimentalWarning.Text" xml:space="preserve"><value>Restoring these versions requires a compatible plugin. Turning this off preserves semantic history; the next ordinary backup establishes a full file baseline. Retiring a cloud replica does not reclaim shared data, which may continue to occupy space.</value></data>
-  <data name="SemanticBackup_Fallback.Header" xml:space="preserve"><value>Allow a full file backup if transformation fails</value></data>
+  <data name="SemanticBackup_FallbackLabel.Text" xml:space="preserve"><value>Allow a full file backup if transformation fails</value></data>
   <data name="SemanticBackup_Fallback.OnContent" xml:space="preserve"><value>Fall back with a warning</value></data>
   <data name="SemanticBackup_Fallback.OffContent" xml:space="preserve"><value>Stop without a new version</value></data>
   <data name="SemanticBackup_FallbackHint.Text" xml:space="preserve"><value>Fallback requires a source that can still be captured safely. A missing plugin may block backup. A failed manual checkpoint is never replaced with an ordinary backup.</value></data>
+  <data name="SemanticBackup_CheckpointHeader.Text" xml:space="preserve"><value>Self-contained checkpoint</value></data>
   <data name="SemanticBackup_CheckpointDescription.Text" xml:space="preserve"><value>Create a self-contained checkpoint for every source in this configuration, even with no file changes. Settings are saved first. This takes extra time and space and does not guarantee reclamation of old data. Restoring still requires a compatible plugin.</value></data>
   <data name="SemanticBackup_CancelCheckpoint.Content" xml:space="preserve"><value>Cancel checkpoint</value></data>
   <data name="SemanticBackup_UnsupportedConfiguration" xml:space="preserve"><value>Requires complete sources in Smart or Full mode. Add a source and turn off region/subset selection. Rolling mode is not supported.</value></data>

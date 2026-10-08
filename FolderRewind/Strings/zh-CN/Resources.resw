@@ -6350,15 +6350,16 @@ Pull Request：{1}</value>
   <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>从该 Y 向下寻找首个表面，不是洞穴视图。玩家定位仅使用保存的 X/Z。</value></data>
   <data name="SettingsCard_SemanticBackup.Header" xml:space="preserve"><value>语义备份（实验性）</value></data>
   <data name="SemanticBackup_Description.Text" xml:space="preserve"><value>使用兼容插件按领域内容保存增量，并保持字节一致恢复。默认关闭；稀疏变化节省空间，密集变化和自包含检查点可能更慢。</value></data>
-  <data name="SemanticBackup_Enable.Header" xml:space="preserve"><value>启用实验性语义增量备份</value></data>
+  <data name="SemanticBackup_EnableLabel.Text" xml:space="preserve"><value>启用实验性语义增量备份</value></data>
   <data name="SemanticBackup_Enable.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="SemanticBackup_Enable.OffContent" xml:space="preserve"><value>关闭</value></data>
   <data name="SemanticBackup_Refresh.Content" xml:space="preserve"><value>刷新插件可用性</value></data>
   <data name="SemanticBackup_ExperimentalWarning.Text" xml:space="preserve"><value>恢复这些历史版本需要兼容插件。关闭本功能不会删除已有语义版本；下一次普通备份将建立完整文件基线。云端副本退役不等于共享数据已回收，旧数据仍可能占用空间。</value></data>
-  <data name="SemanticBackup_Fallback.Header" xml:space="preserve"><value>转换失败时允许回退完整文件备份</value></data>
+  <data name="SemanticBackup_FallbackLabel.Text" xml:space="preserve"><value>转换失败时允许回退完整文件备份</value></data>
   <data name="SemanticBackup_Fallback.OnContent" xml:space="preserve"><value>回退并记录警告</value></data>
   <data name="SemanticBackup_Fallback.OffContent" xml:space="preserve"><value>停止，不创建新版本</value></data>
   <data name="SemanticBackup_FallbackHint.Text" xml:space="preserve"><value>仅在来源仍可安全捕获时回退。插件缺失可能阻断备份；手动 checkpoint 失败不会由普通备份替代。</value></data>
+  <data name="SemanticBackup_CheckpointHeader.Text" xml:space="preserve"><value>自包含检查点</value></data>
   <data name="SemanticBackup_CheckpointDescription.Text" xml:space="preserve"><value>为本配置的全部来源创建自包含检查点（checkpoint），即使文件没有变化。操作会先保存设置，需要额外时间和空间，且不保证回收旧数据。恢复检查点仍需要兼容插件。</value></data>
   <data name="SemanticBackup_CancelCheckpoint.Content" xml:space="preserve"><value>取消 checkpoint</value></data>
   <data name="SemanticBackup_UnsupportedConfiguration" xml:space="preserve"><value>仅支持完整来源的智能或完整备份。请先添加来源，并关闭选区/子集备份；滚动备份不支持。</value></data>
