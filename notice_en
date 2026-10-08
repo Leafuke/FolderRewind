@@ -1,2 +1,1 @@
-[Notice2] If you encounter issues with migrating old Smart-type backups, please wait for the upcoming update to resolve them. There is no need to worry about backup corruption.
-[Notice1] Version 1.9 has been officially released, and the Microsoft Store version will be rolled out in batches in the coming days. This is an optional update. The old cloud storage format will no longer be supported, so please make sure to reconfigure your settings.
+Version 1.9 has been officially released. This is an optional update. The old backups will be automatically migrated, but the old cloud storage format will no longer be supported, so please make sure to reconfigure your settings.
