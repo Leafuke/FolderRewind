@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\AppUpdatePolicy.cs" Link="Source\AppUpdatePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\AppUpdatePresentation.cs" Link="Source\AppUpdatePresentation.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\GitHubReleaseMetadata.cs" Link="Source\GitHubReleaseMetadata.cs" />
+    <None Update="Fixtures\AppUpdate\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\FolderRewind\Services\LocalizedTextSelector.cs" Link="Source\LocalizedTextSelector.cs" />
     <Compile Include="..\FolderRewind\Services\PreviewCameraStore.cs" Link="Source\PreviewCameraStore.cs" />
     <Compile Include="..\FolderRewind\Services\SpatialPreviewViewport.cs" Link="Source\SpatialPreviewViewport.cs" />

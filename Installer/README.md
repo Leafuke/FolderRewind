@@ -20,7 +20,7 @@ ARM64 使用同名平台参数和对应 7za.exe。打包之前校验所有 PRI �
 
 安装入口是 `FolderRewind_1.9.2.0_Setup_<arch>.exe`。界面可以选择简体中文、English；支持 `-lang 1033`、`-lang 2052` 和相应语言名称。当前用户是新装默认范围；所有用户范围使用提升后的 Windows Installer 引擎。应用以登录用户的普通权限启动。`/quiet` 和 `/passive` 不选择语言、不自动启动应用。
 
-GitHub Release **仅发布 Setup EXE 安装包和对应 SHA-256**，不发布独立 MSI、MSIX 或侧载压缩包。新客户端仅选择匹配架构的 Setup EXE；没有匹配 EXE 时打开 Release 页面，不回退下载 MSI。旧客户端的 MSI 自动下载兼容入口已按此发行政策取消。
+GitHub Release **仅发布 Setup EXE 安装包和对应 SHA-256**，不发布独立 MSI、MSIX 或侧载压缩包。新客户端只有已确认的 Setup 安装才提供对应操作系统架构的 EXE 下载入口；版本、文件名和官方仓库 URL 必须一致。镜像可以参与版本发现，但更新按钮仅打开客户端构造的官方地址。缺包、重复匹配、不支持的架构或链接校验失败时打开固定的官方 Releases 页面，不猜测其他架构，也不回退下载 MSI。Store 保持商店入口；Sideload、Developer 和 Unknown 只提供官方 Release 人工升级引导，不承诺配置或安装方式自动迁移。构建标记 `FolderRewindDistributionChannel=Msi` 保持不变。旧客户端的 MSI 自动下载兼容入口已按此发行政策取消；不能识别 Setup 的历史用户从官方 Release 手动下载升级。
 
 MSI 仅为 Burn 内嵌载荷及构建/验收中间产物，放在 `artifacts/installer-packages/`，不进入公开暂存目录。内部 MSI 的 `TRANSFORMS=:zh-CN.mst` 用于选择内嵌中文转换。英文、中文保持同一 ProductCode 和组件载荷。同版本维护沿用 Windows Installer 注册的转换。跨范围安装必须先卸载，用户配置、插件和备份保留。
 
