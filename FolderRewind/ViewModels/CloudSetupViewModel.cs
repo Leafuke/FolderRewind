@@ -76,7 +76,19 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         get => _selectedRemoteIndex;
         set { SetProperty(ref _selectedRemoteIndex, value); if (value >= 0 && value < _remotes.Count) RemoteRoot = _remotes[value].Name + ":"; }
     }
-    public void Initialize(string id)
+    public async Task InitializeAsync(string id, CancellationToken token = default)
+    {
+        if (_disposed) return;
+        IsBusy = true;
+        _requestFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, token);
+        try { await InitializeCoreAsync(id, linked.Token); }
+        catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
+        catch (Exception ex) { if (!_disposed) { _saved = false; ReportConnectionFailure(ex); } }
+        finally { if (!_disposed) IsBusy = false; _requestFinished.TrySetResult(true); }
+    }
+
+    private async Task InitializeCoreAsync(string id, CancellationToken token)
     {
         _config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => c.Id == id);
         if (!string.IsNullOrEmpty(id) && _config is null)
@@ -93,21 +105,32 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(IsProject)); OnPropertyChanged(nameof(IsRecovery));
             return;
         }
+        Message = I18n.GetString("CloudSetup_CredentialMigrating");
+        var originalPath = _config.Cloud.RcloneConfigPath;
+        await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, token, allowUncertain: true);
+        token.ThrowIfCancellationRequested();
+        _config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => c.Id == id)
+            ?? throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
         _executable = CloudSyncService.GetEffectiveExecutablePath(_config);
         _configPath = _config.Cloud.RcloneConfigPath;
         _working = _config.Cloud.WorkingDirectory;
         _remote = _config.Cloud.RemoteBasePath;
         _saved = !string.IsNullOrWhiteSpace(_configPath);
-        if (_saved) { using var context = CreateContext(); _inspectionEvidence = context.RevisionEvidence; }
         Message = I18n.GetString("CloudSetup_InitialState");
         OnPropertyChanged(nameof(Executable)); OnPropertyChanged(nameof(ConfigPath)); OnPropertyChanged(nameof(RemoteRoot)); OnPropertyChanged(nameof(WorkingDirectory));
         OnPropertyChanged(nameof(IsProject)); OnPropertyChanged(nameof(IsRecovery));
+        if (_saved) { using var context = CreateContext(); _inspectionEvidence = context.RevisionEvidence; }
+        if (ConfigService.GetRcloneCredentialMigrationError(originalPath) is { } error)
+        {
+            _saved = false;
+            ReportConnectionFailure(error);
+        }
     }
     private void Invalidate() { MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState)); _revision++; _request?.Cancel(); _saved = false; _analysisRevision = null; _nextDirectoryOffset = -1; OnPropertyChanged(nameof(CanBrowseMore)); Directories.Clear(); OnPropertyChanged(nameof(HasDirectories)); Diagnostics.Clear(); Message = I18n.GetString("CloudSetup_ConnectionChanged"); }
     private RcloneExecutionContext CreateContext()
     {
         var context = new RcloneExecutionContext(Executable, ConfigPath, WorkingDirectory, RemoteRoot,
-            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FolderRewind", "credentials", "rclone-tasks"));
+            ConfigService.RcloneTasksDirectory);
         if (_inspectionEvidence is not null && context.RevisionEvidence != _inspectionEvidence)
         {
             context.Dispose();
@@ -122,10 +145,29 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         IsBusy = true;
         _requestFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _request?.Dispose(); _request = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-        try { await action(_request.Token); }
+        try
+        {
+            var originalPath = ConfigPath;
+            var migratedPath = await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, _request.Token, allowUncertain: true);
+            _request.Token.ThrowIfCancellationRequested();
+            if (originalPath == ConfigPath && migratedPath != originalPath)
+            {
+                ConfigPath = migratedPath;
+                _request.Dispose();
+                _request = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+            }
+            await action(_request.Token);
+        }
         catch (OperationCanceledException) { if (!_lifetime.IsCancellationRequested) Message = I18n.GetString("Common_Canceled"); }
-        catch (Exception ex) { if (!_lifetime.IsCancellationRequested) { RecordCheck("cloud.access-unconfirmed", OnboardingCheckState.NeedsInput, CloudCommandSecurity.Redact(ex.Message)); Message = I18n.GetString("CloudSetup_CheckFailedShort"); } }
+        catch (Exception ex) { if (!_lifetime.IsCancellationRequested) ReportConnectionFailure(ex); }
         finally { IsBusy = false; _requestFinished?.TrySetResult(true); }
+    }
+    private void ReportConnectionFailure(Exception error)
+    {
+        var code = RcloneConnectionDiagnostics.Code(error);
+        var message = CloudCommandSecurity.Redact(error.Message);
+        RecordCheck(code, OnboardingCheckState.NeedsInput, message);
+        Message = code == "cloud.access-unconfirmed" ? I18n.GetString("CloudSetup_CheckFailedShort") : message;
     }
     public void LoadRemotes()
     {
@@ -138,7 +180,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     }
     public async Task CreateWebDavAsync(string url, string user, string password, CancellationToken token, bool allowInsecure = false)
     {
-        var connection = await RcloneConnectionService.CreateWebDavAsync(Executable, url, user, password, allowInsecure, token);
+        var connection = await RcloneConnectionService.CreateWebDavAsync(Executable, ConfigService.RcloneConnectionsDirectory, url, user, password, allowInsecure, token);
         if (_lifetime.IsCancellationRequested) { connection.Dispose(); return; }
         _owned?.Dispose(); _owned = connection;
         ConfigPath = connection.ConfigPath; RemoteRoot = connection.RemoteRoot;
@@ -169,7 +211,9 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
             + (result.RetainedObject is null ? "" : "\n" + I18n.GetString("CloudSetup_ProbeCleanup"));
         var details = CloudCommandSecurity.Redact(result.Diagnostic)
             + (result.RetainedObject is null ? "" : "\n" + I18n.Format("CloudSetup_ProbeRetained", result.RetainedObject));
-        RecordCheck(result.ReadWriteVerified ? "cloud.access-verified" : "cloud.access-unconfirmed", result.ReadWriteVerified ? OnboardingCheckState.Ready : OnboardingCheckState.NeedsInput, details);
+        var code = result.Diagnostic.StartsWith("[cloud.snapshot-unavailable]", StringComparison.Ordinal) ? "cloud.snapshot-unavailable" : "cloud.access-unconfirmed";
+        if (code == "cloud.snapshot-unavailable") Message = I18n.GetString("CloudSetup_SnapshotUnavailable");
+        RecordCheck(result.ReadWriteVerified ? "cloud.access-verified" : code, result.ReadWriteVerified ? OnboardingCheckState.Ready : OnboardingCheckState.NeedsInput, details);
     }
     public async Task SaveAsync(CancellationToken token)
     {
@@ -185,9 +229,14 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         token.ThrowIfCancellationRequested();
         ConfigSaveResult result;
         try { result = await draft.CommitAsync(); }
-        catch (ConfigEditRollbackException) { _owned?.Commit(); _owned = null; throw; }
-        if (!result.Success) throw new InvalidOperationException(result.ErrorMessage);
+        catch (ConfigEditRollbackException ex)
+        {
+            _owned?.Commit(); _owned = null;
+            throw RcloneConnectionDiagnostics.Failure("cloud.credentials-save-uncertain", "CloudSetup_CredentialSaveUncertain", ex);
+        }
+        if (!result.Success) throw RcloneConnectionDiagnostics.Failure("cloud.connection-save-failed", "CloudSetup_ConnectionSaveFailed", result.Exception);
         _owned?.Commit(); _owned = null;
+        ConfigService.ConfirmRcloneCredentialPath(ConfigPath);
         _config = ConfigService.CurrentConfig.BackupConfigs.Single(c => c.Id == _config.Id);
         context.RequireUnchanged();
         _inspectionEvidence = context.RevisionEvidence;
@@ -225,7 +274,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
             RecordCheck(result.Complete ? "cloud.copy-complete" : "cloud.copy-incomplete", result.Complete ? OnboardingCheckState.Ready : OnboardingCheckState.NeedsInput, details);
         }
         catch (OperationCanceledException) { Message = I18n.GetString("Common_Canceled"); }
-        catch (Exception ex) { RecordCheck("cloud.copy-incomplete", OnboardingCheckState.NeedsInput, CloudCommandSecurity.Redact(ex.Message)); Message = I18n.GetString("CloudSetup_CheckFailedShort"); }
+        catch (Exception ex) { ReportConnectionFailure(ex); }
         finally { IsBusy = false; _durableOperation.Dispose(); _durableOperation = null; }
     }
     public void EnterDirectory(string name)

@@ -33,8 +33,12 @@ public sealed class RcloneExecutionContext : IDisposable
         WorkingDirectory = Path.GetFullPath(string.IsNullOrEmpty(workingDirectory) ? Path.GetDirectoryName(ExecutablePath)! : workingDirectory);
         RemoteRoot = remoteRoot;
         if (!File.Exists(ExecutablePath) || !Directory.Exists(WorkingDirectory)) throw new IOException("Rclone executable or working directory is unavailable.");
-        if (!File.Exists(ConfigPath) || new FileInfo(ConfigPath).Length > 1024 * 1024) throw new IOException("Rclone configuration is unavailable or exceeds the bound.");
-        var content = ReadConfigurationBytes(ConfigPath);
+        byte[] content;
+        try { content = ReadConfigurationBytes(ConfigPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudSetup_SourceConfigUnavailable", ex);
+        }
         var config = System.Text.Encoding.UTF8.GetString(content).TrimStart('\uFEFF');
         _backendOptions = config.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .Where(line => line.IndexOf('=') is var equals && equals >= 0 && line[..equals].Trim().Equals("type", StringComparison.OrdinalIgnoreCase))
@@ -45,21 +49,27 @@ public sealed class RcloneExecutionContext : IDisposable
         var remoteName = remoteRoot.Split(':', 2)[0];
         if (!remoteRoot.Contains(':') || string.IsNullOrWhiteSpace(remoteName) || remoteName.IndexOfAny(['[', ']', '\r', '\n', '/', '\\']) >= 0
             || !config.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Any(line => line.Trim() == "[" + remoteName + "]"))
-            throw new InvalidOperationException("The selected remote is missing from this configuration.");
+            throw RcloneConnectionDiagnostics.InvalidFailure("cloud.remote-mismatch", "CloudSetup_RemoteMismatch");
         _revision = SHA256.HashData(content);
         var root = Path.GetFullPath(taskRoot);
-        Directory.CreateDirectory(root);
-        CleanupExpired(root, DateTimeOffset.UtcNow);
         _taskDirectory = Path.Combine(root, "task-" + Guid.NewGuid().ToString("N"));
-        CreatePrivateDirectory(_taskDirectory);
         SnapshotPath = Path.Combine(_taskDirectory, "rclone.conf");
-        _ownership = new FileStream(Path.Combine(_taskDirectory, "ownership.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
-        try { File.WriteAllBytes(SnapshotPath, content); }
-        catch
+        FileStream? ownership = null;
+        try
         {
-            _ownership.Dispose();
-            try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); } catch (IOException) { }
-            throw;
+            Directory.CreateDirectory(root);
+            CleanupExpired(root, DateTimeOffset.UtcNow);
+            CreatePrivateDirectory(_taskDirectory);
+            ownership = new FileStream(Path.Combine(_taskDirectory, "ownership.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+            File.WriteAllBytes(SnapshotPath, content);
+            _ownership = ownership;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ownership?.Dispose();
+            try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
+            throw RcloneConnectionDiagnostics.Failure("cloud.snapshot-create-failed", "CloudSetup_SnapshotCreateFailed", ex);
         }
     }
     internal static void CreatePrivateDirectory(string path)
@@ -71,9 +81,23 @@ public sealed class RcloneExecutionContext : IDisposable
             security.SetAccessRuleProtection(true, false);
             security.AddAccessRule(new FileSystemAccessRule(identity.User!, FileSystemRights.FullControl,
                 InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
-            FileSystemAclExtensions.Create(new DirectoryInfo(path), security);
+            var directory = new DirectoryInfo(path);
+            if (directory.Exists) directory.SetAccessControl(security);
+            else FileSystemAclExtensions.Create(directory, security);
         }
         else Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+    internal static void ProtectConfigurationFile(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            var security = new FileSecurity();
+            security.SetAccessRuleProtection(true, false);
+            security.AddAccessRule(new FileSystemAccessRule(identity.User!, FileSystemRights.FullControl, AccessControlType.Allow));
+            new FileInfo(path).SetAccessControl(security);
+        }
+        else File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
     }
     internal static byte[] ReadConfigurationBytes(string path)
     {
@@ -112,7 +136,7 @@ public sealed class RcloneExecutionContext : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!File.Exists(ConfigPath) || new FileInfo(ConfigPath).Length > 1024 * 1024
             || !CryptographicOperations.FixedTimeEquals(SHA256.HashData(ReadConfigurationBytes(ConfigPath)), _revision))
-            throw new InvalidOperationException("The rclone connection changed while the task was queued or running. Confirm the connection again.");
+            throw RcloneConnectionDiagnostics.InvalidFailure("cloud.connection-changed", "CloudSetup_ConnectionChanged");
     }
     public ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments)
     {
@@ -160,4 +184,42 @@ internal sealed class RcloneExecutionScope : IDisposable
         Ambient.Value = context;
     }
     public void Dispose() { Ambient.Value = _previous; _owned?.Dispose(); }
+}
+
+// Keep diagnostics alongside the execution primitive so its existing linked-source
+// consumers do not acquire a dependency on the application's configuration service.
+internal static class RcloneConnectionDiagnostics
+{
+    internal static IOException Failure(string code, string resource, Exception? inner = null)
+        => Mark(new IOException("[" + code + "] " + I18n.GetString(resource), inner), code);
+    internal static InvalidOperationException InvalidFailure(string code, string resource)
+        => Mark(new InvalidOperationException("[" + code + "] " + I18n.GetString(resource)), code);
+    private static T Mark<T>(T exception, string code) where T : Exception
+    {
+        exception.Data["RcloneDiagnosticCode"] = code;
+        return exception;
+    }
+    internal static string Code(Exception exception, string fallback = "cloud.access-unconfirmed")
+    {
+        if (exception.Data["RcloneDiagnosticCode"] is string code) return code;
+        if (exception.Message.StartsWith("[cloud.snapshot-unavailable]", StringComparison.Ordinal)) return "cloud.snapshot-unavailable";
+        return fallback;
+    }
+    internal static string ProcessMessage(ProcessStartInfo start, string error)
+    {
+        var configIndex = start.ArgumentList.IndexOf("--config");
+        if (configIndex >= 0 && configIndex + 1 < start.ArgumentList.Count)
+        {
+            var snapshot = start.ArgumentList[configIndex + 1];
+            // Require an explicit missing-file report naming our exact config argument.
+            // A missing remote section alone does not establish a filesystem problem.
+            if (error.Contains("Config file", StringComparison.OrdinalIgnoreCase)
+                && error.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                && (error.Contains('"' + snapshot + '"', StringComparison.OrdinalIgnoreCase)
+                    || error.Contains('\'' + snapshot + '\'', StringComparison.OrdinalIgnoreCase)
+                    || error.Contains('"' + snapshot.Replace("\\", "\\\\", StringComparison.Ordinal) + '"', StringComparison.OrdinalIgnoreCase)))
+                return "[cloud.snapshot-unavailable] " + I18n.GetString("CloudSetup_SnapshotUnavailable") + "\n" + CloudCommandSecurity.Redact(error);
+        }
+        return CloudCommandSecurity.Redact(error);
+    }
 }

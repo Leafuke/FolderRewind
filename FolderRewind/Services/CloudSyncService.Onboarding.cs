@@ -25,7 +25,7 @@ public static partial class CloudSyncService
     public static async Task PrepareVersionForExportAsync(BackupConfig config, ManagedFolder folder, VersionId version,
         CancellationToken token = default, RepresentationId? confirmedRepresentation = null)
     {
-        config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+        config = await PrepareConnectionAsync(config, token).ConfigureAwait(false);
         using var connection = CaptureConnection(config);
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var preview = await PreviewVersionForExportPreparationAsync(config, folder, version, token).ConfigureAwait(false);
@@ -36,7 +36,7 @@ public static partial class CloudSyncService
     }
     public static async Task<HistoryCloudBackupResult> UploadVersionClosureAsync(BackupConfig config, VersionId version, CancellationToken token = default)
     {
-        config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+        config = await PrepareConnectionAsync(config, token).ConfigureAwait(false);
         using var connection = CaptureConnection(config);
         var assessment = await NativeHistoryApplicationService.PreviewExportAsync(config, version, token).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null) throw new InvalidOperationException(I18n.GetString("CloudSetup_VersionNotReady"));

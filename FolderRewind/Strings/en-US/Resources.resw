@@ -6348,4 +6348,21 @@ Retention count: {2} · {3}</value></data>
   <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}: {1:N0}–{2:N0}; {3}: {4:N0}–{5:N0}</value></data>
   <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} units</value></data>
   <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>Scans downward from this Y to the first surface. This is not a cave view. Player navigation uses saved X/Z only.</value></data>
+  <data name="CloudSetup_CredentialMigrating" xml:space="preserve"><value>Connection credentials are being migrated in the background. Please wait; other projects and the main window remain available.</value></data>
+  <data name="CloudSetup_SourceConfigUnavailable" xml:space="preserve"><value>The source rclone config cannot be read: it is missing, inaccessible, or exceeds 1 MiB. Select the config file again.</value></data>
+  <data name="CloudSetup_RemoteMismatch" xml:space="preserve"><value>The selected remote is absent from the source rclone config. Load the remote list and select its actual name.</value></data>
+  <data name="CloudSetup_SnapshotCreateFailed" xml:space="preserve"><value>The task credential snapshot could not be created. Check write access and available space in the application data directory.</value></data>
+  <data name="CloudSetup_SnapshotUnavailable" xml:space="preserve"><value>rclone reports that this task's config snapshot is missing. Retry; if it persists, provide redacted diagnostics to investigate file visibility and permissions.</value></data>
+  <data name="CloudSetup_CredentialMigrationFailed" xml:space="preserve"><value>Migration of the 1.9.6 connection credentials failed. The original credentials and path were retained. Check the connection; migration will retry at the next startup.</value></data>
+  <data name="CloudSetup_CredentialTargetConflict" xml:space="preserve"><value>The new credential location contains a file with different content. Migration stopped and both files were retained. Confirm the connection again.</value></data>
+  <data name="CloudSetup_CredentialSaveUncertain" xml:space="preserve"><value>The connection save and compensating write could not be confirmed. Credentials that may still be referenced were retained. Confirm and save the connection in the wizard before running cloud operations.</value></data>
+  <data name="CloudSetup_ConnectionSaveFailed" xml:space="preserve"><value>The connection config could not be saved. Check config-file access or locks, then save again before uploading.</value></data>
+  <data name="CheckComponent_cloud_source_config_unavailable" xml:space="preserve"><value>Source credential config</value></data>
+  <data name="CheckComponent_cloud_remote_mismatch" xml:space="preserve"><value>Remote name</value></data>
+  <data name="CheckComponent_cloud_snapshot_create_failed" xml:space="preserve"><value>Task snapshot creation</value></data>
+  <data name="CheckComponent_cloud_snapshot_unavailable" xml:space="preserve"><value>Task snapshot access</value></data>
+  <data name="CheckComponent_cloud_credentials_migration_failed" xml:space="preserve"><value>1.9.6 credential migration</value></data>
+  <data name="CheckComponent_cloud_credentials_target_conflict" xml:space="preserve"><value>Credential destination conflict</value></data>
+  <data name="CheckComponent_cloud_credentials_save_uncertain" xml:space="preserve"><value>Credential save needs confirmation</value></data>
+  <data name="CheckComponent_cloud_connection_save_failed" xml:space="preserve"><value>Connection config persistence</value></data>
 </root>

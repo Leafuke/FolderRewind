@@ -21,11 +21,16 @@ public sealed partial class CloudSetupPage : Page
         Loaded += (_, _) => ConnectionSelector.SelectedItem = string.IsNullOrWhiteSpace(ViewModel.ConfigPath)
             ? WebDavConnectionItem : ExistingConnectionItem;
     }
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
-        try { ViewModel.Initialize((e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? ""); if (!string.IsNullOrWhiteSpace(ViewModel.ConfigPath)) ConnectionSelector.SelectedItem = ExistingConnectionItem; }
-        catch (Exception ex) { ViewModel.Message = ex.Message; }
+        try
+        {
+            await ViewModel.InitializeAsync((e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "", _pageLifetime.Token);
+            if (_active && !string.IsNullOrWhiteSpace(ViewModel.ConfigPath)) ConnectionSelector.SelectedItem = ExistingConnectionItem;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { if (_active) ViewModel.Message = CloudCommandSecurity.Redact(ex.Message); }
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e) { _active = false; _pageLifetime.Cancel(); ViewModel.Dispose(); base.OnNavigatedFrom(e); }
     public InfoBarSeverity GetMessageSeverity(OnboardingCheckState state) => state switch

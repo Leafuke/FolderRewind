@@ -22,11 +22,17 @@ namespace FolderRewind.Services
         {
             var ids = representationIds?.Distinct().ToArray() ?? [];
             if (config?.Cloud?.Enabled != true || ids.Length == 0 || !CanUseManualCloudActions(config)) return;
-            config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+            TaskObserver.Observe(QueueNativeHistorySyncAsync(config, ids), nameof(CloudSyncService));
+        }
+
+        private static async Task QueueNativeHistorySyncAsync(BackupConfig config, RepresentationId[] ids)
+        {
+            try { config = await PrepareConnectionAsync(config).ConfigureAwait(false); }
+            catch (Exception ex) { LogService.LogWarning(CloudCommandSecurity.Redact(ex.Message), nameof(CloudSyncService)); return; }
             RcloneExecutionContext? captured;
             try { captured = CreateBoundConnection(config); }
             catch (Exception ex) { LogService.LogWarning(CloudCommandSecurity.Redact(ex.Message), nameof(CloudSyncService)); return; }
-            _ = Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 using var connection = new RcloneExecutionScope(captured);
                 try
@@ -63,7 +69,7 @@ namespace FolderRewind.Services
                         "[Cloud Replica] " + CloudCommandSecurity.Redact(ex.Message),
                         nameof(CloudSyncService));
                 }
-            });
+            }).ConfigureAwait(false);
         }
 
         public static async Task<bool> UploadRepresentationAsync(
@@ -74,7 +80,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+                config = await PrepareConnectionAsync(config, cancellationToken).ConfigureAwait(false);
                 using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
@@ -107,7 +113,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+                config = await PrepareConnectionAsync(config, cancellationToken).ConfigureAwait(false);
                 using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var replicas = await runtime.Query.GetStorageReplicasAsync(representationId, cancellationToken)

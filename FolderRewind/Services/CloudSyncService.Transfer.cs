@@ -300,6 +300,8 @@ namespace FolderRewind.Services
                 string output = await outputTask.ConfigureAwait(false);
                 string error = await errorTask.ConfigureAwait(false);
                 string errorMessage = GetBestErrorMessage(process.ExitCode, error, output);
+                if (command.Execution is not null && process.ExitCode != 0)
+                    errorMessage = RcloneConnectionDiagnostics.ProcessMessage(startInfo, errorMessage);
                 return (process.ExitCode == 0, process.ExitCode, output, errorMessage);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

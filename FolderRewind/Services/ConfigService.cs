@@ -19,7 +19,7 @@ namespace FolderRewind.Services
     /// 应用配置（config.json）的加载、规范化、原子持久化与恢复模式管理。
     /// 恢复模式（Recovery Center）下所有写操作被拒绝，直至用户处理完损坏的配置文件。
     /// </summary>
-    public static class ConfigService
+    public static partial class ConfigService
     {
         #region 常量与状态
 
@@ -52,6 +52,10 @@ namespace FolderRewind.Services
         public static string ConfigFilePath => ConfigPath;
 
         public static string ConfigDirectory => Path.GetDirectoryName(ConfigPath)!;
+
+        internal static string CredentialsDirectory => Path.Combine(ConfigDirectory, "credentials");
+        internal static string RcloneConnectionsDirectory => Path.Combine(CredentialsDirectory, "rclone");
+        internal static string RcloneTasksDirectory => Path.Combine(CredentialsDirectory, "rclone-tasks");
 
         [DllImport("user32.dll")]
         private static extern uint GetDpiForSystem();
@@ -137,6 +141,8 @@ namespace FolderRewind.Services
             CurrentConfig = config;
             ApplyLogSettings(config.GlobalSettings);
             _initialized = true;
+
+            RegisterRcloneCredentialMigrations();
 
             if (createdDefault || languageNormalized)
             {

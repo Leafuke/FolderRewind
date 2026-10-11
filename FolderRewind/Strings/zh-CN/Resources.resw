@@ -6348,4 +6348,21 @@ Pull Request：{1}</value>
   <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}：{1:N0} 至 {2:N0}；{3}：{4:N0} 至 {5:N0}</value></data>
   <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} 单位</value></data>
   <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>从该 Y 向下寻找首个表面，不是洞穴视图。玩家定位仅使用保存的 X/Z。</value></data>
+  <data name="CloudSetup_CredentialMigrating" xml:space="preserve"><value>正在后台迁移连接凭据，请稍候。其他项目和主窗口仍可使用。</value></data>
+  <data name="CloudSetup_SourceConfigUnavailable" xml:space="preserve"><value>无法读取源 rclone 配置：文件不存在、无读取权限或超过 1 MiB。请重新选择配置文件。</value></data>
+  <data name="CloudSetup_RemoteMismatch" xml:space="preserve"><value>源 rclone 配置中没有所选远端。请读取远端列表并选择配置文件中的实际名称。</value></data>
+  <data name="CloudSetup_SnapshotCreateFailed" xml:space="preserve"><value>无法创建任务凭据快照。请检查应用数据目录的写入权限及可用空间。</value></data>
+  <data name="CloudSetup_SnapshotUnavailable" xml:space="preserve"><value>rclone 报告找不到本次任务的配置快照。请重试；如仍失败，请提供脱敏诊断以核查文件可见性与权限。</value></data>
+  <data name="CloudSetup_CredentialMigrationFailed" xml:space="preserve"><value>1.9.6 连接凭据迁移失败，旧凭据和路径已保留。请检查连接配置；下次启动将重试。</value></data>
+  <data name="CloudSetup_CredentialTargetConflict" xml:space="preserve"><value>新凭据位置已有内容不同的文件，迁移已停止。新旧文件均已保留，请重新确认连接。</value></data>
+  <data name="CloudSetup_CredentialSaveUncertain" xml:space="preserve"><value>连接配置保存及补偿写入的结果无法确认，可能仍被引用的凭据已保留。请在连接向导中重新确认并保存后再执行云操作。</value></data>
+  <data name="CloudSetup_ConnectionSaveFailed" xml:space="preserve"><value>无法保存连接配置。请检查配置文件权限或占用状态，重新保存后再上传。</value></data>
+  <data name="CheckComponent_cloud_source_config_unavailable" xml:space="preserve"><value>源凭据配置</value></data>
+  <data name="CheckComponent_cloud_remote_mismatch" xml:space="preserve"><value>远端名称</value></data>
+  <data name="CheckComponent_cloud_snapshot_create_failed" xml:space="preserve"><value>任务快照创建</value></data>
+  <data name="CheckComponent_cloud_snapshot_unavailable" xml:space="preserve"><value>任务快照读取</value></data>
+  <data name="CheckComponent_cloud_credentials_migration_failed" xml:space="preserve"><value>1.9.6 凭据迁移</value></data>
+  <data name="CheckComponent_cloud_credentials_target_conflict" xml:space="preserve"><value>凭据目标冲突</value></data>
+  <data name="CheckComponent_cloud_credentials_save_uncertain" xml:space="preserve"><value>凭据保存结果待确认</value></data>
+  <data name="CheckComponent_cloud_connection_save_failed" xml:space="preserve"><value>连接配置保存</value></data>
 </root>

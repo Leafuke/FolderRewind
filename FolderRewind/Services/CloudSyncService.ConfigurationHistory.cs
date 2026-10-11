@@ -16,7 +16,7 @@ namespace FolderRewind.Services
     {
         public static async Task<HistoryMetadataSyncResult> PullConfigurationHistoryAsync(BackupConfig config, CancellationToken token = default)
         {
-            config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+            config = await PrepareConnectionAsync(config, token).ConfigureAwait(false);
             using var connection = CaptureConnection(config);
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
             return await new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).PullAsync(token).ConfigureAwait(false);
@@ -35,7 +35,7 @@ namespace FolderRewind.Services
                 return new() { Success = false, Message = I18n.GetString("CloudSync_Notification_HistoryImportFailed") };
             try
             {
-                config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+                config = await PrepareConnectionAsync(config).ConfigureAwait(false);
                 using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                 var transport = CreateHistoryTransport(config);
@@ -78,7 +78,7 @@ namespace FolderRewind.Services
 
         public static async Task<(bool Success, string Message)> ImportConfigFromCloudAsync(CloudSettings connectionSettings)
         {
-            var settings = FreezeGlobalTransferConnection(connectionSettings);
+            var settings = await PrepareTransferConnectionAsync(connectionSettings).ConfigureAwait(false);
             using var connection = CaptureConnection(settings);
             var remoteConfigPath = AppendRemotePath(settings.RemoteBasePath, "config.json");
             return await ImportJsonFromCloudAsync(
@@ -91,7 +91,7 @@ namespace FolderRewind.Services
 
         public static async Task<(bool Success, string Message)> ExportConfigToCloudAsync(CloudSettings connectionSettings)
         {
-            var settings = FreezeGlobalTransferConnection(connectionSettings);
+            var settings = await PrepareTransferConnectionAsync(connectionSettings).ConfigureAwait(false);
             using var connection = CaptureConnection(settings);
             var remoteConfigPath = AppendRemotePath(settings.RemoteBasePath, "config.json");
             return await ExportJsonToCloudAsync(
@@ -139,7 +139,7 @@ namespace FolderRewind.Services
         {
             if (config is null || !CanUseManualCloudActions(config))
                 return (false, 0, 0, I18n.GetString("CloudSync_Notification_HistoryImportFailed"));
-            config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+            config = await PrepareConnectionAsync(config).ConfigureAwait(false);
             using var connection = CaptureConnection(config);
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
             var result = await new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config))

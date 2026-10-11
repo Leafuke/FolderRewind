@@ -148,6 +148,7 @@ namespace FolderRewind
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
                 StartupTimingService.Mark("Window activated");
+                ConfigService.StartRcloneCredentialMigrations();
                 Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
 
                 StartHistoryWarmup();
@@ -586,6 +587,7 @@ namespace FolderRewind
                 await Services.KnotLinkService.ShutdownAsync();
                 await app.StopHistoryWarmupAsync();
                 await app._startupStateProbeTask;
+                await ConfigService.StopRcloneCredentialMigrationsAsync();
                 await ConfigService.SealForExitAsync();
             }
             catch (Exception error)

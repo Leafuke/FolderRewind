@@ -46,9 +46,12 @@ public static class RcloneConnectionService
 
     public static RcloneRemoteCatalog InspectRemotes(string configPath)
     {
-        if (new FileInfo(configPath).Length > 1024 * 1024) throw new IOException(I18n.GetString("CloudSetup_ConfigTooLarge"));
-        var bytes = RcloneExecutionContext.ReadConfigurationBytes(configPath);
-        if (bytes.Length > 1024 * 1024) throw new IOException(I18n.GetString("CloudSetup_ConfigTooLarge"));
+        byte[] bytes;
+        try { bytes = RcloneExecutionContext.ReadConfigurationBytes(configPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudSetup_SourceConfigUnavailable", ex);
+        }
         var text = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
         if (text.Contains("RCLONE_ENCRYPT_V", StringComparison.Ordinal)) throw new InvalidOperationException(I18n.GetString("CloudSetup_UnlockRequired"));
         var result = new List<RcloneRemoteOption>();
@@ -69,7 +72,7 @@ public static class RcloneConnectionService
         return new(result.Take(OnboardingOperationBudgets.RemoteInteraction).ToArray(), Convert.ToHexString(SHA256.HashData(bytes)));
     }
 
-    public static async Task<OwnedRcloneConnection> CreateWebDavAsync(string executable, string url, string user, string password,
+    public static async Task<OwnedRcloneConnection> CreateWebDavAsync(string executable, string credentialsRoot, string url, string user, string password,
         bool allowInsecure = false, CancellationToken token = default)
     {
         var endpoint = ValidateWebDavUrl(url, allowInsecure);
@@ -82,7 +85,8 @@ public static class RcloneConnectionService
         var output = await RunAsync(start, TimeSpan.FromSeconds(15), token, password + "\n").ConfigureAwait(false);
         var obscured = output.TrimEnd('\r', '\n');
         if (obscured.IndexOfAny(['\r', '\n', '\0']) >= 0 || obscured.Length == 0) throw new IOException(I18n.GetString("CloudSetup_ObscureFailed"));
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FolderRewind", "credentials", "rclone", "connection-" + Guid.NewGuid().ToString("N"));
+        if (!Path.IsPathFullyQualified(credentialsRoot)) throw new ArgumentException("Credentials directory must be absolute.", nameof(credentialsRoot));
+        var directory = Path.Combine(Path.GetFullPath(credentialsRoot), "connection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         RcloneExecutionContext.CreatePrivateDirectory(directory);
         var path = Path.Combine(directory, "rclone.conf");
@@ -170,7 +174,7 @@ public static class RcloneConnectionService
             if (stdin is not null) { await process.StandardInput.WriteAsync(stdin.AsMemory(), budget.Token).ConfigureAwait(false); process.StandardInput.Close(); }
             await process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
             var result = await output.ConfigureAwait(false); var failure = await error.ConfigureAwait(false);
-            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, stdin is null ? CloudCommandSecurity.Redact(failure) : I18n.GetString("CloudSetup_ObscureFailed"));
+            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, stdin is null ? RcloneConnectionDiagnostics.ProcessMessage(start, failure) : I18n.GetString("CloudSetup_ObscureFailed"));
             return result;
         }
         finally
@@ -196,7 +200,7 @@ public static class RcloneConnectionService
             }
             await process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
             var failure = await error.ConfigureAwait(false);
-            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, CloudCommandSecurity.Redact(failure));
+            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, RcloneConnectionDiagnostics.ProcessMessage(start, failure));
             return output.ToArray();
         }
         finally
