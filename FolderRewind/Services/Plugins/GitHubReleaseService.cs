@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services.Plugins
 {
-    internal static class GitHubReleaseService
+    internal static partial class GitHubReleaseService
     {
         private static readonly HttpClient Http = CreateClient();
 
@@ -43,55 +43,8 @@ namespace FolderRewind.Services.Plugins
                     await using var stream = await resp.Content.ReadAsStreamAsync(ct);
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
-                    var root = doc.RootElement;
-                    var result = new GitHubLatestReleaseResult
-                    {
-                        OfficialMetadata = Uri.TryCreate(candidate.Url, UriKind.Absolute, out var metadataUri) && metadataUri.Host == "api.github.com",
-                        ReleaseName = root.TryGetProperty("name", out var releaseNameEl) ? releaseNameEl.GetString() : null,
-                        TagName = root.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() : null,
-                        Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() : null,
-                        HtmlUrl = root.TryGetProperty("html_url", out var htmlEl) ? htmlEl.GetString() : null,
-                        ZipballUrl = root.TryGetProperty("zipball_url", out var zipballEl) ? zipballEl.GetString() : null,
-                        PublishedAt = root.TryGetProperty("published_at", out var pubEl) && DateTimeOffset.TryParse(pubEl.GetString(), out var dt)
-                            ? dt
-                            : null,
-                        SourceDisplayName = candidate.DisplayName
-                    };
-
-                    if (!root.TryGetProperty("assets", out var assetsEl) || assetsEl.ValueKind != JsonValueKind.Array)
-                    {
-                        return result;
-                    }
-
-                    var list = new List<GitHubReleaseAsset>();
-                    foreach (var asset in assetsEl.EnumerateArray())
-                    {
-                        var name = asset.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-                        var dl = asset.TryGetProperty("browser_download_url", out var dlEl) ? dlEl.GetString() : null;
-                        var size = asset.TryGetProperty("size", out var sizeEl) && sizeEl.TryGetInt64(out var s) ? s : 0;
-                        var downloadCount = asset.TryGetProperty("download_count", out var countEl) && countEl.TryGetInt64(out var c) ? c : 0;
-                        var updatedAt = asset.TryGetProperty("updated_at", out var updateEl) && DateTimeOffset.TryParse(updateEl.GetString(), out var updateAtParsed)
-                            ? updateAtParsed
-                            : (DateTimeOffset?)null;
-
-                        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(dl))
-                        {
-                            continue;
-                        }
-
-                        list.Add(new GitHubReleaseAsset
-                        {
-                            Name = name!,
-                            DownloadUrl = dl!,
-                            SizeBytes = size,
-                            Digest = asset.TryGetProperty("digest", out var digest) ? digest.GetString() ?? string.Empty : string.Empty,
-                            DownloadCount = downloadCount,
-                            UpdatedAt = updatedAt
-                        });
-                    }
-
-                    result.Assets = list;
-                    return result;
+                    return ParseMetadata(doc.RootElement, candidate.Url,
+                        resp.RequestMessage?.RequestUri?.OriginalString, rawUrl, candidate.DisplayName);
                 }
                 catch (OperationCanceledException)
                 {
@@ -112,30 +65,6 @@ namespace FolderRewind.Services.Plugins
             }
 
             return new GitHubLatestReleaseResult { ErrorMessage = lastError ?? "release-fetch-failed" };
-        }
-
-        public sealed class GitHubLatestReleaseResult
-        {
-            public bool OfficialMetadata { get; set; }
-            public string? ReleaseName { get; set; }
-            public string? TagName { get; set; }
-            public string? Body { get; set; }
-            public string? HtmlUrl { get; set; }
-            public string? ZipballUrl { get; set; }
-            public DateTimeOffset? PublishedAt { get; set; }
-            public IReadOnlyList<GitHubReleaseAsset> Assets { get; set; } = Array.Empty<GitHubReleaseAsset>();
-            public string? ErrorMessage { get; set; }
-            public string? SourceDisplayName { get; set; }
-        }
-
-        public sealed class GitHubReleaseAsset
-        {
-            public string Digest { get; set; } = string.Empty;
-            public string Name { get; set; } = string.Empty;
-            public string DownloadUrl { get; set; } = string.Empty;
-            public long SizeBytes { get; set; }
-            public long DownloadCount { get; set; }
-            public DateTimeOffset? UpdatedAt { get; set; }
         }
 
         internal static Task<byte[]> DownloadVerifiedAssetAsync(string url, string expectedSha256,

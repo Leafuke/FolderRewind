@@ -359,11 +359,7 @@ internal sealed class ShellStartupService : IDisposable
                     return;
                 }
 
-                var targetUrl = string.IsNullOrWhiteSpace(update.PrimaryActionUrl)
-                    ? update.ReleaseUrl
-                    : update.PrimaryActionUrl;
-
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(targetUrl));
+                await Windows.System.Launcher.LaunchUriAsync(update.Target.Uri);
             }
             catch (Exception ex)
             {

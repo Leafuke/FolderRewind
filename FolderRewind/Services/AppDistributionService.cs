@@ -3,18 +3,9 @@ using Windows.ApplicationModel;
 
 namespace FolderRewind.Services
 {
-    internal enum InstallChannel
-    {
-        Unknown = 0,
-        Store = 1,
-        Sideload = 2,
-        Developer = 3,
-        Msi = 4
-    }
-
     internal static class AppDistributionService
     {
-        private const string StoreProductUrl = "https://apps.microsoft.com/detail/9nwsdgxdqws4?referrer=appbadge&mode=direct";
+        private const string StoreProductUrl = AppUpdatePolicy.StoreProductUrl;
 
         public static string MicrosoftStoreProductUrl => StoreProductUrl;
 
