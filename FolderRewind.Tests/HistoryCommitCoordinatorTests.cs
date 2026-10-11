@@ -68,6 +68,33 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task MigratedWorkspaceStartsIndependentFullBackupWithoutInventingAncestry()
+    {
+        await using var source = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var original = await source.Commit.CommitAsync(Request(snapshot, null, CreateCapture(sourceId, "old", -1, null)));
+        var bundle = Path.Combine(_root, "migration.frhistory");
+        await new HistoryRepositoryTransferService().ExportAsync(source, bundle);
+        var targetDirectory = Path.Combine(_root, "fresh-config");
+        await new HistoryRepositoryBatchTransferService(configExists: _ => true).ImportAsync(bundle, targetDirectory);
+        await using var target = new HistoryRuntime(new FileHistoryRepository(_configId,
+            HistoryRepositoryPaths.ForConfigDirectory(targetDirectory, _configId)));
+        await target.InitializeAsync();
+        Assert.AreEqual(HistoryRuntimeHealth.LocalStateInitializationRequired, target.Health);
+        await new HistoryMigrationInitializationService(target).InitializeAsync([sourceId]);
+        var workspace = (await target.WorkspaceStore.LoadAsync()).Value!;
+        Assert.IsNull(workspace.GetSourceState(sourceId).BaseVersionId);
+        var batch = await target.Commit.CommitAsync(Request(snapshot, workspace, CreateCapture(sourceId, "new", workspace.StateRevision, null)));
+        Assert.IsEmpty(batch.NewVersions.Single().ParentVersionIds);
+        Assert.IsEmpty(batch.NewRepresentations.Single().DependencyRepresentationIds);
+        Assert.AreNotEqual(original.NewBranchUpdates.Single().BranchId, batch.NewBranchUpdates.Single().BranchId);
+        Assert.AreNotEqual(original.NewBranchUpdates.Single().Name, batch.NewBranchUpdates.Single().Name);
+        Assert.AreEqual(WorkspaceBaselineRelation.Exact, (await target.WorkspaceStore.LoadAsync()).Value!.GetSourceState(sourceId).Relation);
+        Assert.AreEqual(HistoryRuntimeHealth.Ready, target.Health);
+    }
+
+    [TestMethod]
     public async Task CapturedResultMayOmitStateFingerprintWhenBothFactsAgree()
     {
         await using var runtime = await CreateRuntimeAsync();

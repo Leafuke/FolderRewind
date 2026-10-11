@@ -12,6 +12,7 @@ internal static class Program
     internal const string AppUserModelId = "Leafuke.FolderRewind.Msi";
     internal static SingleInstanceCoordinator? Instance { get; private set; }
     internal static bool RestartSafeModeOnExit { get; set; }
+    internal static bool RestartOnExit { get; set; }
 
     [STAThread]
     private static int Main(string[] args)
@@ -44,9 +45,9 @@ internal static class Program
             return 1;
         }
         finally { Instance = null; }
-        if (RestartSafeModeOnExit && Environment.ProcessPath is { } executable)
+        if ((RestartOnExit || RestartSafeModeOnExit) && Environment.ProcessPath is { } executable)
         {
-            try { using var child = Process.Start(new ProcessStartInfo(executable) { Arguments = "--safe-mode", UseShellExecute = !AppRuntimeInfo.IsMsiDistribution }); }
+            try { using var child = Process.Start(new ProcessStartInfo(executable) { Arguments = RestartSafeModeOnExit ? "--safe-mode" : "", UseShellExecute = !AppRuntimeInfo.IsMsiDistribution }); }
             catch (Exception error) { MessageBox(IntPtr.Zero, "重新启动失败 / Restart failed:\n" + error.Message, "FolderRewind", 0x10); return 1; }
         }
         return 0;

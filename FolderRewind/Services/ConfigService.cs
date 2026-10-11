@@ -93,7 +93,48 @@ namespace FolderRewind.Services
         /// <summary>
         /// 初始化配置服务，加载或创建默认配置
         /// </summary>
+        private static ConfigImportTransactionStore ImportStore => new(ConfigPath);
+        public static ConfigImportResult PendingImport => ImportStore.Result;
+        public static void CancelPendingImport() => ImportStore.Cancel();
+
         public static void Initialize()
+        {
+            if (_initialized) return;
+            var activating = false;
+            try
+            {
+                activating = ImportStore.BeginActivation(ValidateHostPayload);
+                InitializeCore(deferMachineBindings: activating);
+                if (activating)
+                {
+                    if (IsRecoveryMode) throw new InvalidDataException("Imported configuration entered recovery mode.");
+                    ImportStore.CommitActivation();
+                }
+            }
+            catch (Exception error)
+            {
+                try
+                {
+                    if (activating) ImportStore.Rollback(error.Message);
+                    else if (ImportStore.Result.Status == ConfigImportStatus.Activating) throw;
+                    _initialized = false;
+                    InitializeCore();
+                }
+                catch (Exception recoveryError)
+                {
+                    EnterRecoveryMode(new ConfigRecoveryDiagnostic("config_import_recovery_failed",
+                        recoveryError.Message, ConfigPath, null));
+                }
+                LogService.LogError("Configuration import activation failed.", nameof(ConfigService), error);
+            }
+            if (activating && _initialized && !IsRecoveryMode && ImportStore.Result.Status == ConfigImportStatus.Applied)
+            {
+                try { RegisterRcloneCredentialMigrations(); }
+                catch (Exception error) { LogService.LogError("Imported cloud credentials require setup.", nameof(ConfigService), error); }
+            }
+        }
+
+        private static void InitializeCore(bool deferMachineBindings = false)
         {
             if (_initialized) return;
 
@@ -142,7 +183,7 @@ namespace FolderRewind.Services
             ApplyLogSettings(config.GlobalSettings);
             _initialized = true;
 
-            RegisterRcloneCredentialMigrations();
+            if (!deferMachineBindings) RegisterRcloneCredentialMigrations();
 
             if (createdDefault || languageNormalized)
             {
@@ -713,86 +754,61 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 从指定路径导入配置（替换当前配置）
+        /// 准备配置候选文件，重启后在服务初始化前切换
         /// </summary>
         /// <remarks>
         /// 双重校验：导入文档先过文档门（迁移/校验），规范化后再序列化并重新过门。
-        /// 写入前创建安全副本，落盘后回读验证；任何失败（含激活后进入恢复模式）
-        /// 都会恢复安全副本并重新初始化。
+        /// 准备阶段不修改活动配置；启动切换使用安全副本、回读验证和统一回滚。
         /// </remarks>
-        public static bool ImportConfig(string sourcePath)
+        public static async Task<ConfigImportResult> StageConfigImportAsync(string sourcePath,
+            CancellationToken cancellationToken = default, string? expectedSourceSha256 = null)
         {
-            if (IsRecoveryMode)
-            {
-                return false;
-            }
-
+            if (IsRecoveryMode) return new(ConfigImportStatus.Failed, "Configuration recovery must be completed first.");
             try
             {
-                if (!File.Exists(sourcePath)) return false;
-                var sourceBytes = File.ReadAllBytes(sourcePath);
-                var gateResult = new ConfigDocumentGate().Prepare(sourceBytes);
-                if (!gateResult.IsReady || gateResult.Utf8Json is null)
-                {
-                    LogService.Log(I18n.Format(
-                        "Config_ImportFailed",
-                        $"{gateResult.DiagnosticCode}: {gateResult.DiagnosticMessage}"));
-                    return false;
-                }
-
-                var imported = DeserializeConfig(gateResult.Utf8Json);
-                RemoveOnboardingMachineBindings(imported);
-                NormalizeConfig(imported);
-                PrepareSchemaOnePersistence(imported);
-                var importedBytes = SerializeConfig(imported);
-                var validation = new ConfigDocumentGate().Prepare(importedBytes);
-                if (validation.Status != ConfigDocumentGateStatus.Current)
-                {
-                    throw new InvalidDataException(
-                        $"Imported configuration failed schema validation: {validation.DiagnosticCode} {validation.DiagnosticMessage}");
-                }
-
-                var safetyCopy = CreateSafetyCopy("before-import");
-                try
-                {
-                    WriteBytesAtomically(ConfigPath, importedBytes);
-                    var readBackError = ValidateHostPayload(File.ReadAllBytes(ConfigPath));
-                    if (!string.IsNullOrWhiteSpace(readBackError))
-                    {
-                        throw new InvalidDataException(readBackError);
-                    }
-                }
-                catch
-                {
-                    RestoreSafetyCopy(safetyCopy);
-                    throw;
-                }
-
-                _initialized = false;
-                Initialize();
-                if (IsRecoveryMode)
-                {
-                    RestoreSafetyCopy(safetyCopy);
-                    _initialized = false;
-                    Initialize();
-                    throw new InvalidDataException("Imported configuration could not be activated safely.");
-                }
-
-                LogService.Log(I18n.Format("Config_ImportSuccess", sourcePath));
-                return true;
+                var sourceBytes = await File.ReadAllBytesAsync(sourcePath, cancellationToken).ConfigureAwait(false);
+                if (expectedSourceSha256 is not null && Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(sourceBytes)) != expectedSourceSha256)
+                    throw new InvalidDataException("Configuration changed after preview. Select the file again.");
+                var imported = PrepareImportedConfig(sourceBytes);
+                cancellationToken.ThrowIfCancellationRequested();
+                return ImportStore.Stage(SerializeConfig(imported), ValidateHostPayload, imported.BackupConfigs.Select(p => p.Id).ToArray());
             }
-            catch (Exception ex)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception error)
             {
-                LogService.Log(I18n.Format("Config_ImportFailed", ex.Message));
-                return false;
+                LogService.LogError("Configuration import preparation failed.", nameof(ConfigService), error);
+                return new(ConfigImportStatus.Failed, error.Message);
             }
+        }
+
+        internal static async Task<(AppConfig Config, string Sha256)> PreviewConfigImportAsync(string path)
+        {
+            var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+            return (PrepareImportedConfig(bytes), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+        }
+
+        private static AppConfig PrepareImportedConfig(byte[] sourceBytes)
+        {
+            var gate = new ConfigDocumentGate().Prepare(sourceBytes);
+            if (!gate.IsReady || gate.Utf8Json is null)
+                throw new InvalidDataException($"{gate.DiagnosticCode}: {gate.DiagnosticMessage}");
+            var imported = DeserializeConfig(gate.Utf8Json);
+            RemoveOnboardingMachineBindings(imported);
+            NormalizeConfig(imported);
+            PrepareSchemaOnePersistence(imported);
+            foreach (var project in imported.BackupConfigs)
+            {
+                project.Automation.AutoBackupEnabled = false;
+                project.Cloud.Enabled = false;
+            }
+            return imported;
         }
 
         public static IReadOnlyList<string> GetRecoveryCopies()
         {
             try
             {
-                return ConfigFileMigrationService.ListRecoveryCopies(ConfigPath);
+                return ConfigFileMigrationService.ListRecoveryCopies(ConfigPath).Concat(ImportStore.SafetyCopies).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             }
             catch (Exception ex)
             {

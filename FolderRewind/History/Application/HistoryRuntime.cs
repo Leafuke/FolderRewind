@@ -18,7 +18,8 @@ public enum HistoryRuntimeHealth
 {
     Ready = 0,
     WorkspaceRecoveryRequired = 1,
-    LocalReplicaCatalogRecoveryRequired = 2
+    LocalReplicaCatalogRecoveryRequired = 2,
+    LocalStateInitializationRequired = 4
 }
 
 public sealed class HistoryRuntime : IAsyncDisposable
@@ -41,12 +42,15 @@ public sealed class HistoryRuntime : IAsyncDisposable
         LocalReplicaCatalogStore = new LocalReplicaCatalogStore(
             repository.ConfigId,
             Path.Combine(repository.Paths.LocalStateRoot, "replicas.json"));
+        MigrationState = new(repository.ConfigId, repository.Paths.LocalStateRoot);
         CaptureBaselines = new SourceCaptureBaselineCache(repository.Paths.LocalStateRoot);
         MergeSessions = new MergeSessionStore(repository.Paths.LocalStateRoot);
         MutationGate = new HistoryMutationGate(repository.ConfigId, () =>
         {
             HistoryRestoreTransactionJournalStore.RequireRecovered(repository.Paths.TransactionsRoot);
             repository.Journals.RequireRecovered();
+            repository.Imports.RequireRecovered();
+            MigrationState.RequireRecovered();
             Retention.HistoryChainRewriteJournalStore.RequireRecovered(repository.Paths.LocalStateRoot);
         });
         ChangeFeed = new HistoryChangeFeed();
@@ -58,6 +62,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         Repository.PacksInstalled = ApplyInstalledPacksAsync;
     }
 
+    internal HistoryMigrationStateStore MigrationState { get; }
     public HistoryConfigId ConfigId => Repository.ConfigId;
     public FileHistoryRepository Repository { get; }
     public HistoryIndex Index { get; }
@@ -107,6 +112,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
             var localRecovery = new HistoryLocalStateJournalRecovery(
                 WorkspaceStore,
                 LocalReplicaCatalogStore);
+            await MigrationState.RecoverAsync(localRecovery, cancellationToken).ConfigureAwait(false);
             await Repository.Journals.RecoverAsync(
                 localRecovery.ApplyCommittedStateAsync,
                 (_, _) => Task.CompletedTask,
@@ -194,16 +200,19 @@ public sealed class HistoryRuntime : IAsyncDisposable
         Health = HistoryRuntimeHealth.Ready;
         HealthDiagnostic = null;
         ObservePendingRecovery();
+        var migrating = MigrationState.Load()?.InitializationPending == true;
         if (workspace.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
             || (workspace.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {
-            Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
+            Health |= migrating && workspace.Status == DeviceLocalStateStatus.Missing
+                ? HistoryRuntimeHealth.LocalStateInitializationRequired : HistoryRuntimeHealth.WorkspaceRecoveryRequired;
             HealthDiagnostic = AppendDiagnostic(HealthDiagnostic, $"Config {ConfigId}: workspace.json: {workspace.Status}. {workspace.Diagnostic}");
         }
         if (catalog.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
             || (catalog.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {
-            Health |= HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
+            Health |= migrating && catalog.Status == DeviceLocalStateStatus.Missing
+                ? HistoryRuntimeHealth.LocalStateInitializationRequired : HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
             HealthDiagnostic = AppendDiagnostic(HealthDiagnostic, $"Config {ConfigId}: replicas.json: {catalog.Status}. {catalog.Diagnostic}");
         }
     }

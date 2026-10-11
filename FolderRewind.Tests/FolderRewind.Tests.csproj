@@ -145,6 +145,9 @@
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationPathRebindPolicy.cs" Link="Source\MigrationPathRebindPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationSetupStateStore.cs" Link="Source\MigrationSetupStateStore.cs" />
+    <Compile Include="..\FolderRewind\Services\ConfigImportTransactionStore.cs" Link="Source\ConfigImportTransactionStore.cs" />
     <Compile Include="..\FolderRewind\Services\ConfigWriteCoordinator.cs" Link="Source\ConfigWriteCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\BatchObservableCollection.cs" Link="Source\BatchObservableCollection.cs" />
     <Compile Include="..\FolderRewind\Services\LatestRequestCoordinator.cs" Link="Source\LatestRequestCoordinator.cs" />
@@ -184,6 +187,8 @@
     <Compile Include="..\FolderRewind\History\Application\HistoryRuntimeManager.cs" Link="Source\History\Application\HistoryRuntimeManager.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryAssessmentService.cs" Link="Source\History\Application\HistoryAssessmentService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryPresentationQueryService.cs" Link="Source\History\Application\HistoryPresentationQueryService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationInitializationService.cs" Link="Source\History\Application\HistoryMigrationInitializationService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRepositoryBatchTransferService.cs" Link="Source\History\Application\HistoryRepositoryBatchTransferService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRepositoryTransferService.cs" Link="Source\History\Application\HistoryRepositoryTransferService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryCommitCoordinator.cs" Link="Source\History\Application\HistoryCommitCoordinator.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryBranchProjection.cs" Link="Source\History\Application\HistoryBranchProjection.cs" />

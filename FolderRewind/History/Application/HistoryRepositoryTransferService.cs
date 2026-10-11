@@ -88,90 +88,16 @@ public sealed class HistoryRepositoryTransferService
         string configDirectory,
         CancellationToken cancellationToken = default)
     {
-        var bytes = new List<byte[]>();
-        HistoryTransferManifest manifest;
-        HistoryRepositoryDescriptor descriptor;
-        await using (var stream = File.OpenRead(Path.GetFullPath(transferPath)))
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
-        {
-            manifest = JsonSerializer.Deserialize<HistoryTransferManifest>(
-                await ReadEntryAsync(archive, "manifest.json", cancellationToken).ConfigureAwait(false), JsonOptions)
-                ?? throw new InvalidDataException("Transfer manifest is empty.");
-            if (manifest.Magic != HistoryTransferManifest.CurrentMagic
-                || manifest.FormatVersion != HistoryTransferManifest.CurrentFormatVersion
-                || manifest.IncludesPayloads
-                || manifest.PackSha256 is null)
-                throw new HistoryPackCompatibilityException("Unsupported History transfer manifest.");
-            var descriptorBytes = await ReadEntryAsync(archive, "repository.json", cancellationToken).ConfigureAwait(false);
-            descriptor = HistoryRepositoryDescriptor.Parse(descriptorBytes);
-            if (descriptor.ConfigId != manifest.ConfigId
-                || !descriptorBytes.AsSpan().SequenceEqual(HistoryRepositoryDescriptor.Create(manifest.ConfigId).ToCanonicalBytes()))
-                throw new HistoryIntegrityConflictException("Transfer repository descriptor is not canonical.");
-            foreach (var pair in manifest.PackSha256)
-            {
-                var packBytes = await ReadEntryAsync(archive, $"packs/{pair.Key}.frpack", cancellationToken).ConfigureAwait(false);
-                if (!StringComparer.Ordinal.Equals(HistoryPackCodec.ComputeSha256(packBytes), pair.Value))
-                    throw new HistoryIntegrityConflictException($"Transfer Pack {pair.Key} hash differs from manifest.");
-                var decoded = _codec.Decode(packBytes);
-                if (!StringComparer.Ordinal.Equals(decoded.Pack.PackId.ToString(), pair.Key))
-                    throw new HistoryIntegrityConflictException("Transfer Pack path differs from envelope identity.");
-                bytes.Add(packBytes);
-            }
-            if (archive.Entries.Count(entry => entry.FullName.StartsWith("packs/", StringComparison.Ordinal)) != manifest.PackSha256.Count)
-                throw new HistoryIntegrityConflictException("Transfer contains undeclared Pack entries.");
-        }
-
-        var runtime = _runtimeResolver?.Invoke(manifest.ConfigId);
-        bool orphan = runtime is null;
-        var repository = runtime?.Repository ?? new FileHistoryRepository(
-            manifest.ConfigId,
-            HistoryRepositoryPaths.ForConfigDirectory(configDirectory, manifest.ConfigId));
-        IAsyncDisposable? mutationLease = null;
-        try
-        {
-            if (runtime is not null)
-            {
-                mutationLease = await runtime.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await repository.InitializeAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            var existing = await repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-            var decodedIncoming = bytes.Select(item => _codec.Decode(item)).ToArray();
-            new HistoryRepositoryValidator(_codec).Validate(manifest.ConfigId, existing.Concat(decodedIncoming));
-            var results = await repository.ImportAsync(bytes.Select(item => (ReadOnlyMemory<byte>)item), cancellationToken)
-                .ConfigureAwait(false);
-            var installed = results
-                .Where(item => item.Disposition == HistoryPackInstallDisposition.Installed)
-                .ToArray();
-            if (runtime is not null && installed.Length > 0)
-            {
-                await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
-                runtime.ChangeFeed.Publish(
-                    runtime.ConfigId,
-                    HistoryChangeKind.PacksImported,
-                    installed.Select(item => item.PackId.ToString()));
-            }
-
-            return new(
-                manifest.ConfigId,
-                installed.Length,
-                results.Count(item => item.Disposition == HistoryPackInstallDisposition.Duplicate),
-                orphan);
-        }
-        finally
-        {
-            if (mutationLease is not null)
-            {
-                await mutationLease.DisposeAsync().ConfigureAwait(false);
-            }
-            if (orphan)
-            {
-                repository.Dispose();
-            }
-        }
+        var service = new HistoryRepositoryBatchTransferService(_runtimeResolver);
+        if ((await service.PreviewAsync(transferPath, cancellationToken).ConfigureAwait(false)).Projects.Length != 1)
+            throw new InvalidOperationException("Use the batch transfer service for multiple projects.");
+        var batch = await service.ImportAsync(
+            transferPath, configDirectory, token: cancellationToken).ConfigureAwait(false);
+        if (batch.Projects.Length != 1) throw new InvalidOperationException("Use the batch transfer service for multiple projects.");
+        var result = batch.Projects[0];
+        if (result.CommitStatus != HistoryTransferCommitStatus.Committed)
+            throw new InvalidOperationException(result.Diagnostic);
+        return new(result.ConfigId, result.InstalledPacks, result.DuplicatePacks, result.ImportedAsOrphanRepository);
     }
 
     private static async Task WriteEntryAsync(ZipArchive archive, string name, byte[] bytes, CancellationToken token)

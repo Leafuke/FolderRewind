@@ -76,7 +76,8 @@ namespace FolderRewind.Services
             };
         }
 
-        public static async Task<(bool Success, string Message)> ImportConfigFromCloudAsync(CloudSettings connectionSettings)
+        public static async Task<(bool Success, string Message)> ImportConfigFromCloudAsync(CloudSettings connectionSettings,
+            Func<string, Task<ConfigImportResult>>? prepareImport = null)
         {
             var settings = await PrepareTransferConnectionAsync(connectionSettings).ConfigureAwait(false);
             using var connection = CaptureConnection(settings);
@@ -86,7 +87,7 @@ namespace FolderRewind.Services
                 I18n.GetString("CloudSync_Task_ConfigImportName"),
                 I18n.GetString("CloudSync_Notification_ConfigImportSucceeded"),
                 I18n.GetString("CloudSync_Notification_ConfigImportFailed"),
-                ConfigService.ImportConfig, settings).ConfigureAwait(false);
+                prepareImport ?? (path => ConfigService.StageConfigImportAsync(path)), settings).ConfigureAwait(false);
         }
 
         public static async Task<(bool Success, string Message)> ExportConfigToCloudAsync(CloudSettings connectionSettings)

@@ -211,6 +211,8 @@ public sealed class HistoryCommitCoordinator
             throw new ArgumentException("Config snapshot does not belong to this History Runtime.", nameof(snapshot));
         }
 
+        if (_runtime.Health.HasFlag(HistoryRuntimeHealth.LocalStateInitializationRequired))
+            throw new HistoryCommitConflictException("Complete migration source and path setup before backing up.");
         if (_runtime.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired))
         {
             throw new HistoryCommitConflictException("History Workspace requires journal recovery before preflight.");
@@ -279,6 +281,9 @@ public sealed class HistoryCommitCoordinator
         try
         {
             await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+            await _runtime.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
+            if (_runtime.Health.HasFlag(HistoryRuntimeHealth.LocalStateInitializationRequired))
+                throw new HistoryCommitConflictException("Complete migration setup before committing a backup.");
             if (await _runtime.Query.GetRunAsync(request.Invocation.RunId, cancellationToken).ConfigureAwait(false) is not null)
             {
                 throw new HistoryCommitConflictException($"Backup Run {request.Invocation.RunId} is already committed.");
@@ -623,7 +628,8 @@ public sealed class HistoryCommitCoordinator
                     var branchId = request.BranchCreationIntent?.BranchId ?? state.ActiveBranchId ?? BranchId.New();
                     branchUpdate = new BranchUpdate(BranchUpdateId.New(), branchId,
                         state.ActiveBranchUpdateId is { } parentUpdate ? [parentUpdate] : [],
-                        request.BranchCreationIntent?.Name ?? currentBranch?.Name ?? request.ConfigSnapshot.DefaultBranchName,
+                        request.BranchCreationIntent?.Name ?? currentBranch?.Name ?? (state.ActiveBranchId is null && _runtime.MigrationState.Load() is not null
+                            ? request.ConfigSnapshot.DefaultBranchName + "-" + branchId.ToString()[..8] : request.ConfigSnapshot.DefaultBranchName),
                         candidate!.CheckpointId, false, now,
                         request.BranchCreationIntent is not null || state.ActiveBranchId is null ? BranchUpdateReason.Created
                             : currentCheckpoint?.VersionId != reliableBaseline ? BranchUpdateReason.BackupFromHistoricalState : BranchUpdateReason.Backup,

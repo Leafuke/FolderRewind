@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Application;
+using FolderRewind.History.Application;
 using FolderRewind.History.Cloud;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
@@ -16,13 +16,41 @@ namespace FolderRewind.Services
 {
     public static partial class CloudSyncService
     {
+        private static readonly object AutomaticSyncLock = new();
+        private static readonly List<Task> AutomaticSyncTasks = [];
+        private static bool _automaticSyncStopping;
+
+        internal static async Task DrainForExitAsync()
+        {
+            Task[] active;
+            lock (AutomaticSyncLock)
+            {
+                _automaticSyncStopping = true;
+                active = AutomaticSyncTasks.ToArray();
+            }
+            await Task.WhenAll(active).WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+            if (!await CommandSemaphore.WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false))
+                throw new TimeoutException("Wait for active cloud transfers before restarting.");
+            CommandSemaphore.Release();
+        }
+        internal static void ResumeAfterExitFailure()
+        { lock (AutomaticSyncLock) _automaticSyncStopping = false; }
+
         public static void QueueNativeHistorySync(
             BackupConfig? config,
             IEnumerable<RepresentationId> representationIds)
         {
             var ids = representationIds?.Distinct().ToArray() ?? [];
             if (config?.Cloud?.Enabled != true || ids.Length == 0 || !CanUseManualCloudActions(config)) return;
-            TaskObserver.Observe(QueueNativeHistorySyncAsync(config, ids), nameof(CloudSyncService));
+            if (MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, config.Id)) return;
+            lock (AutomaticSyncLock)
+            {
+                if (_automaticSyncStopping) return;
+                AutomaticSyncTasks.RemoveAll(task => task.IsCompleted);
+                var task = QueueNativeHistorySyncAsync(config, ids);
+                AutomaticSyncTasks.Add(task);
+                TaskObserver.Observe(task, nameof(CloudSyncService));
+            }
         }
 
         private static async Task QueueNativeHistorySyncAsync(BackupConfig config, RepresentationId[] ids)

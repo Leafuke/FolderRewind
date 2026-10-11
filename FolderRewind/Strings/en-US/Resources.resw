@@ -6334,4 +6334,171 @@ Retention count: {2} · {3}</value></data>
   <data name="Update_Dialog_UnsupportedArchitectureHint" xml:space="preserve">
     <value>No supported Setup installer is available for this device architecture. Check supported devices on the official releases list.</value>
   </data>
+  <data name="Migration_ConfigPrepared" xml:space="preserve">
+    <value>Configuration prepared; restart to apply. The current configuration remains active. Imported automation and cloud uploads stay disabled until setup is complete and you enable them.</value>
+  </data>
+  <data name="Migration_ConfigRolledBack" xml:space="preserve">
+    <value>The configuration import was not applied. The previous configuration was retained or restored. {0}</value>
+  </data>
+  <data name="Migration_Restart.Text" xml:space="preserve">
+    <value>Restart and apply configuration</value>
+  </data>
+  <data name="Migration_CancelPending.Text" xml:space="preserve">
+    <value>Cancel pending import</value>
+  </data>
+  <data name="Migration_Setup.Text" xml:space="preserve">
+    <value>Complete migration setup</value>
+  </data>
+  <data name="Migration_CancelOperation.Text" xml:space="preserve">
+    <value>Cancel current operation</value>
+  </data>
+  <data name="Migration_Prepare" xml:space="preserve">
+    <value>Prepare import</value>
+  </data>
+  <data name="Migration_ImportCanceled" xml:space="preserve">
+    <value>Pending configuration import canceled. The current configuration is unchanged.</value>
+  </data>
+  <data name="Migration_ConfigPreview" xml:space="preserve">
+    <value>Replace the configuration on restart. Project and source identities are retained; confirm paths, plugins and recovery materials.</value>
+  </data>
+  <data name="Migration_ConfigProject" xml:space="preserve">
+    <value>{0}
+Project ID: {1} · Sources: {2}
+{3}
+Backup directory: {4}</value>
+  </data>
+  <data name="Migration_Projects" xml:space="preserve">
+    <value>Backup projects</value>
+  </data>
+  <data name="Migration_NoProjects" xml:space="preserve">
+    <value>No backup projects to migrate. For orphan history, import the original configuration to retain project and source IDs.</value>
+  </data>
+  <data name="Migration_ExportTitle" xml:space="preserve">
+    <value>Select history projects to export (all selected by default)</value>
+  </data>
+  <data name="Migration_MetadataOnly" xml:space="preserve">
+    <value>Contains history metadata only; excludes backup payloads and the old device workspace.</value>
+  </data>
+  <data name="Migration_ArchivesUnverified" xml:space="preserve">
+    <value>Backup archives are unverified. Import the original configuration for unassociated projects; use Complete migration setup for associated projects.</value>
+  </data>
+  <data name="Migration_ExportDone" xml:space="preserve">
+    <value>Exported history metadata for {0} projects.</value>
+  </data>
+  <data name="Migration_FormatPreview" xml:space="preserve">
+    <value>Source application: {0} · Transfer format: v{1}</value>
+  </data>
+  <data name="Migration_HistoryProject" xml:space="preserve">
+    <value>{0}
+{1}
+Sources {2} · Versions {3} · Branches {4} · Packs {5}
+{6}</value>
+  </data>
+  <data name="Migration_Associated" xml:space="preserve">
+    <value>Matched project with the same ID</value>
+  </data>
+  <data name="Migration_AwaitingConfig" xml:space="preserve">
+    <value>Awaiting the original configuration</value>
+  </data>
+  <data name="Migration_ProjectResult" xml:space="preserve">
+    <value>{0}
+Added {1} · Duplicates {2}
+{3}; {4}; {5}</value>
+  </data>
+  <data name="Migration_Commit_Committed" xml:space="preserve">
+    <value>History metadata committed</value>
+  </data>
+  <data name="Migration_Commit_CommittedRecoveryRequired" xml:space="preserve">
+    <value>Commit decided; recovery required. Retry the import to continue</value>
+  </data>
+  <data name="Migration_Commit_Failed" xml:space="preserve">
+    <value>Import failed; see diagnostic logs</value>
+  </data>
+  <data name="Migration_Commit_Canceled" xml:space="preserve">
+    <value>Canceled before commit</value>
+  </data>
+  <data name="Migration_Commit_NotExecuted" xml:space="preserve">
+    <value>Not executed</value>
+  </data>
+  <data name="Migration_Local_Ready" xml:space="preserve">
+    <value>Local state is valid</value>
+  </data>
+  <data name="Migration_Local_InitializationRequired" xml:space="preserve">
+    <value>Local initialization required</value>
+  </data>
+  <data name="Migration_Local_RecoveryRequired" xml:space="preserve">
+    <value>Controlled local-state recovery required</value>
+  </data>
+  <data name="Migration_SetupTitle" xml:space="preserve">
+    <value>Confirm project identity and migration paths</value>
+  </data>
+  <data name="Migration_SetupDescription" xml:space="preserve">
+    <value>Retain original project and source IDs. Confirm paths to start a new full backup from Unknown state; use Checkout to resume an old branch. Required plugins must be active and encryption passwords available.</value>
+  </data>
+  <data name="Migration_Destination" xml:space="preserve">
+    <value>Backup destination</value>
+  </data>
+  <data name="Migration_OldRoot" xml:space="preserve">
+    <value>Original path root (optional)</value>
+  </data>
+  <data name="Migration_NewRoot" xml:space="preserve">
+    <value>New path root</value>
+  </data>
+  <data name="Migration_PreviewPaths" xml:space="preserve">
+    <value>Preview root mapping</value>
+  </data>
+  <data name="Migration_PathPreviewReady" xml:space="preserve">
+    <value>Path preview updated below. You can also edit each path.</value>
+  </data>
+  <data name="Migration_ConfirmSetup" xml:space="preserve">
+    <value>Confirm paths and initialize</value>
+  </data>
+  <data name="Migration_SetupDone" xml:space="preserve">
+    <value>Migration setup complete. Archives remain unverified; the first backup establishes an independent baseline. Check cloud connections and enable automation and uploads when ready.</value>
+  </data>
+  <data name="Migration_NoSources" xml:space="preserve">
+    <value>The project has no sources.</value>
+  </data>
+  <data name="Migration_SourceMissing" xml:space="preserve">
+    <value>Source &quot;{0}&quot; is inaccessible: {1}</value>
+  </data>
+  <data name="Migration_PathOverlap" xml:space="preserve">
+    <value>Source &quot;{0}&quot; overlaps the backup destination or has an invalid path.</value>
+  </data>
+  <data name="Migration_DestinationInvalid" xml:space="preserve">
+    <value>The backup destination must be a valid absolute path.</value>
+  </data>
+  <data name="Migration_HistoryMissing" xml:space="preserve">
+    <value>The bound history repository has not been migrated. Import the corresponding history first.</value>
+  </data>
+  <data name="Migration_PluginPending" xml:space="preserve">
+    <value>Plugin {0} is not active. Check installation, compatibility and enabled state.</value>
+  </data>
+  <data name="Migration_PasswordPending" xml:space="preserve">
+    <value>Prepare the project encryption password on this device first.</value>
+  </data>
+  <data name="Migration_ProjectBlocked" xml:space="preserve">
+    <value>Cannot export project &quot;{0}&quot;: {1}</value>
+  </data>
+  <data name="Migration_ErrorFormat" xml:space="preserve">
+    <value>Incompatible transfer format</value>
+  </data>
+  <data name="Migration_ErrorData" xml:space="preserve">
+    <value>Damaged data or identity conflict</value>
+  </data>
+  <data name="Migration_ErrorPermission" xml:space="preserve">
+    <value>Destination permission denied</value>
+  </data>
+  <data name="Migration_ErrorSpace" xml:space="preserve">
+    <value>Destination disk is full</value>
+  </data>
+  <data name="Migration_ConfigApplied" xml:space="preserve">
+    <value>Configuration applied on restart. Complete source, path and local initialization setup for imported projects. Automation and cloud uploads remain disabled.</value>
+  </data>
+  <data name="Migration_ErrorIo" xml:space="preserve">
+    <value>Destination I/O failed. Check the directory, device and diagnostic logs.</value>
+  </data>
+  <data name="Migration_ErrorUnexpected" xml:space="preserve">
+    <value>Import encountered an unexpected error. See diagnostic logs.</value>
+  </data>
 </root>

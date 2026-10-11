@@ -8,6 +8,29 @@
     mc:Ignorable="d">
 
     <StackPanel Spacing="8">
+        <InfoBar x:Name="MigrationStatusBar" AutomationProperties.AutomationId="MigrationStatus" IsOpen="False" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Button x:Name="RestartImportButton" AutomationProperties.AutomationId="MigrationRestart" Click="OnRestartImportClick" HorizontalAlignment="Stretch" Margin="0,0,8,8">
+                <TextBlock x:Uid="Migration_Restart" TextWrapping="Wrap" />
+            </Button>
+            <Button x:Name="CancelPendingButton" Grid.Column="1" AutomationProperties.AutomationId="MigrationCancelPending" Click="OnCancelPendingClick" HorizontalAlignment="Stretch" Margin="0,0,0,8">
+                <TextBlock x:Uid="Migration_CancelPending" TextWrapping="Wrap" />
+            </Button>
+            <Button x:Name="SetupProjectButton" Grid.Row="1" AutomationProperties.AutomationId="MigrationSetup" Click="OnSetupProjectClick" HorizontalAlignment="Stretch" Margin="0,0,8,0">
+                <TextBlock x:Uid="Migration_Setup" TextWrapping="Wrap" />
+            </Button>
+            <Button x:Name="CancelOperationButton" Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="MigrationCancelOperation" Click="OnCancelOperationClick" HorizontalAlignment="Stretch" IsEnabled="False">
+                <TextBlock x:Uid="Migration_CancelOperation" TextWrapping="Wrap" />
+            </Button>
+        </Grid>
         <!-- 扩展 -->
         <TextBlock x:Uid="SettingsPage_Section_Extensions" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
@@ -56,7 +79,7 @@
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button x:Uid="SettingsPage_ExportConfig" AutomationProperties.AutomationId="SettingsExportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportConfigClick" />
-                        <Button x:Uid="SettingsPage_ImportConfig" AutomationProperties.AutomationId="SettingsImportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportConfigClick" />
+                        <Button x:Name="ImportConfigButton" x:Uid="SettingsPage_ImportConfig" AutomationProperties.AutomationId="SettingsImportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportConfigClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
@@ -68,8 +91,8 @@
                         <TextBlock x:Uid="SettingsPage_HistoryDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button x:Uid="SettingsPage_ExportHistory" AutomationProperties.AutomationId="SettingsExportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportHistoryClick" />
-                        <Button x:Uid="SettingsPage_ImportHistory" AutomationProperties.AutomationId="SettingsImportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportHistoryClick" />
+                        <Button x:Name="ExportHistoryButton" x:Uid="SettingsPage_ExportHistory" AutomationProperties.AutomationId="SettingsExportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportHistoryClick" />
+                        <Button x:Name="ImportHistoryButton" x:Uid="SettingsPage_ImportHistory" AutomationProperties.AutomationId="SettingsImportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportHistoryClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>
             </toolkit:SettingsExpander.Items>

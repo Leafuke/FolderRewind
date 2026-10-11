@@ -6334,4 +6334,171 @@ Pull Request：{1}</value>
   <data name="Update_Dialog_UnsupportedArchitectureHint" xml:space="preserve">
     <value>当前设备架构没有支持的 Setup 安装包，请在官方发布列表查看支持情况。</value>
   </data>
+  <data name="Migration_ConfigPrepared" xml:space="preserve">
+    <value>配置已准备，重启后生效。当前配置仍在使用；导入项目的自动备份和云上传将保持关闭，完成迁移设置后再手动启用。</value>
+  </data>
+  <data name="Migration_ConfigRolledBack" xml:space="preserve">
+    <value>配置导入未生效，已保留或恢复原配置。{0}</value>
+  </data>
+  <data name="Migration_Restart.Text" xml:space="preserve">
+    <value>重启并应用配置</value>
+  </data>
+  <data name="Migration_CancelPending.Text" xml:space="preserve">
+    <value>取消待生效导入</value>
+  </data>
+  <data name="Migration_Setup.Text" xml:space="preserve">
+    <value>完成迁移设置</value>
+  </data>
+  <data name="Migration_CancelOperation.Text" xml:space="preserve">
+    <value>取消当前操作</value>
+  </data>
+  <data name="Migration_Prepare" xml:space="preserve">
+    <value>准备导入</value>
+  </data>
+  <data name="Migration_ImportCanceled" xml:space="preserve">
+    <value>已取消待生效配置导入，当前配置不变。</value>
+  </data>
+  <data name="Migration_ConfigPreview" xml:space="preserve">
+    <value>重启后替换当前配置。保留项目和来源身份；需要重新确认路径、插件及恢复材料。</value>
+  </data>
+  <data name="Migration_ConfigProject" xml:space="preserve">
+    <value>{0}
+项目 ID：{1} · 来源：{2}
+{3}
+备份目录：{4}</value>
+  </data>
+  <data name="Migration_Projects" xml:space="preserve">
+    <value>备份项目</value>
+  </data>
+  <data name="Migration_NoProjects" xml:space="preserve">
+    <value>没有可迁移的备份项目。孤立历史需要先导入原配置，保留原项目和来源 ID。</value>
+  </data>
+  <data name="Migration_ExportTitle" xml:space="preserve">
+    <value>选择导出的历史项目（默认全部）</value>
+  </data>
+  <data name="Migration_MetadataOnly" xml:space="preserve">
+    <value>仅包含历史元数据，不包含实际备份文件或旧设备的本机工作区。</value>
+  </data>
+  <data name="Migration_ArchivesUnverified" xml:space="preserve">
+    <value>备份归档未验证。等待对应配置的项目请先导入原配置；已关联项目可通过“完成迁移设置”确认来源和路径。</value>
+  </data>
+  <data name="Migration_ExportDone" xml:space="preserve">
+    <value>已导出 {0} 个项目的历史元数据。</value>
+  </data>
+  <data name="Migration_FormatPreview" xml:space="preserve">
+    <value>原应用版本：{0} · 迁移格式：v{1}</value>
+  </data>
+  <data name="Migration_HistoryProject" xml:space="preserve">
+    <value>{0}
+{1}
+来源 {2} · 版本 {3} · 分支 {4} · Pack {5}
+{6}</value>
+  </data>
+  <data name="Migration_Associated" xml:space="preserve">
+    <value>已匹配同 ID 项目</value>
+  </data>
+  <data name="Migration_AwaitingConfig" xml:space="preserve">
+    <value>等待导入对应原配置</value>
+  </data>
+  <data name="Migration_ProjectResult" xml:space="preserve">
+    <value>{0}
+新增 {1} · 重复 {2}
+{3}；{4}；{5}</value>
+  </data>
+  <data name="Migration_Commit_Committed" xml:space="preserve">
+    <value>历史元数据已提交</value>
+  </data>
+  <data name="Migration_Commit_CommittedRecoveryRequired" xml:space="preserve">
+    <value>提交已决定，需要恢复，重试导入可继续</value>
+  </data>
+  <data name="Migration_Commit_Failed" xml:space="preserve">
+    <value>导入失败，查看诊断日志</value>
+  </data>
+  <data name="Migration_Commit_Canceled" xml:space="preserve">
+    <value>提交前已取消</value>
+  </data>
+  <data name="Migration_Commit_NotExecuted" xml:space="preserve">
+    <value>尚未执行</value>
+  </data>
+  <data name="Migration_Local_Ready" xml:space="preserve">
+    <value>本机状态有效</value>
+  </data>
+  <data name="Migration_Local_InitializationRequired" xml:space="preserve">
+    <value>需完成本机初始化</value>
+  </data>
+  <data name="Migration_Local_RecoveryRequired" xml:space="preserve">
+    <value>需受控恢复本机状态</value>
+  </data>
+  <data name="Migration_SetupTitle" xml:space="preserve">
+    <value>确认项目身份和迁移路径</value>
+  </data>
+  <data name="Migration_SetupDescription" xml:space="preserve">
+    <value>保留原项目和来源 ID。确认路径后，从 Unknown 状态开始新的全量备份；接续旧分支请使用 Checkout。需要插件处于可运行状态，并重新准备加密密码。</value>
+  </data>
+  <data name="Migration_Destination" xml:space="preserve">
+    <value>备份目标目录</value>
+  </data>
+  <data name="Migration_OldRoot" xml:space="preserve">
+    <value>原路径根目录（可选）</value>
+  </data>
+  <data name="Migration_NewRoot" xml:space="preserve">
+    <value>新路径根目录</value>
+  </data>
+  <data name="Migration_PreviewPaths" xml:space="preserve">
+    <value>预览批量路径替换</value>
+  </data>
+  <data name="Migration_PathPreviewReady" xml:space="preserve">
+    <value>已更新下方路径预览，可继续逐项调整。</value>
+  </data>
+  <data name="Migration_ConfirmSetup" xml:space="preserve">
+    <value>确认路径并初始化</value>
+  </data>
+  <data name="Migration_SetupDone" xml:space="preserve">
+    <value>迁移设置已完成。归档未验证；首次备份将建立独立基线。请自行检查云连接，并按需启用自动备份和云上传。</value>
+  </data>
+  <data name="Migration_NoSources" xml:space="preserve">
+    <value>项目尚未包含来源。</value>
+  </data>
+  <data name="Migration_SourceMissing" xml:space="preserve">
+    <value>来源“{0}”不可访问：{1}</value>
+  </data>
+  <data name="Migration_PathOverlap" xml:space="preserve">
+    <value>来源“{0}”与备份目标目录重叠或路径无效。</value>
+  </data>
+  <data name="Migration_DestinationInvalid" xml:space="preserve">
+    <value>备份目标必须是有效的绝对路径。</value>
+  </data>
+  <data name="Migration_HistoryMissing" xml:space="preserve">
+    <value>配置绑定的历史仓库尚未迁移，请先导入对应历史文件。</value>
+  </data>
+  <data name="Migration_PluginPending" xml:space="preserve">
+    <value>插件 {0} 尚未处于可运行状态，请检查安装、兼容性和启用状态。</value>
+  </data>
+  <data name="Migration_PasswordPending" xml:space="preserve">
+    <value>请先在目标设备准备该项目的加密密码。</value>
+  </data>
+  <data name="Migration_ProjectBlocked" xml:space="preserve">
+    <value>项目“{0}”无法导出：{1}</value>
+  </data>
+  <data name="Migration_ErrorFormat" xml:space="preserve">
+    <value>迁移格式不兼容</value>
+  </data>
+  <data name="Migration_ErrorData" xml:space="preserve">
+    <value>数据损坏或身份冲突</value>
+  </data>
+  <data name="Migration_ErrorPermission" xml:space="preserve">
+    <value>目标目录权限不足</value>
+  </data>
+  <data name="Migration_ErrorSpace" xml:space="preserve">
+    <value>目标磁盘空间不足</value>
+  </data>
+  <data name="Migration_ConfigApplied" xml:space="preserve">
+    <value>配置已在重启后生效，请完成迁移项目的来源、路径和本机初始化设置。自动备份与云上传仍保持关闭。</value>
+  </data>
+  <data name="Migration_ErrorIo" xml:space="preserve">
+    <value>目标读写失败，请检查目录、设备与诊断日志。</value>
+  </data>
+  <data name="Migration_ErrorUnexpected" xml:space="preserve">
+    <value>导入遇到异常，请查看诊断日志。</value>
+  </data>
 </root>

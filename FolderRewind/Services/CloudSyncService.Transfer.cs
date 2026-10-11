@@ -20,7 +20,7 @@ namespace FolderRewind.Services
             string taskName,
             string successMessage,
             string failureMessage,
-            Func<string, bool> importAction,
+            Func<string, Task<ConfigImportResult>> importAction,
             CloudSettings settings)
         {
             string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_cloud_import_{Guid.NewGuid():N}.json");
@@ -34,14 +34,16 @@ namespace FolderRewind.Services
 
             try
             {
-                bool imported = importAction(tempFilePath);
-                string message = imported ? successMessage : failureMessage;
+                var result = await importAction(tempFilePath).ConfigureAwait(false);
+                bool imported = result.Success;
+                string message = imported ? I18n.GetString("Migration_ConfigPrepared")
+                    : result.Status == ConfigImportStatus.Canceled ? I18n.GetString("Common_Cancel") : failureMessage;
 
                 if (imported)
                 {
                     NotificationService.ShowSuccess(message, I18n.GetString("CloudSync_Notification_Title"));
                 }
-                else
+                else if (result.Status != ConfigImportStatus.Canceled)
                 {
                     NotificationService.ShowError(message, I18n.GetString("CloudSync_Notification_Title"));
                 }

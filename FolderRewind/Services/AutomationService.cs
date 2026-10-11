@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -28,12 +28,14 @@ namespace FolderRewind.Services
         private static Task _startupBackupsTask = Task.CompletedTask;
         private static bool _isRunning;
 
+        internal static bool IsRunning => _isRunning;
+
         public static Task StartAsync(CancellationToken cancellationToken = default)
             => StartAsync(TimeProvider.System, cancellationToken);
 
         internal static async Task StartAsync(
             TimeProvider timeProvider,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default, bool runStartupBackups = true)
         {
             ArgumentNullException.ThrowIfNull(timeProvider);
             await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -60,7 +62,7 @@ namespace FolderRewind.Services
                 ConfigService.Saved += OnConfigSaved;
 
                 await EvaluateLoopsAsync(_stopSource.Token).ConfigureAwait(false);
-                _startupBackupsTask = RunStartupBackupsAsync(_stopSource.Token);
+                _startupBackupsTask = runStartupBackups ? RunStartupBackupsAsync(_stopSource.Token) : Task.CompletedTask;
             }
             catch
             {
@@ -332,7 +334,7 @@ namespace FolderRewind.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<AutomationInvocationSnapshot> snapshots =
-                    (ConfigService.CurrentConfig?.BackupConfigs ?? [])
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, c.Id))
                     .Where(config => config?.Automation is { AutoBackupEnabled: true, RunOnAppStart: true })
                     .Select(CreateInvocationSnapshot)
                     .ToArray();
@@ -345,7 +347,7 @@ namespace FolderRewind.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<ScheduleConfigSnapshot> snapshots =
-                    (ConfigService.CurrentConfig?.BackupConfigs ?? [])
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, c.Id))
                     .Where(config => config?.Automation?.AutoBackupEnabled == true)
                     .Select(config =>
                     {
@@ -376,7 +378,7 @@ namespace FolderRewind.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<ConditionConfigSnapshot> snapshots =
-                    (ConfigService.CurrentConfig?.BackupConfigs ?? [])
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, c.Id))
                     .Where(config => config?.Automation is
                     {
                         AutoBackupEnabled: true,
@@ -488,6 +490,7 @@ namespace FolderRewind.Services
             bool requiresSingleFolder,
             bool updateAutomationState)
         {
+            if (MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, config.Id)) return;
             ManagedFolder? effectiveTargetFolder = targetFolder;
 
             if (effectiveTargetFolder == null && requiresSingleFolder)
