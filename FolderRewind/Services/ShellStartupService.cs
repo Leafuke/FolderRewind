@@ -263,29 +263,9 @@ internal sealed class ShellStartupService : IDisposable
         {
             try
             {
-                var notes = string.IsNullOrWhiteSpace(update.ReleaseNotes)
-                    ? I18n.GetString("Update_Dialog_EmptyNotes")
-                    : update.ReleaseNotes;
-
-                var content = string.Format(
-                    I18n.GetString("Update_Dialog_Content"),
-                    update.CurrentVersion,
-                    update.LatestTag,
-                    update.LatestVersion,
-                    notes);
-
-                if (update.PrimaryAction == UpdatePrimaryAction.OpenStorePage)
-                {
-                    content += Environment.NewLine + Environment.NewLine + I18n.GetString("Update_Dialog_StoreDelayHint");
-                }
-
-                var primaryButtonText = update.PrimaryAction switch
-                {
-                    UpdatePrimaryAction.OpenStorePage => I18n.GetString("Update_Dialog_OpenStore"),
-                    UpdatePrimaryAction.PrepareSideloadPackage => I18n.GetString("Update_Dialog_PrepareSideload"),
-                    UpdatePrimaryAction.OpenMsiDownload => I18n.GetString("Update_Dialog_DownloadMsi"),
-                    _ => I18n.GetString("Update_Dialog_OpenRelease")
-                };
+                var content = AppUpdatePresentation.CreateContent(update.Target,
+                    update.ReleaseNotes, update.OfficialMetadata, I18n.GetString);
+                var primaryButtonText = I18n.GetString(AppUpdatePresentation.PrimaryButtonResource(update.Target));
 
                 var dialog = new AppDialogRequest
                 {
@@ -307,57 +287,6 @@ internal sealed class ShellStartupService : IDisposable
 
                 var result = await ShowDialogAsync(dialog);
                 if (result != ContentDialogResult.Primary) return;
-
-                if (update.PrimaryAction == UpdatePrimaryAction.PrepareSideloadPackage)
-                {
-                    var prepare = await AppSideloadUpdateService.PrepareUpdateAsync(update);
-                    if (!prepare.Success)
-                    {
-                        var failedDialog = new AppDialogRequest
-                        {
-                            Title = I18n.GetString("Update_Prepare_Title"),
-                            Content = string.Format(I18n.GetString("Update_Prepare_Failed"), prepare.ErrorMessage),
-                            CloseButtonText = I18n.GetString("Common_Ok"),
-                            DefaultButton = ContentDialogButton.Close
-                        };
-
-                        await ShowDialogAsync(failedDialog);
-                        return;
-                    }
-
-                    var successDialog = new AppDialogRequest
-                    {
-                        Title = I18n.GetString("Update_Prepare_Title"),
-                        Content = string.Format(
-                            I18n.GetString("Update_Prepare_Success"),
-                            prepare.SourceDisplayName,
-                            prepare.InstallScriptPath),
-                        PrimaryButtonText = I18n.GetString("Update_Prepare_OpenFolder"),
-                        CloseButtonText = I18n.GetString("Common_Ok"),
-                        DefaultButton = ContentDialogButton.Primary
-                    };
-
-                    var prepareResult = await ShowDialogAsync(successDialog);
-                    if (prepareResult == ContentDialogResult.Primary)
-                    {
-                        if (!ShellPathService.TryRevealPathInExplorer(prepare.InstallScriptPath, out var revealError))
-                        {
-                            var revealFailedDialog = new AppDialogRequest
-                            {
-                                Title = I18n.GetString("Update_Prepare_Title"),
-                                Content = string.Format(
-                                    I18n.GetString("Update_Prepare_OpenFolderFailed"),
-                                    string.IsNullOrWhiteSpace(revealError) ? I18n.GetString("Common_Failed") : revealError),
-                                CloseButtonText = I18n.GetString("Common_Ok"),
-                                DefaultButton = ContentDialogButton.Close
-                            };
-
-                            await ShowDialogAsync(revealFailedDialog);
-                        }
-                    }
-
-                    return;
-                }
 
                 await Windows.System.Launcher.LaunchUriAsync(update.Target.Uri);
             }

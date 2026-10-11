@@ -13,7 +13,7 @@ namespace FolderRewind.Services
         {
             if (AppRuntimeInfo.IsMsiDistribution)
             {
-                return InstallChannel.Msi;
+                return InstallChannel.Setup;
             }
 
             try

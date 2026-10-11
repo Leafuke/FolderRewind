@@ -3367,13 +3367,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
 {3}</value>
   </data>
   <data name="Update_Dialog_OpenRelease" xml:space="preserve">
-    <value>查看并下载</value>
+    <value>查看官方发布页</value>
   </data>
   <data name="Update_Dialog_OpenStore" xml:space="preserve">
     <value>前往 Microsoft Store</value>
-  </data>
-  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
-    <value>下载并准备安装</value>
   </data>
   <data name="Update_Dialog_Later" xml:space="preserve">
     <value>稍后</value>
@@ -3383,52 +3380,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   </data>
   <data name="Update_Dialog_StoreDelayHint" xml:space="preserve">
     <value>提示：Microsoft Store 的版本同步可能略有延迟，如未立即看到新版本可稍后重试。</value>
-  </data>
-  <data name="Update_Prepare_Title" xml:space="preserve">
-    <value>更新包准备结果</value>
-  </data>
-  <data name="Update_Prepare_Success" xml:space="preserve">
-    <value>更新包已准备完成（来源：{0}）。请右键运行以下脚本继续安装：
-{1}</value>
-  </data>
-  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
-    <value>打开安装目录</value>
-  </data>
-  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
-    <value>无法打开安装目录：{0}</value>
-  </data>
-  <data name="Update_Prepare_Failed" xml:space="preserve">
-    <value>更新包准备失败：{0}</value>
-  </data>
-  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
-    <value>更新上下文无效，请稍后重试。</value>
-  </data>
-  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
-    <value>当前版本未提供适配你设备的 .7z 或 .sha256 资产，无法自动准备更新。</value>
-  </data>
-  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
-    <value>没有可用的更新下载源，请检查镜像配置。</value>
-  </data>
-  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
-    <value>无法解析 .sha256 文件内容。</value>
-  </data>
-  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
-    <value>源“{0}”校验失败（SHA256 不匹配）。</value>
-  </data>
-  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
-    <value>无法启动 7z 解压进程。</value>
-  </data>
-  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
-    <value>源“{0}”解压失败：{1}</value>
-  </data>
-  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
-    <value>更新包已解压，但未找到 Install.ps1，请改为手动下载并安装。</value>
-  </data>
-  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
-    <value>源“{0}”下载失败：{1}</value>
-  </data>
-  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
-    <value>准备更新包失败，请稍后重试。</value>
   </data>
   <data name="Update_Source_Official" xml:space="preserve">
     <value>官方 GitHub</value>
@@ -4860,9 +4811,6 @@ Pull Request：{1}</value>
   </data>
   <data name="SponsorWindow_StoreOnlyAction" xml:space="preserve">
     <value>在 Microsoft Store 中获取</value>
-  </data>
-  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
-    <value>下载安装程序</value>
   </data>
   <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
     <value>备份范围上下文不完整。</value>
@@ -6365,4 +6313,25 @@ Pull Request：{1}</value>
   <data name="CheckComponent_cloud_credentials_target_conflict" xml:space="preserve"><value>凭据目标冲突</value></data>
   <data name="CheckComponent_cloud_credentials_save_uncertain" xml:space="preserve"><value>凭据保存结果待确认</value></data>
   <data name="CheckComponent_cloud_connection_save_failed" xml:space="preserve"><value>连接配置保存</value></data>
+  <data name="Update_Dialog_DownloadSetup" xml:space="preserve">
+    <value>下载 Setup 安装包</value>
+  </data>
+  <data name="Update_Dialog_MirrorMetadataHint" xml:space="preserve">
+    <value>版本信息来自镜像，请在官方发布页核对版本和更新说明。</value>
+  </data>
+  <data name="Update_Dialog_SetupExitHint" xml:space="preserve">
+    <value>安装前，请通过托盘菜单“退出”正常关闭 FolderRewind，等待正在进行的任务完成。</value>
+  </data>
+  <data name="Update_Dialog_ManualMigrationHint" xml:space="preserve">
+    <value>当前安装形态尚未确认支持 Setup 原位升级。请先保留现有配置，确认安装方式和配置、插件数据的迁移步骤，再手动安装。本更新入口不会自动迁移数据。</value>
+  </data>
+  <data name="Update_Dialog_UnsafeMetadataHint" xml:space="preserve">
+    <value>更新链接校验未通过，已改为打开官方发布列表。请从官方页面核对版本并下载。</value>
+  </data>
+  <data name="Update_Dialog_PackageUnavailableHint" xml:space="preserve">
+    <value>无法确定适合此版本和设备的安装包，请在官方发布列表核对后下载。</value>
+  </data>
+  <data name="Update_Dialog_UnsupportedArchitectureHint" xml:space="preserve">
+    <value>当前设备架构没有支持的 Setup 安装包，请在官方发布列表查看支持情况。</value>
+  </data>
 </root>

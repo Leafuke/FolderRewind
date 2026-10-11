@@ -3367,13 +3367,10 @@ Release notes:
 {3}</value>
   </data>
   <data name="Update_Dialog_OpenRelease" xml:space="preserve">
-    <value>View release</value>
+    <value>View official release page</value>
   </data>
   <data name="Update_Dialog_OpenStore" xml:space="preserve">
     <value>Open Microsoft Store</value>
-  </data>
-  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
-    <value>Download and prepare install</value>
   </data>
   <data name="Update_Dialog_Later" xml:space="preserve">
     <value>Later</value>
@@ -3383,52 +3380,6 @@ Release notes:
   </data>
   <data name="Update_Dialog_StoreDelayHint" xml:space="preserve">
     <value>Note: Microsoft Store rollout may lag behind release publication. If the new version is not visible yet, please try again later.</value>
-  </data>
-  <data name="Update_Prepare_Title" xml:space="preserve">
-    <value>Update package preparation</value>
-  </data>
-  <data name="Update_Prepare_Success" xml:space="preserve">
-    <value>The update package is ready (source: {0}). Please right-click and run the following script to continue installation:
-{1}</value>
-  </data>
-  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
-    <value>Open install folder</value>
-  </data>
-  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
-    <value>Failed to open install folder: {0}</value>
-  </data>
-  <data name="Update_Prepare_Failed" xml:space="preserve">
-    <value>Failed to prepare update package: {0}</value>
-  </data>
-  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
-    <value>Invalid update context. Please try again later.</value>
-  </data>
-  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
-    <value>This release does not provide matching .7z or .sha256 assets for your platform.</value>
-  </data>
-  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
-    <value>No update download source is available. Please check mirror settings.</value>
-  </data>
-  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
-    <value>Unable to parse .sha256 file content.</value>
-  </data>
-  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
-    <value>Checksum failed for source "{0}" (SHA256 mismatch).</value>
-  </data>
-  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
-    <value>Failed to start 7z extraction process.</value>
-  </data>
-  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
-    <value>Extraction failed from source "{0}": {1}</value>
-  </data>
-  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
-    <value>Package extracted, but Install.ps1 was not found. Please install manually from the release page.</value>
-  </data>
-  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
-    <value>Download failed from source "{0}": {1}</value>
-  </data>
-  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
-    <value>Failed to prepare update package. Please try again later.</value>
   </data>
   <data name="Update_Source_Official" xml:space="preserve">
     <value>Official GitHub</value>
@@ -4860,9 +4811,6 @@ Pull request: {1}</value>
   </data>
   <data name="SponsorWindow_StoreOnlyAction" xml:space="preserve">
     <value>Get it from Microsoft Store</value>
-  </data>
-  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
-    <value>Download installer</value>
   </data>
   <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
     <value>The backup scope context is incomplete.</value>
@@ -6365,4 +6313,25 @@ Retention count: {2} · {3}</value></data>
   <data name="CheckComponent_cloud_credentials_target_conflict" xml:space="preserve"><value>Credential destination conflict</value></data>
   <data name="CheckComponent_cloud_credentials_save_uncertain" xml:space="preserve"><value>Credential save needs confirmation</value></data>
   <data name="CheckComponent_cloud_connection_save_failed" xml:space="preserve"><value>Connection config persistence</value></data>
+  <data name="Update_Dialog_DownloadSetup" xml:space="preserve">
+    <value>Download Setup installer</value>
+  </data>
+  <data name="Update_Dialog_MirrorMetadataHint" xml:space="preserve">
+    <value>Version information comes from a mirror. Check the version and release notes on the official release page.</value>
+  </data>
+  <data name="Update_Dialog_SetupExitHint" xml:space="preserve">
+    <value>Before installing, exit FolderRewind normally using Exit in the system tray menu and wait for running tasks to finish.</value>
+  </data>
+  <data name="Update_Dialog_ManualMigrationHint" xml:space="preserve">
+    <value>Setup in-place upgrades have not been confirmed for this installation type. Keep your existing configuration and confirm the installation method and migration steps for configuration and plugin data before installing manually. This update action does not migrate data automatically.</value>
+  </data>
+  <data name="Update_Dialog_UnsafeMetadataHint" xml:space="preserve">
+    <value>The update links failed validation. The official releases list will open instead. Check the version and download from the official page.</value>
+  </data>
+  <data name="Update_Dialog_PackageUnavailableHint" xml:space="preserve">
+    <value>An installer matching this version and device could not be uniquely selected. Check the official releases list before downloading.</value>
+  </data>
+  <data name="Update_Dialog_UnsupportedArchitectureHint" xml:space="preserve">
+    <value>No supported Setup installer is available for this device architecture. Check supported devices on the official releases list.</value>
+  </data>
 </root>

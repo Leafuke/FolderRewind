@@ -13,15 +13,14 @@ namespace FolderRewind.Services
         Store = 1,
         Sideload = 2,
         Developer = 3,
-        Msi = 4
+        Setup = 4 // Update identity only; the underlying build marker remains Msi.
     }
 
     internal enum UpdatePrimaryAction
     {
         OpenReleasePage = 0,
         OpenStorePage = 1,
-        PrepareSideloadPackage = 2,
-        OpenMsiDownload = 3
+        OpenSetupDownload = 3
     }
 
     internal enum UpdateDecisionReason
@@ -101,7 +100,7 @@ namespace FolderRewind.Services
                 reason = UpdateDecisionReason.UnsafeReleaseUrl;
                 return Target(UpdatePrimaryAction.OpenReleasePage, ReleasesUrl, reason);
             }
-            if (channel != InstallChannel.Msi)
+            if (channel != InstallChannel.Setup)
             {
                 reason = UpdateDecisionReason.ManualMigration;
                 return Target(UpdatePrimaryAction.OpenReleasePage, releaseUrl, reason);
@@ -127,7 +126,7 @@ namespace FolderRewind.Services
             }
 
             reason = UpdateDecisionReason.None;
-            return Target(UpdatePrimaryAction.OpenMsiDownload, downloadUrl, reason, assetName);
+            return Target(UpdatePrimaryAction.OpenSetupDownload, downloadUrl, reason, assetName);
         }
 
         internal sealed class Decision

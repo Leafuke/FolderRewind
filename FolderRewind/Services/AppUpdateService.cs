@@ -98,10 +98,6 @@ namespace FolderRewind.Services
             public string ReleaseNotes { get; }
             public bool OfficialMetadata { get; }
             public UpdateDecisionReason FallbackReason => Target.Reason;
-            // Removed with the retired sideload executor in the next change.
-            public string? PackageAssetName => null;
-            public string? PackageDownloadUrl => null;
-            public string? PackageSha256Url => null;
         }
     }
 }
