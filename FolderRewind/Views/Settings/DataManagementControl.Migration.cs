@@ -52,11 +52,32 @@ public sealed partial class DataManagementControl
             var results = await MigrationBatchRecoveryService.ResumeAsync(requests, migrationToken);
             // A canceled batch retains completed project decisions; refreshing is read-only.
             _assessments = await MigrationBatchRecoveryService.CheckAsync(); Migration.Apply(_assessments);
-            var failures = results.Where(r => r.Diagnostic.Length > 0).Select(r => r.ConfigId + ": " + r.Diagnostic).ToArray();
+            var failures = results.Where(r => r.Diagnostic.Length > 0).Select(r => (vm.Items.FirstOrDefault(item => item.Id == r.ConfigId)?.Name ?? r.ConfigId) + ": " + r.Diagnostic).ToArray();
             ShowInfoBar((migrationToken.IsCancellationRequested ? I18n.GetString("Migration_BatchCanceled") + "\n" : "")
                 + I18n.Format("Migration_ResumeCount", results.Count(r => r.Backup || r.Cloud))
                 + (failures.Length > 0 ? "\n" + string.Join(Environment.NewLine, failures) : ""),
                 failures.Length > 0 ? InfoBarSeverity.Warning : migrationToken.IsCancellationRequested ? InfoBarSeverity.Informational : InfoBarSeverity.Success);
+        }
+        catch (Exception error) { ReportMigrationError(error); }
+        finally { SetMigrationBusy(false); }
+    }
+    private async void OnBatchPathsClick(object sender, RoutedEventArgs e)
+    {
+        if (_migrationBusy) return;
+        var migrationToken = StartMigration();
+        try
+        {
+            await RefreshAssessmentsAsync();
+            var vm = new MigrationReviewViewModel { ShowPathMapping = true, Description = I18n.GetString("Migration_BatchPathsDescription") };
+            vm.SetMappingProjects(_assessments.Where(item => item.Backup != MigrationCapabilityStatus.Released).Select(item => item.Snapshot).ToArray());
+            if (!await ShowMigrationDialogAsync(I18n.GetString("Migration_BatchPathsTitle"), new MigrationReviewControl(vm), I18n.GetString("Migration_SavePaths"))) return;
+            var results = await MigrationProjectSetupService.ApplyMappingsAsync(vm.SelectedItems.Select(item => (MigrationPathPreview)item.Value!), migrationToken);
+            await RefreshAssessmentsAsync(CancellationToken.None);
+            var errors = results.Where(result => result.Diagnostic.Length > 0).Select(result => (vm.Items.FirstOrDefault(item => item.Id == result.ConfigId)?.Name ?? result.ConfigId) + ": " + result.Diagnostic).ToArray();
+            ShowInfoBar((migrationToken.IsCancellationRequested ? I18n.GetString("Migration_BatchCanceled") + "\n" : "")
+                + I18n.Format("Migration_PathsSavedCount", results.Count(result => result.Diagnostic.Length == 0))
+                + (errors.Length > 0 ? "\n" + string.Join(Environment.NewLine, errors) : ""),
+                errors.Length > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Informational);
         }
         catch (Exception error) { ReportMigrationError(error); }
         finally { SetMigrationBusy(false); }
@@ -132,7 +153,16 @@ public sealed partial class DataManagementControl
         var dialog = new ContentDialog { Title = title, Content = content, PrimaryButtonText = action,
             CloseButtonText = I18n.GetString("Common_Cancel"), DefaultButton = ContentDialogButton.Primary, XamlRoot = XamlRoot };
         ThemeService.ApplyThemeToDialog(dialog);
-        return await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot) == ContentDialogResult.Primary;
+        var pathReview = (content as MigrationReviewControl)?.ViewModel;
+        System.ComponentModel.PropertyChangedEventHandler? update = null;
+        if (pathReview?.ShowPathMapping == true)
+        {
+            dialog.IsPrimaryButtonEnabled = pathReview.CanSavePaths;
+            update = (_, _) => dialog.IsPrimaryButtonEnabled = pathReview.CanSavePaths;
+            pathReview.PropertyChanged += update;
+        }
+        try { return await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot) == ContentDialogResult.Primary; }
+        finally { if (update is not null) pathReview!.PropertyChanged -= update; }
     }
     private static ListView CreateMigrationList(string id, bool multiple = false)
     {

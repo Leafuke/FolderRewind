@@ -6617,4 +6617,13 @@ Pull Request：{1}</value>
   <data name="Migration_KeptOff" xml:space="preserve"><value>（原开关关闭，继续保持关闭）</value></data>
   <data name="Migration_DefaultSummary" xml:space="preserve"><value>导入或导出配置与历史元数据</value></data>
   <data name="Migration_BatchCanceled" xml:space="preserve"><value>批量操作已取消，已完成项目的结果保留，剩余项目可重试。</value></data>
+  <data name="Migration_BatchPaths.Content" xml:space="preserve"><value>批量重定位路径</value></data>
+  <data name="Migration_BatchPathsDescription" xml:space="preserve"><value>填写旧目录与新目录，预览所有匹配项目后保存选中的修改。操作不会恢复自动任务；完成后请批量确认已就绪功能。</value></data>
+  <data name="Migration_BatchPathsTitle" xml:space="preserve"><value>批量重定位项目路径</value></data>
+  <data name="Migration_SavePaths" xml:space="preserve"><value>保存选中项目的路径</value></data>
+  <data name="Migration_NoMatchingPaths" xml:space="preserve"><value>没有项目路径匹配此旧目录，请检查目录前缀。</value></data>
+  <data name="Migration_PathsSavedCount" xml:space="preserve"><value>已更新 {0} 个项目的路径，请检查并确认已就绪功能。</value></data>
+  <data name="Migration_BatchOldRoot.Header" xml:space="preserve"><value>原路径根目录（可选）</value></data>
+  <data name="Migration_BatchNewRoot.Header" xml:space="preserve"><value>新路径根目录</value></data>
+  <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>预览批量路径替换</value></data>
 </root>

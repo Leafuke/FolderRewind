@@ -74,6 +74,8 @@
                         </ListView>
                         <StackPanel Spacing="8" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowSetup), Mode=OneWay}">
                             <Button x:Uid="Migration_BatchReview" Click="OnBatchReviewClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}" AutomationProperties.AutomationId="MigrationBatchReview" />
+                            <Button x:Uid="Migration_BatchPaths" Click="OnBatchPathsClick" IsEnabled="{x:Bind Migration.CanOperate}"
+                                    Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.HasPathWork)}" AutomationProperties.AutomationId="MigrationBatchPaths" />
                             <Button x:Name="SetupProjectButton" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.HasPathWork), Mode=OneWay}" x:Uid="Migration_Setup" Click="OnSetupProjectClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}" AutomationProperties.AutomationId="MigrationSetup" />
                         </StackPanel>
                         <Button x:Uid="Migration_ReadOriginal" Click="OnReadOriginalClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}"

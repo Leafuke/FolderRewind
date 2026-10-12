@@ -15,6 +15,8 @@ using System.Text.Json;
 
 namespace FolderRewind.Services;
 
+internal sealed record MigrationPathPreview(BackupConfig Original, BackupConfig Draft);
+
 internal static class MigrationProjectSetupService
 {
     internal static void Relocate(BackupConfig draft, string oldRoot, string newRoot)
@@ -25,6 +27,26 @@ internal static class MigrationProjectSetupService
         for (var i = 0; i < paths.Length; i++) draft.SourceFolders[i].Path = paths[i];
         draft.DestinationPath = destination;
     }
+
+    internal static IReadOnlyList<MigrationPathPreview> PreviewMappings(IEnumerable<BackupConfig> snapshots, string oldRoot, string newRoot)
+    {
+        var results = new List<MigrationPathPreview>();
+        foreach (var original in snapshots)
+        {
+            var draft = ConfigSnapshotMapper.Copy(original);
+            Relocate(draft, oldRoot, newRoot);
+            if (draft.DestinationPath != original.DestinationPath
+                || draft.SourceFolders.Any(f => f.Path != original.SourceFolders.Single(old => old.Id == f.Id).Path))
+                results.Add(new(original, draft));
+        }
+        return results;
+    }
+    internal static Task<IReadOnlyList<MigrationResumeResult>> ApplyMappingsAsync(IEnumerable<MigrationPathPreview> selected, CancellationToken token)
+        => MigrationBatchConfirmation.RunAsync(selected, item => item.Original.Id, async (item, cancellation) =>
+        {
+            await CompleteAsync(item.Original, item.Draft, releaseBackup: false, cancellationToken: cancellation).ConfigureAwait(false);
+            return new MigrationResumeResult(item.Original.Id, false, false, "");
+        }, error => CloudCommandSecurity.Redact(error.Message), token);
 
     internal static IReadOnlyList<string> Check(BackupConfig draft)
     {

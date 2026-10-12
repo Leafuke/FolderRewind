@@ -6617,4 +6617,13 @@ Cloud switch: {2} → {3}</value>
   <data name="Migration_KeptOff" xml:space="preserve"><value>(configured off; stays off)</value></data>
   <data name="Migration_DefaultSummary" xml:space="preserve"><value>Import or export configuration and history metadata</value></data>
   <data name="Migration_BatchCanceled" xml:space="preserve"><value>Batch canceled. Completed project decisions remain; remaining projects can be retried.</value></data>
+  <data name="Migration_BatchPaths.Content" xml:space="preserve"><value>Relocate project paths in a batch</value></data>
+  <data name="Migration_BatchPathsDescription" xml:space="preserve"><value>Enter old and new roots, preview matching projects, then save selected corrections. Tasks stay paused until the batch confirmation.</value></data>
+  <data name="Migration_BatchPathsTitle" xml:space="preserve"><value>Relocate project paths</value></data>
+  <data name="Migration_SavePaths" xml:space="preserve"><value>Save selected project paths</value></data>
+  <data name="Migration_NoMatchingPaths" xml:space="preserve"><value>No project paths match this old root. Check the directory prefix.</value></data>
+  <data name="Migration_PathsSavedCount" xml:space="preserve"><value>Updated paths for {0} projects. Review and confirm ready capabilities.</value></data>
+  <data name="Migration_BatchOldRoot.Header" xml:space="preserve"><value>Original path root (optional)</value></data>
+  <data name="Migration_BatchNewRoot.Header" xml:space="preserve"><value>New path root</value></data>
+  <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>Preview root mapping</value></data>
 </root>

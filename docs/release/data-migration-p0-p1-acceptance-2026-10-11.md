@@ -52,4 +52,6 @@ Require successful .NET regression tests, an x64 application build with the exis
 - On an older imported configuration, choose the original JSON through Read original switches. Check only matching identities are offered and only the two switches change; no execution starts before confirmation.
 - Check long names, small windows, 100%/150%/200% scaling, both languages, keyboard focus and high-contrast rendering. No UI automation was performed by the agent.
 
-Automated follow-up evidence: 328 related history/migration/configuration/automation/cloud/localization regression tests passed. The final permission compatibility changes were rechecked with the 27-test focused suite. The x64 Debug application build passed with zero warnings/errors; the website `npm run check:all` passed. Manual UI acceptance remains pending.
+Automated follow-up evidence: 328 related history/migration/configuration/automation/cloud/localization regression tests passed. The final permission compatibility changes were rechecked with the 28-test focused suite, including PRI resource/scope collision validation. The x64 Debug application build passed with zero warnings/errors; the website `npm run check:all` passed. Manual UI acceptance remains pending.
+
+- Batch path acceptance: map a shared old root across at least two migrated projects, preview all changes, deselect one project and save. Confirm only selected paths change, invalid/unmatched roots cannot save, and tasks remain paused until the batch confirmation.

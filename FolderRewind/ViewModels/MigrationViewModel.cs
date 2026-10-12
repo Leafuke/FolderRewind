@@ -32,6 +32,35 @@ public sealed class MigrationReviewViewModel : ObservableObject
     public ObservableCollection<MigrationReviewItem> Items { get; } = [];
     public ObservableCollection<string> ModeLabels { get; } = [];
     public string Description { get; init; } = "";
+    private BackupConfig[] _mappingProjects = [];
+    private string _oldRoot = "", _newRoot = "", _previewError = "";
+    private bool _hasPathPreview;
+    public bool ShowPathMapping { get; init; }
+    public string OldRoot { get => _oldRoot; set { if (SetProperty(ref _oldRoot, value)) InvalidatePathPreview(); } }
+    public string NewRoot { get => _newRoot; set { if (SetProperty(ref _newRoot, value)) InvalidatePathPreview(); } }
+    public string PreviewError { get => _previewError; private set => SetProperty(ref _previewError, value); }
+    public bool CanSavePaths => _hasPathPreview && SelectedItems.Any();
+    private void InvalidatePathPreview() { _hasPathPreview = false; OnPropertyChanged(nameof(CanSavePaths)); }
+    internal void SetMappingProjects(BackupConfig[] projects) => _mappingProjects = projects;
+    public void PreviewPaths()
+    {
+        try
+        {
+            var previews = MigrationProjectSetupService.PreviewMappings(_mappingProjects, OldRoot, NewRoot);
+            foreach (var item in Items) item.PropertyChanged -= OnItemChanged;
+            Items.Clear();
+            foreach (var preview in previews) Add(new()
+            {
+                Id = preview.Original.Id, Name = preview.Original.Name, Details = preview.Original.Id, Value = preview,
+                Status = I18n.Format("Migration_ConfigPaths", preview.Draft.SourceFolders.Count,
+                    string.Join(Environment.NewLine, preview.Draft.SourceFolders.Select(f => f.Path)), preview.Draft.DestinationPath)
+            });
+            PreviewError = previews.Count == 0 ? I18n.GetString("Migration_NoMatchingPaths") : "";
+            _hasPathPreview = previews.Count > 0;
+            OnPropertyChanged(nameof(CanSavePaths)); OnPropertyChanged(nameof(SelectionSummary));
+        }
+        catch (Exception error) { PreviewError = CloudCommandSecurity.Redact(error.Message); InvalidatePathPreview(); }
+    }
     public bool ExportSelection { get; init; }
     public bool PreviewOnly { get; init; }
     public bool ShowModes => ModeLabels.Count > 0;
@@ -51,7 +80,8 @@ public sealed class MigrationReviewViewModel : ObservableObject
         item.PropertyChanged += OnItemChanged;
         OnPropertyChanged(nameof(SelectionSummary));
     }
-    private void OnItemChanged(object? sender, PropertyChangedEventArgs args) => OnPropertyChanged(nameof(SelectionSummary));
+    private void OnItemChanged(object? sender, PropertyChangedEventArgs args)
+    { OnPropertyChanged(nameof(SelectionSummary)); OnPropertyChanged(nameof(CanSavePaths)); }
     public void SelectAll(bool selected) { foreach (var item in Items) if (item.CanSelect) item.Selected = selected; }
 }
 

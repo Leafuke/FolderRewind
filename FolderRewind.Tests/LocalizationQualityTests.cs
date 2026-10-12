@@ -22,6 +22,21 @@ public sealed class LocalizationQualityTests
     }
 
     [TestMethod]
+    public void ResourceValueCannotAlsoBeAPropertyScope()
+    {
+        var strings = Path.Combine(FindRepositoryRoot(), "FolderRewind", "Strings");
+        foreach (var directory in Directory.EnumerateDirectories(strings))
+        {
+            var keys = ReadResourceKeys(Path.Combine(directory, "Resources.resw"))
+                .Select(key => key.Replace('.', '/')).ToHashSet(StringComparer.Ordinal);
+            foreach (var key in keys)
+                for (var separator = key.IndexOf('/'); separator >= 0; separator = key.IndexOf('/', separator + 1))
+                    Assert.IsFalse(keys.Contains(key[..separator]),
+                        $"PRI resource/scope collision in {directory}: {key[..separator]} and {key}");
+        }
+    }
+
+    [TestMethod]
     public void LiteralCodeResourceKeysExistInEveryLanguage()
     {
         var repositoryRoot = FindRepositoryRoot();

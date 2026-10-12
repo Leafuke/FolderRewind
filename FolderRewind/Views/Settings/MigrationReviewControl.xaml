@@ -7,6 +7,15 @@
     xmlns:vm="using:FolderRewind.ViewModels">
     <StackPanel Spacing="12" MinWidth="280">
         <TextBlock Text="{x:Bind ViewModel.Description}" TextWrapping="Wrap" />
+        <StackPanel Spacing="8" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(ViewModel.ShowPathMapping)}">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBox x:Uid="Migration_BatchOldRoot" Text="{x:Bind ViewModel.OldRoot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="MigrationBatchOldRoot" />
+                <TextBox Grid.Column="1" x:Uid="Migration_BatchNewRoot" Text="{x:Bind ViewModel.NewRoot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="MigrationBatchNewRoot" />
+            </Grid>
+            <Button x:Uid="Migration_BatchPreviewPaths" Click="OnPreviewPaths" AutomationProperties.AutomationId="MigrationBatchPathPreview" />
+            <TextBlock Text="{x:Bind ViewModel.PreviewError}" TextWrapping="Wrap" />
+        </StackPanel>
         <RadioButtons ItemsSource="{x:Bind ViewModel.ModeLabels}" SelectedIndex="{x:Bind ViewModel.SelectedMode, Mode=TwoWay}"
                       Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(ViewModel.ShowModes)}" AutomationProperties.AutomationId="MigrationReviewMode" />
         <TextBlock Text="{x:Bind ViewModel.SelectionSummary, Mode=OneWay}" />
