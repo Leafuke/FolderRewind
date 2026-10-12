@@ -1,1 +1,2 @@
-Version 1.9 has been officially released. This is an optional update. The old backups will be automatically migrated, but the old cloud storage format will no longer be supported, so please make sure to reconfigure your settings.
+It has been confirmed that the backup/restore performance of version 1.9.6 is significantly lower than that of version 1.8.2, and there are obvious defects in data migration and cloud storage functions.
+We sincerely apologize for the inconvenience caused by the recent major version update and will resolve the issues as soon as possible. Thank you for your feedback and support.
