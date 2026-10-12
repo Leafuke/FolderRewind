@@ -6340,18 +6340,6 @@ Retention count: {2} · {3}</value></data>
   <data name="Migration_ConfigRolledBack" xml:space="preserve">
     <value>The configuration import was not applied. The previous configuration was retained or restored. {0}</value>
   </data>
-  <data name="Migration_Restart.Text" xml:space="preserve">
-    <value>Restart and apply configuration</value>
-  </data>
-  <data name="Migration_CancelPending.Text" xml:space="preserve">
-    <value>Cancel pending import</value>
-  </data>
-  <data name="Migration_Setup.Text" xml:space="preserve">
-    <value>Complete migration setup</value>
-  </data>
-  <data name="Migration_CancelOperation.Text" xml:space="preserve">
-    <value>Cancel current operation</value>
-  </data>
   <data name="Migration_Prepare" xml:space="preserve">
     <value>Prepare import</value>
   </data>

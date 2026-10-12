@@ -6340,18 +6340,6 @@ Pull Request：{1}</value>
   <data name="Migration_ConfigRolledBack" xml:space="preserve">
     <value>配置导入未生效，已保留或恢复原配置。{0}</value>
   </data>
-  <data name="Migration_Restart.Text" xml:space="preserve">
-    <value>重启并应用配置</value>
-  </data>
-  <data name="Migration_CancelPending.Text" xml:space="preserve">
-    <value>取消待生效导入</value>
-  </data>
-  <data name="Migration_Setup.Text" xml:space="preserve">
-    <value>完成迁移设置</value>
-  </data>
-  <data name="Migration_CancelOperation.Text" xml:space="preserve">
-    <value>取消当前操作</value>
-  </data>
   <data name="Migration_Prepare" xml:space="preserve">
     <value>准备导入</value>
   </data>

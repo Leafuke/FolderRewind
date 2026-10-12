@@ -55,3 +55,9 @@ Require successful .NET regression tests, an x64 application build with the exis
 Automated follow-up evidence: 328 related history/migration/configuration/automation/cloud/localization regression tests passed. The final permission compatibility changes were rechecked with the 28-test focused suite, including PRI resource/scope collision validation. The x64 Debug application build passed with zero warnings/errors; the website `npm run check:all` passed. Manual UI acceptance remains pending.
 
 - Batch path acceptance: map a shared old root across at least two migrated projects, preview all changes, deselect one project and save. Confirm only selected paths change, invalid/unmatched roots cannot save, and tasks remain paused until the batch confirmation.
+
+## Settings navigation resource regression — 2026-10-12
+
+The observed runtime failure was `Unable to resolve property 'Text' while processing properties for Uid 'Migration_Restart'`. Four migration actions changed from TextBlock to Button, but their old `.Text` resources remained alongside `.Content`. WinUI applies every property in an x:Uid scope even when its control is collapsed; settings page construction consequently failed.
+
+Removed the eight invalid resource entries across both languages. A new metadata-backed test resolves the application's actual restored WinUI/Toolkit control types, checks all matching XAML localization properties (including inherited and attached setters), and rejects Button.Text. It detected exactly the eight offending entries before the fix. The seven localization/contract tests pass after the fix. Release build/package generation succeeded; an environment warning only concerns the optional symbol package. The installed development layout was backed up, refreshed from the generated package, and its assembly/PRI hashes verified. No UI automation was performed; manually reopen Settings and verify the migration entry and dialogs in both languages.
