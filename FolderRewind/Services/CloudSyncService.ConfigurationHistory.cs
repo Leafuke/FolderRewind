@@ -46,7 +46,7 @@ namespace FolderRewind.Services
                 return new()
                 {
                     Success = true,
-                    Message = "Commit Pack union is ready.",
+                    Message = I18n.GetString("CloudHistory_AnalysisReady"),
                     TotalRemoteEntries = remote.Count,
                     MatchedEntries = remote.Count(local.Contains),
                     ImportableEntries = remote.Count(item => !local.Contains(item)),
@@ -76,11 +76,16 @@ namespace FolderRewind.Services
         }
 
         public static async Task<(bool Success, string Message)> ImportConfigFromCloudAsync(CloudSettings connectionSettings,
-            Func<string, Task<ConfigImportResult>>? prepareImport = null)
+            Func<string, Task<ConfigImportResult>>? prepareImport = null, string? fileName = null)
         {
             var settings = await PrepareTransferConnectionAsync(connectionSettings).ConfigureAwait(false);
             using var connection = CaptureConnection(settings);
-            var remoteConfigPath = AppendRemotePath(settings.RemoteBasePath, "config.json");
+            var selected = fileName ?? "config.json";
+            if (selected != "config.json" && (!selected.StartsWith("config-", StringComparison.Ordinal) || !selected.EndsWith(".json", StringComparison.Ordinal)
+                || selected.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '.')))
+                throw new InvalidDataException(I18n.GetString("CloudConfig_InvalidExport"));
+            var remoteConfigPath = selected == "config.json" ? AppendRemotePath(settings.RemoteBasePath, selected)
+                : AppendRemotePath(settings.RemoteBasePath, "_folderrewind", "config-exports", selected);
             return await ImportJsonFromCloudAsync(
                 remoteConfigPath,
                 I18n.GetString("CloudSync_Task_ConfigImportName"),
@@ -93,13 +98,34 @@ namespace FolderRewind.Services
         {
             var settings = await PrepareTransferConnectionAsync(connectionSettings).ConfigureAwait(false);
             using var connection = CaptureConnection(settings);
-            var remoteConfigPath = AppendRemotePath(settings.RemoteBasePath, "config.json");
+            var fileName = "config-" + DateTimeOffset.UtcNow.ToString("yyyyMMddTHHmmssfffZ", System.Globalization.CultureInfo.InvariantCulture)
+                + "-" + Guid.NewGuid().ToString("N") + ".json";
+            var remoteConfigPath = AppendRemotePath(settings.RemoteBasePath, "_folderrewind", "config-exports", fileName);
             return await ExportJsonToCloudAsync(
                 remoteConfigPath,
                 I18n.GetString("CloudSync_Task_ConfigExportName"),
-                I18n.GetString("CloudSync_Notification_ConfigExportSucceeded"),
+                I18n.Format("CloudConfig_ExportCreated", fileName),
                 I18n.GetString("CloudSync_Notification_ConfigExportFailed"),
                 ConfigService.ExportConfig, settings).ConfigureAwait(false);
+        }
+        public static async Task<IReadOnlyList<string>> ListCloudConfigurationExportsAsync(CloudSettings input, CancellationToken token = default)
+        {
+            var settings = await PrepareTransferConnectionAsync(input).ConfigureAwait(false);
+            using var scope = CaptureConnection(settings);
+            var context = RcloneExecutionScope.Current ?? throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired"));
+            var names = new List<string>();
+            try
+            {
+                await RcloneConnectionService.RunLinesAsync(context.CreateStartInfo(["lsf", CloudRemotePath.Append(context.RemoteRoot, "_folderrewind/config-exports"), "--files-only"]),
+                    TimeSpan.FromSeconds(settings.TimeoutSeconds), token, line =>
+                    {
+                        if (line.StartsWith("config-", StringComparison.Ordinal) && line.EndsWith(".json", StringComparison.Ordinal)
+                            && line.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.')) names.Add(line);
+                        if (names.Count > 10000) throw new IOException(I18n.GetString("CloudSetup_OutputTruncated"));
+                    }).ConfigureAwait(false);
+            }
+            catch (RcloneProcessException ex) when (ex.ExitCode is 3 or 4) { }
+            return names.OrderDescending(StringComparer.Ordinal).Take(200).Append("config.json").ToArray();
         }
 
         private static CloudSettings FreezeGlobalTransferConnection(CloudSettings input)
@@ -146,195 +172,13 @@ namespace FolderRewind.Services
             var service = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
             var result = allowUploads ? await service.SyncAsync().ConfigureAwait(false) : await service.PullAsync().ConfigureAwait(false);
             var message = result.Succeeded
-                ? $"Commit Pack union synchronized: {result.DownloadedPacks} downloaded, {result.UploadedPacks} uploaded."
+                ? I18n.Format("CloudHistory_MetadataSynchronized", result.DownloadedPacks, result.UploadedPacks)
                 : result.Diagnostic;
             return (result.Succeeded, result.DownloadedPacks, result.UploadedPacks, message);
         }
 
         private static IHistoryMetadataTransport CreateHistoryTransport(BackupConfig config)
-        {
-            if (RcloneExecutionScope.Current is { } context) return new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds);
-            if (!TryResolveSharedRcloneRuntime(
-                    config.Cloud,
-                    out var executable,
-                    out var workingDirectory,
-                    out var error))
-                throw new InvalidOperationException(error);
-            return new RcloneHistoryMetadataTransport(
-                executable,
-                workingDirectory,
-                config.Cloud ?? new CloudSettings(),
-                config.Cloud?.RemoteBasePath ?? GetSuggestedRemoteBasePath());
-        }
-
-        private sealed class RcloneHistoryMetadataTransport : IHistoryMetadataTransport
-        {
-            private readonly string _executable;
-            private readonly string _workingDirectory;
-            private readonly CloudSettings _settings;
-            private readonly string _remoteBasePath;
-
-            public RcloneHistoryMetadataTransport(
-                string executable,
-                string workingDirectory,
-                CloudSettings settings,
-                string remoteBasePath)
-            {
-                _executable = executable;
-                _workingDirectory = workingDirectory;
-                _settings = settings;
-                _remoteBasePath = remoteBasePath;
-            }
-
-            public async Task<byte[]?> ReadDescriptorAsync(
-                HistoryConfigId configId,
-                CancellationToken cancellationToken)
-            {
-                var path = AppendRemotePath(Root(configId), "repository.json");
-                return await ExistsAsync(path, cancellationToken).ConfigureAwait(false)
-                    ? await DownloadAsync(path, cancellationToken).ConfigureAwait(false)
-                    : null;
-            }
-
-            public Task CreateDescriptorOnceAsync(
-                HistoryConfigId configId,
-                byte[] canonicalBytes,
-                CancellationToken cancellationToken)
-                => UploadOnceAsync(
-                    AppendRemotePath(Root(configId), "repository.json"),
-                    canonicalBytes,
-                    cancellationToken);
-
-            public async Task<IReadOnlyList<PackId>> ListPacksAsync(
-                HistoryConfigId configId,
-                CancellationToken cancellationToken)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                // List from the repository root because object-storage remotes do not
-                // materialize an empty packs/ directory before the first upload.
-                var root = Root(configId);
-                var command = CreateDirectCommand(
-                    _executable,
-                    _workingDirectory,
-                    $"lsf {Quote(root)} --files-only --recursive");
-                var result = await RunSilentCommandAsync(
-                    command,
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
-                if (!result.Success) throw new IOException(result.ErrorMessage);
-                var ids = new List<PackId>();
-                foreach (var line in result.Output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var name = Path.GetFileName(line.Trim().Replace('/', Path.DirectorySeparatorChar));
-                    if (!name.EndsWith(".frpack", StringComparison.OrdinalIgnoreCase)) continue;
-                    try { ids.Add(PackId.Parse(Path.GetFileNameWithoutExtension(name))); }
-                    catch (FormatException ex) { throw new HistoryIntegrityConflictException(ex.Message); }
-                }
-                return ids.Distinct().OrderBy(item => item.ToString(), StringComparer.Ordinal).ToArray();
-            }
-
-            public Task<byte[]> DownloadPackAsync(
-                HistoryConfigId configId,
-                PackId packId,
-                CancellationToken cancellationToken)
-                => DownloadAsync(PackPath(configId, packId), cancellationToken);
-
-            public Task UploadPackOnceAsync(
-                HistoryConfigId configId,
-                PackId packId,
-                byte[] bytes,
-                CancellationToken cancellationToken)
-                => UploadOnceAsync(PackPath(configId, packId), bytes, cancellationToken);
-
-            public Task<bool> LegacyHistoryExistsAsync(
-                HistoryConfigId configId,
-                CancellationToken cancellationToken)
-                => Task.FromResult(false);
-
-            private string Root(HistoryConfigId configId)
-                => AppendRemotePath(
-                    _remoteBasePath,
-                    InternalCloudStateDirectoryName,
-                    "history",
-                    HistoryRepositoryPaths.EncodeConfigPathSegment(configId));
-
-            private string PackPath(HistoryConfigId configId, PackId packId)
-            {
-                var id = packId.ToString();
-                return AppendRemotePath(Root(configId), "packs", id[..2], id + ".frpack");
-            }
-
-            private async Task<bool> ExistsAsync(string remotePath, CancellationToken cancellationToken)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                SplitRemotePath(remotePath, out var parent, out var name);
-                var command = CreateDirectCommand(
-                    _executable,
-                    _workingDirectory,
-                    BuildRcloneListFileArguments(parent));
-                var result = await RunSilentCommandAsync(
-                    command,
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
-                return result.Success && result.Output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                    .Any(item => StringComparer.Ordinal.Equals(item.Trim(), name));
-            }
-
-            private async Task<byte[]> DownloadAsync(string remotePath, CancellationToken cancellationToken)
-            {
-                var temporary = Path.Combine(Path.GetTempPath(), $"FolderRewind-pack-{Guid.NewGuid():N}.tmp");
-                try
-                {
-                    var command = CreateDirectCommand(
-                        _executable,
-                        _workingDirectory,
-                        BuildRcloneCopyToArguments(remotePath, temporary));
-                    var result = await RunSilentCommandAsync(
-                        command,
-                        Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!result.Success || !File.Exists(temporary))
-                        throw new IOException(result.ErrorMessage);
-                    return await File.ReadAllBytesAsync(temporary, cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    TryDeleteTempFile(temporary);
-                }
-            }
-
-            private async Task UploadOnceAsync(
-                string remotePath,
-                byte[] bytes,
-                CancellationToken cancellationToken)
-            {
-                var temporary = Path.Combine(Path.GetTempPath(), $"FolderRewind-pack-{Guid.NewGuid():N}.tmp");
-                try
-                {
-                    await File.WriteAllBytesAsync(temporary, bytes, cancellationToken).ConfigureAwait(false);
-                    var command = CreateDirectCommand(
-                        _executable,
-                        _workingDirectory,
-                        BuildRcloneCopyToArguments(temporary, remotePath) + " --immutable");
-                    var result = await RunSilentCommandAsync(
-                        command,
-                        Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
-                    if (result.Success) return;
-                    var existing = await DownloadAsync(remotePath, cancellationToken).ConfigureAwait(false);
-                    if (!existing.AsSpan().SequenceEqual(bytes))
-                        throw new HistoryIntegrityConflictException("Remote create-once object exists with different bytes.");
-                }
-                finally
-                {
-                    TryDeleteTempFile(temporary);
-                }
-            }
-
-            private static void SplitRemotePath(string remotePath, out string parent, out string name)
-            {
-                var separator = remotePath.LastIndexOf('/');
-                if (separator < 0) throw new ArgumentException("Remote path has no parent.", nameof(remotePath));
-                parent = remotePath[..separator];
-                name = remotePath[(separator + 1)..];
-            }
-        }
+            => new RcloneNativeHistoryTransport(RcloneExecutionScope.Current
+                ?? throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired")), config.Cloud.TimeoutSeconds);
     }
 }

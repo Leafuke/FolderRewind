@@ -131,8 +131,9 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public ObservableCollection<string> Remotes { get; } = [];
     public ObservableCollection<string> Directories { get; } = [];
     public ObservableCollection<string> Versions { get; } = [];
-    public bool IsBusy { get => _busy; private set { SetProperty(ref _busy, value); OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanBrowseMore)); } }
+    public bool IsBusy { get => _busy; private set { SetProperty(ref _busy, value); OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanBrowseMore)); OnPropertyChanged(nameof(CanUpload)); } }
     public bool CanEdit => !IsBusy;
+    public bool CanUpload => IsProject && CanEdit && _saved && _config?.Cloud.WritableEvidence.Length > 0;
     public OnboardingCheckState MessageState { get; private set; } = OnboardingCheckState.Unknown;
     public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
     public bool HasDirectories => Directories.Count > 0;
@@ -231,6 +232,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     {
         MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState));
         _revision++; _request?.Cancel(); _saved = false;
+        OnPropertyChanged(nameof(CanUpload));
         _readableEvidence = null; _writableEvidence = null;
         InvalidateAnalysis();
         SelectedRepositoryIndex = -1; RecoveryRepositories.Clear(); _repositoryFolders.Clear();
@@ -522,6 +524,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     {
         if (_disposed || IsBusy || _config is null) return;
         if (!_saved) { Message = I18n.GetString("CloudSetup_SaveFirst"); return; }
+        if (_config.Cloud.WritableEvidence.Length == 0) { Message = I18n.GetString("CloudJob_WriteVerificationRequired"); return; }
         if (SelectedVersionIndex < 0 || SelectedVersionIndex >= _versions.Count) { Message = I18n.GetString("CloudSetup_SelectVersion"); return; }
         IsBusy = true;
         _durableOperation = new();

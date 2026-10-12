@@ -103,7 +103,7 @@
             <toolkit:SettingsCard x:Uid="CloudSetup_Version" SizeChanged="OnConnectionCardSizeChanged">
                 <ComboBox x:Uid="CloudSetup_Version_Input" ItemsSource="{x:Bind ViewModel.Versions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedVersionIndex, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="CloudSetupVersion"/>
             </toolkit:SettingsCard>
-            <Button x:Uid="CloudSetup_Upload" Click="OnUpload" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="CloudSetupUpload"/>
+            <Button x:Uid="CloudSetup_Upload" Click="OnUpload" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanUpload, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="CloudSetupUpload"/>
             <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.HasHistoryActions, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                 <toolkit:SettingsCard x:Uid="CloudRecovery_Password" SizeChanged="OnConnectionCardSizeChanged">
                     <PasswordBox x:Name="RecoveryPassword" x:Uid="CloudRecovery_Password_Input" AutomationProperties.AutomationId="CloudRecoveryPassword"/>

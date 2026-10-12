@@ -320,9 +320,13 @@ namespace FolderRewind.Views.Settings
 
         private async Task<CloudSettings?> PromptCloudConnectionAsync(string title, string description)
         {
-            var configPath = await MainWindowService.PickFilePathAsync(
-                I18n.GetString("CloudSetup_ExplicitConfigRequired"), "FolderRewind.Cloud.ConfigTransfer", new[] { ".conf" });
-            if (string.IsNullOrWhiteSpace(configPath)) return null;
+            var profiles = ConfigService.CurrentConfig.CloudConnections.ToArray();
+            if (profiles.Length == 0)
+            {
+                NotificationService.ShowWarning(I18n.GetString("CloudConnections_CreateFirst"));
+                NavigationService.NavigateTo("CloudConnections"); return null;
+            }
+            var selector = new ComboBox { Header = I18n.GetString("CloudConnections_SelectHeader"), ItemsSource = profiles.Select(p => p.DisplayName).ToArray(), SelectedIndex = -1 };
             var input = new TextBox
             {
                 Header = I18n.GetString("Settings_CloudRemoteBasePath_Label"),
@@ -338,6 +342,13 @@ namespace FolderRewind.Views.Settings
                 TextWrapping = TextWrapping.Wrap
             });
             panel.Children.Add(input);
+            panel.Children.Insert(1, selector);
+            selector.SelectionChanged += (_, _) =>
+            {
+                if (selector.SelectedIndex < 0) return;
+                var profile = profiles[selector.SelectedIndex];
+                input.Text = profile.VerificationEvidence.Length > 65 ? profile.VerificationEvidence[65..] : profile.RemoteName + ":FolderRewind";
+            };
 
             var dialog = new ContentDialog
             {
@@ -355,7 +366,19 @@ namespace FolderRewind.Views.Settings
                 return null;
             }
 
-            return new CloudSettings { RcloneConfigPath = configPath, RemoteBasePath = input.Text?.Trim() ?? string.Empty };
+            if (selector.SelectedIndex < 0) return null;
+            var selected = profiles[selector.SelectedIndex];
+            return new CloudSettings { RcloneConfigPath = selected.CredentialReference, RemoteBasePath = input.Text?.Trim() ?? string.Empty,
+                ExecutablePath = selected.ExecutablePath, WorkingDirectory = selected.WorkingDirectory };
+        }
+        private async Task<string?> PromptCloudExportVersionAsync(IReadOnlyList<string> exports)
+        {
+            var selector = new ComboBox { Header = I18n.GetString("CloudConfig_ChooseExport"), ItemsSource = exports, SelectedIndex = 0, MinWidth = 320 };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(selector, "CloudConfigExportVersion");
+            var dialog = new ContentDialog { Title = I18n.GetString("CloudConfig_ChooseExport"), Content = selector,
+                PrimaryButtonText = I18n.GetString("Common_Confirm"), CloseButtonText = I18n.GetString("Common_Cancel"), XamlRoot = XamlRoot };
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot) != ContentDialogResult.Primary || selector.SelectedIndex < 0) return null;
+            return exports[selector.SelectedIndex];
         }
 
         private static string SanitizeFileName(string? name)

@@ -201,8 +201,11 @@ public sealed partial class DataManagementControl
             {
                 var connection = await PromptCloudConnectionAsync(I18n.GetString("Settings_ImportConfigFromCloud_Title"), I18n.GetString("Settings_ImportConfigFromCloud_Description"));
                 if (connection is null) return;
+                var exports = await CloudSyncService.ListCloudConfigurationExportsAsync(connection, _migrationCancellation?.Token ?? default);
+                var selected = await PromptCloudExportVersionAsync(exports);
+                if (selected is null) return;
                 var result = await CloudSyncService.ImportConfigFromCloudAsync(connection, path =>
-                    UiDispatcherService.RunOnUiAsync(() => PrepareConfigImportWithPreviewAsync(path)));
+                    UiDispatcherService.RunOnUiAsync(() => PrepareConfigImportWithPreviewAsync(path)), selected);
                 ShowInfoBar(result.Message, result.Success ? InfoBarSeverity.Warning : InfoBarSeverity.Error);
             }
             else
