@@ -26,7 +26,9 @@ public sealed partial class CloudSetupPage : Page
         base.OnNavigatedTo(e); _active = true;
         try
         {
-            await ViewModel.InitializeAsync((e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "", _pageLifetime.Token);
+            var options = e.Parameter as CloudSetupNavigationParameter;
+            await ViewModel.InitializeAsync(options?.ConfigId ?? (e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "", _pageLifetime.Token,
+                options?.ManageConnection == true, options?.ProfileId);
             if (_active && !string.IsNullOrWhiteSpace(ViewModel.ConfigPath)) ConnectionSelector.SelectedItem = ExistingConnectionItem;
         }
         catch (OperationCanceledException) { }
@@ -89,11 +91,35 @@ public sealed partial class CloudSetupPage : Page
         await ViewModel.RunCheckAsync(token => ViewModel.CreateWebDavAsync(url, user, password, token, allowInsecure));
     }
     private async void OnListRemotes(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(token => { ViewModel.LoadRemotes(); return Task.CompletedTask; });
+    private async void OnImportManaged(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.ImportManagedAsync);
+    private async void OnRefreshJobs(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.RefreshJobsAsync);
+    private async void OnRetryJobs(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.RetryJobsAsync);
+    private async void OnCancelJob(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(token => ViewModel.CancelSelectedJobAsync(false, token));
+    private async void OnAbandonJob(object sender, RoutedEventArgs e)
+    {
+        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudJob_AbandonTitle"), I18n.GetString("CloudJob_AbandonDescription"), I18n.GetString("Common_Confirm"), XamlRoot))
+            await ViewModel.RunCheckAsync(token => ViewModel.CancelSelectedJobAsync(true, token));
+    }
+    private async void OnInitializeMissing(object sender, RoutedEventArgs e)
+    {
+        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudJob_AbandonTitle"), I18n.GetString("CloudJob_InitializeMissingDescription"), I18n.GetString("Common_Confirm"), XamlRoot))
+            await ViewModel.RunCheckAsync(ViewModel.InitializeMissingAdmissionAsync);
+    }
     private async void OnBrowse(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.BrowseAsync);
     private async void OnBrowseMore(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.BrowseMoreAsync);
     private void OnEnterDirectory(object sender, ItemClickEventArgs e) { if (ViewModel.CanEdit && e.ClickedItem is string name) ViewModel.EnterDirectory(name); }
     private async void OnVerifyWrite(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.VerifyWriteAsync);
-    private async void OnSave(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.SaveAsync);
+    private async void OnSave(object sender, RoutedEventArgs e)
+    {
+        var message = ViewModel.SaveImpactMessage;
+        if (message.Length != 0 && !await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), message, I18n.GetString("Common_Confirm"), XamlRoot)) return;
+        await ViewModel.RunCheckAsync(ViewModel.SaveAsync);
+    }
+    private async void OnReconnectProject(object sender, RoutedEventArgs e)
+    {
+        if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), I18n.Format("CloudRecovery_ReconnectConfirm", ViewModel.RemoteRoot), I18n.GetString("Common_Confirm"), XamlRoot)) return;
+        await ViewModel.RunCheckAsync(ViewModel.ReconnectProjectHistoryAsync);
+    }
     private async void OnLoadVersions(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.LoadVersionsAsync);
     private async void OnUpload(object sender, RoutedEventArgs e)
     {

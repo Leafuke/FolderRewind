@@ -31,6 +31,17 @@ public sealed class RcloneCredentialRefreshTests
     }
 
     [TestMethod]
+    public void UnknownSnapshotRetainsEvidenceAndBlocksCredentialReferenceDeletion()
+    {
+        var directory = Path.Combine(_root, "task-orphan"); Directory.CreateDirectory(directory);
+        var snapshot = Path.Combine(directory, "rclone.conf"); File.Copy(_config, snapshot);
+        Assert.IsTrue(RcloneCredentialRefresh.HasPendingEvidence(_root, _config));
+        Assert.IsTrue(File.Exists(snapshot));
+        using var connection = Context();
+        Assert.IsTrue(File.Exists(snapshot));
+    }
+
+    [TestMethod]
     public async Task ControlledChildRefreshIsMergedWithoutChangingOtherSections()
     {
         using var context = Context();

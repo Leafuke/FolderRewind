@@ -10,6 +10,7 @@ namespace FolderRewind.Views.Settings
     public sealed partial class RuntimeEnvControl : UserControl
     {
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
+        private void OnOpenCloudConnections(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudConnections");
         public void ShowOpenList()
         {
             RuntimeEnvironmentExpander.IsExpanded = true;

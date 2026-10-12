@@ -5740,7 +5740,7 @@ Overwrite restore keeps extra files and replaces backed-up content.</value></dat
   <data name="CloudRecovery_HistorySummary" xml:space="preserve"><value>Loaded {0} versions. Choose content to restore.</value></data>
   <data name="CloudRecovery_ReadablePreview" xml:space="preserve"><value>Content: {0}
 Backup time: {1}
-{2} backup files need downloading.</value></data>
+Metadata indicates {2} candidate payloads to download. Remote manifests, sizes, and hashes will be verified before restoration.</value></data>
   <data name="CloudRecovery_DestinationConfirm" xml:space="preserve"><value>Destination: {0}
 Only the new folder will be written.</value></data>
   <data name="CloudRecovery_Verifying" xml:space="preserve"><value>Verifying backup files…</value></data>
@@ -6610,35 +6610,6 @@ Cloud switch: {2} → {3}</value>
   <data name="CloudJob_TargetChanged" xml:space="preserve"><value>The cloud target changed. The previous task is paused and still protects local payloads.</value></data>
   <data name="CloudJob_Uploading" xml:space="preserve"><value>Uploading the version and its dependencies; local payloads are protected</value></data>
   <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>Cloud backup is incomplete. Local payloads remain protected; review cloud tasks and retry</value></data>
-  <data name="CloudJob_Header.Text" xml:space="preserve"><value>Cloud tasks and payload protection</value></data>
-  <data name="CloudJob_Refresh.Content" xml:space="preserve"><value>Refresh status</value></data>
-  <data name="CloudJob_Retry.Content" xml:space="preserve"><value>Retry pending tasks</value></data>
-  <data name="CloudJob_Cancel.Content" xml:space="preserve"><value>Cancel selected task</value></data>
-  <data name="CloudJob_Abandon.Content" xml:space="preserve"><value>Abandon selected protection</value></data>
-  <data name="CloudJob_AbandonTitle" xml:space="preserve"><value>Abandon pending payload protection</value></data>
-  <data name="CloudJob_AbandonDescription" xml:space="preserve"><value>Canceling a task retains protection. Abandoning protection allows local retention to delete payloads and dependencies that are not fully uploaded, so previous versions may become unrecoverable from the cloud. Remote data is retained.</value></data>
-  <data name="CloudJob_Detail" xml:space="preserve"><value>Task: {0}
-Protection: {1}
-Diagnostic: {2}
-Attempts: {3}</value></data>
-  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>Local payload protection held</value></data>
-  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>Release or abandonment persisted</value></data>
-  <data name="CloudJob_Phase_Prepared" xml:space="preserve"><value>Awaiting local commit confirmation</value></data>
-  <data name="CloudJob_Phase_Pending" xml:space="preserve"><value>Pending upload</value></data>
-  <data name="CloudJob_Phase_Resolving" xml:space="preserve"><value>Resolving dependencies</value></data>
-  <data name="CloudJob_Phase_Uploading" xml:space="preserve"><value>Uploading</value></data>
-  <data name="CloudJob_Phase_Verifying" xml:space="preserve"><value>Verifying</value></data>
-  <data name="CloudJob_Phase_SyncingMetadata" xml:space="preserve"><value>Syncing metadata</value></data>
-  <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>Cloud backup complete</value></data>
-  <data name="CloudJob_Phase_RetryableFailure" xml:space="preserve"><value>Waiting to retry</value></data>
-  <data name="CloudJob_Phase_Paused" xml:space="preserve"><value>Paused</value></data>
-  <data name="CloudJob_Phase_NeedsAttention" xml:space="preserve"><value>Needs attention</value></data>
-  <data name="CloudJob_Phase_Canceled" xml:space="preserve"><value>Canceled</value></data>
-  <data name="CloudJob_Phase_Aborted" xml:space="preserve"><value>Local transaction not committed</value></data>
-  <data name="CloudJob_RegistrationNeedsAttention" xml:space="preserve"><value>Local backup completed, but cloud registration or reconciliation needs attention. Destructive cleanup is paused; keep local payloads and cloud task evidence.</value></data>
-  <data name="CloudJob_InitializeMissing.Content" xml:space="preserve"><value>Only when the journal is missing: initialize future admission</value></data>
-  <data name="CloudJob_InitializeMissingDescription" xml:space="preserve"><value>This action is available only when the cloud journal is missing; it does not replace an existing or damaged journal. Confirmation explicitly abandons unknown previous payload protection and admits future local backups only. Previous versions are not uploaded automatically, and cleanup can make unuploaded versions unrecoverable. Recover the original journal or manually upload important versions first. The new baseline and abandonment decision are persisted together.</value></data>
-  <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>This backend's credential refresh cannot be safely merged yet. Use a supported connection or reauthorize; cloud calls are paused and credential evidence is retained.</value></data>
   <data name="OpenList_StartNotAuthorized" xml:space="preserve"><value>OpenList is unavailable and has no valid local start authorization.</value></data>
   <data name="OpenList_UnknownOwnership" xml:space="preserve"><value>OpenList instance ownership cannot be verified. Only external service observation is available.</value></data>
   <data name="OpenList_StartFailed" xml:space="preserve"><value>OpenList failed to start or exited.</value></data>
@@ -6664,4 +6635,76 @@ It keeps running after tasks finish or FolderRewind exits. This authorization is
   <data name="OpenList_StopTitle" xml:space="preserve"><value>Stop the owned local instance</value></data>
   <data name="OpenList_StopDescription" xml:space="preserve"><value>Stop the OpenList instance started by this FolderRewind session? Process ownership and active transfers will be checked again.</value></data>
   <data name="OpenList_Stopped" xml:space="preserve"><value>The owned instance has stopped.</value></data>
+  <data name="CloudConnections_Select.Header" xml:space="preserve"><value>Choose an existing connection</value></data>
+  <data name="CloudConnections_Name.Header" xml:space="preserve"><value>Connection name</value></data>
+  <data name="CloudConnections_Share.Content" xml:space="preserve"><value>Shared connection (available to other projects)</value></data>
+  <data name="CloudConnections_DependsOpenList.Content" xml:space="preserve"><value>This connection requires local OpenList</value></data>
+  <data name="CloudConnections_ImportManaged.Content" xml:space="preserve"><value>Copy and manage configuration</value></data>
+  <data name="CloudConnections_OwnerRequired" xml:space="preserve"><value>A project connection requires an explicit owner project.</value></data>
+  <data name="CloudConnections_ManagedImported" xml:space="preserve"><value>Credentials copied into managed storage. Select a remote and verify the current directory.</value></data>
+  <data name="CloudConnections_Referenced" xml:space="preserve"><value>This connection is referenced by projects, unfinished tasks, active leases, or refresh evidence. Resolve those references and protection before deleting it.</value></data>
+  <data name="CloudConnections_Shared" xml:space="preserve"><value>Shared</value></data>
+  <data name="CloudConnections_Project" xml:space="preserve"><value>Project only</value></data>
+  <data name="CloudConnections_Detail" xml:space="preserve"><value>{0} · remote: {1}
+Bound projects: {2}
+Projects sharing this credential storage: {3}</value></data>
+  <data name="CloudConnections_Title.Text" xml:space="preserve"><value>Cloud connections</value></data>
+  <data name="CloudConnections_Description.Text" xml:space="preserve"><value>Shared and project connections use the same credential and verification flow. Project scope controls visibility; authentication updates affect every project sharing the credentials.</value></data>
+  <data name="CloudConnections_CreateShared.Content" xml:space="preserve"><value>New shared connection</value></data>
+  <data name="CloudConnections_ProjectOwner.PlaceholderText" xml:space="preserve"><value>Owner project</value></data>
+  <data name="CloudConnections_CreateProject.Content" xml:space="preserve"><value>New project connection</value></data>
+  <data name="CloudConnections_Edit.Content" xml:space="preserve"><value>Edit / verify</value></data>
+  <data name="CloudConnections_Promote.Content" xml:space="preserve"><value>Make shared</value></data>
+  <data name="CloudConnections_Delete.Content" xml:space="preserve"><value>Delete connection</value></data>
+  <data name="CloudConnections_DeleteTitle" xml:space="preserve"><value>Delete cloud connection</value></data>
+  <data name="CloudConnections_DeleteDescription" xml:space="preserve"><value>Delete connection “{0}”? Project, task, lease, and refresh references will be checked. Credential files and remote backups are retained.</value></data>
+  <data name="CloudConnections_SettingsCard.Header" xml:space="preserve"><value>Cloud connections</value></data>
+  <data name="CloudConnections_Open.Content" xml:space="preserve"><value>Manage shared and project connections</value></data>
+  <data name="CloudConnections_ProjectBinding.Header" xml:space="preserve"><value>Current cloud location</value></data>
+  <data name="CloudConnections_LocationBoundary.Text" xml:space="preserve"><value>Manage the connection and directory through the shared wizard. Changing the remote root or cloud provider does not preserve continuity of previous cloud replicas.</value></data>
+  <data name="CloudConnection_LegacyNotice.Text" xml:space="preserve"><value>Legacy custom uploads are paused. The original command remains in local configuration; explicitly convert it to Native History backup through the connection wizard.</value></data>
+  <data name="CloudConnections_LocationChangeConfirm" xml:space="preserve"><value>The access binding or cloud directory will change. Recover previous history only after matching the original repository ConfigId. Changing directories or providers does not preserve continuity; existing tasks keep their previous target.</value></data>
+  <data name="CloudConnections_AuthenticationImpact" xml:space="preserve"><value>This credential storage is shared by {0} projects. Authentication changes may affect them. Target changes pause previous tasks while retaining payload protection.</value></data>
+  <data name="CloudJob_Header.Text" xml:space="preserve"><value>Cloud tasks and payload protection</value></data>
+  <data name="CloudJob_Refresh.Content" xml:space="preserve"><value>Refresh status</value></data>
+  <data name="CloudJob_Retry.Content" xml:space="preserve"><value>Retry pending tasks</value></data>
+  <data name="CloudJob_Cancel.Content" xml:space="preserve"><value>Cancel selected task</value></data>
+  <data name="CloudJob_Abandon.Content" xml:space="preserve"><value>Abandon selected protection</value></data>
+  <data name="CloudJob_AbandonTitle" xml:space="preserve"><value>Abandon pending payload protection</value></data>
+  <data name="CloudJob_AbandonDescription" xml:space="preserve"><value>Canceling a task retains protection. Abandoning protection allows local retention to delete payloads and dependencies that are not fully uploaded, so previous versions may become unrecoverable from the cloud. Remote data is retained.</value></data>
+  <data name="CloudJob_Detail" xml:space="preserve"><value>Task: {0}
+Protection: {1}
+Diagnostic: {2}
+Attempts: {3}</value></data>
+  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>Local payload protection held</value></data>
+  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>Release or abandonment persisted</value></data>
+  <data name="CloudHistory_AnalysisReady" xml:space="preserve"><value>Cloud history metadata analyzed; backup payloads have not been verified.</value></data>
+  <data name="CloudHistory_MetadataSynchronized" xml:space="preserve"><value>History metadata synchronized: {0} packs imported and {1} uploaded. Backup payloads were not downloaded automatically.</value></data>
+  <data name="CloudRecovery_OriginalRepositoryMissing" xml:space="preserve"><value>The original Native History repository for this project was not found. No remote repository was created or modified.</value></data>
+  <data name="CloudRecovery_ProjectHistoryRecovered" xml:space="preserve"><value>History recovered with read-only access: {0} packs imported, {1} versions available. Select a version to restore into a new directory; normal backup still requires migration environment confirmation.</value></data>
+  <data name="CloudRecovery_ReconnectProject.Content" xml:space="preserve"><value>Reconnect original repository and recover history read only</value></data>
+  <data name="CloudRecovery_ReconnectConfirm" xml:space="preserve"><value>Read-only verification will match this project’s original repository in {0}, save its local access binding, and pull history metadata. It will not write to the cloud, download all backups, or release migration pauses.</value></data>
+  <data name="CloudJob_Phase_Prepared" xml:space="preserve"><value>Awaiting local commit confirmation</value></data>
+  <data name="CloudJob_Phase_Pending" xml:space="preserve"><value>Pending upload</value></data>
+  <data name="CloudJob_Phase_Resolving" xml:space="preserve"><value>Resolving dependencies</value></data>
+  <data name="CloudJob_Phase_Uploading" xml:space="preserve"><value>Uploading</value></data>
+  <data name="CloudJob_Phase_Verifying" xml:space="preserve"><value>Verifying</value></data>
+  <data name="CloudJob_Phase_SyncingMetadata" xml:space="preserve"><value>Syncing metadata</value></data>
+  <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>Cloud backup complete</value></data>
+  <data name="CloudJob_Phase_RetryableFailure" xml:space="preserve"><value>Waiting to retry</value></data>
+  <data name="CloudJob_Phase_Paused" xml:space="preserve"><value>Paused</value></data>
+  <data name="CloudJob_Phase_NeedsAttention" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="CloudJob_Phase_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="CloudJob_Phase_Aborted" xml:space="preserve"><value>Local transaction not committed</value></data>
+  <data name="CloudConnections_CreateFirst" xml:space="preserve"><value>Create or import a connection through cloud connection management first.</value></data>
+  <data name="CloudConnections_SelectHeader" xml:space="preserve"><value>Cloud connection</value></data>
+  <data name="CloudConfig_InvalidExport" xml:space="preserve"><value>Invalid cloud configuration export filename.</value></data>
+  <data name="CloudConfig_ExportCreated" xml:space="preserve"><value>Configuration exported as a separate cloud file: {0}. Previous exports were retained.</value></data>
+  <data name="CloudConfig_ChooseExport" xml:space="preserve"><value>Choose a cloud configuration export (config.json is the legacy file)</value></data>
+  <data name="CloudJob_RegistrationNeedsAttention" xml:space="preserve"><value>Local backup completed, but cloud registration or reconciliation needs attention. Destructive cleanup is paused; keep local payloads and cloud task evidence.</value></data>
+  <data name="CloudJob_InitializeMissing.Content" xml:space="preserve"><value>Only when the journal is missing: initialize future admission</value></data>
+  <data name="CloudJob_InitializeMissingDescription" xml:space="preserve"><value>This action is available only when the cloud journal is missing; it does not replace an existing or damaged journal. Confirmation explicitly abandons unknown previous payload protection and admits future local backups only. Previous versions are not uploaded automatically, and cleanup can make unuploaded versions unrecoverable. Recover the original journal or manually upload important versions first. The new baseline and abandonment decision are persisted together.</value></data>
+  <data name="CloudRecovery_PayloadFailed" xml:space="preserve"><value>Could not prepare payload {0}: {1}. Recovery was not completed.</value></data>
+  <data name="CloudRecovery_NoActiveReplica" xml:space="preserve"><value>No usable active cloud replica is recorded.</value></data>
+  <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>This backend's credential refresh cannot be safely merged yet. Use a supported connection or reauthorize; cloud calls are paused and credential evidence is retained.</value></data>
 </root>

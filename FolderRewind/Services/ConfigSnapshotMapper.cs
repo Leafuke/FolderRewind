@@ -338,6 +338,7 @@ internal static class ConfigSnapshotMapper
     {
         Id = value.Id, DisplayName = value.DisplayName, Scope = value.Scope, OwnerProjectId = value.OwnerProjectId,
         CredentialOwnership = value.CredentialOwnership, CredentialReference = value.CredentialReference,
+        ImportedFromReference = value.ImportedFromReference,
         RemoteName = value.RemoteName, ProfileRevision = value.ProfileRevision,
         DependsOnLocalOpenList = value.DependsOnLocalOpenList, Access = value.Access,
         VerificationEvidence = value.VerificationEvidence, ExecutablePath = value.ExecutablePath, WorkingDirectory = value.WorkingDirectory

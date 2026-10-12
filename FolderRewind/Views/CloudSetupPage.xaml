@@ -6,6 +6,15 @@
             <TextBlock x:Uid="CloudSetup_UploadScope" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
             <TextBlock x:Uid="CloudSetup_RecoveryScope" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.IsRecovery, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
             <TextBlock x:Uid="CloudSetup_ConnectionGroup" Style="{StaticResource SubtitleTextBlockStyle}"/>
+            <toolkit:SettingsCard x:Uid="CloudConnections_Select" SizeChanged="OnConnectionCardSizeChanged">
+                <ComboBox ItemsSource="{x:Bind ViewModel.ConnectionProfiles, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedProfileIndex, Mode=TwoWay}"
+                          IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudProfileSelector"/>
+            </toolkit:SettingsCard>
+            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.CanSaveConnection, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <TextBox x:Uid="CloudConnections_Name" Text="{x:Bind ViewModel.ConnectionName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudConnectionName"/>
+                <CheckBox x:Uid="CloudConnections_Share" IsChecked="{x:Bind ViewModel.ShareConnection, Mode=TwoWay}" AutomationProperties.AutomationId="CloudConnectionShared"/>
+                <CheckBox x:Uid="CloudConnections_DependsOpenList" IsChecked="{x:Bind ViewModel.DependsOnOpenList, Mode=TwoWay}" AutomationProperties.AutomationId="CloudDependsOpenList"/>
+            </StackPanel>
             <SelectorBar x:Name="ConnectionSelector" SelectionChanged="OnConnectionMethodChanged" AutomationProperties.AutomationId="CloudConnectionMethod">
                 <SelectorBarItem x:Name="WebDavConnectionItem" x:Uid="CloudSetup_WebDavMethod"/>
                 <SelectorBarItem x:Name="ExistingConnectionItem" x:Uid="CloudSetup_ExistingMethod"/>
@@ -31,6 +40,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button x:Uid="CloudSetup_PickConfig" Click="OnPickConfig" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupPickConfig"/>
                     <Button x:Uid="CloudSetup_ListRemotes" Click="OnListRemotes" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupListRemotes"/>
+                    <Button x:Uid="CloudConnections_ImportManaged" Click="OnImportManaged" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudImportManaged"/>
                 </StackPanel>
                 <toolkit:SettingsCard x:Uid="CloudSetup_Remote" SizeChanged="OnConnectionCardSizeChanged">
                     <ComboBox x:Uid="CloudSetup_Remote_Input" ItemsSource="{x:Bind ViewModel.Remotes, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedRemoteIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupRemote"/>
@@ -58,15 +68,29 @@
                 <ListView ItemsSource="{x:Bind ViewModel.Directories, Mode=OneWay}" IsItemClickEnabled="True" ItemClick="OnEnterDirectory" MaxHeight="200" AutomationProperties.AutomationId="CloudSetupDirectories"/>
                 <Button x:Uid="CloudSetup_BrowseMore" Click="OnBrowseMore" IsEnabled="{x:Bind ViewModel.CanBrowseMore, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupBrowseMore"/>
             </StackPanel>
-            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.CanSaveConnection, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                 <TextBlock x:Uid="CloudSetup_VerificationGroup" Style="{StaticResource SubtitleTextBlockStyle}"/>
                 <toolkit:SettingsCard x:Uid="CloudSetup_VerificationCard" SizeChanged="OnConnectionCardSizeChanged">
-                    <Button x:Uid="CloudSetup_VerifyWrite" Click="OnVerifyWrite" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupVerifyWrite"/>
+                    <Button x:Uid="CloudSetup_VerifyWrite" Click="OnVerifyWrite" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupVerifyWrite"/>
                 </toolkit:SettingsCard>
-                <Button x:Uid="CloudSetup_Save" Click="OnSave" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupSave"/>
+                <Button x:Uid="CloudSetup_Save" Click="OnSave" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupSave"/>
             </StackPanel>
-            <TextBlock x:Uid="CloudSetup_ExecutionGroup" Style="{StaticResource SubtitleTextBlockStyle}"/>
             <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock x:Uid="CloudJob_Header" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                <ListView ItemsSource="{x:Bind ViewModel.Jobs, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedJobIndex, Mode=TwoWay}" MaxHeight="260" AutomationProperties.AutomationId="CloudJobs">
+                    <ListView.ItemTemplate><DataTemplate x:DataType="vm:CloudJobDisplay"><StackPanel Spacing="4"><TextBlock Text="{x:Bind Summary, Mode=OneTime}"/><TextBlock Text="{x:Bind Detail, Mode=OneTime}" TextWrapping="Wrap"/></StackPanel></DataTemplate></ListView.ItemTemplate>
+                </ListView>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Uid="CloudJob_Refresh" Click="OnRefreshJobs" AutomationProperties.AutomationId="CloudJobsRefresh"/>
+                    <Button x:Uid="CloudJob_Retry" Click="OnRetryJobs" AutomationProperties.AutomationId="CloudJobsRetry"/>
+                    <Button x:Uid="CloudJob_Cancel" Click="OnCancelJob" AutomationProperties.AutomationId="CloudJobCancel"/>
+                    <Button x:Uid="CloudJob_Abandon" Click="OnAbandonJob" AutomationProperties.AutomationId="CloudJobAbandon"/>
+                </StackPanel>
+                <Button x:Uid="CloudJob_InitializeMissing" Click="OnInitializeMissing" AutomationProperties.AutomationId="CloudJobInitializeMissing"/>
+            </StackPanel>
+            <TextBlock x:Uid="CloudSetup_ExecutionGroup" Style="{StaticResource SubtitleTextBlockStyle}" Visibility="{x:Bind ViewModel.HasHistoryActions, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <Button x:Uid="CloudRecovery_ReconnectProject" Click="OnReconnectProject" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudReconnectOriginalProject"/>
                 <Button x:Uid="CloudSetup_LoadVersions" Click="OnLoadVersions" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudSetupLoadVersions"/>
             </StackPanel>
             <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsRecovery, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
@@ -80,7 +104,7 @@
                 <ComboBox x:Uid="CloudSetup_Version_Input" ItemsSource="{x:Bind ViewModel.Versions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedVersionIndex, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="CloudSetupVersion"/>
             </toolkit:SettingsCard>
             <Button x:Uid="CloudSetup_Upload" Click="OnUpload" Visibility="{x:Bind ViewModel.IsProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="CloudSetupUpload"/>
-            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsRecovery, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.HasHistoryActions, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                 <toolkit:SettingsCard x:Uid="CloudRecovery_Password" SizeChanged="OnConnectionCardSizeChanged">
                     <PasswordBox x:Name="RecoveryPassword" x:Uid="CloudRecovery_Password_Input" AutomationProperties.AutomationId="CloudRecoveryPassword"/>
                 </toolkit:SettingsCard>

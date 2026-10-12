@@ -207,7 +207,9 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
     {
         if (!Directory.Exists(root)) return false;
         var directories = Directory.EnumerateDirectories(root, "task-*").Take(1001).ToArray();
+        if (directories.Length > 1000) return true;
         foreach (var directory in directories) RejectReparsePoints(directory);
+        if (directories.Any(d => !File.Exists(Path.Combine(d, "attempt.json")) && File.Exists(Path.Combine(d, "rclone.conf")))) return true;
         var files = directories.Select(d => Path.Combine(d, "attempt.json")).Where(File.Exists).ToArray();
         if (files.Length > 1000) return true;
         foreach (var file in files)

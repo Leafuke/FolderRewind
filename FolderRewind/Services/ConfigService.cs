@@ -806,6 +806,7 @@ namespace FolderRewind.Services
             {
                 var target = targetSnapshot ?? throw new InvalidOperationException("Local restore requires a detached target configuration snapshot.");
                 imported.GlobalSettings.OpenListRuntime = target.GlobalSettings.OpenListRuntime;
+                imported.GlobalSettings.RcloneExecutablePath = target.GlobalSettings.RcloneExecutablePath;
                 foreach (var project in imported.BackupConfigs)
                 {
                     var existing = target.BackupConfigs.FirstOrDefault(c => new History.Domain.HistoryConfigId(c.Id).Matches(project.Id));
@@ -1011,9 +1012,12 @@ namespace FolderRewind.Services
         private static void RemoveOnboardingMachineBindings(AppConfig config)
         {
             config.GlobalSettings.OpenListRuntime = new();
+            config.GlobalSettings.RcloneExecutablePath = "";
+            foreach (var preset in config.BackupPresets)
+                preset.Cloud = new() { RemoteBasePath = preset.Cloud.RemoteBasePath, TimeoutSeconds = preset.Cloud.TimeoutSeconds, RetryCount = preset.Cloud.RetryCount };
             foreach (var profile in config.CloudConnections)
             {
-                profile.CredentialReference = ""; profile.ExecutablePath = ""; profile.WorkingDirectory = "";
+                profile.CredentialReference = ""; profile.ImportedFromReference = ""; profile.ExecutablePath = ""; profile.WorkingDirectory = "";
                 profile.Access = CloudConnectionAccess.NeedsAuthentication; profile.VerificationEvidence = "";
                 profile.DependsOnLocalOpenList = false;
             }
@@ -1027,6 +1031,7 @@ namespace FolderRewind.Services
                 }
                 cloud.RcloneConfigPath = string.Empty;
                 cloud.ReadableEvidence = ""; cloud.WritableEvidence = "";
+                cloud.ArgumentsTemplate = ""; // 旧任意命令可能含认证参数；便携配置不能携带它们。
                 cloud.LocalOpenListServiceUri = string.Empty;
             }
         }

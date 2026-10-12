@@ -413,40 +413,11 @@
         <!-- 5. 云上传 -->
         <ScrollViewer x:Name="CloudTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
-                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudEnvironmentSection">
+                <settings:SettingsCard x:Uid="CloudConnections_ProjectBinding" ContentAlignment="Vertical">
                     <StackPanel Spacing="8">
-                        <TextBlock x:Uid="ConfigSettingsDialog_CloudExecutable" FontWeight="SemiBold"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="CloudExecutableBox" x:Uid="ConfigSettingsDialog_CloudExecutablePlaceholder" Text="{x:Bind ViewModel.CloudExecutablePathText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudExecutableBox"/>
-                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseCloudExecutableClick" x:Uid="ConfigSettingsDialog_CloudBrowseExecutable" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudBrowseExecutable">
-                                <FontIcon Glyph=""/>
-                            </Button>
-                        </Grid>
-                        <TextBlock Text="{x:Bind ViewModel.CloudExecutableDescription, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </settings:SettingsCard>
-                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudWorkingDirectory">
-                    <StackPanel Spacing="8">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="CloudWorkingDirectoryBox" x:Uid="ConfigSettingsDialog_CloudWorkingDirectoryPlaceholder" Text="{x:Bind ViewModel.CloudWorkingDirectoryText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudWorkingDirectoryBox"/>
-                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseCloudWorkingDirectoryClick" x:Uid="ConfigSettingsDialog_CloudBrowseWorkingDirectory" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudBrowseWorkingDirectory">
-                                <FontIcon Glyph=""/>
-                            </Button>
-                        </Grid>
-                    </StackPanel>
-                </settings:SettingsCard>
-                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudRemoteBasePath">
-                    <StackPanel Spacing="8">
-                        <TextBox x:Name="CloudRemoteBasePathBox" x:Uid="ConfigSettingsDialog_CloudRemoteBasePathPlaceholder" Text="{x:Bind ViewModel.CloudRemoteBasePathText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudRemoteBasePathBox"/>
-                        <TextBlock x:Uid="ConfigSettingsDialog_CloudRemoteBasePathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{x:Bind ViewModel.CloudRemoteBasePathText, Mode=OneWay}" TextWrapping="Wrap"/>
+                        <TextBlock x:Uid="CloudConnections_LocationBoundary" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock x:Uid="CloudConnection_LegacyNotice" Visibility="{x:Bind ViewModel.IsLegacyCustomCommandMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </settings:SettingsCard>
                 <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_CloudSyncSection">
@@ -471,28 +442,6 @@
                 </settings:SettingsCard>
                 <Expander x:Uid="SettingsCard_CloudAdvanced" HorizontalAlignment="Stretch" Margin="0,12,0,0" Visibility="{x:Bind ViewModel.ShowCloudUploadAdvancedSettings, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                     <StackPanel Spacing="12">
-                        <TextBlock x:Uid="ConfigSettingsDialog_CloudLegacyModeDesc" Visibility="{x:Bind ViewModel.IsLegacyCustomCommandMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        <Grid ColumnSpacing="8" Visibility="{x:Bind ViewModel.ShowCloudTemplateOptions, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox x:Uid="ConfigSettingsDialog_CloudTemplate" SelectedIndex="{x:Bind ViewModel.CloudTemplateSelectedIndex, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudTemplate">
-                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateArchive"/>
-                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateDirectory"/>
-                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateCustom"/>
-                            </ComboBox>
-                            <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_CloudApplyTemplate" Click="OnApplyCloudTemplateClick" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudApplyTemplate"/>
-                        </Grid>
-                        <StackPanel Spacing="8">
-                            <TextBlock x:Uid="ConfigSettingsDialog_CloudArguments" FontWeight="SemiBold"/>
-                            <TextBox x:Name="CloudArgumentsBox" x:Uid="ConfigSettingsDialog_CloudArgumentsPlaceholder" Text="{x:Bind ViewModel.CloudArgumentsTemplateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="84" AutomationProperties.AutomationId="CloudArgumentsBox"/>
-                            <TextBlock x:Uid="ConfigSettingsDialog_CloudArgumentsDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <StackPanel Spacing="4">
-                            <ToggleSwitch x:Uid="ConfigSettingsDialog_CloudSyncHistoryAfterUpload" IsOn="{x:Bind ViewModel.SyncHistoryAfterUpload, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudSyncHistoryAfterUpload"/>
-                            <TextBlock x:Uid="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        </StackPanel>
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -513,38 +462,6 @@
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
-                        <StackPanel Spacing="8">
-                            <TextBlock x:Uid="ConfigSettingsDialog_CloudVariables" FontWeight="SemiBold"/>
-                            <TextBlock x:Uid="ConfigSettingsDialog_CloudVariablesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                            <TextBox Text="{x:Bind ViewModel.CloudVariablesHelpText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" AutomationProperties.AutomationId="ProjectSettingsControl322"/>
-                        </StackPanel>
-                        <StackPanel Spacing="8">
-                            <TextBlock x:Uid="ConfigSettingsDialog_CloudPreview" FontWeight="SemiBold"/>
-                            <TextBox Text="{x:Bind ViewModel.CloudPreviewText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96" AutomationProperties.AutomationId="ProjectSettingsControl325"/>
-                        </StackPanel>
-                        <StackPanel Spacing="8">
-                            <TextBlock x:Uid="ConfigSettingsDialog_CloudLastStatus" FontWeight="SemiBold"/>
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Uid="ConfigSettingsDialog_CloudLastRunLabel"/>
-                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.CloudLastRunDisplay, Mode=OneWay}"/>
-                            </Grid>
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Uid="ConfigSettingsDialog_CloudLastExitCodeLabel"/>
-                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.CloudLastExitCodeDisplay, Mode=OneWay}"/>
-                            </Grid>
-                            <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.CloudLastErrorMessage, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}">
-                                <TextBlock x:Uid="ConfigSettingsDialog_CloudLastErrorLabel"/>
-                                <TextBlock Text="{x:Bind ViewModel.CloudLastErrorMessage, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            </StackPanel>
-                        </StackPanel>
                     </StackPanel>
                 </Expander>
             </StackPanel>
