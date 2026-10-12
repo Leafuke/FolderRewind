@@ -45,6 +45,11 @@ public sealed class HistoryRetentionPlanner
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(preferredRepresentations);
+        // 每次规划都从 Journal 重建操作根，调用者传 Empty 也不能绕过云保护。
+        var cloudRoots = _history.CloudJobs.ProtectedRoots();
+        request = new HistoryRetentionRequest(request.KeepCount,
+            new HistoryRetentionOperationRoots(request.ActiveOperations.Versions, request.ActiveOperations.RepresentationIds.Concat(cloudRoots)),
+            request.AllowPostMigrationCleanup) { SourceScope = request.SourceScope };
         await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
 
         var checkpointsTask = _history.Query.GetAllCheckpointsAsync(cancellationToken);
@@ -432,7 +437,7 @@ public sealed class HistoryRetentionPlanner
             annotations,
             policyTips,
             allRepresentations,
-            catalog);
+            catalog) + ":" + _history.CloudJobs.ProtectionFingerprint();
         return new HistoryRetentionPlan(
             HistoryTransactionId.New(),
             request,

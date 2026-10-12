@@ -32,6 +32,8 @@ public sealed class RcloneExecutionContext : IDisposable
     public string RemoteRoot { get; }
     public string SnapshotPath { get; }
     public string RevisionEvidence => Convert.ToHexString(_revision);
+    public string TargetRevisionEvidence { get; }
+    internal Action? TargetGuard { get; set; }
     private bool _disposed;
     public RcloneExecutionContext(string executable, string configPath, string workingDirectory, string remoteRoot, string taskRoot,
         bool allowTokenWriteback = false)
@@ -64,6 +66,7 @@ public sealed class RcloneExecutionContext : IDisposable
             throw RcloneConnectionDiagnostics.InvalidFailure("cloud.remote-mismatch", "CloudSetup_RemoteMismatch");
         _revision = SHA256.HashData(content);
         SourceBytes = content;
+        TargetRevisionEvidence = RcloneCredentialRefresh.TargetRevision(content);
         AllowedTokenSections = RcloneCredentialRefresh.AuthenticationSections(content, remoteName);
         if (AllowedTokenSections.Length != 0 && !allowTokenWriteback)
             throw RcloneConnectionDiagnostics.InvalidFailure("connection.external-oauth-unsupported", "CloudConnection_ExternalOAuthUnsupported");
@@ -163,6 +166,7 @@ public sealed class RcloneExecutionContext : IDisposable
     }
     public ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments)
     {
+        TargetGuard?.Invoke();
         RequireUnchanged();
         if (arguments.Count == 0 || !new[] { "ls", "lsf", "lsl", "lsjson", "cat", "copy", "copyto", "sync", "move", "moveto", "delete", "deletefile", "purge", "mkdir", "check", "checksum", "hashsum", "size", "about", "version" }
             .Contains(arguments[0], StringComparer.OrdinalIgnoreCase)

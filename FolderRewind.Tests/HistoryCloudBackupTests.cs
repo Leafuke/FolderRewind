@@ -139,6 +139,37 @@ public sealed class HistoryCloudBackupTests
     }
 
     [TestMethod]
+    public async Task ConcurrentActiveAndRetiredFactsCannotMakeAReplicaReusable()
+    {
+        var fixture = await FixtureAsync(); await using var runtime = fixture.Runtime;
+        var transport = new MemoryReplicaTransport();
+        var service = new HistoryCloudBackupService(runtime, transport, _ => Task.FromResult(Metadata(true)));
+        Task<string?> Local(RepresentationId id, CancellationToken token) => Task.FromResult<string?>(fixture.Paths.GetValueOrDefault(id));
+        Assert.IsTrue((await service.UploadClosureAsync([fixture.Delta], Local)).Complete);
+        var replica = (await runtime.Query.GetStorageReplicasAsync(fixture.Base)).Single();
+        var retired = new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), replica.ReplicaId, [], ReplicaLifecycleState.Retired, DateTimeOffset.UtcNow, "concurrent retirement");
+        await runtime.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow, [new HistoryPackCodec().CreateObject(retired)]));
+        await runtime.EnsureIndexCurrentAsync();
+        Assert.IsFalse(HistoryCloudReplicaValidity.IsActive(await runtime.Query.GetReplicaLifecycleUpdatesAsync(replica.ReplicaId)));
+        File.Delete(fixture.Paths[fixture.Base]);
+        var retry = await service.UploadClosureAsync([fixture.Delta], Local);
+        Assert.IsFalse(retry.Complete);
+        Assert.AreEqual(HistoryCloudItemState.Failed, retry.Items[0].State);
+    }
+
+    [TestMethod]
+    public async Task MissingManifestCannotPublishOrReuseACompleteCloudBackup()
+    {
+        var fixture = await FixtureAsync(); await using var runtime = fixture.Runtime;
+        var transport = new MemoryReplicaTransport { HideManifests = true };
+        var service = new HistoryCloudBackupService(runtime, transport, _ => Task.FromResult(Metadata(true)));
+        var result = await service.UploadClosureAsync([fixture.Delta], (id, token) => Task.FromResult<string?>(fixture.Paths.GetValueOrDefault(id)));
+        Assert.IsFalse(result.Complete);
+        Assert.IsEmpty(await runtime.Query.GetStorageReplicasAsync(fixture.Base));
+        StringAssert.Contains(result.Items[0].Diagnostic, "cloud.manifest-invalid");
+    }
+
+    [TestMethod]
     public async Task MetadataAloneCannotMakeMissingLocalClosureComplete()
     {
         var fixture = await FixtureAsync(); await using var runtime = fixture.Runtime;
@@ -153,9 +184,11 @@ public sealed class HistoryCloudBackupTests
     private sealed class MemoryReplicaTransport : IHistoryReplicaTransport
     {
         private readonly Dictionary<ReplicaId, byte[]> _payloads = [];
+        public readonly Dictionary<ReplicaId, HistoryReplicaManifest> Manifests = [];
         public int UploadCount { get; private set; }
         public int ManifestCount { get; private set; }
         public bool Corrupt { get; set; }
+        public bool HideManifests { get; set; }
         public int CancellationPoint { get; set; }
         public CancellationBarrier? Barrier { get; init; }
         public async Task UploadAsync(ReplicaId id, string path, CancellationToken token)
@@ -170,7 +203,8 @@ public sealed class HistoryCloudBackupTests
             var bytes = _payloads[id];
             return new HistoryReplicaVerification(true, bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)), "");
         }
-        public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) { ManifestCount++; return Task.CompletedTask; }
+        public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) { ManifestCount++; Manifests.TryAdd(manifest.ReplicaId, manifest); return Task.CompletedTask; }
+        public Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId id, CancellationToken token) => Task.FromResult(HideManifests ? null : Manifests.GetValueOrDefault(id));
         public Task DownloadAsync(HistoryReplicaManifest manifest, string path, CancellationToken token) => throw new InvalidOperationException();
         public Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token) => throw new InvalidOperationException();
     }

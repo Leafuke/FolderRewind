@@ -1026,6 +1026,7 @@ namespace FolderRewind.Services
                     cloud.WorkingDirectory = string.Empty;
                 }
                 cloud.RcloneConfigPath = string.Empty;
+                cloud.ReadableEvidence = ""; cloud.WritableEvidence = "";
                 cloud.LocalOpenListServiceUri = string.Empty;
             }
         }

@@ -30,12 +30,19 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     public Task CreateDescriptorOnceAsync(HistoryConfigId id, byte[] bytes, CancellationToken token) => WriteOnceAsync(HistoryRoot(id) + "/repository.json", bytes, token);
     public async Task<IReadOnlyList<PackId>> ListPacksAsync(HistoryConfigId id, CancellationToken token)
     {
-        var output = await RunAsync(["lsf", HistoryRoot(id), "--files-only", "--recursive"], token).ConfigureAwait(false);
-        var lines = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-        if (lines.Length > OnboardingOperationBudgets.RemoteInteraction) throw new IOException(I18n.GetString("CloudSetup_OutputTruncated"));
-        return lines.Where(line => line.EndsWith(".frpack", StringComparison.OrdinalIgnoreCase))
-            .Select(line => PackId.Parse(Path.GetFileNameWithoutExtension(line.Replace('/', Path.DirectorySeparatorChar))))
-            .Distinct().ToArray();
+        var packs = new HashSet<PackId>();
+        // 完整仓库枚举独立于交互式浏览预算；有界流式读取，达到容量即失败，绝不以截断集合做 union。
+        await RcloneConnectionService.RunLinesAsync(context.CreateStartInfo(["lsf", HistoryRoot(id), "--files-only", "--recursive"]), _timeout, token, line =>
+        {
+            if (!line.EndsWith(".frpack", StringComparison.OrdinalIgnoreCase)) return;
+            var name = line.Split('/').Last();
+            var pack = PackId.Parse(name[..^7]);
+            if (line != "packs/" + pack.ToString()[..2] + "/" + pack + ".frpack")
+                throw new InvalidDataException("Commit Pack path does not match its identity.");
+            packs.Add(pack);
+            if (packs.Count > 200000) throw new IOException(I18n.GetString("CloudSetup_OutputTruncated"));
+        }).ConfigureAwait(false);
+        return packs.OrderBy(p => p.ToString(), StringComparer.Ordinal).ToArray();
     }
     public Task<byte[]> DownloadPackAsync(HistoryConfigId id, PackId pack, CancellationToken token) => ReadBytesAsync(PackPath(id, pack), token);
     public Task UploadPackOnceAsync(HistoryConfigId id, PackId pack, byte[] bytes, CancellationToken token) => WriteOnceAsync(PackPath(id, pack), bytes, token);
@@ -56,6 +63,16 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     }
     public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token)
         => WriteOnceAsync(ReplicaRoot(manifest.ReplicaId) + "/manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest, RcloneTransportJsonContext.Default.HistoryReplicaManifest), token);
+    public async Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId replicaId, CancellationToken token)
+    {
+        try
+        {
+            var bytes = await RcloneConnectionService.RunBytesAsync(context.CreateStartInfo(["cat", ReplicaRoot(replicaId) + "/manifest.json"]), _timeout, token, 64 * 1024).ConfigureAwait(false);
+            return JsonSerializer.Deserialize(bytes, RcloneTransportJsonContext.Default.HistoryReplicaManifest)
+                ?? throw new InvalidDataException("[cloud.manifest-invalid] Empty replica manifest.");
+        }
+        catch (RcloneProcessException ex) when (ex.ExitCode is 3 or 4) { return null; }
+    }
     public Task DownloadAsync(HistoryReplicaManifest manifest, string stagingPath, CancellationToken token)
         => CopyAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, false, token);
     public async Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token)

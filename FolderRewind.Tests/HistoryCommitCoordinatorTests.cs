@@ -3,6 +3,7 @@ using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
+using FolderRewind.History.Cloud;
 using System.Security.Cryptography;
 
 namespace FolderRewind.Tests;
@@ -24,6 +25,69 @@ public sealed class HistoryCommitCoordinatorTests
     public void Cleanup()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    [TestMethod]
+    [DataRow("before-prepared")]
+    [DataRow("prepared")]
+    [DataRow("before-activate")]
+    public async Task CloudAdmissionReconcilesCommitGapsBeforeReleasingCleanup(string fault)
+    {
+        PackId committed;
+        var target = new CloudJobTarget("profile", "profile-revision", "binding", "original:/backup", _configId.Value);
+        await using (var runtime = await CreateRuntimeAsync())
+        {
+            runtime.CloudJobs.ConfigureAdmission(target);
+            runtime.CloudJobs.Checkpoint = point => { if (point == fault) throw new IOException("injected cloud journal failure"); };
+            var source = SourceId.New();
+            var batch = await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, CreateCapture(source, "first", -1, null)));
+            committed = batch.Pack.PackId;
+            Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+            Assert.ThrowsExactly<InvalidDataException>(() => runtime.CloudJobs.RequireCleanupSafe());
+            Assert.IsTrue(File.Exists((await runtime.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries.Single().Locator.AbsolutePath));
+        }
+        await using var restarted = await CreateRuntimeAsync();
+        var job = restarted.CloudJobs.Read().Jobs.Single();
+        Assert.AreEqual(committed, job.PackId);
+        Assert.AreEqual(target, job.Target);
+        Assert.AreEqual(CloudJobPhase.Pending, job.Phase);
+        Assert.AreEqual(CloudProtectionDisposition.Held, job.Protection);
+        Assert.HasCount(1, restarted.CloudJobs.ProtectedRoots());
+        Assert.ThrowsExactly<InvalidOperationException>(() => restarted.CloudJobs.RequireCleanupSafe());
+    }
+
+    [TestMethod]
+    public async Task CloudAdmissionIncludesReusedVersionAndCancelKeepsProtection()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "first", -1, null)));
+        runtime.CloudJobs.ConfigureAdmission(new("profile", "revision", "binding", "remote:backup", _configId.Value));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var unchanged = SourceCaptureResult.NoChanges(source, CaptureScope.FullSource, workspace.StateRevision, first.NewVersions.Single().VersionId, "state-first");
+        var next = await runtime.Commit.CommitAsync(Request(snapshot, workspace, unchanged));
+        Assert.IsEmpty(next.NewRepresentations);
+        var job = runtime.CloudJobs.Read().Jobs.Single();
+        Assert.AreEqual(first.NewRepresentations.Single().RepresentationId, job.Representations.Single());
+        var fingerprint = runtime.CloudJobs.ProtectionFingerprint();
+        runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Canceled });
+        Assert.AreNotEqual(fingerprint, runtime.CloudJobs.ProtectionFingerprint());
+        Assert.ThrowsExactly<InvalidOperationException>(() => runtime.CloudJobs.RequireCleanupSafe());
+        runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Canceled, Protection = CloudProtectionDisposition.Abandoned });
+        runtime.CloudJobs.RequireCleanupSafe();
+    }
+
+    [TestMethod]
+    public async Task DamagedCloudJournalBlocksCleanupButAllowsLocalBackup()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        Directory.CreateDirectory(Path.GetDirectoryName(runtime.CloudJobs.JournalPath)!);
+        File.WriteAllText(runtime.CloudJobs.JournalPath, "{ invalid cloud evidence");
+        var source = SourceId.New();
+        var batch = await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, CreateCapture(source, "first", -1, null)));
+        Assert.AreEqual(BackupRunOutcome.Completed, batch.Run.Outcome);
+        Assert.ThrowsExactly<InvalidDataException>(() => runtime.CloudJobs.RequireCleanupSafe());
+        StringAssert.Contains(File.ReadAllText(runtime.CloudJobs.JournalPath), "invalid cloud evidence");
     }
 
     [TestMethod]

@@ -30,6 +30,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     private string? _analysisFolder;
     private TaskCompletionSource<bool>? _restoreFinished;
     private string? _inspectionEvidence;
+    private string? _readableEvidence, _writableEvidence;
     private int _nextDirectoryOffset = -1;
     public bool CanBrowseMore => !IsBusy && _nextDirectoryOffset >= 0;
     private bool _restoring, _disposed;
@@ -145,6 +146,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     {
         MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState));
         _revision++; _request?.Cancel(); _saved = false;
+        _readableEvidence = null; _writableEvidence = null;
         InvalidateAnalysis();
         SelectedRepositoryIndex = -1; RecoveryRepositories.Clear(); _repositoryFolders.Clear();
         _nextDirectoryOffset = -1; OnPropertyChanged(nameof(CanBrowseMore));
@@ -232,6 +234,8 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         using var context = CreateContext();
         var result = await RcloneConnectionService.BrowseAsync(context, token, offset);
         if (revision != _revision || _lifetime.IsCancellationRequested) return;
+        _inspectionEvidence = context.RevisionEvidence;
+        _readableEvidence = context.TargetRevisionEvidence + "|" + RemoteRoot;
         Directories.Clear(); foreach (var name in result.Names) Directories.Add(name);
         OnPropertyChanged(nameof(HasDirectories));
         _nextDirectoryOffset = result.NextOffset; OnPropertyChanged(nameof(CanBrowseMore));
@@ -245,6 +249,8 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         var result = await RcloneConnectionService.VerifyWriteAsync(context, token);
         if (result.RetainedObject is not null) NotificationService.ShowWarning(I18n.Format("CloudSetup_ProbeRetained", result.RetainedObject));
         if (revision != _revision || _lifetime.IsCancellationRequested) return;
+        _inspectionEvidence = context.RevisionEvidence;
+        _writableEvidence = result.ReadWriteVerified ? context.TargetRevisionEvidence + "|" + RemoteRoot : null;
         Message = I18n.GetString(result.ReadWriteVerified ? "CloudSetup_WriteVerifiedShort" : "CloudSetup_WriteFailedShort")
             + (result.RetainedObject is null ? "" : "\n" + I18n.GetString("CloudSetup_ProbeCleanup"));
         var details = CloudCommandSecurity.Redact(result.Diagnostic)
@@ -264,6 +270,10 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         draft.Draft.Cloud.WorkingDirectory = WorkingDirectory;
         draft.Draft.Cloud.RemoteBasePath = RemoteRoot;
         draft.Draft.Cloud.CommandMode = CloudCommandMode.Rclone;
+        draft.Draft.Cloud.LegacyConversionRequired = false;
+        draft.Draft.Cloud.ReadableEvidence = _readableEvidence ?? "";
+        draft.Draft.Cloud.WritableEvidence = _writableEvidence ?? "";
+        if (_writableEvidence is null) draft.Draft.Cloud.Enabled = false;
         token.ThrowIfCancellationRequested();
         ConfigSaveResult result;
         try { result = await draft.CommitAsync(); }

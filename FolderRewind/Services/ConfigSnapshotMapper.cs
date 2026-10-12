@@ -311,6 +311,8 @@ internal static class ConfigSnapshotMapper
         RemotePathSuffix = value.RemotePathSuffix,
         BindingRevision = value.BindingRevision,
         LegacyConversionRequired = value.LegacyConversionRequired,
+        WritableEvidence = value.WritableEvidence,
+        ReadableEvidence = value.ReadableEvidence,
         Enabled = value.Enabled,
         CommandMode = value.CommandMode,
         TemplateKind = value.TemplateKind,

@@ -304,6 +304,17 @@ public sealed class HistoryCommitCoordinator
                 currentCatalog,
                 cancellationToken).ConfigureAwait(false);
             preparedPack = batch.Pack;
+            try
+            {
+                var graph = (await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false))
+                    .Concat(batch.NewRepresentations).ToArray();
+                _runtime.CloudJobs.Prepare(batch, graph);
+            }
+            catch (Exception ex)
+            {
+                // 云准备失败不回滚本地成功；原接纳区间仍可用本机事务补账，清理保持暂停。
+                _runtime.CloudJobs.ObserveFailure(ex);
+            }
             var intents = new List<HistoryLocalStateIntent>(2);
             if (batch.UpdatedWorkspace is not null)
             {
@@ -340,6 +351,8 @@ public sealed class HistoryCommitCoordinator
                     ex);
             }
             await _runtime.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
+            try { _runtime.CloudJobs.Activate(batch.Pack.PackId); }
+            catch (Exception ex) { _runtime.CloudJobs.ObserveFailure(ex); }
 
             bool indexRefreshSucceeded;
             try

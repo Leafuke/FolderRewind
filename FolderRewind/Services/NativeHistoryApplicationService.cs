@@ -452,9 +452,7 @@ internal static partial class NativeHistoryApplicationService
                 replicas.Add(replica);
                 var updates = await runtime.Query.GetReplicaLifecycleUpdatesAsync(replica.ReplicaId, cancellationToken)
                     .ConfigureAwait(false);
-                var parents = updates.SelectMany(item => item.ParentUpdateIds).ToHashSet();
-                if (updates.Where(item => !parents.Contains(item.UpdateId))
-                    .Any(item => item.State == ReplicaLifecycleState.Active))
+                if (History.Cloud.HistoryCloudReplicaValidity.IsActive(updates))
                 {
                     active.Add(replica.ReplicaId);
                 }

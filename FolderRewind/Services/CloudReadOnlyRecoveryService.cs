@@ -52,9 +52,7 @@ internal static class CloudReadOnlyRecoveryService
             .OrderBy(r => r.ReplicaId.ToString(), StringComparer.Ordinal))
         {
             var updates = await runtime.Query.GetReplicaLifecycleUpdatesAsync(replica.ReplicaId, token).ConfigureAwait(false);
-            var parents = updates.SelectMany(u => u.ParentUpdateIds).ToHashSet();
-            var leaves = updates.Where(u => !parents.Contains(u.UpdateId)).ToArray();
-            if (leaves.Length > 0 && leaves.All(u => u.State == ReplicaLifecycleState.Active)) result.Add(replica);
+            if (HistoryCloudReplicaValidity.IsActive(updates)) result.Add(replica);
         }
         return result;
     }

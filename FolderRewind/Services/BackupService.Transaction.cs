@@ -121,6 +121,8 @@ public static partial class BackupService
         timing.MarkPhase("preflight");
         var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
         await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
+        await CloudSyncService.PrepareCloudAdmissionAsync(config,
+            await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
         var startedAtUtc = DateTimeOffset.UtcNow;
         int configIndex = GetConfigIndex(config);
@@ -403,7 +405,7 @@ public static partial class BackupService
         {
             CloudSyncService.QueueNativeHistorySync(
                 config,
-                committedBatch.NewRepresentations.Select(item => item.RepresentationId));
+                committedBatch);
         }
         catch (Exception ex)
         {

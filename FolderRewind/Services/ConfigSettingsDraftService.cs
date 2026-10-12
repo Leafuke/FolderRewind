@@ -50,6 +50,10 @@ internal sealed class ConfigSettingsDraftService
         }
         ConfigMutationProtection.RequireWritable(current);
         var replacement = BackupConfigCloneService.CloneForRuntimeMutation(Draft, I18n.GetString("Common_Failed"));
+        if (replacement.Cloud.Enabled != current.Cloud.Enabled || replacement.Cloud.RemoteBasePath != current.Cloud.RemoteBasePath
+            || replacement.Cloud.ConnectionProfileId != current.Cloud.ConnectionProfileId
+            || replacement.Cloud.RcloneConfigPath != current.Cloud.RcloneConfigPath)
+            await CloudSyncService.CloseCloudAdmissionAsync(current, token);
         replacement.ConfigRevision = Guid.NewGuid().ToString("N");
         var index = configs.IndexOf(current);
         var oldProfiles = ConfigService.CurrentConfig.CloudConnections.ToArray();
@@ -70,6 +74,7 @@ internal sealed class ConfigSettingsDraftService
         Draft.Cloud.RemotePathSuffix = replacement.Cloud.RemotePathSuffix;
         Draft.Cloud.BindingRevision = replacement.Cloud.BindingRevision;
         _baseline = Serialize(Draft);
+        CloudSyncService.ResumeCloudJobs(replacement);
         return new() { Success = true };
     }
 }

@@ -8,6 +8,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,6 +37,7 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
             || !RcloneExecutionContext.TryFind(start.ArgumentList[index + 1], out var context)) return null;
         var path = context.ConfigPath;
         RejectReparsePoints(path); RejectReparsePoints(context.TaskDirectory);
+        RejectHardLinks(path);
         var gate = Gates.GetOrAdd(path, _ => new(1, 1));
         await gate.WaitAsync(token).ConfigureAwait(false);
         FileStream? fileLock = null;
@@ -235,7 +238,26 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         for (string? current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
             if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) throw Conflict();
     }
+    internal static void RejectHardLinks(string path)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        if (!GetFileInformationByHandle(handle, out var info) || info.NumberOfLinks != 1) throw Conflict();
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FileInformation
+    {
+        public uint Attributes;
+        public System.Runtime.InteropServices.ComTypes.FILETIME Creation, Access, Write;
+        public uint VolumeSerial, SizeHigh, SizeLow, NumberOfLinks, IndexHigh, IndexLow;
+    }
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out FileInformation information);
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
+    internal static string TargetRevision(byte[] bytes)
+        => Hash(Encoding.UTF8.GetBytes(string.Join("\n", Parse(bytes).Where(p => !p.Key.EndsWith("\0token", StringComparison.Ordinal))
+            .OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + "=" + p.Value))));
     private static InvalidOperationException Conflict() => RcloneConnectionDiagnostics.InvalidFailure("connection.refresh-conflict", "CloudConnection_RefreshConflict");
     public ValueTask DisposeAsync()
     {

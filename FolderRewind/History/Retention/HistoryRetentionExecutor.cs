@@ -54,6 +54,7 @@ public sealed class HistoryRetentionExecutor
             return Result(HistoryRetentionExecutionStatus.Blocked, string.Join(" ", plan.Blockers));
 
         await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
+        _history.CloudJobs.RequireCleanupSafe();
         var current = await _planner.PlanAsync(
             plan.Request,
             ImmutableDictionary<VersionId, RepresentationId>.Empty,
@@ -148,6 +149,7 @@ public sealed class HistoryRetentionExecutor
             {
                 try
                 {
+                    _history.CloudJobs.RequireCleanupSafe();
                     await _payloads.DeleteAsync(deletion.ResolvedPath, CancellationToken.None).ConfigureAwait(false);
                     deletedBytes = checked(deletedBytes + deletion.EstimatedBytes);
                 }

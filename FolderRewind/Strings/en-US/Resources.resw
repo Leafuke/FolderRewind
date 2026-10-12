@@ -6605,4 +6605,9 @@ Cloud switch: {2} → {3}</value>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>The legacy custom upload command has not been converted to Native History cloud backup. Convert it explicitly in the connection wizard before enabling uploads.</value></data>
   <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>Authentication refresh evidence cannot be merged safely. Keep the credential snapshots and authorize again; new calls using these credentials are paused.</value></data>
   <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth connections require safe persistence of refreshed tokens. Copy the configuration into FolderRewind managed credentials first.</value></data>
+  <data name="CloudJob_RunningCannotRelease" xml:space="preserve"><value>A cloud task is running. Payload protection cannot be abandoned yet.</value></data>
+  <data name="CloudJob_WriteVerificationRequired" xml:space="preserve"><value>Verify write access to the current directory in the cloud connection wizard, then retry.</value></data>
+  <data name="CloudJob_TargetChanged" xml:space="preserve"><value>The cloud target changed. The previous task is paused and still protects local payloads.</value></data>
+  <data name="CloudJob_Uploading" xml:space="preserve"><value>Uploading the version and its dependencies; local payloads are protected</value></data>
+  <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>Cloud backup is incomplete. Local payloads remain protected; review cloud tasks and retry</value></data>
 </root>

@@ -48,6 +48,7 @@ public static class NativeHistoryCoreGateway
                 var runtime = await EnsureReadyAsync(config, configDirectory, legacy, cancellationToken).ConfigureAwait(false);
                 await new LegacyTakeoverService(configDirectory, new HistoryConfigId(config.Id))
                     .ResumeAsync(runtime, MigrationSources(config), config.DestinationPath, cancellationToken).ConfigureAwait(false);
+                CloudSyncService.ResumeCloudJobs(config);
             }
             catch
             {

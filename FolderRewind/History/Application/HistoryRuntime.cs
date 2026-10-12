@@ -56,6 +56,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
         Commit = new HistoryCommitCoordinator(this, _codec);
+        CloudJobs = new Cloud.HistoryCloudJobJournal(this);
         Branches = new HistoryBranchService(this, _codec);
         Annotations = new HistoryAnnotationService(this, _codec);
         MaterializationPolicies = new MaterializationPolicyService(this, _codec);
@@ -74,6 +75,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public HistoryChangeFeed ChangeFeed { get; }
     public HistoryQueryService Query { get; }
     public HistoryCommitCoordinator Commit { get; }
+    public Cloud.HistoryCloudJobJournal CloudJobs { get; }
     public HistoryBranchService Branches { get; }
     public HistoryAnnotationService Annotations { get; }
     public MaterializationPolicyService MaterializationPolicies { get; }
@@ -86,6 +88,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         if (!Directory.Exists(MergeSessions.Root)) return true;
         try
         {
+            CloudJobs.RequireCleanupSafe();
             var catalog = (await LocalReplicaCatalogStore.LoadAsync(CancellationToken.None).ConfigureAwait(false)).Value;
             if (catalog is null) throw new InvalidDataException("Merge cleanup requires a valid replica catalog.");
             MergeSessions.CleanupTerminalArtifacts(catalog);
@@ -117,7 +120,10 @@ public sealed class HistoryRuntime : IAsyncDisposable
                 localRecovery.ApplyCommittedStateAsync,
                 (_, _) => Task.CompletedTask,
                 cancellationToken).ConfigureAwait(false);
-            await CleanupMergeArtifactsAsync().ConfigureAwait(false);
+            try { CloudJobs.Replay(packs); }
+            catch (Exception ex) { CloudJobs.ObserveFailure(ex); MaintenanceDiagnostic = ex.Message; }
+            if (CloudJobs.Diagnostic is null && CloudJobs.ProtectedRoots().IsEmpty)
+                await CleanupMergeArtifactsAsync().ConfigureAwait(false);
 
             var rebuilt = false;
             try
@@ -182,11 +188,11 @@ public sealed class HistoryRuntime : IAsyncDisposable
         }
     }
 
-    internal async Task RecoverChainRewritesAsync(CancellationToken token)
+    internal async Task RecoverChainRewritesAsync(CancellationToken token, bool insideMutationGate = false)
     {
         if (!Retention.HistoryChainRewriteJournalStore.HasPending(Repository.Paths.LocalStateRoot)) return;
         await EnsureIndexCurrentAsync(token).ConfigureAwait(false);
-        var completed = await new Retention.HistoryChainRewriteJournalStore(this).RecoverAsync(token).ConfigureAwait(false);
+        var completed = await new Retention.HistoryChainRewriteJournalStore(this).RecoverAsync(token, insideMutationGate).ConfigureAwait(false);
         MaintenanceDiagnostic = completed ? null : "Backup chain recovery or archive reclamation needs attention; original archive bytes have been retained.";
         await RefreshLocalStateHealthAsync(token).ConfigureAwait(false);
         ChangeFeed.Publish(ConfigId, HistoryChangeKind.LocalStateChanged);

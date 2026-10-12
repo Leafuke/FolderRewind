@@ -219,6 +219,45 @@ public static class RcloneConnectionService
             if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
         }
     }
+    internal static async Task RunLinesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, Action<string> onLine)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
+        using var process = new Process { StartInfo = start };
+        if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
+        if (!process.Start()) throw new IOException(I18n.GetString("CloudSync_Error_StartFailed"));
+        var error = ReadBoundedAsync(process.StandardError, budget.Token);
+        try
+        {
+            if (credentials is not null) await credentials.StartedAsync(process, budget.Token).ConfigureAwait(false);
+            var buffer = new char[8192]; var line = new StringBuilder(); long total = 0; int count;
+            while ((count = await process.StandardOutput.ReadAsync(buffer.AsMemory(), budget.Token).ConfigureAwait(false)) != 0)
+            {
+                total += count;
+                if (total > 64 * 1024 * 1024) throw new IOException(I18n.GetString("CloudSetup_OutputTruncated"));
+                foreach (var value in buffer.AsSpan(0, count))
+                {
+                    if (value == '\n') { if (line.Length != 0) onLine(line.ToString().TrimEnd('\r')); line.Clear(); }
+                    else
+                    {
+                        if (line.Length >= 8192) throw new IOException(I18n.GetString("CloudSetup_OutputTruncated"));
+                        line.Append(value);
+                    }
+                }
+            }
+            if (line.Length != 0) onLine(line.ToString().TrimEnd('\r'));
+            await process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
+            var failure = await error.ConfigureAwait(false);
+            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, RcloneConnectionDiagnostics.ProcessMessage(start, failure));
+        }
+        finally
+        {
+            var interrupted = !process.HasExited;
+            if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
+            try { await error.ConfigureAwait(false); } catch { }
+            if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
+        }
+    }
     private static async Task<string> ReadBoundedAsync(StreamReader reader, CancellationToken token)
     {
         var output = new StringBuilder(); var buffer = new char[4096]; int count;

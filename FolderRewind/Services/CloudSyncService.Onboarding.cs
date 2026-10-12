@@ -3,6 +3,7 @@ using FolderRewind.History.Cloud;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
+using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using System;
 using System.Linq;
@@ -42,23 +43,14 @@ public static partial class CloudSyncService
         var assessment = await NativeHistoryApplicationService.PreviewExportAsync(config, version, token).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null) throw new InvalidOperationException(I18n.GetString("CloudSetup_VersionNotReady"));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
-        var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
-        var service = new HistoryCloudBackupService(runtime, CreateReplicaTransport(config), ct => metadata.SyncAsync(ct));
-        var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
-        var task = new BackupTask { FolderName = config.Name, Status = I18n.GetString("CloudSetup_UploadRunning"), IsIndeterminate = true };
-        await RunOnUIAsync(() => BackupService.ActiveTasks.Add(task)).ConfigureAwait(false);
-        try
-        {
-            var result = await service.UploadClosureAsync([assessment.Selected.RepresentationId], (id, ct) => Task.FromResult(catalog?.Entries
-                .FirstOrDefault(e => e.RepresentationId == id && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)?.Locator.AbsolutePath), token).ConfigureAwait(false);
-            await RunOnUIAsync(() => { task.IsCompleted = true; task.IsSuccess = result.Complete; task.IsIndeterminate = false;
-                task.Status = I18n.GetString(result.Canceled ? "Common_Canceled" : result.Complete ? "CloudSetup_UploadComplete" : "CloudSetup_UploadIncomplete"); task.ErrorMessage = result.Complete ? "" : task.Status; }).ConfigureAwait(false);
-            return result;
-        }
-        catch
-        {
-            await RunOnUIAsync(() => { task.IsCompleted = true; task.IsSuccess = false; task.IsIndeterminate = false; task.Status = I18n.GetString("CloudSetup_UploadIncomplete"); task.ErrorMessage = task.Status; }).ConfigureAwait(false);
-            throw;
-        }
+        var selected = assessment.Selected.RepresentationId;
+        var packs = await runtime.Repository.ReadAllPacksAsync(token).ConfigureAwait(false);
+        var pack = packs.First(p => p.Pack.Objects.Any(o => o.Kind == HistoryObjectKinds.VersionRepresentation && o.Id == selected.ToString())).Pack;
+        HistoryCloudJob job;
+        await using (var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false))
+            job = runtime.CloudJobs.RegisterManual(pack, FreezeTarget(config), [selected]);
+        var result = await ExecuteCloudJobAsync(runtime, job, token).ConfigureAwait(false);
+        if (!result.Complete) ResumeCloudJobs(config);
+        return result;
     }
 }

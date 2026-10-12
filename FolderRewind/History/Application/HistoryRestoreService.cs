@@ -61,8 +61,10 @@ public sealed class HistoryRestoreService
             await _history.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
             _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
         }
+        try { _history.CloudJobs.Replay(await _history.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false)); }
+        catch (Exception ex) { _history.CloudJobs.ObserveFailure(ex); }
         await _history.CleanupMergeArtifactsAsync().ConfigureAwait(false);
-        await _history.RecoverChainRewritesAsync(cancellationToken).ConfigureAwait(false);
+        await _history.RecoverChainRewritesAsync(cancellationToken, insideMutationGate: true).ConfigureAwait(false);
     }
 
     public async Task<HistoryRestoreResult> RestoreCheckpointAsync(
