@@ -23,10 +23,13 @@ namespace FolderRewind.Views.Settings
 
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
 
+        public MigrationViewModel Migration { get; } = new();
+
         public DataManagementControl()
         {
             this.InitializeComponent();
-            Loaded += (_, _) => RefreshMigrationStatus();
+            Loaded += OnMigrationLoaded;
+            MigrationStatusBar.Closed += (_, _) => Migration.HasReport = false;
         }
 
         public void SetViewModel(SettingsPageViewModel viewModel)
@@ -373,6 +376,7 @@ namespace FolderRewind.Views.Settings
 
         private void ShowInfoBar(string message, InfoBarSeverity severity)
         {
+            Migration.HasReport = true;
             MigrationStatusBar.Message = message;
             MigrationStatusBar.Severity = severity;
             MigrationStatusBar.IsOpen = true;

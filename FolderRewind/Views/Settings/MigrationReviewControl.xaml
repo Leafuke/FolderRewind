@@ -1,0 +1,40 @@
+<UserControl
+    x:Class="FolderRewind.Views.Settings.MigrationReviewControl"
+    x:DefaultBindMode="OneWay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FolderRewind.Views.Settings"
+    xmlns:vm="using:FolderRewind.ViewModels">
+    <StackPanel Spacing="12" MinWidth="280">
+        <TextBlock Text="{x:Bind ViewModel.Description}" TextWrapping="Wrap" />
+        <RadioButtons ItemsSource="{x:Bind ViewModel.ModeLabels}" SelectedIndex="{x:Bind ViewModel.SelectedMode, Mode=TwoWay}"
+                      Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(ViewModel.ShowModes)}" AutomationProperties.AutomationId="MigrationReviewMode" />
+        <TextBlock Text="{x:Bind ViewModel.SelectionSummary, Mode=OneWay}" />
+        <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(ViewModel.ShowSelectionActions), Mode=OneWay}">
+            <Button x:Uid="Migration_SelectAll" AutomationProperties.AutomationId="MigrationSelectAll" Click="OnSelectAll" />
+            <Button x:Uid="Migration_ClearSelection" AutomationProperties.AutomationId="MigrationClearSelection" Click="OnClearSelection" />
+        </StackPanel>
+        <ListView ItemsSource="{x:Bind ViewModel.Items}" SelectionMode="None" MaxHeight="320" HorizontalContentAlignment="Stretch"
+                  Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(ViewModel.ShowList), Mode=OneWay}" AutomationProperties.AutomationId="MigrationReviewProjects">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:MigrationReviewItem">
+                    <Grid ColumnSpacing="8" Padding="0,4">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <CheckBox Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(ShowSelection)}" AutomationProperties.AutomationId="MigrationSelectProject" IsChecked="{x:Bind Selected, Mode=TwoWay}" IsEnabled="{x:Bind CanSelect}" AutomationProperties.Name="{x:Bind Name}" />
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{x:Bind Name}" TextWrapping="Wrap" />
+                            <TextBlock Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(HasStatus)}" Text="{x:Bind Status}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <StackPanel Orientation="Horizontal" Spacing="12" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(ShowCapabilities)}">
+                                <CheckBox x:Uid="Migration_BackupCapability" AutomationProperties.AutomationId="MigrationSelectBackup" IsChecked="{x:Bind BackupSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanSelectBackup}" />
+                                <CheckBox x:Uid="Migration_CloudCapability" AutomationProperties.AutomationId="MigrationSelectCloud" IsChecked="{x:Bind CloudSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanSelectCloud}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button AutomationProperties.AutomationId="MigrationProjectDetails" Grid.Column="2" Content="&#xE712;" FontFamily="{StaticResource SymbolThemeFontFamily}" VerticalAlignment="Top" AutomationProperties.Name="{x:Bind Name}">
+                            <Button.Flyout><Flyout><TextBlock Text="{x:Bind Details}" TextWrapping="Wrap" IsTextSelectionEnabled="True" MaxWidth="360" /></Flyout></Button.Flyout>
+                        </Button>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </StackPanel>
+</UserControl>

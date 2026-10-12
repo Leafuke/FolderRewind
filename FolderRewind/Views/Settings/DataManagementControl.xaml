@@ -1,36 +1,16 @@
 <UserControl
     x:Class="FolderRewind.Views.Settings.DataManagementControl"
+    x:DefaultBindMode="OneWay"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:FolderRewind.ViewModels"
+    xmlns:local="using:FolderRewind.Views.Settings"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
     <StackPanel Spacing="8">
-        <InfoBar x:Name="MigrationStatusBar" AutomationProperties.AutomationId="MigrationStatus" IsOpen="False" />
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Button x:Name="RestartImportButton" AutomationProperties.AutomationId="MigrationRestart" Click="OnRestartImportClick" HorizontalAlignment="Stretch" Margin="0,0,8,8">
-                <TextBlock x:Uid="Migration_Restart" TextWrapping="Wrap" />
-            </Button>
-            <Button x:Name="CancelPendingButton" Grid.Column="1" AutomationProperties.AutomationId="MigrationCancelPending" Click="OnCancelPendingClick" HorizontalAlignment="Stretch" Margin="0,0,0,8">
-                <TextBlock x:Uid="Migration_CancelPending" TextWrapping="Wrap" />
-            </Button>
-            <Button x:Name="SetupProjectButton" Grid.Row="1" AutomationProperties.AutomationId="MigrationSetup" Click="OnSetupProjectClick" HorizontalAlignment="Stretch" Margin="0,0,8,0">
-                <TextBlock x:Uid="Migration_Setup" TextWrapping="Wrap" />
-            </Button>
-            <Button x:Name="CancelOperationButton" Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="MigrationCancelOperation" Click="OnCancelOperationClick" HorizontalAlignment="Stretch" IsEnabled="False">
-                <TextBlock x:Uid="Migration_CancelOperation" TextWrapping="Wrap" />
-            </Button>
-        </Grid>
         <!-- 扩展 -->
         <TextBlock x:Uid="SettingsPage_Section_Extensions" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
@@ -64,12 +44,43 @@
                 <TextBlock x:Uid="SettingsPage_DataMigration" AutomationProperties.AutomationId="SettingsDataMigrationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
-                <TextBlock x:Uid="SettingsPage_DataMigrationDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                <TextBlock Text="{x:Bind Migration.Summary, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource SettingsDescriptionStyle}" />
             </toolkit:SettingsExpander.Description>
             <toolkit:SettingsExpander.HeaderIcon>
                 <FontIcon Glyph="&#xE8DE;" />
             </toolkit:SettingsExpander.HeaderIcon>
             <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowPanel), Mode=OneWay}" HorizontalContentAlignment="Stretch">
+                    <StackPanel Spacing="12">
+                        <InfoBar x:Name="MigrationStatusBar" AutomationProperties.AutomationId="MigrationStatus" IsOpen="False" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowRestart), Mode=OneWay}">
+                            <Button x:Name="RestartImportButton" x:Uid="Migration_Restart" Click="OnRestartImportClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}" AutomationProperties.AutomationId="MigrationRestart" />
+                            <Button x:Name="CancelPendingButton" x:Uid="Migration_CancelPending" Click="OnCancelPendingClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}" AutomationProperties.AutomationId="MigrationCancelPending" />
+                        </StackPanel>
+                        <StackPanel Spacing="8" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowProgress), Mode=OneWay}">
+                            <ProgressBar IsIndeterminate="True" />
+                            <Button x:Name="CancelOperationButton" IsEnabled="{x:Bind Migration.CanCancel, Mode=OneWay}" x:Uid="Migration_CancelOperation" Click="OnCancelOperationClick" AutomationProperties.AutomationId="MigrationCancelOperation" />
+                        </StackPanel>
+                        <ListView ItemsSource="{x:Bind Migration.Projects}" MaxHeight="320" SelectionMode="None" HorizontalContentAlignment="Stretch"
+                                  Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowSetup), Mode=OneWay}" AutomationProperties.AutomationId="MigrationProjectStatus">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MigrationReviewItem">
+                                    <StackPanel Spacing="4" Padding="0,4">
+                                        <TextBlock Text="{x:Bind Name}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{x:Bind Status}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <StackPanel Spacing="8" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowSetup), Mode=OneWay}">
+                            <Button x:Uid="Migration_BatchReview" Click="OnBatchReviewClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}" AutomationProperties.AutomationId="MigrationBatchReview" />
+                            <Button x:Name="SetupProjectButton" Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.HasPathWork), Mode=OneWay}" x:Uid="Migration_Setup" Click="OnSetupProjectClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}" AutomationProperties.AutomationId="MigrationSetup" />
+                        </StackPanel>
+                        <Button x:Uid="Migration_ReadOriginal" Click="OnReadOriginalClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}"
+                                Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowLegacy), Mode=OneWay}" AutomationProperties.AutomationId="MigrationReadOriginal" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
                         <TextBlock x:Uid="SettingsPage_ConfigData" Style="{StaticResource SettingsHeaderTextStyle}" />
