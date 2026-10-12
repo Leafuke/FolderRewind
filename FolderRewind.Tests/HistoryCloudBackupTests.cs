@@ -107,6 +107,28 @@ public sealed class HistoryCloudBackupTests
     }
 
     [TestMethod]
+    public async Task DurableManifestBeforeLocalFactCancellationRetriesTheSameReplicaIntent()
+    {
+        var fixture = await FixtureAsync(); await using var runtime = fixture.Runtime;
+        using var cancellation = new CancellationTokenSource();
+        var transport = new MemoryReplicaTransport { AfterManifest = cancellation.Cancel };
+        var service = new HistoryCloudBackupService(runtime, transport, _ => Task.FromResult(Metadata(true)));
+        var ids = fixture.Paths.Keys.ToDictionary(id => id, _ => ReplicaId.New());
+        Task<string?> Local(RepresentationId id, CancellationToken _) => Task.FromResult<string?>(fixture.Paths[id]);
+        var first = await service.UploadClosureAsync([fixture.Delta], Local, cancellation.Token, id => ids[id]);
+        Assert.IsTrue(first.Canceled);
+        Assert.IsFalse(first.Complete);
+        Assert.HasCount(1, transport.Manifests);
+        Assert.IsEmpty(await runtime.Query.GetStorageReplicasAsync(fixture.Base));
+        transport.AfterManifest = null;
+        var retry = await service.UploadClosureAsync([fixture.Delta], Local, replicaIntent: id => ids[id]);
+        Assert.IsTrue(retry.Complete);
+        Assert.HasCount(2, transport.Manifests);
+        Assert.AreEqual(ids[fixture.Base], (await runtime.Query.GetStorageReplicasAsync(fixture.Base)).Single().ReplicaId);
+        Assert.AreEqual(ids[fixture.Delta], (await runtime.Query.GetStorageReplicasAsync(fixture.Delta)).Single().ReplicaId);
+    }
+
+    [TestMethod]
     public async Task ClosureUploadsDependenciesAndRetryReusesVerifiedPayloadAfterMetadataFailure()
     {
         var fixture = await FixtureAsync(); await using var runtime = fixture.Runtime;
@@ -191,6 +213,7 @@ public sealed class HistoryCloudBackupTests
         public bool HideManifests { get; set; }
         public int CancellationPoint { get; set; }
         public CancellationBarrier? Barrier { get; init; }
+        public Action? AfterManifest { get; set; }
         public async Task UploadAsync(ReplicaId id, string path, CancellationToken token)
         {
             UploadCount++;
@@ -203,7 +226,7 @@ public sealed class HistoryCloudBackupTests
             var bytes = _payloads[id];
             return new HistoryReplicaVerification(true, bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)), "");
         }
-        public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) { ManifestCount++; Manifests.TryAdd(manifest.ReplicaId, manifest); return Task.CompletedTask; }
+        public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) { ManifestCount++; Manifests.TryAdd(manifest.ReplicaId, manifest); AfterManifest?.Invoke(); return Task.CompletedTask; }
         public Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId id, CancellationToken token) => Task.FromResult(HideManifests ? null : Manifests.GetValueOrDefault(id));
         public Task DownloadAsync(HistoryReplicaManifest manifest, string path, CancellationToken token) => throw new InvalidOperationException();
         public Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token) => throw new InvalidOperationException();

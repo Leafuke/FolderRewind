@@ -33,6 +33,17 @@ public sealed class CloudConnectionModelTests
     }
 
     [TestMethod]
+    public void ProjectOwnerUsesGuidIdentityWithoutChangingSerializedId()
+    {
+        var id = Guid.NewGuid();
+        var profile = new CloudConnectionProfile { Scope = CloudConnectionScope.Project, OwnerProjectId = id.ToString("D"),
+            RemoteName = "remote", CredentialReference = Path.GetFullPath("credential.conf") };
+        var binding = CloudConnectionResolver.Resolve(profile, id.ToString("N"), "/original", "revision");
+        Assert.AreEqual("remote:/original", binding.RemoteRoot);
+        Assert.AreEqual(id.ToString("D"), profile.OwnerProjectId);
+    }
+
+    [TestMethod]
     [DataRow("C:\\local")]
     [DataRow(":local")]
     [DataRow("remote:path\nother:secret")]

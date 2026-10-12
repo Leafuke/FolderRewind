@@ -6610,4 +6610,33 @@ Cloud switch: {2} → {3}</value>
   <data name="CloudJob_TargetChanged" xml:space="preserve"><value>The cloud target changed. The previous task is paused and still protects local payloads.</value></data>
   <data name="CloudJob_Uploading" xml:space="preserve"><value>Uploading the version and its dependencies; local payloads are protected</value></data>
   <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>Cloud backup is incomplete. Local payloads remain protected; review cloud tasks and retry</value></data>
+  <data name="CloudJob_Header.Text" xml:space="preserve"><value>Cloud tasks and payload protection</value></data>
+  <data name="CloudJob_Refresh.Content" xml:space="preserve"><value>Refresh status</value></data>
+  <data name="CloudJob_Retry.Content" xml:space="preserve"><value>Retry pending tasks</value></data>
+  <data name="CloudJob_Cancel.Content" xml:space="preserve"><value>Cancel selected task</value></data>
+  <data name="CloudJob_Abandon.Content" xml:space="preserve"><value>Abandon selected protection</value></data>
+  <data name="CloudJob_AbandonTitle" xml:space="preserve"><value>Abandon pending payload protection</value></data>
+  <data name="CloudJob_AbandonDescription" xml:space="preserve"><value>Canceling a task retains protection. Abandoning protection allows local retention to delete payloads and dependencies that are not fully uploaded, so previous versions may become unrecoverable from the cloud. Remote data is retained.</value></data>
+  <data name="CloudJob_Detail" xml:space="preserve"><value>Task: {0}
+Protection: {1}
+Diagnostic: {2}
+Attempts: {3}</value></data>
+  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>Local payload protection held</value></data>
+  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>Release or abandonment persisted</value></data>
+  <data name="CloudJob_Phase_Prepared" xml:space="preserve"><value>Awaiting local commit confirmation</value></data>
+  <data name="CloudJob_Phase_Pending" xml:space="preserve"><value>Pending upload</value></data>
+  <data name="CloudJob_Phase_Resolving" xml:space="preserve"><value>Resolving dependencies</value></data>
+  <data name="CloudJob_Phase_Uploading" xml:space="preserve"><value>Uploading</value></data>
+  <data name="CloudJob_Phase_Verifying" xml:space="preserve"><value>Verifying</value></data>
+  <data name="CloudJob_Phase_SyncingMetadata" xml:space="preserve"><value>Syncing metadata</value></data>
+  <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>Cloud backup complete</value></data>
+  <data name="CloudJob_Phase_RetryableFailure" xml:space="preserve"><value>Waiting to retry</value></data>
+  <data name="CloudJob_Phase_Paused" xml:space="preserve"><value>Paused</value></data>
+  <data name="CloudJob_Phase_NeedsAttention" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="CloudJob_Phase_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="CloudJob_Phase_Aborted" xml:space="preserve"><value>Local transaction not committed</value></data>
+  <data name="CloudJob_RegistrationNeedsAttention" xml:space="preserve"><value>Local backup completed, but cloud registration or reconciliation needs attention. Destructive cleanup is paused; keep local payloads and cloud task evidence.</value></data>
+  <data name="CloudJob_InitializeMissing.Content" xml:space="preserve"><value>Only when the journal is missing: initialize future admission</value></data>
+  <data name="CloudJob_InitializeMissingDescription" xml:space="preserve"><value>This action is available only when the cloud journal is missing; it does not replace an existing or damaged journal. Confirmation explicitly abandons unknown previous payload protection and admits future local backups only. Previous versions are not uploaded automatically, and cleanup can make unuploaded versions unrecoverable. Recover the original journal or manually upload important versions first. The new baseline and abandonment decision are persisted together.</value></data>
+  <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>This backend's credential refresh cannot be safely merged yet. Use a supported connection or reauthorize; cloud calls are paused and credential evidence is retained.</value></data>
 </root>

@@ -11,7 +11,9 @@ public static class CloudConnectionResolver
 {
     public static ResolvedCloudConnection Resolve(CloudConnectionProfile profile, string projectId, string suffix, string bindingRevision)
     {
-        if (profile.Scope == CloudConnectionScope.Project && profile.OwnerProjectId != projectId)
+        var sameOwner = Guid.TryParse(profile.OwnerProjectId, out var ownerGuid) && Guid.TryParse(projectId, out var projectGuid)
+            ? ownerGuid == projectGuid : profile.OwnerProjectId == projectId;
+        if (profile.Scope == CloudConnectionScope.Project && !sameOwner)
             throw new InvalidOperationException("[connection.owner-mismatch] Project connection belongs to a different project.");
         if (string.IsNullOrEmpty(profile.Id) || string.IsNullOrEmpty(profile.ProfileRevision) || string.IsNullOrEmpty(bindingRevision)
             || !Path.IsPathFullyQualified(profile.CredentialReference))

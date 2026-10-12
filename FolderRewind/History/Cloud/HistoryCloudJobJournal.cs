@@ -16,7 +16,7 @@ namespace FolderRewind.History.Cloud;
 public enum CloudJobPhase { Prepared, Pending, Resolving, Uploading, Verifying, SyncingMetadata, Succeeded, RetryableFailure, Paused, NeedsAttention, Canceled, Aborted }
 public enum CloudProtectionDisposition { Held, Released, Abandoned }
 public sealed record CloudJobTarget(string ProfileId, string ProfileRevision, string BindingRevision, string RemoteRoot, string ConfigId,
-    string CredentialTargetRevision = "", string DescriptorSha256 = "");
+    string CredentialTargetRevision = "", string DescriptorSha256 = "", string CredentialRevision = "", string ExecutionWorkingDirectory = "");
 public sealed record CloudAdmissionInterval(string Id, CloudJobTarget Target, ImmutableArray<string> BaselineTransactions,
     ImmutableArray<string>? EndTransactions);
 public sealed record CloudUploadIntent(RepresentationId RepresentationId, ReplicaId ReplicaId, HistoryReplicaManifest? Manifest);
@@ -25,7 +25,7 @@ public sealed record HistoryCloudJob(string JobId, string ProjectId, string Admi
     CloudJobPhase Phase, CloudProtectionDisposition Protection, int Attempt, DateTimeOffset NextEligibleUtc, string Diagnostic,
     DateTimeOffset CreatedUtc, bool Automatic);
 public sealed record HistoryCloudJournalDocument(int Version, long Revision, ImmutableArray<CloudAdmissionInterval> Admissions,
-    ImmutableArray<HistoryCloudJob> Jobs);
+    ImmutableArray<HistoryCloudJob> Jobs, bool UnknownProtectionAbandoned = false);
 
 // 本机辅助证据，不进入 Commit Pack/导出。所有保护增减与本地删除共用 History MutationGate。
 public sealed class HistoryCloudJobJournal(HistoryRuntime history)
@@ -39,15 +39,32 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         if (_uncertain) throw new InvalidDataException("[cloud.intent-reconciliation-required] " + Diagnostic);
         try
         {
-            if (!File.Exists(JournalPath)) return new(1, 0, [], []);
+            if (!File.Exists(JournalPath))
+            {
+                if (history.Repository.CloudAdmissionExpected || File.Exists(JournalPath + ".required")) throw new InvalidDataException("[cloud.intent-reconciliation-required] Expected cloud admission evidence is missing.");
+                return new(1, 0, [], []);
+            }
             if (new FileInfo(JournalPath).Length > 16 * 1024 * 1024) throw new InvalidDataException("Cloud journal exceeds its bound.");
             var document = JsonSerializer.Deserialize(File.ReadAllBytes(JournalPath), CloudJobJsonContext.Default.HistoryCloudJournalDocument)
                 ?? throw new InvalidDataException("Cloud journal is empty.");
+            if (document.Jobs.IsDefault || document.Admissions.IsDefault || document.Jobs.Any(j => j is null || j.Target is null)
+                || document.Admissions.Any(a => a is null || a.Target is null)) throw new InvalidDataException("Cloud journal contains null evidence.");
+            if (!document.Jobs.IsDefault && !document.Admissions.IsDefault)
+                document = document with
+                {
+                    Jobs = [.. document.Jobs.Select(j => !string.IsNullOrWhiteSpace(j.ProjectId) && !string.IsNullOrWhiteSpace(j.Target.ConfigId)
+                        ? j with { ProjectId = new HistoryConfigId(j.ProjectId).Value, Target = j.Target with { ConfigId = new HistoryConfigId(j.Target.ConfigId).Value } } : j)],
+                    Admissions = [.. document.Admissions.Select(a => !string.IsNullOrWhiteSpace(a.Target.ConfigId)
+                        ? a with { Target = a.Target with { ConfigId = new HistoryConfigId(a.Target.ConfigId).Value } } : a)]
+                };
             if (document.Version != 1 || document.Revision < 0 || document.Jobs.IsDefault || document.Admissions.IsDefault
                 || document.Jobs.Length > 10000 || document.Admissions.Length > 1000
+                || document.Jobs.Any(j => j is null || j.Target is null || !Guid.TryParseExact(j.JobId, "N", out _)
+                    || j.ProjectId != history.ConfigId.Value || j.Target.ConfigId != history.ConfigId.Value
+                    || !Enum.IsDefined(j.Phase) || !Enum.IsDefined(j.Protection) || j.Representations.IsDefault || j.UploadIntents.IsDefault
+                    || j.UploadIntents.Any(i => i is null) || j.Attempt < 0)
                 || document.Jobs.Select(j => j.JobId).Distinct().Count() != document.Jobs.Length
-                || document.Jobs.Any(j => j.ProjectId != history.ConfigId.Value || j.Target.ConfigId != history.ConfigId.Value
-                    || !Enum.IsDefined(j.Phase) || !Enum.IsDefined(j.Protection) || j.Representations.IsDefault || j.UploadIntents.IsDefault))
+                || document.Admissions.Any(a => a is null || a.Target is null || a.BaselineTransactions.IsDefault || a.Target.ConfigId != history.ConfigId.Value))
                 throw new InvalidDataException("Cloud journal evidence is invalid.");
             return document;
         }
@@ -59,13 +76,17 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         try
         {
             if (document.Jobs.Length > 10000 || document.Admissions.Length > 1000) throw new InvalidDataException("Cloud journal capacity requires attention.");
+            // 独立存在标记先于首次登记；Journal 丢失绝不能被误读成空队列，包括手动任务。
+            if (!File.Exists(JournalPath + ".required")) AtomicFileService.Write(JournalPath + ".required", s => s.WriteByte(1));
+            Checkpoint?.Invoke("before-journal-write");
             AtomicFileService.Write(JournalPath, s => JsonSerializer.Serialize(s, document with { Revision = checked(document.Revision + 1) }, CloudJobJsonContext.Default.HistoryCloudJournalDocument));
+            history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.CloudJobChanged);
         }
         catch (Exception ex)
         {
             _uncertain = true; Diagnostic = ex.Message;
             // 原接纳区间和基线从不前移；即使此暂停标记也写不出，启动仍按本机事务补账。
-            try { AtomicFileService.Write(JournalPath + ".attention", s => s.Write(System.Text.Encoding.UTF8.GetBytes("cloud.intent-reconciliation-required"))); } catch (IOException) { }
+            try { Checkpoint?.Invoke("before-attention-write"); AtomicFileService.Write(JournalPath + ".attention", s => s.Write(System.Text.Encoding.UTF8.GetBytes("cloud.intent-reconciliation-required"))); } catch (IOException) { }
             throw;
         }
     }
@@ -75,13 +96,23 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
     public void ConfigureAdmission(CloudJobTarget? target)
     {
         var document = Read(); var open = document.Admissions.LastOrDefault(a => a.EndTransactions is null);
-        if (open?.Target == target) return;
+        if (open?.Target == target || open is not null && target is not null
+            && open.Target with { CredentialRevision = target.CredentialRevision } == target) return;
         var transactions = LocalTransactions();
         if (open is not null)
             document = document with { Admissions = document.Admissions.Replace(open, open with { EndTransactions = transactions }) };
         if (target is not null)
             document = document with { Admissions = document.Admissions.Add(new(Guid.NewGuid().ToString("N"), target, transactions, null)) };
         Save(document);
+    }
+    public void InitializeMissingAdmissionFromNow(CloudJobTarget target)
+    {
+        if (File.Exists(JournalPath)) throw new InvalidOperationException("Existing cloud evidence must be recovered, not replaced.");
+        // 用户明确放弃未知旧保护之后，新的基线与处置记录必须在同一原子文件中落盘。
+        var document = new HistoryCloudJournalDocument(1, 0,
+            [new(Guid.NewGuid().ToString("N"), target, LocalTransactions(), null)], [], UnknownProtectionAbandoned: true);
+        Save(document); _uncertain = false; Diagnostic = null;
+        File.Delete(JournalPath + ".attention");
     }
 
     public void Prepare(HistoryCommitBatch batch, IReadOnlyList<VersionRepresentation> graph)

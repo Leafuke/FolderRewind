@@ -6610,4 +6610,33 @@ Pull Request：{1}</value>
   <data name="CloudJob_TargetChanged" xml:space="preserve"><value>云目标已更改，旧任务已暂停并继续保护本地载荷。</value></data>
   <data name="CloudJob_Uploading" xml:space="preserve"><value>正在上传版本与依赖；本地载荷受保护</value></data>
   <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>云备份未完成；本地载荷仍受保护，请查看云任务并重试</value></data>
+  <data name="CloudJob_Header.Text" xml:space="preserve"><value>云任务与载荷保护</value></data>
+  <data name="CloudJob_Refresh.Content" xml:space="preserve"><value>刷新状态</value></data>
+  <data name="CloudJob_Retry.Content" xml:space="preserve"><value>重试待处理任务</value></data>
+  <data name="CloudJob_Cancel.Content" xml:space="preserve"><value>取消所选任务</value></data>
+  <data name="CloudJob_Abandon.Content" xml:space="preserve"><value>放弃所选保护</value></data>
+  <data name="CloudJob_AbandonTitle" xml:space="preserve"><value>放弃待传载荷保护</value></data>
+  <data name="CloudJob_AbandonDescription" xml:space="preserve"><value>取消任务本身不会释放保护。确认放弃后，本地保留清理可能删除尚未完整上传的载荷及依赖；旧版本可能无法再从云端恢复。此处不删除远端数据。</value></data>
+  <data name="CloudJob_Detail" xml:space="preserve"><value>任务：{0}
+保护：{1}
+诊断：{2}
+已尝试：{3}</value></data>
+  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>仍持有本地载荷保护</value></data>
+  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>已持久化释放或放弃</value></data>
+  <data name="CloudJob_Phase_Prepared" xml:space="preserve"><value>等待确认本地提交</value></data>
+  <data name="CloudJob_Phase_Pending" xml:space="preserve"><value>待上传</value></data>
+  <data name="CloudJob_Phase_Resolving" xml:space="preserve"><value>解析依赖</value></data>
+  <data name="CloudJob_Phase_Uploading" xml:space="preserve"><value>上传中</value></data>
+  <data name="CloudJob_Phase_Verifying" xml:space="preserve"><value>校验中</value></data>
+  <data name="CloudJob_Phase_SyncingMetadata" xml:space="preserve"><value>同步元数据</value></data>
+  <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>云备份完整完成</value></data>
+  <data name="CloudJob_Phase_RetryableFailure" xml:space="preserve"><value>等待退避重试</value></data>
+  <data name="CloudJob_Phase_Paused" xml:space="preserve"><value>已暂停</value></data>
+  <data name="CloudJob_Phase_NeedsAttention" xml:space="preserve"><value>需要处理</value></data>
+  <data name="CloudJob_Phase_Canceled" xml:space="preserve"><value>已取消</value></data>
+  <data name="CloudJob_Phase_Aborted" xml:space="preserve"><value>本地事务未提交</value></data>
+  <data name="CloudJob_RegistrationNeedsAttention" xml:space="preserve"><value>本地备份已完成，但云任务登记或补账需要处理。危险清理已暂停，请保留本地载荷和云任务证据。</value></data>
+  <data name="CloudJob_InitializeMissing.Content" xml:space="preserve"><value>仅在登记文件丢失时：初始化未来接纳区间</value></data>
+  <data name="CloudJob_InitializeMissingDescription" xml:space="preserve"><value>此操作只允许在云任务登记文件缺失时执行，不会替换损坏或已有的 Journal。确认后将明确放弃无法重建的旧载荷保护，只接纳今后的本机备份；旧版本不会自动补传，清理可能使未上传版本无法恢复。请优先找回原 Journal 或手动补传重要版本。新的基线和放弃处置会一起持久化。</value></data>
+  <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>暂时无法安全合并此后端的认证刷新。请使用已支持的连接或重新授权；云调用已暂停，凭据证据会保留。</value></data>
 </root>

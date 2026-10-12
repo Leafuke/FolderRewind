@@ -31,6 +31,8 @@ public sealed class HistoryCommitCoordinatorTests
     [DataRow("before-prepared")]
     [DataRow("prepared")]
     [DataRow("before-activate")]
+    [DataRow("before-journal-write")]
+    [DataRow("journal-and-attention-write")]
     public async Task CloudAdmissionReconcilesCommitGapsBeforeReleasingCleanup(string fault)
     {
         PackId committed;
@@ -38,7 +40,7 @@ public sealed class HistoryCommitCoordinatorTests
         await using (var runtime = await CreateRuntimeAsync())
         {
             runtime.CloudJobs.ConfigureAdmission(target);
-            runtime.CloudJobs.Checkpoint = point => { if (point == fault) throw new IOException("injected cloud journal failure"); };
+            runtime.CloudJobs.Checkpoint = point => { if (point == fault || fault == "journal-and-attention-write" && point is "before-journal-write" or "before-attention-write") throw new IOException("injected cloud journal failure"); };
             var source = SourceId.New();
             var batch = await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, CreateCapture(source, "first", -1, null)));
             committed = batch.Pack.PackId;
@@ -74,6 +76,20 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.AreNotEqual(fingerprint, runtime.CloudJobs.ProtectionFingerprint());
         Assert.ThrowsExactly<InvalidOperationException>(() => runtime.CloudJobs.RequireCleanupSafe());
         runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Canceled, Protection = CloudProtectionDisposition.Abandoned });
+        runtime.CloudJobs.RequireCleanupSafe();
+    }
+
+    [TestMethod]
+    public async Task MissingJournalKeepsIndependentProtectionAndNeedsExplicitBaselineDisposition()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var target = new CloudJobTarget("profile", "revision", "binding", "remote:/original", _configId.Value);
+        runtime.CloudJobs.ConfigureAdmission(target);
+        File.Delete(runtime.CloudJobs.JournalPath);
+        Assert.ThrowsExactly<InvalidDataException>(() => runtime.CloudJobs.RequireCleanupSafe());
+        runtime.CloudJobs.InitializeMissingAdmissionFromNow(target);
+        Assert.IsTrue(runtime.CloudJobs.Read().UnknownProtectionAbandoned);
+        Assert.AreEqual(target, runtime.CloudJobs.Read().Admissions.Single().Target);
         runtime.CloudJobs.RequireCleanupSafe();
     }
 

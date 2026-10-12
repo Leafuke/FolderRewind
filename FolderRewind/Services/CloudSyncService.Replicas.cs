@@ -18,7 +18,7 @@ namespace FolderRewind.Services
     public static partial class CloudSyncService
     {
         private static readonly object AutomaticSyncLock = new();
-        private static bool _automaticSyncStopping;
+        private static volatile bool _automaticSyncStopping;
 
         internal static async Task DrainForExitAsync()
         {
@@ -53,6 +53,11 @@ namespace FolderRewind.Services
                 config = await PrepareConnectionAsync(config, cancellationToken).ConfigureAwait(false);
                 using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+                if (catalog is null || !catalog.Entries.Any(e => e.RepresentationId == representationId
+                    && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath
+                    && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(e.Locator.AbsolutePath), Path.GetFullPath(localPath))))
+                    throw new InvalidDataException("[cloud.payload-not-registered] " + I18n.GetString("CloudJob_RegistrationNeedsAttention"));
                 var packs = await runtime.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
                 var pack = packs.First(p => p.Pack.Objects.Any(o => o.Kind == HistoryObjectKinds.VersionRepresentation && o.Id == representationId.ToString())).Pack;
                 HistoryCloudJob job;
@@ -145,20 +150,8 @@ namespace FolderRewind.Services
         }
 
         private static IHistoryReplicaTransport CreateReplicaTransport(BackupConfig config)
-        {
-            if (RcloneExecutionScope.Current is { } context) return new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds);
-            if (!TryResolveSharedRcloneRuntime(
-                    config.Cloud,
-                    out var executable,
-                    out var workingDirectory,
-                    out var error))
-                throw new InvalidOperationException(error);
-            return new RcloneHistoryReplicaTransport(
-                executable,
-                workingDirectory,
-                config.Cloud ?? new CloudSettings(),
-                config.Cloud?.RemoteBasePath ?? GetSuggestedRemoteBasePath());
-        }
+            => new RcloneNativeHistoryTransport(RcloneExecutionScope.Current
+                ?? throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired")), config.Cloud.TimeoutSeconds);
 
         private sealed class UploadOnlyRetirementGuard : IHistoryReplicaRetirementGuard
         {
@@ -169,140 +162,5 @@ namespace FolderRewind.Services
                 => throw new InvalidOperationException("Replica retirement requires an explicit retention workflow.");
         }
 
-        private sealed class RcloneHistoryReplicaTransport : IHistoryReplicaTransport
-        {
-            private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-            private readonly string _executable;
-            private readonly string _workingDirectory;
-            private readonly CloudSettings _settings;
-            private readonly string _remoteBasePath;
-
-            public RcloneHistoryReplicaTransport(
-                string executable,
-                string workingDirectory,
-                CloudSettings settings,
-                string remoteBasePath)
-            {
-                _executable = executable;
-                _workingDirectory = workingDirectory;
-                _settings = settings;
-                _remoteBasePath = remoteBasePath;
-            }
-
-            public Task UploadAsync(ReplicaId replicaId, string localPath, CancellationToken cancellationToken)
-                => CopyToAsync(localPath, Payload(replicaId), immutable: true, cancellationToken);
-
-            public async Task<HistoryReplicaVerification> VerifyRemoteAsync(
-                ReplicaId replicaId,
-                CancellationToken cancellationToken)
-            {
-                var temporary = Temporary();
-                try
-                {
-                    await CopyToAsync(Payload(replicaId), temporary, immutable: false, cancellationToken)
-                        .ConfigureAwait(false);
-                    await using var stream = File.OpenRead(temporary);
-                    var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false))
-                        .ToLowerInvariant();
-                    return new(true, stream.Length, hash, string.Empty);
-                }
-                catch (Exception ex)
-                {
-                    return new(false, 0, string.Empty, ex.Message);
-                }
-                finally
-                {
-                    TryDeleteTempFile(temporary);
-                }
-            }
-
-            public Task CommitManifestOnceAsync(
-                HistoryReplicaManifest manifest,
-                CancellationToken cancellationToken)
-                => UploadBytesOnceAsync(
-                    Manifest(manifest.ReplicaId),
-                    JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions),
-                    cancellationToken);
-
-            public async Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId replicaId, CancellationToken cancellationToken)
-            {
-                var temporary = Temporary();
-                try
-                {
-                    await CopyToAsync(Manifest(replicaId), temporary, false, cancellationToken).ConfigureAwait(false);
-                    if (new FileInfo(temporary).Length > 65536) throw new InvalidDataException("[cloud.manifest-invalid] Replica manifest exceeds its bound.");
-                    return JsonSerializer.Deserialize(await File.ReadAllBytesAsync(temporary, cancellationToken).ConfigureAwait(false), RcloneTransportJsonContext.Default.HistoryReplicaManifest);
-                }
-                finally { TryDeleteTempFile(temporary); }
-            }
-
-            public Task DownloadAsync(
-                HistoryReplicaManifest manifest,
-                string stagingPath,
-                CancellationToken cancellationToken)
-                => CopyToAsync(Payload(manifest.ReplicaId), stagingPath, immutable: false, cancellationToken);
-
-            public async Task DeletePhysicalAsync(
-                HistoryReplicaManifest manifest,
-                CancellationToken cancellationToken)
-            {
-                await DeleteAsync(Payload(manifest.ReplicaId), cancellationToken).ConfigureAwait(false);
-                await DeleteAsync(Manifest(manifest.ReplicaId), cancellationToken).ConfigureAwait(false);
-            }
-
-            private string Root(ReplicaId replicaId)
-                => AppendRemotePath(
-                    _remoteBasePath,
-                    InternalCloudStateDirectoryName,
-                    "replicas",
-                    replicaId.ToString());
-
-            private string Payload(ReplicaId replicaId) => AppendRemotePath(Root(replicaId), "payload");
-            private string Manifest(ReplicaId replicaId) => AppendRemotePath(Root(replicaId), "manifest.json");
-
-            private async Task UploadBytesOnceAsync(
-                string remotePath,
-                byte[] bytes,
-                CancellationToken cancellationToken)
-            {
-                var temporary = Temporary();
-                try
-                {
-                    await File.WriteAllBytesAsync(temporary, bytes, cancellationToken).ConfigureAwait(false);
-                    await CopyToAsync(temporary, remotePath, immutable: true, cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    TryDeleteTempFile(temporary);
-                }
-            }
-
-            private async Task CopyToAsync(
-                string source,
-                string destination,
-                bool immutable,
-                CancellationToken cancellationToken)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var arguments = BuildRcloneCopyToArguments(source, destination)
-                    + (immutable ? " --immutable" : string.Empty);
-                var result = await RunSilentCommandAsync(
-                    CreateDirectCommand(_executable, _workingDirectory, arguments),
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
-                if (!result.Success) throw new IOException(result.ErrorMessage);
-            }
-
-            private async Task DeleteAsync(string remotePath, CancellationToken cancellationToken)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var result = await RunSilentCommandAsync(
-                    CreateDirectCommand(_executable, _workingDirectory, $"deletefile {Quote(remotePath)}"),
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
-                if (!result.Success) throw new IOException(result.ErrorMessage);
-            }
-
-            private static string Temporary()
-                => Path.Combine(Path.GetTempPath(), $"FolderRewind-replica-{Guid.NewGuid():N}.tmp");
-        }
     }
 }

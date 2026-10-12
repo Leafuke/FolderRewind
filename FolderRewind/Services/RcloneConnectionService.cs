@@ -25,7 +25,10 @@ public sealed class OwnedRcloneConnection(string configPath, string remoteRoot) 
     public void Dispose()
     {
         if (_committed) return;
+        // OAuth 可能已经轮换；取消向导也不能删除受管目录中的唯一新令牌。
+        if (RcloneExecutionContext.HasActiveCredential(ConfigPath) || RcloneCredentialRefresh.MustPreserveOwnedCredentials(ConfigPath)) return;
         File.Delete(ConfigPath);
+        File.Delete(ConfigPath + ".folderrewind.lock");
         Directory.Delete(Path.GetDirectoryName(ConfigPath)!);
     }
 }

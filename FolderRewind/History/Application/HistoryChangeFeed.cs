@@ -15,7 +15,8 @@ public enum HistoryChangeKind
     LocalStateChanged = 3,
     IndexRebuilt = 4,
     MigrationCompleted = 5,
-    CloudUnionChanged = 6
+    CloudUnionChanged = 6,
+    CloudJobChanged = 7
 }
 
 public sealed record HistoryChange(

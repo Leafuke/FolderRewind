@@ -39,6 +39,10 @@ public static partial class CloudSyncService
         config.Cloud = resolved;
         var originalPath = config.Cloud.RcloneConfigPath;
         var path = await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, token).ConfigureAwait(false);
+        if (!Path.IsPathFullyQualified(path) || !File.Exists(path))
+            throw RcloneConnectionDiagnostics.Failure("connection.credentials-missing", "CloudSetup_SourceConfigUnavailable");
+        if (Path.IsPathFullyQualified(path) && File.Exists(path))
+            await RcloneCredentialRefresh.PrepareStoreAsync(path, ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(path), token).ConfigureAwait(false);
         var copy = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
         if (copy.Cloud.RcloneConfigPath == originalPath) copy.Cloud.RcloneConfigPath = path;
         return copy;
@@ -48,6 +52,9 @@ public static partial class CloudSyncService
     {
         var originalPath = settings.RcloneConfigPath;
         var path = await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath).ConfigureAwait(false);
+        if (!Path.IsPathFullyQualified(path) || !File.Exists(path))
+            throw RcloneConnectionDiagnostics.Failure("connection.credentials-missing", "CloudSetup_SourceConfigUnavailable");
+        await RcloneCredentialRefresh.PrepareStoreAsync(path, ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(path), default).ConfigureAwait(false);
         var copy = FreezeGlobalTransferConnection(settings);
         if (copy.RcloneConfigPath == originalPath) copy.RcloneConfigPath = path;
         return copy;

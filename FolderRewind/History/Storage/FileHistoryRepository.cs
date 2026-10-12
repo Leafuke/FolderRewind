@@ -18,6 +18,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _gate;
     private bool _disposed;
+    internal bool CloudAdmissionExpected { get; set; }
 
     public FileHistoryRepository(
         HistoryConfigId configId,

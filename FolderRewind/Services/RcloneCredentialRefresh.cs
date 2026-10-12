@@ -20,12 +20,37 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, string> AcceptedRevisions = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, bool> UnsettledSources = new(StringComparer.OrdinalIgnoreCase);
+    internal static bool MustPreserveOwnedCredentials(string source)
+        => UnsettledSources.ContainsKey(source) || File.Exists(LedgerPath(source));
     private readonly RcloneExecutionContext _context;
     private readonly SemaphoreSlim _gate;
     private readonly FileStream _fileLock;
     private readonly string _attemptPath;
     private CredentialRefreshAttempt _attempt;
     private bool _completed;
+    private static string StorageLockPath(string source, string taskRoot, bool managed)
+        => managed ? source + ".folderrewind.lock" : Path.Combine(taskRoot, "credential-" + Hash(Encoding.UTF8.GetBytes(source.ToUpperInvariant())) + ".lock");
+    internal static async Task PrepareStoreAsync(string source, string root, bool managed, CancellationToken token)
+    {
+        source = Path.GetFullPath(source); root = Path.GetFullPath(root);
+        RejectReparsePoints(source); RejectHardLinks(source); RejectReparsePoints(root);
+        RcloneExecutionContext.CreatePrivateDirectory(root);
+        var gate = Gates.GetOrAdd(source, _ => new(1, 1));
+        await gate.WaitAsync(token).ConfigureAwait(false);
+        FileStream? fileLock = null;
+        try
+        {
+            while (fileLock is null)
+            {
+                token.ThrowIfCancellationRequested();
+                try { fileLock = new(StorageLockPath(source, root, managed), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+                catch (IOException) { await Task.Delay(100, token).ConfigureAwait(false); }
+            }
+            await RecoverAsync(root, source, "", token, managed).ConfigureAwait(false);
+        }
+        finally { fileLock?.Dispose(); gate.Release(); }
+    }
 
     private RcloneCredentialRefresh(RcloneExecutionContext context, SemaphoreSlim gate, FileStream fileLock, CredentialRefreshAttempt attempt)
     { _context = context; _gate = gate; _fileLock = fileLock; _attempt = attempt; _attemptPath = Path.Combine(context.TaskDirectory, "attempt.json"); }
@@ -45,16 +70,17 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         {
             if (File.Exists(Path.Combine(context.TaskDirectory, "attempt.json"))) throw Conflict();
             // 实际文件路径共用跨进程门闩。外部 OAuth 不允许更新；受管目录不接受重解析点别名。
-            var lockPath = path + ".folderrewind.lock";
+            var lockPath = StorageLockPath(path, context.TaskRoot, context.AllowTokenWriteback);
             while (fileLock is null)
             {
                 token.ThrowIfCancellationRequested();
                 try { fileLock = new(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
                 catch (IOException) { await Task.Delay(100, token).ConfigureAwait(false); }
             }
-            await RecoverAsync(context.TaskRoot, path, context.TaskDirectory, token).ConfigureAwait(false);
+            await RecoverAsync(context.TaskRoot, path, context.TaskDirectory, token, context.AllowTokenWriteback).ConfigureAwait(false);
             var source = RcloneExecutionContext.ReadConfigurationBytes(path);
             var revision = Hash(source);
+            if (context.AllowedTokenSections.Length != 0) RequireTrustedSource(path, source);
             if (revision != context.RevisionEvidence)
             {
                 if (!AcceptedRevisions.TryGetValue(path, out var accepted) || accepted != revision
@@ -92,11 +118,12 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         AcceptedRevisions[_context.ConfigPath] = Hash(bytes);
         File.Delete(_attemptPath); File.Delete(Path.Combine(_context.TaskDirectory, "source.conf"));
         _completed = true;
+        UnsettledSources.TryRemove(_context.ConfigPath, out _);
     }
     private Task SaveAsync(CancellationToken token) => AtomicFileService.WriteAsync(_attemptPath,
         (s, ct) => JsonSerializer.SerializeAsync(s, _attempt, CredentialRefreshJsonContext.Default.CredentialRefreshAttempt, ct), token);
 
-    internal static async Task RecoverAsync(string root, string sourcePath, string currentDirectory, CancellationToken token)
+    internal static async Task RecoverAsync(string root, string sourcePath, string currentDirectory, CancellationToken token, bool allowWriteback = true)
     {
         var directories = Directory.EnumerateDirectories(root, "task-*").Take(1001).ToArray();
         if (directories.Length > 1000) throw Conflict();
@@ -136,10 +163,11 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
                 }
                 catch (ArgumentException) { }
             }
-            var recovered = Merge(attempt, directory, allowWriteback: true);
+            var recovered = Merge(attempt, directory, allowWriteback);
             AcceptedRevisions[sourcePath] = Hash(recovered);
             File.Delete(attemptPath); File.Delete(Path.Combine(directory, "source.conf"));
             File.Delete(Path.Combine(directory, "rclone.conf"));
+            UnsettledSources.TryRemove(sourcePath, out _);
             // 保留快照目录给正常清理；这里只处理明确的刷新证据。
         }
     }
@@ -150,6 +178,7 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         if (Hash(original) != attempt.SourceRevision) throw Conflict();
         var refreshed = RcloneExecutionContext.ReadConfigurationBytes(Path.Combine(directory, "rclone.conf"));
         var current = RcloneExecutionContext.ReadConfigurationBytes(attempt.SourcePath);
+        if (attempt.TokenSections.Length != 0) RequireTrustedSource(attempt.SourcePath, original, requireCurrent: false);
         if (original.AsSpan().SequenceEqual(refreshed))
         {
             if (Hash(current) != attempt.SourceRevision) throw Conflict();
@@ -158,14 +187,79 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         if (!allowWriteback || !TokenOnlyDifference(original, refreshed, attempt.TokenSections)) throw Conflict();
         var merged = MergeTokens(original, refreshed);
         // 写回成功但终态记录尚未删除时再次回放必须幂等。
-        if (current.AsSpan().SequenceEqual(merged)) return current;
+        if (current.AsSpan().SequenceEqual(merged))
+        {
+            RecordTrustedRefresh(attempt.SourcePath, original, current);
+            return current;
+        }
         if (Hash(current) != attempt.SourceRevision) throw Conflict();
         RejectReparsePoints(attempt.SourcePath);
         AtomicFileService.Write(attempt.SourcePath, s => s.Write(merged));
         RcloneExecutionContext.ProtectConfigurationFile(attempt.SourcePath);
         var verified = RcloneExecutionContext.ReadConfigurationBytes(attempt.SourcePath);
         if (!verified.AsSpan().SequenceEqual(merged)) throw Conflict();
+        RecordTrustedRefresh(attempt.SourcePath, original, verified);
         return verified;
+    }
+
+    private static string LedgerPath(string source) => source + ".folderrewind-revisions.json";
+    internal static bool HasPendingEvidence(string root, string source)
+    {
+        if (!Directory.Exists(root)) return false;
+        var directories = Directory.EnumerateDirectories(root, "task-*").Take(1001).ToArray();
+        foreach (var directory in directories) RejectReparsePoints(directory);
+        var files = directories.Select(d => Path.Combine(d, "attempt.json")).Where(File.Exists).ToArray();
+        if (files.Length > 1000) return true;
+        foreach (var file in files)
+        {
+            RejectReparsePoints(file);
+            if (new FileInfo(file).Length > 65536) return true;
+            var attempt = JsonSerializer.Deserialize(File.ReadAllBytes(file), CredentialRefreshJsonContext.Default.CredentialRefreshAttempt);
+            if (attempt is null || StringComparer.OrdinalIgnoreCase.Equals(attempt.SourcePath, source)) return true;
+        }
+        return false;
+    }
+    private static CredentialRevisionLedger? ReadLedger(string source)
+    {
+        var path = LedgerPath(source);
+        if (!File.Exists(path)) return null;
+        RejectReparsePoints(path);
+        if (new FileInfo(path).Length > 128 * 1024) throw Conflict();
+        var ledger = JsonSerializer.Deserialize(File.ReadAllBytes(path), CredentialRefreshJsonContext.Default.CredentialRevisionLedger) ?? throw Conflict();
+        if (ledger.Version != 1 || ledger.Revisions is null || ledger.Revisions.Length == 0 || ledger.Revisions.Length > 1000
+            || ledger.Revisions.Any(r => r.Length != 64) || ledger.Revisions[^1] != ledger.CurrentRevision) throw Conflict();
+        return ledger;
+    }
+    internal static bool AcceptsFrozenRevision(string source, string frozenRevision, byte[] current)
+    {
+        var revision = Hash(current);
+        if (revision == frozenRevision) return true;
+        var ledger = ReadLedger(source);
+        return ledger is not null && ledger.CurrentRevision == revision && ledger.TargetRevision == TargetRevision(current)
+            && ledger.Revisions.Contains(frozenRevision, StringComparer.Ordinal);
+    }
+    private static void RequireTrustedSource(string source, byte[] bytes, bool requireCurrent = true)
+    {
+        var revision = Hash(bytes); var ledger = ReadLedger(source);
+        if (ledger is null)
+        {
+            SaveLedger(source, new(1, revision, TargetRevision(bytes), [revision])); return;
+        }
+        if (ledger.TargetRevision != TargetRevision(bytes) || !ledger.Revisions.Contains(revision, StringComparer.Ordinal)
+            || requireCurrent && ledger.CurrentRevision != revision) throw Conflict();
+    }
+    private static void RecordTrustedRefresh(string source, byte[] original, byte[] refreshed)
+    {
+        var ledger = ReadLedger(source) ?? throw Conflict();
+        var revision = Hash(refreshed);
+        if (ledger.CurrentRevision == revision) return;
+        if (ledger.CurrentRevision != Hash(original) || ledger.TargetRevision != TargetRevision(refreshed) || ledger.Revisions.Length >= 1000) throw Conflict();
+        SaveLedger(source, ledger with { CurrentRevision = revision, Revisions = [.. ledger.Revisions, revision] });
+    }
+    private static void SaveLedger(string source, CredentialRevisionLedger ledger)
+    {
+        AtomicFileService.Write(LedgerPath(source), s => JsonSerializer.Serialize(s, ledger, CredentialRefreshJsonContext.Default.CredentialRevisionLedger));
+        RcloneExecutionContext.ProtectConfigurationFile(LedgerPath(source));
     }
 
     private static byte[] MergeTokens(byte[] original, byte[] refreshed)
@@ -195,7 +289,8 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
             if (!values.TryGetValue(remote + "\0type", out var type)) throw Conflict();
             if (values.ContainsKey(remote + "\0token"))
             {
-                if (type is not ("drive" or "onedrive" or "box" or "dropbox" or "pcloud" or "yandex" or "google photos")) throw Conflict();
+                if (type is not ("drive" or "onedrive" or "box" or "dropbox" or "pcloud" or "yandex" or "google photos"))
+                    throw RcloneConnectionDiagnostics.InvalidFailure("connection.backend-refresh-unsupported", "CloudConnection_UnsupportedRefreshBackend");
                 result.Add(remote);
             }
             if (type is not ("alias" or "crypt")) return result.ToArray();
@@ -262,12 +357,14 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
     public ValueTask DisposeAsync()
     {
         // 未完成的证据与快照必须保留，供下一次访问前回放或诊断。
-        if (!_completed) _context.PreserveSnapshot = true;
+        if (!_completed) { _context.PreserveSnapshot = true; UnsettledSources[_context.ConfigPath] = true; }
         _fileLock.Dispose(); _gate.Release(); return ValueTask.CompletedTask;
     }
 }
 
 internal sealed record CredentialRefreshAttempt(int Version, string SourcePath, string SourceRevision, string ExecutablePath,
     string[] TokenSections, string Phase, int? ProcessId, long? StartedUtcTicks);
+internal sealed record CredentialRevisionLedger(int Version, string CurrentRevision, string TargetRevision, string[] Revisions);
 [JsonSerializable(typeof(CredentialRefreshAttempt))]
+[JsonSerializable(typeof(CredentialRevisionLedger))]
 internal partial class CredentialRefreshJsonContext : JsonSerializerContext;

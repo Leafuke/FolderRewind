@@ -334,6 +334,7 @@ public static class NativeHistoryCoreGateway
                     { OperationStatus = migration.Status.ToString(), Diagnostic = migration.Diagnostic });
                     throw new InvalidOperationException(migration.Diagnostic);
                 }
+                migration.Repository.CloudAdmissionExpected = config.Cloud.Enabled && config.Cloud.WritableEvidence.Length != 0;
                 return migration.Repository;
             }
         }
@@ -343,6 +344,7 @@ public static class NativeHistoryCoreGateway
             cancellationToken).ConfigureAwait(false);
         if (!binding.IsReady || binding.Repository is null)
             throw new InvalidOperationException(binding.Diagnostic);
+        binding.Repository.CloudAdmissionExpected = config.Cloud.Enabled && config.Cloud.WritableEvidence.Length != 0;
         return binding.Repository;
     }
 

@@ -21,26 +21,36 @@ public static partial class CloudSyncService
 {
     private static readonly ConcurrentDictionary<string, Task> CloudWorkers = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, BackupTask> JobTasks = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, CancellationTokenSource> JobCancellation = new(StringComparer.Ordinal);
     private static readonly System.Collections.Generic.HashSet<string> CloudWakeRequests = new(StringComparer.Ordinal);
     private static readonly CancellationTokenSource CloudStopping = new();
 
-    private static CloudJobTarget FreezeTarget(BackupConfig config)
+    internal static CloudJobTarget FreezeTarget(BackupConfig config)
     {
         var settings = config.Cloud;
         var profile = ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == settings.ConnectionProfileId);
         var credential = profile?.CredentialReference ?? settings.RcloneConfigPath;
         var root = profile is null ? settings.RemoteBasePath : profile.RemoteName + ":" + settings.RemotePathSuffix;
+        var runtimeSettings = ConfigSnapshotMapper.Copy(settings);
+        if (profile is not null) { runtimeSettings.ExecutablePath = profile.ExecutablePath; runtimeSettings.WorkingDirectory = profile.WorkingDirectory; }
+        var working = runtimeSettings.WorkingDirectory;
+        if (TryResolveSharedRcloneRuntime(runtimeSettings, out _, out var effectiveWorking, out _)) working = effectiveWorking;
         var revision = "";
+        var credentialRevision = "";
         try
         {
             if (Path.IsPathFullyQualified(credential) && File.Exists(credential))
-                revision = RcloneCredentialRefresh.TargetRevision(RcloneExecutionContext.ReadConfigurationBytes(credential));
+            {
+                var bytes = RcloneExecutionContext.ReadConfigurationBytes(credential);
+                revision = RcloneCredentialRefresh.TargetRevision(bytes);
+                credentialRevision = Convert.ToHexString(SHA256.HashData(bytes));
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         { /* 缺凭据也先保留接纳证据；不把本地成功变成没有 Job。解析/认证失败由执行阶段明确暂停。 */ }
         return new(settings.ConnectionProfileId ?? "legacy", profile?.ProfileRevision ?? revision,
-            settings.BindingRevision, root, config.Id, revision,
-            Convert.ToHexString(SHA256.HashData(HistoryRepositoryDescriptor.Create(new(config.Id)).ToCanonicalBytes())));
+            settings.BindingRevision, root, new HistoryConfigId(config.Id).Value, revision,
+            Convert.ToHexString(SHA256.HashData(HistoryRepositoryDescriptor.Create(new(config.Id)).ToCanonicalBytes())), credentialRevision, working);
     }
 
     internal static async Task PrepareCloudAdmissionAsync(BackupConfig config, HistoryRuntime runtime, CancellationToken token)
@@ -49,10 +59,18 @@ public static partial class CloudSyncService
         try
         {
             // 仅接纳此机器今后的备份提交；升级、开启开关不自动追认旧 History 或导入 Pack。
-            runtime.CloudJobs.ConfigureAdmission(config.Cloud.Enabled && !MigrationSetupStateStore.IsCloudPending(ConfigService.ConfigDirectory, config.Id)
+            runtime.CloudJobs.ConfigureAdmission(config.Cloud.Enabled && config.Cloud.WritableEvidence.Length != 0
+                && !MigrationSetupStateStore.IsCloudPending(ConfigService.ConfigDirectory, config.Id)
                 ? FreezeTarget(config) : null);
         }
         catch (Exception ex) { runtime.CloudJobs.ObserveFailure(ex); }
+    }
+    internal static async Task InitializeMissingCloudAdmissionAsync(BackupConfig config, CancellationToken token)
+    {
+        if (config.Cloud.WritableEvidence.Length == 0) throw new InvalidOperationException(I18n.GetString("CloudJob_WriteVerificationRequired"));
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        await using var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false);
+        runtime.CloudJobs.InitializeMissingAdmissionFromNow(FreezeTarget(config));
     }
     internal static async Task CloseCloudAdmissionAsync(BackupConfig config, CancellationToken token)
     {
@@ -63,9 +81,13 @@ public static partial class CloudSyncService
     }
     private static bool IsFrozenTargetCurrent(HistoryCloudJob job, out BackupConfig? current)
     {
-        current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(p => p.Id == job.ProjectId);
+        current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(p => new HistoryConfigId(job.ProjectId).Matches(p.Id));
         if (current is null || current.Cloud.LegacyConversionRequired) return false;
-        return FreezeTarget(current) == job.Target;
+        var target = FreezeTarget(current);
+        if (target with { CredentialRevision = job.Target.CredentialRevision } != job.Target) return false;
+        var settings = CloudConnectionCatalog.Resolve(current);
+        return RcloneCredentialRefresh.AcceptsFrozenRevision(settings.RcloneConfigPath, job.Target.CredentialRevision,
+            RcloneExecutionContext.ReadConfigurationBytes(settings.RcloneConfigPath));
     }
     internal static void ResumeCloudJobs(BackupConfig config)
     {
@@ -130,7 +152,11 @@ public static partial class CloudSyncService
         await using var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false);
         var job = runtime.CloudJobs.Read().Jobs.Single(j => j.JobId == jobId);
         if (job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.SyncingMetadata)
-            throw new InvalidOperationException(I18n.GetString("CloudJob_RunningCannotRelease"));
+        {
+            if (abandonProtection) throw new InvalidOperationException(I18n.GetString("CloudJob_RunningCannotRelease"));
+            if (JobCancellation.TryGetValue(jobId, out var active)) active.Cancel();
+            return;
+        }
         runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Canceled,
             Protection = abandonProtection ? CloudProtectionDisposition.Abandoned : job.Protection });
     }
@@ -140,6 +166,9 @@ public static partial class CloudSyncService
     {
         HistoryCloudBackupResult Incomplete(string code) => new([], initial.Representations, null, token.IsCancellationRequested, DateTimeOffset.UtcNow);
         await CommandSemaphore.WaitAsync(token).ConfigureAwait(false);
+        if (_automaticSyncStopping) { CommandSemaphore.Release(); return Incomplete("cloud.job-exit-pending"); }
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+        token = cancellation.Token; JobCancellation[initial.JobId] = cancellation;
         var job = initial;
         BackupTask? task = null;
         try
@@ -152,7 +181,14 @@ public static partial class CloudSyncService
                 job = job with { Phase = CloudJobPhase.Resolving, Attempt = job.Attempt + 1, Diagnostic = "" };
                 runtime.CloudJobs.Update(job);
             }
-            if (!IsFrozenTargetCurrent(job, out var current) || current is null)
+            var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(job.ProjectId).Matches(c.Id));
+            if (current is not null)
+            {
+                var credentials = CloudConnectionCatalog.Resolve(current).RcloneConfigPath;
+                if (Path.IsPathFullyQualified(credentials) && File.Exists(credentials))
+                    await RcloneCredentialRefresh.PrepareStoreAsync(credentials, ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(credentials), token).ConfigureAwait(false);
+            }
+            if (!IsFrozenTargetCurrent(job, out current) || current is null)
             {
                 runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.NeedsAttention, Diagnostic = "cloud.target-changed" });
                 return Incomplete("cloud.target-changed");
@@ -179,6 +215,7 @@ public static partial class CloudSyncService
                 task.Log = "JobId: " + job.JobId; task.IsCompleted = false; task.IsSuccess = false;
                 task.IsIndeterminate = true; task.Status = I18n.GetString("CloudJob_Uploading");
             }).ConfigureAwait(false);
+            await runtime.EnsureIndexCurrentAsync(token).ConfigureAwait(false);
             var graph = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).ToDictionary(r => r.RepresentationId);
             var closure = job.Representations.SelectMany(id => ExactReplicaPreparation.Closure(graph[id], graph)).Select(r => r.RepresentationId).Distinct().ToArray();
             var intents = job.UploadIntents.ToDictionary(i => i.RepresentationId);
@@ -187,10 +224,24 @@ public static partial class CloudSyncService
             runtime.CloudJobs.Update(job); // 稳定 ReplicaId 必须先于对应远端写入落盘。
             var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
             var transport = new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds);
+            async Task ObservePhaseAsync(CloudJobPhase phase, CancellationToken ct)
+            {
+                await using (var gate = await runtime.MutationGate.EnterAsync(ct).ConfigureAwait(false))
+                {
+                    job = job with { Phase = phase };
+                    runtime.CloudJobs.Update(job);
+                }
+                await RunOnUIAsync(() => task.Status = I18n.GetString("CloudJob_Phase_" + phase)).ConfigureAwait(false);
+            }
+            transport.ObserveJobPhase = ObservePhaseAsync;
             var descriptor = await transport.ReadDescriptorAsync(runtime.ConfigId, token).ConfigureAwait(false);
             if (descriptor is not null && Convert.ToHexString(SHA256.HashData(HistoryRepositoryDescriptor.Parse(descriptor).ToCanonicalBytes())) != job.Target.DescriptorSha256)
                 throw new InvalidDataException("[cloud.history-conflict] Remote repository identity differs.");
-            var service = new HistoryCloudBackupService(runtime, transport, ct => metadata.SyncAsync(ct));
+            var service = new HistoryCloudBackupService(runtime, transport, async ct =>
+            {
+                await ObservePhaseAsync(CloudJobPhase.SyncingMetadata, ct).ConfigureAwait(false);
+                return await metadata.SyncAsync(ct).ConfigureAwait(false);
+            });
             var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
             var result = await service.UploadClosureAsync(job.Representations, (id, _) => Task.FromResult(
                 explicitLocalPath is not null && job.Representations.Length == 1 && job.Representations[0] == id ? explicitLocalPath
@@ -240,16 +291,19 @@ public static partial class CloudSyncService
             if (job.Attempt == 1 || job.Attempt >= 5) NotificationService.ShowWarning(I18n.GetString("CloudJob_ProtectedPending"));
             return Incomplete(diagnostic);
         }
-        finally { CommandSemaphore.Release(); }
+        finally { JobCancellation.TryRemove(initial.JobId, out _); CommandSemaphore.Release(); }
     }
     private static void RecordJobFailure(HistoryRuntime runtime, HistoryCloudJob job, string diagnostic, bool canceled)
     {
-        var retryable = !canceled && job.Attempt < 5 && !diagnostic.Contains("[connection.", StringComparison.Ordinal)
+        var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(job.ProjectId).Matches(c.Id));
+        var maximumAttempts = Math.Clamp(current?.Cloud.RetryCount ?? 0, 0, 5) + 1;
+        var paused = job.Automatic && current?.Cloud.Enabled == false;
+        var retryable = !canceled && job.Attempt < maximumAttempts && !diagnostic.Contains("[connection.", StringComparison.Ordinal)
             && !diagnostic.Contains("[cloud.target-changed]", StringComparison.Ordinal) && !diagnostic.Contains("[cloud.manifest-invalid]", StringComparison.Ordinal)
             && !diagnostic.Contains("[cloud.payload-missing]", StringComparison.Ordinal) && !diagnostic.Contains("[cloud.payload-changed]", StringComparison.Ordinal);
         runtime.CloudJobs.Update(job with
         {
-            Phase = canceled ? CloudJobPhase.Canceled : retryable ? CloudJobPhase.RetryableFailure : CloudJobPhase.NeedsAttention,
+            Phase = paused ? CloudJobPhase.Paused : canceled ? CloudJobPhase.Canceled : retryable ? CloudJobPhase.RetryableFailure : CloudJobPhase.NeedsAttention,
             NextEligibleUtc = DateTimeOffset.UtcNow.AddSeconds(Math.Min(900, 5 * Math.Pow(2, job.Attempt)) + Random.Shared.NextDouble() * 3),
             Diagnostic = diagnostic
         });

@@ -18,6 +18,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     : IHistoryMetadataTransport, IHistoryReplicaTransport
 {
     private readonly TimeSpan _timeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 86400));
+    internal Func<CloudJobPhase, CancellationToken, Task>? ObserveJobPhase { get; set; }
     private string Append(params string[] parts) => CloudRemotePath.Append(context.RemoteRoot, parts);
     private string HistoryRoot(HistoryConfigId id) => Append("_folderrewind", "history", HistoryRepositoryPaths.EncodeConfigPathSegment(id));
     private string PackPath(HistoryConfigId id, PackId pack) => HistoryRoot(id) + "/packs/" + pack.ToString()[..2] + "/" + pack + ".frpack";
@@ -47,9 +48,14 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     public Task<byte[]> DownloadPackAsync(HistoryConfigId id, PackId pack, CancellationToken token) => ReadBytesAsync(PackPath(id, pack), token);
     public Task UploadPackOnceAsync(HistoryConfigId id, PackId pack, byte[] bytes, CancellationToken token) => WriteOnceAsync(PackPath(id, pack), bytes, token);
     public Task<bool> LegacyHistoryExistsAsync(HistoryConfigId id, CancellationToken token) => Task.FromResult(false);
-    public Task UploadAsync(ReplicaId id, string localPath, CancellationToken token) => CopyAsync(localPath, ReplicaRoot(id) + "/payload", true, token);
+    public async Task UploadAsync(ReplicaId id, string localPath, CancellationToken token)
+    {
+        if (ObserveJobPhase is not null) await ObserveJobPhase(CloudJobPhase.Uploading, token).ConfigureAwait(false);
+        await CopyAsync(localPath, ReplicaRoot(id) + "/payload", true, token).ConfigureAwait(false);
+    }
     public async Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token)
     {
+        if (ObserveJobPhase is not null) await ObserveJobPhase(CloudJobPhase.Verifying, token).ConfigureAwait(false);
         var temporary = Temporary();
         try
         {
@@ -68,10 +74,15 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         try
         {
             var bytes = await RcloneConnectionService.RunBytesAsync(context.CreateStartInfo(["cat", ReplicaRoot(replicaId) + "/manifest.json"]), _timeout, token, 64 * 1024).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(bytes);
+            if (document.RootElement.ValueKind != JsonValueKind.Object || document.RootElement.EnumerateObject().Any(p =>
+                p.Name is not ("representationId" or "replicaId" or "artifactRootId" or "objectKey" or "size" or "storageSha256")))
+                throw new InvalidDataException("[cloud.manifest-invalid] Unsupported replica manifest format.");
             return JsonSerializer.Deserialize(bytes, RcloneTransportJsonContext.Default.HistoryReplicaManifest)
                 ?? throw new InvalidDataException("[cloud.manifest-invalid] Empty replica manifest.");
         }
         catch (RcloneProcessException ex) when (ex.ExitCode is 3 or 4) { return null; }
+        catch (JsonException ex) { throw new InvalidDataException("[cloud.manifest-invalid] " + CloudCommandSecurity.Redact(ex.Message), ex); }
     }
     public Task DownloadAsync(HistoryReplicaManifest manifest, string stagingPath, CancellationToken token)
         => CopyAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, false, token);

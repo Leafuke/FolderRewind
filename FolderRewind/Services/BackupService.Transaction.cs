@@ -406,6 +406,12 @@ public static partial class BackupService
             CloudSyncService.QueueNativeHistorySync(
                 config,
                 committedBatch);
+            var cloudRuntime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
+            if (cloudRuntime.CloudJobs.Diagnostic is not null)
+            {
+                hasPostCommitWarnings = true;
+                NotificationService.ShowWarning(I18n.GetString("CloudJob_RegistrationNeedsAttention"));
+            }
         }
         catch (Exception ex)
         {

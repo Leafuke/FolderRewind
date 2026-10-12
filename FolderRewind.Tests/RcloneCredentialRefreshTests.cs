@@ -95,6 +95,18 @@ public sealed class RcloneCredentialRefreshTests
     }
 
     [TestMethod]
+    public async Task TrustedRevisionChainAcceptsNormalRefreshAndRejectsExternalAccountReplacement()
+    {
+        using var context = Context(); var frozen = context.RevisionEvidence;
+        await RcloneConnectionService.RunAsync(Start(context), TimeSpan.FromSeconds(10), default);
+        Assert.IsTrue(RcloneCredentialRefresh.AcceptsFrozenRevision(_config, frozen, File.ReadAllBytes(_config)));
+        File.WriteAllText(_config, File.ReadAllText(_config).Replace("\"new\"", "\"other-account\""));
+        Assert.IsFalse(RcloneCredentialRefresh.AcceptsFrozenRevision(_config, frozen, File.ReadAllBytes(_config)));
+        using var changed = Context();
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => RcloneConnectionService.RunAsync(Start(changed), TimeSpan.FromSeconds(10), default));
+    }
+
+    [TestMethod]
     public void ExternalOAuthIsRejectedBeforeStartingAChild()
         => Assert.ThrowsExactly<InvalidOperationException>(() => new RcloneExecutionContext(_exe, _config, _root, "outer:/backup", _root));
 }

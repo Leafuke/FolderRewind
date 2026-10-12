@@ -23,6 +23,8 @@ public sealed class RcloneExecutionContext : IDisposable
     internal string TaskRoot => Path.GetDirectoryName(_taskDirectory)!;
     private static readonly ConcurrentDictionary<string, RcloneExecutionContext> Contexts = new(StringComparer.OrdinalIgnoreCase);
     internal static bool TryFind(string snapshot, out RcloneExecutionContext context) => Contexts.TryGetValue(snapshot, out context!);
+    internal static bool HasActiveCredential(string path) => Path.IsPathFullyQualified(path) && Contexts.Values.Any(c => !c._disposed
+        && StringComparer.OrdinalIgnoreCase.Equals(c.ConfigPath, Path.GetFullPath(path)));
     private readonly string _taskDirectory;
     private readonly FileStream _ownership;
     private readonly string[] _backendOptions;
@@ -156,9 +158,14 @@ public sealed class RcloneExecutionContext : IDisposable
     public void RequireUnchanged()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (!File.Exists(ConfigPath) || new FileInfo(ConfigPath).Length > 1024 * 1024
-            || !CryptographicOperations.FixedTimeEquals(SHA256.HashData(ReadConfigurationBytes(ConfigPath)), _revision))
+        if (!File.Exists(ConfigPath) || new FileInfo(ConfigPath).Length > 1024 * 1024)
             throw RcloneConnectionDiagnostics.InvalidFailure("cloud.connection-changed", "CloudSetup_ConnectionChanged");
+        var current = ReadConfigurationBytes(ConfigPath);
+        if (CryptographicOperations.FixedTimeEquals(SHA256.HashData(current), _revision)) return;
+        if (!RcloneCredentialRefresh.AcceptsFrozenRevision(ConfigPath, RevisionEvidence, current)
+            || !RcloneCredentialRefresh.TokenOnlyDifference(SourceBytes, current, AllowedTokenSections))
+            throw RcloneConnectionDiagnostics.InvalidFailure("cloud.connection-changed", "CloudSetup_ConnectionChanged");
+        AcceptCredentialRevision(current);
     }
     internal void AcceptCredentialRevision(byte[] bytes)
     {
