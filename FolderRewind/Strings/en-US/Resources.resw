@@ -2733,7 +2733,7 @@ Status: {3}</value>
     <value>History Records</value>
   </data>
   <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
-    <value>Export or import backup history records. When importing, you can choose to merge or replace existing records.</value>
+    <value>Export selected projects’ history metadata or merge immutable history records. Backup files are not included.</value>
   </data>
   <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
     <value>Export History</value>
@@ -6359,7 +6359,7 @@ Retention count: {2} · {3}</value></data>
     <value>Pending configuration import canceled. The current configuration is unchanged.</value>
   </data>
   <data name="Migration_ConfigPreview" xml:space="preserve">
-    <value>Replace the configuration on restart. Project and source identities are retained; confirm paths, plugins and recovery materials.</value>
+    <value>Configuration applies after restart and preserves switches. Migrated capabilities pause per project until reviewed and confirmed.</value>
   </data>
   <data name="Migration_ConfigProject" xml:space="preserve">
     <value>{0}
@@ -6374,7 +6374,7 @@ Backup directory: {4}</value>
     <value>No backup projects to migrate. For orphan history, import the original configuration to retain project and source IDs.</value>
   </data>
   <data name="Migration_ExportTitle" xml:space="preserve">
-    <value>Select history projects to export (all selected by default)</value>
+    <value>Export history metadata</value>
   </data>
   <data name="Migration_MetadataOnly" xml:space="preserve">
     <value>Contains history metadata only; excludes backup payloads and the old device workspace.</value>
@@ -6433,7 +6433,7 @@ Added {1} · Duplicates {2}
     <value>Confirm project identity and migration paths</value>
   </data>
   <data name="Migration_SetupDescription" xml:space="preserve">
-    <value>Retain original project and source IDs. Confirm paths to start a new full backup from Unknown state; use Checkout to resume an old branch. Required plugins must be active and encryption passwords available.</value>
+    <value>Edit only source and destination paths that need correction. Resume ready capabilities through the batch review.</value>
   </data>
   <data name="Migration_Destination" xml:space="preserve">
     <value>Backup destination</value>
@@ -6493,7 +6493,7 @@ Added {1} · Duplicates {2}
     <value>Destination disk is full</value>
   </data>
   <data name="Migration_ConfigApplied" xml:space="preserve">
-    <value>Configuration applied on restart. Complete source, path and local initialization setup for imported projects. Automation and cloud uploads remain disabled.</value>
+    <value>Configuration applied after restart. Review and confirm ready capabilities. Configured switches are preserved.</value>
   </data>
   <data name="Migration_ErrorIo" xml:space="preserve">
     <value>Destination I/O failed. Check the directory, device and diagnostic logs.</value>
@@ -6501,4 +6501,120 @@ Added {1} · Duplicates {2}
   <data name="Migration_ErrorUnexpected" xml:space="preserve">
     <value>Import encountered an unexpected error. See diagnostic logs.</value>
   </data>
+  <data name="Migration_SelectAll.Content" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="Migration_ClearSelection.Content" xml:space="preserve">
+    <value>Clear selection</value>
+  </data>
+  <data name="Migration_BackupCapability.Content" xml:space="preserve">
+    <value>Resume backup</value>
+  </data>
+  <data name="Migration_CloudCapability.Content" xml:space="preserve">
+    <value>Resume cloud actions</value>
+  </data>
+  <data name="Migration_BatchReview.Content" xml:space="preserve">
+    <value>Review and resume ready projects</value>
+  </data>
+  <data name="Migration_ReadOriginal.Content" xml:space="preserve">
+    <value>Read original switches from configuration</value>
+  </data>
+  <data name="Migration_ModeLocal" xml:space="preserve">
+    <value>Restore on this computer</value>
+  </data>
+  <data name="Migration_ModeCross" xml:space="preserve">
+    <value>Migrate to another computer</value>
+  </data>
+  <data name="Migration_ExportAll" xml:space="preserve">
+    <value>All projects (default)</value>
+  </data>
+  <data name="Migration_ExportSelected" xml:space="preserve">
+    <value>Selected projects</value>
+  </data>
+  <data name="Migration_ExportAction" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Migration_SelectionCount" xml:space="preserve">
+    <value>Selected {0} of {1} projects</value>
+  </data>
+  <data name="Migration_BatchSummary" xml:space="preserve">
+    <value>{0} released · {1} awaiting confirmation · {2} need attention</value>
+  </data>
+  <data name="Migration_CapabilitySummary" xml:space="preserve">
+    <value>Backup: {0} {1}
+Cloud: {2} {3}</value>
+  </data>
+  <data name="Migration_State_AwaitingCheck" xml:space="preserve">
+    <value>Awaiting check</value>
+  </data>
+  <data name="Migration_State_AwaitingConfirmation" xml:space="preserve">
+    <value>Awaiting confirmation</value>
+  </data>
+  <data name="Migration_State_Released" xml:space="preserve">
+    <value>Migration restriction released</value>
+  </data>
+  <data name="Migration_State_Blocked" xml:space="preserve">
+    <value>Needs attention</value>
+  </data>
+  <data name="Migration_CloudPaused" xml:space="preserve">
+    <value>Cloud actions for this project are paused. Review and confirm in Data migration.</value>
+  </data>
+  <data name="Migration_CloudBindingRequired" xml:space="preserve">
+    <value>Cloud connection is not ready. Bind a connection in project management.</value>
+  </data>
+  <data name="Migration_LocalStateDamaged" xml:space="preserve">
+    <value>Local history state is damaged or inaccessible. Complete controlled recovery first.</value>
+  </data>
+  <data name="Migration_CheckExpired" xml:space="preserve">
+    <value>The project or history state changed. Check again before confirming.</value>
+  </data>
+  <data name="Migration_ConfigPaths" xml:space="preserve">
+    <value>{0} sources
+Sources: {1}
+Destination: {2}</value>
+  </data>
+  <data name="Migration_BatchDescription" xml:space="preserve">
+    <value>Resume selected ready capabilities while preserving configured switches. Other projects remain independent. Startup backups and existing archives will not be replayed.</value>
+  </data>
+  <data name="Migration_BatchTitle" xml:space="preserve">
+    <value>Review and resume migrated projects</value>
+  </data>
+  <data name="Migration_ResumeReady" xml:space="preserve">
+    <value>Resume ready capabilities</value>
+  </data>
+  <data name="Migration_ResumeCount" xml:space="preserve">
+    <value>Processed {0} projects. Remaining projects can be checked or retried.</value>
+  </data>
+  <data name="Migration_PathSaved" xml:space="preserve">
+    <value>Paths and local state were processed. Review the batch to resume capabilities.</value>
+  </data>
+  <data name="Migration_ReadOriginalTitle" xml:space="preserve">
+    <value>Read original configuration switches</value>
+  </data>
+  <data name="Migration_ReadOriginalDescription" xml:space="preserve">
+    <value>Restore only automatic backup and cloud switches for matching identities. Paths, rules and credentials stay intact. Execution still requires confirmation.</value>
+  </data>
+  <data name="Migration_ReadOriginalAction" xml:space="preserve">
+    <value>Save selected switches</value>
+  </data>
+  <data name="Migration_OriginalSwitches" xml:space="preserve">
+    <value>Automatic backup: {0} → {1}
+Cloud switch: {2} → {3}</value>
+  </data>
+  <data name="Migration_On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Migration_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Migration_OriginalReadDone" xml:space="preserve">
+    <value>Original switches were read. Review and confirm ready capabilities.</value>
+  </data>
+  <data name="Migration_Restart.Content" xml:space="preserve"><value>Restart and apply configuration</value></data>
+  <data name="Migration_CancelPending.Content" xml:space="preserve"><value>Cancel pending import</value></data>
+  <data name="Migration_CancelOperation.Content" xml:space="preserve"><value>Cancel current operation</value></data>
+  <data name="Migration_Setup.Content" xml:space="preserve"><value>Complete migration setup</value></data>
+  <data name="Migration_KeptOff" xml:space="preserve"><value>(configured off; stays off)</value></data>
+  <data name="Migration_DefaultSummary" xml:space="preserve"><value>Import or export configuration and history metadata</value></data>
+  <data name="Migration_BatchCanceled" xml:space="preserve"><value>Batch canceled. Completed project decisions remain; remaining projects can be retried.</value></data>
 </root>

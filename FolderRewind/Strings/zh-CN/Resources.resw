@@ -2733,7 +2733,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>历史记录</value>
   </data>
   <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
-    <value>导出或导入备份历史记录。导入时可选择合并或替换现有记录。</value>
+    <value>导出所选项目的历史元数据，或合并导入不可变历史记录；不包含实际备份文件。</value>
   </data>
   <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
     <value>导出历史记录</value>
@@ -6359,7 +6359,7 @@ Pull Request：{1}</value>
     <value>已取消待生效配置导入，当前配置不变。</value>
   </data>
   <data name="Migration_ConfigPreview" xml:space="preserve">
-    <value>重启后替换当前配置。保留项目和来源身份；需要重新确认路径、插件及恢复材料。</value>
+    <value>配置重启后生效，并保留原开关。迁移功能按项目分别暂停，检查通过后一次确认恢复。</value>
   </data>
   <data name="Migration_ConfigProject" xml:space="preserve">
     <value>{0}
@@ -6374,7 +6374,7 @@ Pull Request：{1}</value>
     <value>没有可迁移的备份项目。孤立历史需要先导入原配置，保留原项目和来源 ID。</value>
   </data>
   <data name="Migration_ExportTitle" xml:space="preserve">
-    <value>选择导出的历史项目（默认全部）</value>
+    <value>导出历史元数据</value>
   </data>
   <data name="Migration_MetadataOnly" xml:space="preserve">
     <value>仅包含历史元数据，不包含实际备份文件或旧设备的本机工作区。</value>
@@ -6433,7 +6433,7 @@ Pull Request：{1}</value>
     <value>确认项目身份和迁移路径</value>
   </data>
   <data name="Migration_SetupDescription" xml:space="preserve">
-    <value>保留原项目和来源 ID。确认路径后，从 Unknown 状态开始新的全量备份；接续旧分支请使用 Checkout。需要插件处于可运行状态，并重新准备加密密码。</value>
+    <value>仅处理需要修改的来源与目标路径。保存后通过批量检查恢复已就绪功能。</value>
   </data>
   <data name="Migration_Destination" xml:space="preserve">
     <value>备份目标目录</value>
@@ -6493,7 +6493,7 @@ Pull Request：{1}</value>
     <value>目标磁盘空间不足</value>
   </data>
   <data name="Migration_ConfigApplied" xml:space="preserve">
-    <value>配置已在重启后生效，请完成迁移项目的来源、路径和本机初始化设置。自动备份与云上传仍保持关闭。</value>
+    <value>配置已在重启后生效，请批量检查并确认已就绪功能。原配置开关已保留。</value>
   </data>
   <data name="Migration_ErrorIo" xml:space="preserve">
     <value>目标读写失败，请检查目录、设备与诊断日志。</value>
@@ -6501,4 +6501,120 @@ Pull Request：{1}</value>
   <data name="Migration_ErrorUnexpected" xml:space="preserve">
     <value>导入遇到异常，请查看诊断日志。</value>
   </data>
+  <data name="Migration_SelectAll.Content" xml:space="preserve">
+    <value>全选</value>
+  </data>
+  <data name="Migration_ClearSelection.Content" xml:space="preserve">
+    <value>清空选择</value>
+  </data>
+  <data name="Migration_BackupCapability.Content" xml:space="preserve">
+    <value>恢复备份许可</value>
+  </data>
+  <data name="Migration_CloudCapability.Content" xml:space="preserve">
+    <value>恢复云操作许可</value>
+  </data>
+  <data name="Migration_BatchReview.Content" xml:space="preserve">
+    <value>检查并恢复已就绪项目</value>
+  </data>
+  <data name="Migration_ReadOriginal.Content" xml:space="preserve">
+    <value>从原配置读取原开关</value>
+  </data>
+  <data name="Migration_ModeLocal" xml:space="preserve">
+    <value>本机恢复</value>
+  </data>
+  <data name="Migration_ModeCross" xml:space="preserve">
+    <value>跨设备迁移</value>
+  </data>
+  <data name="Migration_ExportAll" xml:space="preserve">
+    <value>全部项目（默认）</value>
+  </data>
+  <data name="Migration_ExportSelected" xml:space="preserve">
+    <value>指定项目</value>
+  </data>
+  <data name="Migration_ExportAction" xml:space="preserve">
+    <value>导出</value>
+  </data>
+  <data name="Migration_SelectionCount" xml:space="preserve">
+    <value>已选择 {0} / {1} 个项目</value>
+  </data>
+  <data name="Migration_BatchSummary" xml:space="preserve">
+    <value>{0} 个已解除限制 · {1} 个待确认 · {2} 个有待处理项</value>
+  </data>
+  <data name="Migration_CapabilitySummary" xml:space="preserve">
+    <value>备份：{0} {1}
+云操作：{2} {3}</value>
+  </data>
+  <data name="Migration_State_AwaitingCheck" xml:space="preserve">
+    <value>待检查</value>
+  </data>
+  <data name="Migration_State_AwaitingConfirmation" xml:space="preserve">
+    <value>待确认</value>
+  </data>
+  <data name="Migration_State_Released" xml:space="preserve">
+    <value>已解除迁移限制</value>
+  </data>
+  <data name="Migration_State_Blocked" xml:space="preserve">
+    <value>需要处理</value>
+  </data>
+  <data name="Migration_CloudPaused" xml:space="preserve">
+    <value>此项目的云操作暂停中，请在数据迁移中检查并确认。</value>
+  </data>
+  <data name="Migration_CloudBindingRequired" xml:space="preserve">
+    <value>云连接尚未确认，请在项目管理中重新绑定云连接。</value>
+  </data>
+  <data name="Migration_LocalStateDamaged" xml:space="preserve">
+    <value>本机历史状态损坏或不可访问，请先完成受控恢复。</value>
+  </data>
+  <data name="Migration_CheckExpired" xml:space="preserve">
+    <value>项目或历史状态已变化，请重新检查后确认。</value>
+  </data>
+  <data name="Migration_ConfigPaths" xml:space="preserve">
+    <value>{0} 个来源
+来源：{1}
+目标：{2}</value>
+  </data>
+  <data name="Migration_BatchDescription" xml:space="preserve">
+    <value>只恢复选中的已就绪功能，保留原配置开关。未完成项目不影响其他项目；不会补跑启动备份或批量上传旧归档。</value>
+  </data>
+  <data name="Migration_BatchTitle" xml:space="preserve">
+    <value>检查与恢复迁移项目</value>
+  </data>
+  <data name="Migration_ResumeReady" xml:space="preserve">
+    <value>恢复已就绪功能</value>
+  </data>
+  <data name="Migration_ResumeCount" xml:space="preserve">
+    <value>已处理 {0} 个项目，其余项目可继续检查或重试。</value>
+  </data>
+  <data name="Migration_PathSaved" xml:space="preserve">
+    <value>路径和本机状态已处理，请在批量检查中确认恢复功能。</value>
+  </data>
+  <data name="Migration_ReadOriginalTitle" xml:space="preserve">
+    <value>读取原配置开关</value>
+  </data>
+  <data name="Migration_ReadOriginalDescription" xml:space="preserve">
+    <value>仅恢复身份匹配项目的自动备份与云开关，不覆盖路径、规则或凭据。保存后仍需确认运行许可。</value>
+  </data>
+  <data name="Migration_ReadOriginalAction" xml:space="preserve">
+    <value>保存选中开关</value>
+  </data>
+  <data name="Migration_OriginalSwitches" xml:space="preserve">
+    <value>自动备份：{0} → {1}
+云开关：{2} → {3}</value>
+  </data>
+  <data name="Migration_On" xml:space="preserve">
+    <value>开启</value>
+  </data>
+  <data name="Migration_Off" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Migration_OriginalReadDone" xml:space="preserve">
+    <value>原开关已读取，请检查并确认已就绪功能。</value>
+  </data>
+  <data name="Migration_Restart.Content" xml:space="preserve"><value>重启并应用配置</value></data>
+  <data name="Migration_CancelPending.Content" xml:space="preserve"><value>取消待生效导入</value></data>
+  <data name="Migration_CancelOperation.Content" xml:space="preserve"><value>取消当前操作</value></data>
+  <data name="Migration_Setup.Content" xml:space="preserve"><value>完成迁移设置</value></data>
+  <data name="Migration_KeptOff" xml:space="preserve"><value>（原开关关闭，继续保持关闭）</value></data>
+  <data name="Migration_DefaultSummary" xml:space="preserve"><value>导入或导出配置与历史元数据</value></data>
+  <data name="Migration_BatchCanceled" xml:space="preserve"><value>批量操作已取消，已完成项目的结果保留，剩余项目可重试。</value></data>
 </root>

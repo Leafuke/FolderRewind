@@ -24,7 +24,7 @@ namespace FolderRewind.Services
         public static async Task<(bool Success, int RecoveredCount, string Message)> DownloadConfigurationHistoryAsync(
             BackupConfig? config)
         {
-            var result = await SyncNativeHistoryAsync(config).ConfigureAwait(false);
+            var result = await SyncNativeHistoryAsync(config, allowUploads: false).ConfigureAwait(false);
             return (result.Success, result.Downloaded, result.Message);
         }
 
@@ -64,7 +64,7 @@ namespace FolderRewind.Services
             BackupConfig? config,
             ConfigCloudSyncMode mode)
         {
-            var sync = await SyncNativeHistoryAsync(config).ConfigureAwait(false);
+            var sync = await SyncNativeHistoryAsync(config, allowUploads: false).ConfigureAwait(false);
             return new()
             {
                 Success = sync.Success,
@@ -136,15 +136,16 @@ namespace FolderRewind.Services
         }
 
         private static async Task<(bool Success, int Downloaded, int Uploaded, string Message)> SyncNativeHistoryAsync(
-            BackupConfig? config)
+            BackupConfig? config, bool allowUploads = true)
         {
             if (config is null || !CanUseManualCloudActions(config))
                 return (false, 0, 0, I18n.GetString("CloudSync_Notification_HistoryImportFailed"));
+            if (allowUploads) RequireMigrationCloudPermission(config);
             config = await PrepareConnectionAsync(config).ConfigureAwait(false);
             using var connection = CaptureConnection(config);
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
-            var result = await new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config))
-                .SyncAsync().ConfigureAwait(false);
+            var service = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
+            var result = allowUploads ? await service.SyncAsync().ConfigureAwait(false) : await service.PullAsync().ConfigureAwait(false);
             var message = result.Succeeded
                 ? $"Commit Pack union synchronized: {result.DownloadedPacks} downloaded, {result.UploadedPacks} uploaded."
                 : result.Diagnostic;

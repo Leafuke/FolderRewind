@@ -334,7 +334,7 @@ namespace FolderRewind.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<AutomationInvocationSnapshot> snapshots =
-                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, c.Id))
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, c.Id))
                     .Where(config => config?.Automation is { AutoBackupEnabled: true, RunOnAppStart: true })
                     .Select(CreateInvocationSnapshot)
                     .ToArray();
@@ -347,7 +347,7 @@ namespace FolderRewind.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<ScheduleConfigSnapshot> snapshots =
-                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, c.Id))
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, c.Id))
                     .Where(config => config?.Automation?.AutoBackupEnabled == true)
                     .Select(config =>
                     {
@@ -378,7 +378,7 @@ namespace FolderRewind.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 IReadOnlyList<ConditionConfigSnapshot> snapshots =
-                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, c.Id))
+                    (ConfigService.CurrentConfig?.BackupConfigs ?? []).Where(c => !MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, c.Id))
                     .Where(config => config?.Automation is
                     {
                         AutoBackupEnabled: true,
@@ -490,7 +490,7 @@ namespace FolderRewind.Services
             bool requiresSingleFolder,
             bool updateAutomationState)
         {
-            if (MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, config.Id)) return;
+            if (MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id)) return;
             ManagedFolder? effectiveTargetFolder = targetFolder;
 
             if (effectiveTargetFolder == null && requiresSingleFolder)
@@ -668,6 +668,7 @@ namespace FolderRewind.Services
             ManagedFolder? targetFolder,
             bool updateAutomationState)
         {
+            if (MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id)) return;
             try
             {
                 if (targetFolder == null)

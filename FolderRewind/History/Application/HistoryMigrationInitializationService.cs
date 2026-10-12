@@ -46,8 +46,12 @@ public sealed class HistoryMigrationInitializationService(HistoryRuntime runtime
             intents.Add(HistoryLocalStateJournalRecovery.CreateWorkspaceIntent(new(runtime.ConfigId, 0,
                 sources.Select(id => new WorkspaceSourceBaseline(id, null, WorkspaceBaselineRelation.Unknown))), -1));
         else if (resets.Length > 0)
-            intents.Add(HistoryLocalStateJournalRecovery.CreateWorkspaceIntent(workspace.Value!.WithSourceStates(
-                resets.Select(id => new WorkspaceSourceBaseline(id, null, WorkspaceBaselineRelation.Unknown))), workspace.Value.StateRevision));
+        {
+            var changes = resets.Select(id => new WorkspaceSourceBaseline(id, null, WorkspaceBaselineRelation.Unknown))
+                .Where(state => workspace.Value!.GetSourceState(state.SourceId) != state).ToArray();
+            if (changes.Length > 0)
+                intents.Add(HistoryLocalStateJournalRecovery.CreateWorkspaceIntent(workspace.Value!.WithSourceStates(changes), workspace.Value.StateRevision));
+        }
         if (catalog.Status == DeviceLocalStateStatus.Missing)
             intents.Add(HistoryLocalStateJournalRecovery.CreateCatalogIntent(new(runtime.ConfigId, 0, []), -1));
         if (intents.Count > 0)

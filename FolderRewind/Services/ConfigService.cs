@@ -761,7 +761,8 @@ namespace FolderRewind.Services
         /// 准备阶段不修改活动配置；启动切换使用安全副本、回读验证和统一回滚。
         /// </remarks>
         public static async Task<ConfigImportResult> StageConfigImportAsync(string sourcePath,
-            CancellationToken cancellationToken = default, string? expectedSourceSha256 = null)
+            CancellationToken cancellationToken = default, string? expectedSourceSha256 = null,
+            ConfigImportMode mode = ConfigImportMode.CrossDevice)
         {
             if (IsRecoveryMode) return new(ConfigImportStatus.Failed, "Configuration recovery must be completed first.");
             try
@@ -769,9 +770,11 @@ namespace FolderRewind.Services
                 var sourceBytes = await File.ReadAllBytesAsync(sourcePath, cancellationToken).ConfigureAwait(false);
                 if (expectedSourceSha256 is not null && Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(sourceBytes)) != expectedSourceSha256)
                     throw new InvalidDataException("Configuration changed after preview. Select the file again.");
-                var imported = PrepareImportedConfig(sourceBytes);
+                var target = mode == ConfigImportMode.LocalRestore
+                    ? await UiDispatcherService.RunOnUiAsync(() => Task.FromResult(ConfigSnapshotMapper.Copy(CurrentConfig))).ConfigureAwait(false) : null;
+                var imported = PrepareImportedConfig(sourceBytes, mode, target);
                 cancellationToken.ThrowIfCancellationRequested();
-                return ImportStore.Stage(SerializeConfig(imported), ValidateHostPayload, imported.BackupConfigs.Select(p => p.Id).ToArray());
+                return ImportStore.Stage(SerializeConfig(imported), ValidateHostPayload, imported.BackupConfigs.Select(p => p.Id).ToArray(), mode);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception error)
@@ -781,13 +784,15 @@ namespace FolderRewind.Services
             }
         }
 
-        internal static async Task<(AppConfig Config, string Sha256)> PreviewConfigImportAsync(string path)
+        internal static async Task<(AppConfig Config, string Sha256)> PreviewConfigImportAsync(string path, ConfigImportMode mode = ConfigImportMode.CrossDevice)
         {
             var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
-            return (PrepareImportedConfig(bytes), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+            var target = mode == ConfigImportMode.LocalRestore
+                ? await UiDispatcherService.RunOnUiAsync(() => Task.FromResult(ConfigSnapshotMapper.Copy(CurrentConfig))).ConfigureAwait(false) : null;
+            return (PrepareImportedConfig(bytes, mode, target), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
         }
 
-        private static AppConfig PrepareImportedConfig(byte[] sourceBytes)
+        internal static AppConfig PrepareImportedConfig(byte[] sourceBytes, ConfigImportMode mode = ConfigImportMode.CrossDevice, AppConfig? targetSnapshot = null)
         {
             var gate = new ConfigDocumentGate().Prepare(sourceBytes);
             if (!gate.IsReady || gate.Utf8Json is null)
@@ -796,10 +801,21 @@ namespace FolderRewind.Services
             RemoveOnboardingMachineBindings(imported);
             NormalizeConfig(imported);
             PrepareSchemaOnePersistence(imported);
-            foreach (var project in imported.BackupConfigs)
+            if (mode == ConfigImportMode.LocalRestore)
             {
-                project.Automation.AutoBackupEnabled = false;
-                project.Cloud.Enabled = false;
+                var target = targetSnapshot ?? throw new InvalidOperationException("Local restore requires a detached target configuration snapshot.");
+                imported.GlobalSettings.OpenListRuntime = target.GlobalSettings.OpenListRuntime;
+                foreach (var project in imported.BackupConfigs)
+                {
+                    var existing = target.BackupConfigs.FirstOrDefault(c => new History.Domain.HistoryConfigId(c.Id).Matches(project.Id));
+                    if (existing is null || existing.Cloud.CommandMode != project.Cloud.CommandMode
+                        || existing.Cloud.RemoteBasePath != project.Cloud.RemoteBasePath) continue;
+                    // Machine bindings come exclusively from the target installation.
+                    project.Cloud.RcloneConfigPath = existing.Cloud.RcloneConfigPath;
+                    project.Cloud.LocalOpenListServiceUri = existing.Cloud.LocalOpenListServiceUri;
+                    project.Cloud.ExecutablePath = existing.Cloud.ExecutablePath;
+                    project.Cloud.WorkingDirectory = existing.Cloud.WorkingDirectory;
+                }
             }
             return imported;
         }
@@ -989,7 +1005,6 @@ namespace FolderRewind.Services
                 if (project.Cloud is not { } cloud) continue;
                 if (!string.IsNullOrWhiteSpace(cloud.RcloneConfigPath) || !string.IsNullOrWhiteSpace(cloud.LocalOpenListServiceUri))
                 {
-                    cloud.Enabled = false;
                     cloud.ExecutablePath = "rclone.exe";
                     cloud.WorkingDirectory = string.Empty;
                 }

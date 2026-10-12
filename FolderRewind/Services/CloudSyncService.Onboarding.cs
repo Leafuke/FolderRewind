@@ -36,6 +36,7 @@ public static partial class CloudSyncService
     }
     public static async Task<HistoryCloudBackupResult> UploadVersionClosureAsync(BackupConfig config, VersionId version, CancellationToken token = default)
     {
+        RequireMigrationCloudPermission(config);
         config = await PrepareConnectionAsync(config, token).ConfigureAwait(false);
         using var connection = CaptureConnection(config);
         var assessment = await NativeHistoryApplicationService.PreviewExportAsync(config, version, token).ConfigureAwait(false);

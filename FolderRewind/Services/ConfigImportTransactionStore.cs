@@ -5,6 +5,7 @@ using System.Text.Json;
 
 namespace FolderRewind.Services;
 
+public enum ConfigImportMode { CrossDevice, LocalRestore }
 public enum ConfigImportStatus { None, StagedRequiresRestart, Activating, Applied, RolledBack, Failed, Canceled }
 public sealed record ConfigImportResult(ConfigImportStatus Status, string Diagnostic = "")
 {
@@ -12,8 +13,9 @@ public sealed record ConfigImportResult(ConfigImportStatus Status, string Diagno
 }
 internal sealed record ConfigImportJournal(int FormatVersion, ConfigImportStatus Status,
     string CandidateSha256, bool HadOriginal = false, string OriginalSha256 = "", string Diagnostic = "",
-    string[]? PendingConfigIds = null, string ImportId = "", bool HadSetupRegistry = false, string SetupRegistrySha256 = "");
-internal sealed record ConfigImportSetupRegistry(string ImportId, string[] ConfigIds);
+    string[]? PendingConfigIds = null, string ImportId = "", bool HadSetupRegistry = false, string SetupRegistrySha256 = "", ConfigImportMode Mode = ConfigImportMode.CrossDevice);
+internal sealed record ConfigImportSetupRegistry(string ImportId, string[] ConfigIds, int FormatVersion = 1,
+    ConfigImportMode Mode = ConfigImportMode.CrossDevice, string OriginalSha256 = "");
 
 /// <summary>Preparation never touches the active configuration. Only startup can activate it.</summary>
 internal sealed class ConfigImportTransactionStore(string configPath)
@@ -30,11 +32,11 @@ internal sealed class ConfigImportTransactionStore(string configPath)
     internal Action<string>? FaultInjector { get; set; }
     internal ConfigImportResult Result => Load() is { } j ? new(j.Status, j.Diagnostic) : new(ConfigImportStatus.None);
 
-    internal ConfigImportResult Stage(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds = null)
+    internal ConfigImportResult Stage(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds = null, ConfigImportMode mode = ConfigImportMode.CrossDevice)
     {
-        lock (PreparationSync) return StageInsideLock(bytes, validate, projectIds);
+        lock (PreparationSync) return StageInsideLock(bytes, validate, projectIds, mode);
     }
-    private ConfigImportResult StageInsideLock(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds)
+    private ConfigImportResult StageInsideLock(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds, ConfigImportMode mode)
     {
         Validate(bytes, validate);
         if (Load()?.Status == ConfigImportStatus.Activating)
@@ -44,7 +46,7 @@ internal sealed class ConfigImportTransactionStore(string configPath)
         var readBack = File.ReadAllBytes(Candidate(hash));
         Validate(readBack, validate);
         if (!bytes.AsSpan().SequenceEqual(readBack)) throw new IOException("Candidate configuration changed during preparation.");
-        Save(new(1, ConfigImportStatus.StagedRequiresRestart, Hash(bytes), PendingConfigIds: projectIds, ImportId: Guid.NewGuid().ToString("N")));
+        Save(new(2, ConfigImportStatus.StagedRequiresRestart, Hash(bytes), PendingConfigIds: projectIds, ImportId: Guid.NewGuid().ToString("N"), Mode: mode));
         return Result;
     }
 
@@ -73,7 +75,7 @@ internal sealed class ConfigImportTransactionStore(string configPath)
             FaultInjector?.Invoke("Activating");
             AtomicFileService.Write(configPath, stream => stream.Write(candidate));
             AtomicFileService.Write(SetupRegistryPath, stream => JsonSerializer.Serialize(stream,
-                new ConfigImportSetupRegistry(journal.ImportId, journal.PendingConfigIds ?? []), JsonOptions));
+                new ConfigImportSetupRegistry(journal.ImportId, journal.PendingConfigIds ?? [], journal.FormatVersion, journal.Mode, journal.OriginalSha256), JsonOptions));
             FaultInjector?.Invoke("Replaced");
             Validate(File.ReadAllBytes(configPath), validate);
             return true;
@@ -123,21 +125,39 @@ internal sealed class ConfigImportTransactionStore(string configPath)
     }
     internal string? PendingToken(string configId)
     {
-        // Preparing/canceling another candidate must not remove setup gates for the active configuration.
+        var registry = LoadSetup();
+        return registry is not null && Array.Exists(registry.ConfigIds, id => new History.Domain.HistoryConfigId(id).Matches(configId)) ? registry.ImportId : null;
+    }
+    internal ConfigImportMode ActiveMode => LoadSetup()?.Mode ?? ConfigImportMode.CrossDevice;
+    internal bool HasLegacySetup => LoadSetup()?.FormatVersion == 1;
+    internal byte[]? ReadPreviousConfig()
+    {
+        var registry = LoadSetup();
+        if (registry is null || registry.OriginalSha256.Length == 0) return null;
+        var path = Original(registry.ImportId);
+        if (!File.Exists(path)) return null;
+        var bytes = File.ReadAllBytes(path);
+        if (Hash(bytes) != registry.OriginalSha256) throw new InvalidDataException("Configuration safety copy changed.");
+        return bytes;
+    }
+    private ConfigImportSetupRegistry? LoadSetup()
+    {
+        // A staged/canceled candidate never replaces the active setup registry.
         if (!File.Exists(SetupRegistryPath)) return null;
         var registry = JsonSerializer.Deserialize<ConfigImportSetupRegistry>(File.ReadAllBytes(SetupRegistryPath), JsonOptions)
             ?? throw new InvalidDataException("Configuration setup registry is empty.");
-        if (!Guid.TryParseExact(registry.ImportId, "N", out _) || registry.ConfigIds is null)
+        if (!Guid.TryParseExact(registry.ImportId, "N", out _) || registry.ConfigIds is null || registry.OriginalSha256 is null
+            || registry.FormatVersion is not (1 or 2) || !Enum.IsDefined(registry.Mode))
             throw new InvalidDataException("Configuration setup registry is invalid.");
-        return Array.Exists(registry.ConfigIds, id => new History.Domain.HistoryConfigId(id).Matches(configId)) ? registry.ImportId : null;
+        return registry;
     }
     private ConfigImportJournal? Load()
     {
         if (!File.Exists(JournalPath)) return null;
         var journal = JsonSerializer.Deserialize<ConfigImportJournal>(File.ReadAllBytes(JournalPath), JsonOptions)
             ?? throw new InvalidDataException("Configuration import journal is empty.");
-        if (journal.FormatVersion != 1 || !Enum.IsDefined(journal.Status)
-            || journal.CandidateSha256.Length != 64 || !System.Linq.Enumerable.All(journal.CandidateSha256, Uri.IsHexDigit)
+        if (journal.FormatVersion is not (1 or 2) || !Enum.IsDefined(journal.Mode) || !Enum.IsDefined(journal.Status)
+            || journal.CandidateSha256 is null || journal.CandidateSha256.Length != 64 || !System.Linq.Enumerable.All(journal.CandidateSha256, Uri.IsHexDigit)
             || !Guid.TryParseExact(journal.ImportId, "N", out _))
             throw new InvalidDataException("Configuration import journal is incompatible.");
         return journal;

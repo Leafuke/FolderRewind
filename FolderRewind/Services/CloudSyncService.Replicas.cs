@@ -42,7 +42,7 @@ namespace FolderRewind.Services
         {
             var ids = representationIds?.Distinct().ToArray() ?? [];
             if (config?.Cloud?.Enabled != true || ids.Length == 0 || !CanUseManualCloudActions(config)) return;
-            if (MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, config.Id)) return;
+            if (MigrationSetupStateStore.IsCloudPending(ConfigService.ConfigDirectory, config.Id)) return;
             lock (AutomaticSyncLock)
             {
                 if (_automaticSyncStopping) return;
@@ -55,6 +55,7 @@ namespace FolderRewind.Services
 
         private static async Task QueueNativeHistorySyncAsync(BackupConfig config, RepresentationId[] ids)
         {
+            if (MigrationSetupStateStore.IsCloudPending(ConfigService.ConfigDirectory, config.Id)) return;
             try { config = await PrepareConnectionAsync(config).ConfigureAwait(false); }
             catch (Exception ex) { LogService.LogWarning(CloudCommandSecurity.Redact(ex.Message), nameof(CloudSyncService)); return; }
             RcloneExecutionContext? captured;
@@ -82,6 +83,7 @@ namespace FolderRewind.Services
                             .Select(item => item.Locator.AbsolutePath)
                             .FirstOrDefault(File.Exists);
                         if (path is null) continue;
+                        RequireMigrationCloudPermission(config);
                         var result = await replicas.UploadAsync(representationId, path).ConfigureAwait(false);
                         if (result.Status != HistoryReplicaOperationStatus.Succeeded)
                             LogService.LogWarning(
@@ -108,6 +110,7 @@ namespace FolderRewind.Services
         {
             try
             {
+                RequireMigrationCloudPermission(config);
                 config = await PrepareConnectionAsync(config, cancellationToken).ConfigureAwait(false);
                 using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);

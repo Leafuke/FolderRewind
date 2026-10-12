@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
+using System.Text.Json;
 
 namespace FolderRewind.Services;
 
@@ -55,64 +57,86 @@ internal static class MigrationProjectSetupService
         return errors;
     }
 
-    internal static async Task CompleteAsync(BackupConfig originalSnapshot, BackupConfig draft)
+    internal static async Task CompleteAsync(BackupConfig originalSnapshot, BackupConfig draft,
+        bool releaseBackup = true, bool releaseCloud = false, string? expectedEvidence = null,
+        CancellationToken cancellationToken = default)
     {
-        if (draft.Id != originalSnapshot.Id || !draft.SourceFolders.Select(f => f.Id).SequenceEqual(originalSnapshot.SourceFolders.Select(f => f.Id)))
+        if (!MigrationRecoveryPolicy.SameId(draft.Id, originalSnapshot.Id)
+            || !draft.SourceFolders.Select(f => f.Id).SequenceEqual(originalSnapshot.SourceFolders.Select(f => f.Id)))
             throw new InvalidOperationException("Migration must preserve project and source identities.");
-        var errors = await Task.Run(() => Check(draft)).ConfigureAwait(false);
+        await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(new(draft.Id), cancellationToken).ConfigureAwait(false);
+        var liveSnapshot = (await MigrationBatchRecoveryService.CaptureAsync().ConfigureAwait(false)).Single(c => c.Id == draft.Id);
+        if (JsonSerializer.Serialize(liveSnapshot, AppJsonContext.Default.BackupConfig) != JsonSerializer.Serialize(originalSnapshot, AppJsonContext.Default.BackupConfig))
+            throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
+        if (expectedEvidence is not null && (await MigrationBatchRecoveryService.CheckProjectAsync(liveSnapshot, cancellationToken).ConfigureAwait(false)).Evidence != expectedEvidence)
+            throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
+        var errors = await Task.Run(() => Check(draft), cancellationToken).ConfigureAwait(false);
         if (errors.Count != 0) throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
-        // Capability probing only; this never examines backup archives.
         await Task.Run(() =>
         {
             Directory.CreateDirectory(draft.DestinationPath);
             var probe = Path.Combine(draft.DestinationPath, $".FolderRewind-migration-{Guid.NewGuid():N}.tmp");
             using (new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { }
-        }).ConfigureAwait(false);
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(draft.Id).ConfigureAwait(false);
-        await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(runtime.ConfigId).ConfigureAwait(false);
-        runtime.MigrationState.MarkImported();
-        var configImportPending = new ConfigImportTransactionStore(ConfigService.ConfigFilePath).PendingToken(draft.Id) is not null
-            && MigrationSetupStateStore.IsPending(ConfigService.ConfigDirectory, draft.Id);
-        var resets = draft.SourceFolders.Where(f => configImportPending || f.Path != originalSnapshot.SourceFolders.Single(s => s.Id == f.Id).Path)
-            .Select(f => new SourceId(Guid.Parse(f.Id))).ToArray();
-        await new HistoryMigrationInitializationService(runtime).InitializeInsideOperationAsync(
-            draft.SourceFolders.Select(f => new SourceId(Guid.Parse(f.Id))), operation, resets).ConfigureAwait(false);
-        var appliedRevision = Guid.NewGuid().ToString("N");
-        var changed = false;
-        var result = await ConfigService.UpdateAndSaveAsync(current =>
+        }, cancellationToken).ConfigureAwait(false);
+        var store = new ConfigImportTransactionStore(ConfigService.ConfigFilePath);
+        BackupConfig? previous = null;
+        if (store.ActiveMode == ConfigImportMode.LocalRestore && store.ReadPreviousConfig() is { } bytes)
+            previous = JsonSerializer.Deserialize(bytes, AppJsonContext.Default.AppConfig)?.BackupConfigs
+                .FirstOrDefault(c => MigrationRecoveryPolicy.SameId(c.Id, draft.Id));
+        var isConfigImport = store.PendingToken(draft.Id) is not null;
+        if (!isConfigImport) previous = originalSnapshot;
+        using var currentDocument = JsonDocument.Parse(JsonSerializer.Serialize(draft, AppJsonContext.Default.BackupConfig));
+        using var previousDocument = previous is null ? null : JsonDocument.Parse(JsonSerializer.Serialize(previous, AppJsonContext.Default.BackupConfig));
+        var resets = MigrationRecoveryPolicy.ResetSources(currentDocument.RootElement, previousDocument?.RootElement,
+            !isConfigImport || store.ActiveMode == ConfigImportMode.LocalRestore).Select(id => new SourceId(Guid.Parse(id))).ToArray();
+        var pathsChanged = draft.DestinationPath != originalSnapshot.DestinationPath
+            || draft.SourceFolders.Any(f => f.Path != originalSnapshot.SourceFolders.Single(old => old.Id == f.Id).Path);
+        var expectedApplied = ConfigSnapshotMapper.Copy(draft);
+        if (pathsChanged)
         {
-            var live = current.BackupConfigs.Single(c => c.Id == draft.Id);
-            if (live.ConfigRevision != originalSnapshot.ConfigRevision || live.DestinationPath != originalSnapshot.DestinationPath || live.SourceFolders.Count != originalSnapshot.SourceFolders.Count
-                || live.SourceFolders.Any(f => f.Path != originalSnapshot.SourceFolders.Single(s => s.Id == f.Id).Path))
-                throw new InvalidOperationException("Configuration changed while migration paths were being edited. Reopen setup.");
-            live.DestinationPath = draft.DestinationPath;
-            foreach (var source in live.SourceFolders) source.Path = draft.SourceFolders.Single(f => f.Id == source.Id).Path;
-            live.ConfigRevision = appliedRevision;
-            changed = true;
-            live.Automation.AutoBackupEnabled = false;
-            live.Cloud.Enabled = false;
-        }).ConfigureAwait(false);
-        if (!result.Success)
-        {
-            runtime.MigrationState.RequireConfirmation();
-            if (changed)
+            // Persist corrections while execution remains withheld. Revisions invalidate old operation snapshots.
+            cancellationToken.ThrowIfCancellationRequested();
+            var appliedRevision = Guid.NewGuid().ToString("N");
+            expectedApplied.ConfigRevision = appliedRevision;
+            var changed = false;
+            var result = await ConfigService.UpdateAndSaveAsync(current =>
             {
-                await UiDispatcherService.RunOnUiAsync(() =>
+                var live = current.BackupConfigs.Single(c => c.Id == draft.Id);
+                if (JsonSerializer.Serialize(live, AppJsonContext.Default.BackupConfig) != JsonSerializer.Serialize(originalSnapshot, AppJsonContext.Default.BackupConfig))
+                    throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
+                live.DestinationPath = draft.DestinationPath;
+                foreach (var source in live.SourceFolders) source.Path = draft.SourceFolders.Single(f => f.Id == source.Id).Path;
+                live.ConfigRevision = appliedRevision;
+                changed = true;
+            }, publishSavedEvent: false, cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            if (!result.Success)
+            {
+                if (changed)
                 {
-                    var live = ConfigService.CurrentConfig.BackupConfigs.Single(c => c.Id == draft.Id);
-                    if (live.ConfigRevision == appliedRevision)
+                    await UiDispatcherService.RunOnUiAsync(() =>
                     {
-                        live.DestinationPath = originalSnapshot.DestinationPath;
-                        foreach (var source in live.SourceFolders) source.Path = originalSnapshot.SourceFolders.Single(f => f.Id == source.Id).Path;
-                        live.ConfigRevision = originalSnapshot.ConfigRevision;
-                    }
-                    return Task.CompletedTask;
-                }).ConfigureAwait(false);
-                var restored = await ConfigService.SaveAsync(publishSavedEvent: false).ConfigureAwait(false);
-                if (!restored.Success) throw new IOException("Migration paths could not be persisted or rolled back; setup remains pending.", restored.Exception);
+                        var live = ConfigService.CurrentConfig.BackupConfigs.Single(c => c.Id == draft.Id);
+                        if (live.ConfigRevision == appliedRevision)
+                        {
+                            live.DestinationPath = originalSnapshot.DestinationPath;
+                            foreach (var source in live.SourceFolders) source.Path = originalSnapshot.SourceFolders.Single(f => f.Id == source.Id).Path;
+                            live.ConfigRevision = originalSnapshot.ConfigRevision;
+                        }
+                        return Task.CompletedTask;
+                    }).ConfigureAwait(false);
+                    var rollback = await ConfigService.SaveAsync(publishSavedEvent: false).ConfigureAwait(false);
+                    if (!rollback.Success) throw new IOException("Migration path rollback failed; execution remains paused.", rollback.Exception);
+                }
+                throw new IOException(result.ErrorMessage, result.Exception);
             }
-            throw new IOException(result.ErrorMessage, result.Exception);
         }
-        MigrationSetupStateStore.Confirm(ConfigService.ConfigDirectory, draft.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(draft.Id, cancellationToken).ConfigureAwait(false);
+        runtime.MigrationState.MarkImported();
+        await new HistoryMigrationInitializationService(runtime).InitializeInsideOperationAsync(
+            draft.SourceFolders.Select(f => new SourceId(Guid.Parse(f.Id))), operation, resets, cancellationToken).ConfigureAwait(false);
+        if (expectedApplied.HistoryRepositoryBinding is null)
+            expectedApplied.HistoryRepositoryBinding = new() { FormatVersion = HistoryRepositoryDescriptor.CurrentFormatVersion };
+        cancellationToken.ThrowIfCancellationRequested();
+        await MigrationBatchRecoveryService.GrantIfUnchangedAsync(expectedApplied, releaseBackup, releaseCloud).ConfigureAwait(false);
     }
 }
