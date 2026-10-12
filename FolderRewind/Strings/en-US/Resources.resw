@@ -4468,16 +4468,7 @@ Pull request: {1}</value>
     <value>Cancel</value>
   </data>
   <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
-    <value>The dialog analyzes the remote Commit Pack set, then safely unions missing immutable history metadata into this repository.</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
-    <value>Sync scope</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
-    <value>Only sync this configuration's history</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
-    <value>Sync history and download all backups</value>
+    <value>Syncing history imports metadata only. Select a version to download, verify, and restore its backup files.</value>
   </data>
   <data name="ConfigCloudSyncDialog_RemoteBasePathLabel.Text" xml:space="preserve">
     <value>Remote base path</value>
@@ -4529,9 +4520,6 @@ Pull request: {1}</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryOnlySucceeded" xml:space="preserve">
     <value>History sync completed. Imported {0} entries and skipped {1} duplicates.</value>
-  </data>
-  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
-    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and downloaded {2} backup package(s).</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
     <value>Imported {0} history entries, but downloading the cloud backups failed: {1}</value>

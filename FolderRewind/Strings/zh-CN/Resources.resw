@@ -4468,16 +4468,7 @@ Pull Request：{1}</value>
     <value>取消</value>
   </data>
   <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
-    <value>同步会先分析远端 Commit Pack 集合，再将缺少的不可变历史元数据安全并入当前仓库。</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
-    <value>同步范围</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
-    <value>仅同步此配置历史记录</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
-    <value>同步历史记录和所有备份到本地</value>
+    <value>从云端同步历史记录仅导入元数据，不下载备份文件。备份文件需选择版本后按需下载、校验并恢复。</value>
   </data>
   <data name="ConfigCloudSyncDialog_RemoteBasePathLabel.Text" xml:space="preserve">
     <value>远端基路径</value>
@@ -4529,9 +4520,6 @@ Pull Request：{1}</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryOnlySucceeded" xml:space="preserve">
     <value>已同步当前配置历史：新增 {0} 条，跳过重复 {1} 条。</value>
-  </data>
-  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
-    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并下载了 {2} 个备份包。</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
     <value>历史记录已导入 {0} 条，但继续拉取云备份失败：{1}</value>

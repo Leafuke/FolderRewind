@@ -61,8 +61,7 @@ namespace FolderRewind.Services
         }
 
         public static async Task<ConfigCloudSyncResult> SyncConfigurationFromCloudAsync(
-            BackupConfig? config,
-            ConfigCloudSyncMode mode)
+            BackupConfig? config)
         {
             var sync = await SyncNativeHistoryAsync(config, allowUploads: false).ConfigureAwait(false);
             return new()
