@@ -18,7 +18,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     : IHistoryMetadataTransport, IHistoryReplicaTransport
 {
     private readonly TimeSpan _timeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 86400));
-    private string Append(params string[] parts) => string.Join('/', new[] { context.RemoteRoot.TrimEnd('/') }.Concat(parts));
+    private string Append(params string[] parts) => CloudRemotePath.Append(context.RemoteRoot, parts);
     private string HistoryRoot(HistoryConfigId id) => Append("_folderrewind", "history", HistoryRepositoryPaths.EncodeConfigPathSegment(id));
     private string PackPath(HistoryConfigId id, PackId pack) => HistoryRoot(id) + "/packs/" + pack.ToString()[..2] + "/" + pack + ".frpack";
     private string ReplicaRoot(ReplicaId id) => Append("_folderrewind", "replicas", id.ToString());

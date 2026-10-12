@@ -350,6 +350,7 @@ namespace FolderRewind.Services
                         rule.Id = Guid.NewGuid().ToString("N");
                 }
             }
+            CloudConnectionCatalog.MigrateLegacy(config);
         }
 
         /// <summary>
@@ -815,6 +816,16 @@ namespace FolderRewind.Services
                     project.Cloud.LocalOpenListServiceUri = existing.Cloud.LocalOpenListServiceUri;
                     project.Cloud.ExecutablePath = existing.Cloud.ExecutablePath;
                     project.Cloud.WorkingDirectory = existing.Cloud.WorkingDirectory;
+                    if (target.CloudConnections.SingleOrDefault(p => p.Id == existing.Cloud.ConnectionProfileId) is { } localProfile
+                        && localProfile.RemoteName + ":" + existing.Cloud.RemotePathSuffix == project.Cloud.RemoteBasePath)
+                    {
+                        var placeholder = imported.CloudConnections.SingleOrDefault(p => p.Id == localProfile.Id);
+                        if (placeholder is not null) imported.CloudConnections.Remove(placeholder);
+                        imported.CloudConnections.Add(ConfigSnapshotMapper.Copy(localProfile));
+                        project.Cloud.ConnectionProfileId = localProfile.Id;
+                        project.Cloud.RemotePathSuffix = existing.Cloud.RemotePathSuffix;
+                        project.Cloud.BindingRevision = existing.Cloud.BindingRevision;
+                    }
                 }
             }
             return imported;
@@ -1000,6 +1011,12 @@ namespace FolderRewind.Services
         private static void RemoveOnboardingMachineBindings(AppConfig config)
         {
             config.GlobalSettings.OpenListRuntime = new();
+            foreach (var profile in config.CloudConnections)
+            {
+                profile.CredentialReference = ""; profile.ExecutablePath = ""; profile.WorkingDirectory = "";
+                profile.Access = CloudConnectionAccess.NeedsAuthentication; profile.VerificationEvidence = "";
+                profile.DependsOnLocalOpenList = false;
+            }
             foreach (var project in config.BackupConfigs)
             {
                 if (project.Cloud is not { } cloud) continue;

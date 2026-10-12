@@ -52,11 +52,23 @@ internal sealed class ConfigSettingsDraftService
         var replacement = BackupConfigCloneService.CloneForRuntimeMutation(Draft, I18n.GetString("Common_Failed"));
         replacement.ConfigRevision = Guid.NewGuid().ToString("N");
         var index = configs.IndexOf(current);
-        await ConfigEditTransaction.ApplyAsync(() => configs[index] = replacement,
-            () => configs[index] = current, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+        var oldProfiles = ConfigService.CurrentConfig.CloudConnections.ToArray();
+        await ConfigEditTransaction.ApplyAsync(() =>
+        {
+            CloudConnectionCatalog.BindLegacy(ConfigService.CurrentConfig, replacement);
+            configs[index] = replacement;
+        }, () =>
+        {
+            configs[index] = current;
+            ConfigService.CurrentConfig.CloudConnections.Clear();
+            foreach (var profile in oldProfiles) ConfigService.CurrentConfig.CloudConnections.Add(profile);
+        }, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
         _original = replacement;
         _expected = Serialize(replacement);
         Draft.ConfigRevision = replacement.ConfigRevision;
+        Draft.Cloud.ConnectionProfileId = replacement.Cloud.ConnectionProfileId;
+        Draft.Cloud.RemotePathSuffix = replacement.Cloud.RemotePathSuffix;
+        Draft.Cloud.BindingRevision = replacement.Cloud.BindingRevision;
         _baseline = Serialize(Draft);
         return new() { Success = true };
     }

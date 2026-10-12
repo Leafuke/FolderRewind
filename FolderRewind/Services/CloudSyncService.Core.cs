@@ -160,24 +160,7 @@ namespace FolderRewind.Services
 
 
         private static string AppendRemotePath(string root, params string[] segments)
-        {
-            // 远端路径统一使用 '/'，不要混入本地路径分隔符。
-            string result = root?.Trim().TrimEnd('/') ?? string.Empty;
-            foreach (var rawSegment in segments)
-            {
-                var segment = (rawSegment ?? string.Empty).Trim().Trim('/');
-                if (string.IsNullOrWhiteSpace(segment))
-                {
-                    continue;
-                }
-
-                result = string.IsNullOrWhiteSpace(result)
-                    ? segment
-                    : result + "/" + segment;
-            }
-
-            return result;
-        }
+            => CloudRemotePath.Append(root, segments);
 
         private static string BuildRcloneCopyToArguments(string sourcePath, string destinationPath)
         {

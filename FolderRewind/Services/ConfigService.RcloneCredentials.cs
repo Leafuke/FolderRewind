@@ -174,12 +174,18 @@ public static partial class ConfigService
                 && reference.Settings.CommandMode == CloudCommandMode.Rclone).ToArray();
             if (references.Length == 0) return;
             var previous = references.Select(reference => reference.Settings.RcloneConfigPath).ToArray();
+            var profiles = CurrentConfig.CloudConnections.Where(p => StringComparer.OrdinalIgnoreCase.Equals(p.CredentialReference, migration.Source)).ToArray();
             await ConfigEditTransaction.ApplyAsync(
-                () => { foreach (var reference in references) reference.Settings.RcloneConfigPath = migration.Target; },
+                () =>
+                {
+                    foreach (var reference in references) reference.Settings.RcloneConfigPath = migration.Target;
+                    foreach (var profile in profiles) profile.CredentialReference = migration.Target;
+                },
                 () =>
                 {
                     for (var i = 0; i < references.Length; i++)
                         if (references[i].Settings.RcloneConfigPath == migration.Target) references[i].Settings.RcloneConfigPath = previous[i];
+                    foreach (var profile in profiles) if (profile.CredentialReference == migration.Target) profile.CredentialReference = migration.Source;
                 }, () => SaveAsync(), I18n.GetString("CloudSetup_CredentialMigrationFailed"));
         }).ConfigureAwait(false);
         return new(migration.Target, revision);

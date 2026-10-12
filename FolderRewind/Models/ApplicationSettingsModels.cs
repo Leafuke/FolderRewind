@@ -51,6 +51,7 @@ namespace FolderRewind.Models
     /// </summary>
     public class AppConfig : ObservableObject
     {
+        public ObservableCollection<CloudConnectionProfile> CloudConnections { get; set; } = new();
         public bool Legacy182UpgradePending { get; set; }
         private int _schemaVersion = 1;
         private GlobalSettings _globalSettings = new();

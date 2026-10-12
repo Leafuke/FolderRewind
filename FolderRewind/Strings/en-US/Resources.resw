@@ -6602,4 +6602,5 @@ Cloud switch: {2} → {3}</value>
   <data name="Migration_BatchOldRoot.Header" xml:space="preserve"><value>Original path root (optional)</value></data>
   <data name="Migration_BatchNewRoot.Header" xml:space="preserve"><value>New path root</value></data>
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>Preview root mapping</value></data>
+  <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>The legacy custom upload command has not been converted to Native History cloud backup. Convert it explicitly in the connection wizard before enabling uploads.</value></data>
 </root>

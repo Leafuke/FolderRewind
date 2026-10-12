@@ -127,7 +127,7 @@ public static class RcloneConnectionService
         var directory = Path.Combine(Path.GetTempPath(), "FolderRewind-probe-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var input = Path.Combine(directory, "input"); var output = Path.Combine(directory, "output");
-        var remote = context.RemoteRoot.TrimEnd('/') + "/.folderrewind-probe-" + Guid.NewGuid().ToString("N");
+        var remote = CloudRemotePath.Append(context.RemoteRoot, ".folderrewind-probe-" + Guid.NewGuid().ToString("N"));
         bool attempted = false, verified = false;
         string diagnostic = ""; bool canceled = false;
         try

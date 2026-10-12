@@ -36,6 +36,7 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(BackupScopeSettings))]
     [JsonSerializable(typeof(FileTypeRule))]
     [JsonSerializable(typeof(CloudSettings))]
+    [JsonSerializable(typeof(CloudConnectionProfile))]
     [JsonSerializable(typeof(ConfigCloudHistoryUploadResult))]
     [JsonSerializable(typeof(ManagedFolder))]
     [JsonSerializable(typeof(List<BackupPreset>))]

@@ -34,6 +34,9 @@ public static partial class CloudSyncService
     // Await before freezing settings; construct the AsyncLocal scope in the caller.
     private static async Task<BackupConfig> PrepareConnectionAsync(BackupConfig config, CancellationToken token = default)
     {
+        var resolved = CloudConnectionCatalog.Resolve(config);
+        config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+        config.Cloud = resolved;
         var originalPath = config.Cloud.RcloneConfigPath;
         var path = await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, token).ConfigureAwait(false);
         var copy = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));

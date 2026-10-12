@@ -318,14 +318,14 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public void EnterDirectory(string name)
     {
         if (IsBusy || name.IndexOfAny(['/', '\\', ':', '\r', '\n']) >= 0 || name is "." or "..") return;
-        RemoteRoot = RemoteRoot.TrimEnd('/') + "/" + name;
+        RemoteRoot = CloudRemotePath.Append(RemoteRoot, name);
     }
     public void CancelCheck() { _request?.Cancel(); _durableOperation?.Cancel(); }
     public async Task DiscoverRepositoriesAsync(CancellationToken token)
     {
         var revision = _revision;
         using var context = CreateContext();
-        var output = await RcloneConnectionService.RunAsync(context.CreateStartInfo(["lsf", context.RemoteRoot.TrimEnd('/') + "/_folderrewind/history", "--dirs-only"]), OnboardingOperationBudgets.RemoteBrowse, token);
+        var output = await RcloneConnectionService.RunAsync(context.CreateStartInfo(["lsf", CloudRemotePath.Append(context.RemoteRoot, "_folderrewind/history"), "--dirs-only"]), OnboardingOperationBudgets.RemoteBrowse, token);
         if (revision != _revision || _disposed) return;
         var folders = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(s => s.TrimEnd('/')).ToArray();
         // 即使发现列表内容相同，也必须重新确认选定仓库及分析代次。
@@ -346,7 +346,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         var revision = _revision;
         using var context = CreateContext();
         var folder = _repositoryFolders[SelectedRepositoryIndex];
-        var json = await RcloneConnectionService.RunAsync(context.CreateStartInfo(["cat", context.RemoteRoot.TrimEnd('/') + "/_folderrewind/history/" + folder + "/repository.json"]), OnboardingOperationBudgets.RemoteBrowse, token);
+        var json = await RcloneConnectionService.RunAsync(context.CreateStartInfo(["cat", CloudRemotePath.Append(context.RemoteRoot, "_folderrewind/history", folder, "repository.json")]), OnboardingOperationBudgets.RemoteBrowse, token);
         var descriptor = HistoryRepositoryDescriptor.Parse(System.Text.Encoding.UTF8.GetBytes(json));
         if (HistoryRepositoryPaths.EncodeConfigPathSegment(descriptor.ConfigId) != folder) throw new InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
         var runtime = new HistoryRuntime(new FileHistoryRepository(descriptor.ConfigId,

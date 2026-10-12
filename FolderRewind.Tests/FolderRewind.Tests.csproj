@@ -9,6 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Models\CloudConnectionProfile.cs" Link="Source\CloudConnectionProfile.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudConnectionResolver.cs" Link="Source\CloudConnectionResolver.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudRemotePath.cs" Link="Source\CloudRemotePath.cs" />
     <Compile Include="..\FolderRewind\Services\AppUpdatePolicy.cs" Link="Source\AppUpdatePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\AppUpdatePresentation.cs" Link="Source\AppUpdatePresentation.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\GitHubReleaseMetadata.cs" Link="Source\GitHubReleaseMetadata.cs" />
