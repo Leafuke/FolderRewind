@@ -121,11 +121,21 @@ internal static class SevenZipArchiveListingParser
         var attributes = value.Trim();
         if (attributes.Length == 0) return false;
 
-        // 7-Zip on Windows emits values such as "A", "R", or "D". Archives carrying
-        // POSIX attributes may instead start with '-' for files or 'd' for directories.
+        // Windows attributes are combined flags: hidden directories can be "HD",
+        // so the directory flag need not come first. POSIX attributes instead use
+        // the leading '-' or 'd' to identify files and directories.
         var first = attributes[0];
-        isFolder = first is 'D' or 'd';
-        return first is '-' or 'D' or 'd' or 'A' or 'a' or 'R' or 'r' or 'H' or 'h' or 'S' or 's';
+        if (first is '-' or 'd')
+        {
+            isFolder = first == 'd';
+            return true;
+        }
+
+        // Some listings append POSIX permissions after the Windows flag token.
+        var separator = attributes.IndexOf(' ');
+        var windowsFlags = separator < 0 ? attributes : attributes[..separator];
+        isFolder = windowsFlags.Contains("D", StringComparison.OrdinalIgnoreCase);
+        return first is 'D' or 'A' or 'a' or 'R' or 'r' or 'H' or 'h' or 'S' or 's';
     }
 
     private static bool TryNormalizeRelativePath(string value, out string normalized)
