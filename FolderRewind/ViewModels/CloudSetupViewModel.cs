@@ -168,7 +168,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     private RcloneExecutionContext CreateContext()
     {
         var context = new RcloneExecutionContext(Executable, ConfigPath, WorkingDirectory, RemoteRoot,
-            ConfigService.RcloneTasksDirectory);
+            ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(ConfigPath));
         if (_inspectionEvidence is not null && context.RevisionEvidence != _inspectionEvidence)
         {
             context.Dispose();

@@ -6603,4 +6603,6 @@ Cloud switch: {2} → {3}</value>
   <data name="Migration_BatchNewRoot.Header" xml:space="preserve"><value>New path root</value></data>
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>Preview root mapping</value></data>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>The legacy custom upload command has not been converted to Native History cloud backup. Convert it explicitly in the connection wizard before enabling uploads.</value></data>
+  <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>Authentication refresh evidence cannot be merged safely. Keep the credential snapshots and authorize again; new calls using these credentials are paused.</value></data>
+  <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth connections require safe persistence of refreshed tokens. Copy the configuration into FolderRewind managed credentials first.</value></data>
 </root>

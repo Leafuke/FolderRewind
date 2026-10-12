@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -13,7 +14,15 @@ namespace FolderRewind.Services;
 // 任务快照是敏感本机暂存，不导出，不写回外部配置；路径冻结不能代替内容冻结。
 public sealed class RcloneExecutionContext : IDisposable
 {
-    private readonly byte[] _revision;
+    private byte[] _revision;
+    internal byte[] SourceBytes { get; private set; }
+    internal string[] AllowedTokenSections { get; }
+    internal bool AllowTokenWriteback { get; }
+    internal bool PreserveSnapshot { get; set; }
+    internal string TaskDirectory => _taskDirectory;
+    internal string TaskRoot => Path.GetDirectoryName(_taskDirectory)!;
+    private static readonly ConcurrentDictionary<string, RcloneExecutionContext> Contexts = new(StringComparer.OrdinalIgnoreCase);
+    internal static bool TryFind(string snapshot, out RcloneExecutionContext context) => Contexts.TryGetValue(snapshot, out context!);
     private readonly string _taskDirectory;
     private readonly FileStream _ownership;
     private readonly string[] _backendOptions;
@@ -24,12 +33,15 @@ public sealed class RcloneExecutionContext : IDisposable
     public string SnapshotPath { get; }
     public string RevisionEvidence => Convert.ToHexString(_revision);
     private bool _disposed;
-    public RcloneExecutionContext(string executable, string configPath, string workingDirectory, string remoteRoot, string taskRoot)
+    public RcloneExecutionContext(string executable, string configPath, string workingDirectory, string remoteRoot, string taskRoot,
+        bool allowTokenWriteback = false)
     {
         if (!Path.IsPathFullyQualified(executable) || !Path.IsPathFullyQualified(configPath) || (!string.IsNullOrEmpty(workingDirectory) && !Path.IsPathFullyQualified(workingDirectory)))
             throw new IOException("Bound rclone connections require absolute executable, config, and working directory paths.");
         ExecutablePath = Path.GetFullPath(executable);
         ConfigPath = Path.GetFullPath(configPath);
+        RcloneCredentialRefresh.RejectReparsePoints(ConfigPath);
+        AllowTokenWriteback = allowTokenWriteback;
         WorkingDirectory = Path.GetFullPath(string.IsNullOrEmpty(workingDirectory) ? Path.GetDirectoryName(ExecutablePath)! : workingDirectory);
         RemoteRoot = remoteRoot;
         if (!File.Exists(ExecutablePath) || !Directory.Exists(WorkingDirectory)) throw new IOException("Rclone executable or working directory is unavailable.");
@@ -51,6 +63,10 @@ public sealed class RcloneExecutionContext : IDisposable
             || !config.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Any(line => line.Trim() == "[" + remoteName + "]"))
             throw RcloneConnectionDiagnostics.InvalidFailure("cloud.remote-mismatch", "CloudSetup_RemoteMismatch");
         _revision = SHA256.HashData(content);
+        SourceBytes = content;
+        AllowedTokenSections = RcloneCredentialRefresh.AuthenticationSections(content, remoteName);
+        if (AllowedTokenSections.Length != 0 && !allowTokenWriteback)
+            throw RcloneConnectionDiagnostics.InvalidFailure("connection.external-oauth-unsupported", "CloudConnection_ExternalOAuthUnsupported");
         var root = Path.GetFullPath(taskRoot);
         _taskDirectory = Path.Combine(root, "task-" + Guid.NewGuid().ToString("N"));
         SnapshotPath = Path.Combine(_taskDirectory, "rclone.conf");
@@ -63,6 +79,7 @@ public sealed class RcloneExecutionContext : IDisposable
             ownership = new FileStream(Path.Combine(_taskDirectory, "ownership.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
             File.WriteAllBytes(SnapshotPath, content);
             _ownership = ownership;
+            Contexts[SnapshotPath] = this;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -119,7 +136,9 @@ public sealed class RcloneExecutionContext : IDisposable
             if (name.Length != 37 || !Guid.TryParseExact(name[5..], "N", out _) || !Path.GetFullPath(directory).StartsWith(root, StringComparison.OrdinalIgnoreCase)
                 || (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0 || now.UtcDateTime - Directory.GetLastWriteTimeUtc(directory) < TimeSpan.FromDays(2)) continue;
             var marker = Path.Combine(directory, "ownership.lock"); var config = Path.Combine(directory, "rclone.conf");
-            if (!File.Exists(marker) || Directory.GetDirectories(directory).Length != 0 || Directory.GetFiles(directory).Any(file => file != marker && file != config)) continue;
+            // 旧版/未知快照没有刷新完成证据，不再按年龄删除可能唯一的新 Token。
+            if (!File.Exists(marker) || File.Exists(config) || Directory.GetDirectories(directory).Length != 0
+                || Directory.GetFiles(directory).Any(file => file != marker)) continue;
             try
             {
                 // 活跃任务持有此独占句柄；崩溃后只有锁已释放的本应用目录能回收。
@@ -137,6 +156,10 @@ public sealed class RcloneExecutionContext : IDisposable
         if (!File.Exists(ConfigPath) || new FileInfo(ConfigPath).Length > 1024 * 1024
             || !CryptographicOperations.FixedTimeEquals(SHA256.HashData(ReadConfigurationBytes(ConfigPath)), _revision))
             throw RcloneConnectionDiagnostics.InvalidFailure("cloud.connection-changed", "CloudSetup_ConnectionChanged");
+    }
+    internal void AcceptCredentialRevision(byte[] bytes)
+    {
+        SourceBytes = bytes; _revision = SHA256.HashData(bytes);
     }
     public ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments)
     {
@@ -163,7 +186,9 @@ public sealed class RcloneExecutionContext : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        Contexts.TryRemove(SnapshotPath, out _);
         _ownership.Dispose();
+        if (PreserveSnapshot || File.Exists(Path.Combine(_taskDirectory, "attempt.json"))) return;
         // 只清理由本任务创建的确切文件，不递归清理用户凭据目录。
         try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
         catch (IOException) { } // 临时锁释放后可由有界过期回收处理，不改变业务成功事实。

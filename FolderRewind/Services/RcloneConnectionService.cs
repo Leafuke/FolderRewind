@@ -165,12 +165,15 @@ public static class RcloneConnectionService
         start.StandardErrorEncoding = Encoding.UTF8;
         if (start.RedirectStandardInput) start.StandardInputEncoding = new UTF8Encoding(false);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
+        if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
         if (!process.Start()) throw new IOException(I18n.GetString("CloudSync_Error_StartFailed"));
         var output = ReadBoundedAsync(process.StandardOutput, budget.Token);
         var error = ReadBoundedAsync(process.StandardError, budget.Token);
         try
         {
+            if (credentials is not null) await credentials.StartedAsync(process, budget.Token).ConfigureAwait(false);
             if (stdin is not null) { await process.StandardInput.WriteAsync(stdin.AsMemory(), budget.Token).ConfigureAwait(false); process.StandardInput.Close(); }
             await process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
             var result = await output.ConfigureAwait(false); var failure = await error.ConfigureAwait(false);
@@ -179,19 +182,24 @@ public static class RcloneConnectionService
         }
         finally
         {
-            if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
+            var interrupted = !process.HasExited;
+            if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await Task.WhenAll(output, error).ConfigureAwait(false); } catch { }
+            if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
         }
     }
     internal static async Task<byte[]> RunBytesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, int maximumBytes)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
         token.ThrowIfCancellationRequested();
+        await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
+        if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
         if (!process.Start()) throw new IOException(I18n.GetString("CloudSync_Error_StartFailed"));
         var error = ReadBoundedAsync(process.StandardError, budget.Token);
         try
         {
+            if (credentials is not null) await credentials.StartedAsync(process, budget.Token).ConfigureAwait(false);
             using var output = new MemoryStream(); var buffer = new byte[65536]; int count;
             while ((count = await process.StandardOutput.BaseStream.ReadAsync(buffer.AsMemory(), budget.Token).ConfigureAwait(false)) != 0)
             {
@@ -205,8 +213,10 @@ public static class RcloneConnectionService
         }
         finally
         {
-            if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
+            var interrupted = !process.HasExited;
+            if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
+            if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
         }
     }
     private static async Task<string> ReadBoundedAsync(StreamReader reader, CancellationToken token)

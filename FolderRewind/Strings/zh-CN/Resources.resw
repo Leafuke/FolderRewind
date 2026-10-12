@@ -6603,4 +6603,6 @@ Pull Request：{1}</value>
   <data name="Migration_BatchNewRoot.Header" xml:space="preserve"><value>新路径根目录</value></data>
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>预览批量路径替换</value></data>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>旧自定义上传命令未转换为原生云备份。请在连接向导中明确转换后再启用。</value></data>
+  <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>认证刷新证据无法安全合并，请保留凭据快照并重新授权；已暂停使用此凭据的新调用。</value></data>
+  <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth 连接需要安全保存刷新的令牌。请先复制到 FolderRewind 受管凭据目录。</value></data>
 </root>

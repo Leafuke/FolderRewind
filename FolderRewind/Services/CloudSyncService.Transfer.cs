@@ -267,54 +267,19 @@ namespace FolderRewind.Services
         {
             try
             {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = command.ExecutablePath,
-                    Arguments = command.Arguments,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                if (!string.IsNullOrWhiteSpace(command.WorkingDirectory))
-                {
-                    startInfo.WorkingDirectory = command.WorkingDirectory;
-                }
-
-                if (command.Execution is { } connection) startInfo = connection.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments));
-                using var process = new Process { StartInfo = startInfo };
-                cancellationToken.ThrowIfCancellationRequested();
-                command.Execution?.RequireUnchanged();
-                if (!process.Start())
-                {
-                    return (false, -1, string.Empty, I18n.GetString("CloudSync_Error_StartFailed"));
-                }
-
-                Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
-                Task<string> errorTask = process.StandardError.ReadToEndAsync();
-
-                if (!await ProcessWaitService.WaitAsync(process, TimeSpan.FromSeconds(timeoutSeconds), cancellationToken).ConfigureAwait(false))
-                {
-                    return (false, -1, string.Empty, I18n.Format("CloudSync_Task_Timeout", timeoutSeconds));
-                }
-
-                string output = await outputTask.ConfigureAwait(false);
-                string error = await errorTask.ConfigureAwait(false);
-                string errorMessage = GetBestErrorMessage(process.ExitCode, error, output);
-                if (command.Execution is not null && process.ExitCode != 0)
-                    errorMessage = RcloneConnectionDiagnostics.ProcessMessage(startInfo, errorMessage);
-                return (process.ExitCode == 0, process.ExitCode, output, errorMessage);
+                var start = command.Execution is { } context
+                    ? context.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments))
+                    : new ProcessStartInfo(command.ExecutablePath, command.Arguments)
+                    {
+                        WorkingDirectory = command.WorkingDirectory, UseShellExecute = false, CreateNoWindow = true,
+                        RedirectStandardOutput = true, RedirectStandardError = true
+                    };
+                var output = await RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(timeoutSeconds), cancellationToken).ConfigureAwait(false);
+                return (true, 0, output, string.Empty);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return (false, -1, string.Empty, CloudCommandSecurity.Redact(ex.Message));
-            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (RcloneProcessException ex) { return (false, ex.ExitCode, string.Empty, CloudCommandSecurity.Redact(ex.Message)); }
+            catch (Exception ex) { return (false, -1, string.Empty, CloudCommandSecurity.Redact(ex.Message)); }
         }
-
     }
 }

@@ -75,6 +75,6 @@ public static partial class CloudSyncService
         if (settings.CommandMode != CloudCommandMode.Rclone || string.IsNullOrWhiteSpace(settings.RcloneConfigPath)) return null;
         if (!TryResolveSharedRcloneRuntime(settings, out var executable, out var working, out var error)) throw new IOException(error);
         return new(executable, settings.RcloneConfigPath, working, settings.RemoteBasePath,
-            ConfigService.RcloneTasksDirectory);
+            ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(settings.RcloneConfigPath));
     }
 }
