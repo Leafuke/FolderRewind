@@ -198,6 +198,8 @@ public static partial class CloudSyncService
                 runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Paused, Diagnostic = "cloud.job-paused" }); return Incomplete("cloud.job-paused");
             }
             RequireMigrationCloudPermission(current);
+            var profile = ConfigService.CurrentConfig.CloudConnections.SingleOrDefault(p => p.Id == job.Target.ProfileId);
+            using var dependency = profile?.DependsOnLocalOpenList == true ? await OpenListRuntimeService.AcquireDependencyAsync(token).ConfigureAwait(false) : null;
             var config = await PrepareConnectionAsync(current, token).ConfigureAwait(false);
             using var context = CreateBoundConnection(config) ?? throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired"));
             if (config.Cloud.WritableEvidence != context.TargetRevisionEvidence + "|" + context.RemoteRoot)

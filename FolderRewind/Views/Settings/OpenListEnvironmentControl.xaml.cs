@@ -34,6 +34,9 @@ public sealed partial class OpenListEnvironmentControl : UserControl
         _savedSettings = ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime ?? new();
         Executable.Text = _savedSettings.ExecutablePath;
         ServiceUri.Text = _savedSettings.ServiceBaseUri;
+        Working.Text = _savedSettings.WorkingDirectory; Data.Text = _savedSettings.DataDirectory; ConfigFile.Text = _savedSettings.ConfigFilePath;
+        OnDemand.IsOn = _savedSettings.AllowStartOnDemand;
+        StopButton.IsEnabled = OpenListRuntimeService.CanStop;
         if (_bringIntoViewPending)
         {
             _bringIntoViewPending = false;
@@ -63,9 +66,9 @@ public sealed partial class OpenListEnvironmentControl : UserControl
     {
         ExecutablePath = Executable.Text.Trim(),
         ServiceBaseUri = ServiceUri.Text.Trim(),
-        WorkingDirectory = _savedSettings.WorkingDirectory,
-        DataDirectory = _savedSettings.DataDirectory,
-        ConfigFilePath = _savedSettings.ConfigFilePath
+        WorkingDirectory = Working.Text.Trim(), DataDirectory = Data.Text.Trim(), ConfigFilePath = ConfigFile.Text.Trim(),
+        AllowStartOnDemand = OnDemand.IsOn, Ownership = _savedSettings.Ownership,
+        AuthorizationMachine = _savedSettings.AuthorizationMachine, AuthorizationSignature = _savedSettings.AuthorizationSignature
     };
 
     private void ShowResult(string message)
@@ -82,9 +85,14 @@ public sealed partial class OpenListEnvironmentControl : UserControl
         try
         {
             var draft = Draft();
+            if (draft.AllowStartOnDemand)
+            {
+                if (!await ConfirmAuthorizationAsync(draft)) return;
+                await OpenListRuntimeService.AuthorizeAsync(draft, _lifetime.Token);
+            }
             await OpenListRuntimeService.SaveAsync(draft);
             _savedSettings = draft;
-            if (!_lifetime.IsCancellationRequested) ShowResult(I18n.GetString("OpenList_SavedManualOnly"));
+            if (!_lifetime.IsCancellationRequested) ShowResult(I18n.GetString("OpenList_SettingsSaved"));
         }
         catch (Exception ex) { if (!_lifetime.IsCancellationRequested) ShowResult(CloudCommandSecurity.Redact(ex.Message)); }
         finally { _busy = false; IsEnabled = true; }
@@ -100,5 +108,39 @@ public sealed partial class OpenListEnvironmentControl : UserControl
     {
         try { var uri = RcloneConnectionService.ValidateWebDavUrl(ServiceUri.Text.Trim()); ShellPathService.TryOpenPath(uri.AbsoluteUri, out _); }
         catch (Exception ex) { ShowResult(CloudCommandSecurity.Redact(ex.Message)); }
+    }
+    private System.Threading.Tasks.Task<bool> ConfirmAuthorizationAsync(OpenListRuntimeSettings draft)
+        => AppDialogService.Default.ConfirmAsync(I18n.GetString("OpenList_AuthorizationTitle"),
+            I18n.Format("OpenList_AuthorizationDescription", draft.ExecutablePath, draft.WorkingDirectory, draft.DataDirectory, draft.ConfigFilePath, draft.ServiceBaseUri),
+            I18n.GetString("Common_Confirm"), XamlRoot);
+    private async void OnCheck(object sender, RoutedEventArgs e)
+    {
+        if (_busy) return; _busy = true; IsEnabled = false;
+        try { var check = await OpenListRuntimeService.CheckAsync(Draft(), _lifetime.Token); ShowResult(check.Message); }
+        catch (Exception ex) { ShowResult(CloudCommandSecurity.Redact(ex.Message)); }
+        finally { _busy = false; IsEnabled = true; StopButton.IsEnabled = OpenListRuntimeService.CanStop; }
+    }
+    private async void OnStart(object sender, RoutedEventArgs e)
+    {
+        if (_busy) return; _busy = true; IsEnabled = false;
+        try
+        {
+            var draft = Draft(); if (!await ConfirmAuthorizationAsync(draft)) return;
+            await OpenListRuntimeService.AuthorizeAsync(draft, _lifetime.Token);
+            await OpenListRuntimeService.SaveAsync(draft); _savedSettings = draft;
+            using var lease = await OpenListRuntimeService.AcquireDependencyAsync(_lifetime.Token, manual: true);
+            ShowResult(I18n.GetString("OpenList_StartedNeedsWebDav"));
+        }
+        catch (Exception ex) { ShowResult(CloudCommandSecurity.Redact(ex.Message)); }
+        finally { _busy = false; IsEnabled = true; StopButton.IsEnabled = OpenListRuntimeService.CanStop; }
+    }
+    private async void OnStop(object sender, RoutedEventArgs e)
+    {
+        if (_busy || !OpenListRuntimeService.CanStop) return;
+        if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("OpenList_StopTitle"), I18n.GetString("OpenList_StopDescription"), I18n.GetString("Common_Confirm"), XamlRoot)) return;
+        _busy = true; IsEnabled = false;
+        try { await OpenListRuntimeService.StopAsync(_lifetime.Token); ShowResult(I18n.GetString("OpenList_Stopped")); }
+        catch (Exception ex) { ShowResult(CloudCommandSecurity.Redact(ex.Message)); }
+        finally { _busy = false; IsEnabled = true; StopButton.IsEnabled = OpenListRuntimeService.CanStop; }
     }
 }

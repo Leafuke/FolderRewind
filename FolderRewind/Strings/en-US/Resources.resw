@@ -5406,7 +5406,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="CloudSetup_WorkingDirectory.Header" xml:space="preserve"><value>rclone working directory (blank uses the executable directory)</value></data>
   <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>Allow HTTP (credentials may be sent in plain text)</value></data>
   <data name="OpenList_Environment.Header" xml:space="preserve"><value>OpenList local environment and endpoint</value></data>
-  <data name="OpenList_Environment.Description" xml:space="preserve"><value>Save the executable path and service address. Start OpenList manually.</value></data>
+  <data name="OpenList_Environment.Description" xml:space="preserve"><value>Separate external services from locally authorized instances. Verify WebDAV authentication through the cloud connection wizard.</value></data>
   <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>Start OpenList manually, then save its path and service address here.</value></data>
   <data name="OpenList_Executable.Header" xml:space="preserve"><value>OpenList executable path</value></data>
   <data name="OpenList_PickExecutable.Content" xml:space="preserve"><value>Choose OpenList executable (does not run it)</value></data>
@@ -5419,7 +5419,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="OpenList_Check.Content" xml:space="preserve"><value>Check service endpoint without starting it</value></data>
   <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>Installation and startup guide</value></data>
   <data name="OpenList_AbsolutePaths" xml:space="preserve"><value>Use explicit absolute executable, working, data, and config paths.</value></data>
-  <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList data must not overlap backup sources or repositories.</value></data>
+  <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList working, data, and configuration paths must not overlap backup sources, repositories, or FolderRewind configuration storage.</value></data>
   <data name="OpenList_EndpointObserved" xml:space="preserve"><value>The endpoint returned HTTP {0}. Service identity, WebDAV access, and mounted-drive permissions still require separate verification. No executable was started.</value></data>
   <data name="OpenList_EndpointUnavailable" xml:space="preserve"><value>The endpoint is unreachable or unconfirmed. Start the known environment manually and check again. A second process will not be created automatically.</value></data>
   <data name="OpenList_SavedManualOnly" xml:space="preserve"><value>Environment saved. Start OpenList manually when needed.</value></data>
@@ -6639,4 +6639,29 @@ Attempts: {3}</value></data>
   <data name="CloudJob_InitializeMissing.Content" xml:space="preserve"><value>Only when the journal is missing: initialize future admission</value></data>
   <data name="CloudJob_InitializeMissingDescription" xml:space="preserve"><value>This action is available only when the cloud journal is missing; it does not replace an existing or damaged journal. Confirmation explicitly abandons unknown previous payload protection and admits future local backups only. Previous versions are not uploaded automatically, and cleanup can make unuploaded versions unrecoverable. Recover the original journal or manually upload important versions first. The new baseline and abandonment decision are persisted together.</value></data>
   <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>This backend's credential refresh cannot be safely merged yet. Use a supported connection or reauthorize; cloud calls are paused and credential evidence is retained.</value></data>
+  <data name="OpenList_StartNotAuthorized" xml:space="preserve"><value>OpenList is unavailable and has no valid local start authorization.</value></data>
+  <data name="OpenList_UnknownOwnership" xml:space="preserve"><value>OpenList instance ownership cannot be verified. Only external service observation is available.</value></data>
+  <data name="OpenList_StartFailed" xml:space="preserve"><value>OpenList failed to start or exited.</value></data>
+  <data name="OpenList_StopUnavailable" xml:space="preserve"><value>The instance cannot be stopped while transfers are active or ownership is unconfirmed.</value></data>
+  <data name="OpenList_EnvironmentMissing" xml:space="preserve"><value>Specify existing working and data directories and a configuration file.</value></data>
+  <data name="OpenList_LocalEndpointRequired" xml:space="preserve"><value>Managed OpenList requires a local loopback service address.</value></data>
+  <data name="OpenList_VersionUnconfirmed" xml:space="preserve"><value>The program did not report a recognized OpenList version; start authorization was not granted.</value></data>
+  <data name="OpenList_OnDemand.Header" xml:space="preserve"><value>Start local OpenList when cloud tasks need it</value></data>
+  <data name="OpenList_OnDemand.Description" xml:space="preserve"><value>Saving requires local authorization. Once started, OpenList keeps running when FolderRewind exits.</value></data>
+  <data name="OpenList_Start.Content" xml:space="preserve"><value>Authorize and start</value></data>
+  <data name="OpenList_Stop.Content" xml:space="preserve"><value>Stop owned instance</value></data>
+  <data name="OpenList_AuthorizationTitle" xml:space="preserve"><value>Authorize local OpenList</value></data>
+  <data name="OpenList_AuthorizationDescription" xml:space="preserve"><value>Allow FolderRewind to start this specific instance:
+Program: {0}
+Working directory: {1}
+Data directory: {2}
+Configuration: {3}
+Service address: {4}
+
+It keeps running after tasks finish or FolderRewind exits. This authorization is excluded from configuration exports.</value></data>
+  <data name="OpenList_SettingsSaved" xml:space="preserve"><value>OpenList settings saved. Endpoint reachability does not verify WebDAV authentication.</value></data>
+  <data name="OpenList_StartedNeedsWebDav" xml:space="preserve"><value>The service endpoint responded. Verify WebDAV through the cloud connection wizard; external instances cannot be stopped.</value></data>
+  <data name="OpenList_StopTitle" xml:space="preserve"><value>Stop the owned local instance</value></data>
+  <data name="OpenList_StopDescription" xml:space="preserve"><value>Stop the OpenList instance started by this FolderRewind session? Process ownership and active transfers will be checked again.</value></data>
+  <data name="OpenList_Stopped" xml:space="preserve"><value>The owned instance has stopped.</value></data>
 </root>

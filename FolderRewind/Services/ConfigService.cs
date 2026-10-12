@@ -1054,7 +1054,7 @@ namespace FolderRewind.Services
 
             settings.RcloneExecutablePath = settings.RcloneExecutablePath?.Trim() ?? string.Empty;
             settings.OpenListRuntime ??= new();
-            settings.OpenListRuntime.AllowStartOnDemand = false;
+            if (!OpenListRuntimeService.HasMachineAuthorization(settings.OpenListRuntime)) settings.OpenListRuntime.AllowStartOnDemand = false;
             settings.DefaultCloudRemoteBasePath = string.IsNullOrWhiteSpace(settings.DefaultCloudRemoteBasePath)
                 ? "remote:FolderRewind"
                 : settings.DefaultCloudRemoteBasePath.Trim();

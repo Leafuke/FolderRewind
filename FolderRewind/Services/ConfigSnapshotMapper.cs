@@ -158,6 +158,9 @@ internal static class ConfigSnapshotMapper
         ConfigFilePath = value.ConfigFilePath,
         ServiceBaseUri = value.ServiceBaseUri,
         AllowStartOnDemand = value.AllowStartOnDemand,
+        Ownership = value.Ownership,
+        AuthorizationMachine = value.AuthorizationMachine,
+        AuthorizationSignature = value.AuthorizationSignature,
     };
 
     public static PluginHostSettings Copy(PluginHostSettings? value) => value is null ? null! : new PluginHostSettings
