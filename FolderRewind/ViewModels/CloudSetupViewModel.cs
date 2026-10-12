@@ -27,6 +27,8 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     private bool _busy, _saved;
     private HistoryRuntime? _analysis;
     private string? _analysisRevision;
+    private string? _analysisFolder;
+    private TaskCompletionSource<bool>? _restoreFinished;
     private string? _inspectionEvidence;
     private int _nextDirectoryOffset = -1;
     public bool CanBrowseMore => !IsBusy && _nextDirectoryOffset >= 0;
@@ -53,7 +55,19 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public bool IsRecovery => _config is null;
     public ObservableCollection<string> RecoveryRepositories { get; } = [];
     private readonly List<string> _repositoryFolders = [];
-    public int SelectedRepositoryIndex { get; set; } = -1;
+    private int _selectedRepositoryIndex = -1;
+    public int SelectedRepositoryIndex
+    {
+        get => _selectedRepositoryIndex;
+        set
+        {
+            if (!SetProperty(ref _selectedRepositoryIndex, value)) return;
+            // 仓库选择是恢复身份的一部分；立刻撤销旧预览，等待使用者结束后再释放运行时。
+            _revision++;
+            _request?.Cancel();
+            InvalidateAnalysis();
+        }
+    }
     private readonly List<RcloneRemoteOption> _remotes = [];
     private readonly List<VersionId> _versions = [];
     public ObservableCollection<string> Remotes { get; } = [];
@@ -69,7 +83,8 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public string ConfigPath { get => _configPath; set { if (SetProperty(ref _configPath, value)) { _inspectionEvidence = null; Invalidate(); } } }
     public string WorkingDirectory { get => _working; set { if (SetProperty(ref _working, value)) Invalidate(); } }
     public string RemoteRoot { get => _remote; set { if (SetProperty(ref _remote, value)) Invalidate(); } }
-    public int SelectedVersionIndex { get; set; } = -1;
+    private int _selectedVersionIndex = -1;
+    public int SelectedVersionIndex { get => _selectedVersionIndex; set => SetProperty(ref _selectedVersionIndex, value); }
     private int _selectedRemoteIndex = -1;
     public int SelectedRemoteIndex
     {
@@ -126,7 +141,30 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
             ReportConnectionFailure(error);
         }
     }
-    private void Invalidate() { MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState)); _revision++; _request?.Cancel(); _saved = false; _analysisRevision = null; _nextDirectoryOffset = -1; OnPropertyChanged(nameof(CanBrowseMore)); Directories.Clear(); OnPropertyChanged(nameof(HasDirectories)); Diagnostics.Clear(); Message = I18n.GetString("CloudSetup_ConnectionChanged"); }
+    private void Invalidate()
+    {
+        MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState));
+        _revision++; _request?.Cancel(); _saved = false;
+        InvalidateAnalysis();
+        SelectedRepositoryIndex = -1; RecoveryRepositories.Clear(); _repositoryFolders.Clear();
+        _nextDirectoryOffset = -1; OnPropertyChanged(nameof(CanBrowseMore));
+        Directories.Clear(); OnPropertyChanged(nameof(HasDirectories)); Diagnostics.Clear();
+        Message = I18n.GetString("CloudSetup_ConnectionChanged");
+    }
+    private void InvalidateAnalysis()
+    {
+        var previous = _analysis;
+        _analysis = null; _analysisRevision = null; _analysisFolder = null;
+        Versions.Clear(); _versions.Clear(); SelectedVersionIndex = -1;
+        if (previous is not null)
+            TaskObserver.Observe(DisposeAnalysisAsync(previous, _requestFinished?.Task, _restoreFinished?.Task), nameof(CloudSetupViewModel));
+    }
+    private static async Task DisposeAnalysisAsync(HistoryRuntime runtime, Task? request, Task? restore)
+    {
+        if (request is not null) await request;
+        if (restore is not null) await restore;
+        await runtime.DisposeAsync();
+    }
     private RcloneExecutionContext CreateContext()
     {
         var context = new RcloneExecutionContext(Executable, ConfigPath, WorkingDirectory, RemoteRoot,
@@ -290,6 +328,9 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         var output = await RcloneConnectionService.RunAsync(context.CreateStartInfo(["lsf", context.RemoteRoot.TrimEnd('/') + "/_folderrewind/history", "--dirs-only"]), OnboardingOperationBudgets.RemoteBrowse, token);
         if (revision != _revision || _disposed) return;
         var folders = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(s => s.TrimEnd('/')).ToArray();
+        // 即使发现列表内容相同，也必须重新确认选定仓库及分析代次。
+        SelectedRepositoryIndex = -1;
+        _revision++; InvalidateAnalysis();
         RecoveryRepositories.Clear(); _repositoryFolders.Clear();
         foreach (var folder in folders.Take(OnboardingOperationBudgets.RemoteBatch))
             if (folder.IndexOfAny(['/', '\\', ':']) < 0 && folder is not "." and not "..")
@@ -315,29 +356,36 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
             await runtime.InitializeAsync(token);
             var result = await new HistoryMetadataSyncService(runtime, new RcloneNativeHistoryTransport(context)).PullAsync(token);
             if (!result.Succeeded) throw new InvalidOperationException(CloudCommandSecurity.Redact(result.Diagnostic));
+            var versions = await runtime.Query.GetAllVersionsAsync(token);
             if (revision != _revision || _disposed) { await runtime.DisposeAsync(); return; }
             if (_analysis is not null) await _analysis.DisposeAsync();
-            _analysis = runtime; _analysisRevision = context.RevisionEvidence;
+            _analysis = runtime; _analysisRevision = context.RevisionEvidence; _analysisFolder = folder;
             Versions.Clear(); _versions.Clear();
-            foreach (var version in (await runtime.Query.GetAllVersionsAsync(token)).OrderByDescending(v => v.CreatedAtUtc))
+            foreach (var version in versions.OrderByDescending(v => v.CreatedAtUtc))
             { _versions.Add(version.VersionId); Versions.Add(version.SourceDescriptorSnapshot.DisplayName + " · " + UserDisplayFormatter.LongDateTime(version.CreatedAtUtc.LocalDateTime)); }
-            Message = I18n.Format("CloudRecovery_HistorySummary", Versions.Count);
+            Message = I18n.Format("CloudRecovery_HistorySummary", Versions.Count) + "\n" + descriptor.ConfigId;
         }
         catch { if (!ReferenceEquals(_analysis, runtime)) await runtime.DisposeAsync(); throw; }
     }
-    public sealed record RecoveryConfirmation(HistoryRecoveryPreview Preview, long Revision, string ConnectionRevision);
+    public sealed record RecoveryConfirmation(HistoryRecoveryPreview Preview, long Revision, string ConnectionRevision,
+        HistoryConfigId ConfigId, string RepositoryFolder);
     public async Task<RecoveryConfirmation> PreviewRecoveryAsync(CancellationToken token)
     {
         if (_analysis is null || SelectedVersionIndex < 0 || SelectedVersionIndex >= _versions.Count)
             throw new InvalidOperationException(I18n.GetString("CloudSetup_SelectVersion"));
         var revision = _revision;
+        var runtime = _analysis;
+        var folder = _analysisFolder;
         var selected = _versions[SelectedVersionIndex];
         using var context = CreateContext();
         if (_analysisRevision != context.RevisionEvidence) throw new InvalidOperationException(I18n.GetString("CloudSetup_ConnectionChanged"));
-        var preview = await CloudReadOnlyRecoveryService.PreviewAsync(_analysis, selected, token);
+        var preview = await CloudReadOnlyRecoveryService.PreviewAsync(runtime, selected, token);
         if (_disposed || revision != _revision || SelectedVersionIndex < 0 || SelectedVersionIndex >= _versions.Count
             || _versions[SelectedVersionIndex] != selected) throw new InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
-        return new(preview, revision, context.RevisionEvidence);
+        if (!ReferenceEquals(_analysis, runtime) || folder is null || SelectedRepositoryIndex < 0
+            || SelectedRepositoryIndex >= _repositoryFolders.Count || _repositoryFolders[SelectedRepositoryIndex] != folder)
+            throw new InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
+        return new(preview, revision, context.RevisionEvidence, runtime.ConfigId, folder);
     }
 
     public static string DescribeRecovery(HistoryRecoveryPreview preview)
@@ -357,14 +405,19 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         using var context = CreateContext();
         if (_analysisRevision != context.RevisionEvidence || confirmation.ConnectionRevision != context.RevisionEvidence
             || confirmation.Revision != _revision || confirmation.Preview.Version.VersionId != _versions[SelectedVersionIndex]
+            || confirmation.ConfigId != _analysis.ConfigId || confirmation.RepositoryFolder != _analysisFolder
+            || SelectedRepositoryIndex < 0 || SelectedRepositoryIndex >= _repositoryFolders.Count
+            || _repositoryFolders[SelectedRepositoryIndex] != confirmation.RepositoryFolder
             || !confirmation.Preview.CanPrepare) throw new InvalidOperationException(I18n.GetString("CloudSetup_ConnectionChanged"));
         IsBusy = true; _restoring = true;
+        var runtime = _analysis;
+        _restoreFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _durableOperation = new();
         var task = new BackupTask { FolderName = I18n.GetString("CloudRecovery_Task"), IsIndeterminate = true, Status = I18n.GetString("CloudRecovery_Downloading") };
         BackupService.ActiveTasks.Add(task);
         try
         {
-            await CloudReadOnlyRecoveryService.RestoreToNewLocationAsync(_analysis, context, confirmation.Preview.Version.VersionId,
+            await CloudReadOnlyRecoveryService.RestoreToNewLocationAsync(runtime, context, confirmation.Preview.Version.VersionId,
                 destination, password, _durableOperation.Token, confirmation.Preview.Assessment.Selected!.RepresentationId,
                 (id, complete) => EnqueueOnUiThread(() =>
                 {
@@ -379,6 +432,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         {
             task.IsCompleted = true; task.IsIndeterminate = false; _restoring = false; IsBusy = false;
             _durableOperation.Dispose(); _durableOperation = null;
+            _restoreFinished.TrySetResult(true);
             if (_disposed) await CleanupAsync();
         }
     }
