@@ -33,6 +33,7 @@ internal static class HistoryRestoreFileSystemPlanStore
         using var timing = HistoryOperationDiagnostics.Current?.Measure("plan-save-flush");
         var bytes = JsonSerializer.SerializeToUtf8Bytes(plan, Options);
         AtomicFileService.Write(path, stream => stream.Write(bytes));
+        HistoryOperationDiagnostics.Current?.Count("plan-bytes", bytes.LongLength);
         HistoryOperationDiagnostics.Current?.Count("journal-flushes");
         return new(Path.GetFullPath(path), bytes.LongLength, Convert.ToHexString(SHA256.HashData(bytes)));
     }

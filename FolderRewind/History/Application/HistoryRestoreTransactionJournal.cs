@@ -86,7 +86,11 @@ internal sealed class HistoryRestoreTransactionJournalStore
         var path = GetPath(journal.TransactionId);
         AtomicFileService.Write(
             path,
-            stream => JsonSerializer.Serialize(stream, journal, JsonOptions));
+            stream =>
+            {
+                JsonSerializer.Serialize(stream, journal, JsonOptions);
+                HistoryOperationDiagnostics.Current?.Count("journal-bytes", stream.Position);
+            });
         HistoryOperationDiagnostics.Current?.Count("journal-flushes");
     }
 
