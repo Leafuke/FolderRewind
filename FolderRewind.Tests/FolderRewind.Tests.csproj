@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\HistoryOperationDiagnostics.cs" Link="Source\HistoryOperationDiagnostics.cs" />
     <Compile Include="..\FolderRewind\Models\CloudConnectionProfile.cs" Link="Source\CloudConnectionProfile.cs" />
     <Compile Include="..\FolderRewind\Services\CloudConnectionResolver.cs" Link="Source\CloudConnectionResolver.cs" />
     <Compile Include="..\FolderRewind\Services\CloudRemotePath.cs" Link="Source\CloudRemotePath.cs" />

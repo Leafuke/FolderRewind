@@ -101,6 +101,7 @@ public static partial class BackupService
         NativeHistoryConfigurationOperationGate.Lease? existingOperation = null)
     {
         using var timing = BackupTimingService.Begin(config?.Id ?? "");
+        using var diagnostics = HistoryOperationDiagnostics.Begin(invocationOptions.Protect ? "safety-snapshot" : "backup");
         if (NativeHostMutationContext.IsNestedMutationBlocked)
         {
             return BackupTransactionExecutionResult.Blocked("Nested mutation is blocked.");

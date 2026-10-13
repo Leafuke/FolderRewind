@@ -234,7 +234,10 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         start.ArgumentList.Add("-y");
         if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);
         using var process = new Process { StartInfo = start };
+        using var phase = HistoryOperationDiagnostics.Current?.Measure("archive-" + operation);
         if (!process.Start()) return (false, "7z process did not start.", "");
+        HistoryOperationDiagnostics.Current?.Count("7z-" + operation);
+        if (operation == "t") HistoryOperationDiagnostics.Current?.Count("archive-bytes-tested", new FileInfo(archivePath).Length);
         process.StandardInput.Close(); // 缺少密码时失败关闭，不等待不可见的交互输入。
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();

@@ -87,7 +87,7 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
         Assert.IsTrue(result.Succeeded, result.Diagnostic);
     }
 
-    private async Task<HistoryCommitBatch> CaptureAsync(params SourceId[] sources)
+    internal async Task<HistoryCommitBatch> CaptureAsync(params SourceId[] sources)
     {
         var workspace = (await History.WorkspaceStore.LoadAsync()).Value;
         var captures = new List<SourceCaptureResult>();

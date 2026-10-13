@@ -85,6 +85,7 @@ public sealed class HistoryRestoreService
         HistoryWorkspace expectedWorkspace, HistoryRestoreApplyMode requestedMode, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(selections);
+        using var diagnostics = Services.HistoryOperationDiagnostics.Begin("restore-versions");
         ArgumentNullException.ThrowIfNull(mappedSources);
         await RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
         if (selections.Count == 0 || mappedSources.Count != selections.Count
@@ -150,6 +151,7 @@ public sealed class HistoryRestoreService
         HistoryRestoreApplyMode requestedMode,
         CancellationToken cancellationToken = default)
     {
+        using var diagnostics = Services.HistoryOperationDiagnostics.Begin("restore-version");
         await RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
         var version = await _history.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
         if (version is null || version.SourceId != source.SourceId)
@@ -205,6 +207,7 @@ public sealed class HistoryRestoreService
         HistoryRestoreApplyMode applyMode,
         CancellationToken cancellationToken)
     {
+        using var phase = Services.HistoryOperationDiagnostics.Current?.Measure("prepare-source");
         if (applyMode == HistoryRestoreApplyMode.Clean)
             LegacyRecoveryPolicy.RequireKnownBoundary(version);
         var allRepresentations = await _history.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
@@ -331,6 +334,7 @@ public sealed class HistoryRestoreService
         long expectedCatalogRevision = -1,
         Action? beforeCommit = null)
     {
+        using var phase = Services.HistoryOperationDiagnostics.Current?.Measure("mutation-commit-cleanup");
         foreach (var item in prepared)
         {
             if (item.ApplyMode == HistoryRestoreApplyMode.Clean)

@@ -119,6 +119,9 @@ namespace FolderRewind.Services
                 };
 
                 p.Start();
+                var operation = arguments.Split(' ', 2)[0];
+                using var phase = HistoryOperationDiagnostics.Current?.Measure("archive-" + operation);
+                HistoryOperationDiagnostics.Current?.Count("7z-" + operation);
                 ApplyLowPriorityIfRequested(p, runAtLowPriority);
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
