@@ -27,6 +27,8 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(GameLibraryRootSetting))]
     [JsonSerializable(typeof(HotkeySettings))]
     [JsonSerializable(typeof(ArchiveSettings))]
+    [JsonSerializable(typeof(BackupArchiveVerificationLevel))]
+    [JsonSerializable(typeof(RestoreArchivePreflightMode))]
     [JsonSerializable(typeof(AutomationSettings))]
     [JsonSerializable(typeof(AutomationScope))]
     [JsonSerializable(typeof(AutomationConditionType))]

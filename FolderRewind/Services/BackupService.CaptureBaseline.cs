@@ -19,7 +19,8 @@ public static partial class BackupService
         BackupConfig config,
         ManagedFolder folder,
         VersionId candidateVersionId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        FolderRewind.History.Representation.ArchiveRestoreVerificationContext? verificationContext = null)
     {
         var sourceId = new SourceId(Guid.Parse(folder.Id));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
@@ -30,7 +31,9 @@ public static partial class BackupService
         var resolution = await HistorySourceBoundaryResolver.ResolveAsync(config, folder, cancellationToken)
             .ConfigureAwait(false);
         if (resolution.IsBlocked || workspaceBaseline is null) return false;
-        var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken)
+        using var ownedVerification = verificationContext is null
+            ? new FolderRewind.History.Representation.ArchiveRestoreVerificationContext(config.Archive.RestorePreflightMode) : null;
+        var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken, verificationContext ?? ownedVerification, targetVolume: true)
             .ConfigureAwait(false);
         return await new HistoryExactWorkingStateProbe(runtime, restore).IsExactAsync(
             new HistoryRestoreSourceBinding(sourceId, resolution.EffectiveFolder.Path, resolution.Boundary),

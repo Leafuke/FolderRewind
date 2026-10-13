@@ -5,11 +5,22 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <DefineConstants>$(DefineConstants);FOLDERREWIND_PROTOCOL_TESTS</DefineConstants>
     <Platforms>AnyCPU</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\FolderRewind\Services\HistoryOperationDiagnostics.cs" Link="Source\HistoryOperationDiagnostics.cs" />
+    <Compile Include="..\FolderRewind\Models\ArchiveSettingsModels.cs" Link="Source\ArchiveSettingsModels.cs" />
+    <Compile Include="..\FolderRewind\Models\ArchiveVerificationPolicy.cs" Link="Source\ArchiveVerificationPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupArchiveVerificationPolicy.cs" Link="Source\BackupArchiveVerificationPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\NativeSmartOwnerPlan.cs" Link="Source\NativeSmartOwnerPlan.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreWorkspacePlanner.cs" Link="Source\HistoryRestoreWorkspacePlanner.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreFileSystemPlan.cs" Link="Source\HistoryRestoreFileSystemPlan.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestorePreparationSession.cs" Link="Source\HistoryRestorePreparationSession.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreMutationPlanner.cs" Link="Source\HistoryRestoreMutationPlanner.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.TargetVolume.cs" Link="Source\HistoryRestoreService.TargetVolume.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryQuickRestoreExecution.cs" Link="Source\HistoryQuickRestoreExecution.cs" />
     <Compile Include="..\FolderRewind\Models\CloudConnectionProfile.cs" Link="Source\CloudConnectionProfile.cs" />
     <Compile Include="..\FolderRewind\Services\CloudConnectionResolver.cs" Link="Source\CloudConnectionResolver.cs" />
     <Compile Include="..\FolderRewind\Services\CloudRemotePath.cs" Link="Source\CloudRemotePath.cs" />

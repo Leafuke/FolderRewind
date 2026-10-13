@@ -117,6 +117,12 @@
         <!-- 2. 备份策略 -->
         <ScrollViewer x:Name="BackupTabScrollViewer" x:Load="False" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="4" Padding="0,8,0,16" HorizontalAlignment="Stretch">
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_BackupVerification">
+                    <RadioButtons SelectedIndex="{x:Bind ViewModel.BackupVerificationSelectedIndex, Mode=TwoWay}" MaxColumns="2" AutomationProperties.AutomationId="ConfigSettingsDialog_BackupVerification">
+                        <RadioButton x:Uid="ConfigSettingsDialog_VerificationBalanced" AutomationProperties.AutomationId="BackupVerificationBalanced"/>
+                        <RadioButton x:Uid="ConfigSettingsDialog_VerificationStrict" AutomationProperties.AutomationId="BackupVerificationStrict"/>
+                    </RadioButtons>
+                </settings:SettingsCard>
                 <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_BackupMode" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
                     <ComboBox x:Uid="ConfigSettingsDialog_BackupMode_CardInput" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="ConfigSettingsDialog_BackupMode">
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeFull"/>
@@ -262,12 +268,16 @@
                 <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
                     <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore_CardInput" IsOn="{x:Bind ViewModel.BackupBeforeRestore, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_BackupBeforeRestore"/>
                 </settings:SettingsCard>
-                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_SafeRestore" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
-                    <ToggleSwitch x:Uid="ConfigSettingsDialog_SafeRestore_CardInput" IsOn="{x:Bind ViewModel.SafeRestoreEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_SafeRestore"/>
+                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_QuickSafetySnapshot" IsOn="{x:Bind ViewModel.QuickRestoreSafetySnapshotEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_QuickSafetySnapshot"/>
                 </settings:SettingsCard>
-                <settings:SettingsCard ContentAlignment="Right" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore" Tag="Responsive" SizeChanged="OnSettingCardSizeChanged">
-                    <ToggleSwitch x:Uid="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput" IsOn="{x:Bind ViewModel.VerifyArchiveBeforeRestore, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_VerifyArchiveBeforeRestore"/>
+                <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_RestorePreflight">
+                    <RadioButtons SelectedIndex="{x:Bind ViewModel.RestorePreflightSelectedIndex, Mode=TwoWay}" MaxColumns="2" AutomationProperties.AutomationId="ConfigSettingsDialog_RestorePreflight">
+                        <RadioButton x:Uid="ConfigSettingsDialog_VerificationBalanced" AutomationProperties.AutomationId="RestorePreflightBalanced"/>
+                        <RadioButton x:Uid="ConfigSettingsDialog_VerificationStrict" AutomationProperties.AutomationId="RestorePreflightStrict"/>
+                    </RadioButtons>
                 </settings:SettingsCard>
+                <TextBlock x:Uid="ConfigSettingsDialog_AlwaysRollback" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
                 <settings:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch" x:Uid="SettingsCard_ConfigSettingsDialog_RestoreWhitelist">
                     <StackPanel Spacing="8">
                         <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelistDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>

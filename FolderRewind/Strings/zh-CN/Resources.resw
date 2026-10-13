@@ -5677,7 +5677,7 @@ Pull Request：{1}</value>
   <data name="SettingsProject_GroupAutomation" xml:space="preserve"><value>自动化</value></data>
   <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>云存储</value></data>
   <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>筛选</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>还原前为当前文件创建备份。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>仅普通还原使用此选项。恢复点供成功还原后反悔使用，失败回滚始终开启。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>失败时自动回滚；关闭后可能丢失原文件。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>执行还原时检查备份，损坏时停止操作。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>备份后自动上传</value></data>
@@ -6707,4 +6707,15 @@ Pull Request：{1}</value>
   <data name="CloudRecovery_PayloadFailed" xml:space="preserve"><value>无法准备载荷 {0}：{1}。恢复尚未完成。</value></data>
   <data name="CloudRecovery_NoActiveReplica" xml:space="preserve"><value>没有记录可用的 Active 云副本。</value></data>
   <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>暂时无法安全合并此后端的认证刷新。请使用已支持的连接或重新授权；云调用已暂停，凭据证据会保留。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Header" xml:space="preserve"><value>备份归档验证</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Description" xml:space="preserve"><value>Full / Smart：均衡检查安全路径及文件名、大小；严格额外完整测试一次归档内容。独立于压缩和线程设置。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Header" xml:space="preserve"><value>还原归档预检查</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Description" xml:space="preserve"><value>均衡检查路径、依赖及实际提取结果；严格额外完整测试依赖链一次。旧项目保留原完整检查偏好，可主动改为均衡。</value></data>
+  <data name="ConfigSettingsDialog_VerificationBalanced.Content" xml:space="preserve"><value>均衡</value></data>
+  <data name="ConfigSettingsDialog_VerificationStrict.Content" xml:space="preserve"><value>严格</value></data>
+  <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>失败回滚始终开启，与验证等级和还原前备份无关。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Header" xml:space="preserve"><value>快速还原前的安全恢复点</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Description" xml:space="preserve"><value>默认开启；独立于普通还原。关闭后不创建恢复点，失败回滚仍始终开启。</value></data>
+  <data name="ConfigSettingsDialog_QuickSafetySnapshot.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_QuickSafetySnapshot.OffContent" xml:space="preserve"><value>关闭</value></data>
 </root>

@@ -24,6 +24,7 @@ public sealed class HistoryOperationDiagnostics : IDisposable
     private readonly long _started = Stopwatch.GetTimestamp();
     private readonly DateTimeOffset _date = DateTimeOffset.UtcNow;
     private bool _disposed;
+    public HistoryOperationDiagnostic? Summary { get; private set; }
     public static HistoryOperationDiagnostics? Current => Ambient.Value;
     public static HistoryOperationDiagnostics Begin(string operation) => new(operation);
     private HistoryOperationDiagnostics(string operation)
@@ -32,18 +33,43 @@ public sealed class HistoryOperationDiagnostics : IDisposable
     { lock (_sync) _counters[code] = checked(_counters.GetValueOrDefault(code) + value); }
     public void Observe(string code, string value)
     { lock (_sync) _observations[code] = value; }
+    public void Maximum(string code, long value)
+    { lock (_sync) _counters[code] = Math.Max(_counters.GetValueOrDefault(code), value); }
     public IDisposable Measure(string code) => new Phase(this, code);
     public static IReadOnlyList<HistoryOperationDiagnostic> GetRecent()
     { lock (Recent) return Recent.ToArray(); }
+    internal static void ObserveNativeProcess(IntPtr handle)
+    {
+        if (Current is null || !OperatingSystem.IsWindows()) return;
+        if (GetProcessMemoryInfo(handle, out var memory, (uint)System.Runtime.InteropServices.Marshal.SizeOf<ProcessMemoryCounters>()))
+            Current.Maximum("observed-7z-peak-working-set", checked((long)memory.PeakWorkingSet.ToUInt64()));
+        else Current.Observe("child-memory", "unavailable");
+    }
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct ProcessMemoryCounters
+    {
+        public uint Size, PageFaultCount;
+        public UIntPtr PeakWorkingSet, WorkingSet, PeakPagedPool, PagedPool, PeakNonPagedPool, NonPagedPool, Pagefile, PeakPagefile;
+    }
+    [System.Runtime.InteropServices.DllImport("psapi.dll", SetLastError = true)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool GetProcessMemoryInfo(IntPtr process, out ProcessMemoryCounters counters, uint size);
     public void Dispose()
     {
         lock (_sync)
         {
             if (_disposed) return;
             _disposed = true;
+            try
+            {
+                using var process = Process.GetCurrentProcess();
+                _counters["observed-host-peak-working-set"] = process.PeakWorkingSet64;
+            }
+            catch (InvalidOperationException) { _observations["host-memory"] = "unavailable"; }
             var result = new HistoryOperationDiagnostic(_operation, _date, Stopwatch.GetElapsedTime(_started),
                 new Dictionary<string, long>(_counters), new Dictionary<string, TimeSpan>(_phases),
                 new Dictionary<string, string>(_observations));
+            Summary = result;
             lock (Recent) { Recent.Enqueue(result); while (Recent.Count > 32) Recent.Dequeue(); }
         }
         Ambient.Value = _previous;

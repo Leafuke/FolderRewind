@@ -13,7 +13,7 @@ internal static class NativeHistoryConfigLease
     internal static string Signature(BackupConfig config) => JsonSerializer.Serialize(new
     {
         config.Id, config.ConfigRevision, config.DestinationPath, config.IsEncrypted, config.Kind,
-        config.Filters, config.BackupScope,
+        config.Filters, config.BackupScope, config.Archive,
         Sources = config.SourceFolders.Select(f => new { f.Id, f.Path, f.SourceScope, f.ProviderStates }).OrderBy(f => f.Id)
     });
     internal static async ValueTask<IAsyncDisposable> EnterAsync(BackupConfig expected, string signature, CancellationToken token)
@@ -40,7 +40,9 @@ internal static class NativeHistoryConfigLease
                     ?? throw new InvalidOperationException("Configuration is no longer registered.");
                 var objects = new List<object> { app, app.BackupConfigs, config, config.Kind, config.SourceFolders,
                     config.Filters, config.Filters.Blacklist, config.Filters.BackupWhitelist, config.Filters.RestoreWhitelist,
+                    config.Archive, config.Archive.FileTypeRules,
                     config.BackupScope, config.BackupScope.Parameters };
+                objects.AddRange(config.Archive.FileTypeRules);
                 foreach (var folder in config.SourceFolders)
                 {
                     objects.AddRange([folder, folder.SourceScope, folder.SourceScope.IncludePatterns, folder.ProviderStates]);

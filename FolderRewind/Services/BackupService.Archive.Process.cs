@@ -119,6 +119,7 @@ namespace FolderRewind.Services
                 };
 
                 p.Start();
+                var processHandle = p.Handle;
                 var operation = arguments.Split(' ', 2)[0];
                 using var phase = HistoryOperationDiagnostics.Current?.Measure("archive-" + operation);
                 HistoryOperationDiagnostics.Current?.Count("7z-" + operation);
@@ -126,6 +127,7 @@ namespace FolderRewind.Services
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
                 await p.WaitForExitAsync();
+                HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
 
                 // 7z 返回非零退出码且有 stderr 输出时，将错误信息写入任务
                 if (p.ExitCode != 0 && taskToUpdate != null && !string.IsNullOrWhiteSpace(lastErrorLine))

@@ -4,6 +4,7 @@ using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using FolderRewind.History.Retention;
+using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Artifacts;
@@ -98,25 +99,14 @@ internal static partial class NativeHistoryApplicationService
         VersionId versionId,
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default,
-        bool requireSafetySnapshot = false,
         string? expectedSignature = null,
-        HistoryQuickRestoreResolution? quickSelection = null)
+        HistoryQuickRestoreResolution? quickSelection = null,
+        ArchiveRestoreVerificationContext? verificationContext = null)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
-        if (quickSelection is not null)
-        {
-            try { await new HistoryQuickRestoreResolver(runtime, CreateRestoreService(config, runtime))
-                .ValidateAsync(Source(folder), quickSelection, cancellationToken).ConfigureAwait(false); }
-            catch (InvalidOperationException ex) { return Blocked(ex.Message); }
-        }
-        if (requireSafetySnapshot || config.Archive.BackupBeforeRestore)
-        {
-            var protection = await ProtectBeforeRestoreAsync(config, runtime, [Source(folder)], cancellationToken).ConfigureAwait(false);
-            if (protection.Result is not null) return protection.Result;
-            workspace = protection.Workspace!;
-        }
         var restore = CreateRestoreService(config, runtime, ordinaryRestore: true, expectedSignature: expectedSignature,
+            verificationContext: verificationContext,
             validateVersionTarget: async (version, token) =>
             {
                 if (version.VersionId != versionId || version.SourceId != Source(folder))
@@ -126,15 +116,35 @@ internal static partial class NativeHistoryApplicationService
                 if (policy.HasExplicitPolicy && policy.EffectiveState == MaterializationPolicyState.Released)
                     throw new InvalidOperationException("Selected restore Version's payload was released after selection.");
                 if (quickSelection is not null)
-                    await new HistoryQuickRestoreResolver(runtime, CreateRestoreService(config, runtime))
+                    await new HistoryQuickRestoreResolver(runtime, CreateRestoreService(config, runtime, verificationContext: verificationContext))
                         .ValidateAsync(Source(folder), quickSelection, token).ConfigureAwait(false);
             });
-        var result = await restore.RestoreVersionAsync(
-            versionId,
-            await BindingAsync(config, folder, cancellationToken).ConfigureAwait(false),
-            workspace,
-            MapRestoreMode(requestedMode),
-            cancellationToken).ConfigureAwait(false);
+        var binding = await BindingAsync(config, folder, cancellationToken).ConfigureAwait(false);
+        HistoryRestoreResult result;
+        if (quickSelection is not null)
+        {
+            var requiresCurrentInput = config.Filters.RestoreWhitelist.Count > 0
+                || NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData == true
+                || NativeHistoryRestoreOrchestrator.Current?.PreservePlayerDataOverride.HasValue == true
+                || NativeHistoryRestoreOrchestrator.Current?.RestoreWhitelist.Count is > 0
+                || NativeHistoryRestoreOrchestrator.Current?.RestorePreservePaths.Count is > 0;
+            result = await HistoryQuickRestoreExecution.ExecuteAsync(runtime, restore, binding, versionId, workspace,
+                MapRestoreMode(requestedMode), config.Archive.ShouldCreateSafetySnapshot(quickRestore: true), requiresCurrentInput,
+                token => ProtectBeforeRestoreAsync(config, runtime, [Source(folder)], token),
+                token => new HistoryQuickRestoreResolver(runtime, restore).ValidateAsync(Source(folder), quickSelection, token),
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            if (config.Archive.ShouldCreateSafetySnapshot(quickRestore: false))
+            {
+                var protection = await ProtectBeforeRestoreAsync(config, runtime, [Source(folder)], cancellationToken).ConfigureAwait(false);
+                if (protection.Result is not null) return protection.Result;
+                workspace = protection.Workspace!;
+            }
+            result = await restore.RestoreVersionAsync(versionId, binding, workspace,
+                MapRestoreMode(requestedMode), cancellationToken).ConfigureAwait(false);
+        }
         if (result.Succeeded)
             await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(
                 config, result.AppliedSources, cancellationToken).ConfigureAwait(false);
@@ -166,7 +176,7 @@ internal static partial class NativeHistoryApplicationService
         foreach (var source in checkpoint.Sources.Where(item => item.VersionId is not null && currentIds.Contains(item.SourceId)))
         {
             var assessment = await restore.AssessVersionAsync(
-                source.VersionId!.Value, requiredFidelity, AssessmentDepth.Deep, cancellationToken).ConfigureAwait(false);
+                source.VersionId!.Value, requiredFidelity, AssessmentDepth.Fast, cancellationToken).ConfigureAwait(false);
             if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
                 return Blocked($"Checkpoint Source {source.SourceId} is not Ready.");
         }
@@ -186,6 +196,7 @@ internal static partial class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
+        using var verification = new ArchiveRestoreVerificationContext(config.Archive.RestorePreflightMode);
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
@@ -204,7 +215,7 @@ internal static partial class NativeHistoryApplicationService
             if (protection.Result is not null) return protection.Result;
             workspace = protection.Workspace!;
         }
-        var result = await CreateRestoreService(config, runtime, ordinaryRestore: true).RestoreCheckpointAsync(
+        var result = await CreateRestoreService(config, runtime, ordinaryRestore: true, verificationContext: verification).RestoreCheckpointAsync(
             checkpointId,
             bindings,
             workspace,
@@ -238,7 +249,7 @@ internal static partial class NativeHistoryApplicationService
             selectedTipId,
             bindings,
             workspace,
-            AssessmentDepth.Deep,
+            AssessmentDepth.Fast,
             cancellationToken).ConfigureAwait(false);
         if (!plan.CanExecute)
             return new HistoryRestoreResult(
@@ -264,7 +275,7 @@ internal static partial class NativeHistoryApplicationService
     public static async Task<HistoryCheckoutPlan> PlanCheckoutAsync(
         BackupConfig config,
         BranchUpdateId selectedTipId,
-        AssessmentDepth assessmentDepth = AssessmentDepth.Deep,
+        AssessmentDepth assessmentDepth = AssessmentDepth.Fast,
         CancellationToken cancellationToken = default)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
@@ -316,7 +327,7 @@ internal static partial class NativeHistoryApplicationService
         {
             return initial with { Readiness = HistoryCheckoutReadiness.ExactRepresentationUnavailable, Diagnostic = ex.Message };
         }
-        return await PlanCheckoutAsync(config, selectedTipId, AssessmentDepth.Deep, cancellationToken)
+        return await PlanCheckoutAsync(config, selectedTipId, AssessmentDepth.Fast, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -325,10 +336,11 @@ internal static partial class NativeHistoryApplicationService
         BranchUpdateId selectedTipId,
         CancellationToken cancellationToken = default)
     {
+        using var verification = new ArchiveRestoreVerificationContext(config.Archive.RestorePreflightMode);
         var expectedConfigRevision = config.ConfigRevision;
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
-        var restore = CreateRestoreService(config, runtime);
+        var restore = CreateRestoreService(config, runtime, verificationContext: verification, targetVolumeRestore: true);
         var update = await runtime.Query.GetBranchUpdateAsync(selectedTipId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Branch update is missing.");
         var bindings = await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == update.SourceId), cancellationToken).ConfigureAwait(false);
@@ -336,7 +348,7 @@ internal static partial class NativeHistoryApplicationService
             runtime,
             restore,
             new SafetySnapshotWorkingStateProtector(config, runtime, affectedSources: [update.SourceId]),
-            new NativeWorkingStateProbe(config),
+            new NativeWorkingStateProbe(config, verification),
             async token =>
             {
                 var authoritative = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(item => item.Id == config.Id)
@@ -400,18 +412,21 @@ internal static partial class NativeHistoryApplicationService
 
     public static async Task<HistoryRestoreService> CreateRestoreServiceAsync(
         BackupConfig config,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ArchiveRestoreVerificationContext? verification = null, bool targetVolume = false)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
-        return CreateRestoreService(config, runtime);
+        return CreateRestoreService(config, runtime, verificationContext: verification, targetVolumeRestore: targetVolume);
     }
 
     private static HistoryRestoreService CreateRestoreService(BackupConfig config, HistoryRuntime runtime, bool ordinaryRestore = false,
-        string? expectedSignature = null, Func<SourceVersion, CancellationToken, Task>? validateVersionTarget = null)
+        string? expectedSignature = null, Func<SourceVersion, CancellationToken, Task>? validateVersionTarget = null,
+        ArchiveRestoreVerificationContext? verificationContext = null, bool targetVolumeRestore = false,
+        HistoryRestorePreparationSession? preparationSession = null)
     {
         var configSignature = expectedSignature ?? NativeHistoryConfigLease.Signature(config);
-        var archive = new SevenZipHistoryArchiveBackend(config);
+        var archive = new SevenZipHistoryArchiveBackend(config, verificationContext is not null);
         var representations = new RepresentationRuntime(
         [
             new CoreArchiveRepresentationHandler(archive),
@@ -431,7 +446,19 @@ internal static partial class NativeHistoryApplicationService
             token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token))
         {
             FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token),
-            ValidateVersionTarget = validateVersionTarget
+            ValidateVersionTarget = validateVersionTarget,
+            VerificationContext = verificationContext,
+            RestoreConfigurationSignature = string.Join("/", config.Id, config.ConfigRevision,
+                config.Archive.RestorePreflightMode, config.Archive.QuickRestoreSafetySnapshotEnabled, config.Archive.BackupBeforeRestore),
+            UseTargetVolumeWorkspaces = ordinaryRestore || targetVolumeRestore,
+            PreparationSession = preparationSession,
+            ProtectedRestoreRoots = string.IsNullOrWhiteSpace(config.DestinationPath)
+                ? [AppRuntimeInfo.ApplicationBaseDirectory, ConfigService.ConfigDirectory]
+                : [config.DestinationPath, AppRuntimeInfo.ApplicationBaseDirectory, ConfigService.ConfigDirectory],
+            AllowDirectorySwap = config.Filters.RestoreWhitelist.Count == 0
+                && NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData != true
+                && NativeHistoryRestoreOrchestrator.Current?.RestoreWhitelist.Count is not > 0
+                && NativeHistoryRestoreOrchestrator.Current?.RestorePreservePaths.Count is not > 0
         };
     }
 
@@ -477,6 +504,7 @@ internal static partial class NativeHistoryApplicationService
         IReadOnlyCollection<SourceId> affectedSources,
         CancellationToken cancellationToken)
     {
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("safety-snapshot-protect");
         try
         {
             _ = await BackupService.CreateSafetySnapshotAsync(
@@ -587,7 +615,7 @@ internal static partial class NativeHistoryApplicationService
         }
     }
 
-    private sealed class NativeWorkingStateProbe(BackupConfig config) : IHistoryWorkingStateProbe
+    private sealed class NativeWorkingStateProbe(BackupConfig config, ArchiveRestoreVerificationContext? verification = null) : IHistoryWorkingStateProbe
     {
         public async Task<bool> IsExactAsync(
             HistoryRestoreSourceBinding binding,
@@ -603,7 +631,7 @@ internal static partial class NativeHistoryApplicationService
                     config,
                     folder,
                     versionId,
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken, verification).ConfigureAwait(false);
         }
     }
 
@@ -628,6 +656,19 @@ internal static partial class NativeHistoryApplicationService
     }
 }
 
-internal sealed class SevenZipHistoryArchiveBackend(BackupConfig config) : SevenZipArchiveProcessBackend(
-    () => SevenZipExecutableLocator.Resolve(ConfigService.CurrentConfig?.GlobalSettings?.SevenZipPath),
-    () => EncryptionService.RetrievePassword(config.Id), config.IsEncrypted, BackupService.InternalRestoreMarkerDirectoryName);
+internal sealed class SevenZipHistoryArchiveBackend : SevenZipArchiveProcessBackend
+{
+    internal SevenZipHistoryArchiveBackend(BackupConfig config, bool freezeInput = false) : base(
+        Executable(freezeInput), Credential(config, freezeInput), config.IsEncrypted, BackupService.InternalRestoreMarkerDirectoryName) { }
+    private static Func<string?> Executable(bool freeze)
+    {
+        string? Resolve() => SevenZipExecutableLocator.Resolve(ConfigService.CurrentConfig?.GlobalSettings?.SevenZipPath);
+        if (!freeze) return Resolve;
+        var snapshot = Resolve(); return () => snapshot;
+    }
+    private static Func<string?> Credential(BackupConfig config, bool freeze)
+    {
+        if (!freeze) return () => EncryptionService.RetrievePassword(config.Id);
+        var snapshot = EncryptionService.RetrievePassword(config.Id); return () => snapshot;
+    }
+}

@@ -5677,7 +5677,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsProject_GroupAutomation" xml:space="preserve"><value>Automation</value></data>
   <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>Cloud storage</value></data>
   <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>Filters</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Back up current files before restoring.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Used only for ordinary restore. The snapshot lets you undo a successful restore; failure rollback is always enabled.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>Roll back on failure; turning this off may cause loss of current files.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>Check backups during restoration and stop if damaged.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>Upload after backup</value></data>
@@ -6707,4 +6707,15 @@ Attempts: {3}</value></data>
   <data name="CloudRecovery_PayloadFailed" xml:space="preserve"><value>Could not prepare payload {0}: {1}. Recovery was not completed.</value></data>
   <data name="CloudRecovery_NoActiveReplica" xml:space="preserve"><value>No usable active cloud replica is recorded.</value></data>
   <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>This backend's credential refresh cannot be safely merged yet. Use a supported connection or reauthorize; cloud calls are paused and credential evidence is retained.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Header" xml:space="preserve"><value>Backup archive verification</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Description" xml:space="preserve"><value>Full / Smart: Balanced validates safe paths and exact file names and sizes. Strict also tests the full archive once. Independent of compression and thread settings.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Header" xml:space="preserve"><value>Restore archive preflight</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Description" xml:space="preserve"><value>Balanced checks paths, dependencies and extracted data. Strict also tests the complete chain once. Existing projects retain their full-check preference; you can switch to Balanced.</value></data>
+  <data name="ConfigSettingsDialog_VerificationBalanced.Content" xml:space="preserve"><value>Balanced</value></data>
+  <data name="ConfigSettingsDialog_VerificationStrict.Content" xml:space="preserve"><value>Strict</value></data>
+  <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>Failure rollback is always enabled, regardless of verification level or backup before restore.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Header" xml:space="preserve"><value>Safety snapshot before Quick Restore</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Description" xml:space="preserve"><value>Enabled by default and independent of ordinary restore. Turning it off skips the snapshot while failure rollback remains enabled.</value></data>
+  <data name="ConfigSettingsDialog_QuickSafetySnapshot.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_QuickSafetySnapshot.OffContent" xml:space="preserve"><value>Off</value></data>
 </root>

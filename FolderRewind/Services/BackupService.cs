@@ -184,9 +184,29 @@ namespace FolderRewind.Services
                 new HistorySafetySnapshotIntent(reason),
                 cancellationToken, existingOperation).ConfigureAwait(false);
 
-            return result.SafetySnapshot
+            var snapshot = result.SafetySnapshot
                 ?? result.CommittedBatch?.NewSafetySnapshot
                 ?? throw new InvalidOperationException("Independent recovery commit did not create a SafetySnapshot.");
+            // 恢复点的明确深度确认独立于普通归档入库等级，并覆盖所有参与的 Source。
+            // 不复用单 Source 的 Protect/pin 分支，也不把均衡清单证据当作内容测试。
+            using var timing = HistoryOperationDiagnostics.Current?.Measure("safety-snapshot-deep-confirmation");
+            using var verification = new FolderRewind.History.Representation.ArchiveRestoreVerificationContext(RestoreArchivePreflightMode.Strict);
+            var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken, verification).ConfigureAwait(false);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+            foreach (var checkpointId in snapshot.CheckpointIds)
+            {
+                var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("SafetySnapshot checkpoint is missing.");
+                var version = await runtime.Query.GetVersionAsync(checkpoint.VersionId, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("SafetySnapshot Version is missing.");
+                var fidelity = version.CaptureScope == CaptureScope.FullSource && version.BoundaryConfidence == HistoricalBoundaryConfidence.Known
+                    ? MaterializationFidelity.Exact : MaterializationFidelity.Partial;
+                var assessment = await restore.AssessVersionAsync(version.VersionId, fidelity,
+                    FolderRewind.History.Representation.AssessmentDepth.Deep, cancellationToken).ConfigureAwait(false);
+                if (assessment.Readiness != FolderRewind.History.Representation.HistoryReadiness.Ready || assessment.Selected is null)
+                    throw new InvalidOperationException("SafetySnapshot is durable but its captured contents could not be confirmed.");
+            }
+            return snapshot;
         }
 
         /// <summary>
@@ -744,7 +764,8 @@ namespace FolderRewind.Services
             IEnumerable<RepresentationId> dependencies,
             int consecutiveSmartCaptures,
             VersionId? expectedBaseVersionId = null,
-            IEnumerable<string>? deletedFiles = null)
+            IEnumerable<string>? deletedFiles = null,
+            string? captureVerificationLevel = null)
             => VerifiedArchiveCaptureFactory.Create(
                 sourceId,
                 captureScope,
@@ -760,7 +781,8 @@ namespace FolderRewind.Services
                     ? MaterializationFidelity.Exact
                     : MaterializationFidelity.Partial,
                 expectedBaseVersionId,
-                deletedFiles);
+                deletedFiles,
+                captureVerificationLevel: captureVerificationLevel);
 
         public enum RestoreMode
         {

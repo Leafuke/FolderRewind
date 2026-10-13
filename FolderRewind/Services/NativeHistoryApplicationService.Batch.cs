@@ -44,7 +44,7 @@ internal static partial class NativeHistoryApplicationService
                     {
                         var assessment = await restore.AssessVersionAsync(versionId,
                             version.CaptureScope == CaptureScope.PartialSource ? MaterializationFidelity.Partial : MaterializationFidelity.Exact,
-                            AssessmentDepth.Deep, token).ConfigureAwait(false);
+                AssessmentDepth.Fast, token).ConfigureAwait(false);
                         ready = assessment.Readiness == HistoryReadiness.Ready && assessment.Selected is not null;
                         diagnostic = ready ? I18n.GetString("History_NativeReadiness_Ready") : string.Join("; ", assessment.Candidates.SelectMany(c => c.Diagnostics));
                     }
@@ -91,6 +91,7 @@ internal static partial class NativeHistoryApplicationService
             {
                 if (config.ConfigRevision != revision) return Blocked("Configuration changed before batch restore.");
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellation).ConfigureAwait(false);
+                using var verification = new ArchiveRestoreVerificationContext(config.Archive.RestorePreflightMode);
                 var workspace = await RequireWorkspaceAsync(runtime, cancellation).ConfigureAwait(false);
                 var bindings = await BindingsAsync(config, folders, cancellation).ConfigureAwait(false);
                 if (config.Archive.BackupBeforeRestore)
@@ -99,7 +100,7 @@ internal static partial class NativeHistoryApplicationService
                     if (protection.Result is not null) return protection.Result;
                     workspace = protection.Workspace!;
                 }
-                var result = await CreateRestoreService(config, runtime, ordinaryRestore: true).RestoreVersionsAsync(
+                var result = await CreateRestoreService(config, runtime, ordinaryRestore: true, verificationContext: verification).RestoreVersionsAsync(
                     selections, bindings, workspace, MapRestoreMode(mode), cancellation).ConfigureAwait(false);
                 if (result.Succeeded)
                     await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, result.AppliedSources, cancellation).ConfigureAwait(false);

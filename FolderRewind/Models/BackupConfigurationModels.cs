@@ -15,8 +15,13 @@ namespace FolderRewind.Models
     /// <summary>
     /// 单个备份配置/任务组 (融合了 MineBackup 的 Config 和 SpecialConfig)
     /// </summary>
-    public class BackupConfig : ObservableObject
+    public class BackupConfig : ObservableObject, IJsonOnDeserialized
     {
+        void IJsonOnDeserialized.OnDeserialized()
+        {
+            Archive ??= new ArchiveSettings();
+            Archive.ApplyDeserializedInputMigration();
+        }
         private string _id = Guid.NewGuid().ToString();
         private string _name = I18n.Format("Config_DefaultBackupName");
         private string _destinationPath = "";
