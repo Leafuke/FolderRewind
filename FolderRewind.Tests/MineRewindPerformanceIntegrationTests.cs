@@ -54,11 +54,20 @@ public sealed class MineRewindPerformanceIntegrationTests
         ZipFile.ExtractToDirectory(package, root);
         try
         {
-            var result = await InvokePolicyAsync(root, world);
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            return result;
+            return await InvokePolicyAsync(root, world);
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            // collectible ALC 的卸载不等于立即释放 Windows DLL 映射；异步栈退出后
+            // 再回收并有限重试，避免把暂时的映射占用误报为策略/还原失败。
+            for (int attempt = 0; ; attempt++)
+            {
+                GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+                try { Directory.Delete(root, true); break; }
+                catch (Exception error) when (attempt < 19 && error is IOException or UnauthorizedAccessException)
+                { await Task.Delay(50); }
+            }
+        }
     }
     private static async Task<string[]> InvokePolicyAsync(string root, string world)
     {
