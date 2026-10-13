@@ -6,6 +6,47 @@ namespace FolderRewind.Tests;
 public sealed class WindowsRestoreFileSystemTests
 {
     [TestMethod]
+    public void CachedCleanupParentsBlockRenameAndRejectReplacementOrUnprotectedParent()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "fr-cleanup-parents-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            var file = Path.Combine(root, "file"); File.WriteAllText(file, "original");
+            var original = WindowsRestoreFileSystem.Identity(file);
+            File.Move(file, Path.Combine(root, "kept")); File.WriteAllText(file, "external");
+            using (var parents = new WindowsRestoreFileSystem.RestoreParentHandles([(root, WindowsRestoreFileSystem.Identity(root))]))
+            {
+                Assert.Throws<IOException>(() => Directory.Move(root, root + "-renamed"));
+                Assert.Throws<IOException>(() => WindowsRestoreFileSystem.Open(root, 0x40000000, 7));
+                Assert.Throws<IOException>(() => WindowsRestoreFileSystem.DeleteOwned(file, original, parents));
+                Assert.AreEqual("external", File.ReadAllText(file));
+                var child = Path.Combine(root, "child"); Directory.CreateDirectory(child);
+                var other = Path.Combine(child, "other"); File.WriteAllText(other, "unprotected");
+                Assert.Throws<IOException>(() => WindowsRestoreFileSystem.DeleteOwned(other, WindowsRestoreFileSystem.Identity(other), parents));
+                WindowsRestoreFileSystem.DeleteOwned(file, WindowsRestoreFileSystem.Identity(file), parents);
+                Assert.IsFalse(File.Exists(file)); Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "kept")));
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+            if (Directory.Exists(root + "-renamed")) Directory.Delete(root + "-renamed", true);
+        }
+    }
+    [TestMethod]
+    public void AncestorLeaseProtectsAnEmptyDirectoryAgainstRename()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "fr-empty-parent-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        var parent = Path.Combine(root, "parent"); Directory.CreateDirectory(parent);
+        try
+        {
+            using var lease = new WindowsDirectoryReadLease(Path.Combine(parent, "not-yet-created"));
+            Assert.Throws<IOException>(() => Directory.Move(parent, Path.Combine(root, "renamed")));
+            Assert.IsTrue(Directory.Exists(parent));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+    [TestMethod]
     public void AlternateDataStreamIsRejectedBeforeMutation()
     {
         var root = Path.Combine(Path.GetTempPath(), "fr-ads-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);

@@ -34,7 +34,9 @@ internal sealed class WindowsDirectoryReadLease : IDisposable
         {
             while (ancestors.TryPop(out var directory))
             {
-                var handle = CreateFileW(ExtendedPath(directory), 0x80, 3, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+                // 属性查询句柄不会单独参与共享检查。加入 LIST_DIRECTORY 阻止
+                // 祖先改名/删除；允许目录写入共享以兼容在其下创建与发布子项。
+                var handle = CreateFileW(ExtendedPath(directory), 0x81, 3, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
                 if (handle.IsInvalid) { handle.Dispose(); throw new IOException("Cannot protect archive parent.", new Win32Exception(Marshal.GetLastWin32Error())); }
                 _handles.Add(handle);
                 if (!GetFileInformationByHandle(handle, out var info)) throw new IOException("Cannot inspect protected archive parent.");

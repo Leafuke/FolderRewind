@@ -134,7 +134,7 @@ internal static class HistoryRestoreFileSystemPlanStore
     {
         var moving = plan.Actions.Where(action => action.Identity.Directory).Select(action => action.Identity).ToHashSet();
         var ids = plan.Actions.SelectMany(action => new[] { action.FromParent, action.ToParent }).Distinct().Where(id => !moving.Contains(id)).ToHashSet();
-        return new(plan.Objects.Where(item => item.Identity.Directory && ids.Contains(item.Identity)).Select(item => (item.Path, item.Identity)));
+        return new(plan.Objects.Where(item => item.Identity.Directory && ids.Contains(item.Identity)).Select(item => (item.Path, item.Identity)), allowChildRenames: true);
     }
     private static void ApplyPublishedSecurity(RestoreMoveAction action, bool ancestorsProtected)
     {
@@ -202,19 +202,28 @@ internal static class HistoryRestoreFileSystemPlanStore
         var expected = FinalLocations(plan, applied);
         var owned = expected.Where(pair => plan.Containers.Any(root => HistoryRestoreWorkspacePlanner.Overlaps(root, pair.Key)
             && (StringComparer.OrdinalIgnoreCase.Equals(root, pair.Key) || pair.Key.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))).ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+        using var ancestors = new CompositeLease();
         foreach (var root in plan.Containers)
         {
             if (!Path.Exists(root)) { if (!allowMissing) throw new IOException("Restore owned container disappeared."); continue; }
+            ancestors.Add(new WindowsDirectoryReadLease(root));
             foreach (var actual in CaptureTree(root))
                 if (!owned.TryGetValue(actual.Path, out var planned) || planned.Identity != actual.Identity)
                     throw new IOException("Restore cleanup found an external member; preserving the container.");
         }
-        foreach (var item in owned.Values.OrderByDescending(o => o.Path.Length))
+        // 文件删除期间固定所有现存父目录，避免每个文件重复打开整条祖先链。
+        // 删除目录前释放这些句柄；目录仍逐项核对身份、检查为空，并固定祖先。
+        using (var parents = new WindowsRestoreFileSystem.RestoreParentHandles(owned.Values
+            .Where(item => item.Identity.Directory && Path.Exists(item.Path)).Select(item => (item.Path, item.Identity))))
+            foreach (var item in owned.Values.Where(item => !item.Identity.Directory)) Delete(item, parents);
+        foreach (var item in owned.Values.Where(item => item.Identity.Directory).OrderByDescending(o => o.Path.Length)) Delete(item, null);
+
+        void Delete(RestorePlanObject item, WindowsRestoreFileSystem.RestoreParentHandles? parents)
         {
             var identity = WindowsRestoreFileSystem.TryIdentity(item.Path);
-            if (identity is null) { if (!allowMissing) throw new IOException("Restore cleanup member is missing."); continue; }
+            if (identity is null) { if (!allowMissing) throw new IOException("Restore cleanup member is missing."); return; }
             if (identity != item.Identity) throw new IOException("Restore cleanup member was replaced.");
-            WindowsRestoreFileSystem.DeleteOwned(item.Path, item.Identity);
+            WindowsRestoreFileSystem.DeleteOwned(item.Path, item.Identity, parents);
             Reach("after-cleanup-object");
         }
     }

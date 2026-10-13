@@ -17,7 +17,7 @@ internal static class WindowsRestoreFileSystem
         RestoreObjectIdentity expectedParent)
     {
         using var ancestors = new WindowsDirectoryReadLease(path);
-        using var parent = Open(Path.GetDirectoryName(Path.GetFullPath(path))!, 0x84, 3);
+        using var parent = Open(Path.GetDirectoryName(Path.GetFullPath(path))!, 0x81, 3);
         if (Identity(parent) != expectedParent) throw new IOException("Restore preparation parent changed.");
         var name = Path.GetFileName(path);
         var text = Marshal.StringToHGlobalUni(name);
@@ -103,18 +103,20 @@ internal static class WindowsRestoreFileSystem
         if (expectedDestinationParent is not null && targetParentIdentity != expectedDestinationParent)
             throw new IOException("Restore destination parent identity changed.");
         if (targetParentIdentity.Volume != expected.Volume) throw new IOException("Restore move crosses volumes.");
-        var name = Encoding.Unicode.GetBytes("\\\\?\\" + Path.GetFullPath(destination));
+        var name = Encoding.Unicode.GetBytes(Path.GetFileName(Path.GetFullPath(destination)));
         int rootOffset = IntPtr.Size == 8 ? 8 : 4, lengthOffset = rootOffset + IntPtr.Size, nameOffset = lengthOffset + 4;
         var buffer = Marshal.AllocHGlobal(nameOffset + name.Length + 2);
         try
         {
             Marshal.Copy(new byte[nameOffset + name.Length + 2], 0, buffer, nameOffset + name.Length + 2);
-            Marshal.WriteIntPtr(buffer, rootOffset, IntPtr.Zero);
+            Marshal.WriteIntPtr(buffer, rootOffset, (cachedTarget ?? targetParent!).DangerousGetHandle());
             Marshal.WriteInt32(buffer, lengthOffset, name.Length);
             Marshal.Copy(name, 0, buffer + nameOffset, name.Length);
-            // ReplaceIfExists=FALSE。目标所有祖先在整个调用期间持有禁止删除/改名的句柄。
-            if (!SetFileInformationByHandle(handle, 3, buffer, (uint)(nameOffset + name.Length + 2)))
-                throw Error("Owned restore move failed without replacing the destination.");
+            // ReplaceIfExists=FALSE。NtSetInformationFile 支持 RootDirectory，直接绑定
+            // 已固定父目录与单个文件名；Win32 包装不支持非空 RootDirectory。
+            var status = NtSetInformationFile(handle, out _, buffer, (uint)(nameOffset + name.Length + 2), 10);
+            if (status < 0)
+                throw new IOException("Owned restore move failed without replacing the destination.", new Win32Exception((int)RtlNtStatusToDosError(status)));
             if (Identity(handle) != expected || TryIdentity(destination) != expected)
                 throw new IOException("Restore move result identity is uncertain.");
             Services.HistoryOperationDiagnostics.Current?.Count("file-moves");
@@ -124,31 +126,44 @@ internal static class WindowsRestoreFileSystem
     internal sealed class RestoreParentHandles : IDisposable
     {
         private readonly Dictionary<RestoreObjectIdentity, SafeFileHandle> _handles = [];
-        internal RestoreParentHandles(IEnumerable<(string Path, RestoreObjectIdentity Identity)> parents)
+        private readonly HashSet<string> _paths = new(StringComparer.OrdinalIgnoreCase);
+        internal RestoreParentHandles(IEnumerable<(string Path, RestoreObjectIdentity Identity)> parents, bool allowChildRenames = false)
         {
             try
             {
                 foreach (var parent in parents)
                 {
-                    // 不允许写入/删除父目录对象，因此缓存身份期间不能改名或设置 reparse。
-                    // 子项发布仍通过不覆盖的文件改名；目录本身将被移动的角色不进入缓存。
-                    var handle = Open(parent.Path, 0x80, 1);
+                    // 目录自身禁止改名/删除。NTFS 子项改名还需要父目录写入共享；
+                    // 清理仅删除文件，不需要此共享，拒绝外部写入父目录对象。
+                    // READ_ATTRIBUTES 单独打开不参与 Windows 的读写共享检查；
+                    // LIST_DIRECTORY 使禁止写入/删除的共享约束真正生效。
+                    var handle = Open(parent.Path, 0x81, allowChildRenames ? 3u : 1u);
                     try
                     {
                         if (Identity(handle) != parent.Identity) throw new IOException("Restore parent binding changed.");
                         _handles.Add(parent.Identity, handle);
+                        _paths.Add(Path.GetFullPath(parent.Path));
                     }
                     catch { handle.Dispose(); throw; }
                 }
             }
             catch { Dispose(); throw; }
         }
-        internal SafeFileHandle? Find(RestoreObjectIdentity? identity) => identity is not null ? _handles.GetValueOrDefault(identity) : null;
-        public void Dispose() { foreach (var handle in _handles.Values) handle.Dispose(); _handles.Clear(); }
+        internal SafeFileHandle? Find(RestoreObjectIdentity? identity)
+        {
+            var handle = identity is not null ? _handles.GetValueOrDefault(identity) : null;
+            if (handle is not null && (!GetFileInformationByHandle(handle, out var info) || (info.Attributes & (uint)FileAttributes.ReparsePoint) != 0))
+                throw new IOException("Restore protected parent became a reparse point.");
+            return handle;
+        }
+        internal bool Protects(string path) => _paths.Contains(Path.GetFullPath(path));
+        public void Dispose() { foreach (var handle in _handles.Values) handle.Dispose(); _handles.Clear(); _paths.Clear(); }
     }
-    internal static void DeleteOwned(string path, RestoreObjectIdentity expected)
+    internal static void DeleteOwned(string path, RestoreObjectIdentity expected, RestoreParentHandles? protectedParents = null)
     {
-        using var parents = new WindowsDirectoryReadLease(path);
+        using var parents = protectedParents is null ? new WindowsDirectoryReadLease(path) : null;
+        if (protectedParents is not null && !protectedParents.Protects(Path.GetDirectoryName(Path.GetFullPath(path))!))
+            throw new IOException("Restore cleanup parent is not protected.");
         using var handle = Open(path, 0x80010180, 1);
         if (Identity(handle) != expected) throw new IOException("Restore cleanup ownership changed.");
         if (expected.Directory && Directory.EnumerateFileSystemEntries(path).GetEnumerator() is var entries)
@@ -229,5 +244,7 @@ internal static class WindowsRestoreFileSystem
     private static extern int NtCreateFile(out SafeFileHandle handle, uint access, ref ObjectAttributes attributes,
         out IoStatusBlock ioStatus, IntPtr allocationSize, uint fileAttributes, uint share, uint disposition,
         uint options, IntPtr ea, uint eaLength);
+    [DllImport("ntdll.dll")]
+    private static extern int NtSetInformationFile(SafeFileHandle handle, out IoStatusBlock status, IntPtr information, uint length, int informationClass);
     [DllImport("ntdll.dll")] private static extern uint RtlNtStatusToDosError(int status);
 }
