@@ -84,19 +84,22 @@ internal static class WindowsRestoreFileSystem
         finally { Marshal.FreeHGlobal(buffer); }
     }
     internal static void MoveOwnedNoReplace(string source, string destination, RestoreObjectIdentity expected,
-        RestoreObjectIdentity? expectedSourceParent = null, RestoreObjectIdentity? expectedDestinationParent = null, bool ancestorsProtected = false)
+        RestoreObjectIdentity? expectedSourceParent = null, RestoreObjectIdentity? expectedDestinationParent = null, bool ancestorsProtected = false,
+        RestoreParentHandles? protectedParents = null)
     {
         using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("identity-move");
         using var sourceParents = ancestorsProtected ? null : new WindowsDirectoryReadLease(source);
         using var targetParents = ancestorsProtected ? null : new WindowsDirectoryReadLease(destination);
         using var handle = Open(source, 0x80010180, 1); // READ + DELETE + WRITE/READ_ATTRIBUTES，禁止外部写入与删除。
         if (Identity(handle) != expected) throw new IOException("Restore source identity changed.");
-        using var sourceParent = Open(Path.GetDirectoryName(Path.GetFullPath(source))!, 0x80, 3);
-        if (expectedSourceParent is not null && Identity(sourceParent) != expectedSourceParent)
+        var cachedSource = protectedParents?.Find(expectedSourceParent);
+        using var sourceParent = cachedSource is null ? Open(Path.GetDirectoryName(Path.GetFullPath(source))!, 0x80, 3) : null;
+        if (cachedSource is null && expectedSourceParent is not null && Identity(sourceParent!) != expectedSourceParent)
             throw new IOException("Restore source parent identity changed.");
         var parent = Path.GetDirectoryName(Path.GetFullPath(destination))!;
-        using var targetParent = Open(parent, 0x80, 3);
-        var targetParentIdentity = Identity(targetParent);
+        var cachedTarget = protectedParents?.Find(expectedDestinationParent);
+        using var targetParent = cachedTarget is null ? Open(parent, 0x80, 3) : null;
+        var targetParentIdentity = cachedTarget is not null ? expectedDestinationParent! : Identity(targetParent!);
         if (expectedDestinationParent is not null && targetParentIdentity != expectedDestinationParent)
             throw new IOException("Restore destination parent identity changed.");
         if (targetParentIdentity.Volume != expected.Volume) throw new IOException("Restore move crosses volumes.");
@@ -117,6 +120,31 @@ internal static class WindowsRestoreFileSystem
             Services.HistoryOperationDiagnostics.Current?.Count("file-moves");
         }
         finally { Marshal.FreeHGlobal(buffer); }
+    }
+    internal sealed class RestoreParentHandles : IDisposable
+    {
+        private readonly Dictionary<RestoreObjectIdentity, SafeFileHandle> _handles = [];
+        internal RestoreParentHandles(IEnumerable<(string Path, RestoreObjectIdentity Identity)> parents)
+        {
+            try
+            {
+                foreach (var parent in parents)
+                {
+                    // 不允许写入/删除父目录对象，因此缓存身份期间不能改名或设置 reparse。
+                    // 子项发布仍通过不覆盖的文件改名；目录本身将被移动的角色不进入缓存。
+                    var handle = Open(parent.Path, 0x80, 1);
+                    try
+                    {
+                        if (Identity(handle) != parent.Identity) throw new IOException("Restore parent binding changed.");
+                        _handles.Add(parent.Identity, handle);
+                    }
+                    catch { handle.Dispose(); throw; }
+                }
+            }
+            catch { Dispose(); throw; }
+        }
+        internal SafeFileHandle? Find(RestoreObjectIdentity? identity) => identity is not null ? _handles.GetValueOrDefault(identity) : null;
+        public void Dispose() { foreach (var handle in _handles.Values) handle.Dispose(); _handles.Clear(); }
     }
     internal static void DeleteOwned(string path, RestoreObjectIdentity expected)
     {

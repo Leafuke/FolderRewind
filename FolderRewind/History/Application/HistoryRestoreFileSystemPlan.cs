@@ -87,6 +87,10 @@ internal static class HistoryRestoreFileSystemPlanStore
     internal static IDisposable Execute(HistoryRestoreFileSystemPlan plan, string progressPath, CancellationToken token)
     {
         using var stableParents = ProtectExternalParents(plan);
+        var parents = ProtectStableMoveParents(plan);
+        bool transferred = false;
+        try
+        {
         // Windows 禁止移动有已打开子项的非空目录。目录动作由原语持有根/父目录句柄，
         // 成员身份在移动前后复核；移动后再为成员建立写入保护，不关闭已取得的文件保护去强行交换。
         var directoryMoves = plan.Actions.Where(action => action.Identity.Directory).ToArray();
@@ -108,7 +112,7 @@ internal static class HistoryRestoreFileSystemPlanStore
             foreach (var item in movedMembers)
                 if (WindowsRestoreFileSystem.TryIdentity(item.Path) != item.Identity) throw new IOException("Restore directory membership identity changed.");
             if (action.RequireEmpty && Directory.EnumerateFileSystemEntries(action.From).Any()) throw new IOException("Restore directory gained external members.");
-            WindowsRestoreFileSystem.MoveOwnedNoReplace(action.From, action.To, action.Identity, action.FromParent, action.ToParent, stableParents is not null);
+            WindowsRestoreFileSystem.MoveOwnedNoReplace(action.From, action.To, action.Identity, action.FromParent, action.ToParent, stableParents is not null, parents);
             ApplyPublishedSecurity(action, stableParents is not null);
             UpdateLocations(currentLocations, action);
             movedReads.Add(ReadLease.Acquire(movedMembers.Select(item => item with {
@@ -118,7 +122,18 @@ internal static class HistoryRestoreFileSystemPlanStore
         }
         progress.Flush();
         ValidateFinal(plan, true);
-        return ReadLease.Acquire(FinalLocations(plan, true).Values, allowRename: false);
+        var committedReads = new CompositeLease();
+        committedReads.Add(ReadLease.Acquire(FinalLocations(plan, true).Values, allowRename: false));
+        committedReads.Add(parents); transferred = true;
+        return committedReads;
+        }
+        finally { if (!transferred) parents.Dispose(); }
+    }
+    private static WindowsRestoreFileSystem.RestoreParentHandles ProtectStableMoveParents(HistoryRestoreFileSystemPlan plan)
+    {
+        var moving = plan.Actions.Where(action => action.Identity.Directory).Select(action => action.Identity).ToHashSet();
+        var ids = plan.Actions.SelectMany(action => new[] { action.FromParent, action.ToParent }).Distinct().Where(id => !moving.Contains(id)).ToHashSet();
+        return new(plan.Objects.Where(item => item.Identity.Directory && ids.Contains(item.Identity)).Select(item => (item.Path, item.Identity)));
     }
     private static void ApplyPublishedSecurity(RestoreMoveAction action, bool ancestorsProtected)
     {

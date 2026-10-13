@@ -112,4 +112,3 @@ public sealed class ArchiveRestoreVerificationContextTests
         await Assert.ThrowsAsync<IOException>(async () => await next.VerifyAsync(f.Archive, representation, path, default));
     }
 }
-

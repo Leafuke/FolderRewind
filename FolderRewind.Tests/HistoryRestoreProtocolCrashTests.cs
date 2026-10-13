@@ -37,7 +37,7 @@ public sealed class HistoryRestoreProtocolCrashTests
     {
         var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
         if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
-        foreach (var scenario in new[] { "unregistered", "external-target", "external-rollback", "corrupt-plan", "corrupt-progress", "corrupt-length", "half-progress" })
+        foreach (var scenario in new[] { "unregistered", "external-target", "external-rollback", "unknown-protocol", "unknown-phase", "corrupt-plan", "corrupt-progress", "corrupt-length", "half-progress" })
         {
             var root = Path.Combine(Path.GetTempPath(), "fr-ambiguous-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
             try
@@ -48,6 +48,13 @@ public sealed class HistoryRestoreProtocolCrashTests
                 var container = Directory.GetDirectories(root, ".folderrewind-restore-*").Single();
                 if (scenario == "external-target") { Directory.CreateDirectory(Path.Combine(root, "world")); File.WriteAllText(Path.Combine(root, "world", "external"), "foreign"); }
                 if (scenario == "external-rollback") File.WriteAllText(Path.Combine(container, "rollback", "external"), "foreign");
+                if (scenario is "unknown-protocol" or "unknown-phase")
+                {
+                    var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-journal.json", SearchOption.AllDirectories).Single();
+                    var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+                    json[scenario == "unknown-protocol" ? "protocolVersion" : "phase"] = 99;
+                    File.WriteAllText(path, json.ToJsonString());
+                }
                 if (scenario == "corrupt-plan")
                 {
                     var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-plan.json", SearchOption.AllDirectories).Single();
