@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platform>x64</Platform>
+    <Platforms>x64</Platforms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWinUI>true</UseWinUI>
+    <ApplicationManifest>../../FolderRewind/app.manifest</ApplicationManifest>
+    <WindowsPackageType>None</WindowsPackageType>
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <StartupObject>FolderRewind.PerformanceHost.Program</StartupObject>
+    <RootNamespace>FolderRewind.PerformanceHost</RootNamespace>
+    <FolderRewindHostProject Condition="'$(FolderRewindHostProject)'==''">../../FolderRewind/FolderRewind.csproj</FolderRewindHostProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Page Remove="BenchApplication.xaml" />
+    <ApplicationDefinition Include="BenchApplication.xaml" />
+    <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />
+    <ProjectReference Include="$(FolderRewindHostProject)" />
+  </ItemGroup>
+</Project>

@@ -6,6 +6,15 @@ namespace FolderRewind.Tests;
 [TestClass]
 public sealed class SevenZipArchiveListingParserTests
 {
+    [TestMethod]
+    public void LeadingSpaceIsPreservedAndWindowsAmbiguitiesAreRejected()
+    {
+        Assert.IsTrue(SevenZipArchiveListingParser.TryParse("----------\nPath =  leading.txt\nSize = 1\nAttributes = A\n", out var entries));
+        Assert.IsTrue(entries.ContainsKey(" leading.txt"));
+        foreach (var path in new[] { "trailing ", "dot.", "a//b", "NUL.txt", "COM1" })
+            Assert.IsFalse(SevenZipArchiveListingParser.TryParse($"----------\nPath = {path}\nSize = 1\nAttributes = A\n", out _));
+        Assert.IsFalse(SevenZipArchiveListingParser.TryParse("----------\nPath = file\nSize = 1\nAttributes = A\n\nPath = file/child\nSize = 1\nAttributes = A\n", out _));
+    }
     private const string Listing = """
         7-Zip listing header
         ----------
