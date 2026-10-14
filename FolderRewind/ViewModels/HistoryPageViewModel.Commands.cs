@@ -716,7 +716,8 @@ public sealed partial class HistoryPageViewModel
             I18n.GetString("Encryption_EnterPasswordPlaceholder"),
             isPassword: true,
             cancellationToken: cancellationToken);
-        if (password is not null && EncryptionService.VerifyPassword(config.Id, password))
+        if (password is not null && (EncryptionService.VerifyPassword(config.Id, password)
+            || await BackupPasswordPreparationService.VerifyAndStoreAsync(ConfigSnapshotMapper.Copy(config), password, cancellationToken)))
         {
             return true;
         }
