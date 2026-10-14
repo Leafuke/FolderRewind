@@ -2721,7 +2721,7 @@ Status: {3}</value>
     <value>Configuration</value>
   </data>
   <data name="SettingsPage_ConfigDataDesc.Text" xml:space="preserve">
-    <value>Export the current configuration or import a previously exported configuration file. Importing will replace all current settings.</value>
+    <value>Export configuration as JSON or select projects to import. Merge by project identity, retain unselected projects, and activate after restart.</value>
   </data>
   <data name="SettingsPage_ExportConfig.Content" xml:space="preserve">
     <value>Export Configuration</value>
@@ -2733,7 +2733,7 @@ Status: {3}</value>
     <value>History Records</value>
   </data>
   <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
-    <value>Export selected projects’ history metadata or merge immutable history records. Backup files are not included.</value>
+    <value>Transfer selected projects’ history and branch continuation, with optional archives, using local files or cloud snapshots. Advanced mode can merge metadata only.</value>
   </data>
   <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
     <value>Export History</value>

@@ -2721,7 +2721,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>配置数据</value>
   </data>
   <data name="SettingsPage_ConfigDataDesc.Text" xml:space="preserve">
-    <value>导出当前配置或导入之前导出的配置文件。导入将替换所有当前设置。</value>
+    <value>单独导出 JSON 配置，或选择项目导入配置。按项目身份合并，保留未选择的现有项目；重启后激活。</value>
   </data>
   <data name="SettingsPage_ExportConfig.Content" xml:space="preserve">
     <value>导出配置</value>
@@ -2733,7 +2733,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>历史记录</value>
   </data>
   <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
-    <value>导出所选项目的历史元数据，或合并导入不可变历史记录；不包含实际备份文件。</value>
+    <value>迁移所选项目的历史与分支续接信息，可选择携带归档，并从本地文件或云端快照导入。高级模式可仅合并元数据。</value>
   </data>
   <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
     <value>导出历史记录</value>

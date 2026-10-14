@@ -1032,7 +1032,7 @@ public sealed class HistoryCommitCoordinatorTests
         var preview = await continuation.PreviewAsync([source]);
         var workspace = await continuation.ApplyAsync(preview, [new(source, _root)], [new(source, preview.Sources.Single().SuggestedUpdateId)]);
         Assert.AreEqual(first.NewVersions.Single().VersionId, workspace.GetSourceState(source).BaseVersionId);
-        Assert.IsFalse(workspace.GetSourceState(source).RequiresFullCapture); Assert.AreEqual(count, (await runtime.Repository.ReadAllPacksAsync()).Count);
+        Assert.IsFalse(workspace.GetSourceState(source).RequiresFullCapture); Assert.HasCount(count, await runtime.Repository.ReadAllPacksAsync());
     }
 
     [TestMethod]

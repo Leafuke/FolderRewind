@@ -196,6 +196,7 @@ internal static class DataMigrationService
         var workspace = await new HistoryMigrationContinuationService(context.Runtime,
             (binding, version, cancellation) => new HistoryExactWorkingStateProbe(context.Runtime, restore).MatchesVersionAsync(binding, version, cancellation))
             .ApplyAsync(context.Continuation, context.Bindings, selections, token).ConfigureAwait(false);
+        await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(snapshot, selections.Select(s => s.SourceId), token).ConfigureAwait(false);
         live = (await MigrationBatchRecoveryService.CaptureAsync().ConfigureAwait(false)).Single(c => id.Matches(c.Id));
         if (NativeHistoryConfigLease.Signature(live) != signature) throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
         var state = DataMigrationStateStore.Load(ConfigService.ConfigDirectory, id) ?? new(1,
