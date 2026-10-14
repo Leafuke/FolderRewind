@@ -461,6 +461,9 @@ public sealed class HistoryCommitCoordinator
             var runOutcome = BackupRunSourceOutcome.CarriedForward;
             var nextRelation = baseline?.Relation ?? WorkspaceBaselineRelation.Unknown;
 
+            if (state.RequiresFullCapture && capture?.Outcome is SourceCaptureOutcome.NoChanges or SourceCaptureOutcome.Reused)
+                throw new HistoryCommitConflictException("Migration continuation requires a new self-contained full capture.");
+
             if (capture is not null)
             {
                 switch (capture.Outcome)
@@ -481,7 +484,8 @@ public sealed class HistoryCommitCoordinator
                                 "A boundary-changing capture must use a self-contained Representation.");
                         }
                         var versionId = VersionId.New();
-                        var parents = reliableBaseline is { } parent ? new[] { parent } : Array.Empty<VersionId>();
+                        var continuationParent = state.RequiresFullCapture ? currentCheckpoint?.VersionId : null;
+                        var parents = (reliableBaseline ?? continuationParent) is { } parent ? new[] { parent } : Array.Empty<VersionId>();
                         var version = new SourceVersion(
                             versionId,
                             request.ConfigSnapshot.ConfigId,
@@ -641,7 +645,7 @@ public sealed class HistoryCommitCoordinator
                     var branchId = request.BranchCreationIntent?.BranchId ?? state.ActiveBranchId ?? BranchId.New();
                     branchUpdate = new BranchUpdate(BranchUpdateId.New(), branchId,
                         state.ActiveBranchUpdateId is { } parentUpdate ? [parentUpdate] : [],
-                        request.BranchCreationIntent?.Name ?? currentBranch?.Name ?? (state.ActiveBranchId is null && _runtime.MigrationState.Load() is not null
+                        request.BranchCreationIntent?.Name ?? currentBranch?.Name ?? (state.ActiveBranchId is null && _runtime.MigrationState.Load() is not null && !state.RequiresFullCapture
                             ? request.ConfigSnapshot.DefaultBranchName + "-" + branchId.ToString()[..8] : request.ConfigSnapshot.DefaultBranchName),
                         candidate!.CheckpointId, false, now,
                         request.BranchCreationIntent is not null || state.ActiveBranchId is null ? BranchUpdateReason.Created
@@ -653,7 +657,8 @@ public sealed class HistoryCommitCoordinator
                 }
                 else if (request.Intent == HistoryCommitIntent.IndependentRecoveryPoint && candidate is not null)
                     state = state with { CheckpointAncestryAnchorId = candidate.CheckpointId };
-                state = state with { BaseVersionId = resultVersion, Relation = nextRelation };
+                state = state with { BaseVersionId = resultVersion, Relation = nextRelation,
+                    RequiresFullCapture = state.RequiresFullCapture && !captured };
             }
             runSources.Add(new BackupRunSourceResult(source.SourceId, runOutcome,
                 successful ? finalVersionId : null, capture?.Diagnostics ?? [],
@@ -878,7 +883,7 @@ public sealed class HistoryCommitCoordinator
 
 
     private static VersionId? ReliableVersion(WorkspaceSourceBaseline? baseline)
-        => baseline is not null && baseline.Relation != WorkspaceBaselineRelation.Unknown
+        => baseline is not null && baseline.Relation != WorkspaceBaselineRelation.Unknown && !baseline.RequiresFullCapture
             ? baseline.BaseVersionId
             : null;
 
@@ -930,6 +935,9 @@ public sealed class HistoryCommitCoordinator
             throw new HistoryCommitConflictException("Version and Representation state fingerprints disagree.");
         }
         var dependencies = capture.RepresentationCandidate.DependencyRepresentationIds;
+        if (baseline?.RequiresFullCapture == true && (capture.CaptureScope != CaptureScope.FullSource
+            || capture.RepresentationCandidate.Fidelity != MaterializationFidelity.Exact || !dependencies.IsEmpty))
+            throw new HistoryCommitConflictException("Migration continuation requires a self-contained Exact FullSource capture.");
         bool selfContainedCore = capture.RepresentationCandidate.Kind is
             RepresentationKind.CoreFull or RepresentationKind.CoreRolling;
         if (selfContainedCore && !dependencies.IsEmpty)

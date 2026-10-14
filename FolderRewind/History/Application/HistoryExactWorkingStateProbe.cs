@@ -20,8 +20,15 @@ public sealed class HistoryExactWorkingStateProbe(HistoryRuntime history, Histor
         CancellationToken cancellationToken)
     {
         if (baseline.Relation != WorkspaceBaselineRelation.Exact
+            || baseline.RequiresFullCapture
             || baseline.BaseVersionId is not { } id
             || !Directory.Exists(binding.TargetDirectory)) return false;
+        return await MatchesVersionAsync(binding, id, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> MatchesVersionAsync(HistoryRestoreSourceBinding binding, VersionId id, CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(binding.TargetDirectory)) return false;
         var version = await history.Query.GetVersionAsync(id, cancellationToken).ConfigureAwait(false);
         if (version is null || version.SourceId != binding.SourceId
             || version.ConfigId != history.ConfigId
@@ -37,6 +44,7 @@ public sealed class HistoryExactWorkingStateProbe(HistoryRuntime history, Histor
         }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
+        catch (InvalidOperationException) { return false; }
         finally
         {
             if (prepared is not null)

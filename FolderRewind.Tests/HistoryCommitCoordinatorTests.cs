@@ -998,6 +998,54 @@ public sealed class HistoryCommitCoordinatorTests
             safetySnapshotIntent: new HistorySafetySnapshotIntent(reason));
     }
 
+    [TestMethod]
+    public async Task MigratedChangedWorkspaceContinuesOriginalBranchWithSelfContainedFullParent()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "original", -1, null)));
+        var originalVersion = first.NewVersions.Single().VersionId;
+        var originalBranch = first.NewBranchUpdates.Single().BranchId;
+        var continuation = new HistoryMigrationContinuationService(runtime, (_, _, _) => Task.FromResult(false));
+        var preview = await continuation.PreviewAsync([source]);
+        var workspace = await continuation.ApplyAsync(preview, [new(source, _root)], [new(source, preview.Sources.Single().SuggestedUpdateId)]);
+        var state = workspace.GetSourceState(source);
+        Assert.AreEqual(WorkspaceBaselineRelation.Unknown, state.Relation); Assert.IsNull(state.BaseVersionId);
+        Assert.IsTrue(state.RequiresFullCapture); Assert.AreEqual(originalBranch, state.ActiveBranchId);
+        var noChange = SourceCaptureResult.NoChanges(source, CaptureScope.FullSource, workspace.StateRevision, originalVersion, "state-original");
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(Request(snapshot, workspace, noChange)));
+        Assert.IsTrue((await runtime.WorkspaceStore.LoadAsync()).Value!.GetSourceState(source).RequiresFullCapture);
+        var second = await runtime.Commit.CommitAsync(Request(snapshot, workspace, CreateCapture(source, "current", workspace.StateRevision, null)));
+        Assert.AreEqual(originalBranch, second.NewBranchUpdates.Single().BranchId);
+        CollectionAssert.AreEqual(new[] { originalVersion }, second.NewVersions.Single().ParentVersionIds.ToArray());
+        Assert.IsFalse(second.UpdatedWorkspace!.GetSourceState(source).RequiresFullCapture);
+        Assert.AreEqual(WorkspaceBaselineRelation.Exact, second.UpdatedWorkspace.GetSourceState(source).Relation);
+    }
+
+    [TestMethod]
+    public async Task MigratedExactWorkspaceAdoptsExistingBranchWithoutManufacturingHistory()
+    {
+        await using var runtime = await CreateRuntimeAsync(); var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "original", -1, null)));
+        var count = (await runtime.Repository.ReadAllPacksAsync()).Count;
+        var continuation = new HistoryMigrationContinuationService(runtime, (_, _, _) => Task.FromResult(true));
+        var preview = await continuation.PreviewAsync([source]);
+        var workspace = await continuation.ApplyAsync(preview, [new(source, _root)], [new(source, preview.Sources.Single().SuggestedUpdateId)]);
+        Assert.AreEqual(first.NewVersions.Single().VersionId, workspace.GetSourceState(source).BaseVersionId);
+        Assert.IsFalse(workspace.GetSourceState(source).RequiresFullCapture); Assert.AreEqual(count, (await runtime.Repository.ReadAllPacksAsync()).Count);
+    }
+
+    [TestMethod]
+    public async Task WorkspaceV3RemainsReadableAndDoesNotInventFullCaptureRequirement()
+    {
+        await using var runtime = await CreateRuntimeAsync(); var source = SourceId.New();
+        await runtime.WorkspaceStore.SaveAsync(new(_configId, 0, [new(source, null, WorkspaceBaselineRelation.Unknown)]), -1);
+        var path = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json");
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"formatVersion\": 4", "\"formatVersion\": 3", StringComparison.Ordinal));
+        var load = await runtime.WorkspaceStore.LoadAsync(); Assert.AreEqual(DeviceLocalStateStatus.Valid, load.Status);
+        Assert.IsFalse(load.Value!.GetSourceState(source).RequiresFullCapture);
+    }
+
     private SourceCaptureResult CreateCapture(
         SourceId sourceId,
         string content,

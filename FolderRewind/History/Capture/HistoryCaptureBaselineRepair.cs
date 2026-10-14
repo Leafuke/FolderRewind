@@ -38,7 +38,8 @@ public static class HistoryCaptureBaselineRepair
     {
         var workspace = (await history.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value;
         var state = workspace?.SourceBaselines.SingleOrDefault(s => s.SourceId == source);
-        if (state?.BaseVersionId is not { } versionId || state.Relation == WorkspaceBaselineRelation.Unknown) return null;
+        if (state?.BaseVersionId is not { } versionId || state.Relation == WorkspaceBaselineRelation.Unknown
+            || state.RequiresFullCapture) return null;
         var graph = await history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var catalog = (await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         var environment = new RepresentationEnvironment(catalog?.Entries ?? [], [], []);

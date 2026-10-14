@@ -156,7 +156,7 @@ public sealed class HistoryCheckoutService
                     source.VersionId,
                     WorkspaceBaselineRelation.Exact)));
             var sourceState = current.GetSourceState(plan.Checkpoint!.SourceId) with {
-                BaseVersionId = plan.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact,
+                BaseVersionId = plan.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact, RequiresFullCapture = false,
                 ActiveBranchId = plan.Update!.BranchId, ActiveBranchUpdateId = plan.Update.UpdateId,
                 CheckpointAncestryAnchorId = plan.Checkpoint.CheckpointId };
             var desired = current.WithSourceStates([sourceState]);

@@ -48,6 +48,7 @@ public static class SourceCaptureBaselinePolicy
         return workspaceBaseline is
             {
                 Relation: WorkspaceBaselineRelation.Exact or WorkspaceBaselineRelation.Derived,
+                RequiresFullCapture: false,
                 BaseVersionId: { } workspaceVersionId
             }
             && workspaceVersionId == baseline.BaseVersionId;

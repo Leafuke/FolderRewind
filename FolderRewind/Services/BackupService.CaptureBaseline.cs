@@ -72,6 +72,7 @@ public static partial class BackupService
                 if (workspaceBaseline is not
                     {
                         Relation: WorkspaceBaselineRelation.Exact,
+                        RequiresFullCapture: false,
                         BaseVersionId: { } versionId
                     }
                     || !Directory.Exists(folder.Path))

@@ -165,6 +165,7 @@
     <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />
     <Compile Include="..\FolderRewind\Services\ProtectedPasswordStore.cs" Link="Source\ProtectedPasswordStore.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryReplicaRecoveryService.cs" Link="Source\HistoryReplicaRecoveryService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationContinuationService.cs" Link="Source\HistoryMigrationContinuationService.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationPathRebindPolicy.cs" Link="Source\MigrationPathRebindPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationBatchConfirmation.cs" Link="Source\MigrationBatchConfirmation.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationRecoveryPolicy.cs" Link="Source\MigrationRecoveryPolicy.cs" />

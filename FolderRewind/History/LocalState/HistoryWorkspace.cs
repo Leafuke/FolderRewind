@@ -11,12 +11,13 @@ public enum WorkspaceBaselineRelation { Exact = 0, Derived = 1, Unknown = 2 }
 
 public sealed record WorkspaceSourceBaseline(SourceId SourceId, VersionId? BaseVersionId,
     WorkspaceBaselineRelation Relation, BranchId? ActiveBranchId = null,
-    BranchUpdateId? ActiveBranchUpdateId = null, CheckpointId? CheckpointAncestryAnchorId = null);
+    BranchUpdateId? ActiveBranchUpdateId = null, CheckpointId? CheckpointAncestryAnchorId = null,
+    bool RequiresFullCapture = false);
 
 /// <summary>Device-local state. Each Source owns its Branch and continuation anchor independently.</summary>
 public sealed record HistoryWorkspace
 {
-    public const int CurrentFormatVersion = 3;
+    public const int CurrentFormatVersion = 4;
 
     public HistoryWorkspace(HistoryConfigId configId, long stateRevision, IEnumerable<WorkspaceSourceBaseline>? sourceBaselines)
         : this(configId, stateRevision, sourceBaselines is null ? [] : [.. sourceBaselines]) { }
@@ -48,7 +49,8 @@ public sealed record HistoryWorkspace
     }
 
     public HistoryWorkspace WithContentBaselines(IEnumerable<WorkspaceSourceBaseline> baselines)
-        => WithSourceStates(baselines.Select(s => GetSourceState(s.SourceId) with { BaseVersionId = s.BaseVersionId, Relation = s.Relation }));
+        => WithSourceStates(baselines.Select(s => GetSourceState(s.SourceId) with { BaseVersionId = s.BaseVersionId,
+            Relation = s.Relation, RequiresFullCapture = s.Relation != WorkspaceBaselineRelation.Exact }));
 
     public static bool StateEquals(HistoryWorkspace left, HistoryWorkspace right) => left.ConfigId == right.ConfigId
         && left.StateRevision == right.StateRevision && left.SourceBaselines.OrderBy(s => s.SourceId.ToString(), StringComparer.Ordinal)
