@@ -152,7 +152,8 @@ public sealed class HistoryReplicaRecoveryService(HistoryRuntime runtime)
         => Path.GetFullPath(path).StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     internal static void RequireRegularPath(string root, string path)
     {
-        if (!IsUnderRoot(root, path)) throw new InvalidDataException("Migration payload escapes its backup root.");
+        if (!IsUnderRoot(root, path) && !Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)).Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Migration payload escapes its backup root.");
         var current = path;
         while (current is not null)
         {

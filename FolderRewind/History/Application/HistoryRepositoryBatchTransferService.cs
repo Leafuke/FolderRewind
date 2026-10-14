@@ -9,6 +9,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,7 +18,11 @@ namespace FolderRewind.History.Application;
 public sealed record HistoryTransferSource(SourceId SourceId, string Name, string PathHint);
 public sealed record HistoryTransferProject(HistoryConfigId ConfigId, string Name,
     ImmutableArray<HistoryTransferSource> Sources, int VersionCount, int BranchCount,
-    ImmutableSortedDictionary<string, string> PackSha256);
+    ImmutableSortedDictionary<string, string> PackSha256)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public HistoryTransferProjectMigration? Migration { get; init; }
+}
 public sealed record HistoryTransferBatchManifest(string Magic, int FormatVersion, string ApplicationVersion,
     bool IncludesPayloads, ImmutableArray<HistoryTransferProject> Projects);
 public sealed record HistoryTransferPreview(int FormatVersion, string ApplicationVersion, ImmutableArray<HistoryTransferProject> Projects, string FileSha256);
@@ -182,13 +187,14 @@ public sealed class HistoryRepositoryBatchTransferService(
         var hash = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(stream, token).ConfigureAwait(false));
         stream.Position = 0;
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-        if (archive.Entries.GroupBy(e => e.FullName, StringComparer.Ordinal).Any(g => g.Count() != 1))
+        if (archive.Entries.Count > 200000 || archive.Entries.GroupBy(e => e.FullName, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() != 1))
             throw new HistoryIntegrityConflictException("Transfer contains duplicate ZIP entries.");
         var bytes = await ReadEntryAsync(archive, "manifest.json", token).ConfigureAwait(false);
         using var json = JsonDocument.Parse(bytes);
         var format = json.RootElement.GetProperty("formatVersion").GetInt32();
         HistoryTransferProject[] projects;
         var version = "unknown";
+        HistoryTransferV3Manifest? migration = null;
         if (format == 1)
         {
             var manifest = JsonSerializer.Deserialize<HistoryTransferManifest>(bytes, JsonOptions) ?? throw new InvalidDataException("Empty manifest.");
@@ -202,10 +208,21 @@ public sealed class HistoryRepositoryBatchTransferService(
             if (manifest.Projects.IsDefaultOrEmpty) throw new InvalidDataException("Transfer has no projects.");
             projects = manifest.Projects.ToArray(); version = manifest.ApplicationVersion;
         }
+        else if (format == 3)
+        {
+            migration = JsonSerializer.Deserialize<HistoryTransferV3Manifest>(bytes, JsonOptions) ?? throw new InvalidDataException("Empty migration manifest.");
+            if (migration.Magic != HistoryTransferManifest.CurrentMagic || migration.Projects.IsDefaultOrEmpty
+                || !Guid.TryParseExact(migration.TransferId, "N", out _))
+                throw new InvalidDataException("Invalid migration manifest.");
+            projects = migration.Projects.ToArray(); version = migration.ApplicationVersion;
+        }
         else throw new HistoryPackCompatibilityException($"Unsupported History transfer format {format}.");
         if (projects.Select(p => p.ConfigId).Distinct().Count() != projects.Length)
             throw new HistoryIntegrityConflictException("Transfer contains duplicate project identities.");
         var declared = new HashSet<string>(StringComparer.Ordinal) { "manifest.json" };
+        if (migration is not null)
+            await HistoryMigrationBundleService.ValidateAdditionalEntriesAsync(archive, migration, declared, token).ConfigureAwait(false);
+        long metadataBytes = bytes.Length + (migration?.ConfigurationSha256 is not null ? archive.GetEntry("configuration.json")!.Length : 0);
         var parsed = new List<ParsedProject>();
         foreach (var project in projects)
         {
@@ -216,6 +233,7 @@ public sealed class HistoryRepositoryBatchTransferService(
             var descriptorPath = prefix + "repository.json";
             declared.Add(descriptorPath);
             var descriptor = await ReadEntryAsync(archive, descriptorPath, token).ConfigureAwait(false);
+            metadataBytes += descriptor.Length;
             if (HistoryRepositoryDescriptor.Parse(descriptor).ConfigId != project.ConfigId
                 || !descriptor.AsSpan().SequenceEqual(HistoryRepositoryDescriptor.Create(project.ConfigId).ToCanonicalBytes()))
                 throw new HistoryIntegrityConflictException("Transfer descriptor is not canonical.");
@@ -226,6 +244,8 @@ public sealed class HistoryRepositoryBatchTransferService(
                 if (id.ToString() != entry.Key) throw new HistoryIntegrityConflictException("Pack identity is not canonical.");
                 var name = prefix + $"packs/{id}.frpack"; declared.Add(name);
                 var packBytes = await ReadEntryAsync(archive, name, token).ConfigureAwait(false);
+                metadataBytes += packBytes.Length;
+                if (metadataBytes > HistoryMigrationBundleService.MaximumMetadataBytes) throw new InvalidDataException("Transfer metadata exceeds its memory budget.");
                 if (!StringComparer.Ordinal.Equals(HistoryPackCodec.ComputeSha256(packBytes), entry.Value))
                     throw new HistoryIntegrityConflictException($"Transfer Pack {id} hash differs from manifest.");
                 var pack = _codec.Decode(packBytes);
@@ -233,7 +253,9 @@ public sealed class HistoryRepositoryBatchTransferService(
                 packs.Add(pack);
             }
             new HistoryRepositoryValidator(_codec).Validate(project.ConfigId, packs);
-            parsed.Add(new(Describe(project.ConfigId, project.Name, project.Sources, project.PackSha256, packs), packs.ToArray()));
+            if (migration is not null) HistoryMigrationBundleService.ValidateProject(project, packs, migration.IncludesPayloads);
+            parsed.Add(new(Describe(project.ConfigId, project.Name, project.Sources, project.PackSha256, packs)
+                with { Migration = project.Migration }, packs.ToArray()));
         }
         if (archive.Entries.Any(e => !declared.Contains(e.FullName))) throw new HistoryIntegrityConflictException("Transfer contains undeclared entries.");
         return new(format, version, parsed.ToArray(), hash);
@@ -256,7 +278,15 @@ public sealed class HistoryRepositoryBatchTransferService(
     { await using var output = archive.CreateEntry(name, CompressionLevel.Optimal).Open(); await output.WriteAsync(bytes, token).ConfigureAwait(false); }
     private static async Task<byte[]> ReadEntryAsync(ZipArchive archive, string name, CancellationToken token)
     {
-        await using var input = (archive.GetEntry(name) ?? throw new InvalidDataException($"Transfer entry '{name}' is missing.")).Open();
-        using var output = new MemoryStream(); await input.CopyToAsync(output, token).ConfigureAwait(false); return output.ToArray();
+        var entry = archive.GetEntry(name) ?? throw new InvalidDataException($"Transfer entry '{name}' is missing.");
+        if (entry.Length > HistoryMigrationBundleService.MaximumMetadataEntryBytes) throw new InvalidDataException("Transfer metadata entry exceeds its memory budget.");
+        await using var input = entry.Open();
+        using var output = new MemoryStream(); var buffer = new byte[65536]; int count;
+        while ((count = await input.ReadAsync(buffer, token).ConfigureAwait(false)) > 0)
+        {
+            if (output.Length + count > HistoryMigrationBundleService.MaximumMetadataEntryBytes) throw new InvalidDataException("Transfer metadata entry exceeds its memory budget.");
+            await output.WriteAsync(buffer.AsMemory(0, count), token).ConfigureAwait(false);
+        }
+        return output.ToArray();
     }
 }

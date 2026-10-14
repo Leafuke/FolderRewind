@@ -166,6 +166,9 @@
     <Compile Include="..\FolderRewind\Services\ProtectedPasswordStore.cs" Link="Source\ProtectedPasswordStore.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryReplicaRecoveryService.cs" Link="Source\HistoryReplicaRecoveryService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryMigrationContinuationService.cs" Link="Source\HistoryMigrationContinuationService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleModels.cs" Link="Source\HistoryMigrationBundleModels.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.cs" Link="Source\HistoryMigrationBundleService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.Payloads.cs" Link="Source\HistoryMigrationBundleService.Payloads.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationPathRebindPolicy.cs" Link="Source\MigrationPathRebindPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationBatchConfirmation.cs" Link="Source\MigrationBatchConfirmation.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationRecoveryPolicy.cs" Link="Source\MigrationRecoveryPolicy.cs" />
