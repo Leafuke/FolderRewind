@@ -6349,9 +6349,6 @@ Pull Request：{1}</value>
   <data name="Migration_NoProjects" xml:space="preserve">
     <value>没有可迁移的备份项目。孤立历史需要先导入原配置，保留原项目和来源 ID。</value>
   </data>
-  <data name="Migration_ExportTitle" xml:space="preserve">
-    <value>导出历史元数据</value>
-  </data>
   <data name="Migration_MetadataOnly" xml:space="preserve">
     <value>仅包含历史元数据，不包含实际备份文件或旧设备的本机工作区。</value>
   </data>
@@ -6718,4 +6715,52 @@ Pull Request：{1}</value>
   <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Description" xml:space="preserve"><value>默认开启；独立于普通还原。关闭后不创建恢复点，失败回滚仍始终开启。</value></data>
   <data name="ConfigSettingsDialog_QuickSafetySnapshot.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_QuickSafetySnapshot.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="Migration_DataTransferHeader.Text" xml:space="preserve"><value>迁移包与恢复</value></data>
+  <data name="Migration_DataTransferDescription.Text" xml:space="preserve"><value>统一迁移配置、历史及可选归档。旧 JSON 与历史文件仍可导入；导入后检查归档、密码和原分支。</value></data>
+  <data name="Migration_ExportData.Content" xml:space="preserve"><value>导出迁移数据</value></data>
+  <data name="Migration_ImportData.Content" xml:space="preserve"><value>导入迁移数据</value></data>
+  <data name="Migration_RecoverData.Content" xml:space="preserve"><value>检查归档、准备密码并续接原分支</value></data>
+  <data name="Migration_ExportDescription" xml:space="preserve"><value>选择数据范围和项目。默认保留外部备份文件；包含归档时会验证完整依赖并随包携带。</value></data>
+  <data name="Migration_ContentScope" xml:space="preserve"><value>数据范围</value></data>
+  <data name="Migration_ScopeBoth" xml:space="preserve"><value>配置、历史与续接信息（推荐）</value></data>
+  <data name="Migration_ScopeConfig" xml:space="preserve"><value>仅配置 JSON</value></data>
+  <data name="Migration_ScopeHistory" xml:space="preserve"><value>历史与续接信息</value></data>
+  <data name="Migration_ScopeMetadata" xml:space="preserve"><value>仅历史事实（高级）</value></data>
+  <data name="Migration_IncludeArchives" xml:space="preserve"><value>包含备份归档（可独立跨设备恢复）</value></data>
+  <data name="Migration_ExportTitle" xml:space="preserve"><value>导出迁移数据</value></data>
+  <data name="Migration_ImportTitle" xml:space="preserve"><value>导入迁移数据</value></data>
+  <data name="Migration_Next" xml:space="preserve"><value>下一步</value></data>
+  <data name="Migration_LocationDescription" xml:space="preserve"><value>选择本地文件或云端快照。两种位置使用相同的迁移格式与验证流程。</value></data>
+  <data name="Migration_CloudSnapshotDescription" xml:space="preserve"><value>选择本次传输的连接。迁移快照独立保存，不会替代项目云同步。</value></data>
+  <data name="Migration_EmbeddedExported" xml:space="preserve"><value>已导出含归档的迁移包；目标设备仍需准备原加密密码及必要运行环境。</value></data>
+  <data name="Migration_ExternalExported" xml:space="preserve"><value>已导出迁移信息；请保留备份文件，并在导入后确认关联目录。</value></data>
+  <data name="Migration_NoCloudSnapshots" xml:space="preserve"><value>此连接尚无已发布并通过校验的迁移快照。</value></data>
+  <data name="Migration_CloudVersions" xml:space="preserve"><value>云端迁移快照</value></data>
+  <data name="Migration_ImportDescription" xml:space="preserve"><value>按原项目和来源身份导入。包内配置按项目合并，未选择的现有项目保留。完成后检查本地归档及分支续接。</value></data>
+  <data name="Migration_ImportProjectCounts" xml:space="preserve"><value>{0} 个来源 · {1} 个版本 · {2} 份历史 Pack</value></data>
+  <data name="Migration_RecoveryMode" xml:space="preserve"><value>恢复模式</value></data>
+  <data name="Migration_LocalRestore" xml:space="preserve"><value>本机恢复（含卸载重装）</value></data>
+  <data name="Migration_CrossDevice" xml:space="preserve"><value>跨设备迁移</value></data>
+  <data name="Migration_OnlyMetadata" xml:space="preserve"><value>仅合并历史事实（不恢复配置与续接状态）</value></data>
+  <data name="Migration_ImportConfiguration" xml:space="preserve"><value>同时导入包内配置</value></data>
+  <data name="Migration_ImportSelected" xml:space="preserve"><value>导入选中的项目</value></data>
+  <data name="Migration_RecoveryNext" xml:space="preserve"><value>配置若已暂存，请先重启；随后使用“检查归档、准备密码并续接原分支”，再确认已就绪的备份与云上传权限。</value></data>
+  <data name="Migration_RecoveryDescription" xml:space="preserve"><value>逐项目核验现有备份文件及原分支。保留当前源文件；内容不同则下一次先做全量备份。加密项目需要原密码。</value></data>
+  <data name="Migration_RecoveryTitle" xml:space="preserve"><value>检查归档与分支续接</value></data>
+  <data name="Migration_BindingConfirmation" xml:space="preserve"><value>确认每个归档对应的文件及续接分支。旧版本未留存哈希时需要确认绑定；多个候选不自动选择。源目录内容会保留。</value></data>
+  <data name="Migration_HashMatched" xml:space="preserve"><value>存储哈希匹配</value></data>
+  <data name="Migration_BindingNeedsConfirmation" xml:space="preserve"><value>需要确认文件关联</value></data>
+  <data name="Migration_BranchReconciliation" xml:space="preserve"><value>该来源存在分支冲突；请先在历史页协调所选分支。</value></data>
+  <data name="Migration_NoHistoricalBranch" xml:space="preserve"><value>此来源没有历史分支，首次成功备份将建立默认分支。</value></data>
+  <data name="Migration_VerifyAndContinue" xml:space="preserve"><value>验证并续接所选分支</value></data>
+  <data name="Migration_RecoveryResult" xml:space="preserve"><value>{0}：新增 {1} 个本地关联；{2}/{3} 个版本可本地还原；{4} 个来源下次需全量建立基线。</value></data>
+  <data name="Migration_ConfirmCapabilitiesNext" xml:space="preserve"><value>检查完成后，请批量确认已就绪的备份权限；云上传权限单独确认。未找到或验证失败的历史版本仍需处理。</value></data>
+  <data name="Migration_OriginalPassword" xml:space="preserve"><value>原备份密码</value></data>
+  <data name="Migration_PasswordDescription" xml:space="preserve"><value>输入创建这些加密归档时使用的密码。应用将实际验证归档，成功后保存到此设备的安全密码库；密码不会进入迁移包。</value></data>
+  <data name="Migration_VerifyPassword" xml:space="preserve"><value>验证原密码</value></data>
+  <data name="Migration_PasswordVerificationFailed" xml:space="preserve"><value>无法使用此密码验证归档；请检查原密码以及归档是否完整。密码尚未保存。</value></data>
+  <data name="Migration_AwaitingHistory" xml:space="preserve"><value>配置已导入，正在等待关联历史。请导入原历史文件或完整迁移包，然后检查本地归档。</value></data>
+  <data name="Migration_RecoveryPending" xml:space="preserve"><value>尚未完成归档检查与原分支续接，请使用迁移数据检查入口。</value></data>
+  <data name="Migration_RuntimePending" xml:space="preserve"><value>来源所需的运行环境或插件尚未准备，完成后可重试此项目。</value></data>
+  <data name="Migration_AwaitingHistoryTitle" xml:space="preserve"><value>等待关联历史</value></data>
 </root>

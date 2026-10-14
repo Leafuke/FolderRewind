@@ -151,6 +151,7 @@
     <Compile Include="..\FolderRewind\Services\RcloneExecutionContext.cs" Link="Source\RcloneExecutionContext.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneConnectionService.cs" Link="Source\RcloneConnectionService.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneNativeHistoryTransport.cs" Link="Source\RcloneNativeHistoryTransport.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneMigrationSnapshotTransport.cs" Link="Source\RcloneMigrationSnapshotTransport.cs" />
     <Compile Include="..\FolderRewind\Services\ProcessArgumentTokenizer.cs" Link="Source\ProcessArgumentTokenizer.cs" />
     <Compile Include="..\FolderRewind\Services\ToolArchiveInstaller.cs" Link="Source\ToolArchiveInstaller.cs" />
     <Compile Include="..\FolderRewind\Services\ToolExecutableVerifier.cs" Link="Source\ToolExecutableVerifier.cs" />
@@ -174,6 +175,7 @@
     <Compile Include="..\FolderRewind\Services\MigrationRecoveryPolicy.cs" Link="Source\MigrationRecoveryPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationSetupStateStore.cs" Link="Source\MigrationSetupStateStore.cs" />
     <Compile Include="..\FolderRewind\Services\ConfigImportTransactionStore.cs" Link="Source\ConfigImportTransactionStore.cs" />
+    <Compile Include="..\FolderRewind\Services\DataMigrationStateStore.cs" Link="Source\DataMigrationStateStore.cs" />
     <Compile Include="..\FolderRewind\Services\ConfigWriteCoordinator.cs" Link="Source\ConfigWriteCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\BatchObservableCollection.cs" Link="Source\BatchObservableCollection.cs" />
     <Compile Include="..\FolderRewind\Services\LatestRequestCoordinator.cs" Link="Source\LatestRequestCoordinator.cs" />

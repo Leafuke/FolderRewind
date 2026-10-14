@@ -68,6 +68,17 @@ public sealed class MigrationRecoveryTests
         Assert.IsFalse(MigrationSetupStateStore.IsBackupPending(_root, first));
         Assert.IsTrue(MigrationSetupStateStore.IsCloudPending(_root, first));
     }
+    [TestMethod] public void SelectedProjectMergeKeepsOtherProjectsPermissionsAndPreviousConfigEvidence()
+    {
+        var first = Id(); var second = Id(); var store = Activate([first]); var originalToken = store.PendingToken(first);
+        MigrationSetupStateStore.Grant(_root, first, true, false);
+        store.Stage("{\"name\":\"merged\"}"u8.ToArray(), _ => null, [second], ConfigImportMode.CrossDevice, preserveOtherProjectSetup: true);
+        Assert.IsTrue(store.BeginActivation(_ => null)); store.CommitActivation();
+        Assert.AreEqual(originalToken, store.PendingToken(first)); Assert.IsFalse(MigrationSetupStateStore.IsBackupPending(_root, first));
+        Assert.IsTrue(MigrationSetupStateStore.IsCloudPending(_root, first)); Assert.IsTrue(MigrationSetupStateStore.IsBackupPending(_root, second));
+        Assert.AreEqual(ConfigImportMode.LocalRestore, store.ModeFor(first)); Assert.AreEqual(ConfigImportMode.CrossDevice, store.ModeFor(second));
+        CollectionAssert.AreEqual("{\"name\":\"old\"}"u8.ToArray(), store.ReadPreviousConfig(first));
+    }
     [TestMethod] public void LegacyRegistryAndConfirmationRemainReadableWithoutInventingOriginalSettings()
     {
         var id = Id(); var store = Activate([id]);

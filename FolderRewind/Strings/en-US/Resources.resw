@@ -6349,9 +6349,6 @@ Backup directory: {4}</value>
   <data name="Migration_NoProjects" xml:space="preserve">
     <value>No backup projects to migrate. For orphan history, import the original configuration to retain project and source IDs.</value>
   </data>
-  <data name="Migration_ExportTitle" xml:space="preserve">
-    <value>Export history metadata</value>
-  </data>
   <data name="Migration_MetadataOnly" xml:space="preserve">
     <value>Contains history metadata only; excludes backup payloads and the old device workspace.</value>
   </data>
@@ -6718,4 +6715,52 @@ Attempts: {3}</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Description" xml:space="preserve"><value>Enabled by default and independent of ordinary restore. Turning it off skips the snapshot while failure rollback remains enabled.</value></data>
   <data name="ConfigSettingsDialog_QuickSafetySnapshot.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="ConfigSettingsDialog_QuickSafetySnapshot.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="Migration_DataTransferHeader.Text" xml:space="preserve"><value>Migration bundles and recovery</value></data>
+  <data name="Migration_DataTransferDescription.Text" xml:space="preserve"><value>Transfer configuration, history and optional archives together. Existing JSON and history files remain supported. Verify archives, passwords and branch continuation after import.</value></data>
+  <data name="Migration_ExportData.Content" xml:space="preserve"><value>Export migration data</value></data>
+  <data name="Migration_ImportData.Content" xml:space="preserve"><value>Import migration data</value></data>
+  <data name="Migration_RecoverData.Content" xml:space="preserve"><value>Verify archives, prepare passwords and continue branches</value></data>
+  <data name="Migration_ExportDescription" xml:space="preserve"><value>Choose content and projects. Archives remain external by default. Including archives verifies and embeds their complete dependencies.</value></data>
+  <data name="Migration_ContentScope" xml:space="preserve"><value>Content</value></data>
+  <data name="Migration_ScopeBoth" xml:space="preserve"><value>Configuration, history and continuation (recommended)</value></data>
+  <data name="Migration_ScopeConfig" xml:space="preserve"><value>Configuration JSON only</value></data>
+  <data name="Migration_ScopeHistory" xml:space="preserve"><value>History and continuation</value></data>
+  <data name="Migration_ScopeMetadata" xml:space="preserve"><value>History facts only (advanced)</value></data>
+  <data name="Migration_IncludeArchives" xml:space="preserve"><value>Include backup archives for independent recovery</value></data>
+  <data name="Migration_ExportTitle" xml:space="preserve"><value>Export migration data</value></data>
+  <data name="Migration_ImportTitle" xml:space="preserve"><value>Import migration data</value></data>
+  <data name="Migration_Next" xml:space="preserve"><value>Next</value></data>
+  <data name="Migration_LocationDescription" xml:space="preserve"><value>Choose a local file or a cloud snapshot. Both use the same migration format and verification.</value></data>
+  <data name="Migration_CloudSnapshotDescription" xml:space="preserve"><value>Choose this transfer's connection. Migration snapshots are stored independently of project synchronization.</value></data>
+  <data name="Migration_EmbeddedExported" xml:space="preserve"><value>Exported a bundle containing archives. The destination still requires the original encryption password and required runtime.</value></data>
+  <data name="Migration_ExternalExported" xml:space="preserve"><value>Exported migration information. Keep the backup files and confirm their directory after import.</value></data>
+  <data name="Migration_NoCloudSnapshots" xml:space="preserve"><value>This connection has no published, verified migration snapshots.</value></data>
+  <data name="Migration_CloudVersions" xml:space="preserve"><value>Cloud migration snapshot</value></data>
+  <data name="Migration_ImportDescription" xml:space="preserve"><value>Import using original project and source identities. Configuration merges by project and preserves unselected projects. Verify local archives and continuation afterward.</value></data>
+  <data name="Migration_ImportProjectCounts" xml:space="preserve"><value>{0} sources · {1} versions · {2} history packs</value></data>
+  <data name="Migration_RecoveryMode" xml:space="preserve"><value>Recovery mode</value></data>
+  <data name="Migration_LocalRestore" xml:space="preserve"><value>Restore on this computer (including reinstall)</value></data>
+  <data name="Migration_CrossDevice" xml:space="preserve"><value>Move to another computer</value></data>
+  <data name="Migration_OnlyMetadata" xml:space="preserve"><value>Merge history facts only</value></data>
+  <data name="Migration_ImportConfiguration" xml:space="preserve"><value>Also import bundled configuration</value></data>
+  <data name="Migration_ImportSelected" xml:space="preserve"><value>Import selected projects</value></data>
+  <data name="Migration_RecoveryNext" xml:space="preserve"><value>Restart if configuration was staged. Then verify archives, prepare passwords and continue branches before confirming ready backup and cloud permissions.</value></data>
+  <data name="Migration_RecoveryDescription" xml:space="preserve"><value>Verify each project's backup files and branches. Preserve current source files; changed content requires a full next backup. Encrypted projects require the original password.</value></data>
+  <data name="Migration_RecoveryTitle" xml:space="preserve"><value>Verify archives and branch continuation</value></data>
+  <data name="Migration_BindingConfirmation" xml:space="preserve"><value>Confirm the file for each archive and the branch to continue. Older versions without stored hashes require confirmation; ambiguous candidates are not selected automatically. Current source files are preserved.</value></data>
+  <data name="Migration_HashMatched" xml:space="preserve"><value>Storage hash matched</value></data>
+  <data name="Migration_BindingNeedsConfirmation" xml:space="preserve"><value>Confirm file association</value></data>
+  <data name="Migration_BranchReconciliation" xml:space="preserve"><value>This source has branch conflicts. Reconcile the selected branch on the History page.</value></data>
+  <data name="Migration_NoHistoricalBranch" xml:space="preserve"><value>This source has no historical branch. Its first successful backup creates the default branch.</value></data>
+  <data name="Migration_VerifyAndContinue" xml:space="preserve"><value>Verify and continue selected branches</value></data>
+  <data name="Migration_RecoveryResult" xml:space="preserve"><value>{0}: added {1} local associations; {2}/{3} versions can restore locally; {4} sources require a full next backup.</value></data>
+  <data name="Migration_ConfirmCapabilitiesNext" xml:space="preserve"><value>After verification, confirm ready backup permissions. Confirm cloud uploads separately. Missing or invalid historical versions still require attention.</value></data>
+  <data name="Migration_OriginalPassword" xml:space="preserve"><value>Original backup password</value></data>
+  <data name="Migration_PasswordDescription" xml:space="preserve"><value>Enter the password used to create these encrypted archives. The app verifies the archives before saving it in this device's protected store. Migration bundles do not contain passwords.</value></data>
+  <data name="Migration_VerifyPassword" xml:space="preserve"><value>Verify original password</value></data>
+  <data name="Migration_PasswordVerificationFailed" xml:space="preserve"><value>The archives could not be verified with this password. Check the original password and archive integrity. The password was not saved.</value></data>
+  <data name="Migration_AwaitingHistory" xml:space="preserve"><value>Configuration is imported and awaits its history. Import the original history file or migration bundle, then verify local archives.</value></data>
+  <data name="Migration_RecoveryPending" xml:space="preserve"><value>Archive verification and branch continuation are pending. Open migration data verification.</value></data>
+  <data name="Migration_RuntimePending" xml:space="preserve"><value>The required source runtime or plugin is not ready. Prepare it and retry this project.</value></data>
+  <data name="Migration_AwaitingHistoryTitle" xml:space="preserve"><value>Waiting for associated history</value></data>
 </root>

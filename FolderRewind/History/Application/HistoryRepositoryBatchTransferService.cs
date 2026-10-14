@@ -113,7 +113,8 @@ public sealed class HistoryRepositoryBatchTransferService(
             {
                 await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(id, token).ConfigureAwait(false);
                 await repository.InitializeAsync(token).ConfigureAwait(false);
-                IAsyncDisposable? mutation = runtime is null ? null : await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false);
+                IAsyncDisposable? mutation = runtime is null ? null : runtime.Health == HistoryRuntimeHealth.LocalStateInitializationRequired
+                    ? await runtime.MutationGate.EnterForRecoveryAsync(token).ConfigureAwait(false) : await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false);
                 try
                 {
                     var existing = await repository.ReadAllPacksAsync(token).ConfigureAwait(false);

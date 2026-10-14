@@ -15,6 +15,7 @@ namespace FolderRewind.Views;
 
 public sealed partial class HistoryPage : Page
 {
+    public static InfoBarSeverity HistoryLoadSeverity(bool awaitingHistory) => awaitingHistory ? InfoBarSeverity.Informational : InfoBarSeverity.Error;
     private async void OnLoadMoreClick(object sender, RoutedEventArgs e) => await ViewModel.LoadMoreAsync();
 
     private bool _isNavigating;

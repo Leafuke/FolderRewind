@@ -48,21 +48,21 @@ internal static class MigrationProjectSetupService
             return new MigrationResumeResult(item.Original.Id, false, false, "");
         }, error => CloudCommandSecurity.Redact(error.Message), token);
 
-    internal static IReadOnlyList<string> Check(BackupConfig draft)
+    internal static IReadOnlyList<string> Check(BackupConfig draft, bool requireExecutionReady = true)
     {
         var errors = new List<string>();
         if (draft.SourceFolders.Count == 0) errors.Add(I18n.GetString("Migration_NoSources"));
         foreach (var source in draft.SourceFolders)
         {
-            if (!Path.IsPathFullyQualified(source.Path) || !Directory.Exists(source.Path))
+            if (!Path.IsPathFullyQualified(source.Path) || requireExecutionReady && !Directory.Exists(source.Path))
                 errors.Add(I18n.Format("Migration_SourceMissing", source.DisplayName, source.Path));
             if (!BackupPathOverlapPolicy.Validate(source.Path, draft.DestinationPath).IsSafe)
                 errors.Add(I18n.Format("Migration_PathOverlap", source.DisplayName));
         }
         if (!Path.IsPathFullyQualified(draft.DestinationPath)) errors.Add(I18n.GetString("Migration_DestinationInvalid"));
         var paths = HistoryRepositoryPaths.ForConfigDirectory(ConfigService.ConfigDirectory, new(draft.Id));
-        if (draft.HistoryRepositoryBinding is not null && !File.Exists(paths.DescriptorPath))
-            errors.Add(I18n.GetString("Migration_HistoryMissing"));
+        if (requireExecutionReady && draft.HistoryRepositoryBinding is not null && !File.Exists(paths.DescriptorPath))
+            errors.Add(I18n.GetString(DataMigrationService.IsAwaitingHistory(draft) ? "Migration_AwaitingHistory" : "Migration_HistoryMissing"));
         var requiredPlugins = new[]
         {
             draft.RequiredPluginId,
@@ -71,11 +71,16 @@ internal static class MigrationProjectSetupService
             draft.ArtifactTransformPolicy?.FailureBehavior == PersistedArtifactTransformFailureBehavior.RequireTransform
                 ? draft.ArtifactTransformPolicy.Transformer.PluginId : ""
         };
-        foreach (var pluginId in requiredPlugins.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var pluginId in requiredPlugins.Where(id => requireExecutionReady && !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase))
             if (!PluginV3RuntimeService.IsActive(new PluginId(pluginId)))
                 errors.Add(I18n.Format("Migration_PluginPending", pluginId));
-        if (draft.IsEncrypted && !EncryptionService.HasStoredPassword(draft.Id))
+        if (requireExecutionReady && draft.IsEncrypted && !EncryptionService.HasStoredPassword(draft.Id))
             errors.Add(I18n.GetString("Migration_PasswordPending"));
+        var recovery = DataMigrationStateStore.Load(ConfigService.ConfigDirectory, new(draft.Id));
+        var configToken = new ConfigImportTransactionStore(ConfigService.ConfigFilePath).PendingToken(draft.Id);
+        if (requireExecutionReady && (recovery is not null && DataMigrationStateStore.IsActive(ConfigService.ConfigDirectory, recovery) && !recovery.RecoveryCompleted
+            || configToken is not null && (recovery is null || recovery.ConfigImportId != configToken || !recovery.RecoveryCompleted)))
+            errors.Add(I18n.GetString("Migration_RecoveryPending"));
         return errors;
     }
 
@@ -92,7 +97,7 @@ internal static class MigrationProjectSetupService
             throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
         if (expectedEvidence is not null && (await MigrationBatchRecoveryService.CheckProjectAsync(liveSnapshot, cancellationToken).ConfigureAwait(false)).Evidence != expectedEvidence)
             throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
-        var errors = await Task.Run(() => Check(draft), cancellationToken).ConfigureAwait(false);
+        var errors = await Task.Run(() => Check(draft, releaseBackup || releaseCloud), cancellationToken).ConfigureAwait(false);
         if (errors.Count != 0) throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
         await Task.Run(() =>
         {
@@ -102,7 +107,7 @@ internal static class MigrationProjectSetupService
         }, cancellationToken).ConfigureAwait(false);
         var store = new ConfigImportTransactionStore(ConfigService.ConfigFilePath);
         BackupConfig? previous = null;
-        if (store.ActiveMode == ConfigImportMode.LocalRestore && store.ReadPreviousConfig() is { } bytes)
+        if (store.ModeFor(draft.Id) == ConfigImportMode.LocalRestore && store.ReadPreviousConfig(draft.Id) is { } bytes)
             previous = JsonSerializer.Deserialize(bytes, AppJsonContext.Default.AppConfig)?.BackupConfigs
                 .FirstOrDefault(c => MigrationRecoveryPolicy.SameId(c.Id, draft.Id));
         var isConfigImport = store.PendingToken(draft.Id) is not null;
@@ -110,7 +115,9 @@ internal static class MigrationProjectSetupService
         using var currentDocument = JsonDocument.Parse(JsonSerializer.Serialize(draft, AppJsonContext.Default.BackupConfig));
         using var previousDocument = previous is null ? null : JsonDocument.Parse(JsonSerializer.Serialize(previous, AppJsonContext.Default.BackupConfig));
         var resets = MigrationRecoveryPolicy.ResetSources(currentDocument.RootElement, previousDocument?.RootElement,
-            !isConfigImport || store.ActiveMode == ConfigImportMode.LocalRestore).Select(id => new SourceId(Guid.Parse(id))).ToArray();
+            !isConfigImport || store.ModeFor(draft.Id) == ConfigImportMode.LocalRestore).Select(id => new SourceId(Guid.Parse(id))).ToArray();
+        var recovered = DataMigrationStateStore.Load(ConfigService.ConfigDirectory, new(draft.Id));
+        if (recovered is { RecoveryCompleted: true } && recovered.CompletedConfigSignature == NativeHistoryConfigLease.Signature(draft)) resets = [];
         var pathsChanged = draft.DestinationPath != originalSnapshot.DestinationPath
             || draft.SourceFolders.Any(f => f.Path != originalSnapshot.SourceFolders.Single(old => old.Id == f.Id).Path);
         var expectedApplied = ConfigSnapshotMapper.Copy(draft);
@@ -152,8 +159,14 @@ internal static class MigrationProjectSetupService
                 throw new IOException(result.ErrorMessage, result.Exception);
             }
         }
+        if (!releaseBackup && !releaseCloud && DataMigrationService.IsAwaitingHistory(expectedApplied)) return;
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(draft.Id, cancellationToken).ConfigureAwait(false);
         runtime.MigrationState.MarkImported();
+        if (pathsChanged)
+        {
+            if (recovered is not null) DataMigrationStateStore.Save(ConfigService.ConfigDirectory, recovered with { RecoveryCompleted = false });
+            MigrationSetupStateStore.Revoke(ConfigService.ConfigDirectory, draft.Id, true, false);
+        }
         await new HistoryMigrationInitializationService(runtime).InitializeInsideOperationAsync(
             draft.SourceFolders.Select(f => new SourceId(Guid.Parse(f.Id))), operation, resets, cancellationToken).ConfigureAwait(false);
         if (expectedApplied.HistoryRepositoryBinding is null)

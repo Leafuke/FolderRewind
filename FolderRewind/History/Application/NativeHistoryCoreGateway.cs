@@ -43,6 +43,8 @@ public static class NativeHistoryCoreGateway
         IReadOnlyList<LegacyHistoryRecord>? legacy = null;
         foreach (var config in configs)
         {
+            if (DataMigrationService.IsAwaitingHistory(config))
+            { Failed[new HistoryConfigId(config.Id).Value] = I18n.GetString("Migration_AwaitingHistory"); continue; }
             try
             {
                 var runtime = await EnsureReadyAsync(config, configDirectory, legacy, cancellationToken).ConfigureAwait(false);
@@ -319,6 +321,7 @@ public static class NativeHistoryCoreGateway
         CancellationToken cancellationToken)
     {
         var configId = new HistoryConfigId(config.Id);
+        if (DataMigrationService.IsAwaitingHistory(config)) throw new InvalidOperationException(I18n.GetString("Migration_AwaitingHistory"));
         if (config.HistoryRepositoryBinding is { } oldBinding && oldBinding.FormatVersion != HistoryRepositoryDescriptor.CurrentFormatVersion)
             throw new InvalidOperationException(I18n.Format("History_DevelopmentFormatUnsupported", oldBinding.FormatVersion));
         if (config.HistoryRepositoryBinding is null)

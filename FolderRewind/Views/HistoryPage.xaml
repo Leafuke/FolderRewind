@@ -7,6 +7,7 @@
     xmlns:vm="using:FolderRewind.ViewModels"
     xmlns:controls="using:FolderRewind.Controls"
     xmlns:converters="using:FolderRewind.Converters"
+    xmlns:local="using:FolderRewind.Views"
     x:Name="RootPage"
     NavigationCacheMode="Enabled" SizeChanged="OnHistoryPageSizeChanged">
 
@@ -232,11 +233,11 @@
                 </StackPanel>
             </Grid>
             <InfoBar x:Name="HistoryLoadError"
-                     x:Uid="HistoryPage_LoadError"
+                     Title="{x:Bind ViewModel.HistoryLoadMessageTitle, Mode=OneWay}"
                      AutomationProperties.AutomationId="HistoryLoadError"
                      IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                      IsClosable="False"
-                     Severity="Error"
+                     Severity="{x:Bind local:HistoryPage.HistoryLoadSeverity(ViewModel.IsAwaitingHistoryImport), Mode=OneWay}"
                      Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}">
                 <InfoBar.ActionButton>
                     <Button x:Uid="HistoryPage_Retry"

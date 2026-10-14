@@ -98,6 +98,13 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
     }
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    private bool _awaitingHistoryImport;
+    public bool IsAwaitingHistoryImport
+    {
+        get => _awaitingHistoryImport;
+        private set { if (SetProperty(ref _awaitingHistoryImport, value)) OnPropertyChanged(nameof(HistoryLoadMessageTitle)); }
+    }
+    public string HistoryLoadMessageTitle => I18n.GetString(IsAwaitingHistoryImport ? "Migration_AwaitingHistoryTitle" : "HistoryPage_LoadError.Title");
     public bool ShowEmptyState => IsEmpty && !IsLoading && !HasError;
     public bool HasMissing => _missingCount > 0;
     public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
@@ -210,6 +217,12 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id) SelectedBranch = null;
         _currentConfig = config;
         _currentFolder = folder;
+        IsAwaitingHistoryImport = config is not null && DataMigrationService.IsAwaitingHistory(config);
+        if (IsAwaitingHistoryImport)
+        {
+            ClearPresentation(); IsLoading = false; ErrorMessage = I18n.GetString("Migration_AwaitingHistory"); NotifyContextChanged();
+            return;
+        }
         if (config is not null)
         {
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);

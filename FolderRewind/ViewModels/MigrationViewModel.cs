@@ -129,7 +129,7 @@ public sealed class MigrationViewModel : ObservableObject
         Value = result, CanSelect = result.CanConfirmBackup || result.CanConfirmCloud,
         Selected = result.CanConfirmBackup || result.CanConfirmCloud,
         CanSelectBackup = result.CanConfirmBackup, CanSelectCloud = result.CanConfirmCloud,
-        BackupSelected = result.CanConfirmBackup, CloudSelected = result.CanConfirmCloud,
+        BackupSelected = result.CanConfirmBackup, CloudSelected = false,
         ShowCapabilities = true
     };
 }

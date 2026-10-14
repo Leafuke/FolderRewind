@@ -30,20 +30,27 @@ internal static class BackupPasswordPreparationService
         var entries = (catalog?.Entries ?? []).Concat(unique.Select(c => new LocalReplicaCatalogEntry(c.RepresentationId,
             LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(c.Path), DateTimeOffset.UtcNow)));
         var graph = await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
-        var backend = CreateBackend(snapshot, password);
-        var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(backend), new SmartDeltaRepresentationHandler(backend)]);
         var environment = new RepresentationEnvironment(entries, [], []);
-        var verified = false;
-        foreach (var version in await runtime.Query.GetAllVersionsAsync(token).ConfigureAwait(false))
+        var versions = await runtime.Query.GetAllVersionsAsync(token).ConfigureAwait(false);
+        async Task<bool> VerifiesAsync(string input)
         {
-            var assessment = await engine.AssessVersionAsync(version.VersionId, graph, environment, AssessmentDepth.Deep,
-                MaterializationFidelity.Exact, token).ConfigureAwait(false);
-            verified |= assessment.Readiness == HistoryReadiness.Ready;
+            var backend = CreateBackend(snapshot, input);
+            var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(backend), new SmartDeltaRepresentationHandler(backend)]);
+            var ready = false;
+            foreach (var version in versions)
+            {
+                var assessment = await engine.AssessVersionAsync(version.VersionId, graph, environment, AssessmentDepth.Deep,
+                    MaterializationFidelity.Exact, token).ConfigureAwait(false);
+                ready |= assessment.Readiness == HistoryReadiness.Ready;
+            }
+            return ready;
         }
-        if (!verified) return false;
+        if (!await VerifiesAsync(password).ConfigureAwait(false)) return false;
+        var existing = EncryptionService.RetrievePassword(snapshot.Id);
+        if (existing is not null && existing != password && await VerifiesAsync(existing).ConfigureAwait(false)) return false;
         await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(snapshot.Id, token).ConfigureAwait(false);
         var live = (await MigrationBatchRecoveryService.CaptureAsync().ConfigureAwait(false)).Single(c => c.Id == snapshot.Id);
-        if (live.ConfigRevision != snapshot.ConfigRevision || live.IsEncrypted != snapshot.IsEncrypted)
+        if (NativeHistoryConfigLease.Signature(live) != NativeHistoryConfigLease.Signature(snapshot))
             throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
         token.ThrowIfCancellationRequested();
         EncryptionService.StorePassword(snapshot.Id, password);

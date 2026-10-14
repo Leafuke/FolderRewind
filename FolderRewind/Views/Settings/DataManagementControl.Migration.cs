@@ -116,6 +116,8 @@ public sealed partial class DataManagementControl
         Migration.Busy = busy;
         Migration.CanCancel = busy && _migrationCancellation is not null;
         ImportConfigButton.IsEnabled = ExportHistoryButton.IsEnabled = ImportHistoryButton.IsEnabled = !busy;
+        ExportConfigButton.IsEnabled = ExportDataButton.IsEnabled = ImportDataButton.IsEnabled = !busy;
+        RecoverDataButton.IsEnabled = !busy && ConfigService.PendingImport.Status != ConfigImportStatus.StagedRequiresRestart;
         if (!busy) { _migrationCancellation?.Dispose(); _migrationCancellation = null; }
         RefreshMigrationStatus(showStatus: false);
     }
@@ -186,8 +188,10 @@ public sealed partial class DataManagementControl
         vm.SelectAll(true);
         if (!await ShowMigrationDialogAsync(I18n.GetString("Settings_ImportConfigConfirmTitle"), new MigrationReviewControl(vm), I18n.GetString("Migration_Prepare")))
             return new(ConfigImportStatus.Canceled);
-        return await ConfigService.StageConfigImportAsync(path, _migrationCancellation?.Token ?? default, candidate.Sha256,
-            vm.SelectedMode == 0 ? ConfigImportMode.LocalRestore : ConfigImportMode.CrossDevice);
+        var preview = await DataMigrationService.PreviewAsync(path, _migrationCancellation?.Token ?? default);
+        if (preview.FileSha256 != candidate.Sha256) throw new IOException(I18n.GetString("Migration_CheckExpired"));
+        return (await DataMigrationService.ImportAsync(preview, preview.Projects.Select(p => p.ConfigId).ToArray(),
+            vm.SelectedMode == 0 ? ConfigImportMode.LocalRestore : ConfigImportMode.CrossDevice, false, _migrationCancellation?.Token ?? default)).Configuration!;
     }
     private async void OnImportConfigClick(object sender, RoutedEventArgs e)
     {
@@ -236,94 +240,8 @@ public sealed partial class DataManagementControl
     { ConfigService.CancelPendingImport(); RefreshMigrationStatus(); ShowInfoBar(I18n.GetString("Migration_ImportCanceled"), InfoBarSeverity.Informational); }
     private void OnCancelOperationClick(object sender, RoutedEventArgs e) => _migrationCancellation?.Cancel();
 
-    private async void OnExportHistoryClick(object sender, RoutedEventArgs e)
-    {
-        if (_migrationBusy) return;
-        var migrationToken = StartMigration();
-        try
-        {
-            var configs = ConfigService.CurrentConfig.BackupConfigs.ToArray();
-            if (configs.Length == 0) { ShowInfoBar(I18n.GetString("Migration_NoProjects"), InfoBarSeverity.Warning); return; }
-            var vm = new MigrationReviewViewModel { ExportSelection = true, Description = I18n.GetString("Migration_MetadataOnly") };
-            vm.ModeLabels.Add(I18n.GetString("Migration_ExportAll")); vm.ModeLabels.Add(I18n.GetString("Migration_ExportSelected"));
-            foreach (var config in configs) vm.Add(new() { Id = config.Id, Name = config.Name, Details = config.Id });
-            if (!await ShowMigrationDialogAsync(I18n.GetString("Migration_ExportTitle"), new MigrationReviewControl(vm), I18n.GetString("Migration_ExportAction"))) return;
-            var selected = vm.SelectedItems.Select(item => item.Id).ToHashSet();
-            if (selected.Count == 0) return;
-            var missing = configs.Where(c => selected.Contains(c.Id) && c.HistoryRepositoryBinding is not null
-                && !File.Exists(HistoryRepositoryPaths.ForConfigDirectory(ConfigService.ConfigDirectory, new(c.Id)).DescriptorPath)).ToArray();
-            if (missing.Length > 0) throw new InvalidDataException(string.Join(Environment.NewLine,
-                missing.Select(c => I18n.Format("Migration_ProjectBlocked", c.Name, I18n.GetString("Migration_HistoryMissing")))));
-            var path = await MainWindowService.PickSaveFilePathAsync("", "FolderRewind.Settings.DataManagement.ExportHistory",
-                new Dictionary<string, IReadOnlyList<string>> { [I18n.GetString("FilePicker_FolderRewindHistory")] = new ReadOnlyCollection<string>([".frhistory"]) },
-                "FolderRewind_history", MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
-            if (string.IsNullOrWhiteSpace(path)) return;
-            var projects = new List<HistoryTransferExportProject>();
-            foreach (var config in configs.Where(c => selected.Contains(c.Id)))
-            {
-                var id = new HistoryConfigId(config.Id);
-                var paths = HistoryRepositoryPaths.ForConfigDirectory(ConfigService.ConfigDirectory, id);
-                if (config.HistoryRepositoryBinding is not null && !File.Exists(paths.DescriptorPath))
-                    throw new InvalidDataException(I18n.Format("Migration_ProjectBlocked", config.Name, I18n.GetString("Migration_HistoryMissing")));
-                var runtime = File.Exists(paths.DescriptorPath) ? await NativeHistoryCoreGateway.EnsureReadyAsync(config, migrationToken) : null;
-                projects.Add(new(id, config.Name, config.SourceFolders.Select(f => new HistoryTransferSource(
-                    new SourceId(Guid.Parse(f.Id)), f.DisplayName, f.Path)).ToImmutableArray(), runtime));
-            }
-            await new HistoryRepositoryBatchTransferService().ExportAsync(projects, path, AppRuntimeInfo.GetApplicationVersion()?.ToString() ?? "unknown", migrationToken);
-            ShowInfoBar(I18n.Format("Migration_ExportDone", projects.Count) + "\n" + I18n.GetString("Migration_MetadataOnly"), InfoBarSeverity.Success);
-        }
-        catch (Exception error) { ReportMigrationError(error); }
-        finally { SetMigrationBusy(false); }
-    }
-    private async void OnImportHistoryClick(object sender, RoutedEventArgs e)
-    {
-        if (_migrationBusy) return;
-        var migrationToken = StartMigration();
-        try
-        {
-            var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.Settings.DataManagement.ImportHistory", [".frhistory"], MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
-            if (string.IsNullOrWhiteSpace(path)) return;
-            var configIds = ConfigService.CurrentConfig.BackupConfigs.Select(c => new HistoryConfigId(c.Id)).ToHashSet();
-            var service = new HistoryRepositoryBatchTransferService(id => NativeHistoryCoreGateway.TryGetRuntime(id, out var runtime) ? runtime : null, configIds.Contains);
-            var preview = await service.PreviewAsync(path, migrationToken);
-            var list = CreateMigrationList("MigrationImportProjects", true);
-            foreach (var project in preview.Projects)
-            {
-                var association = I18n.GetString(configIds.Contains(project.ConfigId) ? "Migration_Associated" : "Migration_AwaitingConfig");
-                var item = new ListViewItem { Content = I18n.Format("Migration_HistoryProject", project.Name, project.ConfigId,
-                    project.Sources.Length, project.VersionCount, project.BranchCount, project.PackSha256.Count, association), Tag = project.ConfigId };
-                list.Items.Add(item); list.SelectedItems.Add(item);
-            }
-            var panel = new StackPanel { Spacing = 8 };
-            panel.Children.Add(new TextBlock { Text = I18n.Format("Migration_FormatPreview", preview.ApplicationVersion, preview.FormatVersion) + "\n" + I18n.GetString("Migration_MetadataOnly"), TextWrapping = TextWrapping.Wrap });
-            panel.Children.Add(list);
-            if (!await ShowMigrationDialogAsync(I18n.GetString("Settings_ImportHistoryConfirmTitle"), panel, I18n.GetString("Settings_ImportHistoryMerge"))) return;
-            var selected = list.SelectedItems.Cast<ListViewItem>().Select(i => (HistoryConfigId)i.Tag).ToArray();
-            if (selected.Length == 0) return;
-            var result = await service.ImportAsync(path, ConfigService.ConfigDirectory, selected, migrationToken, preview.FileSha256);
-            var reports = new List<string>();
-            foreach (var project in result.Projects)
-            {
-                if (!string.IsNullOrWhiteSpace(project.Diagnostic)) LogService.LogError($"History import {project.ConfigId}: {project.Diagnostic}", nameof(DataManagementControl));
-                reports.Add(I18n.Format("Migration_ProjectResult", project.ConfigId, project.InstalledPacks, project.DuplicatePacks,
-                    I18n.GetString("Migration_Commit_" + project.CommitStatus),
-                    I18n.GetString(project.ImportedAsOrphanRepository ? "Migration_AwaitingConfig" : "Migration_Associated"),
-                    I18n.GetString("Migration_Local_" + project.LocalStateStatus)));
-                if (project.ErrorKind != HistoryTransferErrorKind.None)
-                    reports.Add(I18n.GetString("Migration_Error" + project.ErrorKind));
-                if (!project.ImportedAsOrphanRepository && project.CommitStatus == HistoryTransferCommitStatus.Committed)
-                    try { await NativeHistoryCoreGateway.EnsureReadyAsync(project.ConfigId.Value); }
-                    catch (Exception error) { LogService.LogError("Imported history runtime requires attention.", nameof(DataManagementControl), error); }
-            }
-            await RefreshAssessmentsAsync();
-            ShowInfoBar(string.Join("\n\n", reports) + "\n" + I18n.GetString("Migration_ArchivesUnverified"),
-                result.Projects.All(p => p.CommitStatus == HistoryTransferCommitStatus.Committed && !p.ImportedAsOrphanRepository && p.LocalStateStatus == HistoryTransferLocalStateStatus.Ready)
-                    ? InfoBarSeverity.Success : InfoBarSeverity.Warning);
-        }
-        catch (Exception error) { ReportMigrationError(error); }
-        finally { SetMigrationBusy(false); }
-    }
-
+    private async void OnExportHistoryClick(object sender, RoutedEventArgs e) => await ExportDataAsync(DataMigrationScope.History);
+    private async void OnImportHistoryClick(object sender, RoutedEventArgs e) => await ImportDataAsync(true);
     private async void OnSetupProjectClick(object sender, RoutedEventArgs e)
     {
         if (_migrationBusy) return;

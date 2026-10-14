@@ -47,9 +47,8 @@ internal static class MigrationBatchRecoveryService
             var backupPending = MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, snapshot.Id);
             var cloudPending = MigrationSetupStateStore.IsCloudPending(ConfigService.ConfigDirectory, snapshot.Id);
             var isMigrated = backupPending || cloudPending || MigrationSetupStateStore.HasRequirement(ConfigService.ConfigDirectory, snapshot.Id);
-            if (!backupPending && !cloudPending)
-                return new MigrationProjectAssessment(snapshot, "", MigrationCapabilityStatus.Released,
-                    MigrationCapabilityStatus.Released, "", "", isMigrated);
+            if (!isMigrated) return new MigrationProjectAssessment(snapshot, "", MigrationCapabilityStatus.Released,
+                MigrationCapabilityStatus.Released, "", "", false);
             var backupErrors = new List<string>(); var cloudErrors = new List<string>();
             var stamp = new StringBuilder(JsonSerializer.Serialize(snapshot, AppJsonContext.Default.BackupConfig));
             try
@@ -100,8 +99,8 @@ internal static class MigrationBatchRecoveryService
                 string.Join(Environment.NewLine, backupErrors.Distinct()), string.Join(Environment.NewLine, cloudErrors.Distinct()), isMigrated);
         }, token);
 
-    private static MigrationCapabilityStatus Status(bool pending, List<string> errors) => !pending
-        ? MigrationCapabilityStatus.Released : errors.Count > 0 ? MigrationCapabilityStatus.Blocked : MigrationCapabilityStatus.AwaitingConfirmation;
+    private static MigrationCapabilityStatus Status(bool pending, List<string> errors) => errors.Count > 0
+        ? MigrationCapabilityStatus.Blocked : !pending ? MigrationCapabilityStatus.Released : MigrationCapabilityStatus.AwaitingConfirmation;
     private static byte[] ReadEvidence(string path, StringBuilder stamp)
     {
         var bytes = File.Exists(path) ? File.ReadAllBytes(path) : [];

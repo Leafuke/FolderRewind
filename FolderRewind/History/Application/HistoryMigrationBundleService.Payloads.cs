@@ -10,6 +10,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +33,8 @@ public sealed partial class HistoryMigrationBundleService
         if (!fresh.IncludesPayloads) return;
         var project = fresh.History.Projects.Single(p => p.ConfigId == id);
         var root = Path.GetFullPath(backupRoot);
-        var journalPath = PayloadJournalPath(configDirectory, id, fresh.TransferId);
+        var session = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(fresh.TransferId + ":" + root.ToUpperInvariant())).AsSpan(0, 16)).ToString("N");
+        var journalPath = PayloadJournalPath(configDirectory, id, session);
         await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(id, token).ConfigureAwait(false);
         if (File.Exists(journalPath)) { await RecoverPayloadJournalAsync(journalPath, id, root, token).ConfigureAwait(false); return; }
         Directory.CreateDirectory(root);
@@ -49,7 +51,7 @@ public sealed partial class HistoryMigrationBundleService
         long required = missing.Aggregate(0L, (total, file) => checked(total + file.Size));
         var drive = new DriveInfo(Path.GetPathRoot(root)!);
         if (drive.AvailableFreeSpace < required + 16L * 1024 * 1024) throw new IOException("Insufficient free space to stage migration payloads.");
-        var staging = PayloadStagingRoot(root, fresh.TransferId);
+        var staging = PayloadStagingRoot(root, session);
         if (Directory.Exists(staging)) CleanupPayloadStaging(root, staging);
         EnsureDirectory(root, staging);
         var decided = false;
@@ -66,7 +68,7 @@ public sealed partial class HistoryMigrationBundleService
                     await input.CopyToAsync(output, 65536, token).ConfigureAwait(false);
                 await VerifyPayloadAsync(root, staged, file, token).ConfigureAwait(false);
             }
-            var journal = new HistoryMigrationPayloadJournal(1, fresh.TransferId, id, root, migration, [.. missing.Select(f => f.RelativePath)]);
+            var journal = new HistoryMigrationPayloadJournal(1, session, id, root, migration, [.. missing.Select(f => f.RelativePath)]);
             token.ThrowIfCancellationRequested();
             AtomicFileService.Write(journalPath, stream => JsonSerializer.Serialize(stream, journal, JsonOptions));
             decided = true; PayloadCheckpoint?.Invoke("prepared");
@@ -81,7 +83,12 @@ public sealed partial class HistoryMigrationBundleService
         if (!Directory.Exists(directory)) return;
         await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(id, token).ConfigureAwait(false);
         foreach (var path in Directory.EnumerateFiles(directory, "*.json"))
-            await RecoverPayloadJournalAsync(path, id, Path.GetFullPath(backupRoot), token).ConfigureAwait(false);
+        {
+            var header = JsonSerializer.Deserialize<HistoryMigrationPayloadJournal>(await File.ReadAllBytesAsync(path, token).ConfigureAwait(false), JsonOptions)
+                ?? throw new InvalidDataException("Migration payload journal is empty.");
+            if (Path.GetFullPath(header.BackupRoot).Equals(Path.GetFullPath(backupRoot), StringComparison.OrdinalIgnoreCase))
+                await RecoverPayloadJournalAsync(path, id, Path.GetFullPath(backupRoot), token).ConfigureAwait(false);
+        }
     }
 
     private async Task RecoverPayloadJournalAsync(string journalPath, HistoryConfigId expectedId, string expectedRoot, CancellationToken token)

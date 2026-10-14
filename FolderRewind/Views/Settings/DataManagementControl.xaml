@@ -50,6 +50,17 @@
                 <FontIcon Glyph="&#xE8DE;" />
             </toolkit:SettingsExpander.HeaderIcon>
             <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header><TextBlock x:Uid="Migration_DataTransferHeader" Style="{StaticResource SettingsHeaderTextStyle}" /></toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description><TextBlock x:Uid="Migration_DataTransferDescription" TextWrapping="Wrap" Style="{StaticResource SettingsDescriptionStyle}" /></toolkit:SettingsCard.Description>
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="ExportDataButton" x:Uid="Migration_ExportData" AutomationProperties.AutomationId="MigrationExportData" Click="OnExportDataClick" Style="{StaticResource SettingsActionRowButtonStyle}" />
+                            <Button x:Name="ImportDataButton" x:Uid="Migration_ImportData" AutomationProperties.AutomationId="MigrationImportData" Click="OnImportDataClick" Style="{StaticResource SettingsActionRowButtonStyle}" />
+                        </StackPanel>
+                        <Button x:Name="RecoverDataButton" x:Uid="Migration_RecoverData" AutomationProperties.AutomationId="MigrationRecoverData" Click="OnRecoverDataClick" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
                 <toolkit:SettingsCard Visibility="{x:Bind local:MigrationReviewControl.ToVisibility(Migration.ShowPanel), Mode=OneWay}" HorizontalContentAlignment="Stretch">
                     <StackPanel Spacing="12">
                         <InfoBar x:Name="MigrationStatusBar" AutomationProperties.AutomationId="MigrationStatus" IsOpen="False" />
@@ -91,7 +102,7 @@
                         <TextBlock x:Uid="SettingsPage_ConfigDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button x:Uid="SettingsPage_ExportConfig" AutomationProperties.AutomationId="SettingsExportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportConfigClick" />
+                        <Button x:Name="ExportConfigButton" x:Uid="SettingsPage_ExportConfig" AutomationProperties.AutomationId="SettingsExportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportConfigClick" />
                         <Button x:Name="ImportConfigButton" x:Uid="SettingsPage_ImportConfig" AutomationProperties.AutomationId="SettingsImportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportConfigClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -13,9 +15,11 @@ public sealed record ConfigImportResult(ConfigImportStatus Status, string Diagno
 }
 internal sealed record ConfigImportJournal(int FormatVersion, ConfigImportStatus Status,
     string CandidateSha256, bool HadOriginal = false, string OriginalSha256 = "", string Diagnostic = "",
-    string[]? PendingConfigIds = null, string ImportId = "", bool HadSetupRegistry = false, string SetupRegistrySha256 = "", ConfigImportMode Mode = ConfigImportMode.CrossDevice);
+    string[]? PendingConfigIds = null, string ImportId = "", bool HadSetupRegistry = false, string SetupRegistrySha256 = "", ConfigImportMode Mode = ConfigImportMode.CrossDevice,
+    bool PreserveOtherProjectSetup = false);
+internal sealed record ConfigImportProjectSetup(string ImportId, ConfigImportMode Mode, string OriginalSha256);
 internal sealed record ConfigImportSetupRegistry(string ImportId, string[] ConfigIds, int FormatVersion = 1,
-    ConfigImportMode Mode = ConfigImportMode.CrossDevice, string OriginalSha256 = "");
+    ConfigImportMode Mode = ConfigImportMode.CrossDevice, string OriginalSha256 = "", Dictionary<string, ConfigImportProjectSetup>? ProjectSetups = null);
 
 /// <summary>Preparation never touches the active configuration. Only startup can activate it.</summary>
 internal sealed class ConfigImportTransactionStore(string configPath)
@@ -31,12 +35,14 @@ internal sealed class ConfigImportTransactionStore(string configPath)
     private string OriginalSetupRegistry(string id) => Path.Combine(Root, "before-setup-" + id + ".json");
     internal Action<string>? FaultInjector { get; set; }
     internal ConfigImportResult Result => Load() is { } j ? new(j.Status, j.Diagnostic) : new(ConfigImportStatus.None);
+    internal string? StagedImportId => Load() is { Status: ConfigImportStatus.StagedRequiresRestart } journal ? journal.ImportId : null;
 
-    internal ConfigImportResult Stage(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds = null, ConfigImportMode mode = ConfigImportMode.CrossDevice)
+    internal ConfigImportResult Stage(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds = null, ConfigImportMode mode = ConfigImportMode.CrossDevice,
+        bool preserveOtherProjectSetup = false)
     {
-        lock (PreparationSync) return StageInsideLock(bytes, validate, projectIds, mode);
+        lock (PreparationSync) return StageInsideLock(bytes, validate, projectIds, mode, preserveOtherProjectSetup);
     }
-    private ConfigImportResult StageInsideLock(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds, ConfigImportMode mode)
+    private ConfigImportResult StageInsideLock(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds, ConfigImportMode mode, bool preserveOtherProjectSetup)
     {
         Validate(bytes, validate);
         if (Load()?.Status == ConfigImportStatus.Activating)
@@ -46,7 +52,8 @@ internal sealed class ConfigImportTransactionStore(string configPath)
         var readBack = File.ReadAllBytes(Candidate(hash));
         Validate(readBack, validate);
         if (!bytes.AsSpan().SequenceEqual(readBack)) throw new IOException("Candidate configuration changed during preparation.");
-        Save(new(2, ConfigImportStatus.StagedRequiresRestart, Hash(bytes), PendingConfigIds: projectIds, ImportId: Guid.NewGuid().ToString("N"), Mode: mode));
+        Save(new(2, ConfigImportStatus.StagedRequiresRestart, Hash(bytes), PendingConfigIds: projectIds, ImportId: Guid.NewGuid().ToString("N"), Mode: mode,
+            PreserveOtherProjectSetup: preserveOtherProjectSetup));
         return Result;
     }
 
@@ -75,7 +82,7 @@ internal sealed class ConfigImportTransactionStore(string configPath)
             FaultInjector?.Invoke("Activating");
             AtomicFileService.Write(configPath, stream => stream.Write(candidate));
             AtomicFileService.Write(SetupRegistryPath, stream => JsonSerializer.Serialize(stream,
-                new ConfigImportSetupRegistry(journal.ImportId, journal.PendingConfigIds ?? [], journal.FormatVersion, journal.Mode, journal.OriginalSha256), JsonOptions));
+                CreateSetupRegistry(journal, setup), JsonOptions));
             FaultInjector?.Invoke("Replaced");
             Validate(File.ReadAllBytes(configPath), validate);
             return true;
@@ -126,18 +133,22 @@ internal sealed class ConfigImportTransactionStore(string configPath)
     internal string? PendingToken(string configId)
     {
         var registry = LoadSetup();
-        return registry is not null && Array.Exists(registry.ConfigIds, id => new History.Domain.HistoryConfigId(id).Matches(configId)) ? registry.ImportId : null;
+        var row = ProjectSetup(registry, configId);
+        return row?.ImportId;
     }
     internal ConfigImportMode ActiveMode => LoadSetup()?.Mode ?? ConfigImportMode.CrossDevice;
+    internal ConfigImportMode ModeFor(string configId) => ProjectSetup(LoadSetup(), configId)?.Mode ?? ActiveMode;
     internal bool HasLegacySetup => LoadSetup()?.FormatVersion == 1;
-    internal byte[]? ReadPreviousConfig()
+    internal byte[]? ReadPreviousConfig(string? configId = null)
     {
         var registry = LoadSetup();
-        if (registry is null || registry.OriginalSha256.Length == 0) return null;
-        var path = Original(registry.ImportId);
+        var row = configId is null ? registry is null ? null : new ConfigImportProjectSetup(registry.ImportId, registry.Mode, registry.OriginalSha256)
+            : ProjectSetup(registry, configId);
+        if (row is null || row.OriginalSha256.Length == 0) return null;
+        var path = Original(row.ImportId);
         if (!File.Exists(path)) return null;
         var bytes = File.ReadAllBytes(path);
-        if (Hash(bytes) != registry.OriginalSha256) throw new InvalidDataException("Configuration safety copy changed.");
+        if (Hash(bytes) != row.OriginalSha256) throw new InvalidDataException("Configuration safety copy changed.");
         return bytes;
     }
     private ConfigImportSetupRegistry? LoadSetup()
@@ -147,9 +158,29 @@ internal sealed class ConfigImportTransactionStore(string configPath)
         var registry = JsonSerializer.Deserialize<ConfigImportSetupRegistry>(File.ReadAllBytes(SetupRegistryPath), JsonOptions)
             ?? throw new InvalidDataException("Configuration setup registry is empty.");
         if (!Guid.TryParseExact(registry.ImportId, "N", out _) || registry.ConfigIds is null || registry.OriginalSha256 is null
-            || registry.FormatVersion is not (1 or 2) || !Enum.IsDefined(registry.Mode))
+            || registry.FormatVersion is not (1 or 2 or 3) || !Enum.IsDefined(registry.Mode)
+            || registry.FormatVersion == 3 && (registry.ProjectSetups is null || registry.ProjectSetups.Any(pair =>
+                !Guid.TryParseExact(pair.Value.ImportId, "N", out _) || !Enum.IsDefined(pair.Value.Mode) || pair.Value.OriginalSha256 is null)))
             throw new InvalidDataException("Configuration setup registry is invalid.");
         return registry;
+    }
+    private static ConfigImportProjectSetup? ProjectSetup(ConfigImportSetupRegistry? registry, string id)
+    {
+        if (registry is null) return null;
+        var key = registry.ConfigIds.FirstOrDefault(value => new History.Domain.HistoryConfigId(value).Matches(id));
+        if (key is null) return null;
+        return registry.ProjectSetups?.GetValueOrDefault(key) ?? new(registry.ImportId, registry.Mode, registry.OriginalSha256);
+    }
+    private static ConfigImportSetupRegistry CreateSetupRegistry(ConfigImportJournal journal, byte[]? previous)
+    {
+        var rows = new Dictionary<string, ConfigImportProjectSetup>(StringComparer.Ordinal);
+        if (journal.PreserveOtherProjectSetup && previous is not null)
+        {
+            var old = JsonSerializer.Deserialize<ConfigImportSetupRegistry>(previous, JsonOptions) ?? throw new InvalidDataException("Previous setup registry is empty.");
+            foreach (var id in old.ConfigIds) rows[new History.Domain.HistoryConfigId(id).Value] = ProjectSetup(old, id)!;
+        }
+        foreach (var id in journal.PendingConfigIds ?? []) rows[new History.Domain.HistoryConfigId(id).Value] = new(journal.ImportId, journal.Mode, journal.OriginalSha256);
+        return new(journal.ImportId, rows.Keys.ToArray(), 3, journal.Mode, journal.OriginalSha256, rows);
     }
     private ConfigImportJournal? Load()
     {
