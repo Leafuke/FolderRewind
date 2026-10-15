@@ -1,2 +1,1 @@
-It has been confirmed that the backup/restore performance of version 1.9.6 is significantly lower than that of version 1.8.2, and there are obvious defects in data migration and cloud storage functions.
-We sincerely apologize for the inconvenience caused by the recent major version update and will resolve the issues as soon as possible. Thank you for your feedback and support.
+Version 1.9.7 has started rolling out, with significant performance improvements and many bug fixes, we recommend updating~
