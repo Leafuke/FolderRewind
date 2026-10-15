@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\MigrationWorkflowModels.cs" Link="Source\MigrationWorkflowModels.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationHistoryStatusPolicy.cs" Link="Source\MigrationHistoryStatusPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationWorkflowStore.cs" Link="Source\MigrationWorkflowStore.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationWorkflowRunner.cs" Link="Source\MigrationWorkflowRunner.cs" />
     <Compile Include="..\FolderRewind\Services\HistoryOperationDiagnostics.cs" Link="Source\HistoryOperationDiagnostics.cs" />
     <Compile Include="..\FolderRewind\Models\ArchiveSettingsModels.cs" Link="Source\ArchiveSettingsModels.cs" />
     <Compile Include="..\FolderRewind\Models\ArchiveVerificationPolicy.cs" Link="Source\ArchiveVerificationPolicy.cs" />

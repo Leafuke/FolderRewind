@@ -16,7 +16,7 @@ public sealed record ConfigImportResult(ConfigImportStatus Status, string Diagno
 internal sealed record ConfigImportJournal(int FormatVersion, ConfigImportStatus Status,
     string CandidateSha256, bool HadOriginal = false, string OriginalSha256 = "", string Diagnostic = "",
     string[]? PendingConfigIds = null, string ImportId = "", bool HadSetupRegistry = false, string SetupRegistrySha256 = "", ConfigImportMode Mode = ConfigImportMode.CrossDevice,
-    bool PreserveOtherProjectSetup = false);
+    bool PreserveOtherProjectSetup = false, string MigrationWorkflowId = "");
 internal sealed record ConfigImportProjectSetup(string ImportId, ConfigImportMode Mode, string OriginalSha256);
 internal sealed record ConfigImportSetupRegistry(string ImportId, string[] ConfigIds, int FormatVersion = 1,
     ConfigImportMode Mode = ConfigImportMode.CrossDevice, string OriginalSha256 = "", Dictionary<string, ConfigImportProjectSetup>? ProjectSetups = null);
@@ -36,13 +36,22 @@ internal sealed class ConfigImportTransactionStore(string configPath)
     internal Action<string>? FaultInjector { get; set; }
     internal ConfigImportResult Result => Load() is { } j ? new(j.Status, j.Diagnostic) : new(ConfigImportStatus.None);
     internal string? StagedImportId => Load() is { Status: ConfigImportStatus.StagedRequiresRestart } journal ? journal.ImportId : null;
+    internal ConfigImportResult? ImportForWorkflow(string workflowId, out string importId)
+    {
+        var journal = Load(); importId = "";
+        if (journal is null || journal.MigrationWorkflowId != workflowId) return null;
+        importId = journal.ImportId; return new(journal.Status, journal.Diagnostic);
+    }
+    internal string[] ProjectsForWorkflow(string workflowId) => Load() is { } journal && journal.MigrationWorkflowId == workflowId
+        ? journal.PendingConfigIds ?? [] : [];
 
     internal ConfigImportResult Stage(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds = null, ConfigImportMode mode = ConfigImportMode.CrossDevice,
-        bool preserveOtherProjectSetup = false)
+        bool preserveOtherProjectSetup = false, string migrationWorkflowId = "")
     {
-        lock (PreparationSync) return StageInsideLock(bytes, validate, projectIds, mode, preserveOtherProjectSetup);
+        if (migrationWorkflowId.Length > 0 && !Guid.TryParseExact(migrationWorkflowId, "N", out _)) throw new ArgumentException("Invalid migration workflow identity.");
+        lock (PreparationSync) return StageInsideLock(bytes, validate, projectIds, mode, preserveOtherProjectSetup, migrationWorkflowId);
     }
-    private ConfigImportResult StageInsideLock(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds, ConfigImportMode mode, bool preserveOtherProjectSetup)
+    private ConfigImportResult StageInsideLock(byte[] bytes, Func<byte[], string?> validate, string[]? projectIds, ConfigImportMode mode, bool preserveOtherProjectSetup, string migrationWorkflowId)
     {
         Validate(bytes, validate);
         if (Load()?.Status == ConfigImportStatus.Activating)
@@ -53,7 +62,7 @@ internal sealed class ConfigImportTransactionStore(string configPath)
         Validate(readBack, validate);
         if (!bytes.AsSpan().SequenceEqual(readBack)) throw new IOException("Candidate configuration changed during preparation.");
         Save(new(2, ConfigImportStatus.StagedRequiresRestart, Hash(bytes), PendingConfigIds: projectIds, ImportId: Guid.NewGuid().ToString("N"), Mode: mode,
-            PreserveOtherProjectSetup: preserveOtherProjectSetup));
+            PreserveOtherProjectSetup: preserveOtherProjectSetup, MigrationWorkflowId: migrationWorkflowId));
         return Result;
     }
 

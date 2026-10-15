@@ -67,12 +67,27 @@ internal static class DataMigrationService
     }
 
     internal static async Task<DataMigrationImportResult> ImportAsync(DataMigrationPreview preview, IReadOnlyCollection<HistoryConfigId> ids,
-        ConfigImportMode mode, bool metadataOnly, CancellationToken token, string oldRoot = "", string newRoot = "", bool includeConfiguration = true)
+        ConfigImportMode mode, bool metadataOnly, CancellationToken token, string oldRoot = "", string newRoot = "", bool includeConfiguration = true,
+        IReadOnlyDictionary<HistoryConfigId, MigrationProjectPaths>? paths = null, string migrationWorkflowId = "")
     {
         var fresh = await PreviewAsync(preview.Path, token).ConfigureAwait(false);
         if (fresh.FileSha256 != preview.FileSha256 || ids.Count == 0 || ids.Any(id => fresh.Projects.All(p => p.ConfigId != id)))
             throw new IOException("Migration file or selection changed after preview.");
         var configurationBytes = fresh.ConfigurationUtf8;
+        if (configurationBytes is not null && includeConfiguration && paths is not null)
+        {
+            var mapped = ConfigService.PrepareImportedConfig(configurationBytes);
+            foreach (var project in mapped.BackupConfigs.Where(c => ids.Contains(new HistoryConfigId(c.Id))))
+                if (paths.TryGetValue(new(project.Id), out var selectedPaths))
+                {
+                    project.DestinationPath = selectedPaths.BackupRoot;
+                    foreach (var source in project.SourceFolders)
+                        source.Path = selectedPaths.Sources.Single(f => Guid.Parse(f.SourceId) == Guid.Parse(source.Id)).Path;
+                    var errors = MigrationProjectSetupService.Check(project, requireExecutionReady: false);
+                    if (errors.Count > 0) throw new InvalidDataException(string.Join(Environment.NewLine, errors));
+                }
+            configurationBytes = JsonSerializer.SerializeToUtf8Bytes(mapped, AppJsonContext.Default.AppConfig);
+        }
         if (configurationBytes is not null && (!string.IsNullOrWhiteSpace(oldRoot) || !string.IsNullOrWhiteSpace(newRoot)))
         {
             var mapped = ConfigService.PrepareImportedConfig(configurationBytes);
@@ -103,7 +118,7 @@ internal static class DataMigrationService
         }
         ConfigImportResult? configuration = null;
         if (!metadataOnly && includeConfiguration && configurationBytes is not null && ids.Count > 0)
-            configuration = await ConfigService.StageMigrationConfigurationAsync(configurationBytes, ids, mode, token).ConfigureAwait(false);
+            configuration = await ConfigService.StageMigrationConfigurationAsync(configurationBytes, ids, mode, token, migrationWorkflowId).ConfigureAwait(false);
         var importId = configuration?.Success == true ? new ConfigImportTransactionStore(ConfigService.ConfigFilePath).StagedImportId ?? "" : "";
         var issues = ImmutableArray.CreateBuilder<DataMigrationProjectIssue>();
         foreach (var project in fresh.Projects.Where(p => ids.Contains(p.ConfigId)))
@@ -123,7 +138,8 @@ internal static class DataMigrationService
                 {
                 var source = configurationBytes is null ? null : ConfigService.PrepareImportedConfig(configurationBytes).BackupConfigs.FirstOrDefault(c => project.ConfigId.Matches(c.Id));
                 var active = (await MigrationBatchRecoveryService.CaptureAsync().ConfigureAwait(false)).FirstOrDefault(c => project.ConfigId.Matches(c.Id));
-                var root = (includeConfiguration ? source?.DestinationPath ?? active?.DestinationPath : active?.DestinationPath ?? source?.DestinationPath) ?? project.Migration?.BackupRootHint;
+                var root = paths is not null && paths.TryGetValue(project.ConfigId, out var selectedPaths) ? selectedPaths.BackupRoot
+                    : (includeConfiguration ? source?.DestinationPath ?? active?.DestinationPath : active?.DestinationPath ?? source?.DestinationPath) ?? project.Migration?.BackupRootHint;
                 if (string.IsNullOrWhiteSpace(root)) throw new IOException("Choose the target backup directory before installing migration payloads.");
                 if (!Path.IsPathFullyQualified(root) || HistoryRestoreWorkspacePlanner.Overlaps(Path.GetFullPath(root), Path.GetFullPath(ConfigService.ConfigDirectory))
                     || HistoryRestoreWorkspacePlanner.Overlaps(Path.GetFullPath(root), Path.GetFullPath(AppRuntimeInfo.ApplicationBaseDirectory)))
@@ -131,6 +147,9 @@ internal static class DataMigrationService
                 foreach (var folder in (source?.SourceFolders ?? []).Concat((await MigrationBatchRecoveryService.CaptureAsync().ConfigureAwait(false)).SelectMany(c => c.SourceFolders)))
                     if (Path.IsPathFullyQualified(folder.Path) && !BackupPathOverlapPolicy.Validate(folder.Path, root).IsSafe)
                         throw new IOException("Migration backup destination overlaps a source directory.");
+                foreach (var folder in paths?.Values.SelectMany(p => p.Sources) ?? [])
+                    if (Path.IsPathFullyQualified(folder.Path) && !BackupPathOverlapPolicy.Validate(folder.Path, root).IsSafe)
+                        throw new IOException("Migration backup destination overlaps a selected source directory.");
                 await new HistoryMigrationBundleService().InstallPayloadsAsync(bundlePath, fresh.Bundle, project.ConfigId, ConfigService.ConfigDirectory, root, token).ConfigureAwait(false);
                 }
                 catch (Exception error) { issues.Add(new(project.ConfigId, CloudCommandSecurity.Redact(error.Message))); }

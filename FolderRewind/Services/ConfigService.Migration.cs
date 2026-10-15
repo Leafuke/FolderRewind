@@ -39,7 +39,7 @@ public static partial class ConfigService
         });
 
     internal static async Task<ConfigImportResult> StageMigrationConfigurationAsync(byte[] source, IEnumerable<HistoryConfigId> selected,
-        ConfigImportMode mode, CancellationToken token)
+        ConfigImportMode mode, CancellationToken token, string migrationWorkflowId = "")
     {
         var ids = selected.ToHashSet();
         return await UiDispatcherService.RunOnUiAsync(() =>
@@ -77,7 +77,7 @@ public static partial class ConfigService
             }
             NormalizeConfig(merged); PrepareSchemaOnePersistence(merged);
             return Task.FromResult(ImportStore.Stage(SerializeConfig(merged), ValidateHostPayload, chosen.Select(c => c.Id).ToArray(), mode,
-                preserveOtherProjectSetup: true));
+                preserveOtherProjectSetup: true, migrationWorkflowId: migrationWorkflowId));
         }).ConfigureAwait(false);
     }
 }
