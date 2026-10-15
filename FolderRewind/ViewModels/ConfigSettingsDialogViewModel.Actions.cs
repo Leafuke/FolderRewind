@@ -32,8 +32,15 @@ public sealed partial class ConfigSettingsDialogViewModel
             _ => _actionLifetime.CanExecute && !_saveController.IsSaving);
         SaveCommand = new AsyncRelayCommand(async () =>
         {
-            LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave, SaveDraft ?? (() => ConfigService.SaveAsync()), ReportSettingsError);
-            RefreshCleanupActions();
+            _savingDraft = true;
+            RefreshDraftState();
+            try
+            {
+                LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave, SaveDraft ?? (() => ConfigService.SaveAsync()), ReportSettingsError);
+                _draftSaveResult = LastSaveSucceeded;
+                RefreshCleanupActions();
+            }
+            finally { _savingDraft = false; RefreshDraftState(); }
         }, () => _actionLifetime.CanExecute);
         DeleteCommand = new AsyncRelayCommand(token => _actionLifetime.RunAsync(async ct =>
         {
@@ -98,6 +105,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     {
         PluginService.ApplyConfigKind(Config, option, applyEncryption: false);
         RefreshBackupScopeOptions();
+        RefreshDraftState(edited: true);
     }
     internal System.Collections.Generic.IReadOnlyList<PluginConfigKindOption> GetConfigKindOptions() => PluginService.GetAllSupportedConfigKinds();
     internal PluginConfigKindOption ResolveConfigKind() => PluginService.ResolveConfigKindOption(Config);

@@ -34,7 +34,7 @@ public sealed partial class CloudSetupPage : Page
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (_active) ViewModel.Message = CloudCommandSecurity.Redact(ex.Message); }
     }
-    protected override void OnNavigatedFrom(NavigationEventArgs e) { _active = false; _pageLifetime.Cancel(); ViewModel.Dispose(); base.OnNavigatedFrom(e); }
+    protected override void OnNavigatedFrom(NavigationEventArgs e) { _active = false; Password.Password = ""; _pageLifetime.Cancel(); ViewModel.Dispose(); base.OnNavigatedFrom(e); }
     public InfoBarSeverity GetMessageSeverity(OnboardingCheckState state) => state switch
     {
         OnboardingCheckState.Ready => InfoBarSeverity.Success,
@@ -85,10 +85,16 @@ public sealed partial class CloudSetupPage : Page
     });
     private async void OnCreateWebDav(object sender, RoutedEventArgs e)
     {
+        if (!ViewModel.CanEdit) return;
         var url = UrlBox.Text; var user = UserBox.Text; var password = Password.Password;
-        Password.Password = "";
         var allowInsecure = AllowInsecure.IsChecked == true;
-        await ViewModel.RunCheckAsync(token => ViewModel.CreateWebDavAsync(url, user, password, token, allowInsecure));
+        await ViewModel.RunCheckAsync(async token =>
+        {
+            await ViewModel.CreateWebDavAsync(url, user, password, token, allowInsecure);
+            if (!_active) return;
+            Password.Password = "";
+            ConnectionSelector.SelectedItem = ExistingConnectionItem;
+        });
     }
     private async void OnListRemotes(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(token => { ViewModel.LoadRemotes(); return Task.CompletedTask; });
     private async void OnImportManaged(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.ImportManagedAsync);

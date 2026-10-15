@@ -356,6 +356,14 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         using var context = CreateContext();
         context.RequireUnchanged();
         var selected = _profiles.FirstOrDefault(p => p.Id == _selectedProfileId);
+        if (selected is not null)
+        {
+            var currentEvidence = context.TargetRevisionEvidence + "|" + RemoteRoot;
+            if (CloudConnectionResolver.VerifiedAccessEvidence(selected, RemoteRoot, writable: false) == currentEvidence)
+                _readableEvidence ??= currentEvidence;
+            if (CloudConnectionResolver.VerifiedAccessEvidence(selected, RemoteRoot, writable: true) == currentEvidence)
+                _writableEvidence ??= currentEvidence;
+        }
         if (_manageConnection || selected is null || ShareConnection && selected.Scope != CloudConnectionScope.Shared
             || !ShareConnection && selected.Scope == CloudConnectionScope.Shared || selected.DependsOnLocalOpenList != DependsOnOpenList
             || selected.CredentialReference != ConfigPath || selected.RemoteName != CloudRemotePath.Split(RemoteRoot).Remote

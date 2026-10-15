@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Domain;
 using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
@@ -45,9 +46,34 @@ public sealed class MigrationWizardProjectItem : ObservableObject
     public bool CloudPreference { get => _cloudPreference; set => SetProperty(ref _cloudPreference, value); }
     public string BackupRoot { get => _backupRoot; set => SetProperty(ref _backupRoot, value); }
     public string Status { get; internal set; } = "";
+    public string Summary => State is null ? Status : I18n.GetString("MigrationWizard_PhaseShort_" + State.Phase);
+    public string NextActionText => I18n.GetString(State?.Phase switch
+    {
+        MigrationProjectPhase.AwaitingConfiguration => "MigrationWizard_ActionConfiguration",
+        MigrationProjectPhase.AwaitingHistory => "MigrationWizard_ActionHistory",
+        MigrationProjectPhase.AwaitingPaths => "MigrationWizard_ActionPaths",
+        MigrationProjectPhase.AwaitingPassword => "MigrationWizard_ActionPassword",
+        MigrationProjectPhase.AwaitingCloudConnection => "MigrationWizard_ActionCloudConnection",
+        MigrationProjectPhase.AwaitingArchiveChoice or MigrationProjectPhase.AwaitingArchiveResolution => "MigrationWizard_ActionArchives",
+        MigrationProjectPhase.AwaitingBranchChoice or MigrationProjectPhase.ReconciliationRequired => "MigrationWizard_ActionBranch",
+        _ => "MigrationWizard_ActionDetails"
+    });
+    private readonly bool _originalAutoBackup, _originalCloud;
+    public string OriginalOperationsText => I18n.Format("MigrationWizard_OriginalOperations",
+        I18n.GetString(_originalAutoBackup ? "MigrationWizard_On" : "MigrationWizard_Off"),
+        I18n.GetString(_originalCloud ? "MigrationWizard_On" : "MigrationWizard_Off"));
     public bool ShowPermissions => State?.Phase == MigrationProjectPhase.Verified;
-    public bool CanSelectBackup => State?.CanConfirmBackup == true;
-    public bool CanSelectCloud => State?.CanConfirmCloud == true || CloudSelected;
+    public bool CanSelectBackup => !BackupPermissionGranted && State?.CanConfirmBackup == true;
+    public bool CanSelectCloud => !CloudPermissionGranted && (State?.CanConfirmCloud == true || CloudSelected);
+    public bool BackupPermissionGranted => State?.BackupPermissionGranted == true;
+    public bool CloudPermissionGranted => State?.CloudPermissionGranted == true;
+    public bool NeedsCloudConnection => State is { RecoveryVerified: true, CloudConfigured: true, CanConfirmCloud: false, CloudPermissionGranted: false } state
+        && (state.BackupPermissionGranted || state.CanConfirmBackup);
+    public string PermissionSummary => State is not { RecoveryVerified: true } state ? "" : I18n.Format("MigrationWizard_PermissionSummary",
+        I18n.GetString(state.BackupPermissionGranted ? "MigrationWizard_PermissionGranted" : state.CanConfirmBackup
+            ? "MigrationWizard_PermissionAwaitingConfirmation" : "MigrationWizard_PermissionNeedsCheck"),
+        I18n.GetString(state.CloudPermissionGranted ? "MigrationWizard_PermissionGranted" : !state.CloudConfigured
+            ? "MigrationWizard_CloudNotConfigured" : state.CanConfirmCloud ? "MigrationWizard_PermissionAwaitingConfirmation" : "MigrationWizard_CloudNeedsConnection"));
     public bool CloudEnabled => State?.CloudEnabled == true;
     internal bool AwaitingActivation { get; init; }
     public bool CanHandle => !AwaitingActivation && State is { Phase: not (MigrationProjectPhase.Verified or MigrationProjectPhase.Completed) };
@@ -56,12 +82,17 @@ public sealed class MigrationWizardProjectItem : ObservableObject
     internal MigrationWizardProjectItem(string id, string name, MigrationProjectPaths paths, MigrationWorkflowProject? state = null)
     {
         Id = id; Name = name; _backupRoot = paths.BackupRoot; State = state;
+        var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => new HistoryConfigId(id).Matches(c.Id));
+        _originalAutoBackup = config?.Automation.AutoBackupEnabled == true;
+        _originalCloud = config?.Cloud.Enabled == true;
         foreach (var source in paths.Sources) Sources.Add(new(source));
         if (state is not null)
         {
             _backup = state.BackupSelected; _cloud = state.CloudSelected;
             Status = I18n.GetString("MigrationWizard_Phase_" + state.Phase);
             if (state.RecoveryVerified) Status += "\n" + I18n.Format("MigrationWizard_VersionCounts", state.ReadyVersions, state.TotalVersions);
+            if (state.Phase == MigrationProjectPhase.Completed && state.CloudConfigured && !state.CloudPermissionGranted)
+                Status += "\n" + I18n.GetString("MigrationWizard_CloudStillPaused");
             if (state.FullCaptureSources > 0) Status += "\n" + I18n.Format("MigrationWizard_FullNext", state.FullCaptureSources);
         }
     }

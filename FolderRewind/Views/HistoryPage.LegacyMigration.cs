@@ -228,7 +228,7 @@ public sealed partial class HistoryPage
                 }
             }
         }
-        catch (Exception ex) { ViewModel.ReportLoadFailure(ex.Message); }
+        catch (Exception ex) { ViewModel.ReportLoadFailure(ex); }
         finally
         {
             _legacyReportOpen = false;

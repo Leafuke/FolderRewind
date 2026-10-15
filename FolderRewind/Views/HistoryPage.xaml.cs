@@ -47,7 +47,7 @@ public sealed partial class HistoryPage : Page
     private async void OnPresentationSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
         try { await ViewModel.SetPresentationModeAsync(sender.SelectedItem == AdvancedHistoryItem ? HistoryPresentationMode.Advanced : HistoryPresentationMode.Normal); }
-        catch (Exception ex) { ViewModel.ReportLoadFailure(ex.Message); }
+        catch (Exception ex) { ViewModel.ReportLoadFailure(ex); }
     }
 
     private void OnOpenAdvancedClick(object sender, RoutedEventArgs e) => PresentationSelector.SelectedItem = AdvancedHistoryItem;
@@ -101,14 +101,35 @@ public sealed partial class HistoryPage : Page
             {
                 if (child is FrameworkElement { Tag: "HistoryCompactAction" } compact)
                     compact.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
-                if (child is DropDownButton { Flyout: MenuFlyout menu })
+                if (child is Button { Flyout: MenuFlyout menu })
                     foreach (var entry in menu.Items)
                         if (entry.Name.StartsWith("Compact", StringComparison.Ordinal))
                             entry.Visibility = narrow ? Visibility.Visible : Visibility.Collapsed;
             }
         }
         SetHistorySizeVisibility(grid.Children[0], narrow);
+        ReflowHistoryMetadata(grid.Children[0], narrow);
     }
+
+    private static void ReflowHistoryMetadata(DependencyObject parent, bool narrow)
+    {
+        if (parent is Grid { Tag: "HistoryMetadata" } metadata)
+        {
+            foreach (var child in metadata.Children.OfType<FrameworkElement>())
+            {
+                var tag = child.Tag as string;
+                if (tag is not ("HistoryReadiness" or "HistoryBranch" or "HistoryCreation")) continue;
+                Grid.SetRow(child, narrow ? tag == "HistoryBranch" ? 1 : tag == "HistoryCreation" ? 2 : 0 : 0);
+                Grid.SetColumn(child, narrow ? 0 : tag == "HistoryReadiness" ? 1 : tag == "HistoryCreation" ? 2 : 3);
+                Grid.SetColumnSpan(child, narrow ? 4 : 1);
+            }
+            return;
+        }
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+            ReflowHistoryMetadata(VisualTreeHelper.GetChild(parent, index), narrow);
+    }
+
+    private async void OnLoadErrorAction(object sender, RoutedEventArgs e) => await ViewModel.ExecuteLoadErrorActionAsync();
 
     private static void SetHistorySizeVisibility(DependencyObject parent, bool narrow)
     {

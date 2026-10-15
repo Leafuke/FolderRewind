@@ -40,13 +40,14 @@ internal static class MigrationWorkflowCoordinator
             if (state is { RecoveryCompleted: false } || state is not null && state.CompletedConfigSignature != signature
                 || state is null && (configToken is not null || MigrationSetupStateStore.HasRequirement(ConfigService.ConfigDirectory, config.Id)
                     && MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id))) return MigrationHistoryStatus.AwaitingRecovery;
+            if (MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id)) return MigrationHistoryStatus.AwaitingPermissions;
+            if (MigrationBatchRecoveryService.NeedsCloudPermission(config)) return MigrationHistoryStatus.AwaitingCloudPermissions;
             if (state is null) return MigrationHistoryStatus.None;
             var finished = ReadWorkflows().LastOrDefault(d => d.IsFinished && d.Projects.Any(p => p.ConfigId == id.Value
                 && p.ConfigImportId == (configToken ?? "") && p.ConfigurationSignature == signature));
             if (finished is not null) return finished.Projects.Any(p => p.ConfigId == id.Value && p.ReadyVersions < p.TotalVersions)
                 ? MigrationHistoryStatus.MissingArchives : MigrationHistoryStatus.None;
-            return MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id)
-                ? MigrationHistoryStatus.AwaitingPermissions : MigrationHistoryStatus.None;
+            return MigrationHistoryStatus.None;
         }, token);
 
     internal static async Task<DataMigrationPreview> CachePreviewAsync(DataMigrationPreview preview, CancellationToken token)
@@ -99,18 +100,25 @@ internal static class MigrationWorkflowCoordinator
             {
                 var id = new HistoryConfigId(config.Id); var state = DataMigrationStateStore.Load(ConfigService.ConfigDirectory, id);
                 var pending = new ConfigImportTransactionStore(ConfigService.ConfigFilePath).PendingToken(config.Id) ?? "";
-                if (state is null && pending.Length == 0 && !(MigrationSetupStateStore.HasRequirement(ConfigService.ConfigDirectory, config.Id)
-                    && MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id))) continue;
+                var backupPending = MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id);
+                var needsPermission = backupPending || MigrationBatchRecoveryService.NeedsCloudPermission(config);
+                if (state is null && pending.Length == 0 && !needsPermission) continue;
                 if (state is not null && !DataMigrationStateStore.IsActive(ConfigService.ConfigDirectory, state)) continue;
                 var signature = NativeHistoryConfigLease.Signature(config);
                 var verified = state is { RecoveryCompleted: true } && state.CompletedConfigSignature == signature;
-                var needsPermission = MigrationSetupStateStore.IsBackupPending(ConfigService.ConfigDirectory, config.Id)
-                    || config.Cloud.Enabled && MigrationSetupStateStore.IsCloudPending(ConfigService.ConfigDirectory, config.Id);
                 if (verified && !needsPermission) continue;
                 var existing = documents.LastOrDefault(d => d.Projects.Any(p => p.ConfigId == id.Value && p.ConfigImportId == pending)
-                    && (!d.IsFinished || d.Projects.Any(p => p.ConfigId == id.Value && p.ConfigurationSignature == signature)));
+                    && !d.IsFinished);
                 if (existing is not null) continue;
-                var project = new MigrationWorkflowProject(id.Value, config.Name)
+                if (state is null && !needsPermission && documents.Any(d => d.IsFinished && d.Projects.Any(p =>
+                    p.ConfigId == id.Value && p.ConfigImportId == pending && p.ConfigurationSignature == signature))) continue;
+                // A completed local migration may still require a separate cloud permission decision.
+                // Retain its recovery evidence and choices, then revalidate them when the wizard opens.
+                var completed = verified ? documents.Where(d => d.IsFinished).SelectMany(d => d.Projects).LastOrDefault(p =>
+                    p.ConfigId == id.Value && p.ConfigImportId == pending && p.ConfigurationSignature == signature) : null;
+                var project = completed is not null ? completed with { Name = config.Name, Paths = PathsFor(config),
+                    Phase = MigrationProjectPhase.Verified, BackupSelected = backupPending, CloudSelected = false }
+                    : new MigrationWorkflowProject(id.Value, config.Name)
                 {
                     Paths = PathsFor(config), ConfigImportId = pending, ConfigurationSignature = signature, RecoveryVerified = false,
                     Phase = DataMigrationService.IsAwaitingHistory(config) ? MigrationProjectPhase.AwaitingHistory : MigrationProjectPhase.Pending,

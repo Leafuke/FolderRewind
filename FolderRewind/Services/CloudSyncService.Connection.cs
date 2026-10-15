@@ -10,7 +10,9 @@ public static partial class CloudSyncService
 {
     internal static string? CheckMigrationConnection(BackupConfig config)
     {
-        var settings = config.Cloud;
+        CloudSettings settings;
+        try { settings = CloudConnectionCatalog.Resolve(config); }
+        catch (InvalidOperationException) { return I18n.GetString("Migration_CloudBindingRequired"); }
         if (settings.CommandMode != CloudCommandMode.Rclone || !Path.IsPathFullyQualified(settings.RcloneConfigPath)
             || !File.Exists(settings.RcloneConfigPath)) return I18n.GetString("Migration_CloudBindingRequired");
         if (!TryResolveSharedRcloneRuntime(settings, out _, out _, out var error)) return error;

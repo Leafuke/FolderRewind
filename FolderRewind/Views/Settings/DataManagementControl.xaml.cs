@@ -18,6 +18,13 @@ namespace FolderRewind.Views.Settings
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
 
         public MigrationViewModel Migration { get; } = new();
+        private void OnActionRowSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (sender is not StackPanel panel) return;
+            var required = panel.Children.OfType<FrameworkElement>().Sum(child => child.DesiredSize.Width)
+                + panel.Spacing * Math.Max(0, panel.Children.Count - 1);
+            panel.Orientation = required > e.NewSize.Width + 1 ? Orientation.Vertical : Orientation.Horizontal;
+        }
 
         public DataManagementControl()
         {

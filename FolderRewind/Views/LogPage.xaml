@@ -16,51 +16,41 @@
         <Thickness x:Key="LogCardPadding">12,12,12,12</Thickness>
     </Page.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
-        <StackPanel Grid.Row="0" Padding="36,24,36,8" Spacing="4">
-            <TextBlock x:Uid="LogPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1" />
-            <TextBlock x:Uid="LogPage_Subtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+    <Grid RowDefinitions="Auto,Auto,*,Auto" local:PageLayout.ResponsivePadding="True" RowSpacing="12">
+        <StackPanel Spacing="4">
+            <TextBlock x:Uid="LogPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            <TextBlock x:Uid="LogPage_Subtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
         </StackPanel>
-
-        <Grid Grid.Row="1" Padding="36,0" ColumnSpacing="12" RowSpacing="8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="12" MinWidth="240" VerticalAlignment="Center">
-                <ComboBox x:Name="LevelFilter" AutomationProperties.AutomationId="LogLevelFilter" Width="120" Margin="0,4,0,0" SelectionChanged="OnLevelChanged" SelectedIndex="0">
-                    <ComboBoxItem x:Uid="LogPage_Level_All" Tag="All" />
-                    <ComboBoxItem x:Uid="LogPage_Level_Info" Tag="Info" />
-                    <ComboBoxItem x:Uid="LogPage_Level_Warning" Tag="Warning" />
-                    <ComboBoxItem x:Uid="LogPage_Level_Error" Tag="Error" />
-                    <ComboBoxItem x:Uid="LogPage_Level_Debug" Tag="Debug" />
+        <Grid x:Name="LogToolbar" Grid.Row="1" ColumnSpacing="12" RowSpacing="8" SizeChanged="OnToolbarSizeChanged">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <ComboBox x:Name="LevelFilter" x:Uid="LogPage_LevelFilter" AutomationProperties.AutomationId="LogLevelFilter" MinWidth="120" MaxWidth="240" VerticalAlignment="Center" SelectionChanged="OnLevelChanged" SelectedIndex="0">
+                    <ComboBoxItem x:Uid="LogPage_Level_All" Tag="All"/><ComboBoxItem x:Uid="LogPage_Level_Info" Tag="Info"/>
+                    <ComboBoxItem x:Uid="LogPage_Level_Warning" Tag="Warning"/><ComboBoxItem x:Uid="LogPage_Level_Error" Tag="Error"/><ComboBoxItem x:Uid="LogPage_Level_Debug" Tag="Debug"/>
                 </ComboBox>
-
-                <TextBox x:Name="SearchBox" x:Uid="LogPage_SearchBox" AutomationProperties.AutomationId="LogSearch" Width="200" Height="32" TextChanged="OnKeywordChanged" />
-
-                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock x:Name="LiveRefreshLabel" x:Uid="LogPage_LiveRefresh" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <ToggleSwitch x:Name="LiveToggle" AutomationProperties.AutomationId="LogLiveRefresh" AutomationProperties.LabeledBy="{x:Bind LiveRefreshLabel, Mode=OneTime}" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock x:Name="AutoScrollLabel" x:Uid="LogPage_AutoScroll" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <ToggleSwitch x:Name="AutoScrollToggle" AutomationProperties.AutomationId="LogAutoScroll" AutomationProperties.LabeledBy="{x:Bind AutoScrollLabel, Mode=OneTime}" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                </StackPanel>
-            </StackPanel>
-
-            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button x:Uid="LogPage_CopySelected" AutomationProperties.AutomationId="LogCopySelected" Click="OnCopyClick" />
-                <Button x:Uid="LogPage_Clear" AutomationProperties.AutomationId="LogClear" Click="OnClearClick" />
-                <Button x:Uid="LogPage_OpenLogFolder" AutomationProperties.AutomationId="LogOpenFolder" Click="OnOpenFolderClick" />
-            </StackPanel>
+                <TextBox Grid.Column="1" x:Name="SearchBox" x:Uid="LogPage_SearchBox" AutomationProperties.AutomationId="LogSearch" TextChanged="OnKeywordChanged" MaxWidth="360" HorizontalAlignment="Left" VerticalAlignment="Center" Width="320"/>
+            </Grid>
+            <CommandBar x:Name="LogCommands" Grid.Column="1" Background="Transparent" DefaultLabelPosition="Right" IsOpen="False" HorizontalAlignment="Right">
+                <AppBarButton x:Uid="LogCommands_Display" Icon="Setting" AutomationProperties.AutomationId="LogDisplayOptions">
+                    <AppBarButton.Flyout><Flyout><StackPanel Spacing="12">
+                        <TextBlock x:Name="LiveRefreshLabel" x:Uid="LogPage_LiveRefresh"/>
+                        <ToggleSwitch x:Name="LiveToggle" AutomationProperties.AutomationId="LogLiveRefresh" AutomationProperties.LabeledBy="{x:Bind LiveRefreshLabel, Mode=OneTime}" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent=""/>
+                        <TextBlock x:Name="AutoScrollLabel" x:Uid="LogPage_AutoScroll"/>
+                        <ToggleSwitch x:Name="AutoScrollToggle" AutomationProperties.AutomationId="LogAutoScroll" AutomationProperties.LabeledBy="{x:Bind AutoScrollLabel, Mode=OneTime}" IsOn="True" OnContent="" OffContent=""/>
+                    </StackPanel></Flyout></AppBarButton.Flyout>
+                </AppBarButton>
+                <AppBarButton x:Uid="LogCommands_Copy" Icon="Copy" Click="OnCopyClick" AutomationProperties.AutomationId="LogCopySelected"/>
+                <CommandBar.SecondaryCommands>
+                    <AppBarButton x:Uid="LogCommands_OpenFolder" Icon="OpenFile" Click="OnOpenFolderClick" AutomationProperties.AutomationId="LogOpenFolder"/>
+                    <AppBarButton x:Uid="LogCommands_OpenFile" Icon="Document" Click="OnOpenFileClick" AutomationProperties.AutomationId="LogOpenCurrentFile"/>
+                    <AppBarSeparator/>
+                    <AppBarButton x:Uid="LogCommands_Clear" Icon="Delete" Click="OnClearClick" AutomationProperties.AutomationId="LogClear"/>
+                </CommandBar.SecondaryCommands>
+            </CommandBar>
         </Grid>
-
-        <Grid Grid.Row="2" Padding="36,8,36,0">
+        <Grid Grid.Row="2">
             <ListView x:Name="LogList"
                       AutomationProperties.AutomationId="LogEntries"
                       ItemsSource="{x:Bind FilteredEntries, Mode=OneWay}"
@@ -101,9 +91,6 @@
             </ListView>
         </Grid>
 
-        <Grid Grid.Row="3" Padding="36,8,36,16" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-            <TextBlock x:Uid="LogPage_BottomHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Button Grid.Column="1" x:Uid="LogPage_OpenCurrentLogFile" AutomationProperties.AutomationId="LogOpenCurrentFile" Click="OnOpenFileClick" />
-        </Grid>
+        <TextBlock Grid.Row="3" x:Uid="LogPage_BottomHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
     </Grid>
 </Page>

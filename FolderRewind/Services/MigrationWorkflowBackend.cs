@@ -154,9 +154,11 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
     {
         var config = await FindAsync(project.ConfigId).ConfigureAwait(false) ?? throw new InvalidOperationException(I18n.GetString("Migration_AwaitingConfig"));
         var assessment = await MigrationBatchRecoveryService.CheckProjectAsync(config, token).ConfigureAwait(false);
-        return new(assessment.CanConfirmBackup, assessment.CanConfirmCloud, config.Cloud.Enabled,
+        var cloudConfigured = MigrationBatchRecoveryService.HasCloudConfiguration(config);
+        return new(assessment.CanConfirmBackup, cloudConfigured && assessment.CanConfirmCloud, config.Cloud.Enabled,
             assessment.Backup == MigrationCapabilityStatus.Released, assessment.Cloud == MigrationCapabilityStatus.Released,
-            [.. new[] { assessment.BackupReason }.Where(s => !string.IsNullOrWhiteSpace(s))]);
+            [.. new[] { assessment.BackupReason, assessment.CloudReason }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct()])
+        { CloudConfigured = cloudConfigured };
     }
 
     public async Task GrantAsync(MigrationWorkflowProject project, CancellationToken token)
@@ -165,9 +167,11 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
         if (NativeHistoryConfigLease.Signature(config) != project.ConfigurationSignature)
             throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
         var assessment = await MigrationBatchRecoveryService.CheckProjectAsync(config, token).ConfigureAwait(false);
+        if (project.CloudSelected && !MigrationBatchRecoveryService.HasCloudConfiguration(config))
+            throw new InvalidOperationException(I18n.GetString("Migration_CloudBindingRequired"));
         if (project.BackupSelected && assessment.Backup == MigrationCapabilityStatus.Blocked || project.CloudSelected && assessment.Cloud == MigrationCapabilityStatus.Blocked)
             throw new InvalidOperationException(string.Join(Environment.NewLine, new[] { assessment.BackupReason, assessment.CloudReason }.Where(s => !string.IsNullOrWhiteSpace(s))));
-        var result = await MigrationBatchRecoveryService.ResumeAsync([new(assessment, project.BackupSelected, project.CloudSelected && config.Cloud.Enabled)], token).ConfigureAwait(false);
+        var result = await MigrationBatchRecoveryService.ResumeAsync([new(assessment, project.BackupSelected, project.CloudSelected)], token).ConfigureAwait(false);
         var failure = result.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Diagnostic));
         if (failure is not null) throw new InvalidOperationException(failure.Diagnostic);
     }

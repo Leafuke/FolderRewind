@@ -82,8 +82,7 @@ namespace FolderRewind.Views
 
             RefreshConfigKindOptions();
 
-            IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
-            IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
+            InitializeIconPicker();
 
             Config.PropertyChanged += OnDialogConfigPropertyChanged;
             Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
@@ -97,6 +96,7 @@ namespace FolderRewind.Views
 
         private void OnSettingsSelectorBarSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
+            if (ViewModel is null) return;
             if (sender.SelectedItem?.Tag is not string tag) return;
 
             var tabName = GetTabNameFromTag(tag);
@@ -130,6 +130,7 @@ namespace FolderRewind.Views
             if (selectedIndex >= 0)
             {
                 ViewModel.SelectedPageIndex = selectedIndex;
+                sender.SelectedItem.StartBringIntoView();
             }
 
             // Initialize tab-specific deferred content
@@ -205,8 +206,7 @@ namespace FolderRewind.Views
             RefreshConfigKindOptions();
 
             // Reset icon grid
-            IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
-            IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
+            InitializeIconPicker();
 
             // Re-register config events
             Config.PropertyChanged += OnDialogConfigPropertyChanged;
@@ -260,6 +260,18 @@ namespace FolderRewind.Views
             {
                 UpdateCloudBindings();
             }
+        }
+
+        private void InitializeIconPicker()
+        {
+            IconGrid.ItemsSource = IconCatalog.ConfigIconOptions;
+            IconGrid.SelectedItem = IconCatalog.ConfigIconOptions.FirstOrDefault(icon => icon.Glyph == Config.IconGlyph);
+        }
+
+        private void OnIconContainerChanged(ListViewBase sender, ContainerContentChangingEventArgs args)
+        {
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(args.ItemContainer,
+                !args.InRecycleQueue && args.Item is ConfigIconOption icon ? icon.Name : "");
         }
 
         private void OnDialogCloudPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

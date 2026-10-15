@@ -51,9 +51,13 @@ public static class OpenListRuntimeService
     }
     internal static async Task<bool> IsAuthorizationCurrentAsync(OpenListRuntimeSettings settings, CancellationToken token)
         => HasMachineAuthorization(settings) && settings.AuthorizationSignature == await SignatureAsync(settings, token).ConfigureAwait(false);
-    internal static async Task<IDisposable> AcquireDependencyAsync(CancellationToken token, bool manual = false)
+    internal static async Task<IDisposable?> AcquireDependencyAsync(CancellationToken token, bool manual = false)
     {
+        token.ThrowIfCancellationRequested();
         var settings = ConfigSnapshotMapper.Copy(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime);
+        // External services are reached through the cloud connection itself. They do not require
+        // a global process-management endpoint or grant Host any right to start or stop a process.
+        if (!manual && settings.Ownership == OpenListOwnership.External) return null;
         var authorized = false;
         if (HasMachineAuthorization(settings) && (settings.AllowStartOnDemand || manual))
         {
@@ -79,7 +83,9 @@ public static class OpenListRuntimeService
     private static readonly HttpClient Client = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = OnboardingOperationBudgets.ServiceProbe };
     public static Uri Validate(OpenListRuntimeSettings settings)
     {
-        var uri = RcloneConnectionService.ValidateWebDavUrl(settings.ServiceBaseUri);
+        Uri uri;
+        try { uri = RcloneConnectionService.ValidateWebDavUrl(settings.ServiceBaseUri); }
+        catch (ArgumentException error) { throw new ArgumentException(I18n.GetString("OpenList_InvalidServiceUri"), error); }
         foreach (var path in new[] { settings.ExecutablePath, settings.WorkingDirectory, settings.DataDirectory, settings.ConfigFilePath }.Where(p => p.Length != 0))
             if (!Path.IsPathFullyQualified(path)) throw new ArgumentException(I18n.GetString("OpenList_AbsolutePaths"));
         if (settings.Ownership == OpenListOwnership.ManagedLocal || settings.DataDirectory.Length != 0)

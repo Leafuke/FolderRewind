@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 namespace FolderRewind.Services;
 
 internal enum MigrationWorkflowStage { AwaitingConfirmation, Processing, AwaitingRestart, NeedsAttention, AwaitingPermissions, Completed, PartiallyCompleted, Paused }
-internal enum MigrationProjectPhase { Pending, AwaitingConfiguration, AwaitingHistory, AwaitingPaths, AwaitingPassword, AwaitingArchiveChoice, AwaitingBranchChoice, ReconciliationRequired, AwaitingArchiveResolution, Blocked, Verified, Completed }
+internal enum MigrationProjectPhase { Pending, AwaitingConfiguration, AwaitingHistory, AwaitingPaths, AwaitingPassword, AwaitingArchiveChoice, AwaitingBranchChoice, ReconciliationRequired, AwaitingArchiveResolution, Blocked, Verified, Completed, AwaitingCloudConnection }
 internal sealed record MigrationSourcePath(string SourceId, string Name, string Path);
 internal sealed record MigrationProjectPaths(string BackupRoot, ImmutableArray<MigrationSourcePath> Sources);
 internal sealed record MigrationArchiveSelection(string RepresentationId, string Path, long Size, string Sha256, bool ConfirmedLegacy);
@@ -30,6 +30,9 @@ internal sealed record MigrationWorkflowProject(string ConfigId, string Name)
     public bool CloudSelected { get; init; }
     public bool CanConfirmBackup { get; init; }
     public bool CanConfirmCloud { get; init; }
+    public bool BackupPermissionGranted { get; init; }
+    public bool CloudPermissionGranted { get; init; }
+    public bool CloudConfigured { get; init; }
     public bool CloudEnabled { get; init; }
     public int ReadyVersions { get; init; }
     public int TotalVersions { get; init; }
@@ -70,7 +73,10 @@ internal sealed record MigrationRecoveryDecision(MigrationProjectPhase? Attentio
 internal sealed record MigrationWorkflowRecovery(int ReadyVersions, int TotalVersions, int FullCaptureSources,
     bool CredentialReady, ImmutableArray<string> Diagnostics, string Evidence = "");
 internal sealed record MigrationWorkflowPermission(bool CanBackup, bool CanCloud, bool CloudEnabled,
-    bool BackupReleased, bool CloudReleased, ImmutableArray<string> Diagnostics);
+    bool BackupReleased, bool CloudReleased, ImmutableArray<string> Diagnostics)
+{
+    internal bool CloudConfigured { get; init; }
+}
 
 internal interface IMigrationWorkflowBackend
 {

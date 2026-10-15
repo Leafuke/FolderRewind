@@ -25,6 +25,11 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
     private int _transportIndex, _archiveIndex, _connectionIndex = -1, _snapshotIndex = -1;
     private string _message = "", _packagePath = "", _remoteRoot = "", _oldRoot = "", _newRoot = "", _errorDetails = "";
     private MigrationWizardProjectItem? _selectedProject;
+    private bool _wideRecovery = true, _detailOpen;
+    private SemanticStatus _messageStatus = SemanticStatus.Info;
+    private sealed record ProjectEditor(MigrationProjectInspection Inspection, MigrationWizardArchiveItem[] Archives,
+        MigrationWizardBranchItem[] Branches, MigrationProjectPaths Paths, MigrationProjectPhase Phase);
+    private readonly Dictionary<string, ProjectEditor> _editors = [];
     private CloudConnectionProfile[] _connections = [];
     private MigrationCloudSnapshot[] _snapshots = [];
     private string[] _legacySnapshots = [];
@@ -51,7 +56,32 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
     public bool ShowOriginalSelection => IsOriginalSettings && _step == WizardStep.Selection;
     public bool ShowConfigurationChoice => ShowImportSelection && _request.Scope != DataMigrationScope.MetadataOnly && _preview?.ConfigurationUtf8 is not null && _preview.Bundle is not null;
     public bool ShowRecovery => _step == WizardStep.Recovery;
+    public bool ShowProjectList => ShowRecovery && (_wideRecovery || !_detailOpen || ShowPendingRestart);
+    public bool ShowProjectDetails => ShowRecovery && !ShowPendingRestart && SelectedProject is not null && (_wideRecovery || _detailOpen);
+    public bool ShowDetailsBack => ShowProjectDetails && !_wideRecovery;
+    public bool WideRecovery => _wideRecovery;
+    public void SetRecoveryWidth(double width) { if (_wideRecovery == (width >= 800)) return; _wideRecovery = width >= 800; Notify(); }
+    public void ReturnToProjects() { if (Busy) return; _detailOpen = false; Notify(); }
+    public SemanticStatus MessageStatus { get => _messageStatus; private set => SetProperty(ref _messageStatus, value); }
+    public string RecoverySummary => I18n.Format("MigrationWizard_AttentionCount", Projects.Count, Projects.Count(p => p.CanHandle));
+    public string SelectedProjectStatus => SelectedProject?.Status ?? "";
+    public string SelectedOperationsText => SelectedProject?.OriginalOperationsText ?? "";
+    public bool ShowSelectedPermissions => SelectedProject?.ShowPermissions == true;
+    public string SelectedPermissionSummary => SelectedProject?.PermissionSummary ?? "";
+    public bool SelectedNeedsCloudConnection => SelectedProject?.NeedsCloudConnection == true;
+    public bool SelectedCloudConfigured => SelectedProject?.State?.CloudConfigured == true;
+    public bool SelectedCanBackup => SelectedProject?.CanSelectBackup == true;
+    public bool SelectedCanCloud => SelectedProject?.CanSelectCloud == true;
+    public bool SelectedCloudEnabled => SelectedProject?.CloudEnabled == true;
+    public bool SelectedBackup { get => SelectedProject?.BackupPermissionGranted == true || SelectedProject?.BackupSelected == true;
+        set { if (SelectedProject is { BackupPermissionGranted: false } project) project.BackupSelected = value; } }
+    public bool SelectedCloud { get => SelectedProject?.CloudPermissionGranted == true || SelectedProject?.CloudSelected == true;
+        set { if (SelectedProject is { CloudPermissionGranted: false } project) { project.CloudSelected = value; OnPropertyChanged(nameof(SelectedCanCloud)); } } }
     public bool ShowResult => _step == WizardStep.Result;
+    public bool HasIncompleteResult => ShowResult && _document?.Stage == MigrationWorkflowStage.PartiallyCompleted;
+    public Task ContinueRemainingAsync() => PerformAsync(RunCoreAsync);
+    internal MigrationWizardRequest? ResumeRequest => _document is { ImportCommitted: true } document
+        ? new(MigrationWizardMode.Continue, WorkflowId: document.WorkflowId) : null;
     public bool ShowPendingRestart => ShowRecovery && _document?.Stage == MigrationWorkflowStage.AwaitingRestart;
     public bool ShowIssue => ShowRecovery && _selectedProject is { CanHandle: true } && !ShowPendingRestart;
     public bool ShowPassword => ShowIssue && _selectedProject?.State?.Phase == MigrationProjectPhase.AwaitingPassword;
@@ -99,7 +129,8 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
         _preview.Projects.Sum(p => p.VersionCount), I18n.GetString(_preview.Bundle?.IncludesPayloads == true ? "MigrationWizard_HasArchives" : "MigrationWizard_NoArchives"));
     public string TechnicalDetails => SelectedProject?.State is not { } state ? "" : state.ConfigId + "\n" + state.ConfigurationSignature + "\n" + string.Join("\n", state.Diagnostics.Select(CloudCommandSecurity.Redact));
     public string PrimaryText => ShowResult ? I18n.GetString("MigrationWizard_ReturnSettings") : ShowPendingRestart ? I18n.GetString("MigrationWizard_RestartContinue")
-        : ShowRecovery ? I18n.GetString(Projects.Any(p => p.ShowPermissions) ? "MigrationWizard_FinishReady" : "MigrationWizard_RecheckContinue")
+        : ShowRecovery ? Projects.Any(p => p.ShowPermissions)
+            ? I18n.Format("MigrationWizard_FinishReadyCount", Projects.Count(p => p.ShowPermissions)) : I18n.GetString("MigrationWizard_ApplyAndRecheck")
         : IsExport && _step == WizardStep.Destination ? I18n.GetString("MigrationWizard_StartExport")
         : !IsExport && _step == WizardStep.Selection ? I18n.GetString(IsOriginalSettings ? "MigrationWizard_ApplyOriginal" : "MigrationWizard_StartImport") : I18n.GetString("Migration_Next");
     internal event Func<IReadOnlyList<string>, Task<string?>>? PickPackage;
@@ -229,7 +260,9 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
                     var selected = Projects.Where(p => p.Selected && p.OriginalSettings is not null)
                         .Select(p => p.OriginalSettings! with { AutoBackup = p.AutoBackup, Cloud = p.CloudPreference }).ToArray();
                     var errors = await MigrationOriginalSettingsService.ApplyAsync(selected, token);
-                    Message = errors.Count > 0 ? string.Join("\n", errors) : I18n.GetString("Migration_OriginalReadDone"); _step = WizardStep.Result;
+                    Message = errors.Count > 0 ? I18n.GetString("MigrationWizard_ActionFailed") : I18n.GetString("Migration_OriginalReadDone");
+                    ErrorDetails = string.Join("\n", errors.Select(CloudCommandSecurity.Redact));
+                    MessageStatus = errors.Count > 0 ? SemanticStatus.Error : SemanticStatus.Success; _step = WizardStep.Result;
                 }
                 else
                 {
@@ -254,7 +287,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
                             item.State! with { BackupSelected = item.BackupSelected, CloudSelected = item.CloudSelected }, false, token);
                     _document = await MigrationWorkflowCoordinator.ConfirmAsync(_document.WorkflowId, token); await ApplyDocumentAsync(token);
                 }
-                else { await SaveIssueChoicesAsync(token); await RunCoreAsync(token); }
+                else { await SaveAllIssueChoicesAsync(token); await RunCoreAsync(token); }
             }
         });
     }
@@ -272,6 +305,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
             var destination = path;
             if (TransportIndex == 1) { var snapshot = await CloudSyncService.ExportMigrationSnapshotAsync(Connection(), path, token); destination = RemoteRoot + "/_folderrewind/migration-exports/" + snapshot.FileName; }
             Message = I18n.Format("Migration_ExportDone", ids.Length) + "\n" + I18n.Format("MigrationWizard_SavedTo", destination) + "\n" + ContentDescription;
+            MessageStatus = SemanticStatus.Success;
             _step = WizardStep.Result;
         }
         finally { if (TransportIndex == 1 && File.Exists(path)) File.Delete(path); }
@@ -287,7 +321,8 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
     private async Task RunCoreAsync(CancellationToken token)
     {
         if (_document is null) return;
-        _step = WizardStep.Recovery; Message = I18n.GetString("MigrationWizard_Checking"); Notify();
+        CaptureProjectEditor(); _inspection = null;
+        _step = WizardStep.Recovery; Message = I18n.GetString("MigrationWizard_Checking"); MessageStatus = SemanticStatus.Info; Notify();
         _document = await Task.Run(() => MigrationWorkflowCoordinator.ContinueAsync(_document.WorkflowId, token), token);
         await ApplyDocumentAsync(token);
     }
@@ -295,37 +330,79 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
     private async Task ApplyDocumentAsync(CancellationToken token)
     {
         if (_document is null) return;
+        CaptureProjectEditor();
         _step = _document.IsFinished ? WizardStep.Result : WizardStep.Recovery;
         Projects.Clear();
-        foreach (var project in _document.Projects) Projects.Add(new(project.ConfigId, project.Name, project.Paths ?? new("", []), project) { AwaitingActivation = ShowPendingRestart });
+        foreach (var project in _document.Projects)
+        {
+            var paths = project.Paths ?? new("", []);
+            if (_editors.TryGetValue(project.ConfigId, out var editor))
+            {
+                if (MigrationPresentationPolicy.CanReuseEditor(editor.Phase, editor.Inspection.ConfigurationSignature, project))
+                    paths = editor.Paths;
+                else _editors.Remove(project.ConfigId);
+            }
+            Projects.Add(new(project.ConfigId, project.Name, paths, project) { AwaitingActivation = ShowPendingRestart });
+        }
         Message = _document.MetadataOnly ? I18n.GetString("Migration_MetadataOnly") : I18n.GetString("MigrationWizard_Stage_" + _document.Stage);
+        MessageStatus = MigrationPresentationPolicy.StatusFor(_document.Stage);
         if (_document.Projects.Any(p => p.Phase == MigrationProjectPhase.Completed))
             Message += "\n" + I18n.Format("MigrationWizard_ProjectCounts", _document.Projects.Count(p => p.Phase == MigrationProjectPhase.Completed), _document.Projects.Length);
         Archives.Clear(); Branches.Clear(); _inspection = null; SelectedProject = null;
-        var attention = Projects.FirstOrDefault(p => p.CanHandle);
-        if (attention is not null && !ShowPendingRestart) await SelectProjectCoreAsync(attention, token);
+        var attention = Projects.FirstOrDefault(p => p.CanHandle) ?? Projects.FirstOrDefault(p => p.ShowPermissions) ?? Projects.FirstOrDefault();
+        if (attention is not null && !ShowPendingRestart) await SelectProjectCoreAsync(attention, token, openDetails: false);
         Notify();
     }
 
     public async Task SelectProjectAsync(MigrationWizardProjectItem project)
         => await PerformAsync(token => SelectProjectCoreAsync(project, token));
-    private async Task SelectProjectCoreAsync(MigrationWizardProjectItem project, CancellationToken token)
+    private async Task SelectProjectCoreAsync(MigrationWizardProjectItem project, CancellationToken token, bool openDetails = true)
     {
+        CaptureProjectEditor();
+        ProjectEditor? editor = null;
+        if (project.CanHandle && project.State?.Phase != MigrationProjectPhase.AwaitingCloudConnection && !_editors.TryGetValue(project.Id, out editor))
+        {
+            var inspection = await Task.Run(() => MigrationWorkflowCoordinator.InspectAsync(project.State!, token), token);
+            editor = new(inspection, inspection.Archives.Select(a => new MigrationWizardArchiveItem(a, project.State!)).ToArray(),
+                inspection.Branches.Select(b => new MigrationWizardBranchItem(b, project.State!)).ToArray(), project.CapturePaths(), project.State!.Phase);
+        }
         SelectedProject = project; Archives.Clear(); Branches.Clear();
-        _inspection = await Task.Run(() => MigrationWorkflowCoordinator.InspectAsync(project.State!, token), token);
-        foreach (var archive in _inspection.Archives) Archives.Add(new(archive, project.State!));
-        foreach (var branch in _inspection.Branches) Branches.Add(new(branch, project.State!));
+        _inspection = editor?.Inspection;
+        foreach (var archive in editor?.Archives ?? []) Archives.Add(archive);
+        foreach (var branch in editor?.Branches ?? []) Branches.Add(branch);
+        if (openDetails) _detailOpen = true;
         Notify();
     }
 
     private async Task SaveIssueChoicesAsync(CancellationToken token)
     {
         if (_document is null || SelectedProject?.State is not { } state) return;
-        var paths = SelectedProject.CapturePaths();
+        CaptureProjectEditor();
+        if (_editors.TryGetValue(SelectedProject.Id, out var editor)) await SaveProjectChoicesAsync(state, editor, token);
+    }
+
+    private void CaptureProjectEditor()
+    {
+        if (SelectedProject?.State is { } state && _inspection is not null)
+            _editors[SelectedProject.Id] = new(_inspection, Archives.ToArray(), Branches.ToArray(), SelectedProject.CapturePaths(), state.Phase);
+    }
+
+    private async Task SaveAllIssueChoicesAsync(CancellationToken token)
+    {
+        CaptureProjectEditor();
+        foreach (var project in Projects)
+            if (project.State is { } state && _editors.TryGetValue(project.Id, out var editor))
+                await SaveProjectChoicesAsync(state, editor, token);
+    }
+
+    private async Task SaveProjectChoicesAsync(MigrationWorkflowProject state, ProjectEditor editor, CancellationToken token)
+    {
+        if (_document is null) return;
+        var paths = editor.Paths;
         var pathsChanged = state.Paths is not null && (paths.BackupRoot != state.Paths.BackupRoot || !paths.Sources.SequenceEqual(state.Paths.Sources));
-        state = state with { Paths = paths, ConfigurationSignature = _inspection?.ConfigurationSignature ?? state.ConfigurationSignature,
-            ConfigImportId = _inspection?.ConfigImportId ?? state.ConfigImportId,
-            ArchiveSelections = [.. Archives.Select(a => a.Capture()).Where(a => a is not null).Select(a => a!)], BranchSelections = [.. Branches.Select(b => b.Capture())] };
+        state = state with { Paths = paths, ConfigurationSignature = editor.Inspection.ConfigurationSignature,
+            ConfigImportId = editor.Inspection.ConfigImportId,
+            ArchiveSelections = [.. editor.Archives.Select(a => a.Capture()).Where(a => a is not null).Select(a => a!)], BranchSelections = [.. editor.Branches.Select(b => b.Capture())] };
         _document = await MigrationWorkflowCoordinator.UpdateProjectAsync(_document.WorkflowId, state, pathsChanged, token);
     }
 
@@ -378,9 +455,9 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
                 project.BackupRoot = MigrationPathRebindPolicy.ReplaceRoot(project.BackupRoot, OldRoot, NewRoot);
                 foreach (var source in project.Sources) source.Path = MigrationPathRebindPolicy.ReplaceRoot(source.Path, OldRoot, NewRoot);
             }
-            Message = I18n.GetString("MigrationWizard_PathsUpdated");
+            Message = I18n.GetString("MigrationWizard_PathsUpdated"); MessageStatus = SemanticStatus.Success;
         }
-        catch (Exception error) { Message = CloudCommandSecurity.Redact(error.Message); }
+        catch (Exception error) { Message = I18n.GetString("MigrationWizard_ActionFailed"); ErrorDetails = CloudCommandSecurity.Redact(error.Message); MessageStatus = SemanticStatus.Error; }
     }
 
     public void OpenReconciliation()
@@ -414,10 +491,11 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
     private async Task PerformAsync(Func<CancellationToken, Task> action)
     {
         if (Busy || _disposed) return;
+        if (HasErrorDetails) { Message = ""; MessageStatus = _document is null ? SemanticStatus.Info : MigrationPresentationPolicy.StatusFor(_document.Stage); }
         using var operation = new CancellationTokenSource(); _operation = operation; ErrorDetails = ""; Busy = true;
         try { await action(operation.Token); }
-        catch (OperationCanceledException) when (operation.IsCancellationRequested) { Message = I18n.GetString("MigrationWizard_Paused"); }
-        catch (Exception error) { Message = I18n.GetString("MigrationWizard_ActionFailed"); ErrorDetails = CloudCommandSecurity.Redact(error.Message);
+        catch (OperationCanceledException) when (operation.IsCancellationRequested) { Message = I18n.GetString("MigrationWizard_Paused"); MessageStatus = SemanticStatus.Info; }
+        catch (Exception error) { Message = I18n.GetString("MigrationWizard_ActionFailed"); ErrorDetails = CloudCommandSecurity.Redact(error.ToString()); MessageStatus = SemanticStatus.Error;
             LogService.LogError("Migration wizard action failed.", nameof(MigrationWizardViewModel), error); }
         finally { _operation = null; Busy = false; Notify(); }
     }
@@ -428,7 +506,10 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
             nameof(ShowOriginalSelection), nameof(ShowConfigurationChoice), nameof(ShowRecovery), nameof(ShowResult), nameof(ShowPendingRestart), nameof(ShowIssue),
             nameof(ShowPassword), nameof(ShowHistoryFile), nameof(ShowReconciliation), nameof(ShowMissingArchives), nameof(ShowIssuePaths), nameof(CanGoBack),
             nameof(Title), nameof(StepText), nameof(ScopeText), nameof(ContentDescription), nameof(ExternalArchiveRoots), nameof(ImportSummary), nameof(TechnicalDetails), nameof(PrimaryText),
-            nameof(SelectedProjectName), nameof(SelectedSources), nameof(SelectedBackupRoot) }) OnPropertyChanged(property);
+            nameof(SelectedProjectName), nameof(SelectedSources), nameof(SelectedBackupRoot), nameof(ShowProjectList), nameof(ShowProjectDetails),
+            nameof(ShowDetailsBack), nameof(WideRecovery), nameof(RecoverySummary), nameof(SelectedProjectStatus), nameof(SelectedOperationsText), nameof(HasIncompleteResult),
+            nameof(ShowSelectedPermissions), nameof(SelectedCanBackup), nameof(SelectedCanCloud), nameof(SelectedCloudEnabled), nameof(SelectedBackup), nameof(SelectedCloud),
+            nameof(SelectedPermissionSummary), nameof(SelectedNeedsCloudConnection), nameof(SelectedCloudConfigured) }) OnPropertyChanged(property);
     }
     public void Dispose() { _disposed = true; _operation?.Cancel(); }
 }

@@ -61,6 +61,7 @@ namespace FolderRewind.ViewModels
 
         public void Unbind()
         {
+            StopObservingDraft();
             if (_config == null)
             {
                 return;
@@ -108,6 +109,7 @@ namespace FolderRewind.ViewModels
             RefreshBackupScopeOptions();
             RefreshAutomationFolderOptions();
             RaiseCloudUiProperties();
+            ObserveDraft();
         }
 
         public BackupConfig Config => _config;
@@ -252,6 +254,7 @@ namespace FolderRewind.ViewModels
             _config.BackupScope ??= new BackupScopeSettings();
             _config.BackupScope.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _config.BackupScope.Parameters[key] = value ?? string.Empty;
+            RefreshDraftState(edited: true);
         }
 
         public void RefreshBackupScopeOptions()

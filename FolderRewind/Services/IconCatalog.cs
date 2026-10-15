@@ -1,8 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 
 namespace FolderRewind.Services
 {
+    public sealed record ConfigIconOption(string Glyph)
+    {
+        public string Name => I18n.GetString("ProjectIcon_" + ((int)Glyph[0]).ToString("X4", CultureInfo.InvariantCulture));
+    }
+
     public static class IconCatalog
     {
         // Segoe MDL2 Assets glyphs.
@@ -61,6 +68,9 @@ namespace FolderRewind.Services
 
         // 标题栏自定义图标复用配置图标池，避免同一批 WinUI glyph 在多处重复维护。
         public static IReadOnlyList<string> TitleIconGlyphs => ConfigIconGlyphs;
+
+        public static IReadOnlyList<ConfigIconOption> ConfigIconOptions { get; } =
+            Array.AsReadOnly(ConfigIconGlyphs.Select(glyph => new ConfigIconOption(glyph)).ToArray());
 
         public const string DefaultConfigIconGlyph = "\uE8B7";
     }

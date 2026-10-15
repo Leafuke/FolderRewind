@@ -9,6 +9,15 @@ namespace FolderRewind.Views.Settings
     public sealed partial class DiagnosticsControl : UserControl
     {
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
+        public string ConfigFilePath => ConfigService.ConfigFilePath;
+        private void OnConfigActionsSizeChanged(object sender, SizeChangedEventArgs e)
+        { if (sender is StackPanel panel) panel.Orientation = e.NewSize.Width < 640 ? Orientation.Vertical : Orientation.Horizontal; }
+        private void OnOpenConfigFolder(object sender, RoutedEventArgs e) => ConfigService.OpenConfigFolder();
+        private async void OnOpenConfigFile(object sender, RoutedEventArgs e)
+        {
+            try { await ConfigService.OpenConfigFileAsync(); }
+            catch (Exception error) { LogService.LogError("Could not open configuration file.", nameof(DiagnosticsControl), error); await ShowSimpleMessageAsync(I18n.GetString("SettingsDiagnostics_OpenFailed")); }
+        }
 
         public DiagnosticsControl()
         {

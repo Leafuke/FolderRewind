@@ -14,17 +14,21 @@ public sealed partial class ConfigSettingsPage
     private bool _allowNavigation;
     private bool _leaving;
     private void OnCloudSetup(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudSetup", new ConfigSettingsNavigationParameter(Config.Id));
+    private void OnContinueProjectMigration(object sender, RoutedEventArgs e)
+        => NavigationService.NavigateTo("Migration", new MigrationWizardRequest(MigrationWizardMode.Continue, ConfigId: Config.Id));
     private void OnApplyPerformance(object sender, RoutedEventArgs e) => ViewModel.ApplyPendingPerformance();
     private void OnUndoPerformance(object sender, RoutedEventArgs e) => ViewModel.UndoPerformance();
     private void OnSearchChanged(object sender, TextChangedEventArgs e)
     {
         var query = (sender as TextBox)?.Text?.Trim();
-        if (string.IsNullOrEmpty(query) || !_isDialogReady) return;
+        if (!_isDialogReady) return;
+        SearchFeedback.Visibility = string.IsNullOrEmpty(query) ? Visibility.Collapsed : Visibility.Visible;
+        if (string.IsNullOrEmpty(query)) { SearchFeedback.Text = ""; return; }
         var group = new[] { "General", "Resource", "Backup", "Restore", "Automation", "Cloud", "Filter" }
             .FirstOrDefault(g => I18n.GetString("SettingsProject_Search" + g).Split('|').Any(word => word.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
-        if (group is null) return;
+        if (group is null) { SearchFeedback.Text = I18n.GetString("SettingsProject_SearchNoResults"); return; }
         ConfigSelectorBar.SelectedItem = ConfigSelectorBar.Items.FirstOrDefault(i => i.Tag as string == group);
-        DraftStatus.Text = I18n.Format("SettingsProject_SearchResult", I18n.GetString("SettingsProject_Group" + group));
+        SearchFeedback.Text = I18n.Format("SettingsProject_SearchResult", I18n.GetString("SettingsProject_Group" + group));
     }
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -36,7 +40,8 @@ public sealed partial class ConfigSettingsPage
         ViewModel.ActivateActions();
         ConfigSelectorBar.SelectedItem = ConfigSelectorBar.Items.FirstOrDefault(i => string.Equals(i.Tag as string, request?.Group, StringComparison.Ordinal)) ?? ConfigSelectorBar.Items[0];
         ViewModel.AcceptDraftNormalization();
-        DraftStatus.Text = I18n.GetString("SettingsProject_DraftHelp");
+        SettingsSearchBox.Text = "";
+        SearchFeedback.Visibility = Visibility.Collapsed;
     }
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
@@ -80,7 +85,6 @@ public sealed partial class ConfigSettingsPage
         try
         {
             await ViewModel.SaveCommand.ExecuteAsync(null);
-            DraftStatus.Text = I18n.GetString(ViewModel.LastSaveSucceeded ? "SettingsProject_Saved" : "SettingsProject_SaveFailed");
         }
         finally { IsEnabled = true; }
     }

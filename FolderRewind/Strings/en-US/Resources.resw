@@ -775,7 +775,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Clear missing</value>
   </data>
   <data name="HistoryPage_RestoreButton.ToolTipService.ToolTip" xml:space="preserve">
-    <value>Restore</value>
+    <value>Restore this version. Cloud-only backups must be downloaded first. Restore requires confirmation.</value>
   </data>
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>Select a folder to view history</value>
@@ -877,7 +877,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Delete backup project</value>
   </data>
   <data name="ConfigSettingsDialog_DeleteConfirmContent" xml:space="preserve">
-    <value>Delete this backup project? This action cannot be undone.</value>
+    <value>Remove this backup project from the configuration? Its backup files will be kept.</value>
   </data>
   <data name="Config_OpenDestination_Empty" xml:space="preserve">
     <value>Destination path is empty</value>
@@ -4993,13 +4993,13 @@ Pull request: {1}</value>
   <data name="GameDiscovery_PluginBatch_Commit.Content" xml:space="preserve"><value>Create all configurations</value></data>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>Batch creation complete</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>Created {0} configuration(s) and skipped {1} configuration(s).</value></data>
-  <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>Restorable (exact)</value></data>
-  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>Restorable (overwrite / export)</value></data>
-  <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>Restorable after cloud preparation</value></data>
+  <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>Ready to restore</value></data>
+  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>Restore by overwrite or export</value></data>
+  <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>Download required</value></data>
   <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>Plugin or credentials required</value></data>
   <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>Backup payload unavailable</value></data>
-  <data name="History_NativeReadiness_Released" xml:space="preserve"><value>History retained; payload released</value></data>
-  <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>History metadata only</value></data>
+  <data name="History_NativeReadiness_Released" xml:space="preserve"><value>Backup files released</value></data>
+  <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>History records only</value></data>
   <data name="History_NativeAction_NotAvailable" xml:space="preserve"><value>This action is not connected to a safe Native History executor; Legacy fallback was blocked.</value></data>
   <data name="HistoryPage_BranchCheckout.ToolTipService.ToolTip" xml:space="preserve"><value>Check out the selected branch</value></data>
   <data name="HistoryPage_BranchRename.ToolTipService.ToolTip" xml:space="preserve"><value>Rename branch</value></data>
@@ -5295,11 +5295,11 @@ Diagnostics: {4}</value></data>
   <data name="SettingsProject_Save.Content" xml:space="preserve"><value>Save</value></data>
   <data name="SettingsProject_Delete.Content" xml:space="preserve"><value>Delete project</value></data>
   <data name="SettingsProject_Stale" xml:space="preserve"><value>The project changed while you were editing. Return to the project and reopen settings. This draft has not overwritten the newer configuration.</value></data>
-  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>Changes take effect after saving.</value></data>
+  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>No unsaved changes</value></data>
   <data name="SettingsProject_Unsaved" xml:space="preserve"><value>Unsaved project settings</value></data>
   <data name="SettingsProject_Discard" xml:space="preserve"><value>Discard changes</value></data>
   <data name="SettingsProject_Saved" xml:space="preserve"><value>Project settings saved.</value></data>
-  <data name="SettingsProject_SaveFailed" xml:space="preserve"><value>Save incomplete. The draft is retained. Resolve the error and retry.</value></data>
+  <data name="SettingsProject_SaveFailed" xml:space="preserve"><value>Could not save. Your changes are retained. Resolve the reported issue and retry.</value></data>
   <data name="SettingsProject_Search.Header" xml:space="preserve"><value>Find project settings</value></data>
   <data name="SettingsProject_Search.PlaceholderText" xml:space="preserve"><value>For example: performance, schedule, space, cloud, exclude</value></data>
   <data name="SettingsProject_SearchGeneral" xml:space="preserve"><value>content|name|location|directory</value></data>
@@ -5323,7 +5323,7 @@ Algorithm: {4} → {5} · Compression level: {6} → {7}</value></data>
   <data name="CloudSetup_Url.Header" xml:space="preserve"><value>WebDAV service URL</value></data>
   <data name="CloudSetup_User.Header" xml:space="preserve"><value>WebDAV username</value></data>
   <data name="CloudSetup_Password.Header" xml:space="preserve"><value>WebDAV password</value></data>
-  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>Credentials are saved in a separate file accessible only to the current user.</value></data>
+  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>Credentials are saved in a separate file accessible only to the current user. The password box clears after successful creation; you do not need to enter it again.</value></data>
   <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>Create connection</value></data>
   <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>Connection config file</value></data>
   <data name="CloudSetup_PickConfig.Content" xml:space="preserve"><value>Choose an existing config file</value></data>
@@ -5357,7 +5357,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="CloudSetup_OutputTruncated" xml:space="preserve"><value>The response exceeded its read limit. Narrow the query. Results are incomplete.</value></data>
   <data name="CloudSetup_InitialState" xml:space="preserve"><value>Connection not checked. Saving a connection does not create a cloud copy.</value></data>
   <data name="CloudSetup_ConnectionChanged" xml:space="preserve"><value>Connection changed. Check again; previous observations are invalid.</value></data>
-  <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>Connection draft created. Browse and confirm the destination before saving. Canceling cleans up only this unsaved credentials file.</value></data>
+  <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>Connection draft created and selected under Existing configuration. The password box has been cleared. Browse and confirm the destination before saving. Canceling cleans up only this unsaved credentials file.</value></data>
   <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>Directory display is limited to 200 entries. Enter a narrower subdirectory and check again.</value></data>
   <data name="CloudSetup_ReadVerified" xml:space="preserve"><value>The directory can be listed. This does not prove write access or the existence of restorable backup data.</value></data>
   <data name="CloudSetup_ProbeRetained" xml:space="preserve"><value>Cleanup of this test object could not be confirmed: {0}. Manually handle only this exact object.</value></data>
@@ -5490,11 +5490,11 @@ Clean restore replaces current content within this source boundary. Overwrite wr
   <data name="HomeProtection_SourceFailures" xml:space="preserve"><value>Content needing attention: {0}. Open the project to inspect these sources.</value></data>
   <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>General</value></data>
   <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>Backup</value></data>
-  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>Resources</value></data>
+  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>Storage and performance</value></data>
   <data name="SettingsProject_TabRestore.Text" xml:space="preserve"><value>Restore</value></data>
   <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>Automation</value></data>
   <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>Cloud storage</value></data>
-  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>Filters</value></data>
+  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>File rules</value></data>
   <data name="SettingsProject_SearchResource" xml:space="preserve"><value>performance|compression|threads|retention|resources|space|cpu</value></data>
   <data name="SettingsProject_AdvancedResources.Header" xml:space="preserve"><value>Advanced: compression and file type rules</value></data>
   <data name="SettingsProject_AdvancedIdentity.Header" xml:space="preserve"><value>Advanced: kind, icon, and configuration file</value></data>
@@ -5672,11 +5672,11 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsProject_SaveAction" xml:space="preserve"><value>Save</value></data>
   <data name="SettingsProject_GroupGeneral" xml:space="preserve"><value>General</value></data>
   <data name="SettingsProject_GroupBackup" xml:space="preserve"><value>Backup</value></data>
-  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>Resources</value></data>
+  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>Storage and performance</value></data>
   <data name="SettingsProject_GroupRestore" xml:space="preserve"><value>Restore</value></data>
   <data name="SettingsProject_GroupAutomation" xml:space="preserve"><value>Automation</value></data>
   <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>Cloud storage</value></data>
-  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>Filters</value></data>
+  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>File rules</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Used only for ordinary restore. The snapshot lets you undo a successful restore; failure rollback is always enabled.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>Roll back on failure; turning this off may cause loss of current files.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>Check backups during restoration and stop if damaged.</value></data>
@@ -5735,8 +5735,8 @@ Overwrite restore keeps extra files and replaces backed-up content.</value></dat
   <data name="Check_CloudRepair" xml:space="preserve"><value>Check incomplete. Review connection settings and retry.</value></data>
   <data name="CloudSetup_CheckFailedShort" xml:space="preserve"><value>Connection check failed. Review the address, credentials or config file; details are in diagnostics.</value></data>
   <data name="CloudSetup_WriteVerifiedShort" xml:space="preserve"><value>Read and write verification passed.</value></data>
-  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>Read and write verification failed. Check folder permissions.</value></data>
-  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>The test file could not be removed. Delete it manually; see diagnostics for its path.</value></data>
+  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>Read and write access could not be confirmed. Review diagnostics and try again.</value></data>
+  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>Test object cleanup could not be confirmed. Objects are retained when upload or read-back is incomplete. Check the exact path in diagnostics.</value></data>
   <data name="CloudRecovery_HistorySummary" xml:space="preserve"><value>Loaded {0} versions. Choose content to restore.</value></data>
   <data name="CloudRecovery_ReadablePreview" xml:space="preserve"><value>Content: {0}
 Backup time: {1}
@@ -6705,9 +6705,9 @@ Attempts: {3}</value></data>
   <data name="CloudRecovery_NoActiveReplica" xml:space="preserve"><value>No usable active cloud replica is recorded.</value></data>
   <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>This backend's credential refresh cannot be safely merged yet. Use a supported connection or reauthorize; cloud calls are paused and credential evidence is retained.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Header" xml:space="preserve"><value>Backup archive verification</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Description" xml:space="preserve"><value>Full / Smart: Balanced validates safe paths and exact file names and sizes. Strict also tests the full archive once. Independent of compression and thread settings.</value></data>
+  <data name="ConfigSettingsDialog_BackupVerificationDescription.Text" xml:space="preserve"><value>Balanced is the default: check archive paths, file names and sizes. Strict also tests the entire archive and takes longer. Applies to Full and Smart backups.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Header" xml:space="preserve"><value>Restore archive preflight</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Description" xml:space="preserve"><value>Balanced checks paths, dependencies and extracted data. Strict also tests the complete chain once. Existing projects retain their full-check preference; you can switch to Balanced.</value></data>
+  <data name="ConfigSettingsDialog_RestorePreflightDescription.Text" xml:space="preserve"><value>Balanced is the default: check paths, dependencies and extracted data. Strict also tests the entire dependency chain and takes longer.</value></data>
   <data name="ConfigSettingsDialog_VerificationBalanced.Content" xml:space="preserve"><value>Balanced</value></data>
   <data name="ConfigSettingsDialog_VerificationStrict.Content" xml:space="preserve"><value>Strict</value></data>
   <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>Failure rollback is always enabled, regardless of verification level or backup before restore.</value></data>
@@ -6778,8 +6778,8 @@ Attempts: {3}</value></data>
   <data name="MigrationWizard_OriginalAutoBackup.Content" xml:space="preserve"><value>Original automatic backup setting</value></data>
   <data name="MigrationWizard_OriginalCloud.Content" xml:space="preserve"><value>Original cloud sync setting</value></data>
   <data name="MigrationWizard_HandleProject.Content" xml:space="preserve"><value>Resolve this project</value></data>
-  <data name="MigrationWizard_AllowBackup.Content" xml:space="preserve"><value>Allow backup on this device (keep the original automation setting)</value></data>
-  <data name="MigrationWizard_AllowCloud.Content" xml:space="preserve"><value>Allow cloud operations (keep the original cloud sync setting)</value></data>
+  <data name="MigrationWizard_AllowBackup.Content" xml:space="preserve"><value>Allow local backups for this project</value></data>
+  <data name="MigrationWizard_AllowCloud.Content" xml:space="preserve"><value>Allow cloud operations for this project</value></data>
   <data name="MigrationWizard_Password.Header" xml:space="preserve"><value>Original password used to create these backups</value></data>
   <data name="MigrationWizard_VerifyPassword.Content" xml:space="preserve"><value>Verify password and continue</value></data>
   <data name="MigrationWizard_AttachHistory.Content" xml:space="preserve"><value>Choose and associate a configuration or history file</value></data>
@@ -6790,7 +6790,7 @@ Attempts: {3}</value></data>
   <data name="MigrationWizard_TechnicalDetails.Header" xml:space="preserve"><value>Technical details</value></data>
   <data name="MigrationWizard_Back.Content" xml:space="preserve"><value>Back</value></data>
   <data name="MigrationWizard_Leave.Content" xml:space="preserve"><value>Continue later</value></data>
-  <data name="MigrationWizard_EntryDescription.Text" xml:space="preserve"><value>Use the wizard to transfer configuration, history, and backup associations. Unambiguous files and original branches are verified automatically.</value></data>
+  <data name="MigrationWizard_EntryDescription.Text" xml:space="preserve"><value>Export or import backup projects, or continue reviewing migration and cloud permissions.</value></data>
   <data name="MigrationWizard_PendingCard.Title" xml:space="preserve"><value>Migration is not finished</value></data>
   <data name="MigrationWizard_PendingCard.Message" xml:space="preserve"><value>Configuration or history is waiting for recovery. Continue the wizard to check archives, resolve issues, and confirm backup permission.</value></data>
   <data name="MigrationWizard_Continue.Content" xml:space="preserve"><value>Continue migration</value></data>
@@ -6880,4 +6880,159 @@ Attempts: {3}</value></data>
   <data name="MigrationWizard_RepairArchives" xml:space="preserve"><value>Supply missing backup files</value></data>
   <data name="MigrationWizard_RecheckArchives" xml:space="preserve"><value>Check backup files</value></data>
   <data name="MigrationWizard_ProjectContents" xml:space="preserve"><value>{0} sources · {1} historical versions</value></data>
+  <data name="SettingsProject_More.AutomationProperties.Name" xml:space="preserve"><value>Project actions</value></data>
+  <data name="SettingsProject_More.ToolTipService.ToolTip" xml:space="preserve"><value>More project actions</value></data>
+  <data name="SettingsProject_SaveTemplateMenu.Text" xml:space="preserve"><value>Save as template…</value></data>
+  <data name="SettingsProject_DeleteMenu.Text" xml:space="preserve"><value>Delete project…</value></data>
+  <data name="SettingsProject_Category.Header" xml:space="preserve"><value>Settings category</value></data>
+  <data name="SettingsProject_Category.AutomationProperties.Name" xml:space="preserve"><value>Settings category</value></data>
+  <data name="SettingsProject_ChangeIcon.Content" xml:space="preserve"><value>Change…</value></data>
+  <data name="SettingsProject_KindPicker.AutomationProperties.Name" xml:space="preserve"><value>Project type</value></data>
+  <data name="SettingsProject_IconPicker.AutomationProperties.Name" xml:space="preserve"><value>Choose a project icon</value></data>
+  <data name="SettingsProject_SearchNoResults" xml:space="preserve"><value>No matching settings category</value></data>
+  <data name="SettingsProject_Modified" xml:space="preserve"><value>You have unsaved changes</value></data>
+  <data name="SettingsProject_Saving" xml:space="preserve"><value>Saving…</value></data>
+  <data name="SettingsDiagnostics_ConfigFile.Header" xml:space="preserve"><value>Configuration file</value></data>
+  <data name="SettingsDiagnostics_ConfigPath.AutomationProperties.Name" xml:space="preserve"><value>Global configuration file path</value></data>
+  <data name="SettingsDiagnostics_OpenConfigFolder.Content" xml:space="preserve"><value>Open containing folder</value></data>
+  <data name="SettingsDiagnostics_OpenConfigFile.Content" xml:space="preserve"><value>Open configuration file</value></data>
+  <data name="SettingsDiagnostics_OpenFailed" xml:space="preserve"><value>Could not open the configuration file. Check that it exists and that you have permission to access it.</value></data>
+  <data name="SettingsTemplates_More.AutomationProperties.Name" xml:space="preserve"><value>More template actions</value></data>
+  <data name="SettingsTemplates_ExportMenu.Text" xml:space="preserve"><value>Export template…</value></data>
+  <data name="SettingsTemplates_ShareCodeMenu.Text" xml:space="preserve"><value>Use a share code…</value></data>
+  <data name="SettingsTemplates_SubmitMenu.Text" xml:space="preserve"><value>Submit a template…</value></data>
+  <data name="SettingsTemplates_ManageMenu.Text" xml:space="preserve"><value>Manage templates…</value></data>
+  <data name="MigrationWizard_AttentionCount" xml:space="preserve"><value>Projects: {0} · Need attention: {1}</value></data>
+  <data name="MigrationWizard_OriginalOperations" xml:space="preserve"><value>Original settings: automatic backup {0} · cloud upload {1}</value></data>
+  <data name="MigrationWizard_On" xml:space="preserve"><value>On</value></data>
+  <data name="MigrationWizard_Off" xml:space="preserve"><value>Off</value></data>
+  <data name="MigrationWizard_BackToProjects.Content" xml:space="preserve"><value>Back to projects</value></data>
+  <data name="MigrationWizard_ActionConfiguration" xml:space="preserve"><value>Import configuration…</value></data>
+  <data name="MigrationWizard_ActionHistory" xml:space="preserve"><value>Import history…</value></data>
+  <data name="MigrationWizard_ActionPaths" xml:space="preserve"><value>Set folder locations…</value></data>
+  <data name="MigrationWizard_ActionPassword" xml:space="preserve"><value>Verify password…</value></data>
+  <data name="MigrationWizard_ActionArchives" xml:space="preserve"><value>Check backup files…</value></data>
+  <data name="MigrationWizard_ActionBranch" xml:space="preserve"><value>Resolve history branches…</value></data>
+  <data name="MigrationWizard_ActionDetails" xml:space="preserve"><value>View details…</value></data>
+  <data name="MigrationWizard_FinishReadyCount" xml:space="preserve"><value>Complete ready projects ({0})</value></data>
+  <data name="MigrationWizard_ApplyAndRecheck" xml:space="preserve"><value>Apply choices and check again</value></data>
+  <data name="HistoryLoad_Incompatible" xml:space="preserve"><value>This history format is not supported by this app version. Use a compatible version.</value></data>
+  <data name="HistoryLoad_RecoveryRequired" xml:space="preserve"><value>History data for this project is missing or unreadable. Import history or continue its migration.</value></data>
+  <data name="HistoryLoad_BindingSaveFailed" xml:space="preserve"><value>Could not save this project’s history association. Check access to the configuration folder and retry.</value></data>
+  <data name="HistoryLoad_AccessDenied" xml:space="preserve"><value>Access to this project’s history data was denied. Check file permissions.</value></data>
+  <data name="HistoryLoad_ReadFailed" xml:space="preserve"><value>Could not read this project’s history data. Check that its files are available and retry.</value></data>
+  <data name="HistoryLoad_Failed" xml:space="preserve"><value>Could not load this project’s history. Retry or review the technical details.</value></data>
+  <data name="HistoryLoad_ImportHistory" xml:space="preserve"><value>Import history…</value></data>
+  <data name="HistoryLoad_TechnicalDetails.Header" xml:space="preserve"><value>Technical details</value></data>
+  <data name="BackupTasks_EmptySummary" xml:space="preserve"><value>No current tasks</value></data>
+  <data name="BackupTasks_Count" xml:space="preserve"><value>Tasks: {0}</value></data>
+  <data name="BackupTasks_FailureSummary.Text" xml:space="preserve"><value>The task did not complete. View details for the cause.</value></data>
+  <data name="BackupTasks_ViewDetails.Content" xml:space="preserve"><value>View details…</value></data>
+  <data name="BackupTasks_DetailsTitle" xml:space="preserve"><value>Task details · {0}</value></data>
+  <data name="BackupTasks_DetailsLabel" xml:space="preserve"><value>Full error and task log</value></data>
+  <data name="BackupTasks_DetailsBody" xml:space="preserve"><value>Error
+{0}
+
+Task log
+{1}</value></data>
+  <data name="BackupTasks_CopyDetails" xml:space="preserve"><value>Copy details</value></data>
+  <data name="CloudConnections_Selected" xml:space="preserve"><value>Selected connection: {0}</value></data>
+  <data name="CloudConnections_SelectFirst" xml:space="preserve"><value>Select a connection to edit, share, or delete it</value></data>
+  <data name="CloudConnections_ProjectOwner.AutomationProperties.Name" xml:space="preserve"><value>Project that owns this connection</value></data>
+  <data name="LogPage_LevelFilter.AutomationProperties.Name" xml:space="preserve"><value>Log level</value></data>
+  <data name="LogCommands_Display.Label" xml:space="preserve"><value>Display options</value></data>
+  <data name="LogCommands_Copy.Label" xml:space="preserve"><value>Copy</value></data>
+  <data name="LogCommands_OpenFolder.Label" xml:space="preserve"><value>Open log folder</value></data>
+  <data name="LogCommands_OpenFile.Label" xml:space="preserve"><value>Open current log file</value></data>
+  <data name="LogCommands_Clear.Label" xml:space="preserve"><value>Clear current log…</value></data>
+  <data name="LogClear_Title" xml:space="preserve"><value>Clear the current log?</value></data>
+  <data name="LogClear_Description" xml:space="preserve"><value>This clears the displayed entries and the contents of the current log file. Archived log files are kept. This cannot be undone.</value></data>
+  <data name="LogClear_Action" xml:space="preserve"><value>Clear current log</value></data>
+  <data name="MigrationWizard_PhaseShort_Pending" xml:space="preserve"><value>Pending check</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingConfiguration" xml:space="preserve"><value>Configuration needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingHistory" xml:space="preserve"><value>History file needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingPaths" xml:space="preserve"><value>Folder locations needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingPassword" xml:space="preserve"><value>Password needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingArchiveChoice" xml:space="preserve"><value>Choose backup files</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingBranchChoice" xml:space="preserve"><value>Choose a history branch</value></data>
+  <data name="MigrationWizard_PhaseShort_ReconciliationRequired" xml:space="preserve"><value>History branches need attention</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingArchiveResolution" xml:space="preserve"><value>Backup files need attention</value></data>
+  <data name="MigrationWizard_PhaseShort_Blocked" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="MigrationWizard_PhaseShort_Verified" xml:space="preserve"><value>Ready</value></data>
+  <data name="MigrationWizard_PhaseShort_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="ProjectIcon_E8B7" xml:space="preserve"><value>Folder</value></data>
+  <data name="ProjectIcon_E838" xml:space="preserve"><value>Home</value></data>
+  <data name="ProjectIcon_E7C3" xml:space="preserve"><value>Settings</value></data>
+  <data name="ProjectIcon_E8EF" xml:space="preserve"><value>Save</value></data>
+  <data name="ProjectIcon_E74D" xml:space="preserve"><value>Document</value></data>
+  <data name="ProjectIcon_E8A5" xml:space="preserve"><value>Open File</value></data>
+  <data name="ProjectIcon_E7F0" xml:space="preserve"><value>Edit</value></data>
+  <data name="ProjectIcon_E8C8" xml:space="preserve"><value>Tag</value></data>
+  <data name="ProjectIcon_E7EE" xml:space="preserve"><value>Favorite Star</value></data>
+  <data name="ProjectIcon_E734" xml:space="preserve"><value>Heart</value></data>
+  <data name="ProjectIcon_E71D" xml:space="preserve"><value>Mail</value></data>
+  <data name="ProjectIcon_E8BD" xml:space="preserve"><value>Calendar</value></data>
+  <data name="ProjectIcon_E823" xml:space="preserve"><value>Shop</value></data>
+  <data name="ProjectIcon_E8D2" xml:space="preserve"><value>Repair</value></data>
+  <data name="ProjectIcon_E774" xml:space="preserve"><value>Plug</value></data>
+  <data name="ProjectIcon_E7C1" xml:space="preserve"><value>World</value></data>
+  <data name="ProjectIcon_E80F" xml:space="preserve"><value>People</value></data>
+  <data name="ProjectIcon_E716" xml:space="preserve"><value>Camera</value></data>
+  <data name="ProjectIcon_E8A7" xml:space="preserve"><value>Open In New Window</value></data>
+  <data name="ProjectIcon_E712" xml:space="preserve"><value>More</value></data>
+  <data name="ProjectIcon_E8CB" xml:space="preserve"><value>Folder Open</value></data>
+  <data name="ProjectIcon_E7B8" xml:space="preserve"><value>Download</value></data>
+  <data name="ProjectIcon_E896" xml:space="preserve"><value>Upload</value></data>
+  <data name="ProjectIcon_E73E" xml:space="preserve"><value>Clock</value></data>
+  <data name="ProjectIcon_E7C5" xml:space="preserve"><value>History</value></data>
+  <data name="ProjectIcon_E768" xml:space="preserve"><value>Random</value></data>
+  <data name="ProjectIcon_E7B7" xml:space="preserve"><value>Add</value></data>
+  <data name="ProjectIcon_E74A" xml:space="preserve"><value>Delete</value></data>
+  <data name="ProjectIcon_E8FB" xml:space="preserve"><value>Accept</value></data>
+  <data name="ProjectIcon_EA39" xml:space="preserve"><value>Warning</value></data>
+  <data name="ProjectIcon_E814" xml:space="preserve"><value>Link</value></data>
+  <data name="ProjectIcon_E8C7" xml:space="preserve"><value>Report Hacked</value></data>
+  <data name="ProjectIcon_E9CE" xml:space="preserve"><value>Shield</value></data>
+  <data name="ProjectIcon_E9D9" xml:space="preserve"><value>Info</value></data>
+  <data name="ProjectIcon_E8F2" xml:space="preserve"><value>Refresh</value></data>
+  <data name="ProjectIcon_E7BA" xml:space="preserve"><value>Search</value></data>
+  <data name="ProjectIcon_E8A9" xml:space="preserve"><value>Filter</value></data>
+  <data name="ProjectIcon_E7F7" xml:space="preserve"><value>Pin</value></data>
+  <data name="ProjectIcon_EB9F" xml:space="preserve"><value>Game</value></data>
+  <data name="ProjectIcon_E7FC" xml:space="preserve"><value>Library</value></data>
+  <data name="ProjectIcon_E943" xml:space="preserve"><value>Map Drive</value></data>
+  <data name="ProjectIcon_E77B" xml:space="preserve"><value>Note</value></data>
+  <data name="ProjectIcon_EA86" xml:space="preserve"><value>Toolbox</value></data>
+  <data name="ProjectIcon_E8C4" xml:space="preserve"><value>Folder Shared</value></data>
+  <data name="ProjectIcon_E7A8" xml:space="preserve"><value>Contact</value></data>
+  <data name="ProjectIcon_E8D7" xml:space="preserve"><value>Print</value></data>
+  <data name="ProjectIcon_E7E7" xml:space="preserve"><value>Lightbulb</value></data>
+  <data name="ProjectIcon_E8D4" xml:space="preserve"><value>Package</value></data>
+  <data name="HistoryOperation_Failed" xml:space="preserve"><value>The operation did not complete. Review the technical details and try again.</value></data>
+  <data name="History_NativeReadiness_PartialReady" xml:space="preserve"><value>Partial restore available</value></data>
+  <data name="History_NativeReadiness_RestrictedPartial" xml:space="preserve"><value>Partial restore by overwrite or export</value></data>
+  <data name="History_NativeReadiness_PartialPreparation" xml:space="preserve"><value>Download required · partial files only</value></data>
+  <data name="MigrationWizard_ContinueRemaining.Content" xml:space="preserve"><value>Continue unfinished projects…</value></data>
+  <data name="HistoryLoad_DetailsText.AutomationProperties.Name" xml:space="preserve"><value>History load error details</value></data>
+  <data name="MigrationWizard_ErrorDetailsText.AutomationProperties.Name" xml:space="preserve"><value>Migration technical details</value></data>
+  <data name="LogClear_Failed" xml:space="preserve"><value>Could not clear the current log. Check access to the log file.</value></data>
+  <data name="MigrationWizard_HistoryCloudPermissionPending" xml:space="preserve"><value>Local migration is complete, but cloud operations still need confirmation. Choose Continue migration to check the connection and confirm permission. You can reconnect there if needed. Automatic upload stays unchanged.</value></data>
+  <data name="MigrationWizard_CloudStillPaused" xml:space="preserve"><value>Local migration is complete; cloud operations remain paused. Confirm them later under Settings → Data migration → Continue migration.</value></data>
+  <data name="MigrationWizard_CloudPermissionHint.Text" xml:space="preserve"><value>Cloud permission is independent of automatic upload. Leave it unchecked to keep cloud operations paused; you can confirm later. If the connection is unavailable, reconnect and check it under Project settings → Cloud storage first.</value></data>
+  <data name="MigrationWizard_ReviewCloudPermissions.Content" xml:space="preserve"><value>Review migration and cloud permissions…</value></data>
+  <data name="OpenList_InvalidServiceUri" xml:space="preserve"><value>The service web base URL in the local OpenList environment is missing or invalid. Check Settings → Runtime environment → Local OpenList environment and address. This is separate from the cloud connection&apos;s WebDAV URL.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingCloudConnection" xml:space="preserve"><value>Local migration is complete, but the cloud connection is not ready. Reconnect cloud storage, then check again and confirm cloud permission.</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingCloudConnection" xml:space="preserve"><value>Cloud connection required</value></data>
+  <data name="MigrationWizard_ActionCloudConnection" xml:space="preserve"><value>Resolve cloud connection…</value></data>
+  <data name="MigrationWizard_PermissionSummary" xml:space="preserve"><value>Local backup permission: {0} · Cloud permission: {1}</value></data>
+  <data name="MigrationWizard_PermissionGranted" xml:space="preserve"><value>Allowed</value></data>
+  <data name="MigrationWizard_PermissionAwaitingConfirmation" xml:space="preserve"><value>Awaiting confirmation</value></data>
+  <data name="MigrationWizard_PermissionNeedsCheck" xml:space="preserve"><value>Needs checking</value></data>
+  <data name="MigrationWizard_CloudNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="MigrationWizard_CloudNeedsConnection" xml:space="preserve"><value>Connection needs attention</value></data>
+  <data name="MigrationWizard_CloudConnectionProblem.Title" xml:space="preserve"><value>Cloud connection is not ready</value></data>
+  <data name="MigrationWizard_CloudConnectionProblem.Message" xml:space="preserve"><value>The current connection did not pass its checks, so cloud permission cannot be confirmed yet. Reconnect and save, then return here to check again. Local history and the existing local backup permission are preserved.</value></data>
+  <data name="MigrationWizard_ReconnectCloud.Content" xml:space="preserve"><value>Reconnect cloud storage…</value></data>
+  <data name="MigrationWizard_RecheckCloud.Content" xml:space="preserve"><value>Check again</value></data>
+  <data name="MigrationWizard_CloudPermissionNoticeTitle" xml:space="preserve"><value>Cloud permission pending</value></data>
 </root>

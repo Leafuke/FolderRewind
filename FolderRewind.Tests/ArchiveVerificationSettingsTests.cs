@@ -11,19 +11,19 @@ internal partial class ArchiveSettingsTestJsonContext : JsonSerializerContext;
 public sealed class ArchiveVerificationSettingsTests
 {
     [TestMethod]
-    public void NewObjectIsBalancedWhileMissingOldFieldMigratesStrict()
+    public void NewAndExistingObjectsDefaultToBalanced()
     {
         var fresh = new ArchiveSettings();
         Assert.AreEqual(BackupArchiveVerificationLevel.Balanced, fresh.BackupVerificationLevel);
         Assert.AreEqual(RestoreArchivePreflightMode.Balanced, fresh.RestorePreflightMode);
         Assert.IsTrue(fresh.QuickRestoreSafetySnapshotEnabled);
-        Assert.AreEqual(RestoreArchivePreflightMode.Strict, Read("{}").RestorePreflightMode);
+        Assert.AreEqual(RestoreArchivePreflightMode.Balanced, Read("{}").RestorePreflightMode);
         var missingSectionDefault = new ArchiveSettings();
         missingSectionDefault.ApplyDeserializedInputMigration();
-        Assert.AreEqual(RestoreArchivePreflightMode.Strict, missingSectionDefault.RestorePreflightMode);
+        Assert.AreEqual(RestoreArchivePreflightMode.Balanced, missingSectionDefault.RestorePreflightMode);
     }
     [TestMethod]
-    [DataRow("{\"VerifyArchiveBeforeRestore\":true}", 1)]
+    [DataRow("{\"VerifyArchiveBeforeRestore\":true}", 0)]
     [DataRow("{\"VerifyArchiveBeforeRestore\":false}", 0)]
     [DataRow("{\"RestorePreflightMode\":0,\"VerifyArchiveBeforeRestore\":true}", 0)]
     [DataRow("{\"VerifyArchiveBeforeRestore\":false,\"RestorePreflightMode\":1}", 1)]

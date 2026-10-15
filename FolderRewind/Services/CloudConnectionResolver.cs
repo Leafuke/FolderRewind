@@ -9,6 +9,15 @@ public sealed record ResolvedCloudConnection(string ProfileId, string ProfileRev
 
 public static class CloudConnectionResolver
 {
+    internal static string VerifiedAccessEvidence(CloudConnectionProfile profile, string remoteRoot, bool writable)
+    {
+        var evidence = profile.VerificationEvidence;
+        var verified = profile.Access == CloudConnectionAccess.VerifiedWritable
+            || !writable && profile.Access == CloudConnectionAccess.VerifiedReadable;
+        return verified && evidence.Length == 65 + remoteRoot.Length && evidence[64] == '|'
+            && evidence.EndsWith(remoteRoot, StringComparison.Ordinal) ? evidence : "";
+    }
+
     public static ResolvedCloudConnection Resolve(CloudConnectionProfile profile, string projectId, string suffix, string bindingRevision)
     {
         var sameOwner = Guid.TryParse(profile.OwnerProjectId, out var ownerGuid) && Guid.TryParse(projectId, out var projectGuid)

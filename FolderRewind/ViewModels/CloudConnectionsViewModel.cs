@@ -14,8 +14,19 @@ public sealed class CloudConnectionsViewModel : ViewModelBase
     public ObservableCollection<CloudConnectionDisplay> Connections { get; } = [];
     public ObservableCollection<string> Projects { get; } = [];
     private string[] _projectIds = [];
-    public string? SelectedProfileId { get; set; }
-    public int SelectedProjectIndex { get; set; } = -1;
+    private string? _selectedProfileId;
+    private int _selectedProjectIndex = -1;
+    public string? SelectedProfileId
+    {
+        get => _selectedProfileId;
+        set { if (SetProperty(ref _selectedProfileId, value)) { OnPropertyChanged(nameof(HasSelectedProfile)); OnPropertyChanged(nameof(CanPromote)); OnPropertyChanged(nameof(SelectedConnectionText)); } }
+    }
+    public bool HasSelectedProfile => Connections.Any(c => c.Id == SelectedProfileId);
+    public bool CanPromote => HasSelectedProfile && ConfigService.CurrentConfig.CloudConnections.Any(c => c.Id == SelectedProfileId && c.Scope != CloudConnectionScope.Shared);
+    public string SelectedConnectionText => Connections.FirstOrDefault(c => c.Id == SelectedProfileId) is { } connection
+        ? I18n.Format("CloudConnections_Selected", connection.Name) : I18n.GetString("CloudConnections_SelectFirst");
+    public int SelectedProjectIndex { get => _selectedProjectIndex; set { if (SetProperty(ref _selectedProjectIndex, value)) OnPropertyChanged(nameof(HasProjectSelection)); } }
+    public bool HasProjectSelection => SelectedProjectId is not null;
     public string? SelectedProjectId => SelectedProjectIndex >= 0 && SelectedProjectIndex < _projectIds.Length ? _projectIds[SelectedProjectIndex] : null;
     public void Refresh()
     {
@@ -32,6 +43,10 @@ public sealed class CloudConnectionsViewModel : ViewModelBase
                 profile.RemoteName, string.Join(", ", direct), count);
             Connections.Add(new(profile.Id, profile.DisplayName, detail));
         }
+        OnPropertyChanged(nameof(HasProjectSelection));
+        OnPropertyChanged(nameof(HasSelectedProfile));
+        OnPropertyChanged(nameof(CanPromote));
+        OnPropertyChanged(nameof(SelectedConnectionText));
     }
     public async Task DeleteAsync(CancellationToken token)
     {

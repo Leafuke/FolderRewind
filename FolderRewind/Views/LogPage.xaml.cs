@@ -26,6 +26,7 @@ namespace FolderRewind.Views
         // 最终表现为“日志仍在写入，但日志页列表不再更新”。
         // 因此这里改为在 OnNavigatedTo/OnNavigatedFrom 进行订阅管理。
         private bool _isSubscribed;
+        private bool _isActive;
         private readonly ConcurrentQueue<(LogEntry Entry, long Generation)> _pending = new();
         private DispatcherQueueTimer? _batchTimer;
 
@@ -40,6 +41,7 @@ namespace FolderRewind.Views
         protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            _isActive = true;
 
             EnsureSubscribed();
 
@@ -52,6 +54,7 @@ namespace FolderRewind.Views
         protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            _isActive = false;
             Unsubscribe();
         }
 
@@ -139,12 +142,33 @@ namespace FolderRewind.Views
             if (_presentation.IsLive) ScrollToEnd();
         }
 
-        private void OnClearClick(object sender, RoutedEventArgs e)
+        private bool _clearing;
+        private async void OnClearClick(object sender, RoutedEventArgs e)
         {
-            Unsubscribe();
-            LogService.Clear();
-            EnsureSubscribed();
-            ReloadSnapshot();
+            if (_clearing) return;
+            _clearing = true;
+            try
+            {
+                if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("LogClear_Title"), I18n.GetString("LogClear_Description"),
+                    I18n.GetString("LogClear_Action"), XamlRoot, isDestructive: true)) return;
+                Unsubscribe();
+                try { LogService.Clear(); await LogService.FlushAsync(); }
+                finally { if (_isActive) { EnsureSubscribed(); ReloadSnapshot(); } }
+            }
+            catch (Exception error)
+            {
+                LogService.LogError("Could not clear current log.", nameof(LogPage), error);
+                NotificationService.ShowError(I18n.GetString("LogClear_Failed"));
+            }
+            finally { _clearing = false; }
+        }
+
+        private void OnToolbarSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            var narrow = e.NewSize.Width < 900;
+            Grid.SetRow(LogCommands, narrow ? 1 : 0);
+            Grid.SetColumn(LogCommands, narrow ? 0 : 1);
+            Grid.SetColumnSpan(LogCommands, narrow ? 2 : 1);
         }
 
         private void OnCopyClick(object sender, RoutedEventArgs e)

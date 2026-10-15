@@ -323,7 +323,8 @@ public static class NativeHistoryCoreGateway
         var configId = new HistoryConfigId(config.Id);
         if (DataMigrationService.IsAwaitingHistory(config)) throw new InvalidOperationException(I18n.GetString("Migration_AwaitingHistory"));
         if (config.HistoryRepositoryBinding is { } oldBinding && oldBinding.FormatVersion != HistoryRepositoryDescriptor.CurrentFormatVersion)
-            throw new InvalidOperationException(I18n.Format("History_DevelopmentFormatUnsupported", oldBinding.FormatVersion));
+            throw new HistoryRepositoryBindingException(HistoryRepositoryBindingStatus.CompatibilityBlocked,
+                I18n.Format("History_DevelopmentFormatUnsupported", oldBinding.FormatVersion));
         if (config.HistoryRepositoryBinding is null)
         {
             var prepared = new LegacyTakeoverService(configDirectory, configId).Prepare(MigrationSources(config), config.DestinationPath);
@@ -346,7 +347,7 @@ public static class NativeHistoryCoreGateway
             _ => PersistConfig(),
             cancellationToken).ConfigureAwait(false);
         if (!binding.IsReady || binding.Repository is null)
-            throw new InvalidOperationException(binding.Diagnostic);
+            throw new HistoryRepositoryBindingException(binding.Status, binding.Diagnostic);
         binding.Repository.CloudAdmissionExpected = config.Cloud.Enabled && config.Cloud.WritableEvidence.Length != 0;
         return binding.Repository;
     }

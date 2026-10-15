@@ -26,6 +26,12 @@ internal sealed record MigrationResumeRequest(MigrationProjectAssessment Assessm
 
 internal static class MigrationBatchRecoveryService
 {
+    internal static bool HasCloudConfiguration(BackupConfig config) => config.Cloud.Enabled
+        || !string.IsNullOrWhiteSpace(config.Cloud.ConnectionProfileId) || !string.IsNullOrWhiteSpace(config.Cloud.RcloneConfigPath);
+
+    internal static bool NeedsCloudPermission(BackupConfig config) => HasCloudConfiguration(config)
+        && MigrationSetupStateStore.IsCloudPending(ConfigService.ConfigDirectory, config.Id);
+
     internal static Task<BackupConfig[]> CaptureAsync() => UiDispatcherService.RunOnUiAsync(() =>
         Task.FromResult(ConfigService.CurrentConfig.BackupConfigs.Select(ConfigSnapshotMapper.Copy).ToArray()));
 
@@ -86,9 +92,14 @@ internal static class MigrationBatchRecoveryService
             catch (Exception error) { backupErrors.Add(CloudCommandSecurity.Redact(error.Message)); }
             try
             {
-                var cloudError = snapshot.Cloud.Enabled ? CloudSyncService.CheckMigrationConnection(snapshot) : null;
+                var cloudError = HasCloudConfiguration(snapshot) ? CloudSyncService.CheckMigrationConnection(snapshot) : null;
                 if (cloudError is not null) cloudErrors.Add(cloudError);
-                if (File.Exists(snapshot.Cloud.RcloneConfigPath)) ReadEvidence(snapshot.Cloud.RcloneConfigPath, stamp);
+                else if (HasCloudConfiguration(snapshot))
+                {
+                    var connection = CloudConnectionCatalog.Resolve(snapshot);
+                    stamp.Append(JsonSerializer.Serialize(connection, AppJsonContext.Default.CloudSettings));
+                    ReadEvidence(connection.RcloneConfigPath, stamp);
+                }
             }
             catch (Exception error) { cloudErrors.Add(CloudCommandSecurity.Redact(error.Message)); }
             // Uploads depend on valid local history, but local backup never depends on cloud credentials.

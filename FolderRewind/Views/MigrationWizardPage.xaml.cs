@@ -1,4 +1,6 @@
 using FolderRewind.Services;
+using FolderRewind.Models;
+using FolderRewind.History.Domain;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,6 +18,7 @@ public sealed partial class MigrationWizardPage : Page
     public MigrationWizardPage()
     {
         InitializeComponent();
+        ViewModel.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(ViewModel.ShowPendingRestart)) UpdateRecoveryLayout(); };
         ViewModel.PickPackage += extensions => MainWindowService.PickFilePathAsync("", "FolderRewind.Migration.Wizard.Import", extensions,
             MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
         ViewModel.PickExport += extension => MainWindowService.PickSaveFilePathAsync("", "FolderRewind.Migration.Wizard.Export",
@@ -32,10 +35,45 @@ public sealed partial class MigrationWizardPage : Page
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     { TaskObserver.Observe(ViewModel.SaveDraftAsync(), nameof(MigrationWizardPage)); OriginalPassword.Password = ""; ViewModel.Dispose(); base.OnNavigatedFrom(e); }
     private async void OnPrimary(object sender, RoutedEventArgs e) => await ViewModel.PrimaryAsync();
+    private async void OnContinueRemaining(object sender, RoutedEventArgs e) => await ViewModel.ContinueRemainingAsync();
     private async void OnChoosePackage(object sender, RoutedEventArgs e) => await ViewModel.ChoosePackageAsync();
     private async void OnLoadSnapshots(object sender, RoutedEventArgs e) => await ViewModel.LoadSnapshotsAsync();
     private async void OnHandleProject(object sender, RoutedEventArgs e)
-    { if (sender is Button { Tag: string id } && ViewModel.Projects.FirstOrDefault(p => p.Id == id) is { } project) await ViewModel.SelectProjectAsync(project); }
+    {
+        if (sender is not Button { Tag: string id } || ViewModel.Projects.FirstOrDefault(p => p.Id == id) is not { } project) return;
+        if (ViewModel.SelectedProject?.Id != id) OriginalPassword.Password = "";
+        await ViewModel.SelectProjectAsync(project);
+        if (ViewModel.ShowProjectDetails) RecoveryDetails.Focus(FocusState.Programmatic);
+    }
+    private void OnBackToProjects(object sender, RoutedEventArgs e)
+    {
+        OriginalPassword.Password = "";
+        ViewModel.ReturnToProjects();
+        if (ViewModel.SelectedProject is { } project) RecoveryProjects.ScrollIntoView(project);
+        RecoveryProjects.Focus(FocusState.Programmatic);
+    }
+    private void OnRecoverySizeChanged(object sender, SizeChangedEventArgs e)
+    { ViewModel.SetRecoveryWidth(e.NewSize.Width); UpdateRecoveryLayout(); }
+    private void UpdateRecoveryLayout()
+    {
+        if (RecoveryWorkspace is null) return;
+        var wide = ViewModel.WideRecovery && !ViewModel.ShowPendingRestart;
+        RecoveryWorkspace.ColumnDefinitions[0].Width = wide ? new GridLength(260) : new GridLength(1, GridUnitType.Star);
+        RecoveryWorkspace.ColumnDefinitions[1].Width = wide ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        Grid.SetColumn(RecoveryDetails, wide ? 1 : 0);
+    }
+    private void OnFooterSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = e.NewSize.Width < 640;
+        Grid.SetRow(WizardPrimary, narrow ? 1 : 0);
+        Grid.SetColumn(WizardPrimary, narrow ? 0 : 3);
+        Grid.SetColumnSpan(WizardPrimary, narrow ? 4 : 1);
+    }
+    public static InfoBarSeverity StatusSeverity(SemanticStatus status) => status switch
+    {
+        SemanticStatus.Error => InfoBarSeverity.Error, SemanticStatus.Warning => InfoBarSeverity.Warning,
+        SemanticStatus.Success => InfoBarSeverity.Success, _ => InfoBarSeverity.Informational
+    };
     private async void OnChooseArchive(object sender, RoutedEventArgs e)
     { if (sender is Button { Tag: string id } && ViewModel.Archives.FirstOrDefault(a => a.Id == id) is { } archive) await ViewModel.AddArchiveAsync(archive); }
     private async void OnVerifyPassword(object sender, RoutedEventArgs e)
@@ -64,6 +102,20 @@ public sealed partial class MigrationWizardPage : Page
     private void OnCancel(object sender, RoutedEventArgs e) => ViewModel.Cancel();
     private async void OnLeave(object sender, RoutedEventArgs e) { await ViewModel.SaveDraftAsync(); NavigationService.NavigateTo("Settings"); }
     private void OnManageConnections(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudConnections");
+    private void OnReconnectCloud(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.CanOperate || ViewModel.SelectedProject is not { } project) return;
+        var config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(project.Id).Matches(c.Id));
+        if (config is null) { NotificationService.ShowError(I18n.GetString("SettingsProject_Stale")); return; }
+        var resume = ViewModel.ResumeRequest;
+        var frame = Frame;
+        if (!NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(config.Id)) || resume is null || frame is null) return;
+        // Returning from connection setup must resume the persisted workflow, including a newly imported one.
+        var last = frame.BackStack.Count - 1;
+        if (last >= 0 && frame.BackStack[last].SourcePageType == typeof(MigrationWizardPage))
+            frame.BackStack[last] = new PageStackEntry(typeof(MigrationWizardPage), resume, frame.BackStack[last].NavigationTransitionInfo);
+    }
+    private async void OnRecheckCloud(object sender, RoutedEventArgs e) => await ViewModel.ContinueRemainingAsync();
     private void OnReconcile(object sender, RoutedEventArgs e) => ViewModel.OpenReconciliation();
     public static Visibility Visible(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility NotVisible(bool value) => value ? Visibility.Collapsed : Visibility.Visible;

@@ -775,7 +775,7 @@
     <value>清除失效</value>
   </data>
   <data name="HistoryPage_RestoreButton.ToolTipService.ToolTip" xml:space="preserve">
-    <value>还原</value>
+    <value>还原此版本。仅在云端的备份需先下载到本地；还原前需要确认。</value>
   </data>
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>请选择文件夹以查看历史</value>
@@ -877,7 +877,7 @@
     <value>删除备份项目</value>
   </data>
   <data name="ConfigSettingsDialog_DeleteConfirmContent" xml:space="preserve">
-    <value>确定删除该备份项目吗？此操作不可撤销。</value>
+    <value>仅移除此备份项目的配置，备份文件会保留。是否删除项目？</value>
   </data>
   <data name="Config_OpenDestination_Empty" xml:space="preserve">
     <value>目标路径为空</value>
@@ -4993,13 +4993,13 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_PluginBatch_Commit.Content" xml:space="preserve"><value>创建全部配置</value></data>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>批量创建完成</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>已创建 {0} 个配置，跳过 {1} 个配置。</value></data>
-  <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>可还原（精确）</value></data>
-  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>可还原（覆盖／导出）</value></data>
-  <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>可从云端准备后还原</value></data>
+  <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>可还原</value></data>
+  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>可还原（覆盖或导出）</value></data>
+  <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>需从云端下载</value></data>
   <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>需要插件或凭据</value></data>
   <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>备份数据不可用</value></data>
-  <data name="History_NativeReadiness_Released" xml:space="preserve"><value>历史存在，但 payload 已释放</value></data>
-  <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>仅保留历史元数据</value></data>
+  <data name="History_NativeReadiness_Released" xml:space="preserve"><value>备份文件已释放</value></data>
+  <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>仅保留历史记录</value></data>
   <data name="History_NativeAction_NotAvailable" xml:space="preserve"><value>此操作尚未连接到安全的 Native History 执行器，已阻止旧版回退。</value></data>
   <data name="HistoryPage_BranchCheckout.ToolTipService.ToolTip" xml:space="preserve"><value>切换到所选分支</value></data>
   <data name="HistoryPage_BranchRename.ToolTipService.ToolTip" xml:space="preserve"><value>重命名分支</value></data>
@@ -5295,11 +5295,11 @@ Pull Request：{1}</value>
   <data name="SettingsProject_Save.Content" xml:space="preserve"><value>保存</value></data>
   <data name="SettingsProject_Delete.Content" xml:space="preserve"><value>删除项目</value></data>
   <data name="SettingsProject_Stale" xml:space="preserve"><value>项目在编辑期间已改变，请返回项目后重新打开设置。当前草稿未覆盖新配置。</value></data>
-  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>保存后生效。</value></data>
+  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>没有未保存的更改</value></data>
   <data name="SettingsProject_Unsaved" xml:space="preserve"><value>项目设置尚未保存</value></data>
   <data name="SettingsProject_Discard" xml:space="preserve"><value>放弃修改</value></data>
   <data name="SettingsProject_Saved" xml:space="preserve"><value>项目设置已保存。</value></data>
-  <data name="SettingsProject_SaveFailed" xml:space="preserve"><value>保存未完成，草稿仍保留。请处理错误后重试。</value></data>
+  <data name="SettingsProject_SaveFailed" xml:space="preserve"><value>保存失败，输入已保留。请处理提示的问题后重试。</value></data>
   <data name="SettingsProject_Search.Header" xml:space="preserve"><value>查找项目设置</value></data>
   <data name="SettingsProject_Search.PlaceholderText" xml:space="preserve"><value>例如：卡顿、自动备份、空间、云、排除</value></data>
   <data name="SettingsProject_SearchGeneral" xml:space="preserve"><value>内容|名称|位置|目录</value></data>
@@ -5323,7 +5323,7 @@ Pull Request：{1}</value>
   <data name="CloudSetup_Url.Header" xml:space="preserve"><value>WebDAV 服务 URL</value></data>
   <data name="CloudSetup_User.Header" xml:space="preserve"><value>WebDAV 用户名</value></data>
   <data name="CloudSetup_Password.Header" xml:space="preserve"><value>WebDAV 密码</value></data>
-  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>凭据保存在仅当前用户可访问的独立文件中。</value></data>
+  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>凭据保存在仅当前用户可访问的独立文件中；创建成功后会清空密码框，无需再次输入。</value></data>
   <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>创建连接</value></data>
   <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>连接配置文件</value></data>
   <data name="CloudSetup_PickConfig.Content" xml:space="preserve"><value>选择已有配置文件</value></data>
@@ -5357,7 +5357,7 @@ Pull Request：{1}</value>
   <data name="CloudSetup_OutputTruncated" xml:space="preserve"><value>远端响应超过读取上限，请缩小查询范围。结果不完整。</value></data>
   <data name="CloudSetup_InitialState" xml:space="preserve"><value>连接尚未检查。保存连接不表示云副本已完成。</value></data>
   <data name="CloudSetup_ConnectionChanged" xml:space="preserve"><value>连接选择已改变，请重新检查；旧检查结果失效。</value></data>
-  <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>连接草稿已创建。浏览并确认目标后保存；取消只清理本次未保存的凭据文件。</value></data>
+  <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>连接草稿已创建并切换到已有配置，密码框已安全清空。请浏览并确认目标后保存；取消只清理本次未保存的凭据文件。</value></data>
   <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>目录展示已截断为 200 项，请输入更具体的子目录后重新检查。</value></data>
   <data name="CloudSetup_ReadVerified" xml:space="preserve"><value>当前目录可列举；读取检查不证明可上传，也不证明存在可恢复备份。</value></data>
   <data name="CloudSetup_ProbeRetained" xml:space="preserve"><value>本次测试对象未能确认清理：{0}。仅手动处理这个确切对象。</value></data>
@@ -5490,11 +5490,11 @@ Pull Request：{1}</value>
   <data name="HomeProtection_SourceFailures" xml:space="preserve"><value>待处理内容：{0}。请打开项目查看对应源。</value></data>
   <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>常规</value></data>
   <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>备份</value></data>
-  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>资源</value></data>
+  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>存储与性能</value></data>
   <data name="SettingsProject_TabRestore.Text" xml:space="preserve"><value>还原</value></data>
   <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>自动化</value></data>
   <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>云存储</value></data>
-  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>筛选</value></data>
+  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>文件规则</value></data>
   <data name="SettingsProject_SearchResource" xml:space="preserve"><value>卡顿|性能|资源|空间|压缩|线程|保留|cpu|compression|threads|retention|performance</value></data>
   <data name="SettingsProject_AdvancedResources.Header" xml:space="preserve"><value>高级：压缩参数与文件类型规则</value></data>
   <data name="SettingsProject_AdvancedIdentity.Header" xml:space="preserve"><value>高级：类型、图标与配置文件</value></data>
@@ -5672,11 +5672,11 @@ Pull Request：{1}</value>
   <data name="SettingsProject_SaveAction" xml:space="preserve"><value>保存</value></data>
   <data name="SettingsProject_GroupGeneral" xml:space="preserve"><value>常规</value></data>
   <data name="SettingsProject_GroupBackup" xml:space="preserve"><value>备份</value></data>
-  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>资源</value></data>
+  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>存储与性能</value></data>
   <data name="SettingsProject_GroupRestore" xml:space="preserve"><value>还原</value></data>
   <data name="SettingsProject_GroupAutomation" xml:space="preserve"><value>自动化</value></data>
   <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>云存储</value></data>
-  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>筛选</value></data>
+  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>文件规则</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>仅普通还原使用此选项。恢复点供成功还原后反悔使用，失败回滚始终开启。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>失败时自动回滚；关闭后可能丢失原文件。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>执行还原时检查备份，损坏时停止操作。</value></data>
@@ -5735,8 +5735,8 @@ Pull Request：{1}</value>
   <data name="Check_CloudRepair" xml:space="preserve"><value>检查未完成，请核对连接设置后重试。</value></data>
   <data name="CloudSetup_CheckFailedShort" xml:space="preserve"><value>连接检查失败，请核对地址、凭据或配置文件；详情见诊断。</value></data>
   <data name="CloudSetup_WriteVerifiedShort" xml:space="preserve"><value>读写验证通过。</value></data>
-  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>读写验证失败，请检查云目录权限。</value></data>
-  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>测试文件未能清理，请在云目录中手动删除；路径见诊断。</value></data>
+  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>未能确认此目录的读写能力。请查看诊断并重试。</value></data>
+  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>未能确认测试对象已清理；上传或读回未完成时，程序会保留对象。请按诊断中的确切路径检查。</value></data>
   <data name="CloudRecovery_HistorySummary" xml:space="preserve"><value>已载入 {0} 个版本，请选择要还原的内容。</value></data>
   <data name="CloudRecovery_ReadablePreview" xml:space="preserve"><value>内容：{0}
 备份时间：{1}
@@ -6705,9 +6705,9 @@ Pull Request：{1}</value>
   <data name="CloudRecovery_NoActiveReplica" xml:space="preserve"><value>没有记录可用的 Active 云副本。</value></data>
   <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>暂时无法安全合并此后端的认证刷新。请使用已支持的连接或重新授权；云调用已暂停，凭据证据会保留。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Header" xml:space="preserve"><value>备份归档验证</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Description" xml:space="preserve"><value>Full / Smart：均衡检查安全路径及文件名、大小；严格额外完整测试一次归档内容。独立于压缩和线程设置。</value></data>
+  <data name="ConfigSettingsDialog_BackupVerificationDescription.Text" xml:space="preserve"><value>默认均衡：检查归档路径及文件名、大小。严格会额外完整测试归档，耗时更长；适用于全量和智能备份。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Header" xml:space="preserve"><value>还原归档预检查</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Description" xml:space="preserve"><value>均衡检查路径、依赖及实际提取结果；严格额外完整测试依赖链一次。旧项目保留原完整检查偏好，可主动改为均衡。</value></data>
+  <data name="ConfigSettingsDialog_RestorePreflightDescription.Text" xml:space="preserve"><value>默认均衡：检查路径、依赖及实际提取结果。严格会额外完整测试依赖链，耗时更长。</value></data>
   <data name="ConfigSettingsDialog_VerificationBalanced.Content" xml:space="preserve"><value>均衡</value></data>
   <data name="ConfigSettingsDialog_VerificationStrict.Content" xml:space="preserve"><value>严格</value></data>
   <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>失败回滚始终开启，与验证等级和还原前备份无关。</value></data>
@@ -6778,8 +6778,8 @@ Pull Request：{1}</value>
   <data name="MigrationWizard_OriginalAutoBackup.Content" xml:space="preserve"><value>原自动备份开关</value></data>
   <data name="MigrationWizard_OriginalCloud.Content" xml:space="preserve"><value>原云同步开关</value></data>
   <data name="MigrationWizard_HandleProject.Content" xml:space="preserve"><value>处理此项目</value></data>
-  <data name="MigrationWizard_AllowBackup.Content" xml:space="preserve"><value>允许在本机继续备份（保留原自动备份开关）</value></data>
-  <data name="MigrationWizard_AllowCloud.Content" xml:space="preserve"><value>允许该项目执行云操作（保留原云同步开关）</value></data>
+  <data name="MigrationWizard_AllowBackup.Content" xml:space="preserve"><value>确认允许此项目进行本地备份</value></data>
+  <data name="MigrationWizard_AllowCloud.Content" xml:space="preserve"><value>确认允许此项目进行云操作</value></data>
   <data name="MigrationWizard_Password.Header" xml:space="preserve"><value>创建备份时使用的原密码</value></data>
   <data name="MigrationWizard_VerifyPassword.Content" xml:space="preserve"><value>验证密码并继续</value></data>
   <data name="MigrationWizard_AttachHistory.Content" xml:space="preserve"><value>选择并关联配置或历史文件</value></data>
@@ -6790,7 +6790,7 @@ Pull Request：{1}</value>
   <data name="MigrationWizard_TechnicalDetails.Header" xml:space="preserve"><value>技术详情</value></data>
   <data name="MigrationWizard_Back.Content" xml:space="preserve"><value>上一步</value></data>
   <data name="MigrationWizard_Leave.Content" xml:space="preserve"><value>稍后继续</value></data>
-  <data name="MigrationWizard_EntryDescription.Text" xml:space="preserve"><value>通过向导导出或导入配置、历史与备份关联；明确匹配的文件和原分支会自动验证处理。</value></data>
+  <data name="MigrationWizard_EntryDescription.Text" xml:space="preserve"><value>导出或导入备份项目，或继续检查迁移状态与云操作许可。</value></data>
   <data name="MigrationWizard_PendingCard.Title" xml:space="preserve"><value>迁移尚未完成</value></data>
   <data name="MigrationWizard_PendingCard.Message" xml:space="preserve"><value>已有配置或历史等待完成恢复。继续向导即可检查归档、处理问题并确认本机备份许可。</value></data>
   <data name="MigrationWizard_Continue.Content" xml:space="preserve"><value>继续完成迁移</value></data>
@@ -6880,4 +6880,159 @@ Pull Request：{1}</value>
   <data name="MigrationWizard_RepairArchives" xml:space="preserve"><value>补充缺失的备份文件</value></data>
   <data name="MigrationWizard_RecheckArchives" xml:space="preserve"><value>检查备份文件</value></data>
   <data name="MigrationWizard_ProjectContents" xml:space="preserve"><value>{0} 个来源 · {1} 个历史版本</value></data>
+  <data name="SettingsProject_More.AutomationProperties.Name" xml:space="preserve"><value>项目操作</value></data>
+  <data name="SettingsProject_More.ToolTipService.ToolTip" xml:space="preserve"><value>更多项目操作</value></data>
+  <data name="SettingsProject_SaveTemplateMenu.Text" xml:space="preserve"><value>保存为模板…</value></data>
+  <data name="SettingsProject_DeleteMenu.Text" xml:space="preserve"><value>删除项目…</value></data>
+  <data name="SettingsProject_Category.Header" xml:space="preserve"><value>设置分类</value></data>
+  <data name="SettingsProject_Category.AutomationProperties.Name" xml:space="preserve"><value>设置分类</value></data>
+  <data name="SettingsProject_ChangeIcon.Content" xml:space="preserve"><value>更换…</value></data>
+  <data name="SettingsProject_KindPicker.AutomationProperties.Name" xml:space="preserve"><value>项目类型</value></data>
+  <data name="SettingsProject_IconPicker.AutomationProperties.Name" xml:space="preserve"><value>选择项目图标</value></data>
+  <data name="SettingsProject_SearchNoResults" xml:space="preserve"><value>没有匹配的设置分类</value></data>
+  <data name="SettingsProject_Modified" xml:space="preserve"><value>有未保存的更改</value></data>
+  <data name="SettingsProject_Saving" xml:space="preserve"><value>正在保存…</value></data>
+  <data name="SettingsDiagnostics_ConfigFile.Header" xml:space="preserve"><value>配置文件</value></data>
+  <data name="SettingsDiagnostics_ConfigPath.AutomationProperties.Name" xml:space="preserve"><value>全局配置文件路径</value></data>
+  <data name="SettingsDiagnostics_OpenConfigFolder.Content" xml:space="preserve"><value>打开所在文件夹</value></data>
+  <data name="SettingsDiagnostics_OpenConfigFile.Content" xml:space="preserve"><value>打开配置文件</value></data>
+  <data name="SettingsDiagnostics_OpenFailed" xml:space="preserve"><value>无法打开配置文件，请检查文件是否存在及访问权限。</value></data>
+  <data name="SettingsTemplates_More.AutomationProperties.Name" xml:space="preserve"><value>更多模板操作</value></data>
+  <data name="SettingsTemplates_ExportMenu.Text" xml:space="preserve"><value>导出模板…</value></data>
+  <data name="SettingsTemplates_ShareCodeMenu.Text" xml:space="preserve"><value>使用分享码…</value></data>
+  <data name="SettingsTemplates_SubmitMenu.Text" xml:space="preserve"><value>投稿模板…</value></data>
+  <data name="SettingsTemplates_ManageMenu.Text" xml:space="preserve"><value>管理模板…</value></data>
+  <data name="MigrationWizard_AttentionCount" xml:space="preserve"><value>项目：{0} · 需要处理：{1}</value></data>
+  <data name="MigrationWizard_OriginalOperations" xml:space="preserve"><value>原设置：自动备份 {0} · 云上传 {1}</value></data>
+  <data name="MigrationWizard_On" xml:space="preserve"><value>开启</value></data>
+  <data name="MigrationWizard_Off" xml:space="preserve"><value>关闭</value></data>
+  <data name="MigrationWizard_BackToProjects.Content" xml:space="preserve"><value>返回项目列表</value></data>
+  <data name="MigrationWizard_ActionConfiguration" xml:space="preserve"><value>导入配置…</value></data>
+  <data name="MigrationWizard_ActionHistory" xml:space="preserve"><value>导入历史…</value></data>
+  <data name="MigrationWizard_ActionPaths" xml:space="preserve"><value>设置文件夹位置…</value></data>
+  <data name="MigrationWizard_ActionPassword" xml:space="preserve"><value>验证密码…</value></data>
+  <data name="MigrationWizard_ActionArchives" xml:space="preserve"><value>检查备份文件…</value></data>
+  <data name="MigrationWizard_ActionBranch" xml:space="preserve"><value>处理历史分支…</value></data>
+  <data name="MigrationWizard_ActionDetails" xml:space="preserve"><value>查看详情…</value></data>
+  <data name="MigrationWizard_FinishReadyCount" xml:space="preserve"><value>完成 {0} 个已就绪项目</value></data>
+  <data name="MigrationWizard_ApplyAndRecheck" xml:space="preserve"><value>应用选择并重新检查</value></data>
+  <data name="HistoryLoad_Incompatible" xml:space="preserve"><value>当前版本无法读取此项目的历史格式，请使用兼容的应用版本。</value></data>
+  <data name="HistoryLoad_RecoveryRequired" xml:space="preserve"><value>此项目的历史数据缺失或无法读取，请导入历史文件或继续处理迁移。</value></data>
+  <data name="HistoryLoad_BindingSaveFailed" xml:space="preserve"><value>无法保存此项目的历史关联，请检查配置目录的访问权限后重试。</value></data>
+  <data name="HistoryLoad_AccessDenied" xml:space="preserve"><value>没有权限读取此项目的历史数据，请检查文件访问权限。</value></data>
+  <data name="HistoryLoad_ReadFailed" xml:space="preserve"><value>无法读取此项目的历史数据，请检查文件是否可用后重试。</value></data>
+  <data name="HistoryLoad_Failed" xml:space="preserve"><value>无法加载此项目的历史，请重试或查看技术详情。</value></data>
+  <data name="HistoryLoad_ImportHistory" xml:space="preserve"><value>导入历史…</value></data>
+  <data name="HistoryLoad_TechnicalDetails.Header" xml:space="preserve"><value>技术详情</value></data>
+  <data name="BackupTasks_EmptySummary" xml:space="preserve"><value>当前没有任务</value></data>
+  <data name="BackupTasks_Count" xml:space="preserve"><value>任务：{0}</value></data>
+  <data name="BackupTasks_FailureSummary.Text" xml:space="preserve"><value>任务未完成，请查看详情。</value></data>
+  <data name="BackupTasks_ViewDetails.Content" xml:space="preserve"><value>查看详情…</value></data>
+  <data name="BackupTasks_DetailsTitle" xml:space="preserve"><value>任务详情 · {0}</value></data>
+  <data name="BackupTasks_DetailsLabel" xml:space="preserve"><value>完整错误与任务日志</value></data>
+  <data name="BackupTasks_DetailsBody" xml:space="preserve"><value>错误
+{0}
+
+任务日志
+{1}</value></data>
+  <data name="BackupTasks_CopyDetails" xml:space="preserve"><value>复制详情</value></data>
+  <data name="CloudConnections_Selected" xml:space="preserve"><value>当前连接：{0}</value></data>
+  <data name="CloudConnections_SelectFirst" xml:space="preserve"><value>选择一个连接以编辑、共享或删除</value></data>
+  <data name="CloudConnections_ProjectOwner.AutomationProperties.Name" xml:space="preserve"><value>专属连接所属项目</value></data>
+  <data name="LogPage_LevelFilter.AutomationProperties.Name" xml:space="preserve"><value>日志级别</value></data>
+  <data name="LogCommands_Display.Label" xml:space="preserve"><value>显示选项</value></data>
+  <data name="LogCommands_Copy.Label" xml:space="preserve"><value>复制</value></data>
+  <data name="LogCommands_OpenFolder.Label" xml:space="preserve"><value>打开日志文件夹</value></data>
+  <data name="LogCommands_OpenFile.Label" xml:space="preserve"><value>打开当前日志文件</value></data>
+  <data name="LogCommands_Clear.Label" xml:space="preserve"><value>清空当前日志…</value></data>
+  <data name="LogClear_Title" xml:space="preserve"><value>清空当前日志？</value></data>
+  <data name="LogClear_Description" xml:space="preserve"><value>这会清空显示记录和当前日志文件的内容，已归档的日志文件会保留。此操作无法撤销。</value></data>
+  <data name="LogClear_Action" xml:space="preserve"><value>清空当前日志</value></data>
+  <data name="MigrationWizard_PhaseShort_Pending" xml:space="preserve"><value>待检查</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingConfiguration" xml:space="preserve"><value>缺少配置</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingHistory" xml:space="preserve"><value>缺少历史文件</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingPaths" xml:space="preserve"><value>需要设置路径</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingPassword" xml:space="preserve"><value>需要密码</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingArchiveChoice" xml:space="preserve"><value>需要选择备份文件</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingBranchChoice" xml:space="preserve"><value>需要选择历史分支</value></data>
+  <data name="MigrationWizard_PhaseShort_ReconciliationRequired" xml:space="preserve"><value>历史分支需要处理</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingArchiveResolution" xml:space="preserve"><value>缺少可用备份文件</value></data>
+  <data name="MigrationWizard_PhaseShort_Blocked" xml:space="preserve"><value>需要处理</value></data>
+  <data name="MigrationWizard_PhaseShort_Verified" xml:space="preserve"><value>已就绪</value></data>
+  <data name="MigrationWizard_PhaseShort_Completed" xml:space="preserve"><value>已完成</value></data>
+  <data name="ProjectIcon_E8B7" xml:space="preserve"><value>文件夹</value></data>
+  <data name="ProjectIcon_E838" xml:space="preserve"><value>主页</value></data>
+  <data name="ProjectIcon_E7C3" xml:space="preserve"><value>设置</value></data>
+  <data name="ProjectIcon_E8EF" xml:space="preserve"><value>保存</value></data>
+  <data name="ProjectIcon_E74D" xml:space="preserve"><value>文档</value></data>
+  <data name="ProjectIcon_E8A5" xml:space="preserve"><value>打开文件</value></data>
+  <data name="ProjectIcon_E7F0" xml:space="preserve"><value>编辑</value></data>
+  <data name="ProjectIcon_E8C8" xml:space="preserve"><value>标签</value></data>
+  <data name="ProjectIcon_E7EE" xml:space="preserve"><value>星标</value></data>
+  <data name="ProjectIcon_E734" xml:space="preserve"><value>爱心</value></data>
+  <data name="ProjectIcon_E71D" xml:space="preserve"><value>邮件</value></data>
+  <data name="ProjectIcon_E8BD" xml:space="preserve"><value>日历</value></data>
+  <data name="ProjectIcon_E823" xml:space="preserve"><value>商店</value></data>
+  <data name="ProjectIcon_E8D2" xml:space="preserve"><value>修复</value></data>
+  <data name="ProjectIcon_E774" xml:space="preserve"><value>插头</value></data>
+  <data name="ProjectIcon_E7C1" xml:space="preserve"><value>世界</value></data>
+  <data name="ProjectIcon_E80F" xml:space="preserve"><value>人员</value></data>
+  <data name="ProjectIcon_E716" xml:space="preserve"><value>相机</value></data>
+  <data name="ProjectIcon_E8A7" xml:space="preserve"><value>在新窗口打开</value></data>
+  <data name="ProjectIcon_E712" xml:space="preserve"><value>更多</value></data>
+  <data name="ProjectIcon_E8CB" xml:space="preserve"><value>打开的文件夹</value></data>
+  <data name="ProjectIcon_E7B8" xml:space="preserve"><value>下载</value></data>
+  <data name="ProjectIcon_E896" xml:space="preserve"><value>上传</value></data>
+  <data name="ProjectIcon_E73E" xml:space="preserve"><value>时钟</value></data>
+  <data name="ProjectIcon_E7C5" xml:space="preserve"><value>历史</value></data>
+  <data name="ProjectIcon_E768" xml:space="preserve"><value>随机</value></data>
+  <data name="ProjectIcon_E7B7" xml:space="preserve"><value>添加</value></data>
+  <data name="ProjectIcon_E74A" xml:space="preserve"><value>删除</value></data>
+  <data name="ProjectIcon_E8FB" xml:space="preserve"><value>勾选</value></data>
+  <data name="ProjectIcon_EA39" xml:space="preserve"><value>警告</value></data>
+  <data name="ProjectIcon_E814" xml:space="preserve"><value>链接</value></data>
+  <data name="ProjectIcon_E8C7" xml:space="preserve"><value>安全报告</value></data>
+  <data name="ProjectIcon_E9CE" xml:space="preserve"><value>盾牌</value></data>
+  <data name="ProjectIcon_E9D9" xml:space="preserve"><value>信息</value></data>
+  <data name="ProjectIcon_E8F2" xml:space="preserve"><value>刷新</value></data>
+  <data name="ProjectIcon_E7BA" xml:space="preserve"><value>搜索</value></data>
+  <data name="ProjectIcon_E8A9" xml:space="preserve"><value>筛选</value></data>
+  <data name="ProjectIcon_E7F7" xml:space="preserve"><value>固定</value></data>
+  <data name="ProjectIcon_EB9F" xml:space="preserve"><value>游戏</value></data>
+  <data name="ProjectIcon_E7FC" xml:space="preserve"><value>库</value></data>
+  <data name="ProjectIcon_E943" xml:space="preserve"><value>网络驱动器</value></data>
+  <data name="ProjectIcon_E77B" xml:space="preserve"><value>便笺</value></data>
+  <data name="ProjectIcon_EA86" xml:space="preserve"><value>工具箱</value></data>
+  <data name="ProjectIcon_E8C4" xml:space="preserve"><value>共享文件夹</value></data>
+  <data name="ProjectIcon_E7A8" xml:space="preserve"><value>联系人</value></data>
+  <data name="ProjectIcon_E8D7" xml:space="preserve"><value>打印</value></data>
+  <data name="ProjectIcon_E7E7" xml:space="preserve"><value>灯泡</value></data>
+  <data name="ProjectIcon_E8D4" xml:space="preserve"><value>包裹</value></data>
+  <data name="HistoryOperation_Failed" xml:space="preserve"><value>操作未完成，请查看技术详情后重试。</value></data>
+  <data name="History_NativeReadiness_PartialReady" xml:space="preserve"><value>可还原部分文件</value></data>
+  <data name="History_NativeReadiness_RestrictedPartial" xml:space="preserve"><value>部分文件可还原（覆盖或导出）</value></data>
+  <data name="History_NativeReadiness_PartialPreparation" xml:space="preserve"><value>需下载 · 仅部分文件</value></data>
+  <data name="MigrationWizard_ContinueRemaining.Content" xml:space="preserve"><value>继续处理未完成项目…</value></data>
+  <data name="HistoryLoad_DetailsText.AutomationProperties.Name" xml:space="preserve"><value>历史加载错误技术详情</value></data>
+  <data name="MigrationWizard_ErrorDetailsText.AutomationProperties.Name" xml:space="preserve"><value>迁移技术详情</value></data>
+  <data name="LogClear_Failed" xml:space="preserve"><value>无法清空当前日志，请检查日志文件的访问权限。</value></data>
+  <data name="MigrationWizard_HistoryCloudPermissionPending" xml:space="preserve"><value>本地迁移已完成，云操作尚未确认。点击“继续迁移…”检查云连接并确认许可；连接不可用时可直接重新连接。自动上传开关保持不变。</value></data>
+  <data name="MigrationWizard_CloudStillPaused" xml:space="preserve"><value>本地迁移已完成；云操作仍暂停。可从“设置 → 数据迁移 → 继续迁移…”单独确认。</value></data>
+  <data name="MigrationWizard_CloudPermissionHint.Text" xml:space="preserve"><value>云操作许可独立于自动上传开关。不勾选时保持暂停，可稍后继续迁移确认。连接不可用时，请先在项目设置的“云存储”中重新连接并检查。</value></data>
+  <data name="MigrationWizard_ReviewCloudPermissions.Content" xml:space="preserve"><value>检查迁移状态与云操作许可…</value></data>
+  <data name="OpenList_InvalidServiceUri" xml:space="preserve"><value>OpenList 本机环境的服务网页基地址为空或无效。请在“设置 → 运行环境 → OpenList 本机环境与地址”中检查；此处不是云连接的 WebDAV 地址。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingCloudConnection" xml:space="preserve"><value>本地迁移已完成，云连接尚未就绪。请重新连接云存储，再重新检查并确认云操作许可。</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingCloudConnection" xml:space="preserve"><value>云连接待处理</value></data>
+  <data name="MigrationWizard_ActionCloudConnection" xml:space="preserve"><value>处理云连接…</value></data>
+  <data name="MigrationWizard_PermissionSummary" xml:space="preserve"><value>本机备份许可：{0} · 云操作许可：{1}</value></data>
+  <data name="MigrationWizard_PermissionGranted" xml:space="preserve"><value>已允许</value></data>
+  <data name="MigrationWizard_PermissionAwaitingConfirmation" xml:space="preserve"><value>待确认</value></data>
+  <data name="MigrationWizard_PermissionNeedsCheck" xml:space="preserve"><value>待检查</value></data>
+  <data name="MigrationWizard_CloudNotConfigured" xml:space="preserve"><value>未配置</value></data>
+  <data name="MigrationWizard_CloudNeedsConnection" xml:space="preserve"><value>连接待处理</value></data>
+  <data name="MigrationWizard_CloudConnectionProblem.Title" xml:space="preserve"><value>云连接尚未就绪</value></data>
+  <data name="MigrationWizard_CloudConnectionProblem.Message" xml:space="preserve"><value>当前连接未通过检查，暂时无法确认云操作许可。请重新连接并保存，然后返回此处重新检查。本地历史和已授予的本机备份许可保留。</value></data>
+  <data name="MigrationWizard_ReconnectCloud.Content" xml:space="preserve"><value>重新连接云存储…</value></data>
+  <data name="MigrationWizard_RecheckCloud.Content" xml:space="preserve"><value>重新检查</value></data>
+  <data name="MigrationWizard_CloudPermissionNoticeTitle" xml:space="preserve"><value>云操作待确认</value></data>
 </root>

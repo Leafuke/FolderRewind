@@ -51,16 +51,21 @@ internal sealed class MigrationWorkflowRunner(MigrationWorkflowStore store, IMig
                     if (project.RecoveryVerified)
                     {
                         var permission = await backend.InspectPermissionsAsync(project, token).ConfigureAwait(false);
-                        project = project with { CanConfirmBackup = permission.CanBackup, CanConfirmCloud = permission.CanCloud && permission.CloudEnabled,
-                            CloudEnabled = permission.CloudEnabled };
+                        project = project with { CanConfirmBackup = permission.CanBackup, CanConfirmCloud = permission.CanCloud,
+                            BackupPermissionGranted = permission.BackupReleased, CloudPermissionGranted = permission.CloudReleased,
+                            CloudConfigured = permission.CloudConfigured, CloudEnabled = permission.CloudEnabled };
                         if (project.ReadyVersions < project.TotalVersions && !project.RetainMissingArchives)
                             project = project with { Phase = MigrationProjectPhase.AwaitingArchiveResolution };
                         else if (!permission.CanBackup && !permission.BackupReleased)
                             project = project with { Phase = MigrationProjectPhase.Blocked, Diagnostics = permission.Diagnostics };
-                        else if (permission.BackupReleased && (!project.CloudSelected || permission.CloudReleased))
+                        else if (permission.BackupReleased && permission.CloudConfigured && !permission.CanCloud && !permission.CloudReleased)
+                            project = project with { Phase = MigrationProjectPhase.AwaitingCloudConnection,
+                                Diagnostics = [.. project.Diagnostics.Concat(permission.Diagnostics).Distinct(StringComparer.Ordinal)] };
+                        else if (permission.BackupReleased && (!(permission.CloudConfigured || project.CloudSelected) || permission.CloudReleased))
                             project = project with { Phase = MigrationProjectPhase.Completed };
                         else
-                            project = project with { Phase = MigrationProjectPhase.Verified, Diagnostics = project.Diagnostics.AddRange(permission.Diagnostics) };
+                            project = project with { Phase = MigrationProjectPhase.Verified,
+                                Diagnostics = [.. project.Diagnostics.Concat(permission.Diagnostics).Distinct(StringComparer.Ordinal)] };
                     }
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -95,7 +100,9 @@ internal sealed class MigrationWorkflowRunner(MigrationWorkflowStore store, IMig
                         var permission = await backend.InspectPermissionsAsync(project, token).ConfigureAwait(false);
                         project = project with { Phase = permission.BackupReleased && (!project.CloudSelected || permission.CloudReleased)
                             ? MigrationProjectPhase.Completed : MigrationProjectPhase.Verified,
-                            CanConfirmBackup = permission.CanBackup, CanConfirmCloud = permission.CanCloud && permission.CloudEnabled };
+                            CanConfirmBackup = permission.CanBackup, CanConfirmCloud = permission.CanCloud,
+                            BackupPermissionGranted = permission.BackupReleased, CloudPermissionGranted = permission.CloudReleased,
+                            CloudConfigured = permission.CloudConfigured };
                     }
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }

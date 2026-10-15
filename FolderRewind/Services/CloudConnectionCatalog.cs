@@ -78,6 +78,12 @@ internal static class CloudConnectionCatalog
         var copy = ConfigSnapshotMapper.Copy(input);
         copy.RemoteBasePath = resolved.RemoteRoot; copy.RcloneConfigPath = resolved.CredentialReference;
         copy.ExecutablePath = resolved.ExecutablePath; copy.WorkingDirectory = resolved.WorkingDirectory;
+        // A shared profile can carry a directory probe already confirmed by the user.
+        // Transfers still compare this evidence with the current credential target and exact root.
+        if (copy.ReadableEvidence.Length == 0)
+            copy.ReadableEvidence = CloudConnectionResolver.VerifiedAccessEvidence(profile, resolved.RemoteRoot, writable: false);
+        if (copy.WritableEvidence.Length == 0)
+            copy.WritableEvidence = CloudConnectionResolver.VerifiedAccessEvidence(profile, resolved.RemoteRoot, writable: true);
         return copy;
     }
 

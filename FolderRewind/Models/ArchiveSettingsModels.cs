@@ -44,10 +44,8 @@ namespace FolderRewind.Models
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
         private bool _safeRestoreEnabled = true;     // 旧输入别名；不控制事务回滚。
-        private bool _verifyArchiveBeforeRestore = true; // 旧 JSON 输入，缺失/true 保守迁移 Strict。
-        private BackupArchiveVerificationLevel _backupVerificationLevel;
-        private RestoreArchivePreflightMode _restorePreflightMode;
-        private bool _restorePreflightSpecified;
+        private BackupArchiveVerificationLevel _backupVerificationLevel = BackupArchiveVerificationLevel.Balanced;
+        private RestoreArchivePreflightMode _restorePreflightMode = RestoreArchivePreflightMode.Balanced;
         private bool _inputMigrationApplied;
         private bool _quickRestoreSafetySnapshotEnabled = true;
         private int _maxSmartBackupsPerFull = 5;    // 智能备份链长度限制，默认 5
@@ -88,12 +86,12 @@ namespace FolderRewind.Models
         public bool SafeRestoreEnabled { get => true; set => SetProperty(ref _safeRestoreEnabled, value); }
 
         /// <summary>
-        /// 还原前完整性校验：对还原链中的压缩包执行 7z test。
+        /// 兼容旧 JSON 字段；验证等级统一由 RestorePreflightMode 控制，缺省为均衡。
         /// </summary>
         public bool VerifyArchiveBeforeRestore
         {
             get => RestorePreflightMode == RestoreArchivePreflightMode.Strict;
-            set => SetProperty(ref _verifyArchiveBeforeRestore, value);
+            set { }
         }
 
         public BackupArchiveVerificationLevel BackupVerificationLevel
@@ -112,7 +110,6 @@ namespace FolderRewind.Models
             {
                 if (!Enum.IsDefined(value)) throw new System.Text.Json.JsonException("Invalid restore preflight mode.");
                 SetProperty(ref _restorePreflightMode, value);
-                _restorePreflightSpecified = true;
             }
         }
         public bool QuickRestoreSafetySnapshotEnabled
@@ -127,10 +124,6 @@ namespace FolderRewind.Models
         internal void ApplyDeserializedInputMigration()
         {
             if (_inputMigrationApplied) return;
-            // setter 是否被 JSON 调用是字段存在性证据；新建对象不经过此回调。
-            // 旧输入缺少完整检查字段时也保守迁移 Strict，新字段优先且与 JSON 顺序无关。
-            if (!_restorePreflightSpecified)
-                RestorePreflightMode = _verifyArchiveBeforeRestore ? RestoreArchivePreflightMode.Strict : RestoreArchivePreflightMode.Balanced;
             _safeRestoreEnabled = true;
             _inputMigrationApplied = true;
         }

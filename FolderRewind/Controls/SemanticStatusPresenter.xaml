@@ -40,15 +40,16 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+        <Grid ColumnSpacing="4" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <FontIcon x:Name="StatusIcon"
                       FontSize="12"
                       AutomationProperties.AccessibilityView="Raw"
                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBlock x:Name="StatusTextBlock"
+            <TextBlock x:Name="StatusTextBlock" Grid.Column="1" TextWrapping="Wrap"
                        Style="{StaticResource CaptionTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        TextTrimming="CharacterEllipsis" />
-        </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>

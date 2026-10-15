@@ -31,6 +31,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     private bool _isEmpty = true;
     private bool _isLoading;
     private string _errorMessage = string.Empty;
+    private string _loadErrorDetails = string.Empty;
+    private HistoryLoadAction _loadErrorAction = HistoryLoadAction.Retry;
     private int _missingCount;
     private string _commentFilterText = string.Empty;
     private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
@@ -93,11 +95,32 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         private set
         {
             if (!SetProperty(ref _errorMessage, value ?? string.Empty)) return;
+            if (string.IsNullOrEmpty(value)) _loadErrorDetails = "";
             OnPropertyChanged(nameof(HasError));
+            OnPropertyChanged(nameof(ShowMigrationNotice));
+            OnPropertyChanged(nameof(HasLoadErrorDetails));
+            OnPropertyChanged(nameof(LoadErrorDetails));
             OnPropertyChanged(nameof(ShowEmptyState));
         }
     }
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool ShowMigrationNotice => HasPendingMigration && !HasError;
+    public string LoadErrorDetails => _loadErrorDetails;
+    public bool HasLoadErrorDetails => HasError && _loadErrorDetails.Length > 0;
+    public bool HasLoadErrorAction => _loadErrorAction != HistoryLoadAction.None;
+    public string LoadErrorActionText => I18n.GetString(_loadErrorAction switch
+    {
+        HistoryLoadAction.ImportHistory => "HistoryLoad_ImportHistory",
+        HistoryLoadAction.ContinueMigration => "MigrationWizard_Continue.Content",
+        _ => "HistoryPage_Retry.Content"
+    });
+    public async Task ExecuteLoadErrorActionAsync()
+    {
+        if (_loadErrorAction == HistoryLoadAction.ContinueMigration) ContinueMigration();
+        else if (_loadErrorAction == HistoryLoadAction.ImportHistory)
+            NavigationService.NavigateTo("Migration", new MigrationWizardRequest(MigrationWizardMode.Import, DataMigrationScope.History, ConfigId: _currentConfig?.Id));
+        else if (_loadErrorAction == HistoryLoadAction.Retry) await RetryCommand.ExecuteAsync(null);
+    }
     private bool _awaitingHistoryImport;
     private MigrationHistoryStatus _migrationStatus;
     public bool HasPendingMigration => _migrationStatus != MigrationHistoryStatus.None;
@@ -106,10 +129,16 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         MigrationHistoryStatus.AwaitingHistory => "Migration_AwaitingHistory",
         MigrationHistoryStatus.AwaitingRecovery => "MigrationWizard_HistoryPending",
         MigrationHistoryStatus.AwaitingPermissions => "MigrationWizard_HistoryPermissionPending",
+        MigrationHistoryStatus.AwaitingCloudPermissions => "MigrationWizard_HistoryCloudPermissionPending",
         MigrationHistoryStatus.MissingArchives => "MigrationWizard_HistoryMissingArchives",
         _ => "MigrationWizard_NothingPending"
     });
-    public string MigrationNoticeTitle => I18n.GetString(_migrationStatus == MigrationHistoryStatus.MissingArchives ? "MigrationWizard_RepairArchives" : "MigrationWizard_HistoryNotice.Title");
+    public string MigrationNoticeTitle => I18n.GetString(_migrationStatus switch
+    {
+        MigrationHistoryStatus.MissingArchives => "MigrationWizard_RepairArchives",
+        MigrationHistoryStatus.AwaitingCloudPermissions => "MigrationWizard_CloudPermissionNoticeTitle",
+        _ => "MigrationWizard_HistoryNotice.Title"
+    });
     public string MigrationActionText => I18n.GetString(_migrationStatus == MigrationHistoryStatus.MissingArchives ? "MigrationWizard_RecheckArchives" : "MigrationWizard_Continue.Content");
     public void ContinueMigration() => NavigationService.NavigateTo("Migration", new MigrationWizardRequest(MigrationWizardMode.Continue, ConfigId: _currentConfig?.Id));
     private void OnMigrationWorkflowChanged() { if (_isActive) ScheduleChangeRefresh(); }
@@ -118,6 +147,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _migrationStatus = status; IsAwaitingHistoryImport = status == MigrationHistoryStatus.AwaitingHistory;
         OnPropertyChanged(nameof(HasPendingMigration)); OnPropertyChanged(nameof(MigrationStatusMessage)); OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(MigrationNoticeTitle)); OnPropertyChanged(nameof(MigrationActionText));
+        OnPropertyChanged(nameof(ShowMigrationNotice));
     }
     public bool IsAwaitingHistoryImport
     {
@@ -304,15 +334,28 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IsLoading = false;
     }
 
-    public void ReportLoadFailure(string message)
+    public void ReportLoadFailure(Exception error)
     {
-        ErrorMessage = message ?? string.Empty;
+        var presentation = HistoryLoadFailurePolicy.Present(error, HasPendingMigration);
+        _loadErrorAction = presentation.Action;
+        _loadErrorDetails = CloudCommandSecurity.Redact(error.ToString());
+        ErrorMessage = I18n.GetString(presentation.SummaryKey);
+        OnPropertyChanged(nameof(LoadErrorDetails));
+        OnPropertyChanged(nameof(HasLoadErrorDetails));
+        OnPropertyChanged(nameof(LoadErrorActionText));
+        OnPropertyChanged(nameof(HasLoadErrorAction));
         IsLoading = false;
     }
 
     private void ReportOperationFailure(string operation, Exception exception)
     {
-        ErrorMessage = exception.Message;
+        ReportLoadFailure(exception);
+        if (operation is not ("view mode" or "retry"))
+        {
+            _loadErrorAction = HistoryLoadAction.None;
+            ErrorMessage = I18n.GetString("HistoryOperation_Failed");
+            OnPropertyChanged(nameof(HasLoadErrorAction));
+        }
         LogService.LogError(
             $"[HistoryPageViewModel] History {operation} failed: {exception.Message}",
             nameof(HistoryPageViewModel),
@@ -396,7 +439,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             if (!request.IsCurrent || !_isActive) return;
-            ErrorMessage = ex.Message;
+            ReportLoadFailure(ex);
             LogService.LogError(
                 $"[HistoryPageViewModel] History refresh failed: {ex.Message}",
                 nameof(HistoryPageViewModel),
@@ -1218,9 +1261,10 @@ public sealed class NativeHistoryVersionViewItem(
     public HistoryPresentationReadiness Readiness => summary.Readiness;
     public string ReadinessText => migrationPending ? I18n.GetString("MigrationWizard_HistoryPending") : summary.Readiness switch
     {
-        HistoryPresentationReadiness.Ready => I18n.GetString(summary.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
-            || IsPartialBackup ? "History_NativeReadiness_RestrictedReady" : "History_NativeReadiness_Ready"),
-        HistoryPresentationReadiness.PreparationRequired => I18n.GetString("History_NativeReadiness_PreparationRequired"),
+        HistoryPresentationReadiness.Ready => I18n.GetString(IsPartialBackup
+            ? summary.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown ? "History_NativeReadiness_RestrictedPartial" : "History_NativeReadiness_PartialReady"
+            : summary.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown ? "History_NativeReadiness_RestrictedReady" : "History_NativeReadiness_Ready"),
+        HistoryPresentationReadiness.PreparationRequired => I18n.GetString(IsPartialBackup ? "History_NativeReadiness_PartialPreparation" : "History_NativeReadiness_PreparationRequired"),
         HistoryPresentationReadiness.PluginOrCredentialRequired => I18n.GetString("History_NativeReadiness_PluginRequired"),
         HistoryPresentationReadiness.PayloadReleased => I18n.GetString("History_NativeReadiness_Released"),
         HistoryPresentationReadiness.MetadataOnly => I18n.GetString("History_NativeReadiness_MetadataOnly"),
