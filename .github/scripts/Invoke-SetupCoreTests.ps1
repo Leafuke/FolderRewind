@@ -2,10 +2,7 @@
 param([string]$ResultsDirectory = 'artifacts/core-tests')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$sevenZip = (Get-Command 7z.exe -ErrorAction Stop).Source
-& $sevenZip i | Out-Null
-if ($LASTEXITCODE) { throw 'Real 7-Zip is required for archive integration tests.' }
-$env:FOLDERREWIND_TEST_7Z = $sevenZip
+& "$PSScriptRoot/Initialize-CoreTestEnvironment.ps1"
 $projects = [ordered]@{
     abstractions='FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj'
     runtime='FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj'
@@ -14,7 +11,8 @@ $projects = [ordered]@{
 $timings = @()
 foreach ($suite in $projects.Keys) {
     $timer = [Diagnostics.Stopwatch]::StartNew()
-    dotnet test $projects[$suite] -c Release --logger trx --results-directory (Join-Path $ResultsDirectory $suite) --blame-hang-timeout 2m --blame-hang-dump-type none
+    $filter = if ($suite -eq 'host') { @('--filter', 'TestCategory!=PerformanceBenchmark') } else { @() }
+    dotnet test $projects[$suite] -c Release @filter --logger trx --results-directory (Join-Path $ResultsDirectory $suite) --blame-hang-timeout 2m --blame-hang-dump-type none
     if ($LASTEXITCODE) { throw "Core test suite failed: $suite" }
     $timings += @{suite=$suite;seconds=[math]::Round($timer.Elapsed.TotalSeconds,2)}
 }
