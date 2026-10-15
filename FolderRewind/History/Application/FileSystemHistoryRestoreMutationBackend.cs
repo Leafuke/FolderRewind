@@ -159,6 +159,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             await using var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
             await using var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true);
             await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+            HistoryOperationDiagnostics.Current?.Count("copy-tree-bytes", input.Length);
             await output.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
     }

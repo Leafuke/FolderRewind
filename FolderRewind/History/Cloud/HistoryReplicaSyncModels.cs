@@ -20,6 +20,7 @@ public interface IHistoryReplicaTransport
     Task UploadAsync(ReplicaId replicaId, string localPath, CancellationToken cancellationToken);
     Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId replicaId, CancellationToken cancellationToken);
     Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken cancellationToken);
+    Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId replicaId, CancellationToken cancellationToken);
     Task DownloadAsync(HistoryReplicaManifest manifest, string stagingPath, CancellationToken cancellationToken);
     Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken cancellationToken);
 }

@@ -18,14 +18,6 @@ namespace FolderRewind.Services
         public required string Url { get; init; }
     }
 
-    internal sealed class DownloadSourcePairCandidate
-    {
-        public required DownloadSourceOption Option { get; init; }
-        public required string DisplayName { get; init; }
-        public required string PrimaryUrl { get; init; }
-        public required string SecondaryUrl { get; init; }
-    }
-
     internal static class DownloadSourceService
     {
         private const string Mirror1Prefix = "https://v4.gh-proxy.org/";
@@ -66,48 +58,6 @@ namespace FolderRewind.Services
                     Option = option,
                     DisplayName = GetDisplayName(option),
                     Url = url
-                });
-            }
-
-            return candidates;
-        }
-
-        public static IReadOnlyList<DownloadSourcePairCandidate> BuildPairCandidates(string primaryRawUrl, string secondaryRawUrl)
-        {
-            if (string.IsNullOrWhiteSpace(primaryRawUrl) || string.IsNullOrWhiteSpace(secondaryRawUrl))
-            {
-                return Array.Empty<DownloadSourcePairCandidate>();
-            }
-
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            var order = BuildOrderedOptions(
-                NormalizeSourceOption(settings?.AppUpdatePreferredSource ?? (int)DownloadSourceOption.Mirror1),
-                settings?.AppUpdateAutoFallback ?? true);
-            var customMirror = settings?.AppUpdateCustomMirrorUrl ?? string.Empty;
-
-            var candidates = new List<DownloadSourcePairCandidate>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var option in order)
-            {
-                var primaryUrl = RewriteUrl(primaryRawUrl, option, customMirror);
-                var secondaryUrl = RewriteUrl(secondaryRawUrl, option, customMirror);
-                if (string.IsNullOrWhiteSpace(primaryUrl) || string.IsNullOrWhiteSpace(secondaryUrl))
-                {
-                    continue;
-                }
-
-                var dedupeKey = primaryUrl + "\n" + secondaryUrl;
-                if (!seen.Add(dedupeKey))
-                {
-                    continue;
-                }
-
-                candidates.Add(new DownloadSourcePairCandidate
-                {
-                    Option = option,
-                    DisplayName = GetDisplayName(option),
-                    PrimaryUrl = primaryUrl,
-                    SecondaryUrl = secondaryUrl
                 });
             }
 

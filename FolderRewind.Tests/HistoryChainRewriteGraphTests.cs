@@ -2,12 +2,28 @@ using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Retention;
 using FolderRewind.History.Storage;
+using FolderRewind.History.Cloud;
 
 namespace FolderRewind.Tests;
 
 [TestClass]
 public sealed class HistoryChainRewriteGraphTests
 {
+    [TestMethod]
+    public async Task CloudIntentRegisteredAfterDeletionPlanningKeepsOriginalArchive()
+    {
+        await using var f = new HistoryChainRewriteFixture(); await f.InitializeAsync();
+        var full = await f.AddAsync(null, p => File.WriteAllText(Path.Combine(p, "base.txt"), "base"));
+        _ = await f.AddAsync(full, p => File.WriteAllText(Path.Combine(p, "delta.txt"), "delta"));
+        var executor = new HistoryChainRewriteExecutor(f.History, f.Engine, f.Archive);
+        await using var prepared = await executor.PrepareAsync(await f.Planner.PlanAsync(f.Delete(full)));
+        var pack = (await f.History.Repository.ReadAllPacksAsync()).First(p => p.Pack.Objects.Any(o => o.Id == full.Representation.RepresentationId.ToString())).Pack;
+        await using (var gate = await f.History.MutationGate.EnterAsync())
+            f.History.CloudJobs.RegisterManual(pack, new("profile", "revision", "binding", "remote:backup", f.Config.Value), [full.Representation.RepresentationId]);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => executor.CommitAsync(prepared));
+        Assert.IsTrue(File.Exists(full.Entry.Locator.AbsolutePath));
+    }
+
     [TestMethod]
     public async Task ReadyAlternativeAvoidsRecompressionAndPreservesCloudFacts()
     {

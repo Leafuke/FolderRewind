@@ -69,6 +69,18 @@ public sealed class HistoryRepositoryTests
     }
 
     [TestMethod]
+    public async Task AllDuplicateGroupsAreCheckedBeforeDeduplication()
+    {
+        var identical = CreatePack(_codec.CreateObject(CreateVersion()));
+        var conflictId = PackId.New();
+        var first = CreatePack(_codec.CreateObject(CreateVersion()), conflictId);
+        var second = CreatePack(_codec.CreateObject(CreateVersion()), conflictId);
+        await Assert.ThrowsExactlyAsync<HistoryIntegrityConflictException>(() => _repository.ImportAsync(
+            [_codec.Encode(identical), _codec.Encode(identical), _codec.Encode(first), _codec.Encode(second)]));
+        Assert.IsEmpty(await _repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
     public async Task Import_RejectsSameObjectIdWithDifferentFacts()
     {
         var id = VersionId.New();
@@ -148,6 +160,46 @@ public sealed class HistoryRepositoryTests
 
         Assert.HasCount(2, results);
         Assert.HasCount(2, await _repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task BatchImport_InterruptedUnionIsHiddenAndRecoveredBeforeValidation()
+    {
+        var original = CreatePack(_codec.CreateObject(CreateVersion()));
+        await _repository.CommitAsync(original);
+        var version = CreateVersion();
+        var representation = new VersionRepresentation(RepresentationId.New(), version.VersionId,
+            RepresentationKind.CoreFull, "7z", [], MaterializationFidelity.Exact, null, null, null);
+        var incoming = new[] { _codec.Encode(CreatePack(_codec.CreateObject(representation))),
+            _codec.Encode(CreatePack(_codec.CreateObject(version))) };
+        _repository.Imports.FaultInjector = (phase, count) =>
+        {
+            if (phase == "PackInstalled" && count == 1) throw new IOException("Injected disk failure");
+        };
+        await Assert.ThrowsExactlyAsync<IOException>(() => _repository.ImportAsync(incoming.Select(b => (ReadOnlyMemory<byte>)b)));
+        await Assert.ThrowsExactlyAsync<HistoryPackImportRecoveryRequiredException>(() => _repository.ReadAllPacksAsync());
+
+        _repository.Dispose();
+        _repository = new FileHistoryRepository(_configId, new HistoryRepositoryPaths(_root), _codec);
+        await _repository.InitializeAsync();
+        var recovered = await _repository.ReadAllPacksAsync();
+        new HistoryRepositoryValidator(_codec).Validate(_configId, recovered);
+        Assert.HasCount(3, recovered);
+        CollectionAssert.AreEqual(_codec.Encode(original), recovered.Single(p => p.Pack.PackId == original.PackId).OriginalBytes);
+        Assert.IsTrue((await _repository.ImportAsync(incoming.Select(b => (ReadOnlyMemory<byte>)b)))
+            .All(p => p.Disposition == HistoryPackInstallDisposition.Duplicate));
+    }
+
+    [TestMethod]
+    public async Task BatchImport_CancellationBeforeDecisionLeavesOriginalRepository()
+    {
+        using var cancellation = new CancellationTokenSource();
+        _repository.Imports.FaultInjector = (phase, _) => { if (phase == "Prepared") cancellation.Cancel(); };
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => _repository.ImportAsync(
+            [_codec.Encode(CreatePack(_codec.CreateObject(CreateVersion()))),
+             _codec.Encode(CreatePack(_codec.CreateObject(CreateVersion())))], cancellation.Token));
+        Assert.IsEmpty(await _repository.ReadAllPacksAsync());
+        Assert.IsEmpty(Directory.GetDirectories(Path.Combine(_root, "imports")));
     }
 
     [TestMethod]

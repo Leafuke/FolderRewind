@@ -7,6 +7,7 @@
     xmlns:vm="using:FolderRewind.ViewModels"
     xmlns:controls="using:FolderRewind.Controls"
     xmlns:converters="using:FolderRewind.Converters"
+    xmlns:local="using:FolderRewind.Views"
     x:Name="RootPage"
     NavigationCacheMode="Enabled" SizeChanged="OnHistoryPageSizeChanged">
 
@@ -25,7 +26,7 @@
         </Style>
     </Page.Resources>
 
-    <Grid Padding="24">
+    <Grid Padding="24" local:PageLayout.ResponsivePadding="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -231,19 +232,27 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
             </Grid>
+            <InfoBar Title="{x:Bind ViewModel.MigrationNoticeTitle, Mode=OneWay}" IsOpen="{x:Bind ViewModel.ShowMigrationNotice, Mode=OneWay}" IsClosable="False" Severity="Informational"
+                     Message="{x:Bind ViewModel.MigrationStatusMessage, Mode=OneWay}" AutomationProperties.AutomationId="HistoryMigrationPending">
+                <InfoBar.ActionButton><Button Content="{x:Bind ViewModel.MigrationActionText, Mode=OneWay}" Click="OnContinueMigration" AutomationProperties.AutomationId="HistoryContinueMigration"/></InfoBar.ActionButton>
+            </InfoBar>
             <InfoBar x:Name="HistoryLoadError"
-                     x:Uid="HistoryPage_LoadError"
+                     Title="{x:Bind ViewModel.HistoryLoadMessageTitle, Mode=OneWay}"
                      AutomationProperties.AutomationId="HistoryLoadError"
                      IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                      IsClosable="False"
-                     Severity="Error"
+                     Severity="{x:Bind local:HistoryPage.HistoryLoadSeverity(ViewModel.IsAwaitingHistoryImport), Mode=OneWay}"
                      Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}">
                 <InfoBar.ActionButton>
-                    <Button x:Uid="HistoryPage_Retry"
+                    <Button Content="{x:Bind ViewModel.LoadErrorActionText, Mode=OneWay}" Click="OnLoadErrorAction"
                             AutomationProperties.AutomationId="HistoryRetry"
-                            Command="{x:Bind ViewModel.RetryCommand}"/>
+                            Visibility="{x:Bind ViewModel.HasLoadErrorAction, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                 </InfoBar.ActionButton>
             </InfoBar>
+            <Expander x:Uid="HistoryLoad_TechnicalDetails" HorizontalAlignment="Stretch"
+                      Visibility="{x:Bind ViewModel.HasLoadErrorDetails, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.AutomationId="HistoryLoadDetails">
+                <TextBox x:Uid="HistoryLoad_DetailsText" Text="{x:Bind ViewModel.LoadErrorDetails, Mode=OneWay}" TextWrapping="Wrap" IsReadOnly="True" AcceptsReturn="True" MaxHeight="240" AutomationProperties.AutomationId="HistoryLoadDetailsText"/>
+            </Expander>
         </StackPanel>
 
         <!-- 历史列表 -->
@@ -284,30 +293,22 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel VerticalAlignment="Center" Spacing="4" MinWidth="0">
                                     <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{StaticResource HistoryTitleStyle}" ToolTipService.ToolTip="{x:Bind Message, Mode=OneTime}"/>
-                                    <Grid ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
+                                    <Grid Tag="HistoryMetadata" ColumnSpacing="8" RowSpacing="4">
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                         <TextBlock Tag="HistorySize" Text="{x:Bind FileSizeDisplay, Mode=OneTime}" Style="{StaticResource HistoryMetadataStyle}"/>
-                                        <controls:SemanticStatusPresenter Grid.Column="1" Text="{x:Bind ReadinessText, Mode=OneTime}" TextSize="14"
-                                                                          Status="{x:Bind ReadinessStatus, Mode=OneWay}"
-                                                                          Glyph="{x:Bind ReadinessGlyph, Mode=OneWay}"/>
-                                        <TextBlock Grid.Column="2" Text="{x:Bind CreationKindText, Mode=OneTime}" Style="{StaticResource HistoryMetadataStyle}"
-                                                   Visibility="{x:Bind ShowCreationKind, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}"/>
-                                        <Grid Grid.Column="3" ColumnSpacing="4" VerticalAlignment="Center"
-                                              Visibility="{x:Bind ShowBranchDisplay, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                                        <Grid Grid.Column="1" Tag="HistoryReadiness" HorizontalAlignment="Left" ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <controls:SemanticStatusPresenter Text="{x:Bind ReadinessText, Mode=OneTime}" TextSize="14" Status="{x:Bind ReadinessStatus, Mode=OneWay}" Glyph="{x:Bind ReadinessGlyph, Mode=OneWay}"/>
+                                            <FontIcon Grid.Column="1" Glyph="&#xE753;" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center"
+                                                      Visibility="{x:Bind HasCloudCopy, Converter={StaticResource BoolToVisConverter}}" ToolTipService.ToolTip="{x:Bind CloudStatusText, Mode=OneTime}" AutomationProperties.Name="{x:Bind CloudStatusText, Mode=OneTime}"/>
+                                        </Grid>
+                                        <TextBlock Grid.Column="2" Tag="HistoryCreation" Text="{x:Bind CreationKindText, Mode=OneTime}" Style="{StaticResource HistoryMetadataStyle}" Visibility="{x:Bind ShowCreationKind, Converter={StaticResource BoolToVisConverter}}"/>
+                                        <Grid Grid.Column="3" Tag="HistoryBranch" ColumnSpacing="4" HorizontalAlignment="Left" VerticalAlignment="Center" MaxWidth="240" Visibility="{x:Bind ShowBranchDisplay, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                             <FontIcon Glyph="&#xE8D7;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind BranchDisplay, Mode=OneTime}" Style="{StaticResource HistoryMetadataStyle}"
-                                                       ToolTipService.ToolTip="{x:Bind BranchDisplay, Mode=OneTime}"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind BranchDisplay, Mode=OneTime}" Style="{StaticResource HistoryMetadataStyle}" ToolTipService.ToolTip="{x:Bind BranchDisplay, Mode=OneTime}"/>
                                         </Grid>
-                                        <FontIcon Grid.Column="4" Glyph="&#xE753;"
-                                                  FontSize="12"
-                                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                                  VerticalAlignment="Center"
-                                                  Visibility="{x:Bind HasCloudCopy, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}"
-                                                  ToolTipService.ToolTip="{x:Bind CloudStatusText, Mode=OneTime}"/>
                                     </Grid>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -325,9 +326,9 @@
                                         <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionRestore}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
-                                    <DropDownButton x:Uid="History_More" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionMore}">
+                                    <Button x:Uid="History_More" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionMore}">
                                         <FontIcon Glyph="&#xE712;" FontSize="14"/>
-                                        <DropDownButton.Flyout><MenuFlyout>
+                                        <Button.Flyout><MenuFlyout>
                                             <MenuFlyoutItem x:Name="CompactImportant" Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuToggleImportant" Click="OnToggleImportantClick" Visibility="Collapsed"
                                                 AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryCompactToggleImportant}"/>
                                             <MenuFlyoutItem x:Name="CompactView" Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuView" Click="OnViewClick" Visibility="Collapsed"
@@ -338,8 +339,8 @@
                                             <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuDownload" Click="OnDownloadFromCloudClick" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionDownloadCloud}" IsEnabled="{x:Bind CanDownloadFromCloud, Mode=OneTime}"/>
                                             <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuBranch" Click="OnCreateBranchFromVersionClick" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionCreateBranch}" IsEnabled="{x:Bind CanCreateBranch, Mode=OneTime}" Visibility="{x:Bind IsAdvanced, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                                             <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuDelete" Click="OnDeleteClick" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionDelete}"/>
-                                        </MenuFlyout></DropDownButton.Flyout>
-                                    </DropDownButton>
+                                        </MenuFlyout></Button.Flyout>
+                                    </Button>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -393,15 +394,15 @@
                                             <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}, Mode=OneTime}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                         </Button>
                                         <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunRestore}" IsEnabled="{x:Bind CanRestore, Mode=OneTime}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
-                                        <DropDownButton x:Uid="History_More" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunMore}">
+                                        <Button x:Uid="History_More" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunMore}">
                                             <FontIcon Glyph="&#xE712;" FontSize="14"/>
-                                            <DropDownButton.Flyout><MenuFlyout>
+                                            <Button.Flyout><MenuFlyout>
                                                 <MenuFlyoutItem x:Name="CompactRunImportant" Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuToggleImportant" Click="OnToggleRunImportantClick" Visibility="Collapsed"
                                                     AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryCompactRunToggleImportant}"/>
                                                 <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuComment" Click="OnEditRunCommentClick" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunEditComment}"/>
                                                 <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuDelete" Click="OnDeleteRunClick" AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunDelete}"/>
-                                            </MenuFlyout></DropDownButton.Flyout>
-                                        </DropDownButton>
+                                            </MenuFlyout></Button.Flyout>
+                                        </Button>
                                     </StackPanel>
                                 </Grid>
                             </Expander.Header>

@@ -10,7 +10,6 @@ namespace FolderRewind.ViewModels
     {
         private readonly BackupConfig _config;
         private bool _isBusy;
-        private ConfigCloudSyncMode _selectedMode = ConfigCloudSyncMode.HistoryOnly;
         private ConfigCloudHistoryAnalysisResult? _analysisResult;
         private string _statusMessage = string.Empty;
 
@@ -45,18 +44,6 @@ namespace FolderRewind.ViewModels
         public bool CanExecuteSync => !IsBusy && CloudSyncService.CanUseManualCloudActions(_config);
 
         public bool CanUploadHistory => !IsBusy && CloudSyncService.CanUseManualCloudActions(_config);
-
-        public ConfigCloudSyncMode SelectedMode
-        {
-            get => _selectedMode;
-            set => SetProperty(ref _selectedMode, value);
-        }
-
-        public int SelectedModeIndex
-        {
-            get => SelectedMode == ConfigCloudSyncMode.HistoryAndBackups ? 1 : 0;
-            set => SelectedMode = value == 1 ? ConfigCloudSyncMode.HistoryAndBackups : ConfigCloudSyncMode.HistoryOnly;
-        }
 
         public ConfigCloudHistoryAnalysisResult? AnalysisResult
         {
@@ -129,7 +116,7 @@ namespace FolderRewind.ViewModels
             var (entered, success) = await RunBusyAsync(async () =>
             {
                 StatusMessage = I18n.GetString("ConfigCloudSyncDialog_Status_Syncing");
-                var result = await CloudSyncService.SyncConfigurationFromCloudAsync(_config, SelectedMode).ConfigureAwait(true);
+                var result = await CloudSyncService.SyncConfigurationFromCloudAsync(_config).ConfigureAwait(true);
                 // 同步后回填最新分析结果，确保统计卡片与真实导入状态一致。
                 StatusMessage = result.Message;
                 AnalysisResult = result.Analysis;

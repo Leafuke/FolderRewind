@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using System;
@@ -308,16 +308,8 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CloudExecutableDescription));
             OnPropertyChanged(nameof(CloudWorkingDirectoryText));
             OnPropertyChanged(nameof(CloudRemoteBasePathText));
-            OnPropertyChanged(nameof(CloudTemplateSelectedIndex));
-            OnPropertyChanged(nameof(CloudArgumentsTemplateText));
             OnPropertyChanged(nameof(CloudTimeoutSeconds));
             OnPropertyChanged(nameof(CloudRetryCount));
-            OnPropertyChanged(nameof(SyncHistoryAfterUpload));
-            OnPropertyChanged(nameof(CloudVariablesHelpText));
-            OnPropertyChanged(nameof(CloudPreviewText));
-            OnPropertyChanged(nameof(CloudLastRunDisplay));
-            OnPropertyChanged(nameof(CloudLastExitCodeDisplay));
-            OnPropertyChanged(nameof(CloudLastErrorMessage));
             OnPropertyChanged(nameof(CloudManualSyncHint));
         }
 

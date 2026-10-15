@@ -12,7 +12,8 @@ namespace FolderRewind.History.Capture;
 
 /// <summary>
 /// Creates the durable candidate shape accepted by Native History after the caller has
-/// verified the final archive. State fingerprints remain optional until capture can
+/// verified the final archive under its admission policy. VerifiedFinal does not imply a full content test.
+/// State fingerprints remain optional until capture can
 /// produce a trustworthy logical-state fingerprint.
 /// </summary>
 public static class VerifiedArchiveCaptureFactory
@@ -30,7 +31,8 @@ public static class VerifiedArchiveCaptureFactory
         MaterializationFidelity fidelity,
         VersionId? expectedBaseVersionId = null,
         IEnumerable<string>? deletedFiles = null,
-        string? stateFingerprint = null)
+        string? stateFingerprint = null,
+        string? captureVerificationLevel = null)
     {
         ArgumentNullException.ThrowIfNull(currentStates);
         ArgumentNullException.ThrowIfNull(dependencies);
@@ -44,6 +46,13 @@ public static class VerifiedArchiveCaptureFactory
             ["fileName"] = Path.GetFileName(absolutePath)
         };
         var deleted = deletedFiles?.Where(item => !string.IsNullOrWhiteSpace(item)).ToArray() ?? [];
+        if (captureVerificationLevel is not null)
+        {
+            if (captureVerificationLevel is not ("Balanced" or "Strict"))
+                throw new ArgumentOutOfRangeException(nameof(captureVerificationLevel));
+            metadata["captureVerificationLevel"] = captureVerificationLevel;
+            metadata["captureVerifiedAtUtc"] = DateTimeOffset.UtcNow.ToString("O");
+        }
         if (deleted.Length > 0)
             metadata["deletedFiles"] = string.Join('\n', deleted);
 

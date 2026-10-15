@@ -3,6 +3,7 @@ using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using System.Linq;
 
 namespace FolderRewind.Views
 {
@@ -13,6 +14,16 @@ namespace FolderRewind.Views
         public PluginStorePage()
         {
             this.InitializeComponent();
+        }
+
+        private void OnAssetSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (sender is not Grid grid || grid.Children.OfType<StackPanel>().FirstOrDefault(p => p.Tag as string == "PluginActions") is not { } actions) return;
+            var narrow = e.NewSize.Width < 680 || actions.DesiredSize.Width > e.NewSize.Width * 0.55;
+            Grid.SetRow(actions, narrow ? 1 : 0);
+            Grid.SetColumn(actions, narrow ? 0 : 1);
+            Grid.SetColumnSpan(actions, narrow ? 2 : 1);
+            grid.ColumnDefinitions[1].Width = narrow ? new GridLength(0) : GridLength.Auto;
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)

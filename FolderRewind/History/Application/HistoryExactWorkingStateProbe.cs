@@ -20,30 +20,47 @@ public sealed class HistoryExactWorkingStateProbe(HistoryRuntime history, Histor
         CancellationToken cancellationToken)
     {
         if (baseline.Relation != WorkspaceBaselineRelation.Exact
+            || baseline.RequiresFullCapture
             || baseline.BaseVersionId is not { } id
             || !Directory.Exists(binding.TargetDirectory)) return false;
+        return await MatchesVersionAsync(binding, id, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> MatchesVersionAsync(HistoryRestoreSourceBinding binding, VersionId id, CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(binding.TargetDirectory)) return false;
         var version = await history.Query.GetVersionAsync(id, cancellationToken).ConfigureAwait(false);
         if (version is null || version.SourceId != binding.SourceId
             || version.ConfigId != history.ConfigId
             || version.EffectiveSourceBoundaryFingerprint != binding.Boundary.Fingerprint) return false;
         HistoryRestoreService.PreparedRestoreSource? prepared = null;
+        var workspace = (await history.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        using var session = workspace is null ? null : restore.CreatePreparationSession([binding], workspace);
         try
         {
             prepared = await restore.PrepareSourceAsync(version, binding, MaterializationFidelity.Exact,
-                HistoryRestoreApplyMode.Clean, cancellationToken).ConfigureAwait(false);
-            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
-            var expected = await ReadTreeAsync(prepared.StagingDirectory, include, cancellationToken).ConfigureAwait(false);
-            var actual = await ReadTreeAsync(binding.TargetDirectory, include, cancellationToken).ConfigureAwait(false);
-            return expected.Count == actual.Count
-                && expected.All(pair => actual.TryGetValue(pair.Key, out var digest) && pair.Value == digest);
+                HistoryRestoreApplyMode.Clean, cancellationToken, session).ConfigureAwait(false);
+            return await MatchesPreparedAsync(prepared, binding, cancellationToken).ConfigureAwait(false);
         }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
+        catch (InvalidOperationException) { return false; }
         finally
         {
             if (prepared is not null)
                 HistoryRestoreTransactionJournalStore.CleanupStaging([prepared.StagingDirectory]);
         }
+    }
+
+    internal static async Task<bool> MatchesPreparedAsync(HistoryRestoreService.PreparedRestoreSource prepared,
+        HistoryRestoreSourceBinding binding, CancellationToken token)
+    {
+        using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("working-state-hash");
+        if (!Directory.Exists(binding.TargetDirectory)) return false;
+        var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
+        var expected = await ReadTreeAsync(prepared.StagingDirectory, include, token).ConfigureAwait(false);
+        var actual = await ReadTreeAsync(binding.TargetDirectory, include, token).ConfigureAwait(false);
+        return expected.Count == actual.Count && expected.All(pair => actual.TryGetValue(pair.Key, out var digest) && pair.Value == digest);
     }
 
     private static async Task<Dictionary<string, string>> ReadTreeAsync(
@@ -57,6 +74,9 @@ public sealed class HistoryExactWorkingStateProbe(HistoryRuntime history, Histor
             token.ThrowIfCancellationRequested();
             if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Exact working-state probe cannot follow links.");
+            var emptyRelative = Path.GetRelativePath(root, directory).Replace('\\', '/');
+            if (emptyRelative != "." && include(emptyRelative) && !Directory.EnumerateFileSystemEntries(directory).Any())
+                result.Add(emptyRelative + "/", "empty-directory");
             foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
             {
                 var attributes = File.GetAttributes(entry);

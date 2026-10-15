@@ -33,7 +33,7 @@ internal static partial class NativeHistoryApplicationService
         HistoryQuickRestoreResolution? quick = null;
         if (versionId is null)
         {
-            quick = await new HistoryQuickRestoreResolver(runtime, restore).ResolveAsync(source, AssessmentDepth.Deep, token)
+            quick = await new HistoryQuickRestoreResolver(runtime, restore).ResolveAsync(source, AssessmentDepth.Fast, token)
                 .ConfigureAwait(false);
             if (!quick.IsReady || quick.VersionId is null) return (null, quick.Diagnostic);
             versionId = quick.VersionId;
@@ -47,7 +47,8 @@ internal static partial class NativeHistoryApplicationService
             return (null, "Restore Version's payload has been released.");
         var effectiveMode = LegacyRecoveryPolicy.RequiresOverwrite(version) ? BackupService.RestoreMode.Overwrite : requestedMode;
         var fidelity = effectiveMode == BackupService.RestoreMode.Clean ? MaterializationFidelity.Exact : MaterializationFidelity.Partial;
-        var assessment = await restore.AssessVersionAsync(version.VersionId, fidelity, AssessmentDepth.Deep, token).ConfigureAwait(false);
+        // 此入口可能跨用户确认等待，只提供可用性；执行时重新建立受保护的操作上下文。
+        var assessment = await restore.AssessVersionAsync(version.VersionId, fidelity, AssessmentDepth.Fast, token).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
             return (null, HistoryQuickRestoreResolver.AssessmentDiagnostic(assessment,
                 $"Restore Version {version.VersionId} is not recoverable with {fidelity} fidelity."));
@@ -65,21 +66,20 @@ internal static partial class NativeHistoryApplicationService
         if (Source(folder) != target.Version.SourceId || NativeHistoryConfigLease.Signature(config) != target.ConfigSignature)
             return Blocked(I18n.GetString("SettingsProject_Stale"));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
-        var restore = CreateRestoreService(config, runtime, expectedSignature: target.ConfigSignature);
+        using var verification = new ArchiveRestoreVerificationContext(config.Archive.RestorePreflightMode);
+        using var diagnostics = HistoryOperationDiagnostics.Begin(target.QuickSelection is null ? "ordinary-restore" : "quick-restore");
+        var restore = CreateRestoreService(config, runtime, expectedSignature: target.ConfigSignature, verificationContext: verification);
         if (target.QuickSelection is { } quick)
         {
             try { await new HistoryQuickRestoreResolver(runtime, restore).ValidateAsync(Source(folder), quick, token).ConfigureAwait(false); }
             catch (InvalidOperationException ex) { return Blocked(ex.Message); }
-            if (target.EffectiveMode == BackupService.RestoreMode.Clean
-                && await BackupService.DeepProbeWorkspaceVersionAsync(config, folder, target.Version.VersionId, token).ConfigureAwait(false))
-                return new(HistoryRestoreStatus.NoChanges, "Already at the active Branch's latest committed state.", false, []);
         }
         options = (options ?? new RestoreRequestOptions()) with { Mode = target.EffectiveMode.ToString().ToLowerInvariant() };
         LogService.Log($"Restore target '{target.FileName}': requested_mode={target.RequestedMode.ToString().ToLowerInvariant()}; "
             + $"effective_mode={options.Mode}; version={target.Version.VersionId}", source: "History");
         return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(config, [folder], target.Version.VersionId.ToString(),
             cancellation => RestoreVersionCoreAsync(config, folder, target.Version.VersionId, target.EffectiveMode, cancellation,
-                requireSafetySnapshot: target.QuickSelection is not null, expectedSignature: target.ConfigSignature,
-                quickSelection: target.QuickSelection), token, options: options).ConfigureAwait(false);
+                expectedSignature: target.ConfigSignature,
+                quickSelection: target.QuickSelection, verificationContext: verification), token, options: options).ConfigureAwait(false);
     }
 }

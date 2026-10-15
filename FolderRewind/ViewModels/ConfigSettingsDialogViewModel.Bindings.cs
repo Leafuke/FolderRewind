@@ -20,8 +20,17 @@ public sealed partial class ConfigSettingsDialogViewModel
     public bool FileTypeHandlingEnabled { get => _archive.FileTypeHandlingEnabled; set => _archive.FileTypeHandlingEnabled = value; }
     public ObservableCollection<FileTypeRule> FileTypeRules => _archive.FileTypeRules;
     public bool BackupBeforeRestore { get => _archive.BackupBeforeRestore; set => _archive.BackupBeforeRestore = value; }
-    public bool SafeRestoreEnabled { get => _archive.SafeRestoreEnabled; set => _archive.SafeRestoreEnabled = value; }
-    public bool VerifyArchiveBeforeRestore { get => _archive.VerifyArchiveBeforeRestore; set => _archive.VerifyArchiveBeforeRestore = value; }
+    public bool QuickRestoreSafetySnapshotEnabled { get => _archive.QuickRestoreSafetySnapshotEnabled; set => _archive.QuickRestoreSafetySnapshotEnabled = value; }
+    public int BackupVerificationSelectedIndex
+    {
+        get => (int)_archive.BackupVerificationLevel;
+        set { if (value is 0 or 1) { _archive.BackupVerificationLevel = (BackupArchiveVerificationLevel)value; OnPropertyChanged(); } }
+    }
+    public int RestorePreflightSelectedIndex
+    {
+        get => (int)_archive.RestorePreflightMode;
+        set { if (value is 0 or 1) { _archive.RestorePreflightMode = (RestoreArchivePreflightMode)value; OnPropertyChanged(); } }
+    }
 
     public bool AutoBackupEnabled { get => _automation.AutoBackupEnabled; set => _automation.AutoBackupEnabled = value; }
     public bool RunOnAppStart { get => _automation.RunOnAppStart; set => _automation.RunOnAppStart = value; }

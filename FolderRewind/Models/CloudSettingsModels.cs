@@ -31,6 +31,12 @@ namespace FolderRewind.Models
     /// </summary>
     public class CloudSettings : ObservableObject
     {
+        public string? ConnectionProfileId { get; set; }
+        public string RemotePathSuffix { get; set; } = "";
+        public string BindingRevision { get; set; } = "";
+        public bool LegacyConversionRequired { get; set; }
+        public string WritableEvidence { get; set; } = "";
+        public string ReadableEvidence { get; set; } = "";
         private bool _enabled;
         private CloudCommandMode _commandMode = CloudCommandMode.Rclone;
         private CloudTemplateKind _templateKind = CloudTemplateKind.UploadCurrentArchive;

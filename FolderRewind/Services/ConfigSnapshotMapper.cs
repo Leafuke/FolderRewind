@@ -14,6 +14,7 @@ internal static class ConfigSnapshotMapper
     {
         Legacy182UpgradePending = value.Legacy182UpgradePending,
         SchemaVersion = value.SchemaVersion,
+        CloudConnections = new ObservableCollection<CloudConnectionProfile>(value.CloudConnections.Select(Copy)),
         GlobalSettings = Copy(value.GlobalSettings),
         BackupConfigs = value.BackupConfigs is null ? null! : new ObservableCollection<BackupConfig>(value.BackupConfigs.Select(item0 => Copy(item0))),
         BackupPresets = value.BackupPresets is null ? null! : new ObservableCollection<BackupPreset>(value.BackupPresets.Select(item0 => Copy(item0))),
@@ -157,6 +158,9 @@ internal static class ConfigSnapshotMapper
         ConfigFilePath = value.ConfigFilePath,
         ServiceBaseUri = value.ServiceBaseUri,
         AllowStartOnDemand = value.AllowStartOnDemand,
+        Ownership = value.Ownership,
+        AuthorizationMachine = value.AuthorizationMachine,
+        AuthorizationSignature = value.AuthorizationSignature,
     };
 
     public static PluginHostSettings Copy(PluginHostSettings? value) => value is null ? null! : new PluginHostSettings
@@ -258,6 +262,9 @@ internal static class ConfigSnapshotMapper
         BackupBeforeRestore = value.BackupBeforeRestore,
         SafeRestoreEnabled = value.SafeRestoreEnabled,
         VerifyArchiveBeforeRestore = value.VerifyArchiveBeforeRestore,
+        BackupVerificationLevel = value.BackupVerificationLevel,
+        RestorePreflightMode = value.RestorePreflightMode,
+        QuickRestoreSafetySnapshotEnabled = value.QuickRestoreSafetySnapshotEnabled,
         MaxSmartBackupsPerFull = value.MaxSmartBackupsPerFull,
         RunCompressionAtLowPriority = value.RunCompressionAtLowPriority,
         AdditionalSevenZipArguments = value.AdditionalSevenZipArguments,
@@ -306,6 +313,12 @@ internal static class ConfigSnapshotMapper
 
     public static CloudSettings Copy(CloudSettings? value) => value is null ? null! : new CloudSettings
     {
+        ConnectionProfileId = value.ConnectionProfileId,
+        RemotePathSuffix = value.RemotePathSuffix,
+        BindingRevision = value.BindingRevision,
+        LegacyConversionRequired = value.LegacyConversionRequired,
+        WritableEvidence = value.WritableEvidence,
+        ReadableEvidence = value.ReadableEvidence,
         Enabled = value.Enabled,
         CommandMode = value.CommandMode,
         TemplateKind = value.TemplateKind,
@@ -322,6 +335,16 @@ internal static class ConfigSnapshotMapper
         LastExitCode = value.LastExitCode,
         LastErrorMessage = value.LastErrorMessage,
         SchemaExtensions = value.SchemaExtensions is null ? null! : value.SchemaExtensions.ToDictionary(pair0 => pair0.Key, pair0 => pair0.Value.Clone(), value.SchemaExtensions.Comparer),
+    };
+
+    public static CloudConnectionProfile Copy(CloudConnectionProfile value) => new()
+    {
+        Id = value.Id, DisplayName = value.DisplayName, Scope = value.Scope, OwnerProjectId = value.OwnerProjectId,
+        CredentialOwnership = value.CredentialOwnership, CredentialReference = value.CredentialReference,
+        ImportedFromReference = value.ImportedFromReference,
+        RemoteName = value.RemoteName, ProfileRevision = value.ProfileRevision,
+        DependsOnLocalOpenList = value.DependsOnLocalOpenList, Access = value.Access,
+        VerificationEvidence = value.VerificationEvidence, ExecutablePath = value.ExecutablePath, WorkingDirectory = value.WorkingDirectory
     };
 
     public static PresetProviderDefaults Copy(PresetProviderDefaults? value) => value is null ? null! : new PresetProviderDefaults

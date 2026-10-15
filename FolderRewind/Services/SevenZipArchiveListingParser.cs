@@ -6,6 +6,7 @@ using System.IO;
 namespace FolderRewind.Services;
 
 internal sealed record ArchiveFileListingEntry(string RelativePath, long Size);
+internal sealed record ArchiveSafeListing(IReadOnlyDictionary<string, ArchiveFileListingEntry> Files, IReadOnlyList<string> Directories);
 
 /// <summary>
 /// Parses the machine-oriented output of <c>7z l -slt</c>. Only file entries are retained;
@@ -16,9 +17,16 @@ internal sealed record ArchiveFileListingEntry(string RelativePath, long Size);
 internal static class SevenZipArchiveListingParser
 {
     public static bool TryParse(string? output, out IReadOnlyDictionary<string, ArchiveFileListingEntry> entries)
+        => TryParse(output, out entries, out _);
+
+    public static bool TryParse(string? output, out IReadOnlyDictionary<string, ArchiveFileListingEntry> entries,
+        out IReadOnlyList<string> directories)
     {
         var parsed = new Dictionary<string, ArchiveFileListingEntry>(StringComparer.OrdinalIgnoreCase);
+        var folders = new List<string>();
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         entries = parsed;
+        directories = folders;
         if (string.IsNullOrWhiteSpace(output)) return false;
 
         string? path = null;
@@ -38,11 +46,13 @@ internal static class SevenZipArchiveListingParser
             if (!isFolder.HasValue) return false;
             // 目录项也会被解压，不能因为不参与文件集合比较就忽略越界路径。
             if (!TryNormalizeRelativePath(path, out var normalized)) return false;
+            if (!paths.Add(normalized)) return false;
             if (isFolder == false)
             {
                 if (!size.HasValue) return false;
                 if (!parsed.TryAdd(normalized, new ArchiveFileListingEntry(normalized, size.Value))) return false;
             }
+            else folders.Add(normalized);
 
             path = null;
             size = null;
@@ -112,7 +122,17 @@ internal static class SevenZipArchiveListingParser
             }
         }
 
-        return Flush();
+        if (!Flush()) return false;
+        foreach (var entry in paths)
+        {
+            var parent = entry;
+            while (parent.LastIndexOf('/') is var index && index >= 0)
+            {
+                parent = parent[..index];
+                if (parsed.ContainsKey(parent)) return false;
+            }
+        }
+        return true;
     }
 
     private static bool TryClassifyAttributes(string value, out bool isFolder)
@@ -121,26 +141,42 @@ internal static class SevenZipArchiveListingParser
         var attributes = value.Trim();
         if (attributes.Length == 0) return false;
 
-        // 7-Zip on Windows emits values such as "A", "R", or "D". Archives carrying
-        // POSIX attributes may instead start with '-' for files or 'd' for directories.
+        // Windows attributes are combined flags: hidden directories can be "HD",
+        // so the directory flag need not come first. POSIX attributes instead use
+        // the leading '-' or 'd' to identify files and directories.
         var first = attributes[0];
-        isFolder = first is 'D' or 'd';
-        return first is '-' or 'D' or 'd' or 'A' or 'a' or 'R' or 'r' or 'H' or 'h' or 'S' or 's';
+        if (first is '-' or 'd')
+        {
+            isFolder = first == 'd';
+            return true;
+        }
+
+        // Some listings append POSIX permissions after the Windows flag token.
+        var separator = attributes.IndexOf(' ');
+        var windowsFlags = separator < 0 ? attributes : attributes[..separator];
+        isFolder = windowsFlags.Contains("D", StringComparison.OrdinalIgnoreCase);
+        return first is 'D' or 'A' or 'a' or 'R' or 'r' or 'H' or 'h' or 'S' or 's';
     }
 
     private static bool TryNormalizeRelativePath(string value, out string normalized)
     {
         // normalized = value.Replace('/', '\\').Trim();
         // while (normalized.StartsWith(".\\", StringComparison.Ordinal))
-        normalized = value.Replace('\\', '/').Trim();
+        normalized = value.Replace('\\', '/');
         while (normalized.StartsWith("./", StringComparison.Ordinal))
             normalized = normalized[2..];
         if (normalized.Length == 0 || Path.IsPathRooted(normalized)) return false;
 
         // foreach (var segment in normalized.Split('\\', StringSplitOptions.RemoveEmptyEntries))
-        foreach (var segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var segment in normalized.Split('/'))
         {
-            if (segment is "." or ".." || segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
+            if (segment.Length == 0 || segment is "." or ".." || segment.EndsWith(' ') || segment.EndsWith('.')
+                || segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
+            var stem = segment.Split('.')[0];
+            if (stem.Equals("CON", StringComparison.OrdinalIgnoreCase) || stem.Equals("PRN", StringComparison.OrdinalIgnoreCase)
+                || stem.Equals("AUX", StringComparison.OrdinalIgnoreCase) || stem.Equals("NUL", StringComparison.OrdinalIgnoreCase)
+                || (stem.Length == 4 && (stem.StartsWith("COM", StringComparison.OrdinalIgnoreCase)
+                    || stem.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)) && stem[3] is >= '1' and <= '9')) return false;
         }
 
         return normalized.IndexOfAny(Path.GetInvalidPathChars()) < 0;

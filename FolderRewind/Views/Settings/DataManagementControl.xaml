@@ -1,7 +1,10 @@
 <UserControl
     x:Class="FolderRewind.Views.Settings.DataManagementControl"
+    x:DefaultBindMode="OneWay"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:FolderRewind.ViewModels"
+    xmlns:local="using:FolderRewind.Views.Settings"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -22,14 +25,19 @@
                 <FontIcon Glyph="&#xE8D2;" />
             </toolkit:SettingsExpander.HeaderIcon>
             <toolkit:SettingsExpander.Items>
-                <toolkit:SettingsCard>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button x:Uid="SettingsPage_ExportTemplate" AutomationProperties.AutomationId="SettingsExportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportTemplateClick" />
-                        <Button x:Uid="SettingsPage_ImportTemplate" AutomationProperties.AutomationId="SettingsImportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportTemplateClick" />
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnActionRowSizeChanged">
                         <Button x:Uid="SettingsPage_BrowseOfficialTemplates" AutomationProperties.AutomationId="SettingsBrowseOfficialTemplates" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnBrowseOfficialTemplatesClick" />
-                        <Button x:Uid="SettingsPage_UseTemplateShareCode" AutomationProperties.AutomationId="SettingsUseTemplateShareCode" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnUseTemplateShareCodeClick" />
-                        <Button x:Uid="SettingsPage_PrepareTemplateSubmission" AutomationProperties.AutomationId="SettingsPrepareTemplateSubmission" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPrepareTemplateSubmissionClick" />
-                        <Button x:Uid="SettingsPage_ManageTemplates" AutomationProperties.AutomationId="SettingsManageTemplates" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnManageTemplatesClick" />
+                        <Button x:Uid="SettingsPage_ImportTemplate" AutomationProperties.AutomationId="SettingsImportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportTemplateClick" />
+                        <Button x:Uid="SettingsTemplates_More" AutomationProperties.AutomationId="SettingsTemplatesMore">
+                            <FontIcon Glyph="&#xE712;"/>
+                            <Button.Flyout><MenuFlyout>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_ExportMenu" AutomationProperties.AutomationId="SettingsTemplatesExportMenu" Click="OnExportTemplateClick"/>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_ShareCodeMenu" AutomationProperties.AutomationId="SettingsTemplatesShareCodeMenu" Click="OnUseTemplateShareCodeClick"/>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_SubmitMenu" AutomationProperties.AutomationId="SettingsTemplatesSubmitMenu" Click="OnPrepareTemplateSubmissionClick"/>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_ManageMenu" AutomationProperties.AutomationId="SettingsTemplatesManageMenu" Click="OnManageTemplatesClick"/>
+                            </MenuFlyout></Button.Flyout>
+                        </Button>
                     </StackPanel>
                 </toolkit:SettingsCard>
             </toolkit:SettingsExpander.Items>
@@ -38,38 +46,41 @@
         <!-- 数据迁移 -->
         <toolkit:SettingsExpander IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_DataMigration" AutomationProperties.AutomationId="SettingsDataMigrationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_DataMigration" AutomationProperties.AutomationId="SettingsDataMigrationHeader" Style="{StaticResource SettingsHeaderTextStyle}"/>
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
-                <TextBlock x:Uid="SettingsPage_DataMigrationDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                <TextBlock Text="{x:Bind Migration.Summary, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource SettingsDescriptionStyle}"/>
             </toolkit:SettingsExpander.Description>
-            <toolkit:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE8DE;" />
-            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.HeaderIcon><FontIcon Glyph="&#xE8DE;"/></toolkit:SettingsExpander.HeaderIcon>
             <toolkit:SettingsExpander.Items>
-                <toolkit:SettingsCard>
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_ConfigData" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_ConfigDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button x:Uid="SettingsPage_ExportConfig" AutomationProperties.AutomationId="SettingsExportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportConfigClick" />
-                        <Button x:Uid="SettingsPage_ImportConfig" AutomationProperties.AutomationId="SettingsImportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportConfigClick" />
-                    </StackPanel>
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard>
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_HistoryData" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_HistoryDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button x:Uid="SettingsPage_ExportHistory" AutomationProperties.AutomationId="SettingsExportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportHistoryClick" />
-                        <Button x:Uid="SettingsPage_ImportHistory" AutomationProperties.AutomationId="SettingsImportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportHistoryClick" />
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <StackPanel Spacing="12">
+                        <TextBlock x:Uid="MigrationWizard_EntryDescription" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnActionRowSizeChanged">
+                            <Button x:Uid="Migration_ExportData" Click="OnExportDataClick" AutomationProperties.AutomationId="MigrationExportData"/>
+                            <Button x:Uid="Migration_ImportData" Click="OnImportDataClick" AutomationProperties.AutomationId="MigrationImportData"/>
+                            <Button x:Uid="MigrationWizard_Continue" Click="OnContinueMigrationClick" IsEnabled="{x:Bind Migration.CanOperate, Mode=OneWay}" AutomationProperties.AutomationId="MigrationContinue"/>
+                        </StackPanel>
+                        <InfoBar IsOpen="{x:Bind Migration.HasPending, Mode=OneWay}" IsClosable="False" Severity="Informational" x:Uid="MigrationWizard_PendingCard" AutomationProperties.AutomationId="MigrationPendingCard"/>
+                        <InfoBar x:Name="MigrationStatusBar" IsOpen="False" AutomationProperties.AutomationId="MigrationStatus"/>
+                        <Expander x:Uid="MigrationWizard_Advanced" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="MigrationAdvanced">
+                            <StackPanel Spacing="12">
+                                <TextBlock x:Uid="MigrationWizard_AdvancedDescription" TextWrapping="Wrap"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnActionRowSizeChanged">
+                                    <Button x:Uid="SettingsPage_ExportConfig" Click="OnExportConfigClick" AutomationProperties.AutomationId="SettingsExportConfig"/>
+                                    <Button x:Uid="SettingsPage_ImportConfig" Click="OnImportConfigClick" AutomationProperties.AutomationId="SettingsImportConfig"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnActionRowSizeChanged">
+                                    <Button x:Uid="SettingsPage_ExportHistory" Click="OnExportHistoryClick" AutomationProperties.AutomationId="SettingsExportHistory"/>
+                                    <Button x:Uid="SettingsPage_ImportHistory" Click="OnImportHistoryClick" AutomationProperties.AutomationId="SettingsImportHistory"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnActionRowSizeChanged">
+                                    <Button x:Uid="MigrationWizard_ExportMetadata" Click="OnExportMetadataClick" AutomationProperties.AutomationId="MigrationExportMetadata"/>
+                                    <Button x:Uid="MigrationWizard_ImportMetadata" Click="OnImportMetadataClick" AutomationProperties.AutomationId="MigrationImportMetadata"/>
+                                </StackPanel>
+                                <Button x:Uid="Migration_ReadOriginal" Click="OnReadOriginalClick" HorizontalAlignment="Left" AutomationProperties.AutomationId="MigrationReadOriginal"/>
+                            </StackPanel>
+                        </Expander>
                     </StackPanel>
                 </toolkit:SettingsCard>
             </toolkit:SettingsExpander.Items>

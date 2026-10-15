@@ -1,4 +1,1 @@
-FolderRewind 1.8.0 is now officially available.
-
-If KnotLink Server is already installed, you must update it to version 3.0 or later.
-If you are using MineBackup-Mod, please update it to version 3.0 or later as well.
+Version 1.9 has been officially released. This is an optional update. The old backups will be automatically migrated, but the old cloud storage format will no longer be supported, so please make sure to reconfigure your settings.

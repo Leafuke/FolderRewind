@@ -9,12 +9,16 @@ public sealed partial class ConfigSettingsPage
 {
     private void OnSettingsPageSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        SettingsLayout.Width = Math.Min(1040, Math.Max(0, e.NewSize.Width - 48));
-        var narrow = SettingsLayout.Width < 620;
+        SettingsLayout.Margin = PageLayout.Insets(e.NewSize.Width);
+        var contentWidth = Math.Max(0, e.NewSize.Width - SettingsLayout.Margin.Left - SettingsLayout.Margin.Right);
+        var narrow = contentWidth < 620;
         Grid.SetColumn(SettingsSearchBox, narrow ? 0 : 1);
         Grid.SetRow(SettingsSearchBox, narrow ? 1 : 0);
-        SettingsSearchBox.Width = narrow ? double.NaN : 280;
-        SettingsHeaderGrid.ColumnDefinitions[1].Width = new GridLength(narrow ? 0 : 1, GridUnitType.Auto);
+        Grid.SetColumnSpan(SettingsSearchBox, narrow ? 2 : 1);
+        SettingsSearchBox.Width = Math.Min(280, contentWidth);
+        Grid.SetRow(DraftButtons, narrow ? 1 : 0);
+        Grid.SetColumn(DraftButtons, narrow ? 0 : 1);
+        Grid.SetColumnSpan(DraftButtons, narrow ? 2 : 1);
     }
 
     private void OnSettingCardSizeChanged(object sender, SizeChangedEventArgs e)

@@ -46,8 +46,8 @@ public sealed class RcloneConnectionTests
         Assert.AreEqual(0, RcloneExecutionContext.CleanupExpired(_root, DateTimeOffset.UtcNow));
         File.Delete(Path.Combine(stale, "user-file"));
         Directory.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddDays(-3));
-        Assert.AreEqual(1, RcloneExecutionContext.CleanupExpired(_root, DateTimeOffset.UtcNow));
-        Assert.IsFalse(Directory.Exists(stale));
+        Assert.AreEqual(0, RcloneExecutionContext.CleanupExpired(_root, DateTimeOffset.UtcNow));
+        Assert.IsTrue(Directory.Exists(stale));
         Assert.IsTrue(File.Exists(config));
     }
 

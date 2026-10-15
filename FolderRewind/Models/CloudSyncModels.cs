@@ -4,15 +4,6 @@ using System;
 namespace FolderRewind.Models
 {
     /// <summary>
-    /// 配置级云同步模式：只同步历史，或历史+备份包一起同步。
-    /// </summary>
-    public enum ConfigCloudSyncMode
-    {
-        HistoryOnly = 0,
-        HistoryAndBackups = 1
-    }
-
-    /// <summary>
     /// 云端历史分析结果，供 UI 先预览再执行同步。
     /// </summary>
     public sealed class ConfigCloudHistoryAnalysisResult
@@ -34,7 +25,7 @@ namespace FolderRewind.Models
     }
 
     /// <summary>
-    /// 配置级云同步执行结果（分析 + 导入 + 可选备份下载）。
+    /// 配置级云历史元数据同步执行结果；载荷由按版本恢复入口下载。
     /// </summary>
     public sealed class ConfigCloudSyncResult
     {

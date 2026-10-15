@@ -43,11 +43,14 @@ public static class NativeHistoryCoreGateway
         IReadOnlyList<LegacyHistoryRecord>? legacy = null;
         foreach (var config in configs)
         {
+            if (DataMigrationService.IsAwaitingHistory(config))
+            { Failed[new HistoryConfigId(config.Id).Value] = I18n.GetString("Migration_AwaitingHistory"); continue; }
             try
             {
                 var runtime = await EnsureReadyAsync(config, configDirectory, legacy, cancellationToken).ConfigureAwait(false);
                 await new LegacyTakeoverService(configDirectory, new HistoryConfigId(config.Id))
                     .ResumeAsync(runtime, MigrationSources(config), config.DestinationPath, cancellationToken).ConfigureAwait(false);
+                CloudSyncService.ResumeCloudJobs(config);
             }
             catch
             {
@@ -318,8 +321,10 @@ public static class NativeHistoryCoreGateway
         CancellationToken cancellationToken)
     {
         var configId = new HistoryConfigId(config.Id);
+        if (DataMigrationService.IsAwaitingHistory(config)) throw new InvalidOperationException(I18n.GetString("Migration_AwaitingHistory"));
         if (config.HistoryRepositoryBinding is { } oldBinding && oldBinding.FormatVersion != HistoryRepositoryDescriptor.CurrentFormatVersion)
-            throw new InvalidOperationException(I18n.Format("History_DevelopmentFormatUnsupported", oldBinding.FormatVersion));
+            throw new HistoryRepositoryBindingException(HistoryRepositoryBindingStatus.CompatibilityBlocked,
+                I18n.Format("History_DevelopmentFormatUnsupported", oldBinding.FormatVersion));
         if (config.HistoryRepositoryBinding is null)
         {
             var prepared = new LegacyTakeoverService(configDirectory, configId).Prepare(MigrationSources(config), config.DestinationPath);
@@ -333,6 +338,7 @@ public static class NativeHistoryCoreGateway
                     { OperationStatus = migration.Status.ToString(), Diagnostic = migration.Diagnostic });
                     throw new InvalidOperationException(migration.Diagnostic);
                 }
+                migration.Repository.CloudAdmissionExpected = config.Cloud.Enabled && config.Cloud.WritableEvidence.Length != 0;
                 return migration.Repository;
             }
         }
@@ -341,7 +347,8 @@ public static class NativeHistoryCoreGateway
             _ => PersistConfig(),
             cancellationToken).ConfigureAwait(false);
         if (!binding.IsReady || binding.Repository is null)
-            throw new InvalidOperationException(binding.Diagnostic);
+            throw new HistoryRepositoryBindingException(binding.Status, binding.Diagnostic);
+        binding.Repository.CloudAdmissionExpected = config.Cloud.Enabled && config.Cloud.WritableEvidence.Length != 0;
         return binding.Repository;
     }
 

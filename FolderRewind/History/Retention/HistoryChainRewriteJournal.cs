@@ -61,7 +61,7 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
             .Select(Read).Any(journal => !journal.Complete && journal.OperationId != exceptOperation);
     }
 
-    public async Task<bool> RecoverAsync(CancellationToken token = default)
+    public async Task<bool> RecoverAsync(CancellationToken token = default, bool insideMutationGate = false)
     {
         if (!Directory.Exists(Root)) return true;
         var complete = true;
@@ -70,13 +70,14 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
             token.ThrowIfCancellationRequested();
             var journal = Read(path);
             if (journal.Complete) continue;
-            complete &= await FinishAsync(journal, token).ConfigureAwait(false);
+            complete &= await FinishAsync(journal, token, insideMutationGate).ConfigureAwait(false);
         }
         return complete;
     }
 
-    public async Task<bool> FinishAsync(HistoryChainRewriteJournal journal, CancellationToken token = default)
+    public async Task<bool> FinishAsync(HistoryChainRewriteJournal journal, CancellationToken token = default, bool insideMutationGate = false)
     {
+        await using var protectionGate = insideMutationGate ? null : await history.MutationGate.EnterForRecoveryAsync(token).ConfigureAwait(false);
         // Recovery uses the transaction's destination, not a possibly changed current configuration.
         if (journal.BackupRoot is not null
             && !Directory.Exists(Path.GetPathRoot(HistoryRewriteStoragePaths.NormalizeBackupRoot(journal.BackupRoot)))) return false;
@@ -96,6 +97,8 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
             journal = journal with { StateApplied = true };
             Save(journal);
         }
+        try { history.CloudJobs.RequireCleanupSafe(); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or JsonException) { return false; }
         var catalog = (await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false));
         if (catalog.Status != DeviceLocalStateStatus.Valid || catalog.Value is null)
             throw new InvalidDataException("Cannot reclaim archives while Catalog requires recovery.");
@@ -131,6 +134,7 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
                 if (info.Length != file.Size || !StringComparer.Ordinal.Equals(await HashAsync(file.Path, token).ConfigureAwait(false), file.StorageSha256))
                 { complete = false; continue; }
                 File.SetAttributes(file.Path, FileAttributes.Normal);
+                history.CloudJobs.RequireCleanupSafe();
                 File.Delete(file.Path);
                 checkpoint?.Invoke("file-reclaimed");
             }

@@ -10,13 +10,15 @@ public sealed record RepresentationAssessmentContext(
     IReadOnlyDictionary<RepresentationId, VersionRepresentation> RepresentationGraph,
     IReadOnlyDictionary<RepresentationId, RepresentationAssessment> DependencyAssessments,
     IRepresentationEnvironment Environment,
-    AssessmentDepth Depth);
+    AssessmentDepth Depth,
+    ArchiveRestoreVerificationContext? RestoreVerification = null);
 
 public sealed record RepresentationMaterializationContext(
     VersionRepresentation Representation,
     IReadOnlyList<VersionRepresentation> DependencyFirstClosure,
     IReadOnlyDictionary<RepresentationId, RepresentationAssessment> Assessments,
-    string StagingDirectory);
+    string StagingDirectory,
+    ArchiveRestoreVerificationContext? RestoreVerification = null);
 
 public interface IRepresentationHandler
 {

@@ -141,7 +141,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 catalog.Entries.Concat(prepared.NewReplicas));
             var restored = prepared.Sources.Select(s => s.Version.SourceId).ToHashSet();
             var desired = workspace.WithSourceStates([workspace.GetSourceState(prepared.Checkpoint.SourceId) with {
-                BaseVersionId = prepared.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact,
+                BaseVersionId = prepared.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact, RequiresFullCapture = false,
                 ActiveBranchId = prepared.Update.BranchId, ActiveBranchUpdateId = prepared.Update.UpdateId,
                 CheckpointAncestryAnchorId = prepared.Checkpoint.CheckpointId }]);
             stage = "commit";

@@ -135,13 +135,8 @@ public sealed partial class HistoryPageViewModel
         }
         catch (Exception ex)
         {
-            var message = I18n.Format(
-                "History_NativeInitializationFailed",
-                request.Config.Name,
-                ex.Message);
-            ReportLoadFailure(message);
-            LogService.LogError(message, nameof(HistoryPageViewModel), ex);
-            _interactions.Notify(HistoryNotificationKind.Error, message);
+            ReportLoadFailure(ex);
+            LogService.LogError("Could not load project history.", nameof(HistoryPageViewModel), ex);
         }
     }
 
@@ -157,7 +152,6 @@ public sealed partial class HistoryPageViewModel
         catch (Exception ex)
         {
             ReportOperationFailure("view mode", ex);
-            _interactions.Notify(HistoryNotificationKind.Error, ex.Message);
         }
     }
 
@@ -716,7 +710,8 @@ public sealed partial class HistoryPageViewModel
             I18n.GetString("Encryption_EnterPasswordPlaceholder"),
             isPassword: true,
             cancellationToken: cancellationToken);
-        if (password is not null && EncryptionService.VerifyPassword(config.Id, password))
+        if (password is not null && (EncryptionService.VerifyPassword(config.Id, password)
+            || await BackupPasswordPreparationService.VerifyAndStoreAsync(ConfigSnapshotMapper.Copy(config), password, cancellationToken)))
         {
             return true;
         }
@@ -1031,7 +1026,6 @@ public sealed partial class HistoryPageViewModel
         catch (Exception ex)
         {
             ReportOperationFailure(operationName, ex);
-            _interactions.Notify(HistoryNotificationKind.Error, ex.Message);
         }
         finally
         {

@@ -21,13 +21,20 @@ public sealed partial class CloudSetupPage : Page
         Loaded += (_, _) => ConnectionSelector.SelectedItem = string.IsNullOrWhiteSpace(ViewModel.ConfigPath)
             ? WebDavConnectionItem : ExistingConnectionItem;
     }
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
-        try { ViewModel.Initialize((e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? ""); if (!string.IsNullOrWhiteSpace(ViewModel.ConfigPath)) ConnectionSelector.SelectedItem = ExistingConnectionItem; }
-        catch (Exception ex) { ViewModel.Message = ex.Message; }
+        try
+        {
+            var options = e.Parameter as CloudSetupNavigationParameter;
+            await ViewModel.InitializeAsync(options?.ConfigId ?? (e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "", _pageLifetime.Token,
+                options?.ManageConnection == true, options?.ProfileId);
+            if (_active && !string.IsNullOrWhiteSpace(ViewModel.ConfigPath)) ConnectionSelector.SelectedItem = ExistingConnectionItem;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { if (_active) ViewModel.Message = CloudCommandSecurity.Redact(ex.Message); }
     }
-    protected override void OnNavigatedFrom(NavigationEventArgs e) { _active = false; _pageLifetime.Cancel(); ViewModel.Dispose(); base.OnNavigatedFrom(e); }
+    protected override void OnNavigatedFrom(NavigationEventArgs e) { _active = false; Password.Password = ""; _pageLifetime.Cancel(); ViewModel.Dispose(); base.OnNavigatedFrom(e); }
     public InfoBarSeverity GetMessageSeverity(OnboardingCheckState state) => state switch
     {
         OnboardingCheckState.Ready => InfoBarSeverity.Success,
@@ -78,17 +85,47 @@ public sealed partial class CloudSetupPage : Page
     });
     private async void OnCreateWebDav(object sender, RoutedEventArgs e)
     {
+        if (!ViewModel.CanEdit) return;
         var url = UrlBox.Text; var user = UserBox.Text; var password = Password.Password;
-        Password.Password = "";
         var allowInsecure = AllowInsecure.IsChecked == true;
-        await ViewModel.RunCheckAsync(token => ViewModel.CreateWebDavAsync(url, user, password, token, allowInsecure));
+        await ViewModel.RunCheckAsync(async token =>
+        {
+            await ViewModel.CreateWebDavAsync(url, user, password, token, allowInsecure);
+            if (!_active) return;
+            Password.Password = "";
+            ConnectionSelector.SelectedItem = ExistingConnectionItem;
+        });
     }
     private async void OnListRemotes(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(token => { ViewModel.LoadRemotes(); return Task.CompletedTask; });
+    private async void OnImportManaged(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.ImportManagedAsync);
+    private async void OnRefreshJobs(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.RefreshJobsAsync);
+    private async void OnRetryJobs(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.RetryJobsAsync);
+    private async void OnCancelJob(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(token => ViewModel.CancelSelectedJobAsync(false, token));
+    private async void OnAbandonJob(object sender, RoutedEventArgs e)
+    {
+        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudJob_AbandonTitle"), I18n.GetString("CloudJob_AbandonDescription"), I18n.GetString("Common_Confirm"), XamlRoot))
+            await ViewModel.RunCheckAsync(token => ViewModel.CancelSelectedJobAsync(true, token));
+    }
+    private async void OnInitializeMissing(object sender, RoutedEventArgs e)
+    {
+        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudJob_AbandonTitle"), I18n.GetString("CloudJob_InitializeMissingDescription"), I18n.GetString("Common_Confirm"), XamlRoot))
+            await ViewModel.RunCheckAsync(ViewModel.InitializeMissingAdmissionAsync);
+    }
     private async void OnBrowse(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.BrowseAsync);
     private async void OnBrowseMore(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.BrowseMoreAsync);
     private void OnEnterDirectory(object sender, ItemClickEventArgs e) { if (ViewModel.CanEdit && e.ClickedItem is string name) ViewModel.EnterDirectory(name); }
     private async void OnVerifyWrite(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.VerifyWriteAsync);
-    private async void OnSave(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.SaveAsync);
+    private async void OnSave(object sender, RoutedEventArgs e)
+    {
+        var message = ViewModel.SaveImpactMessage;
+        if (message.Length != 0 && !await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), message, I18n.GetString("Common_Confirm"), XamlRoot)) return;
+        await ViewModel.RunCheckAsync(ViewModel.SaveAsync);
+    }
+    private async void OnReconnectProject(object sender, RoutedEventArgs e)
+    {
+        if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), I18n.Format("CloudRecovery_ReconnectConfirm", ViewModel.RemoteRoot), I18n.GetString("Common_Confirm"), XamlRoot)) return;
+        await ViewModel.RunCheckAsync(ViewModel.ReconnectProjectHistoryAsync);
+    }
     private async void OnLoadVersions(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.LoadVersionsAsync);
     private async void OnUpload(object sender, RoutedEventArgs e)
     {

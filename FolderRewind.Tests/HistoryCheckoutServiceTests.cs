@@ -25,6 +25,46 @@ public sealed class HistoryCheckoutServiceTests
     }
 
     [TestMethod]
+    public async Task MigratedUnknownWorkspaceSupportsExistingRestoreAndCheckoutTransactions()
+    {
+        var id = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var source = new HistoryRuntime(new FileHistoryRepository(id, new(Path.Combine(_root, "migration-source"))));
+        await source.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = Version(id, sourceId, "migrated");
+        var checkpoint = new SourceCheckpoint(CheckpointId.New(), id, DateTimeOffset.UtcNow, null,
+            HistoryProvenance.Native("test"), [new CheckpointSource(sourceId, version.SourceDescriptorSnapshot,
+                version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var branch = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId,
+            false, DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: sourceId);
+        var codec = new HistoryPackCodec();
+        await source.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, Representation(version.VersionId), checkpoint, branch }.Select(f => codec.CreateObject(f))));
+        var file = Path.Combine(_root, "restore-migration.frhistory");
+        await new HistoryRepositoryTransferService().ExportAsync(source, file);
+        var configDirectory = Path.Combine(_root, "migration-target");
+        await new HistoryRepositoryBatchTransferService(configExists: _ => true).ImportAsync(file, configDirectory);
+        await using var target = new HistoryRuntime(new FileHistoryRepository(id, HistoryRepositoryPaths.ForConfigDirectory(configDirectory, id)));
+        await target.InitializeAsync();
+        await new HistoryMigrationInitializationService(target).InitializeAsync([sourceId]);
+        var workspace = (await target.WorkspaceStore.LoadAsync()).Value!;
+        var path = CreateTarget("migration-game", "original");
+        // Reuse the existing deterministic materializer; production payload admission is unchanged.
+        var restore = new HistoryRestoreService(target, new RepresentationRuntime([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), new FileSystemHistoryRestoreMutationBackend());
+        var restored = await restore.RestoreVersionsAsync(new Dictionary<SourceId, VersionId> { [sourceId] = version.VersionId },
+            [new HistoryRestoreSourceBinding(sourceId, path)], workspace, HistoryRestoreApplyMode.Clean);
+        Assert.IsTrue(restored.Succeeded, restored.Diagnostic);
+        Assert.AreEqual("new", File.ReadAllText(Path.Combine(path, "restored.txt")));
+        workspace = (await target.WorkspaceStore.LoadAsync()).Value!;
+        Assert.IsNull(workspace.GetSourceState(sourceId).ActiveBranchId);
+        var checkedOut = await new HistoryCheckoutService(target, restore).CheckoutAsync(branch.UpdateId,
+            [new HistoryRestoreSourceBinding(sourceId, path)], workspace, HistoryCheckoutProtectionMode.DiscardCurrentChanges);
+        Assert.IsTrue(checkedOut.Succeeded, checkedOut.Diagnostic);
+        Assert.AreEqual(branch.BranchId, (await target.WorkspaceStore.LoadAsync()).Value!.GetSourceState(sourceId).ActiveBranchId);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task SourceCheckoutFailurePreservesEverySourceAndWorkspace(bool bindingChanged)

@@ -38,9 +38,11 @@ public sealed class HistoryReplicaSyncService
         RepresentationId representationId,
         string localPath,
         Guid? artifactRootId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ReplicaId? stableReplicaId = null,
+        Func<HistoryReplicaManifest, CancellationToken, Task>? persistIntent = null)
     {
-        var replicaId = ReplicaId.New();
+        var replicaId = stableReplicaId ?? ReplicaId.New();
         try
         {
             if (await _history.Query.GetRepresentationAsync(representationId, cancellationToken).ConfigureAwait(false) is null)
@@ -48,6 +50,9 @@ public sealed class HistoryReplicaSyncService
             await using var source = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
             var expectedSize = source.Length;
             var expectedHash = Convert.ToHexString(await SHA256.HashDataAsync(source, cancellationToken).ConfigureAwait(false));
+            var intent = new HistoryReplicaManifest(representationId, replicaId, artifactRootId,
+                HistoryRepositoryPaths.CreateReplicaObjectKey(replicaId), expectedSize, expectedHash);
+            if (persistIntent is not null) await persistIntent(intent, cancellationToken).ConfigureAwait(false);
             await _transport.UploadAsync(replicaId, localPath, cancellationToken).ConfigureAwait(false);
             var verification = await _transport.VerifyRemoteAsync(replicaId, cancellationToken).ConfigureAwait(false);
             if (!verification.Success || verification.Size != expectedSize || !StringComparer.OrdinalIgnoreCase.Equals(verification.StorageSha256, expectedHash))
@@ -57,6 +62,9 @@ public sealed class HistoryReplicaSyncService
                 representationId, replicaId, artifactRootId, objectKey,
                 verification.Size, verification.StorageSha256);
             await _transport.CommitManifestOnceAsync(manifest, cancellationToken).ConfigureAwait(false);
+            var remoteManifest = await _transport.ReadManifestAsync(replicaId, cancellationToken).ConfigureAwait(false);
+            if (remoteManifest is null || !HistoryCloudReplicaValidity.Matches(remoteManifest, manifest))
+                throw new InvalidDataException("[cloud.manifest-invalid] Remote manifest does not match the upload intent.");
 
             var replica = new StorageReplica(
                 replicaId, representationId, ReplicaProviderKind.Cloud, objectKey,
@@ -64,7 +72,13 @@ public sealed class HistoryReplicaSyncService
             var active = new ReplicaLifecycleUpdate(
                 ReplicaLifecycleUpdateId.New(), replicaId, [], ReplicaLifecycleState.Active,
                 DateTimeOffset.UtcNow, "Physical payload and manifest verified.");
-            await CommitFactsAsync([replica, active], cancellationToken).ConfigureAwait(false);
+            var existing = (await _history.Query.GetStorageReplicasAsync(representationId, cancellationToken).ConfigureAwait(false))
+                .SingleOrDefault(r => r.ReplicaId == replicaId);
+            if (existing is null) await CommitFactsAsync([replica, active], cancellationToken).ConfigureAwait(false);
+            else if (existing.ObjectKey != objectKey || existing.ExpectedSize != manifest.Size
+                || !StringComparer.OrdinalIgnoreCase.Equals(existing.ExpectedStorageSha256, manifest.StorageSha256)
+                || !HistoryCloudReplicaValidity.IsActive(await _history.Query.GetReplicaLifecycleUpdatesAsync(replicaId, cancellationToken).ConfigureAwait(false)))
+                throw new InvalidDataException("[cloud.replica-lifecycle-conflict] Existing replica facts conflict with the upload intent.");
             var sync = await _syncMetadata(cancellationToken).ConfigureAwait(false);
             if (!sync.Succeeded) throw new InvalidOperationException("Replica facts are durable locally but metadata sync failed: " + sync.Diagnostic);
             return new(HistoryReplicaOperationStatus.Succeeded, replicaId, string.Empty);
@@ -84,6 +98,13 @@ public sealed class HistoryReplicaSyncService
         var staging = finalLocalPath + ".download-" + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
+            // Fact 只是候选证据，下载前必须读取实际远端 Manifest；只读恢复不补写。
+            var actual = await _transport.ReadManifestAsync(manifest.ReplicaId, cancellationToken).ConfigureAwait(false);
+            if (actual is null || !HistoryCloudReplicaValidity.Matches(actual, manifest))
+                throw new InvalidDataException("[cloud.manifest-invalid] Remote manifest is missing or conflicts with history.");
+            var representation = await _history.Query.GetRepresentationAsync(manifest.RepresentationId, cancellationToken).ConfigureAwait(false);
+            if (representation is null || HistoryCloudReplicaValidity.ArtifactRoot(representation) is { } root && root != actual.ArtifactRootId)
+                throw new InvalidDataException("[cloud.manifest-invalid] Artifact root does not match history.");
             await _transport.DownloadAsync(manifest, staging, cancellationToken).ConfigureAwait(false);
             var verification = VerifyLocal(staging, manifest);
             if (!verification.Success) throw new InvalidDataException(verification.Diagnostic);

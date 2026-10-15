@@ -31,6 +31,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     private bool _isEmpty = true;
     private bool _isLoading;
     private string _errorMessage = string.Empty;
+    private string _loadErrorDetails = string.Empty;
+    private HistoryLoadAction _loadErrorAction = HistoryLoadAction.Retry;
     private int _missingCount;
     private string _commentFilterText = string.Empty;
     private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
@@ -93,12 +95,67 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         private set
         {
             if (!SetProperty(ref _errorMessage, value ?? string.Empty)) return;
+            if (string.IsNullOrEmpty(value)) _loadErrorDetails = "";
             OnPropertyChanged(nameof(HasError));
+            OnPropertyChanged(nameof(ShowMigrationNotice));
+            OnPropertyChanged(nameof(HasLoadErrorDetails));
+            OnPropertyChanged(nameof(LoadErrorDetails));
             OnPropertyChanged(nameof(ShowEmptyState));
         }
     }
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
-    public bool ShowEmptyState => IsEmpty && !IsLoading && !HasError;
+    public bool ShowMigrationNotice => HasPendingMigration && !HasError;
+    public string LoadErrorDetails => _loadErrorDetails;
+    public bool HasLoadErrorDetails => HasError && _loadErrorDetails.Length > 0;
+    public bool HasLoadErrorAction => _loadErrorAction != HistoryLoadAction.None;
+    public string LoadErrorActionText => I18n.GetString(_loadErrorAction switch
+    {
+        HistoryLoadAction.ImportHistory => "HistoryLoad_ImportHistory",
+        HistoryLoadAction.ContinueMigration => "MigrationWizard_Continue.Content",
+        _ => "HistoryPage_Retry.Content"
+    });
+    public async Task ExecuteLoadErrorActionAsync()
+    {
+        if (_loadErrorAction == HistoryLoadAction.ContinueMigration) ContinueMigration();
+        else if (_loadErrorAction == HistoryLoadAction.ImportHistory)
+            NavigationService.NavigateTo("Migration", new MigrationWizardRequest(MigrationWizardMode.Import, DataMigrationScope.History, ConfigId: _currentConfig?.Id));
+        else if (_loadErrorAction == HistoryLoadAction.Retry) await RetryCommand.ExecuteAsync(null);
+    }
+    private bool _awaitingHistoryImport;
+    private MigrationHistoryStatus _migrationStatus;
+    public bool HasPendingMigration => _migrationStatus != MigrationHistoryStatus.None;
+    public string MigrationStatusMessage => I18n.GetString(_migrationStatus switch
+    {
+        MigrationHistoryStatus.AwaitingHistory => "Migration_AwaitingHistory",
+        MigrationHistoryStatus.AwaitingRecovery => "MigrationWizard_HistoryPending",
+        MigrationHistoryStatus.AwaitingPermissions => "MigrationWizard_HistoryPermissionPending",
+        MigrationHistoryStatus.AwaitingCloudPermissions => "MigrationWizard_HistoryCloudPermissionPending",
+        MigrationHistoryStatus.MissingArchives => "MigrationWizard_HistoryMissingArchives",
+        _ => "MigrationWizard_NothingPending"
+    });
+    public string MigrationNoticeTitle => I18n.GetString(_migrationStatus switch
+    {
+        MigrationHistoryStatus.MissingArchives => "MigrationWizard_RepairArchives",
+        MigrationHistoryStatus.AwaitingCloudPermissions => "MigrationWizard_CloudPermissionNoticeTitle",
+        _ => "MigrationWizard_HistoryNotice.Title"
+    });
+    public string MigrationActionText => I18n.GetString(_migrationStatus == MigrationHistoryStatus.MissingArchives ? "MigrationWizard_RecheckArchives" : "MigrationWizard_Continue.Content");
+    public void ContinueMigration() => NavigationService.NavigateTo("Migration", new MigrationWizardRequest(MigrationWizardMode.Continue, ConfigId: _currentConfig?.Id));
+    private void OnMigrationWorkflowChanged() { if (_isActive) ScheduleChangeRefresh(); }
+    private void ApplyMigrationStatus(MigrationHistoryStatus status)
+    {
+        _migrationStatus = status; IsAwaitingHistoryImport = status == MigrationHistoryStatus.AwaitingHistory;
+        OnPropertyChanged(nameof(HasPendingMigration)); OnPropertyChanged(nameof(MigrationStatusMessage)); OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(MigrationNoticeTitle)); OnPropertyChanged(nameof(MigrationActionText));
+        OnPropertyChanged(nameof(ShowMigrationNotice));
+    }
+    public bool IsAwaitingHistoryImport
+    {
+        get => _awaitingHistoryImport;
+        private set { if (SetProperty(ref _awaitingHistoryImport, value)) OnPropertyChanged(nameof(HistoryLoadMessageTitle)); }
+    }
+    public string HistoryLoadMessageTitle => I18n.GetString(IsAwaitingHistoryImport ? "Migration_AwaitingHistoryTitle" : "HistoryPage_LoadError.Title");
+    public bool ShowEmptyState => IsEmpty && !IsLoading && !HasError && !HasPendingMigration;
     public bool HasMissing => _missingCount > 0;
     public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
     public bool ShowGroupedRunHistory => IsGroupedRunView;
@@ -199,6 +256,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         using var request = _selectionRequests.Begin(cancellationToken);
         _isActive = true;
         ObserveSettings();
+        MigrationWorkflowCoordinator.Changed -= OnMigrationWorkflowChanged;
+        MigrationWorkflowCoordinator.Changed += OnMigrationWorkflowChanged;
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
         CancelScheduledChangeRefresh();
@@ -210,6 +269,14 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id) SelectedBranch = null;
         _currentConfig = config;
         _currentFolder = folder;
+        var migrationStatus = config is null ? MigrationHistoryStatus.None : await MigrationWorkflowCoordinator.HistoryStatusAsync(config, request.Token);
+        if (!request.IsCurrent) return;
+        ApplyMigrationStatus(migrationStatus);
+        if (IsAwaitingHistoryImport)
+        {
+            ClearPresentation(); IsLoading = false; ErrorMessage = string.Empty; NotifyContextChanged();
+            return;
+        }
         if (config is not null)
         {
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
@@ -253,6 +320,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
 
     public void Suspend()
     {
+        MigrationWorkflowCoordinator.Changed -= OnMigrationWorkflowChanged;
         _isActive = false;
         ++_filterGeneration;
         if (_observedSettings is not null) _observedSettings.PropertyChanged -= OnSettingsChanged;
@@ -266,15 +334,28 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IsLoading = false;
     }
 
-    public void ReportLoadFailure(string message)
+    public void ReportLoadFailure(Exception error)
     {
-        ErrorMessage = message ?? string.Empty;
+        var presentation = HistoryLoadFailurePolicy.Present(error, HasPendingMigration);
+        _loadErrorAction = presentation.Action;
+        _loadErrorDetails = CloudCommandSecurity.Redact(error.ToString());
+        ErrorMessage = I18n.GetString(presentation.SummaryKey);
+        OnPropertyChanged(nameof(LoadErrorDetails));
+        OnPropertyChanged(nameof(HasLoadErrorDetails));
+        OnPropertyChanged(nameof(LoadErrorActionText));
+        OnPropertyChanged(nameof(HasLoadErrorAction));
         IsLoading = false;
     }
 
     private void ReportOperationFailure(string operation, Exception exception)
     {
-        ErrorMessage = exception.Message;
+        ReportLoadFailure(exception);
+        if (operation is not ("view mode" or "retry"))
+        {
+            _loadErrorAction = HistoryLoadAction.None;
+            ErrorMessage = I18n.GetString("HistoryOperation_Failed");
+            OnPropertyChanged(nameof(HasLoadErrorAction));
+        }
         LogService.LogError(
             $"[HistoryPageViewModel] History {operation} failed: {exception.Message}",
             nameof(HistoryPageViewModel),
@@ -324,6 +405,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 return;
             }
 
+            var migrationStatus = await MigrationWorkflowCoordinator.HistoryStatusAsync(config, token);
+            if (!request.IsCurrent || !_isActive) return;
+            ApplyMigrationStatus(migrationStatus);
+            if (migrationStatus == MigrationHistoryStatus.AwaitingHistory) { ClearPresentation(); return; }
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
             SourceId? sourceId = !IsGroupedRunView && folder is not null
                 && Guid.TryParse(folder.Id, out var id)
@@ -335,7 +420,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                     CommentFilterText, Cursor: append ? _nextCursor : null,
                     OutcomeNames: Enum.GetValues<BackupRunOutcome>().ToDictionary(outcome => outcome, BackupRunViewItem.GetRunOutcomeText)), token);
             var snapshot = page.Snapshot;
-            var presentation = await BuildPresentationAsync(config, snapshot, token);
+            var presentation = await BuildPresentationAsync(config, snapshot, token, migrationStatus);
             token.ThrowIfCancellationRequested();
             if (!request.IsCurrent || !_isActive) return;
             _nextCursor = page.Next;
@@ -354,7 +439,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             if (!request.IsCurrent || !_isActive) return;
-            ErrorMessage = ex.Message;
+            ReportLoadFailure(ex);
             LogService.LogError(
                 $"[HistoryPageViewModel] History refresh failed: {ex.Message}",
                 nameof(HistoryPageViewModel),
@@ -840,7 +925,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     private static Task<HistoryPresentationResult> BuildPresentationAsync(
         BackupConfig config,
         HistoryPresentationSnapshot snapshot,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        MigrationHistoryStatus migrationStatus = MigrationHistoryStatus.None)
         => Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -848,7 +934,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             var sourceNames = config.SourceFolders.Where(folder => Guid.TryParse(folder.Id, out _))
                 .ToDictionary(folder => new SourceId(Guid.Parse(folder.Id)), folder => folder.DisplayName);
             foreach (var entry in snapshot.Timeline) sourceNames.TryAdd(entry.SourceId, entry.DisplayName);
-            var versions = snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item, branchNames)).ToArray();
+            var versions = snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item, branchNames,
+                MigrationHistoryStatusPolicy.ShowPendingVersion(migrationStatus, item.Readiness))).ToArray();
             var runs = snapshot.Runs.Select(item => new BackupRunViewItem(item, sourceNames)).ToArray();
             var branches = snapshot.Branches.Select(branch => new BranchViewItem(branch, null)).ToArray();
             var safetySnapshots = snapshot.ActiveSafetySnapshots
@@ -1121,12 +1208,13 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
 
 public sealed class NativeHistoryVersionViewItem(
     TimelineEntrySummary summary,
-    IReadOnlyDictionary<BranchId, string>? branchNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+    IReadOnlyDictionary<BranchId, string>? branchNames = null,
+    bool migrationPending = false) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
     private readonly bool _hasLocalFile = summary.LocalPath is not null && File.Exists(summary.LocalPath);
     private readonly bool _isLocalPayloadMissing = summary.IsLocalPayloadMissing;
     private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
-    private SemanticStatus _readinessStatus = MapReadiness(summary.Readiness);
+    private SemanticStatus _readinessStatus = migrationPending ? SemanticStatus.Info : MapReadiness(summary.Readiness);
 
     private bool _isAdvanced;
     public bool IsAdvanced { get => _isAdvanced; set { if (SetProperty(ref _isAdvanced, value)) OnPropertyChanged(nameof(ShowBranchDisplay)); } }
@@ -1171,11 +1259,12 @@ public sealed class NativeHistoryVersionViewItem(
     public string CloudActionHintText => ReadinessText;
     public string DownloadFromCloudHintText => ReadinessText;
     public HistoryPresentationReadiness Readiness => summary.Readiness;
-    public string ReadinessText => summary.Readiness switch
+    public string ReadinessText => migrationPending ? I18n.GetString("MigrationWizard_HistoryPending") : summary.Readiness switch
     {
-        HistoryPresentationReadiness.Ready => I18n.GetString(summary.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
-            || IsPartialBackup ? "History_NativeReadiness_RestrictedReady" : "History_NativeReadiness_Ready"),
-        HistoryPresentationReadiness.PreparationRequired => I18n.GetString("History_NativeReadiness_PreparationRequired"),
+        HistoryPresentationReadiness.Ready => I18n.GetString(IsPartialBackup
+            ? summary.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown ? "History_NativeReadiness_RestrictedPartial" : "History_NativeReadiness_PartialReady"
+            : summary.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown ? "History_NativeReadiness_RestrictedReady" : "History_NativeReadiness_Ready"),
+        HistoryPresentationReadiness.PreparationRequired => I18n.GetString(IsPartialBackup ? "History_NativeReadiness_PartialPreparation" : "History_NativeReadiness_PreparationRequired"),
         HistoryPresentationReadiness.PluginOrCredentialRequired => I18n.GetString("History_NativeReadiness_PluginRequired"),
         HistoryPresentationReadiness.PayloadReleased => I18n.GetString("History_NativeReadiness_Released"),
         HistoryPresentationReadiness.MetadataOnly => I18n.GetString("History_NativeReadiness_MetadataOnly"),
@@ -1189,10 +1278,10 @@ public sealed class NativeHistoryVersionViewItem(
             SetProperty(ref _readinessStatus, value);
         }
     }
-    public string ReadinessGlyph => SemanticStatusGlyphs.GetGlyph(MapReadiness(Readiness));
+    public string ReadinessGlyph => SemanticStatusGlyphs.GetGlyph(migrationPending ? SemanticStatus.Info : MapReadiness(Readiness));
 
     public void ApplySemanticColorPreference(bool useStatusColors)
-        => ReadinessStatus = useStatusColors ? MapReadiness(Readiness) : SemanticStatus.Neutral;
+        => ReadinessStatus = useStatusColors ? migrationPending ? SemanticStatus.Info : MapReadiness(Readiness) : SemanticStatus.Neutral;
 
     private static SemanticStatus MapReadiness(HistoryPresentationReadiness readiness) => readiness switch
     {

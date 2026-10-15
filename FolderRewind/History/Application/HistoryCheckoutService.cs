@@ -86,6 +86,9 @@ public sealed class HistoryCheckoutService
         }
 
         var prepared = new List<HistoryRestoreService.PreparedRestoreSource>();
+        using var session = _restore.TryCreatePreparationSession(plan!.Sources.Where(item => item.Action == HistoryCheckoutSourceAction.Restore)
+            .Select(item => item.Binding!).ToArray(), protectedWorkspace, out var preparationError);
+        if (preparationError is not null) return Blocked(preparationError);
         try
         {
             foreach (var sourcePlan in plan!.Sources.Where(item => item.Action == HistoryCheckoutSourceAction.Restore))
@@ -99,7 +102,7 @@ public sealed class HistoryCheckoutService
                     sourcePlan.Binding!,
                     MaterializationFidelity.Exact,
                     HistoryRestoreApplyMode.Clean,
-                    cancellationToken).ConfigureAwait(false));
+                    cancellationToken, session).ConfigureAwait(false));
             }
         }
         catch (Exception ex)
@@ -153,7 +156,7 @@ public sealed class HistoryCheckoutService
                     source.VersionId,
                     WorkspaceBaselineRelation.Exact)));
             var sourceState = current.GetSourceState(plan.Checkpoint!.SourceId) with {
-                BaseVersionId = plan.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact,
+                BaseVersionId = plan.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact, RequiresFullCapture = false,
                 ActiveBranchId = plan.Update!.BranchId, ActiveBranchUpdateId = plan.Update.UpdateId,
                 CheckpointAncestryAnchorId = plan.Checkpoint.CheckpointId };
             var desired = current.WithSourceStates([sourceState]);
@@ -161,7 +164,7 @@ public sealed class HistoryCheckoutService
                 prepared,
                 current,
                 desired,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, preparationSession: session).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

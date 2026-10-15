@@ -25,7 +25,10 @@ public sealed class OwnedRcloneConnection(string configPath, string remoteRoot) 
     public void Dispose()
     {
         if (_committed) return;
+        // OAuth 可能已经轮换；取消向导也不能删除受管目录中的唯一新令牌。
+        if (RcloneExecutionContext.HasActiveCredential(ConfigPath) || RcloneCredentialRefresh.MustPreserveOwnedCredentials(ConfigPath)) return;
         File.Delete(ConfigPath);
+        File.Delete(ConfigPath + ".folderrewind.lock");
         Directory.Delete(Path.GetDirectoryName(ConfigPath)!);
     }
 }
@@ -46,9 +49,12 @@ public static class RcloneConnectionService
 
     public static RcloneRemoteCatalog InspectRemotes(string configPath)
     {
-        if (new FileInfo(configPath).Length > 1024 * 1024) throw new IOException(I18n.GetString("CloudSetup_ConfigTooLarge"));
-        var bytes = RcloneExecutionContext.ReadConfigurationBytes(configPath);
-        if (bytes.Length > 1024 * 1024) throw new IOException(I18n.GetString("CloudSetup_ConfigTooLarge"));
+        byte[] bytes;
+        try { bytes = RcloneExecutionContext.ReadConfigurationBytes(configPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudSetup_SourceConfigUnavailable", ex);
+        }
         var text = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
         if (text.Contains("RCLONE_ENCRYPT_V", StringComparison.Ordinal)) throw new InvalidOperationException(I18n.GetString("CloudSetup_UnlockRequired"));
         var result = new List<RcloneRemoteOption>();
@@ -69,7 +75,7 @@ public static class RcloneConnectionService
         return new(result.Take(OnboardingOperationBudgets.RemoteInteraction).ToArray(), Convert.ToHexString(SHA256.HashData(bytes)));
     }
 
-    public static async Task<OwnedRcloneConnection> CreateWebDavAsync(string executable, string url, string user, string password,
+    public static async Task<OwnedRcloneConnection> CreateWebDavAsync(string executable, string credentialsRoot, string url, string user, string password,
         bool allowInsecure = false, CancellationToken token = default)
     {
         var endpoint = ValidateWebDavUrl(url, allowInsecure);
@@ -82,7 +88,8 @@ public static class RcloneConnectionService
         var output = await RunAsync(start, TimeSpan.FromSeconds(15), token, password + "\n").ConfigureAwait(false);
         var obscured = output.TrimEnd('\r', '\n');
         if (obscured.IndexOfAny(['\r', '\n', '\0']) >= 0 || obscured.Length == 0) throw new IOException(I18n.GetString("CloudSetup_ObscureFailed"));
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FolderRewind", "credentials", "rclone", "connection-" + Guid.NewGuid().ToString("N"));
+        if (!Path.IsPathFullyQualified(credentialsRoot)) throw new ArgumentException("Credentials directory must be absolute.", nameof(credentialsRoot));
+        var directory = Path.Combine(Path.GetFullPath(credentialsRoot), "connection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         RcloneExecutionContext.CreatePrivateDirectory(directory);
         var path = Path.Combine(directory, "rclone.conf");
@@ -123,7 +130,7 @@ public static class RcloneConnectionService
         var directory = Path.Combine(Path.GetTempPath(), "FolderRewind-probe-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var input = Path.Combine(directory, "input"); var output = Path.Combine(directory, "output");
-        var remote = context.RemoteRoot.TrimEnd('/') + "/.folderrewind-probe-" + Guid.NewGuid().ToString("N");
+        var remote = CloudRemotePath.Append(context.RemoteRoot, ".folderrewind-probe-" + Guid.NewGuid().ToString("N"));
         bool attempted = false, verified = false;
         string diagnostic = ""; bool canceled = false;
         try
@@ -161,33 +168,41 @@ public static class RcloneConnectionService
         start.StandardErrorEncoding = Encoding.UTF8;
         if (start.RedirectStandardInput) start.StandardInputEncoding = new UTF8Encoding(false);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
+        if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
         if (!process.Start()) throw new IOException(I18n.GetString("CloudSync_Error_StartFailed"));
         var output = ReadBoundedAsync(process.StandardOutput, budget.Token);
         var error = ReadBoundedAsync(process.StandardError, budget.Token);
         try
         {
+            if (credentials is not null) await credentials.StartedAsync(process, budget.Token).ConfigureAwait(false);
             if (stdin is not null) { await process.StandardInput.WriteAsync(stdin.AsMemory(), budget.Token).ConfigureAwait(false); process.StandardInput.Close(); }
             await process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
             var result = await output.ConfigureAwait(false); var failure = await error.ConfigureAwait(false);
-            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, stdin is null ? CloudCommandSecurity.Redact(failure) : I18n.GetString("CloudSetup_ObscureFailed"));
+            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, stdin is null ? RcloneConnectionDiagnostics.ProcessMessage(start, failure) : I18n.GetString("CloudSetup_ObscureFailed"));
             return result;
         }
         finally
         {
-            if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
+            var interrupted = !process.HasExited;
+            if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await Task.WhenAll(output, error).ConfigureAwait(false); } catch { }
+            if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
         }
     }
     internal static async Task<byte[]> RunBytesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, int maximumBytes)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
         token.ThrowIfCancellationRequested();
+        await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
+        if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
         if (!process.Start()) throw new IOException(I18n.GetString("CloudSync_Error_StartFailed"));
         var error = ReadBoundedAsync(process.StandardError, budget.Token);
         try
         {
+            if (credentials is not null) await credentials.StartedAsync(process, budget.Token).ConfigureAwait(false);
             using var output = new MemoryStream(); var buffer = new byte[65536]; int count;
             while ((count = await process.StandardOutput.BaseStream.ReadAsync(buffer.AsMemory(), budget.Token).ConfigureAwait(false)) != 0)
             {
@@ -196,13 +211,54 @@ public static class RcloneConnectionService
             }
             await process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
             var failure = await error.ConfigureAwait(false);
-            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, CloudCommandSecurity.Redact(failure));
+            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, RcloneConnectionDiagnostics.ProcessMessage(start, failure));
             return output.ToArray();
         }
         finally
         {
-            if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
+            var interrupted = !process.HasExited;
+            if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
+            if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
+        }
+    }
+    internal static async Task RunLinesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, Action<string> onLine)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
+        using var process = new Process { StartInfo = start };
+        if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
+        if (!process.Start()) throw new IOException(I18n.GetString("CloudSync_Error_StartFailed"));
+        var error = ReadBoundedAsync(process.StandardError, budget.Token);
+        try
+        {
+            if (credentials is not null) await credentials.StartedAsync(process, budget.Token).ConfigureAwait(false);
+            var buffer = new char[8192]; var line = new StringBuilder(); long total = 0; int count;
+            while ((count = await process.StandardOutput.ReadAsync(buffer.AsMemory(), budget.Token).ConfigureAwait(false)) != 0)
+            {
+                total += count;
+                if (total > 64 * 1024 * 1024) throw new IOException(I18n.GetString("CloudSetup_OutputTruncated"));
+                foreach (var value in buffer.AsSpan(0, count))
+                {
+                    if (value == '\n') { if (line.Length != 0) onLine(line.ToString().TrimEnd('\r')); line.Clear(); }
+                    else
+                    {
+                        if (line.Length >= 8192) throw new IOException(I18n.GetString("CloudSetup_OutputTruncated"));
+                        line.Append(value);
+                    }
+                }
+            }
+            if (line.Length != 0) onLine(line.ToString().TrimEnd('\r'));
+            await process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
+            var failure = await error.ConfigureAwait(false);
+            if (process.ExitCode != 0) throw new RcloneProcessException(process.ExitCode, RcloneConnectionDiagnostics.ProcessMessage(start, failure));
+        }
+        finally
+        {
+            var interrupted = !process.HasExited;
+            if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
+            try { await error.ConfigureAwait(false); } catch { }
+            if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
         }
     }
     private static async Task<string> ReadBoundedAsync(StreamReader reader, CancellationToken token)

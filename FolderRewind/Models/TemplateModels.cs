@@ -131,8 +131,9 @@ namespace FolderRewind.Models
         }
     }
 
-    public class BackupPreset : ObservableObject
+    public class BackupPreset : ObservableObject, IJsonOnDeserialized
     {
+        void IJsonOnDeserialized.OnDeserialized() => Archive.ApplyDeserializedInputMigration();
         private string _id = Guid.NewGuid().ToString("N");
         private string _shareId = Guid.NewGuid().ToString("N");
         private string _shareCode = string.Empty;

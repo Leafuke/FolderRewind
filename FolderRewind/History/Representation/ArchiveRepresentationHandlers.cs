@@ -54,7 +54,9 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 return new ArchiveMaterializationInput(representation, assessment.SelectedLocalPath);
             })
             .ToImmutableArray();
-        await _backend.MaterializeAsync(inputs, context.StagingDirectory, cancellationToken).ConfigureAwait(false);
+        if (context.RestoreVerification is { } operation && _backend is IArchiveRestorePreflightBackend backend)
+            await backend.MaterializeRestoreAsync(inputs, context.StagingDirectory, operation, cancellationToken).ConfigureAwait(false);
+        else await _backend.MaterializeAsync(inputs, context.StagingDirectory, cancellationToken).ConfigureAwait(false);
     }
 
     protected async ValueTask<RepresentationAssessment> AssessArchivePayloadAsync(
@@ -73,6 +75,16 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
 
             try
             {
+                if (context.RestoreVerification is { } operation && _backend is IArchiveRestorePreflightBackend preflight)
+                {
+                    var checkedInput = await operation.VerifyAsync(preflight, context.Representation, local.ResolvedPath!, cancellationToken).ConfigureAwait(false);
+                    if (checkedInput.Success)
+                        return Ready(context.Representation, fidelity, local.ResolvedPath!,
+                            operation.Mode == Models.RestoreArchivePreflightMode.Strict ? ReplicaIntegrityObservation.Verified : ReplicaIntegrityObservation.Unknown,
+                            checkedInput.Evidence);
+                    failures.Add(checkedInput.Diagnostic);
+                    continue;
+                }
                 if (context.Representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expected))
                 {
                     await using var input = new FileStream(local.ResolvedPath!, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
@@ -132,7 +144,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                     ? ReplicaIntegrityObservation.Corrupt
                     : ReplicaIntegrityObservation.Unknown)),
             new[] { hadLocalPayload
-                ? "Every available local payload failed deep verification."
+                ? context.RestoreVerification is null ? "Every available local payload failed deep verification." : "Every available local payload failed restore preflight."
                 : "No usable local or shared replica is known." }
                 .Concat(failures).Concat(localCandidates.Where(c => c.Availability != ReplicaAvailabilityObservation.Available)
                     .Select(c => $"{c.ResolvedPath}: {c.Diagnostic}")));

@@ -11,6 +11,9 @@
     <StackPanel Spacing="8">
         <!-- 工具与依赖 -->
         <TextBlock x:Uid="SettingsPage_Section_Tools" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+        <toolkit:SettingsCard x:Uid="CloudConnections_SettingsCard">
+            <Button x:Uid="CloudConnections_Open" Click="OnOpenCloudConnections" AutomationProperties.AutomationId="SettingsCloudConnections"/>
+        </toolkit:SettingsCard>
 
         <!-- 运行环境 -->
         <toolkit:SettingsExpander x:Name="RuntimeEnvironmentExpander" IsExpanded="False" AutomationProperties.AutomationId="RuntimeEnvironmentExpander">

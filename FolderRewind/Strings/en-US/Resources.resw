@@ -775,7 +775,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Clear missing</value>
   </data>
   <data name="HistoryPage_RestoreButton.ToolTipService.ToolTip" xml:space="preserve">
-    <value>Restore</value>
+    <value>Restore this version. Cloud-only backups must be downloaded first. Restore requires confirmation.</value>
   </data>
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>Select a folder to view history</value>
@@ -877,7 +877,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Delete backup project</value>
   </data>
   <data name="ConfigSettingsDialog_DeleteConfirmContent" xml:space="preserve">
-    <value>Delete this backup project? This action cannot be undone.</value>
+    <value>Remove this backup project from the configuration? Its backup files will be kept.</value>
   </data>
   <data name="Config_OpenDestination_Empty" xml:space="preserve">
     <value>Destination path is empty</value>
@@ -2721,7 +2721,7 @@ Status: {3}</value>
     <value>Configuration</value>
   </data>
   <data name="SettingsPage_ConfigDataDesc.Text" xml:space="preserve">
-    <value>Export the current configuration or import a previously exported configuration file. Importing will replace all current settings.</value>
+    <value>Export configuration as JSON or select projects to import. Merge by project identity, retain unselected projects, and activate after restart.</value>
   </data>
   <data name="SettingsPage_ExportConfig.Content" xml:space="preserve">
     <value>Export Configuration</value>
@@ -2733,7 +2733,7 @@ Status: {3}</value>
     <value>History Records</value>
   </data>
   <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
-    <value>Export or import backup history records. When importing, you can choose to merge or replace existing records.</value>
+    <value>Transfer selected projects’ history and branch continuation, with optional archives, using local files or cloud snapshots. Advanced mode can merge metadata only.</value>
   </data>
   <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
     <value>Export History</value>
@@ -3367,13 +3367,10 @@ Release notes:
 {3}</value>
   </data>
   <data name="Update_Dialog_OpenRelease" xml:space="preserve">
-    <value>View release</value>
+    <value>View official release page</value>
   </data>
   <data name="Update_Dialog_OpenStore" xml:space="preserve">
     <value>Open Microsoft Store</value>
-  </data>
-  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
-    <value>Download and prepare install</value>
   </data>
   <data name="Update_Dialog_Later" xml:space="preserve">
     <value>Later</value>
@@ -3383,52 +3380,6 @@ Release notes:
   </data>
   <data name="Update_Dialog_StoreDelayHint" xml:space="preserve">
     <value>Note: Microsoft Store rollout may lag behind release publication. If the new version is not visible yet, please try again later.</value>
-  </data>
-  <data name="Update_Prepare_Title" xml:space="preserve">
-    <value>Update package preparation</value>
-  </data>
-  <data name="Update_Prepare_Success" xml:space="preserve">
-    <value>The update package is ready (source: {0}). Please right-click and run the following script to continue installation:
-{1}</value>
-  </data>
-  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
-    <value>Open install folder</value>
-  </data>
-  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
-    <value>Failed to open install folder: {0}</value>
-  </data>
-  <data name="Update_Prepare_Failed" xml:space="preserve">
-    <value>Failed to prepare update package: {0}</value>
-  </data>
-  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
-    <value>Invalid update context. Please try again later.</value>
-  </data>
-  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
-    <value>This release does not provide matching .7z or .sha256 assets for your platform.</value>
-  </data>
-  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
-    <value>No update download source is available. Please check mirror settings.</value>
-  </data>
-  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
-    <value>Unable to parse .sha256 file content.</value>
-  </data>
-  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
-    <value>Checksum failed for source "{0}" (SHA256 mismatch).</value>
-  </data>
-  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
-    <value>Failed to start 7z extraction process.</value>
-  </data>
-  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
-    <value>Extraction failed from source "{0}": {1}</value>
-  </data>
-  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
-    <value>Package extracted, but Install.ps1 was not found. Please install manually from the release page.</value>
-  </data>
-  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
-    <value>Download failed from source "{0}": {1}</value>
-  </data>
-  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
-    <value>Failed to prepare update package. Please try again later.</value>
   </data>
   <data name="Update_Source_Official" xml:space="preserve">
     <value>Official GitHub</value>
@@ -4517,16 +4468,7 @@ Pull request: {1}</value>
     <value>Cancel</value>
   </data>
   <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
-    <value>The dialog analyzes the remote Commit Pack set, then safely unions missing immutable history metadata into this repository.</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
-    <value>Sync scope</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
-    <value>Only sync this configuration's history</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
-    <value>Sync history and download all backups</value>
+    <value>Syncing history imports metadata only. Select a version to download, verify, and restore its backup files.</value>
   </data>
   <data name="ConfigCloudSyncDialog_RemoteBasePathLabel.Text" xml:space="preserve">
     <value>Remote base path</value>
@@ -4578,9 +4520,6 @@ Pull request: {1}</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryOnlySucceeded" xml:space="preserve">
     <value>History sync completed. Imported {0} entries and skipped {1} duplicates.</value>
-  </data>
-  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
-    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and downloaded {2} backup package(s).</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
     <value>Imported {0} history entries, but downloading the cloud backups failed: {1}</value>
@@ -4861,9 +4800,6 @@ Pull request: {1}</value>
   <data name="SponsorWindow_StoreOnlyAction" xml:space="preserve">
     <value>Get it from Microsoft Store</value>
   </data>
-  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
-    <value>Download installer</value>
-  </data>
   <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
     <value>The backup scope context is incomplete.</value>
   </data>
@@ -5057,13 +4993,13 @@ Pull request: {1}</value>
   <data name="GameDiscovery_PluginBatch_Commit.Content" xml:space="preserve"><value>Create all configurations</value></data>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>Batch creation complete</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>Created {0} configuration(s) and skipped {1} configuration(s).</value></data>
-  <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>Restorable (exact)</value></data>
-  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>Restorable (overwrite / export)</value></data>
-  <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>Restorable after cloud preparation</value></data>
+  <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>Ready to restore</value></data>
+  <data name="History_NativeReadiness_RestrictedReady" xml:space="preserve"><value>Restore by overwrite or export</value></data>
+  <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>Download required</value></data>
   <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>Plugin or credentials required</value></data>
   <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>Backup payload unavailable</value></data>
-  <data name="History_NativeReadiness_Released" xml:space="preserve"><value>History retained; payload released</value></data>
-  <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>History metadata only</value></data>
+  <data name="History_NativeReadiness_Released" xml:space="preserve"><value>Backup files released</value></data>
+  <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>History records only</value></data>
   <data name="History_NativeAction_NotAvailable" xml:space="preserve"><value>This action is not connected to a safe Native History executor; Legacy fallback was blocked.</value></data>
   <data name="HistoryPage_BranchCheckout.ToolTipService.ToolTip" xml:space="preserve"><value>Check out the selected branch</value></data>
   <data name="HistoryPage_BranchRename.ToolTipService.ToolTip" xml:space="preserve"><value>Rename branch</value></data>
@@ -5359,11 +5295,11 @@ Diagnostics: {4}</value></data>
   <data name="SettingsProject_Save.Content" xml:space="preserve"><value>Save</value></data>
   <data name="SettingsProject_Delete.Content" xml:space="preserve"><value>Delete project</value></data>
   <data name="SettingsProject_Stale" xml:space="preserve"><value>The project changed while you were editing. Return to the project and reopen settings. This draft has not overwritten the newer configuration.</value></data>
-  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>Changes take effect after saving.</value></data>
+  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>No unsaved changes</value></data>
   <data name="SettingsProject_Unsaved" xml:space="preserve"><value>Unsaved project settings</value></data>
   <data name="SettingsProject_Discard" xml:space="preserve"><value>Discard changes</value></data>
   <data name="SettingsProject_Saved" xml:space="preserve"><value>Project settings saved.</value></data>
-  <data name="SettingsProject_SaveFailed" xml:space="preserve"><value>Save incomplete. The draft is retained. Resolve the error and retry.</value></data>
+  <data name="SettingsProject_SaveFailed" xml:space="preserve"><value>Could not save. Your changes are retained. Resolve the reported issue and retry.</value></data>
   <data name="SettingsProject_Search.Header" xml:space="preserve"><value>Find project settings</value></data>
   <data name="SettingsProject_Search.PlaceholderText" xml:space="preserve"><value>For example: performance, schedule, space, cloud, exclude</value></data>
   <data name="SettingsProject_SearchGeneral" xml:space="preserve"><value>content|name|location|directory</value></data>
@@ -5387,7 +5323,7 @@ Algorithm: {4} → {5} · Compression level: {6} → {7}</value></data>
   <data name="CloudSetup_Url.Header" xml:space="preserve"><value>WebDAV service URL</value></data>
   <data name="CloudSetup_User.Header" xml:space="preserve"><value>WebDAV username</value></data>
   <data name="CloudSetup_Password.Header" xml:space="preserve"><value>WebDAV password</value></data>
-  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>Credentials are saved in a separate file accessible only to the current user.</value></data>
+  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>Credentials are saved in a separate file accessible only to the current user. The password box clears after successful creation; you do not need to enter it again.</value></data>
   <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>Create connection</value></data>
   <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>Connection config file</value></data>
   <data name="CloudSetup_PickConfig.Content" xml:space="preserve"><value>Choose an existing config file</value></data>
@@ -5421,7 +5357,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="CloudSetup_OutputTruncated" xml:space="preserve"><value>The response exceeded its read limit. Narrow the query. Results are incomplete.</value></data>
   <data name="CloudSetup_InitialState" xml:space="preserve"><value>Connection not checked. Saving a connection does not create a cloud copy.</value></data>
   <data name="CloudSetup_ConnectionChanged" xml:space="preserve"><value>Connection changed. Check again; previous observations are invalid.</value></data>
-  <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>Connection draft created. Browse and confirm the destination before saving. Canceling cleans up only this unsaved credentials file.</value></data>
+  <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>Connection draft created and selected under Existing configuration. The password box has been cleared. Browse and confirm the destination before saving. Canceling cleans up only this unsaved credentials file.</value></data>
   <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>Directory display is limited to 200 entries. Enter a narrower subdirectory and check again.</value></data>
   <data name="CloudSetup_ReadVerified" xml:space="preserve"><value>The directory can be listed. This does not prove write access or the existence of restorable backup data.</value></data>
   <data name="CloudSetup_ProbeRetained" xml:space="preserve"><value>Cleanup of this test object could not be confirmed: {0}. Manually handle only this exact object.</value></data>
@@ -5470,7 +5406,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="CloudSetup_WorkingDirectory.Header" xml:space="preserve"><value>rclone working directory (blank uses the executable directory)</value></data>
   <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>Allow HTTP (credentials may be sent in plain text)</value></data>
   <data name="OpenList_Environment.Header" xml:space="preserve"><value>OpenList local environment and endpoint</value></data>
-  <data name="OpenList_Environment.Description" xml:space="preserve"><value>Save the executable path and service address. Start OpenList manually.</value></data>
+  <data name="OpenList_Environment.Description" xml:space="preserve"><value>Separate external services from locally authorized instances. Verify WebDAV authentication through the cloud connection wizard.</value></data>
   <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>Start OpenList manually, then save its path and service address here.</value></data>
   <data name="OpenList_Executable.Header" xml:space="preserve"><value>OpenList executable path</value></data>
   <data name="OpenList_PickExecutable.Content" xml:space="preserve"><value>Choose OpenList executable (does not run it)</value></data>
@@ -5483,7 +5419,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="OpenList_Check.Content" xml:space="preserve"><value>Check service endpoint without starting it</value></data>
   <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>Installation and startup guide</value></data>
   <data name="OpenList_AbsolutePaths" xml:space="preserve"><value>Use explicit absolute executable, working, data, and config paths.</value></data>
-  <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList data must not overlap backup sources or repositories.</value></data>
+  <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList working, data, and configuration paths must not overlap backup sources, repositories, or FolderRewind configuration storage.</value></data>
   <data name="OpenList_EndpointObserved" xml:space="preserve"><value>The endpoint returned HTTP {0}. Service identity, WebDAV access, and mounted-drive permissions still require separate verification. No executable was started.</value></data>
   <data name="OpenList_EndpointUnavailable" xml:space="preserve"><value>The endpoint is unreachable or unconfirmed. Start the known environment manually and check again. A second process will not be created automatically.</value></data>
   <data name="OpenList_SavedManualOnly" xml:space="preserve"><value>Environment saved. Start OpenList manually when needed.</value></data>
@@ -5554,11 +5490,11 @@ Clean restore replaces current content within this source boundary. Overwrite wr
   <data name="HomeProtection_SourceFailures" xml:space="preserve"><value>Content needing attention: {0}. Open the project to inspect these sources.</value></data>
   <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>General</value></data>
   <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>Backup</value></data>
-  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>Resources</value></data>
+  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>Storage and performance</value></data>
   <data name="SettingsProject_TabRestore.Text" xml:space="preserve"><value>Restore</value></data>
   <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>Automation</value></data>
   <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>Cloud storage</value></data>
-  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>Filters</value></data>
+  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>File rules</value></data>
   <data name="SettingsProject_SearchResource" xml:space="preserve"><value>performance|compression|threads|retention|resources|space|cpu</value></data>
   <data name="SettingsProject_AdvancedResources.Header" xml:space="preserve"><value>Advanced: compression and file type rules</value></data>
   <data name="SettingsProject_AdvancedIdentity.Header" xml:space="preserve"><value>Advanced: kind, icon, and configuration file</value></data>
@@ -5736,12 +5672,12 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsProject_SaveAction" xml:space="preserve"><value>Save</value></data>
   <data name="SettingsProject_GroupGeneral" xml:space="preserve"><value>General</value></data>
   <data name="SettingsProject_GroupBackup" xml:space="preserve"><value>Backup</value></data>
-  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>Resources</value></data>
+  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>Storage and performance</value></data>
   <data name="SettingsProject_GroupRestore" xml:space="preserve"><value>Restore</value></data>
   <data name="SettingsProject_GroupAutomation" xml:space="preserve"><value>Automation</value></data>
   <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>Cloud storage</value></data>
-  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>Filters</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Back up current files before restoring.</value></data>
+  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>File rules</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Used only for ordinary restore. The snapshot lets you undo a successful restore; failure rollback is always enabled.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>Roll back on failure; turning this off may cause loss of current files.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>Check backups during restoration and stop if damaged.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>Upload after backup</value></data>
@@ -5799,12 +5735,12 @@ Overwrite restore keeps extra files and replaces backed-up content.</value></dat
   <data name="Check_CloudRepair" xml:space="preserve"><value>Check incomplete. Review connection settings and retry.</value></data>
   <data name="CloudSetup_CheckFailedShort" xml:space="preserve"><value>Connection check failed. Review the address, credentials or config file; details are in diagnostics.</value></data>
   <data name="CloudSetup_WriteVerifiedShort" xml:space="preserve"><value>Read and write verification passed.</value></data>
-  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>Read and write verification failed. Check folder permissions.</value></data>
-  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>The test file could not be removed. Delete it manually; see diagnostics for its path.</value></data>
+  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>Read and write access could not be confirmed. Review diagnostics and try again.</value></data>
+  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>Test object cleanup could not be confirmed. Objects are retained when upload or read-back is incomplete. Check the exact path in diagnostics.</value></data>
   <data name="CloudRecovery_HistorySummary" xml:space="preserve"><value>Loaded {0} versions. Choose content to restore.</value></data>
   <data name="CloudRecovery_ReadablePreview" xml:space="preserve"><value>Content: {0}
 Backup time: {1}
-{2} backup files need downloading.</value></data>
+Metadata indicates {2} candidate payloads to download. Remote manifests, sizes, and hashes will be verified before restoration.</value></data>
   <data name="CloudRecovery_DestinationConfirm" xml:space="preserve"><value>Destination: {0}
 Only the new folder will be written.</value></data>
   <data name="CloudRecovery_Verifying" xml:space="preserve"><value>Verifying backup files…</value></data>
@@ -6348,4 +6284,755 @@ Retention count: {2} · {3}</value></data>
   <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}: {1:N0}–{2:N0}; {3}: {4:N0}–{5:N0}</value></data>
   <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} units</value></data>
   <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>Scans downward from this Y to the first surface. This is not a cave view. Player navigation uses saved X/Z only.</value></data>
+  <data name="CloudSetup_CredentialMigrating" xml:space="preserve"><value>Connection credentials are being migrated in the background. Please wait; other projects and the main window remain available.</value></data>
+  <data name="CloudSetup_SourceConfigUnavailable" xml:space="preserve"><value>The source rclone config cannot be read: it is missing, inaccessible, or exceeds 1 MiB. Select the config file again.</value></data>
+  <data name="CloudSetup_RemoteMismatch" xml:space="preserve"><value>The selected remote is absent from the source rclone config. Load the remote list and select its actual name.</value></data>
+  <data name="CloudSetup_SnapshotCreateFailed" xml:space="preserve"><value>The task credential snapshot could not be created. Check write access and available space in the application data directory.</value></data>
+  <data name="CloudSetup_SnapshotUnavailable" xml:space="preserve"><value>rclone reports that this task's config snapshot is missing. Retry; if it persists, provide redacted diagnostics to investigate file visibility and permissions.</value></data>
+  <data name="CloudSetup_CredentialMigrationFailed" xml:space="preserve"><value>Migration of the 1.9.6 connection credentials failed. The original credentials and path were retained. Check the connection; migration will retry at the next startup.</value></data>
+  <data name="CloudSetup_CredentialTargetConflict" xml:space="preserve"><value>The new credential location contains a file with different content. Migration stopped and both files were retained. Confirm the connection again.</value></data>
+  <data name="CloudSetup_CredentialSaveUncertain" xml:space="preserve"><value>The connection save and compensating write could not be confirmed. Credentials that may still be referenced were retained. Confirm and save the connection in the wizard before running cloud operations.</value></data>
+  <data name="CloudSetup_ConnectionSaveFailed" xml:space="preserve"><value>The connection config could not be saved. Check config-file access or locks, then save again before uploading.</value></data>
+  <data name="CheckComponent_cloud_source_config_unavailable" xml:space="preserve"><value>Source credential config</value></data>
+  <data name="CheckComponent_cloud_remote_mismatch" xml:space="preserve"><value>Remote name</value></data>
+  <data name="CheckComponent_cloud_snapshot_create_failed" xml:space="preserve"><value>Task snapshot creation</value></data>
+  <data name="CheckComponent_cloud_snapshot_unavailable" xml:space="preserve"><value>Task snapshot access</value></data>
+  <data name="CheckComponent_cloud_credentials_migration_failed" xml:space="preserve"><value>1.9.6 credential migration</value></data>
+  <data name="CheckComponent_cloud_credentials_target_conflict" xml:space="preserve"><value>Credential destination conflict</value></data>
+  <data name="CheckComponent_cloud_credentials_save_uncertain" xml:space="preserve"><value>Credential save needs confirmation</value></data>
+  <data name="CheckComponent_cloud_connection_save_failed" xml:space="preserve"><value>Connection config persistence</value></data>
+  <data name="Update_Dialog_DownloadSetup" xml:space="preserve">
+    <value>Download Setup installer</value>
+  </data>
+  <data name="Update_Dialog_MirrorMetadataHint" xml:space="preserve">
+    <value>Version information comes from a mirror. Check the version and release notes on the official release page.</value>
+  </data>
+  <data name="Update_Dialog_SetupExitHint" xml:space="preserve">
+    <value>Before installing, exit FolderRewind normally using Exit in the system tray menu and wait for running tasks to finish.</value>
+  </data>
+  <data name="Update_Dialog_ManualMigrationHint" xml:space="preserve">
+    <value>Setup in-place upgrades have not been confirmed for this installation type. Keep your existing configuration and confirm the installation method and migration steps for configuration and plugin data before installing manually. This update action does not migrate data automatically.</value>
+  </data>
+  <data name="Update_Dialog_UnsafeMetadataHint" xml:space="preserve">
+    <value>The update links failed validation. The official releases list will open instead. Check the version and download from the official page.</value>
+  </data>
+  <data name="Update_Dialog_PackageUnavailableHint" xml:space="preserve">
+    <value>An installer matching this version and device could not be uniquely selected. Check the official releases list before downloading.</value>
+  </data>
+  <data name="Update_Dialog_UnsupportedArchitectureHint" xml:space="preserve">
+    <value>No supported Setup installer is available for this device architecture. Check supported devices on the official releases list.</value>
+  </data>
+  <data name="Migration_ConfigPrepared" xml:space="preserve">
+    <value>Configuration prepared; restart to apply. The current configuration remains active. Imported automation and cloud uploads stay disabled until setup is complete and you enable them.</value>
+  </data>
+  <data name="Migration_ConfigRolledBack" xml:space="preserve">
+    <value>The configuration import was not applied. The previous configuration was retained or restored. {0}</value>
+  </data>
+  <data name="Migration_Prepare" xml:space="preserve">
+    <value>Prepare import</value>
+  </data>
+  <data name="Migration_ImportCanceled" xml:space="preserve">
+    <value>Pending configuration import canceled. The current configuration is unchanged.</value>
+  </data>
+  <data name="Migration_ConfigPreview" xml:space="preserve">
+    <value>Configuration applies after restart and preserves switches. Migrated capabilities pause per project until reviewed and confirmed.</value>
+  </data>
+  <data name="Migration_ConfigProject" xml:space="preserve">
+    <value>{0}
+Project ID: {1} · Sources: {2}
+{3}
+Backup directory: {4}</value>
+  </data>
+  <data name="Migration_Projects" xml:space="preserve">
+    <value>Backup projects</value>
+  </data>
+  <data name="Migration_NoProjects" xml:space="preserve">
+    <value>No backup projects to migrate. For orphan history, import the original configuration to retain project and source IDs.</value>
+  </data>
+  <data name="Migration_MetadataOnly" xml:space="preserve">
+    <value>Contains history metadata only; excludes backup payloads and the old device workspace.</value>
+  </data>
+  <data name="Migration_ArchivesUnverified" xml:space="preserve">
+    <value>Backup archives are unverified. Import the original configuration for unassociated projects; use Complete migration setup for associated projects.</value>
+  </data>
+  <data name="Migration_ExportDone" xml:space="preserve">
+    <value>Exported history metadata for {0} projects.</value>
+  </data>
+  <data name="Migration_FormatPreview" xml:space="preserve">
+    <value>Source application: {0} · Transfer format: v{1}</value>
+  </data>
+  <data name="Migration_HistoryProject" xml:space="preserve">
+    <value>{0}
+{1}
+Sources {2} · Versions {3} · Branches {4} · Packs {5}
+{6}</value>
+  </data>
+  <data name="Migration_Associated" xml:space="preserve">
+    <value>Matched project with the same ID</value>
+  </data>
+  <data name="Migration_AwaitingConfig" xml:space="preserve">
+    <value>Awaiting the original configuration</value>
+  </data>
+  <data name="Migration_ProjectResult" xml:space="preserve">
+    <value>{0}
+Added {1} · Duplicates {2}
+{3}; {4}; {5}</value>
+  </data>
+  <data name="Migration_Commit_Committed" xml:space="preserve">
+    <value>History metadata committed</value>
+  </data>
+  <data name="Migration_Commit_CommittedRecoveryRequired" xml:space="preserve">
+    <value>Commit decided; recovery required. Retry the import to continue</value>
+  </data>
+  <data name="Migration_Commit_Failed" xml:space="preserve">
+    <value>Import failed; see diagnostic logs</value>
+  </data>
+  <data name="Migration_Commit_Canceled" xml:space="preserve">
+    <value>Canceled before commit</value>
+  </data>
+  <data name="Migration_Commit_NotExecuted" xml:space="preserve">
+    <value>Not executed</value>
+  </data>
+  <data name="Migration_Local_Ready" xml:space="preserve">
+    <value>Local state is valid</value>
+  </data>
+  <data name="Migration_Local_InitializationRequired" xml:space="preserve">
+    <value>Local initialization required</value>
+  </data>
+  <data name="Migration_Local_RecoveryRequired" xml:space="preserve">
+    <value>Controlled local-state recovery required</value>
+  </data>
+  <data name="Migration_SetupTitle" xml:space="preserve">
+    <value>Confirm project identity and migration paths</value>
+  </data>
+  <data name="Migration_SetupDescription" xml:space="preserve">
+    <value>Edit only source and destination paths that need correction. Resume ready capabilities through the batch review.</value>
+  </data>
+  <data name="Migration_Destination" xml:space="preserve">
+    <value>Backup destination</value>
+  </data>
+  <data name="Migration_OldRoot" xml:space="preserve">
+    <value>Original path root (optional)</value>
+  </data>
+  <data name="Migration_NewRoot" xml:space="preserve">
+    <value>New path root</value>
+  </data>
+  <data name="Migration_PreviewPaths" xml:space="preserve">
+    <value>Preview root mapping</value>
+  </data>
+  <data name="Migration_PathPreviewReady" xml:space="preserve">
+    <value>Path preview updated below. You can also edit each path.</value>
+  </data>
+  <data name="Migration_ConfirmSetup" xml:space="preserve">
+    <value>Confirm paths and initialize</value>
+  </data>
+  <data name="Migration_SetupDone" xml:space="preserve">
+    <value>Migration setup complete. Archives remain unverified; the first backup establishes an independent baseline. Check cloud connections and enable automation and uploads when ready.</value>
+  </data>
+  <data name="Migration_NoSources" xml:space="preserve">
+    <value>The project has no sources.</value>
+  </data>
+  <data name="Migration_SourceMissing" xml:space="preserve">
+    <value>Source &quot;{0}&quot; is inaccessible: {1}</value>
+  </data>
+  <data name="Migration_PathOverlap" xml:space="preserve">
+    <value>Source &quot;{0}&quot; overlaps the backup destination or has an invalid path.</value>
+  </data>
+  <data name="Migration_DestinationInvalid" xml:space="preserve">
+    <value>The backup destination must be a valid absolute path.</value>
+  </data>
+  <data name="Migration_HistoryMissing" xml:space="preserve">
+    <value>The bound history repository has not been migrated. Import the corresponding history first.</value>
+  </data>
+  <data name="Migration_PluginPending" xml:space="preserve">
+    <value>Plugin {0} is not active. Check installation, compatibility and enabled state.</value>
+  </data>
+  <data name="Migration_PasswordPending" xml:space="preserve">
+    <value>Prepare the project encryption password on this device first.</value>
+  </data>
+  <data name="Migration_ProjectBlocked" xml:space="preserve">
+    <value>Cannot export project &quot;{0}&quot;: {1}</value>
+  </data>
+  <data name="Migration_ErrorFormat" xml:space="preserve">
+    <value>Incompatible transfer format</value>
+  </data>
+  <data name="Migration_ErrorData" xml:space="preserve">
+    <value>Damaged data or identity conflict</value>
+  </data>
+  <data name="Migration_ErrorPermission" xml:space="preserve">
+    <value>Destination permission denied</value>
+  </data>
+  <data name="Migration_ErrorSpace" xml:space="preserve">
+    <value>Destination disk is full</value>
+  </data>
+  <data name="Migration_ConfigApplied" xml:space="preserve">
+    <value>Configuration applied after restart. Review and confirm ready capabilities. Configured switches are preserved.</value>
+  </data>
+  <data name="Migration_ErrorIo" xml:space="preserve">
+    <value>Destination I/O failed. Check the directory, device and diagnostic logs.</value>
+  </data>
+  <data name="Migration_ErrorUnexpected" xml:space="preserve">
+    <value>Import encountered an unexpected error. See diagnostic logs.</value>
+  </data>
+  <data name="Migration_SelectAll.Content" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="Migration_ClearSelection.Content" xml:space="preserve">
+    <value>Clear selection</value>
+  </data>
+  <data name="Migration_BackupCapability.Content" xml:space="preserve">
+    <value>Resume backup</value>
+  </data>
+  <data name="Migration_CloudCapability.Content" xml:space="preserve">
+    <value>Resume cloud actions</value>
+  </data>
+  <data name="Migration_BatchReview.Content" xml:space="preserve">
+    <value>Review and resume ready projects</value>
+  </data>
+  <data name="Migration_ReadOriginal.Content" xml:space="preserve">
+    <value>Read original switches from configuration</value>
+  </data>
+  <data name="Migration_ModeLocal" xml:space="preserve">
+    <value>Restore on this computer</value>
+  </data>
+  <data name="Migration_ModeCross" xml:space="preserve">
+    <value>Migrate to another computer</value>
+  </data>
+  <data name="Migration_ExportAll" xml:space="preserve">
+    <value>All projects (default)</value>
+  </data>
+  <data name="Migration_ExportSelected" xml:space="preserve">
+    <value>Selected projects</value>
+  </data>
+  <data name="Migration_ExportAction" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Migration_SelectionCount" xml:space="preserve">
+    <value>Selected {0} of {1} projects</value>
+  </data>
+  <data name="Migration_BatchSummary" xml:space="preserve">
+    <value>{0} released · {1} awaiting confirmation · {2} need attention</value>
+  </data>
+  <data name="Migration_CapabilitySummary" xml:space="preserve">
+    <value>Backup: {0} {1}
+Cloud: {2} {3}</value>
+  </data>
+  <data name="Migration_State_AwaitingCheck" xml:space="preserve">
+    <value>Awaiting check</value>
+  </data>
+  <data name="Migration_State_AwaitingConfirmation" xml:space="preserve">
+    <value>Awaiting confirmation</value>
+  </data>
+  <data name="Migration_State_Released" xml:space="preserve">
+    <value>Migration restriction released</value>
+  </data>
+  <data name="Migration_State_Blocked" xml:space="preserve">
+    <value>Needs attention</value>
+  </data>
+  <data name="Migration_CloudPaused" xml:space="preserve">
+    <value>Cloud actions for this project are paused. Review and confirm in Data migration.</value>
+  </data>
+  <data name="Migration_CloudBindingRequired" xml:space="preserve">
+    <value>Cloud connection is not ready. Bind a connection in project management.</value>
+  </data>
+  <data name="Migration_LocalStateDamaged" xml:space="preserve">
+    <value>Local history state is damaged or inaccessible. Complete controlled recovery first.</value>
+  </data>
+  <data name="Migration_CheckExpired" xml:space="preserve">
+    <value>The project or history state changed. Check again before confirming.</value>
+  </data>
+  <data name="Migration_ConfigPaths" xml:space="preserve">
+    <value>{0} sources
+Sources: {1}
+Destination: {2}</value>
+  </data>
+  <data name="Migration_BatchDescription" xml:space="preserve">
+    <value>Resume selected ready capabilities while preserving configured switches. Other projects remain independent. Startup backups and existing archives will not be replayed.</value>
+  </data>
+  <data name="Migration_BatchTitle" xml:space="preserve">
+    <value>Review and resume migrated projects</value>
+  </data>
+  <data name="Migration_ResumeReady" xml:space="preserve">
+    <value>Resume ready capabilities</value>
+  </data>
+  <data name="Migration_ResumeCount" xml:space="preserve">
+    <value>Processed {0} projects. Remaining projects can be checked or retried.</value>
+  </data>
+  <data name="Migration_PathSaved" xml:space="preserve">
+    <value>Paths and local state were processed. Review the batch to resume capabilities.</value>
+  </data>
+  <data name="Migration_ReadOriginalTitle" xml:space="preserve">
+    <value>Read original configuration switches</value>
+  </data>
+  <data name="Migration_ReadOriginalDescription" xml:space="preserve">
+    <value>Restore only automatic backup and cloud switches for matching identities. Paths, rules and credentials stay intact. Execution still requires confirmation.</value>
+  </data>
+  <data name="Migration_ReadOriginalAction" xml:space="preserve">
+    <value>Save selected switches</value>
+  </data>
+  <data name="Migration_OriginalSwitches" xml:space="preserve">
+    <value>Automatic backup: {0} → {1}
+Cloud switch: {2} → {3}</value>
+  </data>
+  <data name="Migration_On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Migration_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Migration_OriginalReadDone" xml:space="preserve">
+    <value>Original switches were read. Review and confirm ready capabilities.</value>
+  </data>
+  <data name="Migration_Restart.Content" xml:space="preserve"><value>Restart and apply configuration</value></data>
+  <data name="Migration_CancelPending.Content" xml:space="preserve"><value>Cancel pending import</value></data>
+  <data name="Migration_CancelOperation.Content" xml:space="preserve"><value>Cancel current operation</value></data>
+  <data name="Migration_Setup.Content" xml:space="preserve"><value>Complete migration setup</value></data>
+  <data name="Migration_KeptOff" xml:space="preserve"><value>(configured off; stays off)</value></data>
+  <data name="Migration_DefaultSummary" xml:space="preserve"><value>Import or export configuration and history metadata</value></data>
+  <data name="Migration_BatchCanceled" xml:space="preserve"><value>Batch canceled. Completed project decisions remain; remaining projects can be retried.</value></data>
+  <data name="Migration_BatchPaths.Content" xml:space="preserve"><value>Relocate project paths in a batch</value></data>
+  <data name="Migration_BatchPathsDescription" xml:space="preserve"><value>Enter old and new roots, preview matching projects, then save selected corrections. Tasks stay paused until the batch confirmation.</value></data>
+  <data name="Migration_BatchPathsTitle" xml:space="preserve"><value>Relocate project paths</value></data>
+  <data name="Migration_SavePaths" xml:space="preserve"><value>Save selected project paths</value></data>
+  <data name="Migration_NoMatchingPaths" xml:space="preserve"><value>No project paths match this old root. Check the directory prefix.</value></data>
+  <data name="Migration_PathsSavedCount" xml:space="preserve"><value>Updated paths for {0} projects. Review and confirm ready capabilities.</value></data>
+  <data name="Migration_BatchOldRoot.Header" xml:space="preserve"><value>Original path root (optional)</value></data>
+  <data name="Migration_BatchNewRoot.Header" xml:space="preserve"><value>New path root</value></data>
+  <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>Preview root mapping</value></data>
+  <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>The legacy custom upload command has not been converted to Native History cloud backup. Convert it explicitly in the connection wizard before enabling uploads.</value></data>
+  <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>Authentication refresh evidence cannot be merged safely. Keep the credential snapshots and authorize again; new calls using these credentials are paused.</value></data>
+  <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth connections require safe persistence of refreshed tokens. Copy the configuration into FolderRewind managed credentials first.</value></data>
+  <data name="CloudJob_RunningCannotRelease" xml:space="preserve"><value>A cloud task is running. Payload protection cannot be abandoned yet.</value></data>
+  <data name="CloudJob_WriteVerificationRequired" xml:space="preserve"><value>Verify write access to the current directory in the cloud connection wizard, then retry.</value></data>
+  <data name="CloudJob_TargetChanged" xml:space="preserve"><value>The cloud target changed. The previous task is paused and still protects local payloads.</value></data>
+  <data name="CloudJob_Uploading" xml:space="preserve"><value>Uploading the version and its dependencies; local payloads are protected</value></data>
+  <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>Cloud backup is incomplete. Local payloads remain protected; review cloud tasks and retry</value></data>
+  <data name="OpenList_StartNotAuthorized" xml:space="preserve"><value>OpenList is unavailable and has no valid local start authorization.</value></data>
+  <data name="OpenList_UnknownOwnership" xml:space="preserve"><value>OpenList instance ownership cannot be verified. Only external service observation is available.</value></data>
+  <data name="OpenList_StartFailed" xml:space="preserve"><value>OpenList failed to start or exited.</value></data>
+  <data name="OpenList_StopUnavailable" xml:space="preserve"><value>The instance cannot be stopped while transfers are active or ownership is unconfirmed.</value></data>
+  <data name="OpenList_EnvironmentMissing" xml:space="preserve"><value>Specify existing working and data directories and a configuration file.</value></data>
+  <data name="OpenList_LocalEndpointRequired" xml:space="preserve"><value>Managed OpenList requires a local loopback service address.</value></data>
+  <data name="OpenList_VersionUnconfirmed" xml:space="preserve"><value>The program did not report a recognized OpenList version; start authorization was not granted.</value></data>
+  <data name="OpenList_OnDemand.Header" xml:space="preserve"><value>Start local OpenList when cloud tasks need it</value></data>
+  <data name="OpenList_OnDemand.Description" xml:space="preserve"><value>Saving requires local authorization. Once started, OpenList keeps running when FolderRewind exits.</value></data>
+  <data name="OpenList_Start.Content" xml:space="preserve"><value>Authorize and start</value></data>
+  <data name="OpenList_Stop.Content" xml:space="preserve"><value>Stop owned instance</value></data>
+  <data name="OpenList_AuthorizationTitle" xml:space="preserve"><value>Authorize local OpenList</value></data>
+  <data name="OpenList_AuthorizationDescription" xml:space="preserve"><value>Allow FolderRewind to start this specific instance:
+Program: {0}
+Working directory: {1}
+Data directory: {2}
+Configuration: {3}
+Service address: {4}
+
+It keeps running after tasks finish or FolderRewind exits. This authorization is excluded from configuration exports.</value></data>
+  <data name="OpenList_SettingsSaved" xml:space="preserve"><value>OpenList settings saved. Endpoint reachability does not verify WebDAV authentication.</value></data>
+  <data name="OpenList_StartedNeedsWebDav" xml:space="preserve"><value>The service endpoint responded. Verify WebDAV through the cloud connection wizard; external instances cannot be stopped.</value></data>
+  <data name="OpenList_StopTitle" xml:space="preserve"><value>Stop the owned local instance</value></data>
+  <data name="OpenList_StopDescription" xml:space="preserve"><value>Stop the OpenList instance started by this FolderRewind session? Process ownership and active transfers will be checked again.</value></data>
+  <data name="OpenList_Stopped" xml:space="preserve"><value>The owned instance has stopped.</value></data>
+  <data name="CloudConnections_Select.Header" xml:space="preserve"><value>Choose an existing connection</value></data>
+  <data name="CloudConnections_Name.Header" xml:space="preserve"><value>Connection name</value></data>
+  <data name="CloudConnections_Share.Content" xml:space="preserve"><value>Shared connection (available to other projects)</value></data>
+  <data name="CloudConnections_DependsOpenList.Content" xml:space="preserve"><value>This connection requires local OpenList</value></data>
+  <data name="CloudConnections_ImportManaged.Content" xml:space="preserve"><value>Copy and manage configuration</value></data>
+  <data name="CloudConnections_OwnerRequired" xml:space="preserve"><value>A project connection requires an explicit owner project.</value></data>
+  <data name="CloudConnections_ManagedImported" xml:space="preserve"><value>Credentials copied into managed storage. Select a remote and verify the current directory.</value></data>
+  <data name="CloudConnections_Referenced" xml:space="preserve"><value>This connection is referenced by projects, unfinished tasks, active leases, or refresh evidence. Resolve those references and protection before deleting it.</value></data>
+  <data name="CloudConnections_Shared" xml:space="preserve"><value>Shared</value></data>
+  <data name="CloudConnections_Project" xml:space="preserve"><value>Project only</value></data>
+  <data name="CloudConnections_Detail" xml:space="preserve"><value>{0} · remote: {1}
+Bound projects: {2}
+Projects sharing this credential storage: {3}</value></data>
+  <data name="CloudConnections_Title.Text" xml:space="preserve"><value>Cloud connections</value></data>
+  <data name="CloudConnections_Description.Text" xml:space="preserve"><value>Shared and project connections use the same credential and verification flow. Project scope controls visibility; authentication updates affect every project sharing the credentials.</value></data>
+  <data name="CloudConnections_CreateShared.Content" xml:space="preserve"><value>New shared connection</value></data>
+  <data name="CloudConnections_ProjectOwner.PlaceholderText" xml:space="preserve"><value>Owner project</value></data>
+  <data name="CloudConnections_CreateProject.Content" xml:space="preserve"><value>New project connection</value></data>
+  <data name="CloudConnections_Edit.Content" xml:space="preserve"><value>Edit / verify</value></data>
+  <data name="CloudConnections_Promote.Content" xml:space="preserve"><value>Make shared</value></data>
+  <data name="CloudConnections_Delete.Content" xml:space="preserve"><value>Delete connection</value></data>
+  <data name="CloudConnections_DeleteTitle" xml:space="preserve"><value>Delete cloud connection</value></data>
+  <data name="CloudConnections_DeleteDescription" xml:space="preserve"><value>Delete connection “{0}”? Project, task, lease, and refresh references will be checked. Credential files and remote backups are retained.</value></data>
+  <data name="CloudConnections_SettingsCard.Header" xml:space="preserve"><value>Cloud connections</value></data>
+  <data name="CloudConnections_Open.Content" xml:space="preserve"><value>Manage shared and project connections</value></data>
+  <data name="CloudConnections_ProjectBinding.Header" xml:space="preserve"><value>Current cloud location</value></data>
+  <data name="CloudConnections_LocationBoundary.Text" xml:space="preserve"><value>Manage the connection and directory through the shared wizard. Changing the remote root or cloud provider does not preserve continuity of previous cloud replicas.</value></data>
+  <data name="CloudConnection_LegacyNotice.Text" xml:space="preserve"><value>Legacy custom uploads are paused. The original command remains in local configuration; explicitly convert it to Native History backup through the connection wizard.</value></data>
+  <data name="CloudConnections_LocationChangeConfirm" xml:space="preserve"><value>The access binding or cloud directory will change. Recover previous history only after matching the original repository ConfigId. Changing directories or providers does not preserve continuity; existing tasks keep their previous target.</value></data>
+  <data name="CloudConnections_AuthenticationImpact" xml:space="preserve"><value>This credential storage is shared by {0} projects. Authentication changes may affect them. Target changes pause previous tasks while retaining payload protection.</value></data>
+  <data name="CloudJob_Header.Text" xml:space="preserve"><value>Cloud tasks and payload protection</value></data>
+  <data name="CloudJob_Refresh.Content" xml:space="preserve"><value>Refresh status</value></data>
+  <data name="CloudJob_Retry.Content" xml:space="preserve"><value>Retry pending tasks</value></data>
+  <data name="CloudJob_Cancel.Content" xml:space="preserve"><value>Cancel selected task</value></data>
+  <data name="CloudJob_Abandon.Content" xml:space="preserve"><value>Abandon selected protection</value></data>
+  <data name="CloudJob_AbandonTitle" xml:space="preserve"><value>Abandon pending payload protection</value></data>
+  <data name="CloudJob_AbandonDescription" xml:space="preserve"><value>Canceling a task retains protection. Abandoning protection allows local retention to delete payloads and dependencies that are not fully uploaded, so previous versions may become unrecoverable from the cloud. Remote data is retained.</value></data>
+  <data name="CloudJob_Detail" xml:space="preserve"><value>Task: {0}
+Protection: {1}
+Diagnostic: {2}
+Attempts: {3}</value></data>
+  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>Local payload protection held</value></data>
+  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>Release or abandonment persisted</value></data>
+  <data name="CloudHistory_AnalysisReady" xml:space="preserve"><value>Cloud history metadata analyzed; backup payloads have not been verified.</value></data>
+  <data name="CloudHistory_MetadataSynchronized" xml:space="preserve"><value>History metadata synchronized: {0} packs imported and {1} uploaded. Backup payloads were not downloaded automatically.</value></data>
+  <data name="CloudRecovery_OriginalRepositoryMissing" xml:space="preserve"><value>The original Native History repository for this project was not found. No remote repository was created or modified.</value></data>
+  <data name="CloudRecovery_ProjectHistoryRecovered" xml:space="preserve"><value>History recovered with read-only access: {0} packs imported, {1} versions available. Select a version to restore into a new directory; normal backup still requires migration environment confirmation.</value></data>
+  <data name="CloudRecovery_ReconnectProject.Content" xml:space="preserve"><value>Reconnect original repository and recover history read only</value></data>
+  <data name="CloudRecovery_ReconnectConfirm" xml:space="preserve"><value>Read-only verification will match this project’s original repository in {0}, save its local access binding, and pull history metadata. It will not write to the cloud, download all backups, or release migration pauses.</value></data>
+  <data name="CloudJob_Phase_Prepared" xml:space="preserve"><value>Awaiting local commit confirmation</value></data>
+  <data name="CloudJob_Phase_Pending" xml:space="preserve"><value>Pending upload</value></data>
+  <data name="CloudJob_Phase_Resolving" xml:space="preserve"><value>Resolving dependencies</value></data>
+  <data name="CloudJob_Phase_Uploading" xml:space="preserve"><value>Uploading</value></data>
+  <data name="CloudJob_Phase_Verifying" xml:space="preserve"><value>Verifying</value></data>
+  <data name="CloudJob_Phase_SyncingMetadata" xml:space="preserve"><value>Syncing metadata</value></data>
+  <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>Cloud backup complete</value></data>
+  <data name="CloudJob_Phase_RetryableFailure" xml:space="preserve"><value>Waiting to retry</value></data>
+  <data name="CloudJob_Phase_Paused" xml:space="preserve"><value>Paused</value></data>
+  <data name="CloudJob_Phase_NeedsAttention" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="CloudJob_Phase_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="CloudJob_Phase_Aborted" xml:space="preserve"><value>Local transaction not committed</value></data>
+  <data name="CloudConnections_CreateFirst" xml:space="preserve"><value>Create or import a connection through cloud connection management first.</value></data>
+  <data name="CloudConnections_SelectHeader" xml:space="preserve"><value>Cloud connection</value></data>
+  <data name="CloudConfig_InvalidExport" xml:space="preserve"><value>Invalid cloud configuration export filename.</value></data>
+  <data name="CloudConfig_ExportCreated" xml:space="preserve"><value>Configuration exported as a separate cloud file: {0}. Previous exports were retained.</value></data>
+  <data name="CloudConfig_ChooseExport" xml:space="preserve"><value>Choose a cloud configuration export (config.json is the legacy file)</value></data>
+  <data name="CloudJob_RegistrationNeedsAttention" xml:space="preserve"><value>Local backup completed, but cloud registration or reconciliation needs attention. Destructive cleanup is paused; keep local payloads and cloud task evidence.</value></data>
+  <data name="CloudJob_InitializeMissing.Content" xml:space="preserve"><value>Only when the journal is missing: initialize future admission</value></data>
+  <data name="CloudJob_InitializeMissingDescription" xml:space="preserve"><value>This action is available only when the cloud journal is missing; it does not replace an existing or damaged journal. Confirmation explicitly abandons unknown previous payload protection and admits future local backups only. Previous versions are not uploaded automatically, and cleanup can make unuploaded versions unrecoverable. Recover the original journal or manually upload important versions first. The new baseline and abandonment decision are persisted together.</value></data>
+  <data name="CloudRecovery_PayloadFailed" xml:space="preserve"><value>Could not prepare payload {0}: {1}. Recovery was not completed.</value></data>
+  <data name="CloudRecovery_NoActiveReplica" xml:space="preserve"><value>No usable active cloud replica is recorded.</value></data>
+  <data name="CloudConnection_UnsupportedRefreshBackend" xml:space="preserve"><value>This backend's credential refresh cannot be safely merged yet. Use a supported connection or reauthorize; cloud calls are paused and credential evidence is retained.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupVerification.Header" xml:space="preserve"><value>Backup archive verification</value></data>
+  <data name="ConfigSettingsDialog_BackupVerificationDescription.Text" xml:space="preserve"><value>Balanced is the default: check archive paths, file names and sizes. Strict also tests the entire archive and takes longer. Applies to Full and Smart backups.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_RestorePreflight.Header" xml:space="preserve"><value>Restore archive preflight</value></data>
+  <data name="ConfigSettingsDialog_RestorePreflightDescription.Text" xml:space="preserve"><value>Balanced is the default: check paths, dependencies and extracted data. Strict also tests the entire dependency chain and takes longer.</value></data>
+  <data name="ConfigSettingsDialog_VerificationBalanced.Content" xml:space="preserve"><value>Balanced</value></data>
+  <data name="ConfigSettingsDialog_VerificationStrict.Content" xml:space="preserve"><value>Strict</value></data>
+  <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>Failure rollback is always enabled, regardless of verification level or backup before restore.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Header" xml:space="preserve"><value>Safety snapshot before Quick Restore</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Description" xml:space="preserve"><value>Enabled by default and independent of ordinary restore. Turning it off skips the snapshot while failure rollback remains enabled.</value></data>
+  <data name="ConfigSettingsDialog_QuickSafetySnapshot.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_QuickSafetySnapshot.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="Migration_DataTransferHeader.Text" xml:space="preserve"><value>Migration bundles and recovery</value></data>
+  <data name="Migration_DataTransferDescription.Text" xml:space="preserve"><value>Transfer configuration, history and optional archives together. Existing JSON and history files remain supported. Verify archives, passwords and branch continuation after import.</value></data>
+  <data name="Migration_ExportData.Content" xml:space="preserve"><value>Export migration data</value></data>
+  <data name="Migration_ImportData.Content" xml:space="preserve"><value>Import migration data</value></data>
+  <data name="Migration_RecoverData.Content" xml:space="preserve"><value>Verify archives, prepare passwords and continue branches</value></data>
+  <data name="Migration_ExportDescription" xml:space="preserve"><value>Choose content and projects. Archives remain external by default. Including archives verifies and embeds their complete dependencies.</value></data>
+  <data name="Migration_ContentScope" xml:space="preserve"><value>Content</value></data>
+  <data name="Migration_ScopeBoth" xml:space="preserve"><value>Configuration, history and continuation (recommended)</value></data>
+  <data name="Migration_ScopeConfig" xml:space="preserve"><value>Configuration JSON only</value></data>
+  <data name="Migration_ScopeHistory" xml:space="preserve"><value>History and continuation</value></data>
+  <data name="Migration_ScopeMetadata" xml:space="preserve"><value>History facts only (advanced)</value></data>
+  <data name="Migration_IncludeArchives" xml:space="preserve"><value>Include backup archives for independent recovery</value></data>
+  <data name="Migration_ExportTitle" xml:space="preserve"><value>Export migration data</value></data>
+  <data name="Migration_ImportTitle" xml:space="preserve"><value>Import migration data</value></data>
+  <data name="Migration_Next" xml:space="preserve"><value>Next</value></data>
+  <data name="Migration_LocationDescription" xml:space="preserve"><value>Choose a local file or a cloud snapshot. Both use the same migration format and verification.</value></data>
+  <data name="Migration_CloudSnapshotDescription" xml:space="preserve"><value>Choose this transfer's connection. Migration snapshots are stored independently of project synchronization.</value></data>
+  <data name="Migration_EmbeddedExported" xml:space="preserve"><value>Exported a bundle containing archives. The destination still requires the original encryption password and required runtime.</value></data>
+  <data name="Migration_ExternalExported" xml:space="preserve"><value>Exported migration information. Keep the backup files and confirm their directory after import.</value></data>
+  <data name="Migration_NoCloudSnapshots" xml:space="preserve"><value>This connection has no published, verified migration snapshots.</value></data>
+  <data name="Migration_CloudVersions" xml:space="preserve"><value>Cloud migration snapshot</value></data>
+  <data name="Migration_ImportDescription" xml:space="preserve"><value>Import using original project and source identities. Configuration merges by project and preserves unselected projects. Verify local archives and continuation afterward.</value></data>
+  <data name="Migration_ImportProjectCounts" xml:space="preserve"><value>{0} sources · {1} versions · {2} history packs</value></data>
+  <data name="Migration_RecoveryMode" xml:space="preserve"><value>Recovery mode</value></data>
+  <data name="Migration_LocalRestore" xml:space="preserve"><value>Restore on this computer (including reinstall)</value></data>
+  <data name="Migration_CrossDevice" xml:space="preserve"><value>Move to another computer</value></data>
+  <data name="Migration_OnlyMetadata" xml:space="preserve"><value>Merge history facts only</value></data>
+  <data name="Migration_ImportConfiguration" xml:space="preserve"><value>Also import bundled configuration</value></data>
+  <data name="Migration_ImportSelected" xml:space="preserve"><value>Import selected projects</value></data>
+  <data name="Migration_RecoveryNext" xml:space="preserve"><value>Restart if configuration was staged. Then verify archives, prepare passwords and continue branches before confirming ready backup and cloud permissions.</value></data>
+  <data name="Migration_RecoveryDescription" xml:space="preserve"><value>Verify each project's backup files and branches. Preserve current source files; changed content requires a full next backup. Encrypted projects require the original password.</value></data>
+  <data name="Migration_RecoveryTitle" xml:space="preserve"><value>Verify archives and branch continuation</value></data>
+  <data name="Migration_BindingConfirmation" xml:space="preserve"><value>Confirm the file for each archive and the branch to continue. Older versions without stored hashes require confirmation; ambiguous candidates are not selected automatically. Current source files are preserved.</value></data>
+  <data name="Migration_HashMatched" xml:space="preserve"><value>Storage hash matched</value></data>
+  <data name="Migration_BindingNeedsConfirmation" xml:space="preserve"><value>Confirm file association</value></data>
+  <data name="Migration_BranchReconciliation" xml:space="preserve"><value>This source has branch conflicts. Reconcile the selected branch on the History page.</value></data>
+  <data name="Migration_NoHistoricalBranch" xml:space="preserve"><value>This source has no historical branch. Its first successful backup creates the default branch.</value></data>
+  <data name="Migration_VerifyAndContinue" xml:space="preserve"><value>Verify and continue selected branches</value></data>
+  <data name="Migration_RecoveryResult" xml:space="preserve"><value>{0}: added {1} local associations; {2}/{3} versions can restore locally; {4} sources require a full next backup.</value></data>
+  <data name="Migration_ConfirmCapabilitiesNext" xml:space="preserve"><value>After verification, confirm ready backup permissions. Confirm cloud uploads separately. Missing or invalid historical versions still require attention.</value></data>
+  <data name="Migration_OriginalPassword" xml:space="preserve"><value>Original backup password</value></data>
+  <data name="Migration_PasswordDescription" xml:space="preserve"><value>Enter the password used to create these encrypted archives. The app verifies the archives before saving it in this device's protected store. Migration bundles do not contain passwords.</value></data>
+  <data name="Migration_VerifyPassword" xml:space="preserve"><value>Verify original password</value></data>
+  <data name="Migration_PasswordVerificationFailed" xml:space="preserve"><value>The archives could not be verified with this password. Check the original password and archive integrity. The password was not saved.</value></data>
+  <data name="Migration_AwaitingHistory" xml:space="preserve"><value>Configuration is imported and awaits its history. Import the original history file or migration bundle, then verify local archives.</value></data>
+  <data name="Migration_RecoveryPending" xml:space="preserve"><value>Archive verification and branch continuation are pending. Open migration data verification.</value></data>
+  <data name="Migration_RuntimePending" xml:space="preserve"><value>The required source runtime or plugin is not ready. Prepare it and retry this project.</value></data>
+  <data name="Migration_AwaitingHistoryTitle" xml:space="preserve"><value>Waiting for associated history</value></data>
+  <data name="MigrationWizard_ArchiveMode.Header" xml:space="preserve"><value>Backup files</value></data>
+  <data name="MigrationWizard_Location.Header" xml:space="preserve"><value>Transfer location</value></data>
+  <data name="MigrationWizard_ChoosePackage.Content" xml:space="preserve"><value>Choose a migration package or configuration</value></data>
+  <data name="MigrationWizard_Connection.Header" xml:space="preserve"><value>Cloud connection</value></data>
+  <data name="MigrationWizard_RemoteRoot.Header" xml:space="preserve"><value>Remote directory</value></data>
+  <data name="MigrationWizard_ManageConnections.Content" xml:space="preserve"><value>Manage cloud connections</value></data>
+  <data name="MigrationWizard_LoadSnapshots.Content" xml:space="preserve"><value>List cloud snapshots</value></data>
+  <data name="MigrationWizard_Snapshots.Header" xml:space="preserve"><value>Snapshot version</value></data>
+  <data name="MigrationWizard_KeepSource.Text" xml:space="preserve"><value>Keep current source files, verify local archives, and continue the original branch. Historical content will not overwrite the current directory.</value></data>
+  <data name="MigrationWizard_BatchPaths.Header" xml:space="preserve"><value>Replace path roots in bulk (optional)</value></data>
+  <data name="MigrationWizard_ApplyMapping.Content" xml:space="preserve"><value>Update the paths below</value></data>
+  <data name="MigrationWizard_BackupRoot.Header" xml:space="preserve"><value>Backup file directory</value></data>
+  <data name="MigrationWizard_OriginalAutoBackup.Content" xml:space="preserve"><value>Original automatic backup setting</value></data>
+  <data name="MigrationWizard_OriginalCloud.Content" xml:space="preserve"><value>Original cloud sync setting</value></data>
+  <data name="MigrationWizard_HandleProject.Content" xml:space="preserve"><value>Resolve this project</value></data>
+  <data name="MigrationWizard_AllowBackup.Content" xml:space="preserve"><value>Allow local backups for this project</value></data>
+  <data name="MigrationWizard_AllowCloud.Content" xml:space="preserve"><value>Allow cloud operations for this project</value></data>
+  <data name="MigrationWizard_Password.Header" xml:space="preserve"><value>Original password used to create these backups</value></data>
+  <data name="MigrationWizard_VerifyPassword.Content" xml:space="preserve"><value>Verify password and continue</value></data>
+  <data name="MigrationWizard_AttachHistory.Content" xml:space="preserve"><value>Choose and associate a configuration or history file</value></data>
+  <data name="MigrationWizard_ConfirmLegacy.Content" xml:space="preserve"><value>Confirm associating this file with this history record</value></data>
+  <data name="MigrationWizard_ChooseArchive.Content" xml:space="preserve"><value>Choose another backup file</value></data>
+  <data name="MigrationWizard_Reconcile.Content" xml:space="preserve"><value>Resolve branch tips in History</value></data>
+  <data name="MigrationWizard_RetainMissing.Content" xml:space="preserve"><value>Keep history and provide missing archives later</value></data>
+  <data name="MigrationWizard_TechnicalDetails.Header" xml:space="preserve"><value>Technical details</value></data>
+  <data name="MigrationWizard_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="MigrationWizard_Leave.Content" xml:space="preserve"><value>Continue later</value></data>
+  <data name="MigrationWizard_EntryDescription.Text" xml:space="preserve"><value>Export or import backup projects, or continue reviewing migration and cloud permissions.</value></data>
+  <data name="MigrationWizard_PendingCard.Title" xml:space="preserve"><value>Migration is not finished</value></data>
+  <data name="MigrationWizard_PendingCard.Message" xml:space="preserve"><value>Configuration or history is waiting for recovery. Continue the wizard to check archives, resolve issues, and confirm backup permission.</value></data>
+  <data name="MigrationWizard_Continue.Content" xml:space="preserve"><value>Continue migration</value></data>
+  <data name="MigrationWizard_Advanced.Header" xml:space="preserve"><value>Advanced operations</value></data>
+  <data name="MigrationWizard_AdvancedDescription.Text" xml:space="preserve"><value>Transfer configuration or history separately, or merge history metadata only. Each entry uses the same wizard with its scope preselected.</value></data>
+  <data name="MigrationWizard_ExportMetadata.Content" xml:space="preserve"><value>Export history metadata only</value></data>
+  <data name="MigrationWizard_ImportMetadata.Content" xml:space="preserve"><value>Merge history metadata only</value></data>
+  <data name="MigrationWizard_ExternalArchives" xml:space="preserve"><value>Keep existing backup files separately</value></data>
+  <data name="MigrationWizard_EmbeddedArchives" xml:space="preserve"><value>Include backup files in the package</value></data>
+  <data name="MigrationWizard_Result" xml:space="preserve"><value>Results</value></data>
+  <data name="MigrationWizard_RestartStep" xml:space="preserve"><value>Continue after applying configuration</value></data>
+  <data name="MigrationWizard_RecoveryStep" xml:space="preserve"><value>Check backups and finish migration</value></data>
+  <data name="MigrationWizard_ExportStep_Source" xml:space="preserve"><value>1. Select projects to export</value></data>
+  <data name="MigrationWizard_ExportStep_Selection" xml:space="preserve"><value>2. Choose what to include</value></data>
+  <data name="MigrationWizard_ExportStep_Destination" xml:space="preserve"><value>3. Choose a destination and export</value></data>
+  <data name="MigrationWizard_ImportStep_Source" xml:space="preserve"><value>1. Choose a file or cloud snapshot</value></data>
+  <data name="MigrationWizard_ImportStep_Selection" xml:space="preserve"><value>2. Confirm projects and paths</value></data>
+  <data name="MigrationWizard_Scope_ConfigurationAndHistory" xml:space="preserve"><value>Export scope: configuration, history, and branch continuation</value></data>
+  <data name="MigrationWizard_Scope_Configuration" xml:space="preserve"><value>Export scope: JSON configuration</value></data>
+  <data name="MigrationWizard_Scope_History" xml:space="preserve"><value>Export scope: history and branch continuation</value></data>
+  <data name="MigrationWizard_Scope_MetadataOnly" xml:space="preserve"><value>Export scope: history metadata only</value></data>
+  <data name="MigrationWizard_ConfigurationOnly" xml:space="preserve"><value>Exports configuration only. Preserve or transfer history and backup files separately.</value></data>
+  <data name="MigrationWizard_EmbeddedDescription" xml:space="preserve"><value>The package includes the archives and dependencies needed by the selected history and may be large. Encrypted projects still require their original password on the destination device.</value></data>
+  <data name="MigrationWizard_ExternalDescription" xml:space="preserve"><value>The package does not contain backup files. Keep the backup directories for these projects; the import wizard will verify matching files and restore their associations.</value></data>
+  <data name="MigrationWizard_PackageSummary" xml:space="preserve"><value>Contains {0} projects and {1} historical versions; {2}.</value></data>
+  <data name="MigrationWizard_HasArchives" xml:space="preserve"><value>backup files are included</value></data>
+  <data name="MigrationWizard_NoArchives" xml:space="preserve"><value>backup files are stored separately</value></data>
+  <data name="MigrationWizard_ReturnSettings" xml:space="preserve"><value>Return to Settings</value></data>
+  <data name="MigrationWizard_RestartContinue" xml:space="preserve"><value>Restart and continue migration</value></data>
+  <data name="MigrationWizard_FinishReady" xml:space="preserve"><value>Finish ready projects</value></data>
+  <data name="MigrationWizard_RecheckContinue" xml:space="preserve"><value>Recheck and continue</value></data>
+  <data name="MigrationWizard_StartExport" xml:space="preserve"><value>Start export</value></data>
+  <data name="MigrationWizard_StartImport" xml:space="preserve"><value>Import and recover automatically</value></data>
+  <data name="MigrationWizard_ApplyOriginal" xml:space="preserve"><value>Apply selected original settings</value></data>
+  <data name="MigrationWizard_SelectSnapshot" xml:space="preserve"><value>Select a cloud snapshot version.</value></data>
+  <data name="MigrationWizard_SelectFileFirst" xml:space="preserve"><value>Choose a migration package or configuration first.</value></data>
+  <data name="MigrationWizard_Checking" xml:space="preserve"><value>Checking local backups, credentials, and original branches. Committed history will be retained.</value></data>
+  <data name="MigrationWizard_NothingPending" xml:space="preserve"><value>There is no pending migration to continue.</value></data>
+  <data name="MigrationWizard_PathsUpdated" xml:space="preserve"><value>The path preview was updated. Confirm each project&apos;s directories before importing.</value></data>
+  <data name="MigrationWizard_Paused" xml:space="preserve"><value>Paused. Committed history and associations are retained. Use Continue migration to resume.</value></data>
+  <data name="MigrationWizard_OverviewPending" xml:space="preserve"><value>A migration needs attention. Continue to finish it.</value></data>
+  <data name="MigrationWizard_OverviewReady" xml:space="preserve"><value>Transfer configuration, history, and backup associations in one flow.</value></data>
+  <data name="MigrationWizard_CheckPaths" xml:space="preserve"><value>Confirm that the backup and source directories exist, or correct the paths below.</value></data>
+  <data name="MigrationWizard_TaskMissing" xml:space="preserve"><value>This migration&apos;s progress record was not found. Select the migration file again.</value></data>
+  <data name="MigrationWizard_HistoryNotCommitted" xml:space="preserve"><value>This project&apos;s history has not been committed. Retry the import.</value></data>
+  <data name="MigrationWizard_ActivationChanged" xml:space="preserve"><value>Configuration activation is incomplete or has changed. Check its import status before continuing.</value></data>
+  <data name="MigrationWizard_ArchiveHashMismatch" xml:space="preserve"><value>The selected file does not match the recorded archive&apos;s size or hash. Choose the original backup file.</value></data>
+  <data name="MigrationWizard_ArchiveMissing" xml:space="preserve"><value>No matching backup file was found</value></data>
+  <data name="MigrationWizard_ArchiveVerified" xml:space="preserve"><value>Archive check passed; association needs confirmation</value></data>
+  <data name="MigrationWizard_ArchiveUnverified" xml:space="preserve"><value>Archive verification is pending or failed</value></data>
+  <data name="MigrationWizard_ContinueBranch" xml:space="preserve"><value>Continue backing up on the original branch “{0}”.</value></data>
+  <data name="MigrationWizard_ChooseBranch" xml:space="preserve"><value>Choose the historical branch to continue.</value></data>
+  <data name="MigrationWizard_VersionCounts" xml:space="preserve"><value>{0}/{1} historical versions can be restored locally.</value></data>
+  <data name="MigrationWizard_FullNext" xml:space="preserve"><value>{0} sources require a full capture next; current source files are retained.</value></data>
+  <data name="MigrationWizard_ProjectCounts" xml:space="preserve"><value>Completed {0}/{1} projects.</value></data>
+  <data name="MigrationWizard_Stage_AwaitingConfirmation" xml:space="preserve"><value>Confirm the selected projects and paths.</value></data>
+  <data name="MigrationWizard_Stage_Processing" xml:space="preserve"><value>Migration is running. Wait for the current stage to finish.</value></data>
+  <data name="MigrationWizard_Stage_AwaitingRestart" xml:space="preserve"><value>Configuration is prepared. Restart to return to this wizard, check history, and recover backup associations.</value></data>
+  <data name="MigrationWizard_Stage_NeedsAttention" xml:space="preserve"><value>Unambiguous projects were processed automatically. Resolve the issues below; ready projects can finish first.</value></data>
+  <data name="MigrationWizard_Stage_AwaitingPermissions" xml:space="preserve"><value>Local backups and original branches were checked. Confirm execution permissions below to finish; existing automation and cloud sync settings are retained.</value></data>
+  <data name="MigrationWizard_Stage_Completed" xml:space="preserve"><value>Migration is complete. Review each project&apos;s backup availability below.</value></data>
+  <data name="MigrationWizard_Stage_PartiallyCompleted" xml:space="preserve"><value>Migration completed with some historical archives unavailable. The records are retained so files can be provided later.</value></data>
+  <data name="MigrationWizard_Stage_Paused" xml:space="preserve"><value>Migration is paused. Committed data is retained and can be resumed.</value></data>
+  <data name="MigrationWizard_Phase_Pending" xml:space="preserve"><value>Waiting to check backups and original branches.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingConfiguration" xml:space="preserve"><value>Waiting for this project&apos;s configuration file.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingHistory" xml:space="preserve"><value>Waiting for history. Choose the previously exported history file.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingPaths" xml:space="preserve"><value>The backup or source directory path needs correction.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingPassword" xml:space="preserve"><value>Enter and verify the original backup password.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingArchiveChoice" xml:space="preserve"><value>Backup file associations need confirmation.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingBranchChoice" xml:space="preserve"><value>Choose the original branch to continue.</value></data>
+  <data name="MigrationWizard_Phase_ReconciliationRequired" xml:space="preserve"><value>The historical branch has competing tips that need reconciliation.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingArchiveResolution" xml:space="preserve"><value>Some historical versions have no available archive. Provide the files or keep the history and resolve this later.</value></data>
+  <data name="MigrationWizard_Phase_Blocked" xml:space="preserve"><value>This project is not ready. Check its paths or technical details and retry.</value></data>
+  <data name="MigrationWizard_Phase_Verified" xml:space="preserve"><value>Checks are complete. Confirm local backup and optional cloud permissions.</value></data>
+  <data name="MigrationWizard_Phase_Completed" xml:space="preserve"><value>This project&apos;s migration is complete.</value></data>
+  <data name="MigrationWizard_HistoryPending" xml:space="preserve"><value>Migration is not finished: local backups need checking.</value></data>
+  <data name="MigrationWizard_HistoryPermissionPending" xml:space="preserve"><value>Backups were verified. Continue migration to confirm local backup permission.</value></data>
+  <data name="MigrationWizard_ActionFailed" xml:space="preserve"><value>This step did not complete. Check the input or technical details and retry.</value></data>
+  <data name="MigrationWizard_HistoryNotice.Title" xml:space="preserve"><value>Migration is not finished</value></data>
+  <data name="MigrationWizard_ImportConfiguration.Content" xml:space="preserve"><value>Also import the configuration in this package</value></data>
+  <data name="MigrationWizard_ChooseDirectory.Content" xml:space="preserve"><value>Choose folder</value></data>
+  <data name="MigrationWizard_LegacyConfig" xml:space="preserve"><value>Legacy configuration snapshot</value></data>
+  <data name="MigrationWizard_SavedTo" xml:space="preserve"><value>Saved to: {0}</value></data>
+  <data name="MigrationWizard_AnotherActivation" xml:space="preserve"><value>A configuration is waiting for restart. Continue the existing migration before importing more data.</value></data>
+  <data name="MigrationWizard_ArchiveFile" xml:space="preserve"><value>Backup archive</value></data>
+  <data name="MigrationWizard_HistoryMissingArchives" xml:space="preserve"><value>Some historical versions have no usable backup files. Their records are retained; add the files and check again.</value></data>
+  <data name="MigrationWizard_RepairArchives" xml:space="preserve"><value>Supply missing backup files</value></data>
+  <data name="MigrationWizard_RecheckArchives" xml:space="preserve"><value>Check backup files</value></data>
+  <data name="MigrationWizard_ProjectContents" xml:space="preserve"><value>{0} sources · {1} historical versions</value></data>
+  <data name="SettingsProject_More.AutomationProperties.Name" xml:space="preserve"><value>Project actions</value></data>
+  <data name="SettingsProject_More.ToolTipService.ToolTip" xml:space="preserve"><value>More project actions</value></data>
+  <data name="SettingsProject_SaveTemplateMenu.Text" xml:space="preserve"><value>Save as template…</value></data>
+  <data name="SettingsProject_DeleteMenu.Text" xml:space="preserve"><value>Delete project…</value></data>
+  <data name="SettingsProject_Category.Header" xml:space="preserve"><value>Settings category</value></data>
+  <data name="SettingsProject_Category.AutomationProperties.Name" xml:space="preserve"><value>Settings category</value></data>
+  <data name="SettingsProject_ChangeIcon.Content" xml:space="preserve"><value>Change…</value></data>
+  <data name="SettingsProject_KindPicker.AutomationProperties.Name" xml:space="preserve"><value>Project type</value></data>
+  <data name="SettingsProject_IconPicker.AutomationProperties.Name" xml:space="preserve"><value>Choose a project icon</value></data>
+  <data name="SettingsProject_SearchNoResults" xml:space="preserve"><value>No matching settings category</value></data>
+  <data name="SettingsProject_Modified" xml:space="preserve"><value>You have unsaved changes</value></data>
+  <data name="SettingsProject_Saving" xml:space="preserve"><value>Saving…</value></data>
+  <data name="SettingsDiagnostics_ConfigFile.Header" xml:space="preserve"><value>Configuration file</value></data>
+  <data name="SettingsDiagnostics_ConfigPath.AutomationProperties.Name" xml:space="preserve"><value>Global configuration file path</value></data>
+  <data name="SettingsDiagnostics_OpenConfigFolder.Content" xml:space="preserve"><value>Open containing folder</value></data>
+  <data name="SettingsDiagnostics_OpenConfigFile.Content" xml:space="preserve"><value>Open configuration file</value></data>
+  <data name="SettingsDiagnostics_OpenFailed" xml:space="preserve"><value>Could not open the configuration file. Check that it exists and that you have permission to access it.</value></data>
+  <data name="SettingsTemplates_More.AutomationProperties.Name" xml:space="preserve"><value>More template actions</value></data>
+  <data name="SettingsTemplates_ExportMenu.Text" xml:space="preserve"><value>Export template…</value></data>
+  <data name="SettingsTemplates_ShareCodeMenu.Text" xml:space="preserve"><value>Use a share code…</value></data>
+  <data name="SettingsTemplates_SubmitMenu.Text" xml:space="preserve"><value>Submit a template…</value></data>
+  <data name="SettingsTemplates_ManageMenu.Text" xml:space="preserve"><value>Manage templates…</value></data>
+  <data name="MigrationWizard_AttentionCount" xml:space="preserve"><value>Projects: {0} · Need attention: {1}</value></data>
+  <data name="MigrationWizard_OriginalOperations" xml:space="preserve"><value>Original settings: automatic backup {0} · cloud upload {1}</value></data>
+  <data name="MigrationWizard_On" xml:space="preserve"><value>On</value></data>
+  <data name="MigrationWizard_Off" xml:space="preserve"><value>Off</value></data>
+  <data name="MigrationWizard_BackToProjects.Content" xml:space="preserve"><value>Back to projects</value></data>
+  <data name="MigrationWizard_ActionConfiguration" xml:space="preserve"><value>Import configuration…</value></data>
+  <data name="MigrationWizard_ActionHistory" xml:space="preserve"><value>Import history…</value></data>
+  <data name="MigrationWizard_ActionPaths" xml:space="preserve"><value>Set folder locations…</value></data>
+  <data name="MigrationWizard_ActionPassword" xml:space="preserve"><value>Verify password…</value></data>
+  <data name="MigrationWizard_ActionArchives" xml:space="preserve"><value>Check backup files…</value></data>
+  <data name="MigrationWizard_ActionBranch" xml:space="preserve"><value>Resolve history branches…</value></data>
+  <data name="MigrationWizard_ActionDetails" xml:space="preserve"><value>View details…</value></data>
+  <data name="MigrationWizard_FinishReadyCount" xml:space="preserve"><value>Complete ready projects ({0})</value></data>
+  <data name="MigrationWizard_ApplyAndRecheck" xml:space="preserve"><value>Apply choices and check again</value></data>
+  <data name="HistoryLoad_Incompatible" xml:space="preserve"><value>This history format is not supported by this app version. Use a compatible version.</value></data>
+  <data name="HistoryLoad_RecoveryRequired" xml:space="preserve"><value>History data for this project is missing or unreadable. Import history or continue its migration.</value></data>
+  <data name="HistoryLoad_BindingSaveFailed" xml:space="preserve"><value>Could not save this project’s history association. Check access to the configuration folder and retry.</value></data>
+  <data name="HistoryLoad_AccessDenied" xml:space="preserve"><value>Access to this project’s history data was denied. Check file permissions.</value></data>
+  <data name="HistoryLoad_ReadFailed" xml:space="preserve"><value>Could not read this project’s history data. Check that its files are available and retry.</value></data>
+  <data name="HistoryLoad_Failed" xml:space="preserve"><value>Could not load this project’s history. Retry or review the technical details.</value></data>
+  <data name="HistoryLoad_ImportHistory" xml:space="preserve"><value>Import history…</value></data>
+  <data name="HistoryLoad_TechnicalDetails.Header" xml:space="preserve"><value>Technical details</value></data>
+  <data name="BackupTasks_EmptySummary" xml:space="preserve"><value>No current tasks</value></data>
+  <data name="BackupTasks_Count" xml:space="preserve"><value>Tasks: {0}</value></data>
+  <data name="BackupTasks_FailureSummary.Text" xml:space="preserve"><value>The task did not complete. View details for the cause.</value></data>
+  <data name="BackupTasks_ViewDetails.Content" xml:space="preserve"><value>View details…</value></data>
+  <data name="BackupTasks_DetailsTitle" xml:space="preserve"><value>Task details · {0}</value></data>
+  <data name="BackupTasks_DetailsLabel" xml:space="preserve"><value>Full error and task log</value></data>
+  <data name="BackupTasks_DetailsBody" xml:space="preserve"><value>Error
+{0}
+
+Task log
+{1}</value></data>
+  <data name="BackupTasks_CopyDetails" xml:space="preserve"><value>Copy details</value></data>
+  <data name="CloudConnections_Selected" xml:space="preserve"><value>Selected connection: {0}</value></data>
+  <data name="CloudConnections_SelectFirst" xml:space="preserve"><value>Select a connection to edit, share, or delete it</value></data>
+  <data name="CloudConnections_ProjectOwner.AutomationProperties.Name" xml:space="preserve"><value>Project that owns this connection</value></data>
+  <data name="LogPage_LevelFilter.AutomationProperties.Name" xml:space="preserve"><value>Log level</value></data>
+  <data name="LogCommands_Display.Label" xml:space="preserve"><value>Display options</value></data>
+  <data name="LogCommands_Copy.Label" xml:space="preserve"><value>Copy</value></data>
+  <data name="LogCommands_OpenFolder.Label" xml:space="preserve"><value>Open log folder</value></data>
+  <data name="LogCommands_OpenFile.Label" xml:space="preserve"><value>Open current log file</value></data>
+  <data name="LogCommands_Clear.Label" xml:space="preserve"><value>Clear current log…</value></data>
+  <data name="LogClear_Title" xml:space="preserve"><value>Clear the current log?</value></data>
+  <data name="LogClear_Description" xml:space="preserve"><value>This clears the displayed entries and the contents of the current log file. Archived log files are kept. This cannot be undone.</value></data>
+  <data name="LogClear_Action" xml:space="preserve"><value>Clear current log</value></data>
+  <data name="MigrationWizard_PhaseShort_Pending" xml:space="preserve"><value>Pending check</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingConfiguration" xml:space="preserve"><value>Configuration needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingHistory" xml:space="preserve"><value>History file needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingPaths" xml:space="preserve"><value>Folder locations needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingPassword" xml:space="preserve"><value>Password needed</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingArchiveChoice" xml:space="preserve"><value>Choose backup files</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingBranchChoice" xml:space="preserve"><value>Choose a history branch</value></data>
+  <data name="MigrationWizard_PhaseShort_ReconciliationRequired" xml:space="preserve"><value>History branches need attention</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingArchiveResolution" xml:space="preserve"><value>Backup files need attention</value></data>
+  <data name="MigrationWizard_PhaseShort_Blocked" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="MigrationWizard_PhaseShort_Verified" xml:space="preserve"><value>Ready</value></data>
+  <data name="MigrationWizard_PhaseShort_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="ProjectIcon_E8B7" xml:space="preserve"><value>Folder</value></data>
+  <data name="ProjectIcon_E838" xml:space="preserve"><value>Home</value></data>
+  <data name="ProjectIcon_E7C3" xml:space="preserve"><value>Settings</value></data>
+  <data name="ProjectIcon_E8EF" xml:space="preserve"><value>Save</value></data>
+  <data name="ProjectIcon_E74D" xml:space="preserve"><value>Document</value></data>
+  <data name="ProjectIcon_E8A5" xml:space="preserve"><value>Open File</value></data>
+  <data name="ProjectIcon_E7F0" xml:space="preserve"><value>Edit</value></data>
+  <data name="ProjectIcon_E8C8" xml:space="preserve"><value>Tag</value></data>
+  <data name="ProjectIcon_E7EE" xml:space="preserve"><value>Favorite Star</value></data>
+  <data name="ProjectIcon_E734" xml:space="preserve"><value>Heart</value></data>
+  <data name="ProjectIcon_E71D" xml:space="preserve"><value>Mail</value></data>
+  <data name="ProjectIcon_E8BD" xml:space="preserve"><value>Calendar</value></data>
+  <data name="ProjectIcon_E823" xml:space="preserve"><value>Shop</value></data>
+  <data name="ProjectIcon_E8D2" xml:space="preserve"><value>Repair</value></data>
+  <data name="ProjectIcon_E774" xml:space="preserve"><value>Plug</value></data>
+  <data name="ProjectIcon_E7C1" xml:space="preserve"><value>World</value></data>
+  <data name="ProjectIcon_E80F" xml:space="preserve"><value>People</value></data>
+  <data name="ProjectIcon_E716" xml:space="preserve"><value>Camera</value></data>
+  <data name="ProjectIcon_E8A7" xml:space="preserve"><value>Open In New Window</value></data>
+  <data name="ProjectIcon_E712" xml:space="preserve"><value>More</value></data>
+  <data name="ProjectIcon_E8CB" xml:space="preserve"><value>Folder Open</value></data>
+  <data name="ProjectIcon_E7B8" xml:space="preserve"><value>Download</value></data>
+  <data name="ProjectIcon_E896" xml:space="preserve"><value>Upload</value></data>
+  <data name="ProjectIcon_E73E" xml:space="preserve"><value>Clock</value></data>
+  <data name="ProjectIcon_E7C5" xml:space="preserve"><value>History</value></data>
+  <data name="ProjectIcon_E768" xml:space="preserve"><value>Random</value></data>
+  <data name="ProjectIcon_E7B7" xml:space="preserve"><value>Add</value></data>
+  <data name="ProjectIcon_E74A" xml:space="preserve"><value>Delete</value></data>
+  <data name="ProjectIcon_E8FB" xml:space="preserve"><value>Accept</value></data>
+  <data name="ProjectIcon_EA39" xml:space="preserve"><value>Warning</value></data>
+  <data name="ProjectIcon_E814" xml:space="preserve"><value>Link</value></data>
+  <data name="ProjectIcon_E8C7" xml:space="preserve"><value>Report Hacked</value></data>
+  <data name="ProjectIcon_E9CE" xml:space="preserve"><value>Shield</value></data>
+  <data name="ProjectIcon_E9D9" xml:space="preserve"><value>Info</value></data>
+  <data name="ProjectIcon_E8F2" xml:space="preserve"><value>Refresh</value></data>
+  <data name="ProjectIcon_E7BA" xml:space="preserve"><value>Search</value></data>
+  <data name="ProjectIcon_E8A9" xml:space="preserve"><value>Filter</value></data>
+  <data name="ProjectIcon_E7F7" xml:space="preserve"><value>Pin</value></data>
+  <data name="ProjectIcon_EB9F" xml:space="preserve"><value>Game</value></data>
+  <data name="ProjectIcon_E7FC" xml:space="preserve"><value>Library</value></data>
+  <data name="ProjectIcon_E943" xml:space="preserve"><value>Map Drive</value></data>
+  <data name="ProjectIcon_E77B" xml:space="preserve"><value>Note</value></data>
+  <data name="ProjectIcon_EA86" xml:space="preserve"><value>Toolbox</value></data>
+  <data name="ProjectIcon_E8C4" xml:space="preserve"><value>Folder Shared</value></data>
+  <data name="ProjectIcon_E7A8" xml:space="preserve"><value>Contact</value></data>
+  <data name="ProjectIcon_E8D7" xml:space="preserve"><value>Print</value></data>
+  <data name="ProjectIcon_E7E7" xml:space="preserve"><value>Lightbulb</value></data>
+  <data name="ProjectIcon_E8D4" xml:space="preserve"><value>Package</value></data>
+  <data name="HistoryOperation_Failed" xml:space="preserve"><value>The operation did not complete. Review the technical details and try again.</value></data>
+  <data name="History_NativeReadiness_PartialReady" xml:space="preserve"><value>Partial restore available</value></data>
+  <data name="History_NativeReadiness_RestrictedPartial" xml:space="preserve"><value>Partial restore by overwrite or export</value></data>
+  <data name="History_NativeReadiness_PartialPreparation" xml:space="preserve"><value>Download required · partial files only</value></data>
+  <data name="MigrationWizard_ContinueRemaining.Content" xml:space="preserve"><value>Continue unfinished projects…</value></data>
+  <data name="HistoryLoad_DetailsText.AutomationProperties.Name" xml:space="preserve"><value>History load error details</value></data>
+  <data name="MigrationWizard_ErrorDetailsText.AutomationProperties.Name" xml:space="preserve"><value>Migration technical details</value></data>
+  <data name="LogClear_Failed" xml:space="preserve"><value>Could not clear the current log. Check access to the log file.</value></data>
+  <data name="MigrationWizard_HistoryCloudPermissionPending" xml:space="preserve"><value>Local migration is complete, but cloud operations still need confirmation. Choose Continue migration to check the connection and confirm permission. You can reconnect there if needed. Automatic upload stays unchanged.</value></data>
+  <data name="MigrationWizard_CloudStillPaused" xml:space="preserve"><value>Local migration is complete; cloud operations remain paused. Confirm them later under Settings → Data migration → Continue migration.</value></data>
+  <data name="MigrationWizard_CloudPermissionHint.Text" xml:space="preserve"><value>Cloud permission is independent of automatic upload. Leave it unchecked to keep cloud operations paused; you can confirm later. If the connection is unavailable, reconnect and check it under Project settings → Cloud storage first.</value></data>
+  <data name="MigrationWizard_ReviewCloudPermissions.Content" xml:space="preserve"><value>Review migration and cloud permissions…</value></data>
+  <data name="OpenList_InvalidServiceUri" xml:space="preserve"><value>The service web base URL in the local OpenList environment is missing or invalid. Check Settings → Runtime environment → Local OpenList environment and address. This is separate from the cloud connection&apos;s WebDAV URL.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingCloudConnection" xml:space="preserve"><value>Local migration is complete, but the cloud connection is not ready. Reconnect cloud storage, then check again and confirm cloud permission.</value></data>
+  <data name="MigrationWizard_PhaseShort_AwaitingCloudConnection" xml:space="preserve"><value>Cloud connection required</value></data>
+  <data name="MigrationWizard_ActionCloudConnection" xml:space="preserve"><value>Resolve cloud connection…</value></data>
+  <data name="MigrationWizard_PermissionSummary" xml:space="preserve"><value>Local backup permission: {0} · Cloud permission: {1}</value></data>
+  <data name="MigrationWizard_PermissionGranted" xml:space="preserve"><value>Allowed</value></data>
+  <data name="MigrationWizard_PermissionAwaitingConfirmation" xml:space="preserve"><value>Awaiting confirmation</value></data>
+  <data name="MigrationWizard_PermissionNeedsCheck" xml:space="preserve"><value>Needs checking</value></data>
+  <data name="MigrationWizard_CloudNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="MigrationWizard_CloudNeedsConnection" xml:space="preserve"><value>Connection needs attention</value></data>
+  <data name="MigrationWizard_CloudConnectionProblem.Title" xml:space="preserve"><value>Cloud connection is not ready</value></data>
+  <data name="MigrationWizard_CloudConnectionProblem.Message" xml:space="preserve"><value>The current connection did not pass its checks, so cloud permission cannot be confirmed yet. Reconnect and save, then return here to check again. Local history and the existing local backup permission are preserved.</value></data>
+  <data name="MigrationWizard_ReconnectCloud.Content" xml:space="preserve"><value>Reconnect cloud storage…</value></data>
+  <data name="MigrationWizard_RecheckCloud.Content" xml:space="preserve"><value>Check again</value></data>
+  <data name="MigrationWizard_CloudPermissionNoticeTitle" xml:space="preserve"><value>Cloud permission pending</value></data>
 </root>

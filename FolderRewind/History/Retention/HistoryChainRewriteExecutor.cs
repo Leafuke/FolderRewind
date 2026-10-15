@@ -315,6 +315,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         if (prepared.Disposed || prepared.CommitStarted) throw new InvalidOperationException("Prepared deletion is no longer available.");
         if (!prepared.CanCommit) return new(false, false, 0, 0, 0, prepared.Diagnostic) { ReasonCode = "NoSpaceBenefit" };
         await using var gate = await history.MutationGate.EnterAsync(token).ConfigureAwait(false);
+        history.CloudJobs.RequireCleanupSafe();
         var plan = prepared.Plan;
         if (await HistoryChainRewritePlanner.FingerprintAsync(history, token).ConfigureAwait(false) != plan.StateFingerprint)
             throw new InvalidOperationException("History changed after preparation; prepare the deletion again.");
@@ -359,7 +360,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
             history.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.Complete });
             await history.EnsureIndexCurrentAsync(CancellationToken.None).ConfigureAwait(false);
             prepared.ReleaseReads();
-            var clean = await prepared.Journals.FinishAsync(rewrite, CancellationToken.None).ConfigureAwait(false);
+            var clean = await prepared.Journals.FinishAsync(rewrite, CancellationToken.None, insideMutationGate: true).ConfigureAwait(false);
             await history.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
             history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.TransactionCommitted);
             history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.LocalStateChanged);
@@ -374,7 +375,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                 return new(true, true, 0, prepared.CreatedBytes, prepared.Mappings.Length, "Backup chain commit is durable; recovery is required: " + ex.Message) { RecoveryRequired = true, ReasonCode = "RecoveryRequired" };
             // No commit exists. Repository recovery will discard the prepared Catalog intent.
             await history.Repository.Journals.RecoverAsync((_, _) => Task.CompletedTask, (_, _) => Task.CompletedTask).ConfigureAwait(false);
-            await prepared.Journals.FinishAsync(rewrite, CancellationToken.None).ConfigureAwait(false);
+            await prepared.Journals.FinishAsync(rewrite, CancellationToken.None, insideMutationGate: true).ConfigureAwait(false);
             throw;
         }
     }

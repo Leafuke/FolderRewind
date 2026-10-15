@@ -19,7 +19,7 @@ namespace FolderRewind.Services
     /// 应用配置（config.json）的加载、规范化、原子持久化与恢复模式管理。
     /// 恢复模式（Recovery Center）下所有写操作被拒绝，直至用户处理完损坏的配置文件。
     /// </summary>
-    public static class ConfigService
+    public static partial class ConfigService
     {
         #region 常量与状态
 
@@ -52,6 +52,10 @@ namespace FolderRewind.Services
         public static string ConfigFilePath => ConfigPath;
 
         public static string ConfigDirectory => Path.GetDirectoryName(ConfigPath)!;
+
+        internal static string CredentialsDirectory => Path.Combine(ConfigDirectory, "credentials");
+        internal static string RcloneConnectionsDirectory => Path.Combine(CredentialsDirectory, "rclone");
+        internal static string RcloneTasksDirectory => Path.Combine(CredentialsDirectory, "rclone-tasks");
 
         [DllImport("user32.dll")]
         private static extern uint GetDpiForSystem();
@@ -89,7 +93,48 @@ namespace FolderRewind.Services
         /// <summary>
         /// 初始化配置服务，加载或创建默认配置
         /// </summary>
+        private static ConfigImportTransactionStore ImportStore => new(ConfigPath);
+        public static ConfigImportResult PendingImport => ImportStore.Result;
+        public static void CancelPendingImport() => ImportStore.Cancel();
+
         public static void Initialize()
+        {
+            if (_initialized) return;
+            var activating = false;
+            try
+            {
+                activating = ImportStore.BeginActivation(ValidateHostPayload);
+                InitializeCore(deferMachineBindings: activating);
+                if (activating)
+                {
+                    if (IsRecoveryMode) throw new InvalidDataException("Imported configuration entered recovery mode.");
+                    ImportStore.CommitActivation();
+                }
+            }
+            catch (Exception error)
+            {
+                try
+                {
+                    if (activating) ImportStore.Rollback(error.Message);
+                    else if (ImportStore.Result.Status == ConfigImportStatus.Activating) throw;
+                    _initialized = false;
+                    InitializeCore();
+                }
+                catch (Exception recoveryError)
+                {
+                    EnterRecoveryMode(new ConfigRecoveryDiagnostic("config_import_recovery_failed",
+                        recoveryError.Message, ConfigPath, null));
+                }
+                LogService.LogError("Configuration import activation failed.", nameof(ConfigService), error);
+            }
+            if (activating && _initialized && !IsRecoveryMode && ImportStore.Result.Status == ConfigImportStatus.Applied)
+            {
+                try { RegisterRcloneCredentialMigrations(); }
+                catch (Exception error) { LogService.LogError("Imported cloud credentials require setup.", nameof(ConfigService), error); }
+            }
+        }
+
+        private static void InitializeCore(bool deferMachineBindings = false)
         {
             if (_initialized) return;
 
@@ -137,6 +182,8 @@ namespace FolderRewind.Services
             CurrentConfig = config;
             ApplyLogSettings(config.GlobalSettings);
             _initialized = true;
+
+            if (!deferMachineBindings) RegisterRcloneCredentialMigrations();
 
             if (createdDefault || languageNormalized)
             {
@@ -303,6 +350,7 @@ namespace FolderRewind.Services
                         rule.Id = Guid.NewGuid().ToString("N");
                 }
             }
+            CloudConnectionCatalog.MigrateLegacy(config);
         }
 
         /// <summary>
@@ -707,86 +755,112 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 从指定路径导入配置（替换当前配置）
+        /// 准备配置候选文件，重启后在服务初始化前切换
         /// </summary>
         /// <remarks>
         /// 双重校验：导入文档先过文档门（迁移/校验），规范化后再序列化并重新过门。
-        /// 写入前创建安全副本，落盘后回读验证；任何失败（含激活后进入恢复模式）
-        /// 都会恢复安全副本并重新初始化。
+        /// 准备阶段不修改活动配置；启动切换使用安全副本、回读验证和统一回滚。
         /// </remarks>
-        public static bool ImportConfig(string sourcePath)
+        public static async Task<ConfigImportResult> StageConfigImportAsync(string sourcePath,
+            CancellationToken cancellationToken = default, string? expectedSourceSha256 = null,
+            ConfigImportMode mode = ConfigImportMode.CrossDevice)
         {
-            if (IsRecoveryMode)
-            {
-                return false;
-            }
-
+            if (IsRecoveryMode) return new(ConfigImportStatus.Failed, "Configuration recovery must be completed first.");
             try
             {
-                if (!File.Exists(sourcePath)) return false;
-                var sourceBytes = File.ReadAllBytes(sourcePath);
-                var gateResult = new ConfigDocumentGate().Prepare(sourceBytes);
-                if (!gateResult.IsReady || gateResult.Utf8Json is null)
-                {
-                    LogService.Log(I18n.Format(
-                        "Config_ImportFailed",
-                        $"{gateResult.DiagnosticCode}: {gateResult.DiagnosticMessage}"));
-                    return false;
-                }
+                var sourceBytes = await File.ReadAllBytesAsync(sourcePath, cancellationToken).ConfigureAwait(false);
+                if (expectedSourceSha256 is not null && Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(sourceBytes)) != expectedSourceSha256)
+                    throw new InvalidDataException("Configuration changed after preview. Select the file again.");
+                var target = mode == ConfigImportMode.LocalRestore
+                    ? await UiDispatcherService.RunOnUiAsync(() => Task.FromResult(ConfigSnapshotMapper.Copy(CurrentConfig))).ConfigureAwait(false) : null;
+                var imported = PrepareImportedConfig(sourceBytes, mode, target);
+                cancellationToken.ThrowIfCancellationRequested();
+                return ImportStore.Stage(SerializeConfig(imported), ValidateHostPayload, imported.BackupConfigs.Select(p => p.Id).ToArray(), mode);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception error)
+            {
+                LogService.LogError("Configuration import preparation failed.", nameof(ConfigService), error);
+                return new(ConfigImportStatus.Failed, error.Message);
+            }
+        }
 
-                var imported = DeserializeConfig(gateResult.Utf8Json);
-                RemoveOnboardingMachineBindings(imported);
-                NormalizeConfig(imported);
-                PrepareSchemaOnePersistence(imported);
-                var importedBytes = SerializeConfig(imported);
-                var validation = new ConfigDocumentGate().Prepare(importedBytes);
-                if (validation.Status != ConfigDocumentGateStatus.Current)
-                {
-                    throw new InvalidDataException(
-                        $"Imported configuration failed schema validation: {validation.DiagnosticCode} {validation.DiagnosticMessage}");
-                }
+        internal static async Task<(AppConfig Config, string Sha256)> PreviewConfigImportAsync(string path, ConfigImportMode mode = ConfigImportMode.CrossDevice)
+        {
+            var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+            var target = mode == ConfigImportMode.LocalRestore
+                ? await UiDispatcherService.RunOnUiAsync(() => Task.FromResult(ConfigSnapshotMapper.Copy(CurrentConfig))).ConfigureAwait(false) : null;
+            return (PrepareImportedConfig(bytes, mode, target), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+        }
 
-                var safetyCopy = CreateSafetyCopy("before-import");
-                try
+        internal static AppConfig PrepareImportedConfig(byte[] sourceBytes, ConfigImportMode mode = ConfigImportMode.CrossDevice,
+            AppConfig? targetSnapshot = null, IReadOnlySet<History.Domain.HistoryConfigId>? migrationProjects = null)
+        {
+            var gate = new ConfigDocumentGate().Prepare(sourceBytes);
+            if (!gate.IsReady || gate.Utf8Json is null)
+                throw new InvalidDataException($"{gate.DiagnosticCode}: {gate.DiagnosticMessage}");
+            var imported = DeserializeConfig(gate.Utf8Json);
+            if (migrationProjects is not null)
+            {
+                var chosen = imported.BackupConfigs.Where(c => migrationProjects.Contains(new(c.Id))).ToArray();
+                if (chosen.Length != migrationProjects.Count)
+                    throw new InvalidDataException("Migration configuration does not contain the selected identities.");
+                imported.BackupConfigs.Clear();
+                foreach (var project in chosen) imported.BackupConfigs.Add(project);
+                FilterMigrationCloudConnections(imported);
+            }
+            RemoveOnboardingMachineBindings(imported);
+            NormalizeConfig(imported);
+            PrepareSchemaOnePersistence(imported);
+            if (mode == ConfigImportMode.LocalRestore)
+            {
+                var target = targetSnapshot ?? throw new InvalidOperationException("Local restore requires a detached target configuration snapshot.");
+                imported.GlobalSettings.OpenListRuntime = target.GlobalSettings.OpenListRuntime;
+                imported.GlobalSettings.RcloneExecutablePath = target.GlobalSettings.RcloneExecutablePath;
+                foreach (var project in imported.BackupConfigs)
                 {
-                    WriteBytesAtomically(ConfigPath, importedBytes);
-                    var readBackError = ValidateHostPayload(File.ReadAllBytes(ConfigPath));
-                    if (!string.IsNullOrWhiteSpace(readBackError))
+                    // A cleared invalid migration binding must not be resurrected from local defaults.
+                    if (migrationProjects is not null && string.IsNullOrWhiteSpace(project.Cloud.ConnectionProfileId)) continue;
+                    var existing = target.BackupConfigs.FirstOrDefault(c => new History.Domain.HistoryConfigId(c.Id).Matches(project.Id));
+                    if (existing is null || existing.Cloud.CommandMode != project.Cloud.CommandMode
+                        || existing.Cloud.RemoteBasePath != project.Cloud.RemoteBasePath) continue;
+                    if (migrationProjects is not null)
                     {
-                        throw new InvalidDataException(readBackError);
+                        var importedProfile = imported.CloudConnections.SingleOrDefault(p => p.Id == project.Cloud.ConnectionProfileId);
+                        var targetProfile = target.CloudConnections.SingleOrDefault(p => p.Id == existing.Cloud.ConnectionProfileId);
+                        if (importedProfile is null || targetProfile is null) continue;
+                        var portableImported = ConfigSnapshotMapper.Copy(importedProfile);
+                        var portableTarget = ConfigSnapshotMapper.Copy(targetProfile);
+                        RemoveOnboardingMachineBindings(portableImported);
+                        RemoveOnboardingMachineBindings(portableTarget);
+                        if (!SameMigrationCloudProfile(portableImported, portableTarget)) continue;
+                    }
+                    // Machine bindings come exclusively from the target installation.
+                    project.Cloud.RcloneConfigPath = existing.Cloud.RcloneConfigPath;
+                    project.Cloud.LocalOpenListServiceUri = existing.Cloud.LocalOpenListServiceUri;
+                    project.Cloud.ExecutablePath = existing.Cloud.ExecutablePath;
+                    project.Cloud.WorkingDirectory = existing.Cloud.WorkingDirectory;
+                    if (target.CloudConnections.SingleOrDefault(p => p.Id == existing.Cloud.ConnectionProfileId) is { } localProfile
+                        && localProfile.RemoteName + ":" + existing.Cloud.RemotePathSuffix == project.Cloud.RemoteBasePath)
+                    {
+                        var placeholder = imported.CloudConnections.SingleOrDefault(p => p.Id == localProfile.Id);
+                        if (placeholder is not null) imported.CloudConnections.Remove(placeholder);
+                        imported.CloudConnections.Add(ConfigSnapshotMapper.Copy(localProfile));
+                        project.Cloud.ConnectionProfileId = localProfile.Id;
+                        project.Cloud.RemotePathSuffix = existing.Cloud.RemotePathSuffix;
+                        project.Cloud.BindingRevision = existing.Cloud.BindingRevision;
                     }
                 }
-                catch
-                {
-                    RestoreSafetyCopy(safetyCopy);
-                    throw;
-                }
-
-                _initialized = false;
-                Initialize();
-                if (IsRecoveryMode)
-                {
-                    RestoreSafetyCopy(safetyCopy);
-                    _initialized = false;
-                    Initialize();
-                    throw new InvalidDataException("Imported configuration could not be activated safely.");
-                }
-
-                LogService.Log(I18n.Format("Config_ImportSuccess", sourcePath));
-                return true;
             }
-            catch (Exception ex)
-            {
-                LogService.Log(I18n.Format("Config_ImportFailed", ex.Message));
-                return false;
-            }
+            if (migrationProjects is not null) FilterMigrationCloudConnections(imported);
+            return imported;
         }
 
         public static IReadOnlyList<string> GetRecoveryCopies()
         {
             try
             {
-                return ConfigFileMigrationService.ListRecoveryCopies(ConfigPath);
+                return ConfigFileMigrationService.ListRecoveryCopies(ConfigPath).Concat(ImportStore.SafetyCopies).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             }
             catch (Exception ex)
             {
@@ -962,18 +1036,30 @@ namespace FolderRewind.Services
         private static void RemoveOnboardingMachineBindings(AppConfig config)
         {
             config.GlobalSettings.OpenListRuntime = new();
+            config.GlobalSettings.RcloneExecutablePath = "";
+            foreach (var preset in config.BackupPresets)
+                preset.Cloud = new() { RemoteBasePath = preset.Cloud.RemoteBasePath, TimeoutSeconds = preset.Cloud.TimeoutSeconds, RetryCount = preset.Cloud.RetryCount };
+            foreach (var profile in config.CloudConnections) RemoveOnboardingMachineBindings(profile);
             foreach (var project in config.BackupConfigs)
             {
                 if (project.Cloud is not { } cloud) continue;
                 if (!string.IsNullOrWhiteSpace(cloud.RcloneConfigPath) || !string.IsNullOrWhiteSpace(cloud.LocalOpenListServiceUri))
                 {
-                    cloud.Enabled = false;
                     cloud.ExecutablePath = "rclone.exe";
                     cloud.WorkingDirectory = string.Empty;
                 }
                 cloud.RcloneConfigPath = string.Empty;
+                cloud.ReadableEvidence = ""; cloud.WritableEvidence = "";
+                cloud.ArgumentsTemplate = ""; // 旧任意命令可能含认证参数；便携配置不能携带它们。
                 cloud.LocalOpenListServiceUri = string.Empty;
             }
+        }
+
+        private static void RemoveOnboardingMachineBindings(CloudConnectionProfile profile)
+        {
+            profile.CredentialReference = ""; profile.ImportedFromReference = ""; profile.ExecutablePath = ""; profile.WorkingDirectory = "";
+            profile.Access = CloudConnectionAccess.NeedsAuthentication; profile.VerificationEvidence = "";
+            profile.DependsOnLocalOpenList = false;
         }
 
         private static void NormalizeGlobalSettings(GlobalSettings settings)
@@ -999,7 +1085,7 @@ namespace FolderRewind.Services
 
             settings.RcloneExecutablePath = settings.RcloneExecutablePath?.Trim() ?? string.Empty;
             settings.OpenListRuntime ??= new();
-            settings.OpenListRuntime.AllowStartOnDemand = false;
+            if (!OpenListRuntimeService.HasMachineAuthorization(settings.OpenListRuntime)) settings.OpenListRuntime.AllowStartOnDemand = false;
             settings.DefaultCloudRemoteBasePath = string.IsNullOrWhiteSpace(settings.DefaultCloudRemoteBasePath)
                 ? "remote:FolderRewind"
                 : settings.DefaultCloudRemoteBasePath.Trim();

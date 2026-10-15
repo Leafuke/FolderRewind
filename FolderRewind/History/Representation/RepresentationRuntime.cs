@@ -29,7 +29,8 @@ public sealed class RepresentationRuntime
         IRepresentationEnvironment environment,
         AssessmentDepth depth,
         MaterializationFidelity requiredFidelity,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ArchiveRestoreVerificationContext? restoreVerification = null)
     {
         ArgumentNullException.ThrowIfNull(representations);
         ArgumentNullException.ThrowIfNull(environment);
@@ -50,7 +51,7 @@ public sealed class RepresentationRuntime
         var visiting = new HashSet<RepresentationId>();
         foreach (var candidate in candidates)
         {
-            await AssessRepresentationAsync(candidate, graph, environment, depth, assessments, visiting, cancellationToken)
+            await AssessRepresentationAsync(candidate, graph, environment, depth, assessments, visiting, cancellationToken, restoreVerification)
                 .ConfigureAwait(false);
         }
 
@@ -90,7 +91,8 @@ public sealed class RepresentationRuntime
         IRepresentationEnvironment environment,
         MaterializationFidelity requiredFidelity,
         string stagingDirectory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ArchiveRestoreVerificationContext? restoreVerification = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
         var graph = representations.ToDictionary(item => item.RepresentationId);
@@ -107,7 +109,7 @@ public sealed class RepresentationRuntime
             AssessmentDepth.Deep,
             assessments,
             new HashSet<RepresentationId>(),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, restoreVerification).ConfigureAwait(false);
         var selected = assessments[representationId];
         if (selected.Readiness != HistoryReadiness.Ready
             || !Satisfies(selected.Fidelity, requiredFidelity))
@@ -126,7 +128,7 @@ public sealed class RepresentationRuntime
                 representation,
                 closure,
                 assessments,
-                stagingDirectory),
+                stagingDirectory, restoreVerification),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -180,7 +182,8 @@ public sealed class RepresentationRuntime
         AssessmentDepth depth,
         Dictionary<RepresentationId, RepresentationAssessment> assessments,
         HashSet<RepresentationId> visiting,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ArchiveRestoreVerificationContext? restoreVerification = null)
     {
         if (assessments.TryGetValue(representation.RepresentationId, out var known))
         {
@@ -212,7 +215,7 @@ public sealed class RepresentationRuntime
                 depth,
                 assessments,
                 visiting,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, restoreVerification).ConfigureAwait(false);
         }
 
         var handler = ResolveHandler(representation);
@@ -229,7 +232,7 @@ public sealed class RepresentationRuntime
                     graph,
                     dependencyAssessments,
                     environment,
-                    depth),
+                    depth, restoreVerification),
                 cancellationToken).ConfigureAwait(false);
         visiting.Remove(representation.RepresentationId);
         assessments.Add(representation.RepresentationId, result);

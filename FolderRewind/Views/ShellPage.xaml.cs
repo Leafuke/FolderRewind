@@ -105,6 +105,7 @@ namespace FolderRewind.Views
                 NavigateTo("Home");
 
                 TaskObserver.Observe(_startup.StartAsync(), nameof(ShellPage));
+                TaskObserver.Observe(ContinueMigrationAfterRestartAsync(), nameof(ShellPage));
             });
         }
 
@@ -135,8 +136,10 @@ namespace FolderRewind.Views
                 "BackupSetup" => typeof(BackupSetupPage),
                 "ConfigSettings" => typeof(ConfigSettingsPage),
                 "CloudSetup" => typeof(CloudSetupPage),
+                "CloudConnections" => typeof(CloudConnectionsPage),
                 "MinecraftIntegration" => typeof(MinecraftIntegrationPage),
                 "SpatialPreview" => typeof(SpatialPreviewPage),
+                "Migration" => typeof(MigrationWizardPage),
                 _ => null
             };
 
@@ -173,6 +176,7 @@ namespace FolderRewind.Views
 
         private void UpdateNavSelection(string pageTag)
         {
+            if (pageTag == "Migration") pageTag = "Settings";
             if (pageTag == "Merge") pageTag = "History";
             object? targetItem = pageTag == "Settings"
                 ? NavView.SettingsItem
@@ -279,6 +283,7 @@ namespace FolderRewind.Views
 
         private static string? GetPageTagFromType(Type sourcePageType)
         {
+            if (sourcePageType == typeof(MigrationWizardPage)) return "Migration";
             if (sourcePageType == typeof(HomePage)) return "Home";
             if (sourcePageType == typeof(FolderManagerPage)) return "Manager";
             if (sourcePageType == typeof(BackupTasksPage)) return "Tasks";
@@ -290,9 +295,16 @@ namespace FolderRewind.Views
             if (sourcePageType == typeof(BackupSetupPage)) return "BackupSetup";
             if (sourcePageType == typeof(ConfigSettingsPage)) return "ConfigSettings";
             if (sourcePageType == typeof(CloudSetupPage)) return "CloudSetup";
+            if (sourcePageType == typeof(CloudConnectionsPage)) return "CloudConnections";
             if (sourcePageType == typeof(MinecraftIntegrationPage)) return "MinecraftIntegration";
             if (sourcePageType == typeof(SpatialPreviewPage)) return "SpatialPreview";
             return null;
+        }
+
+        private async System.Threading.Tasks.Task ContinueMigrationAfterRestartAsync()
+        {
+            var id = await MigrationWorkflowCoordinator.ConsumeRestartAsync();
+            if (id is not null) NavigateTo("Migration", new MigrationWizardRequest(MigrationWizardMode.Continue, WorkflowId: id));
         }
     }
 }

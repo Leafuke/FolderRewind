@@ -88,8 +88,8 @@ public sealed partial class ConfigSettingsPage
 
     private void OnIconSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (IconGrid.SelectedItem is string glyph)
-            ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.SetIcon, glyph));
+        if (_isDialogReady && IconGrid.SelectedItem is ConfigIconOption icon)
+            ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.SetIcon, icon.Glyph));
     }
     private void OnAddFileTypeRuleClick(object sender, RoutedEventArgs e)
     {

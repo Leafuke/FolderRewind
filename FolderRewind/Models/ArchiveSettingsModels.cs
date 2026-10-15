@@ -1,6 +1,4 @@
 using FolderRewind.Services;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -35,7 +33,7 @@ namespace FolderRewind.Models
     /// <summary>
     /// 压缩与归档设置
     /// </summary>
-    public class ArchiveSettings : ObservableObject
+    public class ArchiveSettings : ObservableObject, IJsonOnDeserialized
     {
         private string _format = "7z";
         private int _compressionLevel = 5;
@@ -45,8 +43,11 @@ namespace FolderRewind.Models
         private bool _skipIfUnchanged = true;      // 无变更时跳过备份
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
-        private bool _safeRestoreEnabled = true;     // 安全还原（Clean 模式前做目录快照，失败可回滚）
-        private bool _verifyArchiveBeforeRestore = true; // 还原前完整性校验（7z t）
+        private bool _safeRestoreEnabled = true;     // 旧输入别名；不控制事务回滚。
+        private BackupArchiveVerificationLevel _backupVerificationLevel = BackupArchiveVerificationLevel.Balanced;
+        private RestoreArchivePreflightMode _restorePreflightMode = RestoreArchivePreflightMode.Balanced;
+        private bool _inputMigrationApplied;
+        private bool _quickRestoreSafetySnapshotEnabled = true;
         private int _maxSmartBackupsPerFull = 5;    // 智能备份链长度限制，默认 5
         private bool _runCompressionAtLowPriority = false; // 备份侧 7-Zip 进程以较低优先级运行
         private string _additionalSevenZipArguments = string.Empty;
@@ -76,15 +77,56 @@ namespace FolderRewind.Models
         /// </summary>
         public bool BackupBeforeRestore { get => _backupBeforeRestore; set => SetProperty(ref _backupBeforeRestore, value); }
 
-        /// <summary>
-        /// 安全还原：在 Clean 还原前将目标目录迁移到临时目录快照，若还原失败可自动回滚。
-        /// </summary>
-        public bool SafeRestoreEnabled { get => _safeRestoreEnabled; set => SetProperty(ref _safeRestoreEnabled, value); }
+        public bool ShouldCreateSafetySnapshot(bool quickRestore)
+            => quickRestore ? QuickRestoreSafetySnapshotEnabled : BackupBeforeRestore;
 
         /// <summary>
-        /// 还原前完整性校验：对还原链中的压缩包执行 7z test。
+        /// 兼容旧输入；导出恒为 true，失败回滚始终开启。
         /// </summary>
-        public bool VerifyArchiveBeforeRestore { get => _verifyArchiveBeforeRestore; set => SetProperty(ref _verifyArchiveBeforeRestore, value); }
+        public bool SafeRestoreEnabled { get => true; set => SetProperty(ref _safeRestoreEnabled, value); }
+
+        /// <summary>
+        /// 兼容旧 JSON 字段；验证等级统一由 RestorePreflightMode 控制，缺省为均衡。
+        /// </summary>
+        public bool VerifyArchiveBeforeRestore
+        {
+            get => RestorePreflightMode == RestoreArchivePreflightMode.Strict;
+            set { }
+        }
+
+        public BackupArchiveVerificationLevel BackupVerificationLevel
+        {
+            get => _backupVerificationLevel;
+            set
+            {
+                if (!Enum.IsDefined(value)) throw new System.Text.Json.JsonException("Invalid backup verification level.");
+                SetProperty(ref _backupVerificationLevel, value);
+            }
+        }
+        public RestoreArchivePreflightMode RestorePreflightMode
+        {
+            get => _restorePreflightMode;
+            set
+            {
+                if (!Enum.IsDefined(value)) throw new System.Text.Json.JsonException("Invalid restore preflight mode.");
+                SetProperty(ref _restorePreflightMode, value);
+            }
+        }
+        public bool QuickRestoreSafetySnapshotEnabled
+        {
+            get => _quickRestoreSafetySnapshotEnabled;
+            set => SetProperty(ref _quickRestoreSafetySnapshotEnabled, value);
+        }
+
+        void IJsonOnDeserialized.OnDeserialized()
+            => ApplyDeserializedInputMigration();
+
+        internal void ApplyDeserializedInputMigration()
+        {
+            if (_inputMigrationApplied) return;
+            _safeRestoreEnabled = true;
+            _inputMigrationApplied = true;
+        }
 
         /// <summary>
         /// 智能备份链长度限制：当连续增量备份达到此数量时，强制执行一次全量备份以截断链条。

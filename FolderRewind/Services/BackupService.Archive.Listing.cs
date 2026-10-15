@@ -43,10 +43,14 @@ namespace FolderRewind.Services
                 startInfo.ArgumentList.Add(archivePath);
                 if (!string.IsNullOrWhiteSpace(password)) startInfo.ArgumentList.Add($"-p{password}");
                 using var process = new Process { StartInfo = startInfo };
+                using var phase = HistoryOperationDiagnostics.Current?.Measure("archive-l");
                 if (!process.Start()) return false;
+                var processHandle = process.Handle;
+                HistoryOperationDiagnostics.Current?.Count("7z-l");
                 var standardOutput = process.StandardOutput.ReadToEndAsync();
                 var standardError = process.StandardError.ReadToEndAsync();
                 await process.WaitForExitAsync().ConfigureAwait(false);
+                HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
                 string output = await standardOutput.ConfigureAwait(false);
                 string error = await standardError.ConfigureAwait(false);
                 if (process.ExitCode != 0)

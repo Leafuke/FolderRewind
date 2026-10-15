@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using System;
@@ -21,6 +21,11 @@ namespace FolderRewind.ViewModels
                 if (_cloud.Enabled == value)
                 {
                     return;
+                }
+                if (value && (_cloud.LegacyConversionRequired || _cloud.WritableEvidence.Length == 0))
+                {
+                    NotificationService.ShowWarning(I18n.GetString("CloudJob_WriteVerificationRequired"));
+                    OnPropertyChanged(nameof(AutoUploadEnabled)); return;
                 }
 
                 _cloud.Enabled = value;
@@ -95,7 +100,8 @@ namespace FolderRewind.ViewModels
 
         public string CloudRemoteBasePathText
         {
-            get => _cloud.RemoteBasePath;
+            get => ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == _cloud.ConnectionProfileId) is { } profile
+                ? profile.RemoteName + ":" + _cloud.RemotePathSuffix : _cloud.RemoteBasePath;
             set
             {
                 string normalized = value?.Trim() ?? string.Empty;
@@ -105,49 +111,6 @@ namespace FolderRewind.ViewModels
                 }
 
                 _cloud.RemoteBasePath = normalized;
-                RaiseCloudUiProperties();
-            }
-        }
-
-        public int CloudTemplateSelectedIndex
-        {
-            get => _cloud.TemplateKind switch
-            {
-                CloudTemplateKind.UploadBackupDirectory => 1,
-                CloudTemplateKind.Custom => 2,
-                _ => 0
-            };
-            set
-            {
-                var newKind = value switch
-                {
-                    1 => CloudTemplateKind.UploadBackupDirectory,
-                    2 => CloudTemplateKind.Custom,
-                    _ => CloudTemplateKind.UploadCurrentArchive
-                };
-
-                if (_cloud.TemplateKind == newKind)
-                {
-                    return;
-                }
-
-                _cloud.TemplateKind = newKind;
-                RaiseCloudUiProperties();
-            }
-        }
-
-        public string CloudArgumentsTemplateText
-        {
-            get => _cloud.ArgumentsTemplate;
-            set
-            {
-                string normalized = value ?? string.Empty;
-                if (string.Equals(_cloud.ArgumentsTemplate, normalized, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _cloud.ArgumentsTemplate = normalized;
                 RaiseCloudUiProperties();
             }
         }
@@ -184,31 +147,6 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public bool SyncHistoryAfterUpload
-        {
-            get => _cloud.SyncHistoryAfterUpload;
-            set
-            {
-                if (_cloud.SyncHistoryAfterUpload == value)
-                {
-                    return;
-                }
-
-                _cloud.SyncHistoryAfterUpload = value;
-                RaiseCloudUiProperties();
-            }
-        }
-
-        public string CloudVariablesHelpText => CloudSyncService.VariablesHelpText;
-
-        public string CloudPreviewText => CloudSyncService.BuildPreview(_config);
-
-        public string CloudLastRunDisplay => _cloud.LastRunDisplay;
-
-        public string CloudLastExitCodeDisplay => _cloud.LastExitCodeDisplay;
-
-        public string CloudLastErrorMessage => _cloud.LastErrorMessage;
-
         public string CloudManualSyncHint => CanUseManualCloudActions
             ? I18n.GetString("ConfigSettingsDialog_CloudSyncHint")
             : I18n.GetString("ConfigSettingsDialog_CloudLegacyModeHint");
@@ -227,18 +165,6 @@ namespace FolderRewind.ViewModels
 
             LogService.LogError(message, nameof(ConfigSettingsDialogViewModel));
             NotificationService.ShowError(message, I18n.GetString("CloudSync_Notification_Title"));
-        }
-
-        public void ApplyCloudTemplate()
-        {
-            if (_cloud.TemplateKind == CloudTemplateKind.Custom || IsLegacyCustomCommandMode)
-            {
-                RaiseCloudUiProperties();
-                return;
-            }
-
-            CloudSyncService.ApplyRecommendedTemplate(_cloud);
-            RaiseCloudUiProperties();
         }
 
         public void RefreshCloudUi()

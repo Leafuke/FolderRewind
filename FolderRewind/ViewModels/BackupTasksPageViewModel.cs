@@ -18,8 +18,9 @@ namespace FolderRewind.ViewModels
         public int TaskCount
         {
             get => _taskCount;
-            private set => SetProperty(ref _taskCount, value);
+            private set { if (SetProperty(ref _taskCount, value)) OnPropertyChanged(nameof(TaskSummary)); }
         }
+        public string TaskSummary => TaskCount == 0 ? I18n.GetString("BackupTasks_EmptySummary") : I18n.Format("BackupTasks_Count", TaskCount);
 
         public bool IsEmpty
         {

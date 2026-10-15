@@ -1,4 +1,4 @@
-using FolderRewind.Services;
+﻿using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Threading.Tasks;
@@ -58,10 +58,4 @@ public sealed partial class ConfigSettingsPage
 
     private void OnOpenCloudSyncClick(object sender, RoutedEventArgs e)
         => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.OpenCloudSync), nameof(ConfigSettingsPage));
-
-    private void OnApplyCloudTemplateClick(object sender, RoutedEventArgs e)
-    {
-        ViewModel.ApplyCloudTemplate();
-        UpdateCloudBindings();
-    }
 }

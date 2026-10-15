@@ -148,6 +148,7 @@ namespace FolderRewind
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
                 StartupTimingService.Mark("Window activated");
+                ConfigService.StartRcloneCredentialMigrations();
                 Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
 
                 StartHistoryWarmup();
@@ -572,6 +573,7 @@ namespace FolderRewind
             var root = _window?.Content as Control;
             if (root != null) root.IsEnabled = false;
             Program.Instance?.SetClosing(true);
+            var automationWasRunning = Services.AutomationService.IsRunning;
             try
             {
                 await Services.AutomationService.StopAsync();
@@ -583,9 +585,11 @@ namespace FolderRewind
                         throw new InvalidOperationException("请等待当前任务完成后退出或重启。 / Wait for active tasks before exiting or restarting.");
                     await Task.Delay(100);
                 }
+                await Services.CloudSyncService.DrainForExitAsync();
                 await Services.KnotLinkService.ShutdownAsync();
                 await app.StopHistoryWarmupAsync();
                 await app._startupStateProbeTask;
+                await ConfigService.StopRcloneCredentialMigrationsAsync();
                 await ConfigService.SealForExitAsync();
             }
             catch (Exception error)
@@ -593,6 +597,12 @@ namespace FolderRewind
                 if (root != null) root.IsEnabled = true;
                 Program.Instance?.SetClosing(false);
                 Services.MergeOperationService.CancelShutdown();
+                Services.CloudSyncService.ResumeAfterExitFailure();
+                if (automationWasRunning)
+                {
+                    try { await Services.AutomationService.StartAsync(TimeProvider.System, runStartupBackups: false); }
+                    catch (Exception resumeError) { LogService.LogError("Automation could not resume after exit failure.", nameof(App), resumeError); }
+                }
                 _exitTask = null;
                 NotificationService.ShowError(error.Message);
                 throw;

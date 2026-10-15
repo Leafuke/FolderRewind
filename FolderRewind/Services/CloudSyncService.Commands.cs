@@ -100,70 +100,21 @@ namespace FolderRewind.Services
 
         private static async Task<(bool Success, int ExitCode, string ErrorMessage)> RunCommandAsync(BackupTask task, ResolvedCommand command, int timeoutSeconds)
         {
-            var outputBuilder = new StringBuilder();
-            var errorBuilder = new StringBuilder();
-
             try
             {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = command.ExecutablePath,
-                    Arguments = command.Arguments,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                if (!string.IsNullOrWhiteSpace(command.WorkingDirectory))
-                {
-                    startInfo.WorkingDirectory = command.WorkingDirectory;
-                }
-
-                if (command.Execution is { } connection) startInfo = connection.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments));
-                using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-                process.OutputDataReceived += (_, args) => AppendLogLine(args.Data, outputBuilder, task, false);
-                process.ErrorDataReceived += (_, args) => AppendLogLine(args.Data, errorBuilder, task, true);
-
-                command.Execution?.RequireUnchanged();
-                if (!process.Start())
-                {
-                    return (false, -1, I18n.GetString("CloudSync_Error_StartFailed"));
-                }
-
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-                try
-                {
-                    await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    try
+                var start = command.Execution is { } context
+                    ? context.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments))
+                    : new ProcessStartInfo(command.ExecutablePath, command.Arguments)
                     {
-                        if (!process.HasExited)
-                        {
-                            process.Kill(entireProcessTree: true);
-                        }
-                    }
-                    catch
-                    {
-                    }
-
-                    return (false, -1, I18n.Format("CloudSync_Task_Timeout", timeoutSeconds));
-                }
-
-                string errorText = GetBestErrorMessage(process.ExitCode, errorBuilder.ToString(), outputBuilder.ToString());
-                return process.ExitCode == 0
-                    ? (true, process.ExitCode, string.Empty)
-                    : (false, process.ExitCode, errorText);
+                        WorkingDirectory = command.WorkingDirectory, UseShellExecute = false, CreateNoWindow = true,
+                        RedirectStandardOutput = true, RedirectStandardError = true
+                    };
+                var output = await RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(timeoutSeconds), default).ConfigureAwait(false);
+                await RunOnUIAsync(() => task.Log = CloudCommandSecurity.Redact(output)).ConfigureAwait(false);
+                return (true, 0, string.Empty);
             }
-            catch (Exception ex)
-            {
-                return (false, -1, CloudCommandSecurity.Redact(ex.Message));
-            }
+            catch (RcloneProcessException ex) { return (false, ex.ExitCode, CloudCommandSecurity.Redact(ex.Message)); }
+            catch (Exception ex) { return (false, -1, CloudCommandSecurity.Redact(ex.Message)); }
         }
 
         private static void AppendLogLine(string? line, StringBuilder builder, BackupTask task, bool isError)

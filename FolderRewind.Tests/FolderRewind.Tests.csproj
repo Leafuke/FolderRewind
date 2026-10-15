@@ -5,10 +5,37 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <DefineConstants>$(DefineConstants);FOLDERREWIND_PROTOCOL_TESTS</DefineConstants>
     <Platforms>AnyCPU</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\MigrationWorkflowModels.cs" Link="Source\MigrationWorkflowModels.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationHistoryStatusPolicy.cs" Link="Source\MigrationHistoryStatusPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationPresentationPolicy.cs" Link="Source\MigrationPresentationPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\HistoryLoadFailurePolicy.cs" Link="Source\HistoryLoadFailurePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationWorkflowStore.cs" Link="Source\MigrationWorkflowStore.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationWorkflowRunner.cs" Link="Source\MigrationWorkflowRunner.cs" />
+    <Compile Include="..\FolderRewind\Services\HistoryOperationDiagnostics.cs" Link="Source\HistoryOperationDiagnostics.cs" />
+    <Compile Include="..\FolderRewind\Models\ArchiveSettingsModels.cs" Link="Source\ArchiveSettingsModels.cs" />
+    <Compile Include="..\FolderRewind\Models\ArchiveVerificationPolicy.cs" Link="Source\ArchiveVerificationPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupArchiveVerificationPolicy.cs" Link="Source\BackupArchiveVerificationPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\NativeSmartOwnerPlan.cs" Link="Source\NativeSmartOwnerPlan.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreWorkspacePlanner.cs" Link="Source\HistoryRestoreWorkspacePlanner.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreFileSystemPlan.cs" Link="Source\HistoryRestoreFileSystemPlan.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestorePreparationSession.cs" Link="Source\HistoryRestorePreparationSession.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreMutationPlanner.cs" Link="Source\HistoryRestoreMutationPlanner.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.TargetVolume.cs" Link="Source\HistoryRestoreService.TargetVolume.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryQuickRestoreExecution.cs" Link="Source\HistoryQuickRestoreExecution.cs" />
+    <Compile Include="..\FolderRewind\Models\CloudConnectionProfile.cs" Link="Source\CloudConnectionProfile.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudConnectionResolver.cs" Link="Source\CloudConnectionResolver.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudRemotePath.cs" Link="Source\CloudRemotePath.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneCredentialRefresh.cs" Link="Source\RcloneCredentialRefresh.cs" />
+    <Compile Include="..\FolderRewind\Services\OwnedCloudDependencyProcess.cs" Link="Source\OwnedCloudDependencyProcess.cs" />
+    <Compile Include="..\FolderRewind\Services\AppUpdatePolicy.cs" Link="Source\AppUpdatePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\AppUpdatePresentation.cs" Link="Source\AppUpdatePresentation.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\GitHubReleaseMetadata.cs" Link="Source\GitHubReleaseMetadata.cs" />
+    <None Update="Fixtures\AppUpdate\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\FolderRewind\Services\LocalizedTextSelector.cs" Link="Source\LocalizedTextSelector.cs" />
     <Compile Include="..\FolderRewind\Services\PreviewCameraStore.cs" Link="Source\PreviewCameraStore.cs" />
     <Compile Include="..\FolderRewind\Services\SpatialPreviewViewport.cs" Link="Source\SpatialPreviewViewport.cs" />
@@ -22,6 +49,7 @@
     <Compile Include="..\FolderRewind\Services\BackupOperationResult.cs" Link="Source\BackupOperationResult.cs" />
     <Compile Include="..\FolderRewind\Services\ProcessWaitService.cs" Link="Source\ProcessWaitService.cs" />
     <None Update="Fixtures\Legacy182\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\Legacy196\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -129,6 +157,7 @@
     <Compile Include="..\FolderRewind\Services\RcloneExecutionContext.cs" Link="Source\RcloneExecutionContext.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneConnectionService.cs" Link="Source\RcloneConnectionService.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneNativeHistoryTransport.cs" Link="Source\RcloneNativeHistoryTransport.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneMigrationSnapshotTransport.cs" Link="Source\RcloneMigrationSnapshotTransport.cs" />
     <Compile Include="..\FolderRewind\Services\ProcessArgumentTokenizer.cs" Link="Source\ProcessArgumentTokenizer.cs" />
     <Compile Include="..\FolderRewind\Services\ToolArchiveInstaller.cs" Link="Source\ToolArchiveInstaller.cs" />
     <Compile Include="..\FolderRewind\Services\ToolExecutableVerifier.cs" Link="Source\ToolExecutableVerifier.cs" />
@@ -141,6 +170,18 @@
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />
+    <Compile Include="..\FolderRewind\Services\ProtectedPasswordStore.cs" Link="Source\ProtectedPasswordStore.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryReplicaRecoveryService.cs" Link="Source\HistoryReplicaRecoveryService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationContinuationService.cs" Link="Source\HistoryMigrationContinuationService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleModels.cs" Link="Source\HistoryMigrationBundleModels.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.cs" Link="Source\HistoryMigrationBundleService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.Payloads.cs" Link="Source\HistoryMigrationBundleService.Payloads.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationPathRebindPolicy.cs" Link="Source\MigrationPathRebindPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationBatchConfirmation.cs" Link="Source\MigrationBatchConfirmation.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationRecoveryPolicy.cs" Link="Source\MigrationRecoveryPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationSetupStateStore.cs" Link="Source\MigrationSetupStateStore.cs" />
+    <Compile Include="..\FolderRewind\Services\ConfigImportTransactionStore.cs" Link="Source\ConfigImportTransactionStore.cs" />
+    <Compile Include="..\FolderRewind\Services\DataMigrationStateStore.cs" Link="Source\DataMigrationStateStore.cs" />
     <Compile Include="..\FolderRewind\Services\ConfigWriteCoordinator.cs" Link="Source\ConfigWriteCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\BatchObservableCollection.cs" Link="Source\BatchObservableCollection.cs" />
     <Compile Include="..\FolderRewind\Services\LatestRequestCoordinator.cs" Link="Source\LatestRequestCoordinator.cs" />
@@ -180,6 +221,8 @@
     <Compile Include="..\FolderRewind\History\Application\HistoryRuntimeManager.cs" Link="Source\History\Application\HistoryRuntimeManager.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryAssessmentService.cs" Link="Source\History\Application\HistoryAssessmentService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryPresentationQueryService.cs" Link="Source\History\Application\HistoryPresentationQueryService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationInitializationService.cs" Link="Source\History\Application\HistoryMigrationInitializationService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRepositoryBatchTransferService.cs" Link="Source\History\Application\HistoryRepositoryBatchTransferService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRepositoryTransferService.cs" Link="Source\History\Application\HistoryRepositoryTransferService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryCommitCoordinator.cs" Link="Source\History\Application\HistoryCommitCoordinator.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryBranchProjection.cs" Link="Source\History\Application\HistoryBranchProjection.cs" />

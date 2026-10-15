@@ -101,6 +101,7 @@ public static partial class BackupService
         NativeHistoryConfigurationOperationGate.Lease? existingOperation = null)
     {
         using var timing = BackupTimingService.Begin(config?.Id ?? "");
+        using var diagnostics = HistoryOperationDiagnostics.Begin(intent == HistoryCommitIntent.IndependentRecoveryPoint || invocationOptions.Protect ? "safety-snapshot" : "backup");
         if (NativeHostMutationContext.IsNestedMutationBlocked)
         {
             return BackupTransactionExecutionResult.Blocked("Nested mutation is blocked.");
@@ -121,6 +122,8 @@ public static partial class BackupService
         timing.MarkPhase("preflight");
         var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
         await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
+        await CloudSyncService.PrepareCloudAdmissionAsync(config,
+            await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
         var startedAtUtc = DateTimeOffset.UtcNow;
         int configIndex = GetConfigIndex(config);
@@ -403,7 +406,13 @@ public static partial class BackupService
         {
             CloudSyncService.QueueNativeHistorySync(
                 config,
-                committedBatch.NewRepresentations.Select(item => item.RepresentationId));
+                committedBatch);
+            var cloudRuntime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
+            if (cloudRuntime.CloudJobs.Diagnostic is not null)
+            {
+                hasPostCommitWarnings = true;
+                NotificationService.ShowWarning(I18n.GetString("CloudJob_RegistrationNeedsAttention"));
+            }
         }
         catch (Exception ex)
         {

@@ -27,6 +27,7 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
     internal async Task<HistoryChainRewritePlan> PlanInsideGateAsync(HistoryChainRewriteRequest request,
         CancellationToken token)
     {
+        history.CloudJobs.RequireCleanupSafe();
         request = request with { BackupRoot = HistoryRewriteStoragePaths.NormalizeBackupRoot(request.BackupRoot) };
         HistoryRewriteStoragePaths.RequireUnlinkedAncestors(HistoryRewriteStoragePaths.ManagedRoot(request.BackupRoot, history.ConfigId));
         await history.EnsureIndexCurrentAsync(token).ConfigureAwait(false);
@@ -165,6 +166,7 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
         var representations = await history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var text = string.Join("|", packs.Select(p => p.Pack.PackId.ToString()).Order(StringComparer.Ordinal))
             + JsonSerializer.Serialize(catalog.Value) + JsonSerializer.Serialize(workspace.Value)
+            + history.CloudJobs.ProtectionFingerprint()
             + string.Join("|", history.MergeSessions.ProtectedRepresentations(representations).Select(r => r.ToString()).Order(StringComparer.Ordinal));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     }

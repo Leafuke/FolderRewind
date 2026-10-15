@@ -18,6 +18,7 @@ namespace FolderRewind.Services
             for (var index = 0; index < chain.Count; index++)
             {
                 var file = chain[index];
+                HistoryOperationDiagnostics.Current?.Count("archive-bytes-tested", file.Length);
                 if (restoreTask is not null)
                 {
                     var current = index;

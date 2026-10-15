@@ -1,6 +1,7 @@
 using FolderRewind.History.Domain;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -13,8 +14,11 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
     private readonly HistoryPackCodec _codec;
     private readonly HistoryRepositoryValidator _validator;
     private readonly HistoryTransactionJournalStore _journals;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    internal HistoryPackImportJournalStore Imports { get; }
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _gate;
     private bool _disposed;
+    internal bool CloudAdmissionExpected { get; set; }
 
     public FileHistoryRepository(
         HistoryConfigId configId,
@@ -23,18 +27,24 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
     {
         ConfigId = configId;
         Paths = paths ?? throw new ArgumentNullException(nameof(paths));
+        _gate = Gates.GetOrAdd(paths.RepositoryRoot, _ => new(1, 1));
         _codec = codec ?? new HistoryPackCodec();
         _validator = new HistoryRepositoryValidator(_codec);
         _journals = new HistoryTransactionJournalStore(paths);
+        Imports = new HistoryPackImportJournalStore(configId, paths);
     }
 
     internal Func<IReadOnlyList<HistoryPackReadResult>, IReadOnlyList<HistoryPackReadResult>, CancellationToken, Task>? PacksInstalled { get; set; }
 
-    internal IReadOnlyList<HistoryPackFile> GetPackFiles() => Directory.Exists(Paths.PacksRoot)
+    internal IReadOnlyList<HistoryPackFile> GetPackFiles()
+    {
+        Imports.RequireRecovered();
+        return Directory.Exists(Paths.PacksRoot)
         ? Directory.EnumerateFiles(Paths.PacksRoot, "*.frpack", SearchOption.AllDirectories)
             .Select(path => new FileInfo(path)).Select(file => new HistoryPackFile(
                 PackId.Parse(Path.GetFileNameWithoutExtension(file.Name)), file.Length, file.LastWriteTimeUtc.Ticks)).ToArray()
         : [];
+    }
 
     internal async Task WithGateAsync(Func<Task> action, CancellationToken token)
     {
@@ -70,6 +80,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
                     "History repository descriptor does not match the requested Config identity.");
             }
 
+            Imports.Recover();
             return actual;
         }
         finally
@@ -139,23 +150,16 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
                 }
             }
 
-            var duplicatePackIds = decoded.GroupBy(item => item.Pack.PackId)
-                .FirstOrDefault(group => group.Count() > 1);
-            if (duplicatePackIds is not null)
+            foreach (var duplicatePackIds in decoded.GroupBy(item => item.Pack.PackId).Where(group => group.Count() > 1))
             {
                 var first = duplicatePackIds.First().OriginalBytes;
                 if (duplicatePackIds.Any(item => !item.OriginalBytes.AsSpan().SequenceEqual(first)))
                 {
-                    foreach (var item in duplicatePackIds)
-                    {
-                        Quarantine(item.OriginalBytes, item.Pack.PackId);
-                    }
-                    throw new HistoryIntegrityConflictException(
-                        $"Incoming PackId {duplicatePackIds.Key} has different bytes.");
+                    foreach (var item in duplicatePackIds) Quarantine(item.OriginalBytes, item.Pack.PackId);
+                    throw new HistoryIntegrityConflictException($"Incoming PackId {duplicatePackIds.Key} has different bytes.");
                 }
-
-                decoded = decoded.DistinctBy(item => item.Pack.PackId).ToList();
             }
+            decoded = decoded.DistinctBy(item => item.Pack.PackId).ToList();
 
             var existingByPack = existing.ToDictionary(item => item.Pack.PackId);
             var results = new List<HistoryPackInstallResult>(decoded.Count);
@@ -201,18 +205,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
                 throw;
             }
 
-            foreach (var incoming in newPacks)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                WriteCreateOnce(Paths.GetPackPath(incoming.Pack.PackId), incoming.OriginalBytes);
-                var installedBytes = await File.ReadAllBytesAsync(
-                    Paths.GetPackPath(incoming.Pack.PackId), cancellationToken).ConfigureAwait(false);
-                if (!installedBytes.AsSpan().SequenceEqual(incoming.OriginalBytes))
-                {
-                    throw new HistoryIntegrityConflictException(
-                        $"Installed Pack {incoming.Pack.PackId} failed read-back verification.");
-                }
-            }
+            Imports.Install(newPacks, cancellationToken);
 
             if (newPacks.Count > 0 && PacksInstalled is { } installed)
                 await installed(existing, newPacks, cancellationToken).ConfigureAwait(false);
@@ -244,7 +237,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _gate.Dispose();
+        // The path gate is shared by cached Runtime and transfer repository handles.
     }
 
     internal async Task<IReadOnlyList<HistoryPackReadResult>> ReadAllPacksInsideGateAsync(
@@ -269,6 +262,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
 
     private void EnsureInitializedInsideGate()
     {
+        Imports.RequireRecovered();
         if (!File.Exists(Paths.DescriptorPath))
         {
             throw new InvalidOperationException("History repository has not been initialized.");
@@ -300,7 +294,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
         }
     }
 
-    private static void WriteCreateOnce(string destinationPath, byte[] bytes)
+    internal static void WriteCreateOnce(string destinationPath, byte[] bytes)
     {
         var fullPath = Path.GetFullPath(destinationPath);
         var directory = Path.GetDirectoryName(fullPath)

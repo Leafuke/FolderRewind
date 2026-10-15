@@ -50,6 +50,7 @@ public sealed partial class ConfigSettingsDialogViewModel
                 if (request.Value is ScheduleEntry entry) _automation.ScheduleEntries?.Remove(entry);
                 break;
         }
+        RefreshDraftState(edited: true);
     }
 
     private static void AddRule(ObservableCollection<string> rules, string? text)

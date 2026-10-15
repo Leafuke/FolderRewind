@@ -211,6 +211,8 @@ public sealed class HistoryCommitCoordinator
             throw new ArgumentException("Config snapshot does not belong to this History Runtime.", nameof(snapshot));
         }
 
+        if (_runtime.Health.HasFlag(HistoryRuntimeHealth.LocalStateInitializationRequired))
+            throw new HistoryCommitConflictException("Complete migration source and path setup before backing up.");
         if (_runtime.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired))
         {
             throw new HistoryCommitConflictException("History Workspace requires journal recovery before preflight.");
@@ -279,6 +281,9 @@ public sealed class HistoryCommitCoordinator
         try
         {
             await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+            await _runtime.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
+            if (_runtime.Health.HasFlag(HistoryRuntimeHealth.LocalStateInitializationRequired))
+                throw new HistoryCommitConflictException("Complete migration setup before committing a backup.");
             if (await _runtime.Query.GetRunAsync(request.Invocation.RunId, cancellationToken).ConfigureAwait(false) is not null)
             {
                 throw new HistoryCommitConflictException($"Backup Run {request.Invocation.RunId} is already committed.");
@@ -299,6 +304,17 @@ public sealed class HistoryCommitCoordinator
                 currentCatalog,
                 cancellationToken).ConfigureAwait(false);
             preparedPack = batch.Pack;
+            try
+            {
+                var graph = (await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false))
+                    .Concat(batch.NewRepresentations).ToArray();
+                _runtime.CloudJobs.Prepare(batch, graph);
+            }
+            catch (Exception ex)
+            {
+                // 云准备失败不回滚本地成功；原接纳区间仍可用本机事务补账，清理保持暂停。
+                _runtime.CloudJobs.ObserveFailure(ex);
+            }
             var intents = new List<HistoryLocalStateIntent>(2);
             if (batch.UpdatedWorkspace is not null)
             {
@@ -335,6 +351,8 @@ public sealed class HistoryCommitCoordinator
                     ex);
             }
             await _runtime.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
+            try { _runtime.CloudJobs.Activate(batch.Pack.PackId); }
+            catch (Exception ex) { _runtime.CloudJobs.ObserveFailure(ex); }
 
             bool indexRefreshSucceeded;
             try
@@ -443,6 +461,9 @@ public sealed class HistoryCommitCoordinator
             var runOutcome = BackupRunSourceOutcome.CarriedForward;
             var nextRelation = baseline?.Relation ?? WorkspaceBaselineRelation.Unknown;
 
+            if (state.RequiresFullCapture && capture?.Outcome is SourceCaptureOutcome.NoChanges or SourceCaptureOutcome.Reused)
+                throw new HistoryCommitConflictException("Migration continuation requires a new self-contained full capture.");
+
             if (capture is not null)
             {
                 switch (capture.Outcome)
@@ -463,7 +484,8 @@ public sealed class HistoryCommitCoordinator
                                 "A boundary-changing capture must use a self-contained Representation.");
                         }
                         var versionId = VersionId.New();
-                        var parents = reliableBaseline is { } parent ? new[] { parent } : Array.Empty<VersionId>();
+                        var continuationParent = state.RequiresFullCapture ? currentCheckpoint?.VersionId : null;
+                        var parents = (reliableBaseline ?? continuationParent) is { } parent ? new[] { parent } : Array.Empty<VersionId>();
                         var version = new SourceVersion(
                             versionId,
                             request.ConfigSnapshot.ConfigId,
@@ -623,7 +645,8 @@ public sealed class HistoryCommitCoordinator
                     var branchId = request.BranchCreationIntent?.BranchId ?? state.ActiveBranchId ?? BranchId.New();
                     branchUpdate = new BranchUpdate(BranchUpdateId.New(), branchId,
                         state.ActiveBranchUpdateId is { } parentUpdate ? [parentUpdate] : [],
-                        request.BranchCreationIntent?.Name ?? currentBranch?.Name ?? request.ConfigSnapshot.DefaultBranchName,
+                        request.BranchCreationIntent?.Name ?? currentBranch?.Name ?? (state.ActiveBranchId is null && _runtime.MigrationState.Load() is not null && !state.RequiresFullCapture
+                            ? request.ConfigSnapshot.DefaultBranchName + "-" + branchId.ToString()[..8] : request.ConfigSnapshot.DefaultBranchName),
                         candidate!.CheckpointId, false, now,
                         request.BranchCreationIntent is not null || state.ActiveBranchId is null ? BranchUpdateReason.Created
                             : currentCheckpoint?.VersionId != reliableBaseline ? BranchUpdateReason.BackupFromHistoricalState : BranchUpdateReason.Backup,
@@ -634,7 +657,8 @@ public sealed class HistoryCommitCoordinator
                 }
                 else if (request.Intent == HistoryCommitIntent.IndependentRecoveryPoint && candidate is not null)
                     state = state with { CheckpointAncestryAnchorId = candidate.CheckpointId };
-                state = state with { BaseVersionId = resultVersion, Relation = nextRelation };
+                state = state with { BaseVersionId = resultVersion, Relation = nextRelation,
+                    RequiresFullCapture = state.RequiresFullCapture && !captured };
             }
             runSources.Add(new BackupRunSourceResult(source.SourceId, runOutcome,
                 successful ? finalVersionId : null, capture?.Diagnostics ?? [],
@@ -859,7 +883,7 @@ public sealed class HistoryCommitCoordinator
 
 
     private static VersionId? ReliableVersion(WorkspaceSourceBaseline? baseline)
-        => baseline is not null && baseline.Relation != WorkspaceBaselineRelation.Unknown
+        => baseline is not null && baseline.Relation != WorkspaceBaselineRelation.Unknown && !baseline.RequiresFullCapture
             ? baseline.BaseVersionId
             : null;
 
@@ -911,6 +935,9 @@ public sealed class HistoryCommitCoordinator
             throw new HistoryCommitConflictException("Version and Representation state fingerprints disagree.");
         }
         var dependencies = capture.RepresentationCandidate.DependencyRepresentationIds;
+        if (baseline?.RequiresFullCapture == true && (capture.CaptureScope != CaptureScope.FullSource
+            || capture.RepresentationCandidate.Fidelity != MaterializationFidelity.Exact || !dependencies.IsEmpty))
+            throw new HistoryCommitConflictException("Migration continuation requires a self-contained Exact FullSource capture.");
         bool selfContainedCore = capture.RepresentationCandidate.Kind is
             RepresentationKind.CoreFull or RepresentationKind.CoreRolling;
         if (selfContainedCore && !dependencies.IsEmpty)

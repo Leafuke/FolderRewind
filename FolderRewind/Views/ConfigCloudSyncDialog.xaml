@@ -14,14 +14,6 @@
                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    TextWrapping="Wrap"/>
 
-        <StackPanel Spacing="8">
-            <TextBlock x:Uid="ConfigCloudSyncDialog_ModeHeader" FontWeight="SemiBold"/>
-            <RadioButtons SelectedIndex="{x:Bind ViewModel.SelectedModeIndex, Mode=TwoWay}">
-                <RadioButton x:Uid="ConfigCloudSyncDialog_Mode_HistoryOnly"/>
-                <RadioButton x:Uid="ConfigCloudSyncDialog_Mode_HistoryAndBackups"/>
-            </RadioButtons>
-        </StackPanel>
-
         <Border Style="{StaticResource FilledCardStyle}"
                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
             <StackPanel Spacing="8">

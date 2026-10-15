@@ -94,6 +94,7 @@ namespace FolderRewind.Services
                     consecutiveSmartCaptures: 0,
                     password: password,
                     sevenZipExe: sevenZipExe,
+                    verificationLevel: config.Archive.BackupVerificationLevel,
                     taskToUpdate: taskToUpdate).ConfigureAwait(false);
             }
             return SourceCaptureResult.Failed(sourceId, captureScope);
@@ -293,6 +294,7 @@ namespace FolderRewind.Services
                     consecutiveSmartCaptures: checked(baseline.ConsecutiveSmartCaptures + 1),
                     password: password,
                     sevenZipExe: sevenZipExe,
+                    verificationLevel: config.Archive.BackupVerificationLevel,
                     taskToUpdate: taskToUpdate,
                     expectedBaseVersionId: baseline.BaseVersionId,
                     deletedFiles: changeSet.DeletedFiles).ConfigureAwait(false);
@@ -493,6 +495,7 @@ namespace FolderRewind.Services
             int consecutiveSmartCaptures,
             string? password,
             string? sevenZipExe,
+            BackupArchiveVerificationLevel verificationLevel,
             BackupTask? taskToUpdate,
             VersionId? expectedBaseVersionId = null,
             IEnumerable<string>? deletedFiles = null)
@@ -500,17 +503,15 @@ namespace FolderRewind.Services
             var archivePath = Path.GetFullPath(Path.Combine(destinationDirectory, fileName));
             var verified = !string.IsNullOrWhiteSpace(sevenZipExe)
                 && File.Exists(archivePath)
-                && await ValidateRestoreChainAsync(
-                    [new FileInfo(archivePath)],
-                    sevenZipExe,
-                    password,
-                    taskToUpdate).ConfigureAwait(false)
-                && await ValidateArchiveLogicalStateAsync(
+                && await BackupArchiveVerificationPolicy.VerifyFinalAsync(verificationLevel,
+                    () => ValidateArchiveLogicalStateAsync(
                     sevenZipExe,
                     archivePath,
                     password,
                     expectedArchiveStates,
-                    allowDeletionMarker).ConfigureAwait(false);
+                    allowDeletionMarker),
+                    () => ValidateRestoreChainAsync([new FileInfo(archivePath)], sevenZipExe,
+                        password, taskToUpdate)).ConfigureAwait(false);
             if (!verified)
             {
                 TryDeleteUncommittedArchive(archivePath);
@@ -532,7 +533,8 @@ namespace FolderRewind.Services
                 dependencies,
                 consecutiveSmartCaptures,
                 expectedBaseVersionId,
-                deletedFiles);
+                deletedFiles,
+                verificationLevel.ToString());
         }
 
         private static void TryDeleteUncommittedArchive(string path)

@@ -3,6 +3,7 @@ using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
+using FolderRewind.History.Cloud;
 using System.Security.Cryptography;
 
 namespace FolderRewind.Tests;
@@ -24,6 +25,85 @@ public sealed class HistoryCommitCoordinatorTests
     public void Cleanup()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    [TestMethod]
+    [DataRow("before-prepared")]
+    [DataRow("prepared")]
+    [DataRow("before-activate")]
+    [DataRow("before-journal-write")]
+    [DataRow("journal-and-attention-write")]
+    public async Task CloudAdmissionReconcilesCommitGapsBeforeReleasingCleanup(string fault)
+    {
+        PackId committed;
+        var target = new CloudJobTarget("profile", "profile-revision", "binding", "original:/backup", _configId.Value);
+        await using (var runtime = await CreateRuntimeAsync())
+        {
+            runtime.CloudJobs.ConfigureAdmission(target);
+            runtime.CloudJobs.Checkpoint = point => { if (point == fault || fault == "journal-and-attention-write" && point is "before-journal-write" or "before-attention-write") throw new IOException("injected cloud journal failure"); };
+            var source = SourceId.New();
+            var batch = await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, CreateCapture(source, "first", -1, null)));
+            committed = batch.Pack.PackId;
+            Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+            Assert.ThrowsExactly<InvalidDataException>(() => runtime.CloudJobs.RequireCleanupSafe());
+            Assert.IsTrue(File.Exists((await runtime.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries.Single().Locator.AbsolutePath));
+        }
+        await using var restarted = await CreateRuntimeAsync();
+        var job = restarted.CloudJobs.Read().Jobs.Single();
+        Assert.AreEqual(committed, job.PackId);
+        Assert.AreEqual(target, job.Target);
+        Assert.AreEqual(CloudJobPhase.Pending, job.Phase);
+        Assert.AreEqual(CloudProtectionDisposition.Held, job.Protection);
+        Assert.HasCount(1, restarted.CloudJobs.ProtectedRoots());
+        Assert.ThrowsExactly<InvalidOperationException>(() => restarted.CloudJobs.RequireCleanupSafe());
+    }
+
+    [TestMethod]
+    public async Task CloudAdmissionIncludesReusedVersionAndCancelKeepsProtection()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "first", -1, null)));
+        runtime.CloudJobs.ConfigureAdmission(new("profile", "revision", "binding", "remote:backup", _configId.Value));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var unchanged = SourceCaptureResult.NoChanges(source, CaptureScope.FullSource, workspace.StateRevision, first.NewVersions.Single().VersionId, "state-first");
+        var next = await runtime.Commit.CommitAsync(Request(snapshot, workspace, unchanged));
+        Assert.IsEmpty(next.NewRepresentations);
+        var job = runtime.CloudJobs.Read().Jobs.Single();
+        Assert.AreEqual(first.NewRepresentations.Single().RepresentationId, job.Representations.Single());
+        var fingerprint = runtime.CloudJobs.ProtectionFingerprint();
+        runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Canceled });
+        Assert.AreNotEqual(fingerprint, runtime.CloudJobs.ProtectionFingerprint());
+        Assert.ThrowsExactly<InvalidOperationException>(() => runtime.CloudJobs.RequireCleanupSafe());
+        runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Canceled, Protection = CloudProtectionDisposition.Abandoned });
+        runtime.CloudJobs.RequireCleanupSafe();
+    }
+
+    [TestMethod]
+    public async Task MissingJournalKeepsIndependentProtectionAndNeedsExplicitBaselineDisposition()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var target = new CloudJobTarget("profile", "revision", "binding", "remote:/original", _configId.Value);
+        runtime.CloudJobs.ConfigureAdmission(target);
+        File.Delete(runtime.CloudJobs.JournalPath);
+        Assert.ThrowsExactly<InvalidDataException>(() => runtime.CloudJobs.RequireCleanupSafe());
+        runtime.CloudJobs.InitializeMissingAdmissionFromNow(target);
+        Assert.IsTrue(runtime.CloudJobs.Read().UnknownProtectionAbandoned);
+        Assert.AreEqual(target, runtime.CloudJobs.Read().Admissions.Single().Target);
+        runtime.CloudJobs.RequireCleanupSafe();
+    }
+
+    [TestMethod]
+    public async Task DamagedCloudJournalBlocksCleanupButAllowsLocalBackup()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        Directory.CreateDirectory(Path.GetDirectoryName(runtime.CloudJobs.JournalPath)!);
+        File.WriteAllText(runtime.CloudJobs.JournalPath, "{ invalid cloud evidence");
+        var source = SourceId.New();
+        var batch = await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, CreateCapture(source, "first", -1, null)));
+        Assert.AreEqual(BackupRunOutcome.Completed, batch.Run.Outcome);
+        Assert.ThrowsExactly<InvalidDataException>(() => runtime.CloudJobs.RequireCleanupSafe());
+        StringAssert.Contains(File.ReadAllText(runtime.CloudJobs.JournalPath), "invalid cloud evidence");
     }
 
     [TestMethod]
@@ -65,6 +145,33 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.AreEqual(0, catalog.CatalogRevision);
         Assert.AreEqual(capture.LocalReplicaCandidate!.LocalReplicaId, catalog.Entries.Single().LocalReplicaId);
         Assert.AreEqual(HistoryRuntimeHealth.Ready, runtime.Health);
+    }
+
+    [TestMethod]
+    public async Task MigratedWorkspaceStartsIndependentFullBackupWithoutInventingAncestry()
+    {
+        await using var source = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var original = await source.Commit.CommitAsync(Request(snapshot, null, CreateCapture(sourceId, "old", -1, null)));
+        var bundle = Path.Combine(_root, "migration.frhistory");
+        await new HistoryRepositoryTransferService().ExportAsync(source, bundle);
+        var targetDirectory = Path.Combine(_root, "fresh-config");
+        await new HistoryRepositoryBatchTransferService(configExists: _ => true).ImportAsync(bundle, targetDirectory);
+        await using var target = new HistoryRuntime(new FileHistoryRepository(_configId,
+            HistoryRepositoryPaths.ForConfigDirectory(targetDirectory, _configId)));
+        await target.InitializeAsync();
+        Assert.AreEqual(HistoryRuntimeHealth.LocalStateInitializationRequired, target.Health);
+        await new HistoryMigrationInitializationService(target).InitializeAsync([sourceId]);
+        var workspace = (await target.WorkspaceStore.LoadAsync()).Value!;
+        Assert.IsNull(workspace.GetSourceState(sourceId).BaseVersionId);
+        var batch = await target.Commit.CommitAsync(Request(snapshot, workspace, CreateCapture(sourceId, "new", workspace.StateRevision, null)));
+        Assert.IsEmpty(batch.NewVersions.Single().ParentVersionIds);
+        Assert.IsEmpty(batch.NewRepresentations.Single().DependencyRepresentationIds);
+        Assert.AreNotEqual(original.NewBranchUpdates.Single().BranchId, batch.NewBranchUpdates.Single().BranchId);
+        Assert.AreNotEqual(original.NewBranchUpdates.Single().Name, batch.NewBranchUpdates.Single().Name);
+        Assert.AreEqual(WorkspaceBaselineRelation.Exact, (await target.WorkspaceStore.LoadAsync()).Value!.GetSourceState(sourceId).Relation);
+        Assert.AreEqual(HistoryRuntimeHealth.Ready, target.Health);
     }
 
     [TestMethod]
@@ -889,6 +996,54 @@ public sealed class HistoryCommitCoordinatorTests
             intent: HistoryCommitIntent.IndependentRecoveryPoint,
             affectedSourceIds: captures.Select(item => item.SourceId),
             safetySnapshotIntent: new HistorySafetySnapshotIntent(reason));
+    }
+
+    [TestMethod]
+    public async Task MigratedChangedWorkspaceContinuesOriginalBranchWithSelfContainedFullParent()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "original", -1, null)));
+        var originalVersion = first.NewVersions.Single().VersionId;
+        var originalBranch = first.NewBranchUpdates.Single().BranchId;
+        var continuation = new HistoryMigrationContinuationService(runtime, (_, _, _) => Task.FromResult(false));
+        var preview = await continuation.PreviewAsync([source]);
+        var workspace = await continuation.ApplyAsync(preview, [new(source, _root)], [new(source, preview.Sources.Single().SuggestedUpdateId)]);
+        var state = workspace.GetSourceState(source);
+        Assert.AreEqual(WorkspaceBaselineRelation.Unknown, state.Relation); Assert.IsNull(state.BaseVersionId);
+        Assert.IsTrue(state.RequiresFullCapture); Assert.AreEqual(originalBranch, state.ActiveBranchId);
+        var noChange = SourceCaptureResult.NoChanges(source, CaptureScope.FullSource, workspace.StateRevision, originalVersion, "state-original");
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(Request(snapshot, workspace, noChange)));
+        Assert.IsTrue((await runtime.WorkspaceStore.LoadAsync()).Value!.GetSourceState(source).RequiresFullCapture);
+        var second = await runtime.Commit.CommitAsync(Request(snapshot, workspace, CreateCapture(source, "current", workspace.StateRevision, null)));
+        Assert.AreEqual(originalBranch, second.NewBranchUpdates.Single().BranchId);
+        CollectionAssert.AreEqual(new[] { originalVersion }, second.NewVersions.Single().ParentVersionIds.ToArray());
+        Assert.IsFalse(second.UpdatedWorkspace!.GetSourceState(source).RequiresFullCapture);
+        Assert.AreEqual(WorkspaceBaselineRelation.Exact, second.UpdatedWorkspace.GetSourceState(source).Relation);
+    }
+
+    [TestMethod]
+    public async Task MigratedExactWorkspaceAdoptsExistingBranchWithoutManufacturingHistory()
+    {
+        await using var runtime = await CreateRuntimeAsync(); var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "original", -1, null)));
+        var count = (await runtime.Repository.ReadAllPacksAsync()).Count;
+        var continuation = new HistoryMigrationContinuationService(runtime, (_, _, _) => Task.FromResult(true));
+        var preview = await continuation.PreviewAsync([source]);
+        var workspace = await continuation.ApplyAsync(preview, [new(source, _root)], [new(source, preview.Sources.Single().SuggestedUpdateId)]);
+        Assert.AreEqual(first.NewVersions.Single().VersionId, workspace.GetSourceState(source).BaseVersionId);
+        Assert.IsFalse(workspace.GetSourceState(source).RequiresFullCapture); Assert.HasCount(count, await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task WorkspaceV3RemainsReadableAndDoesNotInventFullCaptureRequirement()
+    {
+        await using var runtime = await CreateRuntimeAsync(); var source = SourceId.New();
+        await runtime.WorkspaceStore.SaveAsync(new(_configId, 0, [new(source, null, WorkspaceBaselineRelation.Unknown)]), -1);
+        var path = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json");
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"formatVersion\": 4", "\"formatVersion\": 3", StringComparison.Ordinal));
+        var load = await runtime.WorkspaceStore.LoadAsync(); Assert.AreEqual(DeviceLocalStateStatus.Valid, load.Status);
+        Assert.IsFalse(load.Value!.GetSourceState(source).RequiresFullCapture);
     }
 
     private SourceCaptureResult CreateCapture(
