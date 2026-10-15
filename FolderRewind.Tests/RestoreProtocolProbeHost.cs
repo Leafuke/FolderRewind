@@ -132,6 +132,7 @@ public static class RestoreProtocolProbeHost
         HistoryRestoreFileSystemPlanStore.TestFault = reached =>
         {
             if (reached != point) return;
+            Console.Error.WriteLine("Reached restore fault point: " + reached);
             File.WriteAllText(Path.Combine(root, "ready"), reached);
             using (var signal = new FileStream(Path.Combine(root, "ready"), FileMode.Open, FileAccess.Write, FileShare.Read)) signal.Flush(true);
             Thread.Sleep(Timeout.Infinite); // 测试进程由已记录的 PID 精确终止。

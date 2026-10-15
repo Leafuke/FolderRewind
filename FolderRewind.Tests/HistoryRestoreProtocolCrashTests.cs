@@ -1,6 +1,5 @@
 using System.Diagnostics;
-using FolderRewind.History.Application;
-using FolderRewind.History.Storage;
+using System.Text;
 
 namespace FolderRewind.Tests;
 
@@ -8,158 +7,245 @@ namespace FolderRewind.Tests;
 [DoNotParallelize]
 public sealed class HistoryRestoreProtocolCrashTests
 {
+    public TestContext TestContext { get; set; } = null!;
+    private readonly HashSet<string> _rootsWithLiveProbes = [];
+
     [TestMethod]
-    public async Task BatchedProgressRecoversUnflushedActionsAroundSixtyFourBoundary()
+    [DataRow("after-move-62")]
+    [DataRow("after-move-63")]
+    [DataRow("after-progress-flush")]
+    [DataRow("after-move-64")]
+    [DataRow("after-move-141")]
+    [DataRow("after-workspace")]
+    public async Task BatchedProgressRecoversUnflushedActionsAroundSixtyFourBoundary(string point)
     {
         var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
         if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
-        foreach (var point in new[] { "after-move-62", "after-move-63", "after-progress-flush", "after-move-64", "after-move-141", "after-workspace" })
-        {
-            var root = Path.Combine(Path.GetTempPath(), "fr-batch-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
-            try
-            {
-                await StopAtAsync(probe, "apply", root, point, "batch");
-                for (int repeat = 0; repeat < 2; repeat++)
-                {
-                    using var recovery = Start(probe, "recover", root, "none", "batch");
-                    var error = recovery.StandardError.ReadToEndAsync(); await recovery.WaitForExitAsync();
-                    Assert.AreEqual(0, recovery.ExitCode, point + ": " + await error);
-                }
-                bool committed = point == "after-workspace";
-                for (int i = 0; i < 70; i++) Assert.AreEqual((committed ? "restored-" : "original-") + i, File.ReadAllText(Path.Combine(root, "world", "batch-" + i)));
-                Assert.IsFalse(Directory.EnumerateDirectories(root, ".folderrewind-restore-*").Any());
-            }
-            finally { Directory.Delete(root, true); }
-        }
-    }
-    [TestMethod]
-    public async Task UnknownObjectsAndDamagedProgressArePreservedWhileTornTailCanRecover()
-    {
-        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
-        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
-        foreach (var scenario in new[] { "unregistered", "external-target", "external-rollback", "unknown-protocol", "unknown-phase", "corrupt-plan", "corrupt-progress", "corrupt-length", "half-progress" })
-        {
-            var root = Path.Combine(Path.GetTempPath(), "fr-ambiguous-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
-            try
-            {
-                var point = scenario == "unregistered" ? "after-container-before-register" : scenario == "external-target" ? "after-move-0"
-                    : scenario == "external-rollback" ? "after-workspace" : "after-progress-flush";
-                await StopAtAsync(probe, "apply", root, point);
-                var container = Directory.GetDirectories(root, ".folderrewind-restore-*").Single();
-                if (scenario == "external-target") { Directory.CreateDirectory(Path.Combine(root, "world")); File.WriteAllText(Path.Combine(root, "world", "external"), "foreign"); }
-                if (scenario == "external-rollback") File.WriteAllText(Path.Combine(container, "rollback", "external"), "foreign");
-                if (scenario is "unknown-protocol" or "unknown-phase")
-                {
-                    var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-journal.json", SearchOption.AllDirectories).Single();
-                    var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
-                    json[scenario == "unknown-protocol" ? "protocolVersion" : "phase"] = 99;
-                    File.WriteAllText(path, json.ToJsonString());
-                }
-                if (scenario == "corrupt-plan")
-                {
-                    var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-plan.json", SearchOption.AllDirectories).Single();
-                    var bytes = File.ReadAllBytes(path); bytes[^2] ^= 1; File.WriteAllBytes(path, bytes);
-                }
-                if (scenario is "corrupt-progress" or "corrupt-length" or "half-progress")
-                {
-                    var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-progress.bin", SearchOption.AllDirectories).Single();
-                    var bytes = File.ReadAllBytes(path);
-                    if (scenario == "half-progress") bytes = bytes[..^5];
-                    else if (scenario == "corrupt-length") bytes[0] = 128;
-                    else bytes[13] ^= 1;
-                    File.WriteAllBytes(path, bytes);
-                }
-                for (int repeat = 0; repeat < 2; repeat++)
-                {
-                    using var recovery = Start(probe, "recover", root, "none", "swap");
-                    var error = recovery.StandardError.ReadToEndAsync(); await recovery.WaitForExitAsync();
-                    if (scenario == "half-progress") Assert.AreEqual(0, recovery.ExitCode, await error);
-                    else Assert.AreNotEqual(0, recovery.ExitCode, scenario);
-                }
-                if (scenario == "half-progress") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
-                else if (scenario == "unregistered") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
-                else Assert.AreEqual("original", File.ReadAllText(Path.Combine(container, "rollback", "file.txt")));
-                if (scenario == "external-target") Assert.AreEqual("foreign", File.ReadAllText(Path.Combine(root, "world", "external")));
-                if (scenario == "external-rollback") Assert.AreEqual("foreign", File.ReadAllText(Path.Combine(container, "rollback", "external")));
-            }
-            finally { Directory.Delete(root, true); }
-        }
-    }
-    [TestMethod]
-    public async Task RealTerminationDuringReverseMoveAndRollbackCleanupIsIdempotent()
-    {
-        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
-        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
-        foreach (var point in new[] { "before-undo-1", "after-undo-1", "before-undo-0", "after-undo-0", "after-cleanup-object" })
-        {
-            var root = Path.Combine(Path.GetTempPath(), "fr-reverse-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
-            try
-            {
-                await StopAtAsync(probe, "apply", root, "after-progress-flush");
-                File.Delete(Path.Combine(root, "ready"));
-                await StopAtAsync(probe, "recover", root, point);
-                for (int repeat = 0; repeat < 2; repeat++)
-                {
-                    using var recovery = Start(probe, "recover", root, "none", "swap");
-                    var error = recovery.StandardError.ReadToEndAsync(); await recovery.WaitForExitAsync();
-                    Assert.AreEqual(0, recovery.ExitCode, await error);
-                }
-                Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
-            }
-            finally { Directory.Delete(root, true); }
-        }
-    }
-    private static async Task StopAtAsync(string probe, string command, string root, string point, string strategy = "swap")
-    {
-        using var child = Start(probe, command, root, point, strategy);
-        var errors = child.StandardError.ReadToEndAsync(); var timer = Stopwatch.StartNew();
+        var root = Path.Combine(Path.GetTempPath(), "fr-batch-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
         try
         {
-            while (!File.Exists(Path.Combine(root, "ready")) && !child.HasExited && timer.Elapsed < TimeSpan.FromSeconds(20)) await Task.Delay(10);
-            Assert.IsTrue(File.Exists(Path.Combine(root, "ready")), point + ": " + (child.HasExited ? await errors : "timed out"));
+            await StopAtAsync(probe, "apply", root, point, "batch");
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                await RunRecoveryProbeAsync(probe, root, point, "batch", repeat);
+            }
+            bool committed = point == "after-workspace";
+            for (int i = 0; i < 70; i++) Assert.AreEqual((committed ? "restored-" : "original-") + i, File.ReadAllText(Path.Combine(root, "world", "batch-" + i)));
+            Assert.IsFalse(Directory.EnumerateDirectories(root, ".folderrewind-restore-*").Any());
         }
-        finally { if (!child.HasExited) child.Kill(entireProcessTree: true); await child.WaitForExitAsync(); }
+        finally { CleanupRoot(root); }
     }
     [TestMethod]
-    public async Task RealProcessTerminationRecoversBothMoveStrategiesRepeatedly()
+    [DataRow("unregistered")]
+    [DataRow("external-target")]
+    [DataRow("external-rollback")]
+    [DataRow("unknown-protocol")]
+    [DataRow("unknown-phase")]
+    [DataRow("corrupt-plan")]
+    [DataRow("corrupt-progress")]
+    [DataRow("corrupt-length")]
+    [DataRow("half-progress")]
+    public async Task UnknownObjectsAndDamagedProgressArePreservedWhileTornTailCanRecover(string scenario)
     {
         var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
-        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Build tools/RestoreProtocolProbe and set FOLDERREWIND_RESTORE_PROTOCOL_PROBE.");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-ambiguous-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            var point = scenario == "unregistered" ? "after-container-before-register" : scenario == "external-target" ? "after-move-0"
+                : scenario == "external-rollback" ? "after-workspace" : "after-progress-flush";
+            await StopAtAsync(probe, "apply", root, point);
+            var container = Directory.GetDirectories(root, ".folderrewind-restore-*").Single();
+            if (scenario == "external-target") { Directory.CreateDirectory(Path.Combine(root, "world")); File.WriteAllText(Path.Combine(root, "world", "external"), "foreign"); }
+            if (scenario == "external-rollback") File.WriteAllText(Path.Combine(container, "rollback", "external"), "foreign");
+            if (scenario is "unknown-protocol" or "unknown-phase")
+            {
+                var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-journal.json", SearchOption.AllDirectories).Single();
+                var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+                json[scenario == "unknown-protocol" ? "protocolVersion" : "phase"] = 99;
+                File.WriteAllText(path, json.ToJsonString());
+            }
+            if (scenario == "corrupt-plan")
+            {
+                var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-plan.json", SearchOption.AllDirectories).Single();
+                var bytes = File.ReadAllBytes(path); bytes[^2] ^= 1; File.WriteAllBytes(path, bytes);
+            }
+            if (scenario is "corrupt-progress" or "corrupt-length" or "half-progress")
+            {
+                var path = Directory.GetFiles(Path.Combine(root, "history"), "restore-progress.bin", SearchOption.AllDirectories).Single();
+                var bytes = File.ReadAllBytes(path);
+                if (scenario == "half-progress") bytes = bytes[..^5];
+                else if (scenario == "corrupt-length") bytes[0] = 128;
+                else bytes[13] ^= 1;
+                File.WriteAllBytes(path, bytes);
+            }
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                await RunRecoveryProbeAsync(probe, root, point + "/" + scenario, "swap", repeat, scenario == "half-progress");
+            }
+            if (scenario == "half-progress") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
+            else if (scenario == "unregistered") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
+            else Assert.AreEqual("original", File.ReadAllText(Path.Combine(container, "rollback", "file.txt")));
+            if (scenario == "external-target") Assert.AreEqual("foreign", File.ReadAllText(Path.Combine(root, "world", "external")));
+            if (scenario == "external-rollback") Assert.AreEqual("foreign", File.ReadAllText(Path.Combine(container, "rollback", "external")));
+        }
+        finally { CleanupRoot(root); }
+    }
+    [TestMethod]
+    [DataRow("before-undo-1")]
+    [DataRow("after-undo-1")]
+    [DataRow("before-undo-0")]
+    [DataRow("after-undo-0")]
+    [DataRow("after-cleanup-object")]
+    public async Task RealTerminationDuringReverseMoveAndRollbackCleanupIsIdempotent(string point)
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-reverse-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            await StopAtAsync(probe, "apply", root, "after-progress-flush");
+            await StopAtAsync(probe, "recover", root, point);
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                await RunRecoveryProbeAsync(probe, root, point, "swap", repeat);
+            }
+            Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
+        }
+        finally { CleanupRoot(root); }
+    }
+    public static IEnumerable<object[]> CrashCases()
+    {
         var points = new[] { "before-container", "after-container-register", "before-plan", "after-plan-before-prepared", "after-prepared", "before-move-0", "after-move-0", "before-move-1", "after-move-1",
             "after-progress-flush", "before-workspace", "after-workspace", "before-cleanup", "after-cleanup-object", "after-complete" };
         foreach (var strategy in new[] { "swap", "delta", "merge" })
         foreach (var point in strategy == "merge" ? points.Concat(["before-pack", "after-pack"]) : points)
+            yield return [strategy, point];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(CrashCases))]
+    public async Task RealProcessTerminationRecoversBothMoveStrategiesRepeatedly(string strategy, string point)
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Build tools/RestoreProtocolProbe and set FOLDERREWIND_RESTORE_PROTOCOL_PROBE.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-crash-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
         {
-            var root = Path.Combine(Path.GetTempPath(), "fr-crash-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            await StopAtAsync(probe, "apply", root, point, strategy);
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                await RunRecoveryProbeAsync(probe, root, point, strategy, repeat);
+            }
+            bool committed = point is "after-workspace" or "before-cleanup" or "after-cleanup-object" or "after-complete"
+                || strategy == "merge" && point is "after-pack" or "before-workspace";
+            Assert.AreEqual(committed ? "restored" : "original", File.ReadAllText(Path.Combine(root, "world", "file.txt")), point);
+            Assert.AreEqual(!committed || strategy == "delta", File.Exists(Path.Combine(root, "world", "untouched.txt")));
+            Assert.IsFalse(Directory.EnumerateDirectories(root, ".folderrewind-restore-*").Any());
+        }
+        finally { CleanupRoot(root); }
+    }
+
+    [TestMethod]
+    public async Task RecoveryTimeoutFailsWithDiagnosticsAndReapsProbeBeforeRetry()
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-timeout-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            await StopAtAsync(probe, "apply", root, "after-progress-flush");
+            File.Delete(Path.Combine(root, "ready"));
+            var error = await Assert.ThrowsExactlyAsync<AssertFailedException>(() => RunProbeAsync(
+                probe, "recover", root, "before-undo-1", "swap", "recovery=1", false, TimeSpan.FromSeconds(10)));
+            StringAssert.Contains(error.Message, "Timed out");
+            StringAssert.Contains(error.Message, "strategy=swap; point=before-undo-1; stage=recovery=1; pid=");
+            StringAssert.Contains(error.Message, "exited=True; exitCode=");
+            StringAssert.Contains(error.Message, "Reached restore fault point: before-undo-1");
+            Assert.AreEqual("before-undo-1", File.ReadAllText(Path.Combine(root, "ready")));
+            for (int repeat = 0; repeat < 2; repeat++)
+                await RunRecoveryProbeAsync(probe, root, "before-undo-1", "swap", repeat);
+            Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
+            Assert.IsFalse(Directory.EnumerateDirectories(root, ".folderrewind-restore-*").Any());
+        }
+        finally { CleanupRoot(root); }
+    }
+
+    private async Task StopAtAsync(string probe, string command, string root, string point, string strategy = "swap")
+    {
+        // A recovery fault must not accept the marker left by the previous apply process.
+        File.Delete(Path.Combine(root, "ready"));
+        await RunProbeAsync(probe, command, root, point, strategy, command + "-crash", true, TimeSpan.FromSeconds(20));
+    }
+
+    private async Task RunRecoveryProbeAsync(string probe, string root, string point, string strategy, int repeat, bool shouldSucceed = true)
+    {
+        var result = await RunProbeAsync(probe, "recover", root, "none", strategy, $"recovery={repeat + 1}; crashPoint={point}", false, TimeSpan.FromSeconds(30));
+        if (shouldSucceed) Assert.AreEqual(0, result.ExitCode, result.Diagnostic);
+        else Assert.AreNotEqual(0, result.ExitCode, result.Diagnostic);
+    }
+
+    private async Task<(int ExitCode, string Diagnostic)> RunProbeAsync(string probe, string command, string root,
+        string point, string strategy, string stage, bool stopAtFault, TimeSpan timeout)
+    {
+        using var child = Start(probe, command, root, point, strategy);
+        var context = $"strategy={strategy}; point={point}; stage={stage}; pid={child.Id}; root={root}";
+        TestContext.WriteLine("Starting probe: " + context);
+        var errors = new StringBuilder();
+        child.ErrorDataReceived += (_, e) => { if (e.Data is not null) { lock (errors) errors.AppendLine(e.Data); } };
+        child.BeginErrorReadLine();
+        var exit = child.WaitForExitAsync();
+        var timer = Stopwatch.StartNew();
+        string? failure = null;
+        try
+        {
+            if (stopAtFault)
+            {
+                while (!File.Exists(Path.Combine(root, "ready")) && !child.HasExited && timer.Elapsed < timeout)
+                    await Task.Delay(10);
+                if (!File.Exists(Path.Combine(root, "ready")) || child.HasExited)
+                    failure = "Probe did not reach the fault point while alive.";
+            }
+            else
+            {
+                try { await exit.WaitAsync(timeout); }
+                catch (TimeoutException) { failure = $"Timed out after {timeout.TotalSeconds:F0}s waiting for probe exit."; }
+            }
+        }
+        finally
+        {
+            // WaitAsync only bounds the caller. Always reap the process we started as well.
             try
             {
-                using var child = Start(probe, "apply", root, point, strategy);
-                var errors = child.StandardError.ReadToEndAsync();
-                var timer = Stopwatch.StartNew();
-                while (!File.Exists(Path.Combine(root, "ready")) && !child.HasExited && timer.Elapsed < TimeSpan.FromSeconds(20))
-                    await Task.Delay(10);
-                if (!File.Exists(Path.Combine(root, "ready")))
+                if (!child.HasExited)
                 {
-                    if (!child.HasExited) child.Kill(entireProcessTree: true);
-                    await child.WaitForExitAsync();
-                    Assert.Fail("Probe did not reach " + point + ": " + await errors);
+                    try { child.Kill(entireProcessTree: true); }
+                    catch (InvalidOperationException) when (child.HasExited) { }
                 }
-                if (!child.HasExited) child.Kill(entireProcessTree: true);
-                await child.WaitForExitAsync();
-                for (int repeat = 0; repeat < 2; repeat++)
-                {
-                    using var recovery = Start(probe, "recover", root, "none", strategy);
-                    var diagnostic = recovery.StandardError.ReadToEndAsync(); await recovery.WaitForExitAsync();
-                    Assert.AreEqual(0, recovery.ExitCode, point + ": " + await diagnostic);
-                }
-                bool committed = point is "after-workspace" or "before-cleanup" or "after-cleanup-object" or "after-complete"
-                    || strategy == "merge" && point is "after-pack" or "before-workspace";
-                Assert.AreEqual(committed ? "restored" : "original", File.ReadAllText(Path.Combine(root, "world", "file.txt")), point);
-                Assert.AreEqual(!committed || strategy == "delta", File.Exists(Path.Combine(root, "world", "untouched.txt")));
-                Assert.IsFalse(Directory.EnumerateDirectories(root, ".folderrewind-restore-*").Any());
+                await exit.WaitAsync(TimeSpan.FromSeconds(5));
             }
-            finally { Directory.Delete(root, true); }
+            catch (Exception ex) when (ex is TimeoutException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                if (!child.HasExited) _rootsWithLiveProbes.Add(root);
+                failure = $"{failure} Probe cleanup failed: {ex.Message}";
+            }
         }
+        string stderr;
+        lock (errors) stderr = errors.ToString();
+        var diagnostic = $"{context}; elapsed={timer.Elapsed}; exited={child.HasExited}; exitCode={(child.HasExited ? child.ExitCode.ToString() : "running")}; stderr={stderr}";
+        TestContext.WriteLine(diagnostic);
+        if (failure is not null) Assert.Fail(failure + Environment.NewLine + diagnostic);
+        return (child.ExitCode, diagnostic);
+    }
+
+    private void CleanupRoot(string root)
+    {
+        if (_rootsWithLiveProbes.Contains(root))
+        {
+            TestContext.WriteLine("Retaining fixture because probe exit was not confirmed: " + root);
+            return;
+        }
+        Directory.Delete(root, true);
     }
     private static Process Start(string probe, params string[] args)
     {
