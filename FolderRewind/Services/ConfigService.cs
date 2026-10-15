@@ -793,12 +793,22 @@ namespace FolderRewind.Services
             return (PrepareImportedConfig(bytes, mode, target), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
         }
 
-        internal static AppConfig PrepareImportedConfig(byte[] sourceBytes, ConfigImportMode mode = ConfigImportMode.CrossDevice, AppConfig? targetSnapshot = null)
+        internal static AppConfig PrepareImportedConfig(byte[] sourceBytes, ConfigImportMode mode = ConfigImportMode.CrossDevice,
+            AppConfig? targetSnapshot = null, IReadOnlySet<History.Domain.HistoryConfigId>? migrationProjects = null)
         {
             var gate = new ConfigDocumentGate().Prepare(sourceBytes);
             if (!gate.IsReady || gate.Utf8Json is null)
                 throw new InvalidDataException($"{gate.DiagnosticCode}: {gate.DiagnosticMessage}");
             var imported = DeserializeConfig(gate.Utf8Json);
+            if (migrationProjects is not null)
+            {
+                var chosen = imported.BackupConfigs.Where(c => migrationProjects.Contains(new(c.Id))).ToArray();
+                if (chosen.Length != migrationProjects.Count)
+                    throw new InvalidDataException("Migration configuration does not contain the selected identities.");
+                imported.BackupConfigs.Clear();
+                foreach (var project in chosen) imported.BackupConfigs.Add(project);
+                FilterMigrationCloudConnections(imported);
+            }
             RemoveOnboardingMachineBindings(imported);
             NormalizeConfig(imported);
             PrepareSchemaOnePersistence(imported);
@@ -809,9 +819,22 @@ namespace FolderRewind.Services
                 imported.GlobalSettings.RcloneExecutablePath = target.GlobalSettings.RcloneExecutablePath;
                 foreach (var project in imported.BackupConfigs)
                 {
+                    // A cleared invalid migration binding must not be resurrected from local defaults.
+                    if (migrationProjects is not null && string.IsNullOrWhiteSpace(project.Cloud.ConnectionProfileId)) continue;
                     var existing = target.BackupConfigs.FirstOrDefault(c => new History.Domain.HistoryConfigId(c.Id).Matches(project.Id));
                     if (existing is null || existing.Cloud.CommandMode != project.Cloud.CommandMode
                         || existing.Cloud.RemoteBasePath != project.Cloud.RemoteBasePath) continue;
+                    if (migrationProjects is not null)
+                    {
+                        var importedProfile = imported.CloudConnections.SingleOrDefault(p => p.Id == project.Cloud.ConnectionProfileId);
+                        var targetProfile = target.CloudConnections.SingleOrDefault(p => p.Id == existing.Cloud.ConnectionProfileId);
+                        if (importedProfile is null || targetProfile is null) continue;
+                        var portableImported = ConfigSnapshotMapper.Copy(importedProfile);
+                        var portableTarget = ConfigSnapshotMapper.Copy(targetProfile);
+                        RemoveOnboardingMachineBindings(portableImported);
+                        RemoveOnboardingMachineBindings(portableTarget);
+                        if (!SameMigrationCloudProfile(portableImported, portableTarget)) continue;
+                    }
                     // Machine bindings come exclusively from the target installation.
                     project.Cloud.RcloneConfigPath = existing.Cloud.RcloneConfigPath;
                     project.Cloud.LocalOpenListServiceUri = existing.Cloud.LocalOpenListServiceUri;
@@ -829,6 +852,7 @@ namespace FolderRewind.Services
                     }
                 }
             }
+            if (migrationProjects is not null) FilterMigrationCloudConnections(imported);
             return imported;
         }
 
@@ -1015,12 +1039,7 @@ namespace FolderRewind.Services
             config.GlobalSettings.RcloneExecutablePath = "";
             foreach (var preset in config.BackupPresets)
                 preset.Cloud = new() { RemoteBasePath = preset.Cloud.RemoteBasePath, TimeoutSeconds = preset.Cloud.TimeoutSeconds, RetryCount = preset.Cloud.RetryCount };
-            foreach (var profile in config.CloudConnections)
-            {
-                profile.CredentialReference = ""; profile.ImportedFromReference = ""; profile.ExecutablePath = ""; profile.WorkingDirectory = "";
-                profile.Access = CloudConnectionAccess.NeedsAuthentication; profile.VerificationEvidence = "";
-                profile.DependsOnLocalOpenList = false;
-            }
+            foreach (var profile in config.CloudConnections) RemoveOnboardingMachineBindings(profile);
             foreach (var project in config.BackupConfigs)
             {
                 if (project.Cloud is not { } cloud) continue;
@@ -1034,6 +1053,13 @@ namespace FolderRewind.Services
                 cloud.ArgumentsTemplate = ""; // 旧任意命令可能含认证参数；便携配置不能携带它们。
                 cloud.LocalOpenListServiceUri = string.Empty;
             }
+        }
+
+        private static void RemoveOnboardingMachineBindings(CloudConnectionProfile profile)
+        {
+            profile.CredentialReference = ""; profile.ImportedFromReference = ""; profile.ExecutablePath = ""; profile.WorkingDirectory = "";
+            profile.Access = CloudConnectionAccess.NeedsAuthentication; profile.VerificationEvidence = "";
+            profile.DependsOnLocalOpenList = false;
         }
 
         private static void NormalizeGlobalSettings(GlobalSettings settings)
