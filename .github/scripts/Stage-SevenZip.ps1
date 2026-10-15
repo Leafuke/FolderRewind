@@ -2,7 +2,13 @@ param([Parameter(Mandatory)][ValidateSet('x64','ARM64')][string]$Platform, [stri
 $ErrorActionPreference = 'Stop'
 $arch = $Platform.ToLowerInvariant()
 $endpoint = if ($ReleaseTag) { "tags/$([Uri]::EscapeDataString($ReleaseTag))" } else { 'latest' }
-$release = Invoke-RestMethod "https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/$endpoint" -Headers @{'User-Agent'='FolderRewind-release'}
+$headers = @{
+    'User-Agent' = 'FolderRewind-release'
+    'Accept' = 'application/vnd.github+json'
+}
+$token = if ($env:GH_TOKEN) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }
+if ($token) { $headers['Authorization'] = "Bearer $token" }
+$release = Invoke-RestMethod "https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/$endpoint" -Headers $headers
 $version = $release.tag_name
 $releaseAssets = @($release.assets | Where-Object { $_.name -match "^7z.+-zstd-$arch\.exe$" })
 if ($releaseAssets.Count -ne 1) { throw "Expected one architecture-specific 7-Zip installer for $arch." }

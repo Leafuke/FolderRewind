@@ -44,7 +44,13 @@ jobs:
           if ($state.alreadyPublished) {
             "Already published; verified tag, four assets and SHA-256. $($state.url)" >> $env:GITHUB_STEP_SUMMARY
           } else {
-            $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers @{'User-Agent'='FolderRewind-release'}
+            $headers = @{
+              'User-Agent' = 'FolderRewind-release'
+              'Accept' = 'application/vnd.github+json'
+            }
+            $token = if ($env:GH_TOKEN) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }
+            if ($token) { $headers['Authorization'] = "Bearer $token" }
+            $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers $headers
             "sevenzip=$($upstream.tag_name)" >> $env:GITHUB_OUTPUT
           }
 
@@ -108,6 +114,7 @@ jobs:
           key: ${{ runner.os }}-wix-native-${{ hashFiles('.github/scripts/Restore-InstallerNativeApi.ps1') }}
       - name: Publish once, package and verify production identity
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
           SEVENZIP_RELEASE: ${{ needs.preflight.outputs.sevenzip }}
           TARGET_PLATFORM: ${{ matrix.platform }}
