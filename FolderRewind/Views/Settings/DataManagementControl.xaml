@@ -32,10 +32,10 @@
                         <Button x:Uid="SettingsTemplates_More" AutomationProperties.AutomationId="SettingsTemplatesMore">
                             <FontIcon Glyph="&#xE712;"/>
                             <Button.Flyout><MenuFlyout>
-                                <MenuFlyoutItem x:Uid="SettingsTemplates_ExportMenu" Click="OnExportTemplateClick"/>
-                                <MenuFlyoutItem x:Uid="SettingsTemplates_ShareCodeMenu" Click="OnUseTemplateShareCodeClick"/>
-                                <MenuFlyoutItem x:Uid="SettingsTemplates_SubmitMenu" Click="OnPrepareTemplateSubmissionClick"/>
-                                <MenuFlyoutItem x:Uid="SettingsTemplates_ManageMenu" Click="OnManageTemplatesClick"/>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_ExportMenu" AutomationProperties.AutomationId="SettingsTemplatesExportMenu" Click="OnExportTemplateClick"/>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_ShareCodeMenu" AutomationProperties.AutomationId="SettingsTemplatesShareCodeMenu" Click="OnUseTemplateShareCodeClick"/>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_SubmitMenu" AutomationProperties.AutomationId="SettingsTemplatesSubmitMenu" Click="OnPrepareTemplateSubmissionClick"/>
+                                <MenuFlyoutItem x:Uid="SettingsTemplates_ManageMenu" AutomationProperties.AutomationId="SettingsTemplatesManageMenu" Click="OnManageTemplatesClick"/>
                             </MenuFlyout></Button.Flyout>
                         </Button>
                     </StackPanel>
