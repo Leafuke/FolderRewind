@@ -232,6 +232,10 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
             </Grid>
+            <InfoBar Title="{x:Bind ViewModel.MigrationNoticeTitle, Mode=OneWay}" IsOpen="{x:Bind ViewModel.HasPendingMigration, Mode=OneWay}" IsClosable="False" Severity="Informational"
+                     Message="{x:Bind ViewModel.MigrationStatusMessage, Mode=OneWay}" AutomationProperties.AutomationId="HistoryMigrationPending">
+                <InfoBar.ActionButton><Button Content="{x:Bind ViewModel.MigrationActionText, Mode=OneWay}" Click="OnContinueMigration" AutomationProperties.AutomationId="HistoryContinueMigration"/></InfoBar.ActionButton>
+            </InfoBar>
             <InfoBar x:Name="HistoryLoadError"
                      Title="{x:Bind ViewModel.HistoryLoadMessageTitle, Mode=OneWay}"
                      AutomationProperties.AutomationId="HistoryLoadError"

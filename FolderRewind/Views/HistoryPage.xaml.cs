@@ -158,6 +158,8 @@ public sealed partial class HistoryPage : Page
         AutomationProperties.SetAutomationId(args.ItemContainer, string.Empty);
     }
 
+    private void OnContinueMigration(object sender, RoutedEventArgs e) => ViewModel.ContinueMigration();
+
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         _legacyNoticeActive = true;
