@@ -6763,4 +6763,121 @@ Pull Request：{1}</value>
   <data name="Migration_RecoveryPending" xml:space="preserve"><value>尚未完成归档检查与原分支续接，请使用迁移数据检查入口。</value></data>
   <data name="Migration_RuntimePending" xml:space="preserve"><value>来源所需的运行环境或插件尚未准备，完成后可重试此项目。</value></data>
   <data name="Migration_AwaitingHistoryTitle" xml:space="preserve"><value>等待关联历史</value></data>
+  <data name="MigrationWizard_ArchiveMode.Header" xml:space="preserve"><value>备份文件</value></data>
+  <data name="MigrationWizard_Location.Header" xml:space="preserve"><value>传输位置</value></data>
+  <data name="MigrationWizard_ChoosePackage.Content" xml:space="preserve"><value>选择迁移包或配置文件</value></data>
+  <data name="MigrationWizard_Connection.Header" xml:space="preserve"><value>云连接</value></data>
+  <data name="MigrationWizard_RemoteRoot.Header" xml:space="preserve"><value>云端目录</value></data>
+  <data name="MigrationWizard_ManageConnections.Content" xml:space="preserve"><value>管理云连接</value></data>
+  <data name="MigrationWizard_LoadSnapshots.Content" xml:space="preserve"><value>列出云端快照</value></data>
+  <data name="MigrationWizard_Snapshots.Header" xml:space="preserve"><value>选择快照版本</value></data>
+  <data name="MigrationWizard_KeepSource.Text" xml:space="preserve"><value>导入后保留当前源文件，验证本地归档并续接原分支；不会用历史内容覆盖当前目录。</value></data>
+  <data name="MigrationWizard_BatchPaths.Header" xml:space="preserve"><value>批量替换路径根目录（可选）</value></data>
+  <data name="MigrationWizard_ApplyMapping.Content" xml:space="preserve"><value>更新下方路径预览</value></data>
+  <data name="MigrationWizard_BackupRoot.Header" xml:space="preserve"><value>备份文件保存目录</value></data>
+  <data name="MigrationWizard_OriginalAutoBackup.Content" xml:space="preserve"><value>原自动备份开关</value></data>
+  <data name="MigrationWizard_OriginalCloud.Content" xml:space="preserve"><value>原云同步开关</value></data>
+  <data name="MigrationWizard_HandleProject.Content" xml:space="preserve"><value>处理此项目</value></data>
+  <data name="MigrationWizard_AllowBackup.Content" xml:space="preserve"><value>允许在本机继续备份（保留原自动备份开关）</value></data>
+  <data name="MigrationWizard_AllowCloud.Content" xml:space="preserve"><value>允许该项目执行云操作（保留原云同步开关）</value></data>
+  <data name="MigrationWizard_Password.Header" xml:space="preserve"><value>创建备份时使用的原密码</value></data>
+  <data name="MigrationWizard_VerifyPassword.Content" xml:space="preserve"><value>验证密码并继续</value></data>
+  <data name="MigrationWizard_AttachHistory.Content" xml:space="preserve"><value>选择并关联配置或历史文件</value></data>
+  <data name="MigrationWizard_ConfirmLegacy.Content" xml:space="preserve"><value>确认将此文件关联到这条历史记录</value></data>
+  <data name="MigrationWizard_ChooseArchive.Content" xml:space="preserve"><value>选择其他备份文件</value></data>
+  <data name="MigrationWizard_Reconcile.Content" xml:space="preserve"><value>前往历史页协调分支</value></data>
+  <data name="MigrationWizard_RetainMissing.Content" xml:space="preserve"><value>保留历史，稍后补充归档</value></data>
+  <data name="MigrationWizard_TechnicalDetails.Header" xml:space="preserve"><value>技术详情</value></data>
+  <data name="MigrationWizard_Back.Content" xml:space="preserve"><value>上一步</value></data>
+  <data name="MigrationWizard_Leave.Content" xml:space="preserve"><value>稍后继续</value></data>
+  <data name="MigrationWizard_EntryDescription.Text" xml:space="preserve"><value>通过向导导出或导入配置、历史与备份关联；明确匹配的文件和原分支会自动验证处理。</value></data>
+  <data name="MigrationWizard_PendingCard.Title" xml:space="preserve"><value>迁移尚未完成</value></data>
+  <data name="MigrationWizard_PendingCard.Message" xml:space="preserve"><value>已有配置或历史等待完成恢复。继续向导即可检查归档、处理问题并确认本机备份许可。</value></data>
+  <data name="MigrationWizard_Continue.Content" xml:space="preserve"><value>继续完成迁移</value></data>
+  <data name="MigrationWizard_Advanced.Header" xml:space="preserve"><value>高级操作</value></data>
+  <data name="MigrationWizard_AdvancedDescription.Text" xml:space="preserve"><value>单独迁移配置或历史，或仅合并历史元数据。各入口使用同一向导，并预选相应范围。</value></data>
+  <data name="MigrationWizard_ExportMetadata.Content" xml:space="preserve"><value>仅导出历史元数据</value></data>
+  <data name="MigrationWizard_ImportMetadata.Content" xml:space="preserve"><value>仅合并历史元数据</value></data>
+  <data name="MigrationWizard_ExternalArchives" xml:space="preserve"><value>保留现有备份文件</value></data>
+  <data name="MigrationWizard_EmbeddedArchives" xml:space="preserve"><value>把备份文件一起打包</value></data>
+  <data name="MigrationWizard_Result" xml:space="preserve"><value>处理结果</value></data>
+  <data name="MigrationWizard_RestartStep" xml:space="preserve"><value>应用配置后继续迁移</value></data>
+  <data name="MigrationWizard_RecoveryStep" xml:space="preserve"><value>检查备份与完成迁移</value></data>
+  <data name="MigrationWizard_ExportStep_Source" xml:space="preserve"><value>1. 选择要导出的项目</value></data>
+  <data name="MigrationWizard_ExportStep_Selection" xml:space="preserve"><value>2. 确认导出内容</value></data>
+  <data name="MigrationWizard_ExportStep_Destination" xml:space="preserve"><value>3. 选择传输位置并导出</value></data>
+  <data name="MigrationWizard_ImportStep_Source" xml:space="preserve"><value>1. 选择迁移文件或云端快照</value></data>
+  <data name="MigrationWizard_ImportStep_Selection" xml:space="preserve"><value>2. 确认项目与路径</value></data>
+  <data name="MigrationWizard_Scope_ConfigurationAndHistory" xml:space="preserve"><value>导出范围：配置、历史和原分支续接信息</value></data>
+  <data name="MigrationWizard_Scope_Configuration" xml:space="preserve"><value>导出范围：JSON 配置</value></data>
+  <data name="MigrationWizard_Scope_History" xml:space="preserve"><value>导出范围：历史和原分支续接信息</value></data>
+  <data name="MigrationWizard_Scope_MetadataOnly" xml:space="preserve"><value>导出范围：仅历史元数据</value></data>
+  <data name="MigrationWizard_ConfigurationOnly" xml:space="preserve"><value>只导出配置，历史记录和备份文件需要另行保留或迁移。</value></data>
+  <data name="MigrationWizard_EmbeddedDescription" xml:space="preserve"><value>迁移包将携带所选历史所需的备份文件和依赖，文件较大。加密项目在目标设备仍需原密码。</value></data>
+  <data name="MigrationWizard_ExternalDescription" xml:space="preserve"><value>迁移包不包含备份文件。请保留以下项目的备份目录；导入后向导会自动验证匹配文件并恢复关联。</value></data>
+  <data name="MigrationWizard_PackageSummary" xml:space="preserve"><value>包含 {0} 个项目、{1} 个历史版本；{2}。</value></data>
+  <data name="MigrationWizard_HasArchives" xml:space="preserve"><value>随包携带备份文件</value></data>
+  <data name="MigrationWizard_NoArchives" xml:space="preserve"><value>备份文件保留在外部</value></data>
+  <data name="MigrationWizard_ReturnSettings" xml:space="preserve"><value>返回设置</value></data>
+  <data name="MigrationWizard_RestartContinue" xml:space="preserve"><value>重启并继续迁移</value></data>
+  <data name="MigrationWizard_FinishReady" xml:space="preserve"><value>完成已就绪项目</value></data>
+  <data name="MigrationWizard_RecheckContinue" xml:space="preserve"><value>重新检查并继续</value></data>
+  <data name="MigrationWizard_StartExport" xml:space="preserve"><value>开始导出</value></data>
+  <data name="MigrationWizard_StartImport" xml:space="preserve"><value>开始导入并自动恢复</value></data>
+  <data name="MigrationWizard_ApplyOriginal" xml:space="preserve"><value>恢复所选原开关</value></data>
+  <data name="MigrationWizard_SelectSnapshot" xml:space="preserve"><value>请选择一个云端快照版本。</value></data>
+  <data name="MigrationWizard_SelectFileFirst" xml:space="preserve"><value>请先选择迁移包或配置文件。</value></data>
+  <data name="MigrationWizard_Checking" xml:space="preserve"><value>正在检查本地备份、加密凭据和原分支；已提交的历史会保留。</value></data>
+  <data name="MigrationWizard_NothingPending" xml:space="preserve"><value>当前没有需要继续处理的迁移。</value></data>
+  <data name="MigrationWizard_PathsUpdated" xml:space="preserve"><value>路径预览已更新，开始导入前请确认下方各项目目录。</value></data>
+  <data name="MigrationWizard_Paused" xml:space="preserve"><value>已暂停。已提交的历史与关联会保留，可从“继续完成迁移”接着处理。</value></data>
+  <data name="MigrationWizard_OverviewPending" xml:space="preserve"><value>存在未完成的迁移，请继续完成。</value></data>
+  <data name="MigrationWizard_OverviewReady" xml:space="preserve"><value>统一导出或导入配置、历史与备份关联。</value></data>
+  <data name="MigrationWizard_CheckPaths" xml:space="preserve"><value>请确认备份目录和源目录存在，或更正下方路径。</value></data>
+  <data name="MigrationWizard_TaskMissing" xml:space="preserve"><value>未找到这次迁移的进度记录，请重新选择迁移文件。</value></data>
+  <data name="MigrationWizard_HistoryNotCommitted" xml:space="preserve"><value>该项目的历史尚未成功提交，请重试导入。</value></data>
+  <data name="MigrationWizard_ActivationChanged" xml:space="preserve"><value>配置激活未完成或已发生变化，请检查配置导入状态后继续。</value></data>
+  <data name="MigrationWizard_ArchiveHashMismatch" xml:space="preserve"><value>所选文件与历史中记录的归档大小或哈希不符，请选择原备份文件。</value></data>
+  <data name="MigrationWizard_ArchiveMissing" xml:space="preserve"><value>尚未找到匹配备份文件</value></data>
+  <data name="MigrationWizard_ArchiveVerified" xml:space="preserve"><value>归档检查通过，等待确认关联</value></data>
+  <data name="MigrationWizard_ArchiveUnverified" xml:space="preserve"><value>尚未通过归档检查</value></data>
+  <data name="MigrationWizard_ContinueBranch" xml:space="preserve"><value>将沿原分支“{0}”继续备份。</value></data>
+  <data name="MigrationWizard_ChooseBranch" xml:space="preserve"><value>请选择要继续使用的历史分支。</value></data>
+  <data name="MigrationWizard_VersionCounts" xml:space="preserve"><value>{0}/{1} 个历史版本可本地还原。</value></data>
+  <data name="MigrationWizard_FullNext" xml:space="preserve"><value>有 {0} 个来源下次将先做全量备份，当前源文件保留。</value></data>
+  <data name="MigrationWizard_ProjectCounts" xml:space="preserve"><value>已完成 {0}/{1} 个项目。</value></data>
+  <data name="MigrationWizard_Stage_AwaitingConfirmation" xml:space="preserve"><value>请确认选择的项目和路径。</value></data>
+  <data name="MigrationWizard_Stage_Processing" xml:space="preserve"><value>正在处理迁移，请等待当前阶段完成。</value></data>
+  <data name="MigrationWizard_Stage_AwaitingRestart" xml:space="preserve"><value>配置已准备好。重启后将回到本向导，继续检查历史并恢复备份关联。</value></data>
+  <data name="MigrationWizard_Stage_NeedsAttention" xml:space="preserve"><value>明确匹配的项目已自动处理。请处理下方问题；已就绪的项目可以先完成。</value></data>
+  <data name="MigrationWizard_Stage_AwaitingPermissions" xml:space="preserve"><value>本地备份和原分支已检查。确认以下执行许可即可完成；原自动备份和云同步开关保持不变。</value></data>
+  <data name="MigrationWizard_Stage_Completed" xml:space="preserve"><value>迁移流程已完成，请查看各项目的备份可用状态。</value></data>
+  <data name="MigrationWizard_Stage_PartiallyCompleted" xml:space="preserve"><value>迁移已完成，但部分历史缺少可用归档；这些记录已保留，可稍后补充文件。</value></data>
+  <data name="MigrationWizard_Stage_Paused" xml:space="preserve"><value>迁移已暂停，已提交的内容保留，可继续处理。</value></data>
+  <data name="MigrationWizard_Phase_Pending" xml:space="preserve"><value>等待检查备份与原分支。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingConfiguration" xml:space="preserve"><value>等待关联该项目的配置文件。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingHistory" xml:space="preserve"><value>等待关联历史，请选择之前导出的历史文件。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingPaths" xml:space="preserve"><value>需要更正备份或源目录路径。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingPassword" xml:space="preserve"><value>需要输入原备份密码并验证。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingArchiveChoice" xml:space="preserve"><value>需要确认备份文件关联。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingBranchChoice" xml:space="preserve"><value>需要选择继续使用的原分支。</value></data>
+  <data name="MigrationWizard_Phase_ReconciliationRequired" xml:space="preserve"><value>历史分支存在多个 tip，需要先协调。</value></data>
+  <data name="MigrationWizard_Phase_AwaitingArchiveResolution" xml:space="preserve"><value>部分历史版本缺少可用归档，请补充文件或明确保留历史、稍后处理。</value></data>
+  <data name="MigrationWizard_Phase_Blocked" xml:space="preserve"><value>此项目尚未准备好，请检查路径或查看技术详情后重试。</value></data>
+  <data name="MigrationWizard_Phase_Verified" xml:space="preserve"><value>检查完成，请确认本机备份及可选云操作许可。</value></data>
+  <data name="MigrationWizard_Phase_Completed" xml:space="preserve"><value>此项目迁移流程已完成。</value></data>
+  <data name="MigrationWizard_HistoryPending" xml:space="preserve"><value>迁移尚未完成：待检查本地备份。</value></data>
+  <data name="MigrationWizard_HistoryPermissionPending" xml:space="preserve"><value>备份已验证；继续迁移以确认本机备份许可。</value></data>
+  <data name="MigrationWizard_ActionFailed" xml:space="preserve"><value>当前步骤未完成，请检查输入或查看技术详情后重试。</value></data>
+  <data name="MigrationWizard_HistoryNotice.Title" xml:space="preserve"><value>迁移尚未完成</value></data>
+  <data name="MigrationWizard_ImportConfiguration.Content" xml:space="preserve"><value>同时导入包内配置</value></data>
+  <data name="MigrationWizard_ChooseDirectory.Content" xml:space="preserve"><value>选择目录</value></data>
+  <data name="MigrationWizard_LegacyConfig" xml:space="preserve"><value>旧版配置快照</value></data>
+  <data name="MigrationWizard_SavedTo" xml:space="preserve"><value>已保存到：{0}</value></data>
+  <data name="MigrationWizard_AnotherActivation" xml:space="preserve"><value>已有配置等待重启激活。请先继续已有迁移，再导入其他数据。</value></data>
+  <data name="MigrationWizard_ArchiveFile" xml:space="preserve"><value>备份归档</value></data>
+  <data name="MigrationWizard_HistoryMissingArchives" xml:space="preserve"><value>部分历史已确认缺少可用备份文件。记录已保留，补充文件后可重新检查。</value></data>
+  <data name="MigrationWizard_RepairArchives" xml:space="preserve"><value>补充缺失的备份文件</value></data>
+  <data name="MigrationWizard_RecheckArchives" xml:space="preserve"><value>检查备份文件</value></data>
+  <data name="MigrationWizard_ProjectContents" xml:space="preserve"><value>{0} 个来源 · {1} 个历史版本</value></data>
 </root>

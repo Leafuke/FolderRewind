@@ -6763,4 +6763,121 @@ Attempts: {3}</value></data>
   <data name="Migration_RecoveryPending" xml:space="preserve"><value>Archive verification and branch continuation are pending. Open migration data verification.</value></data>
   <data name="Migration_RuntimePending" xml:space="preserve"><value>The required source runtime or plugin is not ready. Prepare it and retry this project.</value></data>
   <data name="Migration_AwaitingHistoryTitle" xml:space="preserve"><value>Waiting for associated history</value></data>
+  <data name="MigrationWizard_ArchiveMode.Header" xml:space="preserve"><value>Backup files</value></data>
+  <data name="MigrationWizard_Location.Header" xml:space="preserve"><value>Transfer location</value></data>
+  <data name="MigrationWizard_ChoosePackage.Content" xml:space="preserve"><value>Choose a migration package or configuration</value></data>
+  <data name="MigrationWizard_Connection.Header" xml:space="preserve"><value>Cloud connection</value></data>
+  <data name="MigrationWizard_RemoteRoot.Header" xml:space="preserve"><value>Remote directory</value></data>
+  <data name="MigrationWizard_ManageConnections.Content" xml:space="preserve"><value>Manage cloud connections</value></data>
+  <data name="MigrationWizard_LoadSnapshots.Content" xml:space="preserve"><value>List cloud snapshots</value></data>
+  <data name="MigrationWizard_Snapshots.Header" xml:space="preserve"><value>Snapshot version</value></data>
+  <data name="MigrationWizard_KeepSource.Text" xml:space="preserve"><value>Keep current source files, verify local archives, and continue the original branch. Historical content will not overwrite the current directory.</value></data>
+  <data name="MigrationWizard_BatchPaths.Header" xml:space="preserve"><value>Replace path roots in bulk (optional)</value></data>
+  <data name="MigrationWizard_ApplyMapping.Content" xml:space="preserve"><value>Update the paths below</value></data>
+  <data name="MigrationWizard_BackupRoot.Header" xml:space="preserve"><value>Backup file directory</value></data>
+  <data name="MigrationWizard_OriginalAutoBackup.Content" xml:space="preserve"><value>Original automatic backup setting</value></data>
+  <data name="MigrationWizard_OriginalCloud.Content" xml:space="preserve"><value>Original cloud sync setting</value></data>
+  <data name="MigrationWizard_HandleProject.Content" xml:space="preserve"><value>Resolve this project</value></data>
+  <data name="MigrationWizard_AllowBackup.Content" xml:space="preserve"><value>Allow backup on this device (keep the original automation setting)</value></data>
+  <data name="MigrationWizard_AllowCloud.Content" xml:space="preserve"><value>Allow cloud operations (keep the original cloud sync setting)</value></data>
+  <data name="MigrationWizard_Password.Header" xml:space="preserve"><value>Original password used to create these backups</value></data>
+  <data name="MigrationWizard_VerifyPassword.Content" xml:space="preserve"><value>Verify password and continue</value></data>
+  <data name="MigrationWizard_AttachHistory.Content" xml:space="preserve"><value>Choose and associate a configuration or history file</value></data>
+  <data name="MigrationWizard_ConfirmLegacy.Content" xml:space="preserve"><value>Confirm associating this file with this history record</value></data>
+  <data name="MigrationWizard_ChooseArchive.Content" xml:space="preserve"><value>Choose another backup file</value></data>
+  <data name="MigrationWizard_Reconcile.Content" xml:space="preserve"><value>Resolve branch tips in History</value></data>
+  <data name="MigrationWizard_RetainMissing.Content" xml:space="preserve"><value>Keep history and provide missing archives later</value></data>
+  <data name="MigrationWizard_TechnicalDetails.Header" xml:space="preserve"><value>Technical details</value></data>
+  <data name="MigrationWizard_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="MigrationWizard_Leave.Content" xml:space="preserve"><value>Continue later</value></data>
+  <data name="MigrationWizard_EntryDescription.Text" xml:space="preserve"><value>Use the wizard to transfer configuration, history, and backup associations. Unambiguous files and original branches are verified automatically.</value></data>
+  <data name="MigrationWizard_PendingCard.Title" xml:space="preserve"><value>Migration is not finished</value></data>
+  <data name="MigrationWizard_PendingCard.Message" xml:space="preserve"><value>Configuration or history is waiting for recovery. Continue the wizard to check archives, resolve issues, and confirm backup permission.</value></data>
+  <data name="MigrationWizard_Continue.Content" xml:space="preserve"><value>Continue migration</value></data>
+  <data name="MigrationWizard_Advanced.Header" xml:space="preserve"><value>Advanced operations</value></data>
+  <data name="MigrationWizard_AdvancedDescription.Text" xml:space="preserve"><value>Transfer configuration or history separately, or merge history metadata only. Each entry uses the same wizard with its scope preselected.</value></data>
+  <data name="MigrationWizard_ExportMetadata.Content" xml:space="preserve"><value>Export history metadata only</value></data>
+  <data name="MigrationWizard_ImportMetadata.Content" xml:space="preserve"><value>Merge history metadata only</value></data>
+  <data name="MigrationWizard_ExternalArchives" xml:space="preserve"><value>Keep existing backup files separately</value></data>
+  <data name="MigrationWizard_EmbeddedArchives" xml:space="preserve"><value>Include backup files in the package</value></data>
+  <data name="MigrationWizard_Result" xml:space="preserve"><value>Results</value></data>
+  <data name="MigrationWizard_RestartStep" xml:space="preserve"><value>Continue after applying configuration</value></data>
+  <data name="MigrationWizard_RecoveryStep" xml:space="preserve"><value>Check backups and finish migration</value></data>
+  <data name="MigrationWizard_ExportStep_Source" xml:space="preserve"><value>1. Select projects to export</value></data>
+  <data name="MigrationWizard_ExportStep_Selection" xml:space="preserve"><value>2. Choose what to include</value></data>
+  <data name="MigrationWizard_ExportStep_Destination" xml:space="preserve"><value>3. Choose a destination and export</value></data>
+  <data name="MigrationWizard_ImportStep_Source" xml:space="preserve"><value>1. Choose a file or cloud snapshot</value></data>
+  <data name="MigrationWizard_ImportStep_Selection" xml:space="preserve"><value>2. Confirm projects and paths</value></data>
+  <data name="MigrationWizard_Scope_ConfigurationAndHistory" xml:space="preserve"><value>Export scope: configuration, history, and branch continuation</value></data>
+  <data name="MigrationWizard_Scope_Configuration" xml:space="preserve"><value>Export scope: JSON configuration</value></data>
+  <data name="MigrationWizard_Scope_History" xml:space="preserve"><value>Export scope: history and branch continuation</value></data>
+  <data name="MigrationWizard_Scope_MetadataOnly" xml:space="preserve"><value>Export scope: history metadata only</value></data>
+  <data name="MigrationWizard_ConfigurationOnly" xml:space="preserve"><value>Exports configuration only. Preserve or transfer history and backup files separately.</value></data>
+  <data name="MigrationWizard_EmbeddedDescription" xml:space="preserve"><value>The package includes the archives and dependencies needed by the selected history and may be large. Encrypted projects still require their original password on the destination device.</value></data>
+  <data name="MigrationWizard_ExternalDescription" xml:space="preserve"><value>The package does not contain backup files. Keep the backup directories for these projects; the import wizard will verify matching files and restore their associations.</value></data>
+  <data name="MigrationWizard_PackageSummary" xml:space="preserve"><value>Contains {0} projects and {1} historical versions; {2}.</value></data>
+  <data name="MigrationWizard_HasArchives" xml:space="preserve"><value>backup files are included</value></data>
+  <data name="MigrationWizard_NoArchives" xml:space="preserve"><value>backup files are stored separately</value></data>
+  <data name="MigrationWizard_ReturnSettings" xml:space="preserve"><value>Return to Settings</value></data>
+  <data name="MigrationWizard_RestartContinue" xml:space="preserve"><value>Restart and continue migration</value></data>
+  <data name="MigrationWizard_FinishReady" xml:space="preserve"><value>Finish ready projects</value></data>
+  <data name="MigrationWizard_RecheckContinue" xml:space="preserve"><value>Recheck and continue</value></data>
+  <data name="MigrationWizard_StartExport" xml:space="preserve"><value>Start export</value></data>
+  <data name="MigrationWizard_StartImport" xml:space="preserve"><value>Import and recover automatically</value></data>
+  <data name="MigrationWizard_ApplyOriginal" xml:space="preserve"><value>Apply selected original settings</value></data>
+  <data name="MigrationWizard_SelectSnapshot" xml:space="preserve"><value>Select a cloud snapshot version.</value></data>
+  <data name="MigrationWizard_SelectFileFirst" xml:space="preserve"><value>Choose a migration package or configuration first.</value></data>
+  <data name="MigrationWizard_Checking" xml:space="preserve"><value>Checking local backups, credentials, and original branches. Committed history will be retained.</value></data>
+  <data name="MigrationWizard_NothingPending" xml:space="preserve"><value>There is no pending migration to continue.</value></data>
+  <data name="MigrationWizard_PathsUpdated" xml:space="preserve"><value>The path preview was updated. Confirm each project&apos;s directories before importing.</value></data>
+  <data name="MigrationWizard_Paused" xml:space="preserve"><value>Paused. Committed history and associations are retained. Use Continue migration to resume.</value></data>
+  <data name="MigrationWizard_OverviewPending" xml:space="preserve"><value>A migration needs attention. Continue to finish it.</value></data>
+  <data name="MigrationWizard_OverviewReady" xml:space="preserve"><value>Transfer configuration, history, and backup associations in one flow.</value></data>
+  <data name="MigrationWizard_CheckPaths" xml:space="preserve"><value>Confirm that the backup and source directories exist, or correct the paths below.</value></data>
+  <data name="MigrationWizard_TaskMissing" xml:space="preserve"><value>This migration&apos;s progress record was not found. Select the migration file again.</value></data>
+  <data name="MigrationWizard_HistoryNotCommitted" xml:space="preserve"><value>This project&apos;s history has not been committed. Retry the import.</value></data>
+  <data name="MigrationWizard_ActivationChanged" xml:space="preserve"><value>Configuration activation is incomplete or has changed. Check its import status before continuing.</value></data>
+  <data name="MigrationWizard_ArchiveHashMismatch" xml:space="preserve"><value>The selected file does not match the recorded archive&apos;s size or hash. Choose the original backup file.</value></data>
+  <data name="MigrationWizard_ArchiveMissing" xml:space="preserve"><value>No matching backup file was found</value></data>
+  <data name="MigrationWizard_ArchiveVerified" xml:space="preserve"><value>Archive check passed; association needs confirmation</value></data>
+  <data name="MigrationWizard_ArchiveUnverified" xml:space="preserve"><value>Archive verification is pending or failed</value></data>
+  <data name="MigrationWizard_ContinueBranch" xml:space="preserve"><value>Continue backing up on the original branch “{0}”.</value></data>
+  <data name="MigrationWizard_ChooseBranch" xml:space="preserve"><value>Choose the historical branch to continue.</value></data>
+  <data name="MigrationWizard_VersionCounts" xml:space="preserve"><value>{0}/{1} historical versions can be restored locally.</value></data>
+  <data name="MigrationWizard_FullNext" xml:space="preserve"><value>{0} sources require a full capture next; current source files are retained.</value></data>
+  <data name="MigrationWizard_ProjectCounts" xml:space="preserve"><value>Completed {0}/{1} projects.</value></data>
+  <data name="MigrationWizard_Stage_AwaitingConfirmation" xml:space="preserve"><value>Confirm the selected projects and paths.</value></data>
+  <data name="MigrationWizard_Stage_Processing" xml:space="preserve"><value>Migration is running. Wait for the current stage to finish.</value></data>
+  <data name="MigrationWizard_Stage_AwaitingRestart" xml:space="preserve"><value>Configuration is prepared. Restart to return to this wizard, check history, and recover backup associations.</value></data>
+  <data name="MigrationWizard_Stage_NeedsAttention" xml:space="preserve"><value>Unambiguous projects were processed automatically. Resolve the issues below; ready projects can finish first.</value></data>
+  <data name="MigrationWizard_Stage_AwaitingPermissions" xml:space="preserve"><value>Local backups and original branches were checked. Confirm execution permissions below to finish; existing automation and cloud sync settings are retained.</value></data>
+  <data name="MigrationWizard_Stage_Completed" xml:space="preserve"><value>Migration is complete. Review each project&apos;s backup availability below.</value></data>
+  <data name="MigrationWizard_Stage_PartiallyCompleted" xml:space="preserve"><value>Migration completed with some historical archives unavailable. The records are retained so files can be provided later.</value></data>
+  <data name="MigrationWizard_Stage_Paused" xml:space="preserve"><value>Migration is paused. Committed data is retained and can be resumed.</value></data>
+  <data name="MigrationWizard_Phase_Pending" xml:space="preserve"><value>Waiting to check backups and original branches.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingConfiguration" xml:space="preserve"><value>Waiting for this project&apos;s configuration file.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingHistory" xml:space="preserve"><value>Waiting for history. Choose the previously exported history file.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingPaths" xml:space="preserve"><value>The backup or source directory path needs correction.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingPassword" xml:space="preserve"><value>Enter and verify the original backup password.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingArchiveChoice" xml:space="preserve"><value>Backup file associations need confirmation.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingBranchChoice" xml:space="preserve"><value>Choose the original branch to continue.</value></data>
+  <data name="MigrationWizard_Phase_ReconciliationRequired" xml:space="preserve"><value>The historical branch has competing tips that need reconciliation.</value></data>
+  <data name="MigrationWizard_Phase_AwaitingArchiveResolution" xml:space="preserve"><value>Some historical versions have no available archive. Provide the files or keep the history and resolve this later.</value></data>
+  <data name="MigrationWizard_Phase_Blocked" xml:space="preserve"><value>This project is not ready. Check its paths or technical details and retry.</value></data>
+  <data name="MigrationWizard_Phase_Verified" xml:space="preserve"><value>Checks are complete. Confirm local backup and optional cloud permissions.</value></data>
+  <data name="MigrationWizard_Phase_Completed" xml:space="preserve"><value>This project&apos;s migration is complete.</value></data>
+  <data name="MigrationWizard_HistoryPending" xml:space="preserve"><value>Migration is not finished: local backups need checking.</value></data>
+  <data name="MigrationWizard_HistoryPermissionPending" xml:space="preserve"><value>Backups were verified. Continue migration to confirm local backup permission.</value></data>
+  <data name="MigrationWizard_ActionFailed" xml:space="preserve"><value>This step did not complete. Check the input or technical details and retry.</value></data>
+  <data name="MigrationWizard_HistoryNotice.Title" xml:space="preserve"><value>Migration is not finished</value></data>
+  <data name="MigrationWizard_ImportConfiguration.Content" xml:space="preserve"><value>Also import the configuration in this package</value></data>
+  <data name="MigrationWizard_ChooseDirectory.Content" xml:space="preserve"><value>Choose folder</value></data>
+  <data name="MigrationWizard_LegacyConfig" xml:space="preserve"><value>Legacy configuration snapshot</value></data>
+  <data name="MigrationWizard_SavedTo" xml:space="preserve"><value>Saved to: {0}</value></data>
+  <data name="MigrationWizard_AnotherActivation" xml:space="preserve"><value>A configuration is waiting for restart. Continue the existing migration before importing more data.</value></data>
+  <data name="MigrationWizard_ArchiveFile" xml:space="preserve"><value>Backup archive</value></data>
+  <data name="MigrationWizard_HistoryMissingArchives" xml:space="preserve"><value>Some historical versions have no usable backup files. Their records are retained; add the files and check again.</value></data>
+  <data name="MigrationWizard_RepairArchives" xml:space="preserve"><value>Supply missing backup files</value></data>
+  <data name="MigrationWizard_RecheckArchives" xml:space="preserve"><value>Check backup files</value></data>
+  <data name="MigrationWizard_ProjectContents" xml:space="preserve"><value>{0} sources · {1} historical versions</value></data>
 </root>
