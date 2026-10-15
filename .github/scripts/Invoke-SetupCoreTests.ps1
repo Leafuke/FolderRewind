@@ -2,6 +2,16 @@
 param([string]$ResultsDirectory = 'artifacts/core-tests')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$root = [IO.Path]::GetFullPath("$PSScriptRoot/../..")
+
+# Localization contract tests inspect WinUI metadata from the application restore.
+dotnet restore (Join-Path $root 'FolderRewind.slnx') -p:Platform=x64
+if ($LASTEXITCODE -ne 0) { throw 'Restore Host solution failed.' }
+$assetsPath = Join-Path $root 'FolderRewind/obj/project.assets.json'
+if (-not (Test-Path -LiteralPath $assetsPath -PathType Leaf)) {
+    throw "Missing application restore metadata: $assetsPath"
+}
+
 & "$PSScriptRoot/Initialize-CoreTestEnvironment.ps1"
 $projects = [ordered]@{
     abstractions='FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj'
