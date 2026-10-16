@@ -14,12 +14,16 @@ using FolderRewind.Plugin.Runtime.Artifacts;
 
 namespace FolderRewind.History.Retention;
 
-public sealed record NativeArtifactCollectionResult(SourceId SourceId, int DeletedObjects, long ReclaimedBytes);
+public sealed record NativeArtifactCollectionResult(SourceId SourceId, int DeletedObjects, long ReclaimedBytes)
+{
+    public string CollectionId { get; init; } = "";
+    [System.Text.Json.Serialization.JsonIgnore] public Func<CancellationToken, Task>? Acknowledge { get; init; }
+}
 
 public static class NativeArtifactRetention
 {
     public static async Task<IReadOnlyList<NativeArtifactCollectionResult>> CollectAsync(HistoryRuntime history,
-        HistoryRetentionPlanner planner, NativeArtifactStore store, int keepCount, CancellationToken token)
+        HistoryRetentionPlanner planner, NativeArtifactStore store, int keepCount, CancellationToken token, bool deferAcknowledgment = false)
     {
         await using var gate = await history.MutationGate.EnterAsync(token).ConfigureAwait(false);
         history.CloudJobs.RequireCleanupSafe();
@@ -53,12 +57,12 @@ public static class NativeArtifactRetention
                 history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.LocalStateChanged);
             }
         }
-        return await CollectRegisteredAsync(history, store, token).ConfigureAwait(false);
+        return await CollectRegisteredAsync(history, store, token, deferAcknowledgment).ConfigureAwait(false);
     }
 
     // Caller owns the History mutation gate. Unregistered graph nodes are orphans regardless of KeepCount.
     internal static async Task<IReadOnlyList<NativeArtifactCollectionResult>> CollectRegisteredAsync(
-        HistoryRuntime history, NativeArtifactStore store, CancellationToken token)
+        HistoryRuntime history, NativeArtifactStore store, CancellationToken token, bool deferAcknowledgment = false)
     {
         history.CloudJobs.RequireCleanupSafe();
         var catalog = await RequireCatalogAsync(history, token).ConfigureAwait(false);
@@ -73,12 +77,16 @@ public static class NativeArtifactRetention
                 throw new InvalidDataException("Invalid Native History binding.");
             roots.Add(new(root));
         }
-        var ledger = await store.Ledger.LoadAsync(token).ConfigureAwait(false);
-        var sizes = ledger.Artifacts.ToDictionary(a => a.ArtifactId,
-            a => File.Exists(store.PayloadPath(a)) ? new FileInfo(store.PayloadPath(a)).Length : 0);
-        var deleted = (await store.CollectAsync(roots, token).ConfigureAwait(false)).ToHashSet();
-        return ledger.Artifacts.Where(a => deleted.Contains(a.ArtifactId) && !File.Exists(store.PayloadPath(a)))
-            .GroupBy(a => a.FolderId).Select(g => new NativeArtifactCollectionResult(new(g.Key), g.Count(), g.Sum(a => sizes[a.ArtifactId]))).ToArray();
+        var receipts = await store.CollectDetailedAsync(roots, token).ConfigureAwait(false);
+        var results = receipts.SelectMany(receipt => receipt.Objects.GroupBy(o => o.FolderId).Select(group =>
+            new NativeArtifactCollectionResult(new(group.Key), group.Count(), group.Sum(o => o.PhysicalBytes))
+            {
+                CollectionId = receipt.Id,
+                Acknowledge = ct => store.AcknowledgeCollectionsAsync([receipt.Id], ct)
+            })).ToArray();
+        if (!deferAcknowledgment)
+            await store.AcknowledgeCollectionsAsync(receipts.Select(r => r.Id), token).ConfigureAwait(false);
+        return results;
     }
 
     private static async Task<LocalReplicaCatalog> RequireCatalogAsync(HistoryRuntime history, CancellationToken token)

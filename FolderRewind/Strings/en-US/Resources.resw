@@ -7130,4 +7130,5 @@ Task log
   <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>Manual semantic checkpoint</value></data>
   <data name="History_NativeDelete_Confirm" xml:space="preserve"><value>Delete the local representation for “{0}” and collect Native objects that no version or job still references. Shared objects remain; released space depends on the complete closure.</value></data>
   <data name="Retention_NativeObjects" xml:space="preserve"><value>Collected {0} Native objects. Shared objects remain protected by their closures; released bytes are included in the totals.</value></data>
+  <data name="Retention_Reason_CollectionAckPending" xml:space="preserve"><value>Objects were collected, but their accounting acknowledgement is pending. The next cleanup will retry.</value></data>
 </root>

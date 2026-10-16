@@ -59,14 +59,8 @@ internal static partial class NativeHistoryApplicationService
                         : Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(Path.Combine(ConfigService.ConfigDirectory, "encrypted_passwords.dat"), token).ConfigureAwait(false)));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { signature += Guid.NewGuid().ToString(); }
-            if (config.Archive.KeepCount <= 0)
-            {
-                if (Directory.Exists(Plugin.Runtime.Artifacts.NativeArtifactStore.ForConfig(config.DestinationPath, config.Id)))
-                    await NativeArtifactRetention.CollectAsync(runtime, planner, Plugins.V3.NativeArtifactHostService.Store(config), 0, token).ConfigureAwait(false);
-                return null;
-            }
             Func<CancellationToken, Task<System.Collections.Generic.IReadOnlyList<NativeArtifactCollectionResult>>>? collectArtifacts = Directory.Exists(Plugin.Runtime.Artifacts.NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))
-                ? ct => NativeArtifactRetention.CollectAsync(runtime, planner, Plugins.V3.NativeArtifactHostService.Store(config), config.Archive.KeepCount, ct)
+                ? ct => NativeArtifactRetention.CollectAsync(runtime, planner, Plugins.V3.NativeArtifactHostService.Store(config), config.Archive.KeepCount, ct, deferAcknowledgment: true)
                 : null;
             var result = await new HistoryCleanupCoordinator(runtime, engine, archive, planner, GetRewriteBackupRoot(config), collectArtifacts)
                 .ExecuteAsync(config.Archive.KeepCount, config.Archive.MaxSmartBackupsPerFull, policy, automatic, signature, progress, token).ConfigureAwait(false);

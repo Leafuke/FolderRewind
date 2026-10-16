@@ -300,7 +300,7 @@ public sealed class FileArtifactLedgerStore
     public async ValueTask<IReadOnlyList<ArtifactId>> GarbageCollectUnreachableAsync(
         IEnumerable<ArtifactId> protectedArtifactRoots,
         bool dryRun = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, bool retainPayloads = false)
     {
         ArgumentNullException.ThrowIfNull(protectedArtifactRoots);
         var roots = protectedArtifactRoots.Distinct().ToArray();
@@ -323,6 +323,7 @@ public sealed class FileArtifactLedgerStore
                 return garbage.Select(artifact => artifact.ArtifactId).ToArray();
             }
             await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
+            if (retainPayloads) return garbage.Select(artifact => artifact.ArtifactId).ToArray();
             foreach (var artifact in garbage)
             {
                 var path = ArtifactPathRules.ResolveUnderRoot(_repositoryRoot, artifact.ContentRelativePath);

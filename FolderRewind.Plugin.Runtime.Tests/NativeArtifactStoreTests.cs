@@ -159,6 +159,58 @@ public sealed class NativeArtifactStoreTests
     }
 
     [TestMethod]
+    [DataRow("GcPrepared:after")]
+    [DataRow("GcGraphCommitted:after")]
+    [DataRow("GcPhysicalDelete:after")]
+    public async Task GcRecoversPhysicalDeletionAndAccountingAcrossPublicationBoundaries(string fault)
+    {
+        using var fixture = new Fixture();
+        var (store, _) = await fixture.CaptureAsync();
+        var nodes = (await store.Ledger.LoadAsync()).Artifacts;
+        var physicalBytes = nodes.Sum(n => Directory.EnumerateFiles(Path.GetDirectoryName(store.PayloadPath(n))!).Sum(p => new FileInfo(p).Length));
+        var failed = new NativeArtifactStore(store.Root, new ZipCodec(), stage => { if (stage == fault) throw new IOException("injected GC interruption"); });
+        await Assert.ThrowsExactlyAsync<IOException>(() => failed.CollectAsync([], default));
+        await store.RecoverAsync((_, _) => Task.FromResult(false), default);
+        await store.RecoverAsync((_, _) => Task.FromResult(false), default);
+        var receipts = await store.CollectDetailedAsync([], default);
+        Assert.AreEqual(physicalBytes, receipts.SelectMany(r => r.Objects).Sum(o => o.PhysicalBytes));
+        Assert.HasCount(2, receipts.SelectMany(r => r.Objects).ToArray());
+        Assert.IsTrue(nodes.All(n => !File.Exists(store.PayloadPath(n))));
+        await store.AcknowledgeCollectionsAsync(receipts.Select(r => r.Id), default);
+        Assert.IsEmpty(await store.CollectAsync([], default));
+    }
+
+    [TestMethod]
+    public async Task ConfigurationScopeEndsAbandonedInMemoryOwnershipWithoutRemovingPersistentEvidence()
+    {
+        using var fixture = new Fixture();
+        using var operation = NativeArtifactStore.TrackConfigurationCapture("config");
+        var (store, _) = await fixture.CaptureAsync(complete: false, transferPendingOwnership: true);
+        await store.RecoverAsync((_, _) => Task.FromResult(false), default);
+        Assert.HasCount(1, store.Pending());
+        operation.Dispose();
+        Assert.HasCount(1, store.Pending());
+        await store.RecoverAsync((_, _) => Task.FromResult(false), default);
+        Assert.IsEmpty(store.Pending());
+        Assert.HasCount(2, await store.CollectAsync([], default));
+    }
+
+    [TestMethod]
+    public async Task CorruptGcIntentAndMissingProtectedRootKeepPhysicalObjects()
+    {
+        using var fixture = new Fixture();
+        var (store, _) = await fixture.CaptureAsync();
+        var nodes = (await store.Ledger.LoadAsync()).Artifacts;
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.CollectAsync([new(Guid.NewGuid())], default));
+        var failed = new NativeArtifactStore(store.Root, new ZipCodec(), stage => { if (stage == "GcGraphCommitted:after") throw new IOException("injected GC interruption"); });
+        await Assert.ThrowsExactlyAsync<IOException>(() => failed.CollectAsync([], default));
+        var journal = Directory.EnumerateFiles(Path.Combine(store.Root, "gc"), "*.json").Single();
+        await File.WriteAllTextAsync(journal, "{}");
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.RecoverAsync((_, _) => Task.FromResult(false), default));
+        Assert.IsTrue(nodes.All(n => File.Exists(store.PayloadPath(n))));
+    }
+
+    [TestMethod]
     public async Task GcWaitsForReadLeaseAndKeepsPendingClosure()
     {
         using var fixture = new Fixture();
@@ -228,7 +280,7 @@ public sealed class NativeArtifactStoreTests
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeArtifactTests", Guid.NewGuid().ToString("N"));
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
-            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null)
+            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false)
         {
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
@@ -250,6 +302,7 @@ public sealed class NativeArtifactStoreTests
             await using var prepared = await store.PrepareAsync(runtime, config, Folder, Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
                 new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default);
             await prepared.SealAndCommitGraphAsync(default);
+            if (transferPendingOwnership) prepared.TransferPendingOwnership();
             if (validatePrepared)
             {
                 var unpacked = codec.Unpacks;

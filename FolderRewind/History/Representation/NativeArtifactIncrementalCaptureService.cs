@@ -118,7 +118,7 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                         new HistoryDiagnostic(d.Code, d.Severity == DiagnosticSeverity.Error ? HistoryDiagnosticSeverity.Error : HistoryDiagnosticSeverity.Warning,
                             d.Code + ": " + JsonSerializer.Serialize(d.Arguments)))), capture?.ExpectedMaterializationPolicyTipIds ?? [],
                     baselineCandidate, boundary, capture?.VersionMetadataCandidates ?? [])
-                { ReservedVersionId = version, CommitParticipant = new NativeArtifactCaptureService.Participant(store, prepared.Intent, cleanupPrimary: true) };
+                { ReservedVersionId = version, CommitParticipant = new NativeArtifactCaptureService.Participant(store, prepared.TransferPendingOwnership(), cleanupPrimary: true) };
             }
             catch { store.CompletePending(prepared.Intent.Id); throw; }
         }

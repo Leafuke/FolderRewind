@@ -36,7 +36,7 @@ public sealed record NativeArtifactPrimaryInput(ArtifactContentHandle Content, H
 public sealed partial class NativeArtifactStore
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly ConcurrentDictionary<string, byte> Active = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, string> Active = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _gate;
     private readonly IArtifactEnvelopeCodec _codec;
     private readonly Action<string>? _observe;
@@ -88,6 +88,13 @@ public sealed partial class NativeArtifactStore
         catch { _gate.Release(); throw; }
     }
 
+    public static IDisposable TrackConfigurationCapture(string configId)
+        => new ActionLease(() =>
+        {
+            foreach (var entry in Active.Where(e => StringComparer.Ordinal.Equals(e.Value, configId)))
+                Active.TryRemove(entry.Key, out _);
+        });
+
     public string PayloadPath(ArtifactLedgerEntry node)
         => Path.Combine(ArtifactPathRules.ResolveUnderRoot(Root, node.ContentRelativePath), "payload.7z");
 
@@ -126,7 +133,9 @@ public sealed partial class NativeArtifactStore
     {
         using var held = await EnterAsync(token);
         var pending = Pending(); // validate all intents before any cleanup
+        _ = ReadGarbageIntents();
         await Ledger.RecoverAsync(token);
+        await RecoverGarbageWithoutGateAsync(token);
         foreach (var intent in pending)
         {
             if (Active.ContainsKey(Path.Combine(Root, intent.Id))) continue;
@@ -245,7 +254,7 @@ public sealed partial class NativeArtifactStore
                     CorePayloadSha256 = incrementalInput is not null && corePayloadPath is not null
                         ? Convert.ToHexString(await HashFileAsync(corePayloadPath, token)) : null };
             await SavePendingAsync(pending, token);
-            Active.TryAdd(Path.Combine(Root, transaction), 0);
+            Active.TryAdd(Path.Combine(Root, transaction), config.ConfigId);
             return new PreparedNativeArtifact(this, runtime, config, folder, versionId, current, candidate,
                 staging, facts, pending, lease, held, result.Diagnostics, encrypted, baselineRead, result.RequiresFullVerification);
         }
@@ -365,21 +374,6 @@ public sealed partial class NativeArtifactStore
         catch { DeleteDirectory(temporary); throw; }
     }
 
-    public async Task<IReadOnlyList<ArtifactId>> CollectAsync(IEnumerable<ArtifactId> roots, CancellationToken token)
-    {
-        using var held = await EnterAsync(token);
-        var ledger = await Ledger.LoadAsync(token);
-        var ids = ledger.Artifacts.Select(a => a.ArtifactId).ToHashSet();
-        var pending = Pending(); // Corrupt intent must fail closed before GC.
-        var transfers = Path.Combine(Root, "transfers");
-        var transferRoots = Directory.Exists(transfers) ? Directory.EnumerateFiles(transfers, "*.json").Select(path =>
-        {
-            var transfer = ArtifactMetadataFile.ReadJson<NativeArtifactTransfer>(path, 1024 * 1024) ?? throw new InvalidDataException("Invalid transfer intent.");
-            if (transfer.Root.Value == Guid.Empty || transfer.Id != Path.GetFileNameWithoutExtension(path)) throw new InvalidDataException("Invalid transfer identity.");
-            return transfer;
-        }).Where(t => !t.Complete).Select(t => t.Root).ToArray() : [];
-        return await Ledger.GarbageCollectUnreachableAsync(roots.Concat(pending.Select(p => p.Root)).Concat(transferRoots).Where(ids.Contains), cancellationToken: token);
-    }
     public static async Task WriteAsync<T>(string path, T value, CancellationToken token)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!); var temp = path + ".tmp-" + Guid.NewGuid().ToString("N");
@@ -445,6 +439,8 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     public NativeArtifactReadLease? BaselineRead => _baselineRead;
     public PluginOperationLease Operation => _lease;
     public bool RequiresFullVerification { get; }
+    private bool _historyOwnsIntent;
+    public NativeArtifactPending TransferPendingOwnership() { _historyOwnsIntent = true; return Intent; }
     internal PreparedNativeArtifact(NativeArtifactStore store, PluginRuntimeManager runtime, ConfigSnapshot config,
         FolderSnapshot folder, string version, ArtifactLedgerDocument before, ArtifactLedgerDocument after,
         ArtifactTransformStagingArea staging, IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts> facts,
@@ -470,5 +466,9 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     public NativeArtifactReadLease OpenLazy()
         => _store.OpenLazyWithoutGate(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }), _verifiedDirectories, _baselineRead);
     public async ValueTask DisposeAsync()
-    { try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); await _staging.DisposeAsync(); } finally { _lease.Dispose(); _held.Dispose(); } }
+    {
+        try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); await _staging.DisposeAsync(); }
+        catch { _store.ReleasePendingOperation(Intent.Id); throw; }
+        finally { if (!_historyOwnsIntent) _store.ReleasePendingOperation(Intent.Id); _lease.Dispose(); _held.Dispose(); }
+    }
 }

@@ -75,7 +75,7 @@ public sealed class NativeArtifactCaptureService(PluginRuntimeManager plugins, N
                     return capture.WithVersionMetadata(capture.VersionMetadataCandidates, diagnostics) with
                     {
                         ReservedVersionId = version, AdditionalRepresentations = [extra],
-                        CommitParticipant = new Participant(store, prepared.Intent)
+                        CommitParticipant = new Participant(store, prepared.TransferPendingOwnership())
                     };
                 }
                 catch { store.CompletePending(prepared.Intent.Id); throw; }

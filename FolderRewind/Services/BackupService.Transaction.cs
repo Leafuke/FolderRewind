@@ -119,6 +119,7 @@ public static partial class BackupService
         await using var ownedOperation = existingOperation is null ? await NativeHistoryConfigurationOperationGate
             .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false) : null;
         var operationLease = existingOperation ?? ownedOperation!;
+        using var captureOwnership = Plugin.Runtime.Artifacts.NativeArtifactStore.TrackConfigurationCapture(config.Id);
         if (invocationOptions.RequestSemanticCheckpoint
             && (invocationOptions.Source != BackupInvocationSource.Manual
                 || !NativeHistoryArtifactTransformPolicy.IsIncremental(config.ArtifactTransformPolicy)

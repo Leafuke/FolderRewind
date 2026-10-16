@@ -84,6 +84,35 @@ public sealed class NativeArtifactDeletionTests
         }
     }
 
+    [TestMethod]
+    public async Task OrphanAccountingIsPersistedBeforeAckAndDoesNotRepeatAfterAckFailure()
+    {
+        await using var f = new Fixture(); await f.InitializeAsync(); var a = await f.AddAsync();
+        var deletion = new NativeArtifactVersionDeletion(f.History, f.Store, point =>
+        { if (point == "pack-installed") throw new IOException("injected durable deletion interruption"); });
+        Assert.IsTrue((await deletion.CommitAsync(await f.PrepareAsync(deletion, a), default)).Committed);
+        await f.RestartAsync();
+        bool failAck = true;
+        async Task<IReadOnlyList<NativeArtifactCollectionResult>> Collect(CancellationToken token)
+        {
+            var collections = await NativeArtifactRetention.CollectAsync(f.History, f.Planner(), f.Store, 0, token, deferAcknowledgment: true);
+            return collections.Select(c => c with { Acknowledge = async ct =>
+            {
+                if (failAck) { failAck = false; throw new IOException("injected accounting acknowledgement failure"); }
+                await c.Acknowledge!(ct);
+            } }).ToArray();
+        }
+        var archive = new FolderRewind.Services.SevenZipArchiveProcessBackend(() => null, () => null, false, ".marker");
+        var cleanup = new HistoryCleanupCoordinator(f.History, new([new CoreArchiveRepresentationHandler(new UnusedCodec())]),
+            archive, f.Planner(), f.Store.Root, Collect);
+        var first = await cleanup.ExecuteAsync(0, 0, HistoryRetentionBenefitPolicy.CountFirst, false, "test");
+        Assert.AreEqual(1L, first!.Sources.Sum(s => s.ReclaimedBytes));
+        Assert.IsTrue(first.HasWarnings);
+        var second = await cleanup.ExecuteAsync(0, 0, HistoryRetentionBenefitPolicy.CountFirst, false, "test");
+        Assert.AreEqual(0L, second!.Sources.Sum(s => s.ReclaimedBytes));
+        Assert.IsNull(await cleanup.ExecuteAsync(0, 0, HistoryRetentionBenefitPolicy.CountFirst, false, "test"));
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string root = Path.Combine(Path.GetTempPath(), "NativeDeletion", Guid.NewGuid().ToString("N"));

@@ -17,6 +17,7 @@ public sealed class HistoryCleanupReport
     public HistoryRetentionBenefitPolicy Policy { get; set; }
     public string Status { get; set; } = "Running";
     public List<HistoryCleanupSourceReport> Sources { get; set; } = [];
+    public List<string> NativeCollectionIds { get; set; } = [];
     public List<HistoryCleanupIssue> Issues { get; set; } = [];
     [JsonIgnore]
     public bool HasWarnings => Status is not ("Completed" or "NoWork")
