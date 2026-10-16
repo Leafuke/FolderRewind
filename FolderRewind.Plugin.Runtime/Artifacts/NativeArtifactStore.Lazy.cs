@@ -30,9 +30,10 @@ public sealed partial class NativeArtifactStore
             if (node.LocalAvailability != ArtifactAvailability.Available || !File.Exists(payload) || new FileInfo(payload).Length != node.StorageSize)
                 throw new InvalidDataException("Artifact dependency is missing or its size changed.");
             var envelope = Path.Combine(Path.GetDirectoryName(payload)!, "envelope.json");
-            if (!File.Exists(envelope) || new FileInfo(envelope).Length > 4096
-                || ArtifactMetadataFile.ReadJson<NativeEnvelope>(envelope, 4096)?.Version != 1)
+            if (!File.Exists(envelope) || new FileInfo(envelope).Length > 4096)
                 throw new InvalidDataException("Artifact envelope metadata is missing or invalid.");
+            var header = ArtifactMetadataFile.ReadJson<NativeEnvelope>(envelope, 4096) ?? throw new InvalidDataException("Empty Native envelope.");
+            if (header.Version != 1) throw new InvalidDataException("[history.unsupported-experimental-format] Unsupported Native envelope version.");
             var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N"));
             handles.Add(handle, node);
             snapshots.Add(new(node.ArtifactId, node.Format, node.FormatVersion, node.RestoreStrategyId, handle,

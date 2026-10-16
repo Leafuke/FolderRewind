@@ -8,6 +8,29 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class ArtifactWorkspaceBudgetTests
 {
     [TestMethod]
+    public async Task CandidateCodecCannotPackAndCannotDecodeWithoutAnExplicitSharedBudget()
+    {
+        var decoder = new DecoderProbe(); var codec = new ReadOnlyArtifactEnvelopeCodec(decoder);
+        Assert.ThrowsExactly<InvalidOperationException>(() => codec.PackAsync("source", "persisted-ciphertext", true, default));
+        Assert.ThrowsExactly<InvalidOperationException>(() => codec.UnpackAsync("candidate", "scratch", true, default));
+        var budget = new ArtifactExtractionBudget(3, 1);
+        await codec.UnpackAsync("candidate", "scratch", true, 3, budget, default);
+        Assert.AreSame(budget, decoder.Budget); Assert.AreEqual(3L, decoder.MaximumBytes);
+        Assert.AreEqual(0, decoder.PackCalls);
+    }
+
+    private sealed class DecoderProbe : IBoundedArtifactEnvelopeCodec
+    {
+        public int PackCalls { get; private set; }
+        public long MaximumBytes { get; private set; }
+        public ArtifactExtractionBudget? Budget { get; private set; }
+        public Task PackAsync(string source, string payload, bool encrypted, CancellationToken token) { PackCalls++; return Task.CompletedTask; }
+        public Task UnpackAsync(string payload, string target, bool encrypted, CancellationToken token) => throw new AssertFailedException();
+        public Task UnpackAsync(string payload, string target, bool encrypted, long maximumBytes, ArtifactExtractionBudget budget, CancellationToken token)
+        { MaximumBytes = maximumBytes; Budget = budget; return Task.CompletedTask; }
+    }
+
+    [TestMethod]
     public void SameVolumeAliasesAndConcurrentOperationsShareOneReservation()
     {
         var budget = new ArtifactSpaceBudget(path => new(path.StartsWith("other", StringComparison.Ordinal) ? "two" : "one", 100));

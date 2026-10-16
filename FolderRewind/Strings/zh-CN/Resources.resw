@@ -7131,4 +7131,5 @@ Pull Request：{1}</value>
   <data name="History_NativeDelete_Confirm" xml:space="preserve"><value>删除“{0}”的本地表示后，将回收不再被其他版本或任务引用的 Native 对象。共享对象会保留，实际释放空间取决于完整闭包。</value></data>
   <data name="Retention_NativeObjects" xml:space="preserve"><value>已回收 {0} 个 Native 对象；共享对象按闭包保留，释放字节已计入总量。</value></data>
   <data name="Retention_Reason_CollectionAckPending" xml:space="preserve"><value>对象已回收，回收记录的确认尚未完成；下次清理会重试。</value></data>
+  <data name="Migration_NativePackageRequired" xml:space="preserve"><value>此版本使用语义备份存储。请通过迁移包恢复，或重新绑定包含完整数据的备份目录。</value></data>
 </root>

@@ -209,7 +209,7 @@ public sealed class HistoryRepositoryBatchTransferService(
             if (manifest.Projects.IsDefaultOrEmpty) throw new InvalidDataException("Transfer has no projects.");
             projects = manifest.Projects.ToArray(); version = manifest.ApplicationVersion;
         }
-        else if (format == 3)
+        else if (format is 3 or 4)
         {
             migration = JsonSerializer.Deserialize<HistoryTransferV3Manifest>(bytes, JsonOptions) ?? throw new InvalidDataException("Empty migration manifest.");
             if (migration.Magic != HistoryTransferManifest.CurrentMagic || migration.Projects.IsDefaultOrEmpty
@@ -224,6 +224,8 @@ public sealed class HistoryRepositoryBatchTransferService(
         if (migration is not null)
             await HistoryMigrationBundleService.ValidateAdditionalEntriesAsync(archive, migration, declared, token).ConfigureAwait(false);
         long metadataBytes = bytes.Length + (migration?.ConfigurationSha256 is not null ? archive.GetEntry("configuration.json")!.Length : 0);
+        if (migration is not null) metadataBytes += migration.Projects.Sum(p => p.Migration!.NativePayloads.IsDefault ? 0L : p.Migration.NativePayloads.Sum(n => n.Size));
+        if (metadataBytes > HistoryMigrationBundleService.MaximumMetadataBytes) throw new InvalidDataException("Migration metadata exceeds its aggregate budget.");
         var parsed = new List<ParsedProject>();
         foreach (var project in projects)
         {

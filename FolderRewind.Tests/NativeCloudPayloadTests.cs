@@ -99,7 +99,7 @@ public sealed class NativeCloudPayloadTests
         Assert.IsTrue(reused.Complete); Assert.AreEqual(HistoryCloudItemState.Reused, reused.Items.Single().State);
         var local = new NativeArtifactStore(Path.Combine(f.Root, "recovered"), new ZipCodec());
         var native = new NativeArtifactReplicaService(local, f.Replicas(remote));
-        var result = await native.DownloadAsync(f.Representation, remote.Manifests.Values.Single(), f.ConfigId, f.Source.Value, default);
+        var result = await native.DownloadAsync(f.Representation, remote.Manifests.Values.Single(), f.History.ConfigId.Value, f.Source.Value, default);
         Assert.AreEqual(HistoryReplicaOperationStatus.Failed, result.Status);
         Assert.IsEmpty((await local.Ledger.LoadAsync()).Artifacts);
         Assert.IsEmpty((await f.History.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries);
@@ -168,7 +168,7 @@ public sealed class NativeCloudPayloadTests
 
     private static HistoryMetadataSyncResult Metadata(bool success = true) => new(success ? HistoryMetadataSyncStatus.Succeeded : HistoryMetadataSyncStatus.Failed, 0, 0, [], [], success ? "" : "injected metadata failure");
 
-    private sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeCloudPayload", Guid.NewGuid().ToString("N"));
         public string ConfigId { get; } = Guid.NewGuid().ToString("D");
@@ -178,7 +178,7 @@ public sealed class NativeCloudPayloadTests
         public NativeArtifactStore Store { get; private set; } = null!;
         public VersionRepresentation Representation { get; private set; } = null!;
         private HistoryCommitPack _pack = null!;
-        public async Task InitializeAsync()
+        public async Task InitializeAsync(bool supported = true)
         {
             History = new(new FileHistoryRepository(new(ConfigId), new(Path.Combine(Root, "history")))); await History.InitializeAsync();
             await History.LocalReplicaCatalogStore.SaveAsync(new(History.ConfigId, 0, []), -1);
@@ -208,7 +208,8 @@ public sealed class NativeCloudPayloadTests
                 CaptureOutcome.Captured, [], new("test", "isolated"), null, HistoryProvenance.Native("test"));
             Representation = new(RepresentationId.New(), version.VersionId, RepresentationKind.PluginArtifact, "native", [], MaterializationFidelity.Exact,
                 null, null, new Dictionary<string, string> { ["artifactRootId"] = ArtifactRoot.Value.ToString("N"), ["storageSha256"] = nodes.Last().StorageSha256,
-                    ["nativeArtifactContractVersion"] = "2", ["incrementalEvidence"] = "2" });
+                    ["nativeArtifactContractVersion"] = supported ? "2" : "1", ["incrementalEvidence"] = supported ? "2" : "1",
+                    ["pluginId"] = "plugin.test", ["nativeArtifactEnvelope"] = "1" });
             var codec = new HistoryPackCodec();
             _pack = new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow, [codec.CreateObject(version), codec.CreateObject(Representation)]);
             await History.Repository.CommitAsync(_pack); await History.EnsureIndexCurrentAsync();
@@ -236,7 +237,7 @@ public sealed class NativeCloudPayloadTests
         public async ValueTask DisposeAsync() { if (History is not null) await History.DisposeAsync(); if (Directory.Exists(Root)) Directory.Delete(Root, true); }
     }
 
-    private sealed class ZipCodec : IBoundedArtifactEnvelopeCodec
+    internal sealed class ZipCodec : IBoundedArtifactEnvelopeCodec
     {
         public Task PackAsync(string source, string payload, bool encrypted, CancellationToken token) { ZipFile.CreateFromDirectory(source, payload); return Task.CompletedTask; }
         public Task UnpackAsync(string payload, string target, bool encrypted, CancellationToken token) => throw new AssertFailedException("Bounded decode required.");

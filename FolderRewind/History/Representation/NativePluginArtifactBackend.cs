@@ -46,6 +46,8 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
             Validate(read, root, pluginId, binding, manifest);
             return new(true, true, MaterializationFidelity.Exact, "metadata-and-availability-only");
         }
+        catch (InvalidDataException ex) when (ex.Message.StartsWith("[history.unsupported-experimental-format]", StringComparison.Ordinal))
+        { return new(false, false, MaterializationFidelity.Unknown, ex.Message); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         { return new(true, false, MaterializationFidelity.Exact, ex.Message); }
     }
@@ -91,7 +93,9 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
             || !binding.Representation.RepresentationSpecificMetadata.TryGetValue("captureEvidenceSha256", out var expectedEvidence)
             || !StringComparer.OrdinalIgnoreCase.Equals(entries.Single(f => f.RelativePath == IncrementalCaptureEvidence.Path).Sha256, expectedEvidence))
             throw new InvalidDataException("Capture evidence binding mismatch.");
-        await using var view = await provider.OpenFileViewAsync(new(binding.Config, binding.Folder, evidence.VersionId,
+        // History normalizes GUID spelling; the immutable node retains the original plugin snapshot identity.
+        var snapshot = binding.Config with { ConfigId = node.ConfigId };
+        await using var view = await provider.OpenFileViewAsync(new(snapshot, binding.Folder, evidence.VersionId,
             new(root), read.Artifacts, read.Read), operation.Context);
         if (destination is null) await evidence.VerifyViewAsync(view, token);
         else await evidence.CopyViewToAsync(view, destination, token);
@@ -106,11 +110,11 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
             || !StringComparer.OrdinalIgnoreCase.Equals(expectedStorage, stored.StorageSha256)
             || binding.Representation.Format != node.Format.FormatId)
             throw new InvalidDataException("Artifact format or storage evidence differs from committed History.");
-        if (node.ConfigId != binding.Config.ConfigId || node.FolderId != binding.Folder.FolderId
+        if (new HistoryConfigId(node.ConfigId) != new HistoryConfigId(binding.Config.ConfigId) || node.FolderId != binding.Folder.FolderId
             || node.RestoreStrategyId.PluginId.Value != pluginId || node.Completeness != ArtifactCompleteness.Complete)
             throw new InvalidDataException("Artifact binding mismatch.");
         if (!manifest.RestoreStrategies.Any(s => s.RestoreStrategyId == node.RestoreStrategyId
             && s.SupportedFormats.Any(f => f.Format == node.Format && f.MinimumVersion <= node.FormatVersion && f.MaximumVersion >= node.FormatVersion)))
-            throw new InvalidDataException("Installed provider cannot read the protected format version.");
+            throw new InvalidDataException("[history.unsupported-experimental-format] Installed provider cannot read the protected format version.");
     }
 }

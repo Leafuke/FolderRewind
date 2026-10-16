@@ -27,8 +27,11 @@ public static class NativeArtifactClosureLimits
 {
     public static int MaximumEnvelopeBytes { get; } = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new NativeEnvelope(1, false)).Length;
     public static ArtifactClosurePlan Validate(ArtifactLedgerDocument graph, FolderRewind.Plugin.Abstractions.ArtifactId root)
+        => Validate(graph, [root]);
+
+    public static ArtifactClosurePlan Validate(ArtifactLedgerDocument graph, IEnumerable<FolderRewind.Plugin.Abstractions.ArtifactId> roots)
     {
-        var closure = ArtifactLedgerValidator.BuildClosure(graph, [root]);
+        var closure = ArtifactLedgerValidator.BuildClosure(graph, roots);
         long logical = 0, storage = 0; int entries = 0;
         foreach (var node in graph.Artifacts.Where(n => closure.Reachable.Contains(n.ArtifactId)))
         {

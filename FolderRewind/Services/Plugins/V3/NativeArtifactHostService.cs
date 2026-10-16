@@ -63,7 +63,7 @@ internal static class NativeArtifactHostService
             var workspace = (await history.WorkspaceStore.LoadAsync(token)).Value;
             if (workspace?.GetSourceState(baseline.SourceId).Relation != History.LocalState.WorkspaceBaselineRelation.Exact) return false;
             await using var lease = await Store(config).OpenLazyAsync(new(root), token);
-            return true;
+            return lease.Nodes.All(n => n.ConfigId == config.Id);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException) { return false; }
     }
@@ -178,18 +178,27 @@ internal static class NativeArtifactHostService
     }
 
     internal static PluginArtifactRepresentationHandler Handler(BackupConfig config, HistoryRuntime history, IArtifactEnvelopeCodec? codec = null)
-        => new(new NativePluginArtifactBackend(PluginV3RuntimeService.Runtime, () => Store(config, codec), async (root, token) =>
+        => Handler(config, history, () => Store(config, codec));
+
+    internal static PluginArtifactRepresentationHandler Handler(BackupConfig config, HistoryRuntime history,
+        Func<NativeArtifactStore> store, Func<VersionRepresentation, CancellationToken, Task<bool>>? isRegistered = null)
+        => new(new NativePluginArtifactBackend(PluginV3RuntimeService.Runtime, store, async (root, token) =>
         {
             var representations = await history.Query.GetAllRepresentationsAsync(token);
             var representation = representations.Single(r => r.Kind == RepresentationKind.PluginArtifact
                 && r.RepresentationSpecificMetadata.TryGetValue("artifactRootId", out var id) && Guid.TryParse(id, out var parsed) && parsed == root);
             var version = (await history.Query.GetAllVersionsAsync(token)).Single(v => v.VersionId == representation.VersionId);
             var snapshot = PluginV3ModelMapper.ToSnapshot(config);
+            if (representation.RepresentationSpecificMetadata.TryGetValue("nativeConfigKindOwnerId", out var owner)
+                && representation.RepresentationSpecificMetadata.TryGetValue("nativeConfigKindId", out var kind))
+                snapshot = snapshot with { Kind = new(new(owner), kind) };
             // Source may have been detached from current config; historical identity remains usable.
             var folder = snapshot.Folders.SingleOrDefault(f => f.FolderId == version.SourceId.Value)
                 ?? new FolderSnapshot(version.SourceId.Value, string.Empty, "Historical source", new System.Collections.Generic.Dictionary<StateOwnerId, ProviderStateSnapshot>());
+            if (!snapshot.Folders.Any(f => f.FolderId == folder.FolderId)) snapshot = snapshot with { Folders = snapshot.Folders.Append(folder).ToArray() };
             var catalog = (await history.LocalReplicaCatalogStore.LoadAsync(token)).Value;
             return new NativeArtifactBinding(representation, snapshot, folder)
-            { LocalRegistered = catalog?.Entries.Any(e => e.RepresentationId == representation.RepresentationId) == true };
+            { LocalRegistered = isRegistered is null ? catalog?.Entries.Any(e => e.RepresentationId == representation.RepresentationId) == true
+                : await isRegistered(representation, token) };
         }));
 }

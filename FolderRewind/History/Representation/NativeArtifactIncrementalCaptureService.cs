@@ -98,11 +98,16 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 finally { if (oldView is not null) await oldView.DisposeAsync(); }
                 var stored = prepared.Ledger.Artifacts.Single(n => n.ArtifactId == node.ArtifactId);
                 var path = store.PayloadPath(stored); var fingerprint = document.Fingerprint();
+                var reachable = NativeArtifactClosureLimits.Validate(prepared.Ledger, node.ArtifactId).Reachable;
+                var closureStorageBytes = prepared.Ledger.Artifacts.Where(a => reachable.Contains(a.ArtifactId))
+                    .Sum(a => a.StorageSize + NativeArtifactClosureLimits.MaximumEnvelopeBytes);
                 var metadata = new Dictionary<string, string>
                 {
                     ["artifactRootId"] = node.ArtifactId.Value.ToString("D"), ["pluginId"] = node.Format.OwnerId.Value,
+                    ["nativeConfigKindOwnerId"] = config.Kind.OwnerId.Value, ["nativeConfigKindId"] = config.Kind.KindId,
                     ["storageSha256"] = stored.StorageSha256, ["nativeArtifactEnvelope"] = "1", ["incrementalEvidence"] = "2", ["nativeArtifactContractVersion"] = "2",
                     ["captureEvidenceSha256"] = Convert.ToHexString(SHA256.HashData(evidenceBytes)),
+                    ["nativeClosureStorageBytes"] = closureStorageBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["fileName"] = System.IO.Path.GetFileName(path), ["stateFingerprint"] = fingerprint
                 };
                 var candidate = new RepresentationCandidate(representation, RepresentationKind.PluginArtifact, node.Format.FormatId,

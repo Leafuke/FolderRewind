@@ -41,20 +41,8 @@ internal static class BackupPasswordPreparationService
             LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(c.Path), DateTimeOffset.UtcNow)));
         var graph = await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var environment = new RepresentationEnvironment(entries, [], []);
-        var versions = await runtime.Query.GetAllVersionsAsync(token).ConfigureAwait(false);
-        async Task<bool> VerifiesAsync(string input)
-        {
-            var backend = CreateBackend(snapshot, input);
-            var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(backend), new SmartDeltaRepresentationHandler(backend)]);
-            var ready = false;
-            foreach (var version in versions)
-            {
-                var assessment = await engine.AssessVersionAsync(version.VersionId, graph, environment, AssessmentDepth.Deep,
-                    MaterializationFidelity.Exact, token).ConfigureAwait(false);
-                ready |= assessment.Readiness == HistoryReadiness.Ready;
-            }
-            return ready;
-        }
+        Task<bool> VerifiesAsync(string input)
+            => NativeMigrationConsumerSession.VerifyCredentialAsync(snapshot, runtime, CreateBackend(snapshot, input), graph, environment, token);
         if (!await VerifiesAsync(password).ConfigureAwait(false)) return false;
         var existing = EncryptionService.RetrievePassword(snapshot.Id);
         if (existing is not null && existing != password && await VerifiesAsync(existing).ConfigureAwait(false)) return false;

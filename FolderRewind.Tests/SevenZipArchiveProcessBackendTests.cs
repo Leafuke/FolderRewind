@@ -81,6 +81,31 @@ public sealed class SevenZipArchiveProcessBackendTests
     }
 
     [TestMethod]
+    public async Task NativeReadUsesEachEnvelopeEncryptionFlagAndKeepsOneSharedDecodeBudget()
+    {
+        var executable = SevenZipExecutableLocator.Resolve(Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z"));
+        if (executable is null) Assert.Inconclusive("Set FOLDERREWIND_TEST_7Z.");
+        var root = Path.Combine(Path.GetTempPath(), "NativeMixedEncryption", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var source = Path.Combine(root, "source"); Directory.CreateDirectory(source);
+            await File.WriteAllBytesAsync(Path.Combine(source, "file"), [1, 2, 3]);
+            var plain = new SevenZipArchiveProcessBackend(() => executable, () => "fixture-key", false, ".marker");
+            var encrypted = new SevenZipArchiveProcessBackend(() => executable, () => "fixture-key", true, ".marker");
+            var a = Path.Combine(root, "plain.7z"); var b = Path.Combine(root, "encrypted.7z");
+            await plain.PackAsync(source, a, false, default); await encrypted.PackAsync(source, b, true, default);
+            var budget = new FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget(6, 2);
+            await encrypted.UnpackAsync(a, Path.Combine(root, "old-envelope"), false, 3, budget, default);
+            await plain.UnpackAsync(b, Path.Combine(root, "new-envelope"), true, 3, budget, default);
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => plain.UnpackAsync(b, Path.Combine(root, "over-limit"), true, 3, budget, default));
+            var wrong = new SevenZipArchiveProcessBackend(() => executable, () => "wrong", false, ".marker");
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => wrong.UnpackAsync(b, Path.Combine(root, "wrong"), true, 3, new(), default));
+            Assert.ThrowsExactly<InvalidOperationException>(() => plain.PackAsync(source, Path.Combine(root, "mismatch.7z"), true, default));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
     public void CredentialsAreRemovedFromBackendOutput()
         => Assert.AreEqual("command -p[redacted]: [redacted]", SevenZipArchiveProcessBackend.Redact("command -psecret: secret", "secret"));
 

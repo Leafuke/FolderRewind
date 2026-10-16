@@ -167,8 +167,7 @@ public sealed class NativeArtifactReplicaService
         }
         var bundle = Path.Combine(directory, id + ".bundle");
         var result = await _replicas.DownloadAsync(manifest, bundle, token,
-            (file, ct) => _store.ImportObjectsAsync(file, root, representation.RepresentationSpecificMetadata["storageSha256"], configId, folderId,
-                _replicas.ArtifactObjects ?? throw new InvalidOperationException("Artifact object transport is required."), ct));
+            (file, ct) => ImportDescriptorAsync(file, representation, configId, folderId, ct));
         if (result.Status == HistoryReplicaOperationStatus.Succeeded)
         {
             using (await _store.EnterAsync(token)) await _store.SaveTransferAsync(intent with { Complete = true }, token);
@@ -176,6 +175,18 @@ public sealed class NativeArtifactReplicaService
             using (await _store.EnterAsync(token)) File.Delete(path);
         }
         return result;
+    }
+
+    private Task<string> ImportDescriptorAsync(string path, VersionRepresentation representation, string configId, Guid folderId, CancellationToken token)
+    {
+        var root = Root(representation);
+        var descriptor = ArtifactMetadataFile.ReadJson<NativeArtifactObjectClosure>(path, 16 * 1024 * 1024)
+            ?? throw new InvalidDataException("Missing Native descriptor.");
+        var storedConfigId = descriptor.Objects?.SingleOrDefault(o => o.Node.ArtifactId == root)?.Node.ConfigId
+            ?? throw new InvalidDataException("Missing Native root binding.");
+        if (!new HistoryConfigId(configId).Matches(storedConfigId)) throw new InvalidDataException("Foreign Native configuration binding.");
+        return _store.ImportObjectsAsync(path, root, representation.RepresentationSpecificMetadata["storageSha256"], storedConfigId, folderId,
+            _replicas.ArtifactObjects ?? throw new InvalidOperationException("Artifact object transport is required."), token);
     }
 
     private static void RequireSupported(VersionRepresentation representation)

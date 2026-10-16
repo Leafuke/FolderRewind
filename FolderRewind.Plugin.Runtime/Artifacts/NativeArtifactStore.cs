@@ -348,7 +348,7 @@ public sealed partial class NativeArtifactStore
                 if (File.Exists(envelopePath))
                 {
                     var envelope = ArtifactMetadataFile.ReadJson<NativeEnvelope>(envelopePath, 4096) ?? throw new InvalidDataException();
-                    if (envelope.Version != 1) throw new InvalidDataException("Unknown envelope version.");
+                    if (envelope.Version != 1) throw new InvalidDataException("[history.unsupported-experimental-format] Unsupported Native envelope version.");
                     using (var blob = File.OpenRead(PayloadPath(node)))
                         if (blob.Length != node.StorageSize || !StringComparer.OrdinalIgnoreCase.Equals(
                             Convert.ToHexString(await SHA256.HashDataAsync(blob, token)), node.StorageSha256))

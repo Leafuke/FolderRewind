@@ -52,7 +52,8 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
 
     public Task UnpackAsync(string payload, string target, bool requiresEncryption, CancellationToken token)
     {
-        if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
+        if (requiresEncryption != encrypted) return new SevenZipArchiveProcessBackend(executablePath, credential, requiresEncryption,
+            restoreMarkerDirectory).UnpackLogicalTreeAsync(payload, target, token);
         return UnpackLogicalTreeAsync(payload, target, token);
     }
     public async Task PackLogicalTreeAsync(string source, string payload, CancellationToken token)
@@ -65,7 +66,8 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
     public Task UnpackAsync(string payload, string target, bool requiresEncryption, long maximumBytes,
         FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget budget, CancellationToken token)
     {
-        if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
+        if (requiresEncryption != encrypted) return new SevenZipArchiveProcessBackend(executablePath, credential, requiresEncryption,
+            restoreMarkerDirectory).UnpackLogicalTreeAsync(payload, target, token, maximumBytes, budget);
         return UnpackLogicalTreeAsync(payload, target, token, maximumBytes, budget);
     }
     public async Task UnpackLogicalTreeAsync(string payload, string target, CancellationToken token,

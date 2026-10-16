@@ -40,8 +40,10 @@ public sealed partial class HistoryMigrationBundleService
         Directory.CreateDirectory(root);
         if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) throw new IOException("Migration backup root cannot be a filesystem link.");
         var migration = project.Migration!;
+        if (NativePayloads(migration).Length > 0)
+            HostArtifactWorkspace.CreatePrivateDirectory(Path.Combine(root, ".folderrewind", "migration-native-v2"));
         var missing = new List<HistoryTransferPayloadFile>();
-        foreach (var payload in migration.PayloadFiles)
+        foreach (var payload in InstallationFiles(migration))
         {
             var destination = HistoryReplicaRecoveryService.ResolveUnderRoot(root, payload.RelativePath);
             if (File.Exists(destination)) { await VerifyPayloadAsync(root, destination, payload, token).ConfigureAwait(false); continue; }
@@ -49,17 +51,19 @@ public sealed partial class HistoryMigrationBundleService
             missing.Add(payload);
         }
         long required = missing.Aggregate(0L, (total, file) => checked(total + file.Size));
-        var drive = new DriveInfo(Path.GetPathRoot(root)!);
-        if (drive.AvailableFreeSpace < required + 16L * 1024 * 1024) throw new IOException("Insufficient free space to stage migration payloads.");
+        using var space = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(root, checked(required + 16L * 1024 * 1024)));
         var staging = PayloadStagingRoot(root, session);
         if (Directory.Exists(staging)) CleanupPayloadStaging(root, staging);
         EnsureDirectory(root, staging);
+        if (NativePayloads(migration).Length > 0)
+            HostArtifactWorkspace.CreatePrivateDirectory(Path.Combine(staging, ".folderrewind", "migration-native-v2"));
         var decided = false;
         try
         {
             using var zip = ZipFile.OpenRead(path);
             foreach (var file in missing)
             {
+                ValidateInstallationPath(migration, file);
                 var staged = HistoryReplicaRecoveryService.ResolveUnderRoot(staging, file.RelativePath);
                 EnsureDirectory(root, Path.GetDirectoryName(staged)!);
                 HistoryReplicaRecoveryService.RequireRegularPath(root, Path.GetDirectoryName(staged)!);
@@ -84,7 +88,7 @@ public sealed partial class HistoryMigrationBundleService
         await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(id, token).ConfigureAwait(false);
         foreach (var path in Directory.EnumerateFiles(directory, "*.json"))
         {
-            var header = JsonSerializer.Deserialize<HistoryMigrationPayloadJournal>(await File.ReadAllBytesAsync(path, token).ConfigureAwait(false), JsonOptions)
+            var header = JsonSerializer.Deserialize<HistoryMigrationPayloadJournal>(ArtifactMetadataFile.ReadBytes(path, 128 * 1024 * 1024), JsonOptions)
                 ?? throw new InvalidDataException("Migration payload journal is empty.");
             if (Path.GetFullPath(header.BackupRoot).Equals(Path.GetFullPath(backupRoot), StringComparison.OrdinalIgnoreCase))
                 await RecoverPayloadJournalAsync(path, id, Path.GetFullPath(backupRoot), token).ConfigureAwait(false);
@@ -93,16 +97,16 @@ public sealed partial class HistoryMigrationBundleService
 
     private async Task RecoverPayloadJournalAsync(string journalPath, HistoryConfigId expectedId, string expectedRoot, CancellationToken token)
     {
-        var journal = JsonSerializer.Deserialize<HistoryMigrationPayloadJournal>(await File.ReadAllBytesAsync(journalPath, token).ConfigureAwait(false), JsonOptions)
+        var journal = JsonSerializer.Deserialize<HistoryMigrationPayloadJournal>(ArtifactMetadataFile.ReadBytes(journalPath, 128 * 1024 * 1024), JsonOptions)
             ?? throw new InvalidDataException("Migration payload journal is empty.");
         if (journal.FormatVersion != 1 || journal.ConfigId != expectedId || !Guid.TryParseExact(journal.TransferId, "N", out _)
             || !Path.GetFullPath(journal.BackupRoot).Equals(expectedRoot, StringComparison.OrdinalIgnoreCase) || journal.StagedFiles.IsDefault)
             throw new InvalidDataException("Migration payload journal no longer matches the target project.");
         if (journal.Installed) return;
         var root = expectedRoot; var staging = PayloadStagingRoot(root, journal.TransferId);
-        foreach (var file in journal.Migration.PayloadFiles)
+        foreach (var file in InstallationFiles(journal.Migration))
         {
-            ValidateRelativePath(file.RelativePath);
+            ValidateInstallationPath(journal.Migration, file);
             var destination = HistoryReplicaRecoveryService.ResolveUnderRoot(root, file.RelativePath);
             if (File.Exists(destination)) { await VerifyPayloadAsync(root, destination, file, token).ConfigureAwait(false); continue; }
             if (!journal.StagedFiles.Contains(file.RelativePath)) throw new IOException("A previously existing migration payload disappeared.");

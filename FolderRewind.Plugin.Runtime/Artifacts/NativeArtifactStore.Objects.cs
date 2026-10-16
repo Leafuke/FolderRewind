@@ -26,6 +26,12 @@ public sealed partial class NativeArtifactStore
     {
         var descriptor = ArtifactMetadataFile.ReadJson<NativeArtifactObjectClosure>(path, 16 * 1024 * 1024)
             ?? throw new InvalidDataException("Empty closure descriptor.");
+        return ValidateObjectClosure(descriptor, root, storageHash, configId, folderId);
+    }
+
+    public static NativeArtifactObjectClosure ValidateObjectClosure(NativeArtifactObjectClosure descriptor, ArtifactId root,
+        string storageHash, string configId, Guid folderId)
+    {
         if (descriptor.Version != 2 || descriptor.Root != root || descriptor.Objects is null || descriptor.Objects.Count > 4096
             || descriptor.Objects.Any(o => o is null || o.Node is null || o.Envelope is null
                 || o.Node.ConfigId != configId || o.Node.FolderId != folderId || o.Envelope.Version != 1
