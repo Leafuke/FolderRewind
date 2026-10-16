@@ -4,7 +4,7 @@ namespace FolderRewind.Plugin.Abstractions;
 public static class KnotLinkCoreCommands
 {
     public static IReadOnlySet<string> FolderCommands { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    { "BACKUP", "LIST_BACKUPS", "RESTORE", "AUTO_BACKUP", "STOP_AUTO_BACKUP", "MARK_IMPORTANT", "GET_IMPORTANCE" };
+    { "BACKUP", "LIST_BACKUPS", "LIST_VERSIONS", "RESTORE", "AUTO_BACKUP", "STOP_AUTO_BACKUP", "MARK_IMPORTANT", "GET_IMPORTANCE" };
     public static IReadOnlySet<string> ConversationCommands { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     { "BACKUP", "RESTORE", "BACKUP_ALL", "AUTO_BACKUP", "STOP_AUTO_BACKUP", "MARK_IMPORTANT", "GET_IMPORTANCE" };
 
@@ -39,6 +39,7 @@ public static class KnotLinkCoreCommands
         Add("LIST_CONFIGS", "List backup configurations.", [], ["data"]);
         Add("LIST_FOLDERS", "List managed folders in a backup configuration.", [], ["data"]);
         Add("LIST_BACKUPS", "List backup archives for a managed folder.", [], ["data"]);
+        Add("LIST_VERSIONS", "List logical versions as JSON with stable version_id selectors.", [], ["data"]);
         Add("GET_CONFIG", "Get public settings for a backup configuration.", [], ["data"]);
         Add("GET_STATUS", "Get FolderRewind runtime status.", [], ["data"]);
         Add("BACKUP", "Start a backup for one managed folder.", backup, ["message"]);
@@ -47,11 +48,12 @@ public static class KnotLinkCoreCommands
             backup.Where(a => a.Name != "protect").Concat([Input("interval_minutes", "Required integer interval, at least 1 minute.", "10")]).ToArray(), ["message"]);
         Add("STOP_AUTO_BACKUP", "Stop periodic backup for one managed folder.", [], ["message"]);
         Add("GET_IMPORTANCE", "Query a backup version pin, not its restore readiness.",
-            [Input("file", "Required backup archive file name.")], ["file", "important"]);
+            [Input("version_id", "Stable Version ID; use either version_id or an unambiguous legacy file name."), Input("file", "Legacy file name; must identify one Version.")], ["version_id", "file", "important"]);
         Add("MARK_IMPORTANT", "Mark or unmark a backup archive as important.",
-            [Input("file", "Required backup archive file name."), Choice("important", "Optional importance flag; defaults to true.", ["true", "false"], "true")], ["message", "file", "important"]);
+            [Input("version_id", "Stable Version ID; use either version_id or an unambiguous legacy file name."), Input("file", "Legacy file name; must identify one Version."), Choice("important", "Optional importance flag; defaults to true.", ["true", "false"], "true")], ["message", "version_id", "file", "important"]);
         Add("RESTORE", "Restore a managed folder; default clean, partial backups always overwrite.",
-            [Input("file", "Optional archive name; omit for the active Workspace's unique local branch tip."),
+            [Input("version_id", "Optional stable Version ID; cannot be combined with file."),
+             Input("file", "Optional unambiguous legacy archive name; omit both selectors for the active Workspace's unique local branch tip."),
              Choice("mode", "Optional restore mode; default clean. Partial backups always overwrite.", ["overwrite", "clean"], "clean"),
              Input("restore_whitelist", "Optional rules appended to local rules: retain matching current paths during clean unless the archive supplies the same path."),
              Input("restore_preserve_paths", "One-shot comma-separated relative files or directories (trailing /). Exact current state wins, including deletions; no glob, root or traversal. Minecraft paths are relative to the unique managed world root."),

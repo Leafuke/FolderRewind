@@ -166,6 +166,7 @@
     <Compile Include="..\FolderRewind\Services\OnboardingRepairPolicy.cs" Link="Source\OnboardingRepairPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\OnboardingOperationBudgets.cs" Link="Source\OnboardingOperationBudgets.cs" />
     <Compile Include="..\FolderRewind\Models\OnboardingModels.cs" Link="Source\OnboardingModels.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryVersionFileSelector.cs" Link="Source\HistoryVersionFileSelector.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryVersionExportService.cs" Link="Source\History\Application\HistoryVersionExportService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryArchiveRecoveryService.cs" Link="Source\History\Application\HistoryArchiveRecoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />

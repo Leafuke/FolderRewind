@@ -139,27 +139,38 @@ public static class NativeHistoryCoreGateway
         var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
         var snapshot = await new HistoryPresentationQueryService(runtime)
             .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false);
-        var match = snapshot.Timeline.FirstOrDefault(item =>
-            StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
-        if (match is null) return false;
-        await runtime.Annotations.SetPinAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, match.VersionId.Value),
-            pinned,
-            cancellationToken).ConfigureAwait(false);
+        var versionId = HistoryVersionFileSelector.FindUnique(snapshot.Timeline.Select(item => (item.VersionId, item.FileName)), fileName);
+        if (versionId is null) return false;
+        return await SetVersionPinAsync(configId, sourceId, versionId.Value, pinned, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task<bool> SetVersionPinAsync(string configId, SourceId sourceId, VersionId versionId,
+        bool pinned, CancellationToken cancellationToken = default)
+    {
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
+        if (await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false) is not { } version || version.SourceId != sourceId) return false;
+        await runtime.Annotations.SetPinAsync(new(HistoryAnnotationTargetKind.Version, versionId.Value), pinned, cancellationToken).ConfigureAwait(false);
         return true;
     }
 
-    public static async Task<TimelineEntrySummary?> FindVersionByFileAsync(
-        string configId,
-        SourceId sourceId,
-        string fileName,
+    public static async Task<IReadOnlyList<TimelineEntrySummary>> ListVersionsAsync(string configId, SourceId sourceId, bool includeSuppressed = false,
         CancellationToken cancellationToken = default)
     {
         var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
-        return (await new HistoryPresentationQueryService(runtime)
-                    .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
-                .Timeline.FirstOrDefault(item => StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
+        return (await new HistoryPresentationQueryService(runtime).QueryAsync(sourceId, includeSuppressed, cancellationToken).ConfigureAwait(false)).Timeline;
     }
+
+    public static async Task<TimelineEntrySummary?> FindVersionByFileAsync(string configId, SourceId sourceId, string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        var entries = await ListVersionsAsync(configId, sourceId, true, cancellationToken).ConfigureAwait(false);
+        var id = HistoryVersionFileSelector.FindUnique(entries.Select(item => (item.VersionId, item.FileName)), fileName);
+        return id is null ? null : entries.Single(item => item.VersionId == id);
+    }
+
+    public static async Task<TimelineEntrySummary?> FindVersionByIdAsync(string configId, SourceId sourceId, VersionId versionId,
+        CancellationToken cancellationToken = default)
+        => (await ListVersionsAsync(configId, sourceId, true, cancellationToken).ConfigureAwait(false)).SingleOrDefault(item => item.VersionId == versionId);
 
     public static async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
         HistoryConfigSnapshot snapshot,

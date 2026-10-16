@@ -1,6 +1,6 @@
 {
   "specVersion": "1.0",
-  "manifestVersion": "3.0.0",
+  "manifestVersion": "3.1.0",
   "appName": "FolderRewind",
   "openSocket": {
     "auto_backup": {
@@ -401,7 +401,7 @@
         },
         "file": {
           "type": "input",
-          "description": "Required backup archive file name."
+          "description": "Legacy file name; must identify one Version."
         },
         "folder": {
           "type": "input",
@@ -414,12 +414,20 @@
         "request_id": {
           "type": "input",
           "description": "Required request correlation ID."
+        },
+        "version_id": {
+          "type": "input",
+          "description": "Stable Version ID; use either version_id or an unambiguous legacy file name."
         }
       },
       "returns": [
         [
           "Operation status.",
           "status"
+        ],
+        [
+          "Response version_id.",
+          "version_id"
         ],
         [
           "Response file.",
@@ -531,6 +539,36 @@
         ]
       ]
     },
+    "list_versions": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "List logical versions as JSON with stable version_id selectors.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "LIST_VERSIONS",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
+        },
+        "folder": {
+          "type": "input",
+          "description": "Required folder name, path, stable ID or zero-based index."
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response data.",
+          "data"
+        ]
+      ]
+    },
     "mark_important": {
       "appID": "0x00000020",
       "openSocketID": "0x00000010",
@@ -547,7 +585,7 @@
         },
         "file": {
           "type": "input",
-          "description": "Required backup archive file name."
+          "description": "Legacy file name; must identify one Version."
         },
         "folder": {
           "type": "input",
@@ -575,6 +613,10 @@
         "request_id": {
           "type": "input",
           "description": "Required request correlation ID."
+        },
+        "version_id": {
+          "type": "input",
+          "description": "Stable Version ID; use either version_id or an unambiguous legacy file name."
         }
       },
       "returns": [
@@ -585,6 +627,10 @@
         [
           "Response message.",
           "message"
+        ],
+        [
+          "Response version_id.",
+          "version_id"
         ],
         [
           "Response file.",
@@ -634,7 +680,7 @@
         },
         "file": {
           "type": "input",
-          "description": "Optional archive name; omit for the active Workspace's unique local branch tip."
+          "description": "Optional unambiguous legacy archive name; omit both selectors for the active Workspace's unique local branch tip."
         },
         "folder": {
           "type": "input",
@@ -684,6 +730,10 @@
         "restore_whitelist": {
           "type": "input",
           "description": "Optional rules appended to local rules: retain matching current paths during clean unless the archive supplies the same path."
+        },
+        "version_id": {
+          "type": "input",
+          "description": "Optional stable Version ID; cannot be combined with file."
         }
       },
       "returns": [
@@ -1279,6 +1329,32 @@
         "event": {
           "description": "Signal event name.",
           "verification": "list_folders"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
+        }
+      }
+    },
+    "list_versions": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Logical version list was queried.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "data": {
+          "description": "Encoded result data."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "list_versions"
+        },
+        "folder": {
+          "description": "Folder name."
         },
         "from": {
           "description": "Caller identifier when emitted in a command conversation."

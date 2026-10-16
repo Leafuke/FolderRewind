@@ -45,6 +45,9 @@ namespace FolderRewind.Services.KnotLink
 
         public static string? ValidateOptions(KnotLinkCommandRequest request)
         {
+            if (request.HasOption("version_id") && (!Guid.TryParse(request.GetString("version_id"), out var versionId) || versionId == Guid.Empty))
+                return "Invalid version_id.";
+            if (request.HasOption("version_id") && request.HasOption("file")) return "version_id and file cannot be combined.";
             foreach (var key in new[] { "current_save", "preserve_player_data", "important" })
                 if (request.HasOption(key) && request.GetBool(key) is null)
                     return $"Invalid boolean '{key}'.";
