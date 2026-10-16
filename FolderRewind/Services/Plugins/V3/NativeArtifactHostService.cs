@@ -114,13 +114,16 @@ internal static class NativeArtifactHostService
     {
         public ValueTask DisposeAsync() { foreach (var gate in gates.AsEnumerable().Reverse()) gate.Dispose(); return ValueTask.CompletedTask; }
     }
-    internal static Task RecoverInsideOperationAsync(BackupConfig config, HistoryRuntime history,
+    internal static async Task RecoverInsideOperationAsync(BackupConfig config, HistoryRuntime history,
         NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token)
     {
         operation.Require(history.ConfigId);
         if (string.IsNullOrWhiteSpace(config.DestinationPath)
-            || !Directory.Exists(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))) return Task.CompletedTask;
-        return NativeArtifactHistoryRecovery.RecoverAsync(history, Store(config), token);
+            || !Directory.Exists(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))) return;
+        var store = Store(config);
+        await NativeArtifactHistoryRecovery.RecoverAsync(history, store, token).ConfigureAwait(false);
+        await History.Cloud.NativeArtifactReplicaService.CompleteJobsAsync(store,
+            history.CloudJobs.Read().Jobs.Where(j => j.Protection != History.Cloud.CloudProtectionDisposition.Held).Select(j => j.JobId), token).ConfigureAwait(false);
     }
     internal static NativeArtifactStore Store(BackupConfig config, IArtifactEnvelopeCodec? codec = null)
         => new(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id), codec ?? new SevenZipHistoryArchiveBackend(config)

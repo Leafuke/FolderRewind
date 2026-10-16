@@ -76,6 +76,21 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         catch (Exception ex) { return new(false, 0, "", CloudCommandSecurity.Redact(ex.Message)); }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
+    public async Task<HistoryReplicaVerification> VerifyRemoteAsync(HistoryReplicaManifest expected, CancellationToken token)
+    {
+        if (expected.ArtifactRootId is null) return await VerifyRemoteAsync(expected.ReplicaId, token).ConfigureAwait(false);
+        if (ObserveJobPhase is not null) await ObserveJobPhase(CloudJobPhase.Verifying, token).ConfigureAwait(false);
+        var temporary = Temporary();
+        try
+        {
+            await DownloadAsync(expected, temporary, token).ConfigureAwait(false);
+            await using var input = File.OpenRead(temporary);
+            return new(true, input.Length, Convert.ToHexString(await SHA256.HashDataAsync(input, token).ConfigureAwait(false)), "");
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex) { return new(false, 0, "", CloudCommandSecurity.Redact(ex.Message)); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
     public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token)
         => WriteOnceAsync(ReplicaRoot(manifest.ReplicaId) + "/manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest, RcloneTransportJsonContext.Default.HistoryReplicaManifest), token);
     public async Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId replicaId, CancellationToken token)
@@ -94,7 +109,12 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         catch (JsonException ex) { throw new InvalidDataException("[cloud.manifest-invalid] " + CloudCommandSecurity.Redact(ex.Message), ex); }
     }
     public Task DownloadAsync(HistoryReplicaManifest manifest, string stagingPath, CancellationToken token)
-        => CopyAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, false, token);
+    {
+        if (manifest.ArtifactRootId is null) return CopyAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, false, token);
+        if (manifest.Size is < 1 or > 16 * 1024 * 1024) throw new InvalidDataException("Native descriptor exceeds its metadata budget.");
+        return DownloadBoundedAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, manifest.Size,
+            new FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget(16 * 1024 * 1024), token);
+    }
     public async Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token)
     {
         await RunAsync(["deletefile", ReplicaRoot(manifest.ReplicaId) + "/payload"], token).ConfigureAwait(false);

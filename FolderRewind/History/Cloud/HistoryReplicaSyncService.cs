@@ -42,7 +42,8 @@ public sealed class HistoryReplicaSyncService
         Guid? artifactRootId = null,
         CancellationToken cancellationToken = default,
         ReplicaId? stableReplicaId = null,
-        Func<HistoryReplicaManifest, CancellationToken, Task>? persistIntent = null)
+        Func<HistoryReplicaManifest, CancellationToken, Task>? persistIntent = null,
+        Func<CancellationToken, Task>? publishPayloadDependencies = null)
     {
         var replicaId = stableReplicaId ?? ReplicaId.New();
         try
@@ -55,8 +56,9 @@ public sealed class HistoryReplicaSyncService
             var intent = new HistoryReplicaManifest(representationId, replicaId, artifactRootId,
                 HistoryRepositoryPaths.CreateReplicaObjectKey(replicaId), expectedSize, expectedHash);
             if (persistIntent is not null) await persistIntent(intent, cancellationToken).ConfigureAwait(false);
+            if (publishPayloadDependencies is not null) await publishPayloadDependencies(cancellationToken).ConfigureAwait(false);
             await _transport.UploadAsync(replicaId, localPath, cancellationToken).ConfigureAwait(false);
-            var verification = await _transport.VerifyRemoteAsync(replicaId, cancellationToken).ConfigureAwait(false);
+            var verification = await _transport.VerifyRemoteAsync(intent, cancellationToken).ConfigureAwait(false);
             if (!verification.Success || verification.Size != expectedSize || !StringComparer.OrdinalIgnoreCase.Equals(verification.StorageSha256, expectedHash))
                 throw new InvalidDataException("Uploaded replica does not match the local payload: " + verification.Diagnostic);
             var objectKey = HistoryRepositoryPaths.CreateReplicaObjectKey(replicaId);

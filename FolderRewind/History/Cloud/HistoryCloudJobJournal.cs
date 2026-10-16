@@ -62,7 +62,14 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
                 || document.Jobs.Any(j => j is null || j.Target is null || !Guid.TryParseExact(j.JobId, "N", out _)
                     || j.ProjectId != history.ConfigId.Value || j.Target.ConfigId != history.ConfigId.Value
                     || !Enum.IsDefined(j.Phase) || !Enum.IsDefined(j.Protection) || j.Representations.IsDefault || j.UploadIntents.IsDefault
-                    || j.UploadIntents.Any(i => i is null) || j.Attempt < 0)
+                    || j.Representations.Length > 1000 || j.UploadIntents.Length > 1000
+                    || j.Representations.Any(r => r.Value == Guid.Empty) || j.Representations.Distinct().Count() != j.Representations.Length
+                    || j.UploadIntents.Any(i => i is null || i.RepresentationId.Value == Guid.Empty || i.ReplicaId.Value == Guid.Empty
+                        || i.Manifest is { } m && (m.RepresentationId != i.RepresentationId || m.ReplicaId != i.ReplicaId
+                            || m.ObjectKey != HistoryRepositoryPaths.CreateReplicaObjectKey(i.ReplicaId) || m.Size < 0
+                            || m.StorageSha256 is not { Length: 64 } hash || !hash.All(Uri.IsHexDigit)))
+                    || j.UploadIntents.Select(i => i.RepresentationId).Distinct().Count() != j.UploadIntents.Length
+                    || j.UploadIntents.Select(i => i.ReplicaId).Distinct().Count() != j.UploadIntents.Length || j.Attempt < 0)
                 || document.Jobs.Select(j => j.JobId).Distinct().Count() != document.Jobs.Length
                 || document.Admissions.Any(a => a is null || a.Target is null || a.BaselineTransactions.IsDefault || a.Target.ConfigId != history.ConfigId.Value))
                 throw new InvalidDataException("Cloud journal evidence is invalid.");
@@ -76,10 +83,12 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         try
         {
             if (document.Jobs.Length > 10000 || document.Admissions.Length > 1000) throw new InvalidDataException("Cloud journal capacity requires attention.");
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(document with { Revision = checked(document.Revision + 1) }, CloudJobJsonContext.Default.HistoryCloudJournalDocument);
+            if (bytes.Length > 16 * 1024 * 1024) throw new InvalidDataException("Cloud journal exceeds its metadata budget.");
             // 独立存在标记先于首次登记；Journal 丢失绝不能被误读成空队列，包括手动任务。
             if (!File.Exists(JournalPath + ".required")) AtomicFileService.Write(JournalPath + ".required", s => s.WriteByte(1));
             Checkpoint?.Invoke("before-journal-write");
-            AtomicFileService.Write(JournalPath, s => JsonSerializer.Serialize(s, document with { Revision = checked(document.Revision + 1) }, CloudJobJsonContext.Default.HistoryCloudJournalDocument));
+            AtomicFileService.Write(JournalPath, s => s.Write(bytes));
             history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.CloudJobChanged);
         }
         catch (Exception ex)
@@ -203,8 +212,23 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
     public void Update(HistoryCloudJob job)
     {
         var document = Read(); var previous = document.Jobs.Single(j => j.JobId == job.JobId);
-        if (previous.Target != job.Target || previous.PackId != job.PackId || !previous.Representations.SequenceEqual(job.Representations))
+        if (previous.Target != job.Target || previous.PackId != job.PackId || previous.TransactionId != job.TransactionId
+            || previous.ProjectId != job.ProjectId || previous.AdmissionId != job.AdmissionId || previous.Automatic != job.Automatic
+            || previous.CreatedUtc != job.CreatedUtc || !previous.Representations.SequenceEqual(job.Representations))
             throw new InvalidOperationException("Cloud intent target cannot be changed.");
+        if (job.Attempt < previous.Attempt || previous.Protection != CloudProtectionDisposition.Held
+            && (job.Protection != previous.Protection || job.Phase != previous.Phase))
+            throw new InvalidOperationException("Cloud intent cannot restore released protection or move attempts backwards.");
+        if (job.UploadIntents.IsDefault || job.UploadIntents.Length > 1000
+            || job.UploadIntents.Any(i => i is null || i.RepresentationId.Value == Guid.Empty || i.ReplicaId.Value == Guid.Empty
+                || i.Manifest is { } m && (m.RepresentationId != i.RepresentationId || m.ReplicaId != i.ReplicaId
+                    || m.ObjectKey != HistoryRepositoryPaths.CreateReplicaObjectKey(i.ReplicaId) || m.Size < 0
+                    || m.StorageSha256 is not { Length: 64 } hash || !hash.All(Uri.IsHexDigit)))
+            || job.UploadIntents.Select(i => i.RepresentationId).Distinct().Count() != job.UploadIntents.Length
+            || job.UploadIntents.Select(i => i.ReplicaId).Distinct().Count() != job.UploadIntents.Length
+            || previous.UploadIntents.Any(old => !job.UploadIntents.Any(i => i.RepresentationId == old.RepresentationId && i.ReplicaId == old.ReplicaId
+                && (old.Manifest is null || i.Manifest is not null && HistoryCloudReplicaValidity.Matches(i.Manifest, old.Manifest)))))
+            throw new InvalidOperationException("Cloud upload identity and published payload evidence cannot be replaced.");
         Save(document with { Jobs = document.Jobs.Replace(previous, job) });
     }
     public ImmutableArray<RepresentationId> ProtectedRoots()

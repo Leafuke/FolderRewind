@@ -127,7 +127,7 @@ internal static partial class NativeArtifactAcceptance
             var conf = Path.Combine(root, "p3-rclone.conf");
             await File.WriteAllTextAsync(conf, "[acceptance]\ntype = local\n");
             using var context = new RcloneExecutionContext(request.Rclone, conf, root,
-                "acceptance:" + Path.Combine(root, "p3-remote").Replace('\\', '/'), Path.Combine(root, "p3-rclone-tasks"));
+                "acceptance:p3-remote", Path.Combine(root, "p3-rclone-tasks"));
             var transport = new RcloneNativeHistoryTransport(context, 120);
             var metadata = new HistoryMetadataSyncService(history, transport);
             var replicas = new HistoryReplicaSyncService(history, transport, token => metadata.SyncAsync(token), new NoRetirement());
@@ -135,7 +135,8 @@ internal static partial class NativeArtifactAcceptance
             var representations = (await history.Query.GetAllRepresentationsAsync()).Where(r => r.Kind == RepresentationKind.PluginArtifact).ToArray();
             foreach (var representation in representations)
             {
-                var result = await native.UploadAsync(representation, default);
+                var job = await PrepareAcceptanceCloudJobAsync(history, representation, context);
+                var result = await native.UploadAsync(representation, history, job, default, configId: config.Id);
                 if (result.Status != HistoryReplicaOperationStatus.Succeeded) throw new IOException(result.Diagnostic);
             }
             var selected = representations.Last();

@@ -50,6 +50,7 @@ public sealed partial class NativeArtifactStore
         string configId, Guid folderId, CancellationToken token)
     {
         using var held = await EnterAsync(token);
+        await RecoverRepairsWithoutGateAsync(token);
         using var zip = ZipFile.OpenRead(bundle);
         var descriptor = zip.GetEntry("closure.json") ?? throw new InvalidDataException("Artifact closure descriptor missing.");
         if (descriptor.Length > 16 * 1024 * 1024 || zip.Entries.Count > 8193) throw new InvalidDataException("Artifact closure metadata quota exceeded.");
@@ -73,9 +74,11 @@ public sealed partial class NativeArtifactStore
         await using var staging = Ledger.CreateStagingArea(transaction, ArtifactTransformLimits.Default.MaximumFiles, ArtifactTransformLimits.Default.MaximumBytes);
         var facts = new Dictionary<ArtifactStagingHandle, StagedArtifactFacts>();
         var additions = new List<ArtifactLedgerEntry>();
-        var decoded = new ArtifactExtractionBudget();
         foreach (var node in closure.Nodes)
         {
+            // The complete declared sum was checked above. Each attempt is bounded to this node;
+            // a discarded failed realization must not spend the replacement's decoded allowance.
+            ArtifactExtractionBudget NodeBudget() => new(node.LogicalSize, node.LogicalEntryCount!.Value);
             var old = current.Artifacts.SingleOrDefault(n => n.ArtifactId == node.ArtifactId);
             if (old is not null)
             {
@@ -88,7 +91,7 @@ public sealed partial class NativeArtifactStore
                 var isolated = new ArtifactLedgerDocument(current.SchemaVersion, current.Revision, [old with { Dependencies = [] }]);
                 try
                 {
-                    await using (await OpenWithoutGateAsync(isolated, old.ArtifactId, new ActionLease(() => { }), token, decoded)) { }
+                    await using (await OpenWithoutGateAsync(isolated, old.ArtifactId, new ActionLease(() => { }), token, NodeBudget())) { }
                     continue;
                 }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
@@ -109,19 +112,10 @@ public sealed partial class NativeArtifactStore
             // Reuse exactly the same storage and logical verification as restore before publication.
             var temporaryGraph = graph with { Artifacts = closure.Nodes.Select(n => n.ArtifactId == node.ArtifactId
                 ? canonical with { ContentRelativePath = Path.GetRelativePath(Root, path).Replace('\\', '/'), Dependencies = [] } : n).ToArray() };
-            await using (await OpenWithoutGateAsync(temporaryGraph, node.ArtifactId, new ActionLease(() => { }), token, decoded)) { }
+            await using (await OpenWithoutGateAsync(temporaryGraph, node.ArtifactId, new ActionLease(() => { }), token, NodeBudget())) { }
             if (old is not null)
             {
-                var destination = ArtifactPathRules.ResolveUnderRoot(Root, old.ContentRelativePath);
-                var orphan = destination + ".repair-" + transaction;
-                if (Directory.Exists(destination)) Directory.Move(destination, orphan);
-                try { Directory.Move(path, destination); }
-                catch
-                {
-                    if (Directory.Exists(orphan) && !Directory.Exists(destination)) Directory.Move(orphan, destination);
-                    throw;
-                }
-                DeleteDirectory(orphan);
+                await RepairAsync(old, path, token);
                 continue;
             }
             facts.Add(allocation.Staging, new(node.ArtifactId, allocation.Staging, canonical.ContentRelativePath,

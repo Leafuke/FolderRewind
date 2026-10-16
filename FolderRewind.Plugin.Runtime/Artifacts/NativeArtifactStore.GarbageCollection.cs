@@ -73,13 +73,7 @@ public sealed partial class NativeArtifactStore
         var ledger = await Ledger.LoadAsync(token);
         var ids = ledger.Artifacts.Select(a => a.ArtifactId).ToHashSet();
         var pending = Pending();
-        var transfers = Path.Combine(Root, "transfers");
-        var transferRoots = Directory.Exists(transfers) ? Directory.EnumerateFiles(transfers, "*.json").Select(path =>
-        {
-            var transfer = ArtifactMetadataFile.ReadJson<NativeArtifactTransfer>(path, 1024 * 1024) ?? throw new InvalidDataException("Invalid transfer intent.");
-            if (transfer.Root.Value == Guid.Empty || transfer.Id != Path.GetFileNameWithoutExtension(path)) throw new InvalidDataException("Invalid transfer identity.");
-            return transfer;
-        }).Where(t => !t.Complete).Select(t => t.Root).ToArray() : [];
+        var transferRoots = Transfers().Where(t => !t.Complete).Select(t => t.Root).ToArray();
         var explicitRoots = roots.Distinct().ToArray();
         if (explicitRoots.Any(root => !ids.Contains(root)))
             throw new InvalidDataException("A protected Native root is absent; collection safety cannot be proved.");

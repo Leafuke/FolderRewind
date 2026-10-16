@@ -159,6 +159,28 @@ public sealed class NativeArtifactStoreTests
     }
 
     [TestMethod]
+    [DataRow("RepairPrepared:after")]
+    [DataRow("RepairOldMoved:after")]
+    [DataRow("RepairInstalled:after")]
+    public async Task ImportRepairsSurviveDirectorySwapInterruptionAndRepeatedRecovery(string fault)
+    {
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        var node = (await store.Ledger.LoadAsync()).Artifacts.Single(n => n.ArtifactId == root);
+        var bundle = Path.Combine(fixture.Root, "repair.zip"); await store.ExportAsync(root, bundle, default);
+        await File.WriteAllTextAsync(store.PayloadPath(node), "damaged");
+        var failed = new NativeArtifactStore(store.Root, new ZipCodec(), stage =>
+        { if (stage == fault) throw new IOException("injected repair interruption"); });
+        await Assert.ThrowsExactlyAsync<IOException>(() => failed.ImportAsync(bundle, root, node.StorageSha256,
+            "config", fixture.Folder.FolderId, default));
+        await store.RecoverAsync((_, _) => Task.FromResult(false), default);
+        await store.RecoverAsync((_, _) => Task.FromResult(false), default);
+        await using (await store.OpenAsync(root, default)) { }
+        Assert.IsFalse(Directory.EnumerateFileSystemEntries(Path.Combine(store.Root, "repairs")).Any());
+        Assert.HasCount(2, (await store.Ledger.LoadAsync()).Artifacts);
+    }
+
+    [TestMethod]
     [DataRow("GcPrepared:after")]
     [DataRow("GcGraphCommitted:after")]
     [DataRow("GcPhysicalDelete:after")]

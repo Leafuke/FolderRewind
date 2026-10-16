@@ -119,13 +119,13 @@ public static partial class CloudSyncService
             HistoryCloudJob? job;
             try
             {
-                job = runtime.CloudJobs.Read().Jobs.FirstOrDefault(j => j.Phase is CloudJobPhase.Pending or CloudJobPhase.RetryableFailure
+                job = runtime.CloudJobs.Read().Jobs.FirstOrDefault(j => j.Protection == CloudProtectionDisposition.Held && (j.Phase is CloudJobPhase.Pending or CloudJobPhase.RetryableFailure)
                     && j.NextEligibleUtc <= DateTimeOffset.UtcNow);
             }
             catch (Exception ex) { LogService.LogWarning(CloudCommandSecurity.Redact(ex.Message), nameof(CloudSyncService)); return; }
             if (job is null)
             {
-                if (!runtime.CloudJobs.Read().Jobs.Any(j => j.Phase is CloudJobPhase.Pending or CloudJobPhase.RetryableFailure)) return;
+                if (!runtime.CloudJobs.Read().Jobs.Any(j => j.Protection == CloudProtectionDisposition.Held && (j.Phase is CloudJobPhase.Pending or CloudJobPhase.RetryableFailure))) return;
                 await Task.Delay(1000, token).ConfigureAwait(false); continue;
             }
             await ExecuteCloudJobAsync(runtime, job, token).ConfigureAwait(false);
@@ -151,7 +151,8 @@ public static partial class CloudSyncService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(projectId, token).ConfigureAwait(false);
         await using var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false);
         var job = runtime.CloudJobs.Read().Jobs.Single(j => j.JobId == jobId);
-        if (job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.SyncingMetadata)
+        if (job.Protection != CloudProtectionDisposition.Held) return;
+        if (JobCancellation.ContainsKey(jobId) || job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.SyncingMetadata)
         {
             if (abandonProtection) throw new InvalidOperationException(I18n.GetString("CloudJob_RunningCannotRelease"));
             if (JobCancellation.TryGetValue(jobId, out var active)) active.Cancel();
@@ -159,6 +160,11 @@ public static partial class CloudSyncService
         }
         runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Canceled,
             Protection = abandonProtection ? CloudProtectionDisposition.Abandoned : job.Protection });
+        if (abandonProtection)
+        {
+            var config = ConfigService.CurrentConfig.BackupConfigs.Single(c => runtime.ConfigId.Matches(c.Id));
+            await CompleteNativeJobTransfersAsync(config, runtime, jobId, token).ConfigureAwait(false);
+        }
     }
 
     private static async Task<HistoryCloudBackupResult> ExecuteCloudJobAsync(HistoryRuntime runtime, HistoryCloudJob initial,
@@ -170,6 +176,7 @@ public static partial class CloudSyncService
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
         token = cancellation.Token; JobCancellation[initial.JobId] = cancellation;
         var job = initial;
+        HistoryCloudBackupResult? delivered = null;
         BackupTask? task = null;
         try
         {
@@ -190,12 +197,12 @@ public static partial class CloudSyncService
             }
             if (!IsFrozenTargetCurrent(job, out current) || current is null)
             {
-                runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.NeedsAttention, Diagnostic = "cloud.target-changed" });
+                await UpdateCloudJobAsync(runtime, job with { Phase = CloudJobPhase.NeedsAttention, Diagnostic = "cloud.target-changed" }).ConfigureAwait(false);
                 return Incomplete("cloud.target-changed");
             }
             if (job.Automatic && !current.Cloud.Enabled)
             {
-                runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Paused, Diagnostic = "cloud.job-paused" }); return Incomplete("cloud.job-paused");
+                await UpdateCloudJobAsync(runtime, job with { Phase = CloudJobPhase.Paused, Diagnostic = "cloud.job-paused" }).ConfigureAwait(false); return Incomplete("cloud.job-paused");
             }
             RequireMigrationCloudPermission(current);
             var profile = ConfigService.CurrentConfig.CloudConnections.SingleOrDefault(p => p.Id == job.Target.ProfileId);
@@ -223,7 +230,7 @@ public static partial class CloudSyncService
             var intents = job.UploadIntents.ToDictionary(i => i.RepresentationId);
             foreach (var id in closure) if (!intents.ContainsKey(id)) intents.Add(id, new(id, ReplicaId.New(), null));
             job = job with { UploadIntents = [.. intents.Values], Phase = CloudJobPhase.Uploading };
-            runtime.CloudJobs.Update(job); // 稳定 ReplicaId 必须先于对应远端写入落盘。
+            await UpdateCloudJobAsync(runtime, job).ConfigureAwait(false); // 稳定 ReplicaId 必须先于对应远端写入落盘。
             var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
             var transport = new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds);
             async Task ObservePhaseAsync(CloudJobPhase phase, CancellationToken ct)
@@ -245,10 +252,15 @@ public static partial class CloudSyncService
                 return await metadata.SyncAsync(ct).ConfigureAwait(false);
             });
             var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
-            var result = await service.UploadClosureAsync(job.Representations, (id, _) => Task.FromResult(
+            Task<string?> LocalPath(RepresentationId id, CancellationToken _) => Task.FromResult(
                 explicitLocalPath is not null && job.Representations.Length == 1 && job.Representations[0] == id ? explicitLocalPath
                     : catalog?.Entries.Where(e => e.RepresentationId == id && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
-                        .Select(e => e.Locator.AbsolutePath).FirstOrDefault(File.Exists)), token, id => intents[id].ReplicaId,
+                        .Select(e => e.Locator.AbsolutePath).FirstOrDefault(File.Exists));
+            HistoryReplicaPayloadProtocol payloads = new(LocalPath);
+            if (closure.Any(id => graph[id].Kind == RepresentationKind.PluginArtifact)) payloads = new NativeArtifactReplicaService(Plugins.V3.NativeArtifactHostService.Store(config),
+                new HistoryReplicaSyncService(runtime, transport, ct => metadata.SyncAsync(ct), new UploadOnlyRetirementGuard()))
+                .ForJob(runtime, job, LocalPath, config.Id);
+            var result = await service.UploadClosureAsync(job.Representations, LocalPath, token, id => intents[id].ReplicaId,
                 async (manifest, ct) =>
                 {
                     var intent = intents[manifest.RepresentationId];
@@ -257,20 +269,23 @@ public static partial class CloudSyncService
                     intents[manifest.RepresentationId] = intent with { Manifest = manifest };
                     await using var gate = await runtime.MutationGate.EnterAsync(ct).ConfigureAwait(false);
                     job = job with { UploadIntents = [.. intents.Values] }; runtime.CloudJobs.Update(job);
-                }).ConfigureAwait(false);
+                }, payloads).ConfigureAwait(false);
             if (result.Complete)
             {
                 context.TargetGuard();
                 await using var gate = await runtime.MutationGate.EnterAsync(CancellationToken.None).ConfigureAwait(false);
                 job = job with { Phase = CloudJobPhase.Succeeded, Protection = CloudProtectionDisposition.Released };
                 runtime.CloudJobs.Update(job); // 成功终态与解除保护一并原子持久化。
+                delivered = result;
+                try { await CompleteNativeJobTransfersAsync(config, runtime, job.JobId, CancellationToken.None).ConfigureAwait(false); }
+                catch (Exception cleanup) { LogService.LogWarning(CloudCommandSecurity.Redact(cleanup.Message), nameof(CloudSyncService)); }
             }
             else
             {
                 var diagnostic = result.Canceled ? "cloud.job-canceled" : string.Join("\n", result.Items.Where(i => i.State == HistoryCloudItemState.Failed).Select(i => i.Diagnostic));
                 if (result.Missing.Count > 0) diagnostic += "\n[cloud.payload-missing] " + string.Join(", ", result.Missing);
                 if (result.Metadata?.Succeeded == false) diagnostic += "\n[cloud.metadata-sync-failed] " + result.Metadata.Diagnostic;
-                RecordJobFailure(runtime, job, diagnostic, result.Canceled);
+                await RecordJobFailureAsync(runtime, job, diagnostic, result.Canceled).ConfigureAwait(false);
             }
             await RunOnUIAsync(() =>
             {
@@ -286,7 +301,12 @@ public static partial class CloudSyncService
         catch (Exception ex)
         {
             var diagnostic = CloudCommandSecurity.Redact(ex.Message);
-            try { RecordJobFailure(runtime, job, diagnostic, token.IsCancellationRequested); }
+            if (delivered is not null)
+            {
+                LogService.LogWarning("JobId: " + job.JobId + " " + diagnostic, nameof(CloudSyncService));
+                return delivered;
+            }
+            try { await RecordJobFailureAsync(runtime, job, diagnostic, token.IsCancellationRequested).ConfigureAwait(false); }
             catch (Exception journal) { runtime.CloudJobs.ObserveFailure(journal); }
             if (task is not null) await RunOnUIAsync(() => { task.IsCompleted = true; task.IsSuccess = false; task.IsIndeterminate = false; task.Status = I18n.GetString("CloudJob_ProtectedPending"); task.ErrorMessage = diagnostic; }).ConfigureAwait(false);
             LogService.LogWarning("JobId: " + job.JobId + " " + diagnostic, nameof(CloudSyncService));
@@ -295,8 +315,22 @@ public static partial class CloudSyncService
         }
         finally { JobCancellation.TryRemove(initial.JobId, out _); CommandSemaphore.Release(); }
     }
-    private static void RecordJobFailure(HistoryRuntime runtime, HistoryCloudJob job, string diagnostic, bool canceled)
+    private static Task CompleteNativeJobTransfersAsync(BackupConfig config, HistoryRuntime runtime, string jobId, CancellationToken token)
     {
+        if (!System.IO.Directory.Exists(Plugin.Runtime.Artifacts.NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))) return Task.CompletedTask;
+        return NativeArtifactReplicaService.CompleteJobAsync(Plugins.V3.NativeArtifactHostService.Store(config), jobId, token);
+    }
+
+    private static async Task UpdateCloudJobAsync(HistoryRuntime runtime, HistoryCloudJob job)
+    {
+        await using var gate = await runtime.MutationGate.EnterAsync(CancellationToken.None).ConfigureAwait(false);
+        runtime.CloudJobs.Update(job);
+    }
+    private static async Task RecordJobFailureAsync(HistoryRuntime runtime, HistoryCloudJob job, string diagnostic, bool canceled)
+    {
+        await using var gate = await runtime.MutationGate.EnterAsync(CancellationToken.None).ConfigureAwait(false);
+        job = runtime.CloudJobs.Read().Jobs.Single(j => j.JobId == job.JobId);
+        if (job.Protection != CloudProtectionDisposition.Held) return;
         var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(job.ProjectId).Matches(c.Id));
         var maximumAttempts = Math.Clamp(current?.Cloud.RetryCount ?? 0, 0, 5) + 1;
         var paused = job.Automatic && current?.Cloud.Enabled == false;

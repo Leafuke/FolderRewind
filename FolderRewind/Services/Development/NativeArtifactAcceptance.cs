@@ -11,6 +11,7 @@ using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Merge;
 using FolderRewind.History.Cloud;
+using FolderRewind.History.Storage;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Retention;
 using FolderRewind.History.Representation;
@@ -243,16 +244,17 @@ internal static partial class NativeArtifactAcceptance
         var conf = Path.Combine(request.Workspace, "fault-rclone.conf");
         await File.WriteAllTextAsync(conf, "[acceptance]\ntype = local\n");
         using var context = new RcloneExecutionContext(request.Rclone!, conf, request.Workspace,
-            "acceptance:" + Path.Combine(request.Workspace, "fault-remote").Replace('\\', '/'), Path.Combine(request.Workspace, "rclone-tasks"));
+            "acceptance:fault-remote", Path.Combine(request.Workspace, "rclone-tasks"));
         var real = new RcloneNativeHistoryTransport(context, 120);
         var fault = new FaultTransport(real) { InterruptUpload = true };
         var metadata = new HistoryMetadataSyncService(history, real);
         var replicas = new HistoryReplicaSyncService(history, fault, token => metadata.SyncAsync(token), new NoRetirement());
         var native = new NativeArtifactReplicaService(NativeArtifactHostService.Store(config), replicas);
-        var interrupted = await native.UploadAsync(plugin, default);
+        var job = await PrepareAcceptanceCloudJobAsync(history, plugin, context);
+        var interrupted = await native.UploadAsync(plugin, history, job, default, configId: config.Id);
         if (interrupted.Status != HistoryReplicaOperationStatus.Failed || (await history.Query.GetStorageReplicasAsync(plugin.RepresentationId)).Count != 0)
             throw new IOException("Interrupted upload advertised a recoverable Replica.");
-        var retried = await native.UploadAsync(plugin, default);
+        var retried = await native.UploadAsync(plugin, history, job, default, configId: config.Id);
         if (retried.Status != HistoryReplicaOperationStatus.Succeeded || retried.ReplicaId != interrupted.ReplicaId)
             throw new IOException("Upload retry lost its persistent identity.");
         var row = (await history.Query.GetStorageReplicasAsync(plugin.RepresentationId)).Single();
@@ -265,6 +267,22 @@ internal static partial class NativeArtifactAcceptance
             throw new IOException("Corrupt download changed the local catalog.");
         var repaired = await native.DownloadAsync(plugin, manifest, config.Id, Guid.Parse(request.SourceId), default);
         if (repaired.Status != HistoryReplicaOperationStatus.Succeeded) throw new IOException("Download retry failed: " + repaired.Diagnostic);
+    }
+
+    private static async Task<HistoryCloudJob> PrepareAcceptanceCloudJobAsync(HistoryRuntime history,
+        VersionRepresentation representation, RcloneExecutionContext context)
+    {
+        var pack = (await history.Repository.ReadAllPacksAsync()).First(p => p.Pack.Objects.Any(o =>
+            o.Kind == HistoryObjectKinds.VersionRepresentation && o.Id == representation.RepresentationId.ToString())).Pack;
+        await using var gate = await history.MutationGate.EnterAsync(default);
+        var job = history.CloudJobs.RegisterManual(pack, new("acceptance", "fixture", "binding", context.RemoteRoot, history.ConfigId.Value),
+            [representation.RepresentationId]);
+        if (job.UploadIntents.IsEmpty)
+        {
+            job = job with { UploadIntents = [new(representation.RepresentationId, ReplicaId.New(), null)] };
+            history.CloudJobs.Update(job);
+        }
+        return job;
     }
 
     private sealed class FaultTransport(IHistoryReplicaTransport inner) : IHistoryReplicaTransport
@@ -319,15 +337,16 @@ internal static partial class NativeArtifactAcceptance
         var conf = Path.Combine(request.Workspace, "rclone.conf");
         if (!File.Exists(conf)) await File.WriteAllTextAsync(conf, "[acceptance]\ntype = local\n");
         using var context = new RcloneExecutionContext(request.Rclone ?? throw new InvalidOperationException("Rclone executable required."), conf,
-            request.Workspace, "acceptance:" + Path.Combine(request.Workspace, "remote").Replace('\\', '/'), Path.Combine(request.Workspace, "rclone-tasks"));
+            request.Workspace, "acceptance:remote", Path.Combine(request.Workspace, "rclone-tasks"));
         var transport = new RcloneNativeHistoryTransport(context, 120);
         var metadata = new HistoryMetadataSyncService(history, transport);
         var replicas = new HistoryReplicaSyncService(history, transport, token => metadata.SyncAsync(token), new NoRetirement());
         var native = new NativeArtifactReplicaService(NativeArtifactHostService.Store(config), replicas);
         if (upload)
         {
-            var first = await native.UploadAsync(plugin, default);
-            var retry = await native.UploadAsync(plugin, default);
+            var job = await PrepareAcceptanceCloudJobAsync(history, plugin, context);
+            var first = await native.UploadAsync(plugin, history, job, default, configId: config.Id);
+            var retry = await native.UploadAsync(plugin, history, job, default, configId: config.Id);
             if (first.Status != HistoryReplicaOperationStatus.Succeeded || retry.Status != first.Status || first.ReplicaId != retry.ReplicaId)
                 throw new IOException("Native Cloud upload/retry failed: " + first.Diagnostic + retry.Diagnostic);
             var result = await replicas.UploadAsync(core.RepresentationId, corePath);

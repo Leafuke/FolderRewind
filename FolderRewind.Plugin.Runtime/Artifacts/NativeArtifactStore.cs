@@ -28,7 +28,11 @@ public sealed record NativeArtifactPending(string Id, string VersionId, string R
     public bool TemporaryCoreInput { get; init; }
     public string? CorePayloadSha256 { get; init; }
 }
-public sealed record NativeArtifactTransfer(string Id, ArtifactId Root, string RepresentationId, string ReplicaId, bool Complete);
+public sealed record NativeArtifactTransfer(string Id, ArtifactId Root, string RepresentationId, string ReplicaId, bool Complete)
+{
+    public string? JobId { get; init; }
+    public string? TargetFingerprint { get; init; }
+}
 /// <summary>Host-owned, operation-scoped input; never persisted as a Representation.</summary>
 public sealed record NativeArtifactPrimaryInput(ArtifactContentHandle Content, HostArtifactReadService Read);
 
@@ -134,7 +138,10 @@ public sealed partial class NativeArtifactStore
         using var held = await EnterAsync(token);
         var pending = Pending(); // validate all intents before any cleanup
         _ = ReadGarbageIntents();
+        _ = ReadRepairIntents();
+        _ = Transfers();
         await Ledger.RecoverAsync(token);
+        await RecoverRepairsWithoutGateAsync(token);
         await RecoverGarbageWithoutGateAsync(token);
         foreach (var intent in pending)
         {

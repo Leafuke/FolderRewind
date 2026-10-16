@@ -3,84 +3,188 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.Linq;
+using System.Security.Cryptography;
+using FolderRewind.History.Application;
+using FolderRewind.History.Representation;
 using FolderRewind.History.Domain;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Artifacts;
 
 namespace FolderRewind.History.Cloud;
 
-public sealed class NativeArtifactReplicaService(NativeArtifactStore store, HistoryReplicaSyncService replicas)
+public sealed class NativeArtifactReplicaService
 {
-    public async Task<HistoryReplicaOperationResult> UploadAsync(VersionRepresentation representation, CancellationToken token)
+    private readonly NativeArtifactStore _store;
+    private readonly HistoryReplicaSyncService _replicas;
+    public NativeArtifactReplicaService(NativeArtifactStore store, HistoryReplicaSyncService replicas)
+    { _store = store; _replicas = replicas; }
+    public HistoryReplicaPayloadProtocol ForJob(HistoryRuntime history, HistoryCloudJob job,
+        Func<RepresentationId, CancellationToken, Task<string?>> localPath, string? configId = null)
+        => new PayloadProtocol(this, history, job, configId ?? history.ConfigId.Value, localPath);
+
+    public async Task<HistoryReplicaOperationResult> UploadAsync(VersionRepresentation representation, HistoryRuntime history,
+        HistoryCloudJob job, CancellationToken token, Func<HistoryReplicaManifest, CancellationToken, Task>? persistIntent = null, string? configId = null)
     {
-        var root = Root(representation);
-        var id = "upload-" + representation.RepresentationId;
-        var directory = Path.Combine(store.Root, "transfers"); Directory.CreateDirectory(directory);
-        using var gate = new FileStream(Path.Combine(directory, id + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        var path = Path.Combine(directory, id + ".json");
-        NativeArtifactTransfer intent;
-        using (await store.EnterAsync(token))
+        var replicaId = job.UploadIntents.Single(i => i.RepresentationId == representation.RepresentationId).ReplicaId;
+        using var payload = await ForJob(history, job, (_, _) => Task.FromResult<string?>(null), configId)
+            .PrepareAsync(representation, replicaId, token);
+        persistIntent ??= async (manifest, ct) =>
         {
-            intent = File.Exists(path) ? JsonSerializer.Deserialize<NativeArtifactTransfer>(await File.ReadAllTextAsync(path, token))!
-                : new(id, root, representation.RepresentationId.ToString(), ReplicaId.New().ToString(), false);
-            Validate(intent, id, root, representation);
-            await NativeArtifactStore.WriteAsync(path, intent with { Complete = false }, token);
-        }
-        var bundle = Path.Combine(directory, id + ".bundle");
-        var temp = bundle + ".tmp";
-        if (File.Exists(temp)) File.Delete(temp);
-        try
+            await using var held = await history.MutationGate.EnterAsync(ct);
+            var current = history.CloudJobs.Read().Jobs.Single(j => j.JobId == job.JobId);
+            var intent = current.UploadIntents.Single(i => i.RepresentationId == representation.RepresentationId);
+            if (intent.Manifest is { } previous && !HistoryCloudReplicaValidity.Matches(manifest, previous))
+                throw new InvalidDataException("[cloud.payload-changed] Native descriptor differs from the durable Job intent.");
+            history.CloudJobs.Update(current with { UploadIntents = current.UploadIntents.Replace(intent, intent with { Manifest = manifest }) });
+        };
+        var result = await _replicas.UploadAsync(representation.RepresentationId, payload!.Path, Root(representation).Value,
+            token, replicaId, persistIntent, payload.PublishAsync);
+        if (result.Status == HistoryReplicaOperationStatus.Succeeded) await payload.CompleteAsync(token);
+        return result;
+    }
+
+    private sealed class PayloadProtocol(NativeArtifactReplicaService owner, HistoryRuntime history, HistoryCloudJob job, string configId,
+        Func<RepresentationId, CancellationToken, Task<string?>> localPath) : HistoryReplicaPayloadProtocol(localPath)
+    {
+        public override async Task<PreparedHistoryReplicaPayload?> PrepareAsync(VersionRepresentation representation, ReplicaId replicaId, CancellationToken token)
         {
-            if (representation.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence"))
-                await store.ExportObjectsAsync(root, temp, replicas.ArtifactObjects
-                    ?? throw new InvalidOperationException("Cloud transport does not support incremental Artifact objects."), token);
-            else await store.ExportAsync(root, temp, token);
-            File.Move(temp, bundle, true);
-            var result = await replicas.UploadAsync(representation.RepresentationId, bundle, root.Value, token,
-                ReplicaId.Parse(intent.ReplicaId));
-            if (result.Status == HistoryReplicaOperationStatus.Succeeded)
+            if (representation.Kind != RepresentationKind.PluginArtifact) return await base.PrepareAsync(representation, replicaId, token);
+            RequireSupported(representation);
+            if (!history.ConfigId.Matches(configId) || job.Protection != CloudProtectionDisposition.Held || job.ProjectId != history.ConfigId.Value
+                || job.Target.ConfigId != history.ConfigId.Value
+                || !job.UploadIntents.Any(i => i.RepresentationId == representation.RepresentationId && i.ReplicaId == replicaId))
+                throw new InvalidDataException("Native transfer must belong to the durable Cloud Job intent.");
+            var durable = history.CloudJobs.Read().Jobs.Single(j => j.JobId == job.JobId);
+            if (durable.Protection != CloudProtectionDisposition.Held || durable.Target != job.Target || durable.PackId != job.PackId
+                || !durable.UploadIntents.Any(i => i.RepresentationId == representation.RepresentationId && i.ReplicaId == replicaId))
+                throw new InvalidDataException("Native transfer differs from the durable Cloud Job.");
+            var root = Root(representation);
+            var id = "job-" + Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(job.JobId))).ToLowerInvariant()
+                + "-" + replicaId;
+            var directory = Path.Combine(owner._store.Root, "transfers"); HostArtifactWorkspace.CreatePrivateDirectory(directory);
+            var held = new FileStream(Path.Combine(directory, id + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+            var path = Path.Combine(directory, id + ".json");
+            var bundle = Path.Combine(directory, id + ".bundle");
+            try
             {
-                using (await store.EnterAsync(token)) await NativeArtifactStore.WriteAsync(path, intent with { Complete = true }, token);
-                File.Delete(bundle);
+                var expected = new NativeArtifactTransfer(id, root, representation.RepresentationId.ToString(), replicaId.ToString(), false)
+                { JobId = job.JobId, TargetFingerprint = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(job.Target))) };
+                using (await owner._store.EnterAsync(token))
+                {
+                    if (File.Exists(path))
+                    {
+                        var previous = ArtifactMetadataFile.ReadJson<NativeArtifactTransfer>(path, 1024 * 1024);
+                        if (previous is null || previous with { Complete = false } != expected)
+                            throw new InvalidDataException("Native transfer conflicts with the frozen Cloud Job target or identity.");
+                    }
+                    await owner._store.SaveTransferAsync(expected, token);
+                }
+                await owner._store.WriteObjectDescriptorAsync(root, bundle, token);
+                var version = await history.Query.GetVersionAsync(representation.VersionId, token)
+                    ?? throw new InvalidDataException("Native source Version is missing.");
+                return new(bundle, ct => owner._store.PublishObjectsAsync(bundle, root,
+                    representation.RepresentationSpecificMetadata["storageSha256"], configId, version.SourceId.Value,
+                    owner._replicas.ArtifactObjects ?? throw new InvalidOperationException("Artifact object transport is required."), ct),
+                    async ct =>
+                    {
+                        using (await owner._store.EnterAsync(ct)) await owner._store.SaveTransferAsync(expected with { Complete = true }, ct);
+                        File.Delete(bundle);
+                    }, held.Dispose);
             }
-            return result;
+            catch { held.Dispose(); throw; }
         }
-        finally { if (File.Exists(temp)) File.Delete(temp); }
+
+        public override async Task<bool> CanReuseAsync(VersionRepresentation representation, HistoryReplicaManifest manifest,
+            IHistoryReplicaTransport transport, CancellationToken token)
+        {
+            if (representation.Kind != RepresentationKind.PluginArtifact) return await base.CanReuseAsync(representation, manifest, transport, token);
+            RequireSupported(representation);
+            if (manifest.Size is < 1 or > 16 * 1024 * 1024 || transport is not INativeArtifactObjectTransport objects) return false;
+            var file = Path.Combine(owner._store.Root, "transfers", "probe-" + Guid.NewGuid().ToString("N") + ".bundle");
+            HostArtifactWorkspace.CreatePrivateDirectory(Path.GetDirectoryName(file)!);
+            try
+            {
+                await transport.DownloadAsync(manifest, file, token);
+                await using (var input = File.OpenRead(file))
+                    if (input.Length != manifest.Size || !StringComparer.OrdinalIgnoreCase.Equals(
+                        Convert.ToHexString(await SHA256.HashDataAsync(input, token)), manifest.StorageSha256)) return false;
+                var version = await history.Query.GetVersionAsync(representation.VersionId, token)
+                    ?? throw new InvalidDataException("Native source Version is missing.");
+                var descriptor = NativeArtifactStore.ReadObjectClosure(file, Root(representation),
+                    representation.RepresentationSpecificMetadata["storageSha256"], configId, version.SourceId.Value);
+                return await NativeArtifactStore.AreObjectsAvailableAsync(descriptor, objects, token);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException) { return false; }
+            finally { if (File.Exists(file)) File.Delete(file); }
+        }
+    }
+
+    public static Task CompleteJobAsync(NativeArtifactStore store, string jobId, CancellationToken token)
+        => CompleteJobsAsync(store, [jobId], token);
+
+    public static async Task CompleteJobsAsync(NativeArtifactStore store, System.Collections.Generic.IEnumerable<string> jobIds, CancellationToken token)
+    {
+        var completed = jobIds.ToHashSet(StringComparer.Ordinal);
+        if (completed.Count == 0) return;
+        var directory = Path.Combine(store.Root, "transfers");
+        if (!Directory.Exists(directory)) return;
+        using var held = await store.EnterAsync(token);
+        foreach (var transfer in store.Transfers().Where(t => t.JobId is not null && completed.Contains(t.JobId)))
+        {
+            var path = Path.Combine(directory, transfer.Id + ".json");
+            using (var operation = new FileStream(Path.ChangeExtension(path, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+            {
+                // The caller has durably completed or explicitly abandoned a stopped Cloud Job.
+                await store.SaveTransferAsync(transfer with { Complete = true }, token);
+                var bundle = Path.ChangeExtension(path, ".bundle"); if (File.Exists(bundle)) File.Delete(bundle);
+                File.Delete(path);
+            }
+            File.Delete(Path.ChangeExtension(path, ".lock"));
+        }
     }
 
     public async Task<HistoryReplicaOperationResult> DownloadAsync(VersionRepresentation representation, HistoryReplicaManifest manifest,
         string configId, Guid folderId, CancellationToken token)
     {
+        RequireSupported(representation);
         var root = Root(representation);
         if (manifest.ArtifactRootId != root.Value || manifest.RepresentationId != representation.RepresentationId)
             throw new InvalidDataException("Remote Artifact binding mismatch.");
         var id = "download-" + manifest.ReplicaId;
-        var directory = Path.Combine(store.Root, "transfers"); Directory.CreateDirectory(directory);
-        using var gate = new FileStream(Path.Combine(directory, id + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        var directory = Path.Combine(_store.Root, "transfers"); HostArtifactWorkspace.CreatePrivateDirectory(directory);
+        using var gate = new FileStream(Path.Combine(directory, id + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
         var intent = new NativeArtifactTransfer(id, root, representation.RepresentationId.ToString(), manifest.ReplicaId.ToString(), false);
         var path = Path.Combine(directory, id + ".json");
-        using (await store.EnterAsync(token)) await NativeArtifactStore.WriteAsync(path, intent, token);
+        using (await _store.EnterAsync(token))
+        {
+            if (File.Exists(path))
+            {
+                var previous = ArtifactMetadataFile.ReadJson<NativeArtifactTransfer>(path, 1024 * 1024);
+                if (previous is null || previous with { Complete = false } != intent) throw new InvalidDataException("Download intent mismatch.");
+            }
+            await _store.SaveTransferAsync(intent, token);
+        }
         var bundle = Path.Combine(directory, id + ".bundle");
-        var result = await replicas.DownloadAsync(manifest, bundle, token,
-            (file, ct) => representation.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence")
-                ? store.ImportObjectsAsync(file, root, representation.RepresentationSpecificMetadata["storageSha256"], configId, folderId,
-                    replicas.ArtifactObjects ?? throw new InvalidOperationException("Cloud transport does not support incremental Artifact objects."), ct)
-                : store.ImportAsync(file, root, representation.RepresentationSpecificMetadata["storageSha256"], configId, folderId, ct));
+        var result = await _replicas.DownloadAsync(manifest, bundle, token,
+            (file, ct) => _store.ImportObjectsAsync(file, root, representation.RepresentationSpecificMetadata["storageSha256"], configId, folderId,
+                _replicas.ArtifactObjects ?? throw new InvalidOperationException("Artifact object transport is required."), ct));
         if (result.Status == HistoryReplicaOperationStatus.Succeeded)
         {
-            using (await store.EnterAsync(token)) await NativeArtifactStore.WriteAsync(path, intent with { Complete = true }, token);
+            using (await _store.EnterAsync(token)) await _store.SaveTransferAsync(intent with { Complete = true }, token);
             File.Delete(bundle);
+            using (await _store.EnterAsync(token)) File.Delete(path);
         }
         return result;
     }
 
+    private static void RequireSupported(VersionRepresentation representation)
+    {
+        if (!NativePluginArtifactBackend.IsSupported(representation))
+            throw new InvalidDataException("[history.unsupported-experimental-format] Native evidence v2 is required.");
+    }
     private static ArtifactId Root(VersionRepresentation representation)
         => representation.Kind == RepresentationKind.PluginArtifact
             ? new(Guid.Parse(representation.RepresentationSpecificMetadata["artifactRootId"]))
             : throw new InvalidOperationException("Native Artifact representation required.");
-    private static void Validate(NativeArtifactTransfer? intent, string id, ArtifactId root, VersionRepresentation representation)
-    {
-        if (intent is null || intent.Id != id || intent.Root != root || intent.RepresentationId != representation.RepresentationId.ToString()
-            || !Guid.TryParse(intent.ReplicaId, out _)) throw new InvalidDataException("Transfer intent mismatch.");
-    }
 }
