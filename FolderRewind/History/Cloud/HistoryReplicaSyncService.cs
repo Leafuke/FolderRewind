@@ -18,6 +18,8 @@ public sealed class HistoryReplicaSyncService
 {
     private readonly HistoryRuntime _history;
     private readonly IHistoryReplicaTransport _transport;
+    public FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport? ArtifactObjects
+        => _transport as FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport;
     private readonly Func<CancellationToken, Task<HistoryMetadataSyncResult>> _syncMetadata;
     private readonly IHistoryReplicaRetirementGuard _retirementGuard;
     private readonly HistoryPackCodec _codec = new();
@@ -93,7 +95,8 @@ public sealed class HistoryReplicaSyncService
     public async Task<HistoryReplicaOperationResult> DownloadAsync(
         HistoryReplicaManifest manifest,
         string finalLocalPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<string, CancellationToken, Task<string>>? importVerifiedPayload = null)
     {
         var staging = finalLocalPath + ".download-" + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -119,7 +122,9 @@ public sealed class HistoryReplicaSyncService
             {
                 File.Move(staging, finalLocalPath, false);
             }
-            await RegisterLocalAsync(manifest.RepresentationId, finalLocalPath, cancellationToken).ConfigureAwait(false);
+            var registrationPath = importVerifiedPayload is null ? finalLocalPath
+                : await importVerifiedPayload(finalLocalPath, cancellationToken).ConfigureAwait(false);
+            await RegisterLocalAsync(manifest.RepresentationId, registrationPath, cancellationToken).ConfigureAwait(false);
             await _history.Index.UpsertObservationAsync(new HistoryReplicaObservation(
                 manifest.ReplicaId.ToString(), ReplicaAvailabilityObservation.Available,
                 ReplicaIntegrityObservation.Verified, DateTimeOffset.UtcNow, "Downloaded and verified."), cancellationToken)

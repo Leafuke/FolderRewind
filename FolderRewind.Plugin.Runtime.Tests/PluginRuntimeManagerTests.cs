@@ -15,6 +15,32 @@ public sealed class PluginRuntimeManagerTests
     private static readonly DiscoveryProviderId SharedDiscoveryId = new("com.folderrewind.shared-discovery");
 
     [TestMethod]
+    public async Task ArtifactCommitGuardRunsAfterDrainAndRejectionPreservesPriorProvider()
+    {
+        var manager = new PluginRuntimeManager();
+        await manager.ActivateAsync(Candidate(PluginOneId, PluginWithDiscovery("old"), new FakeStore()));
+        var lease = manager.TryAcquire<IDiscoveryCapability>(PluginOneId)!;
+        var checkedArtifacts = false;
+        var store = new FakeStore();
+        var candidate = Candidate(PluginOneId, PluginWithDiscovery("new"), store) with
+        {
+            CommitGuard = _ =>
+            {
+                checkedArtifacts = true;
+                throw new InvalidDataException("Candidate cannot read the newly committed protected format.");
+            }
+        };
+        var transition = manager.ReplaceAsync(candidate).AsTask();
+        Assert.IsFalse(checkedArtifacts); Assert.IsFalse(transition.IsCompleted);
+        lease.Dispose();
+        Assert.IsFalse((await transition).Success);
+        Assert.IsTrue(checkedArtifacts); Assert.IsEmpty(store.Commits);
+        using var surviving = manager.TryAcquire<IDiscoveryCapability>(PluginOneId);
+        Assert.IsNotNull(surviving);
+        Assert.AreEqual("old", ((FakeDiscovery)surviving.Capability).Marker);
+    }
+
+    [TestMethod]
     public async Task ActivationCommitsBeforeCapabilitiesBecomeAvailable()
     {
         var store = new FakeStore();

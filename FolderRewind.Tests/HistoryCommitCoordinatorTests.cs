@@ -207,6 +207,54 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task NativePairCommitsOneVersionAndSurvivesRepositoryRestart()
+    {
+        var source = SourceId.New();
+        var version = VersionId.New();
+        var artifactRoot = Guid.NewGuid();
+        await using (var runtime = await CreateRuntimeAsync())
+        {
+            var core = CreateCapture(source, "core", -1, null);
+            var plugin = CreateCapture(source, "plugin", -1, null);
+            var candidate = new RepresentationCandidate(plugin.RepresentationCandidate!.RepresentationId,
+                RepresentationKind.PluginArtifact, "test/full", [], MaterializationFidelity.Exact, null, core.StateFingerprint,
+                new Dictionary<string, string> { ["pairedCoreRepresentationId"] = core.RepresentationCandidate!.RepresentationId.ToString(),
+                    ["artifactRootId"] = artifactRoot.ToString("D") });
+            var paired = core with { ReservedVersionId = version, AdditionalRepresentations =
+                [new(candidate, plugin.LocalReplicaCandidate!, plugin.PayloadCandidate!)] };
+            var batch = await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "world")), null, paired));
+            Assert.HasCount(1, batch.NewVersions); Assert.AreEqual(version, batch.NewVersions[0].VersionId);
+            Assert.HasCount(2, batch.NewRepresentations);
+            Assert.IsTrue(batch.NewRepresentations.All(r => r.VersionId == version && r.DependencyRepresentationIds.IsEmpty));
+            Assert.HasCount(1, batch.NewCheckpoints); Assert.HasCount(1, batch.NewBranchUpdates);
+            Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+        }
+        await using var reopened = await CreateRuntimeAsync();
+        Assert.HasCount(1, await reopened.Query.GetAllVersionsAsync());
+        Assert.HasCount(2, await reopened.Query.GetAllRepresentationsAsync());
+        Assert.HasCount(2, (await reopened.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries);
+        var engine = new FolderRewind.History.Representation.RepresentationRuntime(
+            [new FolderRewind.History.Representation.CoreArchiveRepresentationHandler(new PairArchiveBackend())]);
+        var catalog = (await reopened.LocalReplicaCatalogStore.LoadAsync()).Value!;
+        var planner = new FolderRewind.History.Retention.HistoryRetentionPlanner(reopened, engine,
+            _ => Task.FromResult<FolderRewind.History.Representation.IRepresentationEnvironment>(
+                new FolderRewind.History.Representation.RepresentationEnvironment(catalog.Entries, [], [])),
+            new FolderRewind.History.Retention.FileSystemHistoryLocalPayloadStore());
+        var plan = await planner.PlanAsync(new(1, FolderRewind.History.Retention.HistoryRetentionOperationRoots.Empty, true));
+        Assert.IsTrue(plan.CanExecute, string.Join(";", plan.Blockers));
+        Assert.IsEmpty(plan.LocalPayloadDeletions);
+        CollectionAssert.AreEqual(new[] { artifactRoot }, plan.ProtectedArtifactRootIds.ToArray());
+    }
+
+    private sealed class PairArchiveBackend : FolderRewind.History.Representation.IArchiveRepresentationBackend
+    {
+        public ValueTask<FolderRewind.History.Representation.PayloadVerificationResult> VerifyAsync(VersionRepresentation r, string p, CancellationToken t)
+            => ValueTask.FromResult(new FolderRewind.History.Representation.PayloadVerificationResult(true, "fixture", ""));
+        public ValueTask MaterializeAsync(IReadOnlyList<FolderRewind.History.Representation.ArchiveMaterializationInput> inputs, string path, CancellationToken token)
+            => throw new NotSupportedException();
+    }
+
+    [TestMethod]
     public async Task IndependentRecoveryPointCommitsSourceCheckpointsWithoutAdvancingBranches()
     {
         await using var runtime = await CreateRuntimeAsync();

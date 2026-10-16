@@ -7035,4 +7035,97 @@ Task log
   <data name="MigrationWizard_ReconnectCloud.Content" xml:space="preserve"><value>Reconnect cloud storage…</value></data>
   <data name="MigrationWizard_RecheckCloud.Content" xml:space="preserve"><value>Check again</value></data>
   <data name="MigrationWizard_CloudPermissionNoticeTitle" xml:space="preserve"><value>Cloud permission pending</value></data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>Download and prepare install</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>Update package preparation</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>The update package is ready (source: {0}). Please right-click and run the following script to continue installation:
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>Open install folder</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>Failed to open install folder: {0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>Failed to prepare update package: {0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>Invalid update context. Please try again later.</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>This release does not provide matching .7z or .sha256 assets for your platform.</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>No update download source is available. Please check mirror settings.</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>Unable to parse .sha256 file content.</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>Checksum failed for source "{0}" (SHA256 mismatch).</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>Failed to start 7z extraction process.</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>Extraction failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>Package extracted, but Install.ps1 was not found. Please install manually from the release page.</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>Download failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>Failed to prepare update package. Please try again later.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
+    <value>Sync scope</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
+    <value>Only sync this configuration's history</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
+    <value>Sync history and download all backups</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
+    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and downloaded {2} backup package(s).</value>
+  </data>
+  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
+    <value>Download installer</value>
+  </data>
+  <data name="SettingsCard_SemanticBackup.Header" xml:space="preserve"><value>Semantic backup (experimental)</value></data>
+  <data name="SemanticBackup_Description.Text" xml:space="preserve"><value>Use a compatible plugin to store domain-level changes with byte-exact restoration. Off by default. Sparse changes save space; dense changes and self-contained checkpoints may be slower.</value></data>
+  <data name="SemanticBackup_EnableLabel.Text" xml:space="preserve"><value>Enable experimental semantic incremental backup</value></data>
+  <data name="SemanticBackup_Enable.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SemanticBackup_Enable.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SemanticBackup_Refresh.Content" xml:space="preserve"><value>Refresh plugin availability</value></data>
+  <data name="SemanticBackup_ExperimentalWarning.Text" xml:space="preserve"><value>Restoring these versions requires a compatible plugin. Turning this off preserves semantic history; the next ordinary backup establishes a full file baseline. Retiring a cloud replica does not reclaim shared data, which may continue to occupy space.</value></data>
+  <data name="SemanticBackup_FallbackLabel.Text" xml:space="preserve"><value>Allow a full file backup if transformation fails</value></data>
+  <data name="SemanticBackup_Fallback.OnContent" xml:space="preserve"><value>Fall back with a warning</value></data>
+  <data name="SemanticBackup_Fallback.OffContent" xml:space="preserve"><value>Stop without a new version</value></data>
+  <data name="SemanticBackup_FallbackHint.Text" xml:space="preserve"><value>Fallback requires a source that can still be captured safely. A missing plugin may block backup. A failed manual checkpoint is never replaced with an ordinary backup.</value></data>
+  <data name="SemanticBackup_CheckpointHeader.Text" xml:space="preserve"><value>Self-contained checkpoint</value></data>
+  <data name="SemanticBackup_CheckpointDescription.Text" xml:space="preserve"><value>Create a self-contained checkpoint for every source in this configuration, even with no file changes. Settings are saved first. This takes extra time and space and does not guarantee reclamation of old data. Restoring still requires a compatible plugin.</value></data>
+  <data name="SemanticBackup_CancelCheckpoint.Content" xml:space="preserve"><value>Cancel checkpoint</value></data>
+  <data name="SemanticBackup_UnsupportedConfiguration" xml:space="preserve"><value>Requires complete sources in Smart or Full mode. Add a source and turn off region/subset selection. Rolling mode is not supported.</value></data>
+  <data name="SemanticBackup_ProviderUnavailable" xml:space="preserve"><value>No compatible capture and restore plugin is available, or the existing policy does not match. Install and enable a supporting plugin, then refresh. MineRewind currently supports Java worlds.</value></data>
+  <data name="SemanticBackup_EnabledHint" xml:space="preserve"><value>Enabled in these settings; save to apply. Smart mode processes content in changed files only. The first backup establishes a full baseline.</value></data>
+  <data name="SemanticBackup_DisabledHint" xml:space="preserve"><value>Currently off. Existing configurations are not migrated automatically.</value></data>
+  <data name="SemanticBackup_SaveCheckpoint" xml:space="preserve"><value>Save and create checkpoint</value></data>
+  <data name="SemanticBackup_CreateCheckpoint" xml:space="preserve"><value>Create checkpoint</value></data>
+  <data name="SemanticBackup_CheckpointRunning" xml:space="preserve"><value>Saving settings and creating a self-contained checkpoint…</value></data>
+  <data name="SemanticBackup_CheckpointSucceeded" xml:space="preserve"><value>Checkpoint committed. View it in History.</value></data>
+  <data name="SemanticBackup_CheckpointWarnings" xml:space="preserve"><value>Checkpoint committed with follow-up warnings. Check the log.</value></data>
+  <data name="SemanticBackup_CheckpointCanceled" xml:space="preserve"><value>Operation canceled. Check History to see whether a commit completed before cancellation.</value></data>
+  <data name="SemanticBackup_CheckpointFailed" xml:space="preserve"><value>Checkpoint did not complete. Check the log; no ordinary backup was committed as a checkpoint.</value></data>
+  <data name="SemanticBackup_CheckpointRecoveryRequired" xml:space="preserve"><value>History commit requires recovery. Resolve the recovery prompt before creating another checkpoint.</value></data>
+  <data name="SemanticBackup_CheckpointStableRequired" xml:space="preserve"><value>A semantic checkpoint requires a stable source view from a compatible plugin.</value></data>
+  <data name="SemanticBackup_CheckpointUnavailable" xml:space="preserve"><value>Explicitly enable experimental semantic backup with complete sources in Smart or Full mode first.</value></data>
+  <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>Manual semantic checkpoint</value></data>
 </root>

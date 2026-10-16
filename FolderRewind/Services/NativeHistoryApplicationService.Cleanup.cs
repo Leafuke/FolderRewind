@@ -60,7 +60,10 @@ internal static partial class NativeHistoryApplicationService
                         : Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(Path.Combine(ConfigService.ConfigDirectory, "encrypted_passwords.dat"), token).ConfigureAwait(false)));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { signature += Guid.NewGuid().ToString(); }
-            var result = await new HistoryCleanupCoordinator(runtime, engine, archive, planner, GetRewriteBackupRoot(config))
+            Func<CancellationToken, Task>? collectArtifacts = Directory.Exists(Plugin.Runtime.Artifacts.NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))
+                ? ct => NativeArtifactRetention.CollectAsync(runtime, planner, Plugins.V3.NativeArtifactHostService.Store(config), config.Archive.KeepCount, ct)
+                : null;
+            var result = await new HistoryCleanupCoordinator(runtime, engine, archive, planner, GetRewriteBackupRoot(config), collectArtifacts)
                 .ExecuteAsync(config.Archive.KeepCount, config.Archive.MaxSmartBackupsPerFull, policy, automatic, signature, progress, token).ConfigureAwait(false);
             if (result is not null)
             {

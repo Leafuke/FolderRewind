@@ -16,7 +16,8 @@ namespace FolderRewind.Services;
 
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
-    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend
+    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend,
+    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, IBoundedPrimaryArchiveBackend
 {
     private readonly Dictionary<string, ArchiveSafeListing> _safeListings = new(StringComparer.OrdinalIgnoreCase);
     public bool TryGetListing(string path, out ArchiveSafeListing? listing) => _safeListings.TryGetValue(Path.GetFullPath(path), out listing);
@@ -34,6 +35,45 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             return new(false, string.Empty, "Archive entries are unsafe or could not be validated.");
         _safeListings[Path.GetFullPath(path)] = new(files, directories);
         return new(true, "safe-listing; full content not tested", string.Empty);
+    }
+    // Bound independently of world size. Envelope jobs operate on disjoint immutable packs.
+    public int MaximumConcurrency => Math.Min(4, Math.Max(1, Environment.ProcessorCount / 2));
+    public async Task MaterializePrimaryAsync(string archive, string directory, CancellationToken token)
+    {
+        await UnpackLogicalTreeAsync(archive, directory, token).ConfigureAwait(false);
+        var marker = Path.Combine(directory, restoreMarkerDirectory);
+        if (Directory.Exists(marker)) Directory.Delete(marker, true);
+    }
+    public Task PackAsync(string source, string payload, bool requiresEncryption, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
+        return PackLogicalTreeAsync(source, payload, token);
+    }
+
+    public Task UnpackAsync(string payload, string target, bool requiresEncryption, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
+        return UnpackLogicalTreeAsync(payload, target, token);
+    }
+    public async Task PackLogicalTreeAsync(string source, string payload, CancellationToken token)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(payload))!);
+        if (File.Exists(payload)) throw new IOException("Envelope output already exists.");
+        var result = await RunAsync("a", payload, null, source, token).ConfigureAwait(false);
+        if (!result.Success) throw new InvalidDataException(result.Diagnostic);
+    }
+    public async Task UnpackLogicalTreeAsync(string payload, string target, CancellationToken token)
+    {
+        if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()) throw new IOException("Envelope workspace must be empty.");
+        var list = await RunAsync("l", payload, null, null, token).ConfigureAwait(false);
+        // Extraction validates CRC/decryption too; avoid a redundant complete test pass.
+        if (!list.Success || !SevenZipArchiveListingParser.TryParse(list.Output, out var entries)
+            || entries.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
+            || entries.Values.Sum(e => e.Size) > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes)
+            throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");
+        Directory.CreateDirectory(target);
+        var result = await RunAsync("x", payload, target, null, token).ConfigureAwait(false);
+        if (!result.Success) throw new InvalidDataException(result.Diagnostic);
     }
     public async ValueTask<PayloadVerificationResult> VerifyAsync(
         VersionRepresentation representation,
@@ -302,6 +342,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             start.ArgumentList.Add("-r-");
         }
         if (operation == "a") start.ArgumentList.Add(Path.Combine(Path.GetFullPath(workingDirectory!), "*"));
+        if (operation == "a" && encrypted) start.ArgumentList.Add("-mhe=on");
         start.ArgumentList.Add("-y");
         if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);
         using var process = new Process { StartInfo = start };
@@ -310,6 +351,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         var processHandle = process.Handle; // 保持内核进程对象至统计完成，短命子进程退出后不再查询 Process 属性。
         HistoryOperationDiagnostics.Current?.Count("7z-" + operation);
         if (operation == "t") HistoryOperationDiagnostics.Current?.Count("archive-bytes-tested", new FileInfo(archivePath).Length);
+        using var observation = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.ObserveProcess(process, operation);
         process.StandardInput.Close(); // 缺少密码时失败关闭，不等待不可见的交互输入。
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();

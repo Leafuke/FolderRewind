@@ -22,6 +22,31 @@ internal sealed class ConfigSettingsDraftService
     }
     public bool IsDirty => Serialize(Draft) != _baseline;
     public void AcceptInitialNormalization() => _baseline = Serialize(Draft);
+    // A backup updates timestamps in the saved configuration. Rebase only those known
+    // runtime facts; unrelated configuration edits must still produce a stale-draft error.
+    internal void RefreshBackupTimesAfterOperation()
+    {
+        var current = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == _original.Id);
+        if (current is null || !ReferenceEquals(current, _original)) return;
+        var expected = JsonSerializer.Deserialize(_expected, AppJsonContext.Default.BackupConfig)!;
+        var comparison = ConfigSnapshotMapper.Copy(current);
+        foreach (var folder in comparison.SourceFolders)
+        {
+            var prior = expected.SourceFolders.FirstOrDefault(f => f.Id == folder.Id);
+            if (prior is not null) folder.LastBackupTime = prior.LastBackupTime;
+        }
+        if (Serialize(comparison) != _expected) return;
+        var baseline = JsonSerializer.Deserialize(_baseline, AppJsonContext.Default.BackupConfig)!;
+        foreach (var saved in current.SourceFolders)
+        {
+            var draftFolder = Draft.SourceFolders.FirstOrDefault(f => f.Id == saved.Id);
+            var baselineFolder = baseline.SourceFolders.FirstOrDefault(f => f.Id == saved.Id);
+            if (draftFolder is not null) draftFolder.LastBackupTime = saved.LastBackupTime;
+            if (baselineFolder is not null) baselineFolder.LastBackupTime = saved.LastBackupTime;
+        }
+        _expected = Serialize(current);
+        _baseline = Serialize(baseline);
+    }
     private static string Serialize(BackupConfig config) => JsonSerializer.Serialize(config, AppJsonContext.Default.BackupConfig);
     public Task<ConfigSaveResult> CommitAsync() => CommitAsync(default);
     public async Task<ConfigSaveResult> CommitAsync(System.Threading.CancellationToken token)

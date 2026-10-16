@@ -9,7 +9,11 @@ public sealed record PluginActivationCandidate(
     IReadOnlyList<ConfigSnapshot> Configs,
     IPluginHostServices HostServices,
     IPluginActivationStore Store,
-    PluginManifestContract? Manifest = null);
+    PluginManifestContract? Manifest = null)
+{
+    // Host-only guard acquired after draining the prior session, held through registry publication.
+    public Func<CancellationToken, ValueTask<IAsyncDisposable>>? CommitGuard { get; init; }
+}
 
 public sealed record PluginActivationCommit(
     PluginId PluginId,

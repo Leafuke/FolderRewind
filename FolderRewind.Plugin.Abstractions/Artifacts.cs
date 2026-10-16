@@ -107,7 +107,11 @@ public sealed record ArtifactTransformRequest(
     IReadOnlyDictionary<string, JsonElement> Parameters,
     IArtifactReadService ArtifactRead,
     IArtifactTransformStaging Staging,
-    IPluginOperationProgress Progress);
+    IPluginOperationProgress Progress)
+{
+    public ArtifactIncrementalInput? IncrementalInput { get; init; }
+    public IReadOnlyList<BackupArtifactSnapshot> ReadableArtifacts { get; init; } = Array.Empty<BackupArtifactSnapshot>();
+}
 
 public sealed record StagedArtifactNode(
     ArtifactId ArtifactId,
@@ -127,7 +131,11 @@ public sealed record ArtifactGraphPatch(
 public sealed record ArtifactTransformResult(
     OperationOutcome Outcome,
     ArtifactGraphPatch? Patch,
-    IReadOnlyList<PluginDiagnostic> Diagnostics);
+    IReadOnlyList<PluginDiagnostic> Diagnostics)
+{
+    /// <summary>Requests validation of every file after self-contained compaction.</summary>
+    public bool RequiresFullVerification { get; init; }
+}
 
 public interface IBackupCompletionObserverCapability : IPluginCapability
 {

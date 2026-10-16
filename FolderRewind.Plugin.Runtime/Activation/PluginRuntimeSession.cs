@@ -13,17 +13,20 @@ internal sealed class PluginRuntimeSession
         IFolderRewindPlugin plugin,
         CapabilityRegistrationSet registrations,
         IPluginHostServices hostServices,
-        CancellationTokenSource lifetime)
+        CancellationTokenSource lifetime,
+        PluginManifestContract? manifest = null)
     {
         PluginId = pluginId;
         Plugin = plugin;
         Registrations = registrations;
         HostServices = hostServices;
         Lifetime = lifetime;
+        Manifest = manifest;
         State = PluginRuntimeState.Active;
     }
 
     public PluginId PluginId { get; }
+    public PluginManifestContract? Manifest { get; }
     public IFolderRewindPlugin Plugin { get; }
     public CapabilityRegistrationSet Registrations { get; }
     public IPluginHostServices HostServices { get; }

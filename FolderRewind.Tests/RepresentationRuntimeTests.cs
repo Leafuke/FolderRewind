@@ -221,6 +221,28 @@ public sealed class RepresentationRuntimeTests
     }
 
     [TestMethod]
+    public async Task InlineVerificationRejectsCorruptionAndDoesNotWeakenExplicitDeepVerify()
+    {
+        _plugin.InlineVerification = true;
+        var representation = new VersionRepresentation(RepresentationId.New(), _versionId, RepresentationKind.PluginArtifact,
+            "test", [], MaterializationFidelity.Exact, null, null, new Dictionary<string, string>
+            {
+                [PluginArtifactRepresentationHandler.ArtifactRootIdMetadataKey] = Guid.NewGuid().ToString("D"),
+                [PluginArtifactRepresentationHandler.PluginIdMetadataKey] = "plugin.test"
+            });
+        await _runtime.MaterializeAsync(representation.RepresentationId, [representation], Environment(),
+            MaterializationFidelity.Exact, Path.Combine(_root, "verified"));
+        Assert.AreEqual(0, _plugin.VerificationCount);
+        Assert.AreEqual(1, _plugin.MaterializeCount);
+        _plugin.Corrupt = true;
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => _runtime.MaterializeAsync(representation.RepresentationId,
+            [representation], Environment(), MaterializationFidelity.Exact, Path.Combine(_root, "rejected")));
+        var deep = await _runtime.AssessVersionAsync(_versionId, [representation], Environment(), AssessmentDepth.Deep, MaterializationFidelity.Exact);
+        Assert.AreEqual(HistoryReadiness.Unavailable, deep.Readiness);
+        Assert.AreEqual(1, _plugin.VerificationCount);
+    }
+
+    [TestMethod]
     public async Task ExactRequirementRejectsPartialButOrdinaryRestoreCanSelectIt()
     {
         var partial = CreateRepresentation(RepresentationKind.LegacyArchive, MaterializationFidelity.Partial);
@@ -310,8 +332,12 @@ public sealed class RepresentationRuntimeTests
         }
     }
 
-    private sealed class FakePluginBackend : IPluginArtifactBackend
+    private sealed class FakePluginBackend : IPluginArtifactBackend, IInlineVerifiedMaterializer
     {
+        public bool InlineVerification { get; set; }
+        public bool Corrupt { get; set; }
+        public int VerificationCount { get; private set; }
+        public bool CanVerifyDuringMaterialization(VersionRepresentation representation) => InlineVerification;
         public bool PluginAvailable { get; set; } = true;
         public int ProbeCount { get; private set; }
         public int MaterializeCount { get; private set; }
@@ -333,7 +359,10 @@ public sealed class RepresentationRuntimeTests
             Guid artifactRootId,
             string pluginId,
             CancellationToken cancellationToken)
-            => ValueTask.FromResult(new PayloadVerificationResult(true, "verified", string.Empty));
+        {
+            VerificationCount++;
+            return ValueTask.FromResult(new PayloadVerificationResult(!Corrupt, "verified", Corrupt ? "corrupt" : string.Empty));
+        }
 
         public ValueTask MaterializeAsync(
             Guid artifactRootId,
@@ -342,6 +371,7 @@ public sealed class RepresentationRuntimeTests
             CancellationToken cancellationToken)
         {
             MaterializeCount++;
+            if (InlineVerification && Corrupt) throw new InvalidDataException("Inline verification rejected corruption.");
             return ValueTask.CompletedTask;
         }
     }

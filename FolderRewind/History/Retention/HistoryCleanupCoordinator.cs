@@ -16,7 +16,8 @@ namespace FolderRewind.History.Retention;
 
 /// <summary>The caller owns the configuration operation lease for the complete run.</summary>
 public sealed class HistoryCleanupCoordinator(HistoryRuntime history, RepresentationRuntime engine,
-    IHistoryChainRewriteArchiveBackend archive, HistoryRetentionPlanner planner, string backupRoot)
+    IHistoryChainRewriteArchiveBackend archive, HistoryRetentionPlanner planner, string backupRoot,
+    Func<CancellationToken, Task>? collectArtifacts = null)
 {
     public async Task<HistoryCleanupReport?> ExecuteAsync(int keepCount, int maximumDepth,
         HistoryRetentionBenefitPolicy policy, bool automatic, string compressionSignature,
@@ -119,6 +120,8 @@ public sealed class HistoryCleanupCoordinator(HistoryRuntime history, Representa
                         { pending.Status = "Blocked"; pending.Issues.Add(new("RecoveryRequired")); }
                     }
                     if (result.ReasonCode == "NoSpaceBenefit" && fingerprint is not null) cache[groupId] = fingerprint;
+                    if (!stopAfterGroup && collectArtifacts is not null)
+                        await collectArtifacts(token).ConfigureAwait(false);
                     foreach (var row in rows)
                     {
                         if (stopAfterGroup) { row.After = null; continue; }

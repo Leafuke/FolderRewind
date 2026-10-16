@@ -163,13 +163,19 @@ internal static class PluginV3BackupSourceResolver
                 intent);
         }
 
-        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy))
+        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id))
         {
             var diagnosticOwner = string.IsNullOrWhiteSpace(config.ArtifactTransformPolicy?.Transformer?.PluginId)
                 ? owner.Value
                 : config.ArtifactTransformPolicy.Transformer.PluginId;
             return Block(config, folder, NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode, diagnosticOwner, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
         }
+
+        if (NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(config.ArtifactTransformPolicy)
+            && ExperimentalArtifactPolicyService.UnavailableReason(config) is { } reason)
+            return Block(config, folder, ExperimentalArtifactPolicyService.UnavailableDiagnostic, owner.Value,
+                diagnostics, activePluginId, configSnapshot, folderSnapshot, intent, "ArtifactTransform",
+                new Dictionary<string, string> { ["resourceKey"] = reason });
 
         var effectiveBoundary = boundaryResolution.Boundary;
         return new PluginV3BackupSourceResolution(

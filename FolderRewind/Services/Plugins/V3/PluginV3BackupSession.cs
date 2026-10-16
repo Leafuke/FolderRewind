@@ -40,6 +40,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public IReadOnlyList<PluginDiagnostic> Diagnostics => _diagnostics;
     public bool IsBlocked => _resolution.IsBlocked;
     public string SourcePath => _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
+    public bool HasStableSourceView => _captureLeaseOwner.StableSourcePath is not null;
 
     public static async ValueTask<PluginV3BackupSession> PrepareAsync(
         BackupConfig originalConfig,

@@ -7035,4 +7035,97 @@ Pull Request：{1}</value>
   <data name="MigrationWizard_ReconnectCloud.Content" xml:space="preserve"><value>重新连接云存储…</value></data>
   <data name="MigrationWizard_RecheckCloud.Content" xml:space="preserve"><value>重新检查</value></data>
   <data name="MigrationWizard_CloudPermissionNoticeTitle" xml:space="preserve"><value>云操作待确认</value></data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>下载并准备安装</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>更新包准备结果</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>更新包已准备完成（来源：{0}）。请右键运行以下脚本继续安装：
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>打开安装目录</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>无法打开安装目录：{0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>更新包准备失败：{0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>更新上下文无效，请稍后重试。</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>当前版本未提供适配你设备的 .7z 或 .sha256 资产，无法自动准备更新。</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>没有可用的更新下载源，请检查镜像配置。</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>无法解析 .sha256 文件内容。</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>源“{0}”校验失败（SHA256 不匹配）。</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>无法启动 7z 解压进程。</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>源“{0}”解压失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>更新包已解压，但未找到 Install.ps1，请改为手动下载并安装。</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>源“{0}”下载失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>准备更新包失败，请稍后重试。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
+    <value>同步范围</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
+    <value>仅同步此配置历史记录</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
+    <value>同步历史记录和所有备份到本地</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
+    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并下载了 {2} 个备份包。</value>
+  </data>
+  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
+    <value>下载安装程序</value>
+  </data>
+  <data name="SettingsCard_SemanticBackup.Header" xml:space="preserve"><value>语义备份（实验性）</value></data>
+  <data name="SemanticBackup_Description.Text" xml:space="preserve"><value>使用兼容插件按领域内容保存增量，并保持字节一致恢复。默认关闭；稀疏变化节省空间，密集变化和自包含检查点可能更慢。</value></data>
+  <data name="SemanticBackup_EnableLabel.Text" xml:space="preserve"><value>启用实验性语义增量备份</value></data>
+  <data name="SemanticBackup_Enable.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="SemanticBackup_Enable.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SemanticBackup_Refresh.Content" xml:space="preserve"><value>刷新插件可用性</value></data>
+  <data name="SemanticBackup_ExperimentalWarning.Text" xml:space="preserve"><value>恢复这些历史版本需要兼容插件。关闭本功能不会删除已有语义版本；下一次普通备份将建立完整文件基线。云端副本退役不等于共享数据已回收，旧数据仍可能占用空间。</value></data>
+  <data name="SemanticBackup_FallbackLabel.Text" xml:space="preserve"><value>转换失败时允许回退完整文件备份</value></data>
+  <data name="SemanticBackup_Fallback.OnContent" xml:space="preserve"><value>回退并记录警告</value></data>
+  <data name="SemanticBackup_Fallback.OffContent" xml:space="preserve"><value>停止，不创建新版本</value></data>
+  <data name="SemanticBackup_FallbackHint.Text" xml:space="preserve"><value>仅在来源仍可安全捕获时回退。插件缺失可能阻断备份；手动 checkpoint 失败不会由普通备份替代。</value></data>
+  <data name="SemanticBackup_CheckpointHeader.Text" xml:space="preserve"><value>自包含检查点</value></data>
+  <data name="SemanticBackup_CheckpointDescription.Text" xml:space="preserve"><value>为本配置的全部来源创建自包含检查点（checkpoint），即使文件没有变化。操作会先保存设置，需要额外时间和空间，且不保证回收旧数据。恢复检查点仍需要兼容插件。</value></data>
+  <data name="SemanticBackup_CancelCheckpoint.Content" xml:space="preserve"><value>取消 checkpoint</value></data>
+  <data name="SemanticBackup_UnsupportedConfiguration" xml:space="preserve"><value>仅支持完整来源的智能或完整备份。请先添加来源，并关闭选区/子集备份；滚动备份不支持。</value></data>
+  <data name="SemanticBackup_ProviderUnavailable" xml:space="preserve"><value>没有可用的兼容转换与恢复插件，或现有策略不匹配。请安装并启用支持此功能的插件后刷新。MineRewind 当前支持 Java 存档。</value></data>
+  <data name="SemanticBackup_EnabledHint" xml:space="preserve"><value>已在当前设置中启用；保存后生效。智能模式只处理变化文件中的内容，首次备份建立完整基线。</value></data>
+  <data name="SemanticBackup_DisabledHint" xml:space="preserve"><value>当前未启用。已有配置不会自动迁移。</value></data>
+  <data name="SemanticBackup_SaveCheckpoint" xml:space="preserve"><value>保存并创建 checkpoint</value></data>
+  <data name="SemanticBackup_CreateCheckpoint" xml:space="preserve"><value>创建 checkpoint</value></data>
+  <data name="SemanticBackup_CheckpointRunning" xml:space="preserve"><value>正在保存设置并创建自包含检查点……</value></data>
+  <data name="SemanticBackup_CheckpointSucceeded" xml:space="preserve"><value>检查点已提交，可在历史中查看。</value></data>
+  <data name="SemanticBackup_CheckpointWarnings" xml:space="preserve"><value>检查点已提交，但后续处理有警告，请查看日志。</value></data>
+  <data name="SemanticBackup_CheckpointCanceled" xml:space="preserve"><value>操作已取消。请在历史中确认是否已在取消前完成提交。</value></data>
+  <data name="SemanticBackup_CheckpointFailed" xml:space="preserve"><value>检查点未完成，请查看日志；没有将普通备份作为检查点提交。</value></data>
+  <data name="SemanticBackup_CheckpointRecoveryRequired" xml:space="preserve"><value>历史提交需要恢复处理。请先处理历史恢复提示，勿重复创建检查点。</value></data>
+  <data name="SemanticBackup_CheckpointStableRequired" xml:space="preserve"><value>创建语义检查点需要兼容插件提供稳定来源视图。</value></data>
+  <data name="SemanticBackup_CheckpointUnavailable" xml:space="preserve"><value>请先显式启用实验性语义备份，并使用完整来源的智能或完整备份配置。</value></data>
+  <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>手动语义 checkpoint</value></data>
 </root>

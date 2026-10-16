@@ -8,6 +8,7 @@ using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using System;
+using System.Collections.Immutable;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -201,9 +202,12 @@ public static class NativeHistoryCoreGateway
             normalized.Add(new SourceCaptureResult(
                 result.SourceId, result.Outcome, result.CaptureScope, result.StateFingerprint,
                 result.ExistingVersionId, result.RepresentationCandidate, result.LocalReplicaCandidate,
-                result.PayloadCandidate, revision, result.ExpectedBaseVersionId ?? baseline?.BaseVersionId, result.CleanupHandle,
-                result.Diagnostics, tips.Select(item => item.UpdateId), result.BaselineCandidate,
-                result.EffectiveSourceBoundary, result.VersionMetadataCandidates));
+                result.PayloadCandidate, result.ConcurrencyFence?.WorkspaceRevision ?? revision,
+                result.ConcurrencyFence is { } fence ? fence.BaseVersionId : result.ExpectedBaseVersionId ?? baseline?.BaseVersionId, result.CleanupHandle,
+                result.Diagnostics, result.ConcurrencyFence?.PolicyTips ?? tips.Select(item => item.UpdateId).ToImmutableArray(), result.BaselineCandidate,
+                result.EffectiveSourceBoundary, result.VersionMetadataCandidates)
+                { ReservedVersionId = result.ReservedVersionId, AdditionalRepresentations = result.AdditionalRepresentations,
+                    CommitParticipant = result.CommitParticipant });
         }
         var committed = await runtime.Commit.CommitAsync(new HistoryCommitRequest(
             configSnapshot,
@@ -226,12 +230,15 @@ public static class NativeHistoryCoreGateway
         foreach (var result in normalized.Where(item => item.BaselineCandidate is not null))
         {
             var version = committed.NewVersions.Single(item => item.SourceId == result.SourceId);
-            var representation = committed.NewRepresentations.Single(item => item.VersionId == version.VersionId);
+            var representation = committed.NewRepresentations.Single(item => item.VersionId == version.VersionId
+                && item.RepresentationId == result.RepresentationCandidate!.RepresentationId);
             try
             {
                 await runtime.CaptureBaselines.SaveAsync(
                     result.SourceId,
-                    result.BaselineCandidate!,
+                    result.BaselineCandidate! with { ContentRealizationId =
+                        (await runtime.WorkspaceStore.LoadAsync(CancellationToken.None).ConfigureAwait(false)).Value!
+                            .GetSourceState(result.SourceId).ContentRealizationId },
                     version.VersionId,
                     representation,
                     cancellationToken).ConfigureAwait(false);
@@ -262,7 +269,9 @@ public static class NativeHistoryCoreGateway
             if (SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, workspaceLoad.Value)
                 && await HistoryCaptureBaselineRepair.IsLocallyAvailableAsync(runtime, baseline, cancellationToken).ConfigureAwait(false))
             {
-                return baseline;
+                return baseline.BaseRepresentationKind == RepresentationKind.PluginArtifact
+                    && baseline.ContentRealizationId != workspaceLoad.Value!.GetSourceState(sourceId).ContentRealizationId
+                    ? baseline with { RequiresContentValidation = true } : baseline;
             }
 
             if (await runtime.CaptureBaselines.RemoveAsync(
@@ -296,6 +305,7 @@ public static class NativeHistoryCoreGateway
             // Cached Runtime instances can acquire a pending journal after initialization.
             // Report readiness now; the caller's config-operation recovery entry owns repair.
             runtime.ObservePendingRecovery();
+            await Services.Plugins.V3.NativeArtifactHostService.RecoverOnceAsync(config, runtime, cancellationToken).ConfigureAwait(false);
             Failed.TryRemove(configId.Value, out _);
             return runtime;
         }

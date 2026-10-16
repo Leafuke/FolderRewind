@@ -11,6 +11,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     public string CleanNowLabel => I18n.GetString(HasUnsavedChanges ? "Retention_SaveClean" : "Retention_CleanNow");
     internal void RefreshCleanupActions()
     {
+        RefreshSemanticAvailability();
         OnPropertyChanged(nameof(CanCleanNow));
         OnPropertyChanged(nameof(CleanNowLabel));
     }

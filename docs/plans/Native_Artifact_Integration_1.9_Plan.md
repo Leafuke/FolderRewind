@@ -20,7 +20,7 @@ Integrate Host 920162588f2a383b8107d8360cd5effca361086b with source 8e3bdab58558
 | Stage | Deliverable | Status |
 |---|---|---|
 | M0 | Freeze refs/tools/samples, baseline checks, tracked decisions | Complete |
-| M1 | Merge full source histories; preserve target architecture; build/Core checks | Pending |
+| M1 | Merge full source histories; preserve target architecture; build/Core checks | Complete (integration foundation only) |
 | M2 | Logical tree/evidence, commit/restore consumers, Deep/readiness/deletion | Pending |
 | M3 | Budgets, secure workspaces, bounded I/O, leases, recovery/GC | Pending |
 | M4 | Native payload protocol throughout Cloud Job lifecycle | Pending |
@@ -52,3 +52,5 @@ Remove unpublished paired P2 production writing/state and unreachable archive-fi
 Current implementation and check results are recorded here as work proceeds. Target branches remain unchanged until every hard gate passes. Final merge order: plugin first, Host second. Remote cloud, multi-device and release-channel checks remain explicit release prerequisites.
 
 M0: SDK 10.0.402; WinApp 0.7.1; pinned real 7z, rclone v1.75.1 and RestoreProtocolProbe prepared. Host Core/restore/cloud-related baseline: 136 passed, zero skipped/failed. Independent plugin adapter baseline: 93 passed, zero skipped/failed. Clean public-only plugin restore exposed the existing unavailable 3.9.0 contract dependency; baseline was restored against a package built from the frozen target contract in an isolated feed/cache. This is evidence for the approved pinned contract snapshot, not a public-package publication claim. Raw TRX stays under each worktree's ignored artifacts/integration/baseline.
+
+M1: resolved all 12 conflict files. Preserved target Cloud admission/jobs and migration continuation while composing reserved VersionId, Artifact participants and ContentRealizationId. WinUI x64 Debug solution build passed (one pre-existing MSTEST0037 warning); Host focused regression 79 passed, Runtime 159 passed, Abstractions 15 passed, all zero skipped/failed. Independent source merge: adapter 93 and World 74 passed using an isolated contract candidate. These checks establish a buildable foundation only: Native Cloud Job dispatch and the other M2-M7 gaps remain open; target 1.9.x refs have not changed.

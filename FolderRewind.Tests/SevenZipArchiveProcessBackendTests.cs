@@ -59,4 +59,31 @@ public sealed class SevenZipArchiveProcessBackendTests
     [TestMethod]
     public void CredentialsAreRemovedFromBackendOutput()
         => Assert.AreEqual("command -p[redacted]: [redacted]", SevenZipArchiveProcessBackend.Redact("command -psecret: secret", "secret"));
+
+    [TestMethod]
+    public async Task ArtifactEnvelopeRejectsMissingWrongCredentialsAndCorruption()
+    {
+        var executable = SevenZipExecutableLocator.Resolve(Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z"));
+        if (executable is null) Assert.Inconclusive("Set FOLDERREWIND_TEST_7Z for real-process tests.");
+        var root = Path.Combine(Path.GetTempPath(), "NativeEnvelopeTests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var source = Path.Combine(root, "input"); Directory.CreateDirectory(source);
+            File.WriteAllText(Path.Combine(source, "private-world-file.txt"), "unique plaintext world payload p2");
+            var payload = Path.Combine(root, "payload.7z");
+            var valid = new SevenZipArchiveProcessBackend(() => executable, () => "fixture-key", true, ".marker");
+            await valid.PackAsync(source, payload, true, default);
+            Assert.DoesNotContain("private-world-file", System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(payload)));
+            foreach (var password in new string?[] { null, "wrong-key" })
+            {
+                var invalid = new SevenZipArchiveProcessBackend(() => executable, () => password, true, ".marker");
+                await Assert.ThrowsExactlyAsync<InvalidDataException>(() => invalid.UnpackAsync(payload, Path.Combine(root, "invalid"), true, default));
+            }
+            await valid.UnpackAsync(payload, Path.Combine(root, "restored"), true, default);
+            Assert.AreEqual("unique plaintext world payload p2", File.ReadAllText(Path.Combine(root, "restored", "private-world-file.txt")));
+            using (var file = File.OpenWrite(payload)) { file.Position = file.Length / 2; file.Write(new byte[32]); }
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => valid.UnpackAsync(payload, Path.Combine(root, "corrupt"), true, default));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
 }

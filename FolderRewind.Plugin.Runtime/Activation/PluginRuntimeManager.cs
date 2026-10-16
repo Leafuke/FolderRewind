@@ -26,6 +26,8 @@ public sealed class PluginRuntimeManager
 
     public bool IsSafeMode { get; }
     public int RestartRetainedCount => _restartRetained.Count;
+    public PluginManifestContract? GetActiveManifest(PluginId pluginId)
+        => _sessions.TryGetValue(pluginId, out var session) && session.State == PluginRuntimeState.Active ? session.Manifest : null;
 
     public PluginRuntimeSnapshot GetSnapshot(PluginId pluginId)
     {
@@ -134,6 +136,7 @@ public sealed class PluginRuntimeManager
             try
             {
                 staged = await StageAsync(candidate, replacing: null, cancellationToken).ConfigureAwait(false);
+                await using var commitGuard = candidate.CommitGuard is null ? null : await candidate.CommitGuard(cancellationToken).ConfigureAwait(false);
                 await candidate.Store.CommitAsync(staged.Commit, cancellationToken).ConfigureAwait(false);
                 _registry.Commit(staged.Registrations);
                 var session = staged.CreateSession();
@@ -232,6 +235,7 @@ public sealed class PluginRuntimeManager
                 }
 
                 staged = await StageAsync(candidate, candidate.PluginId, cancellationToken).ConfigureAwait(false);
+                await using var commitGuard = candidate.CommitGuard is null ? null : await candidate.CommitGuard(cancellationToken).ConfigureAwait(false);
                 await candidate.Store.CommitAsync(staged.Commit, cancellationToken).ConfigureAwait(false);
 
                 _registry.Commit(staged.Registrations);
@@ -767,6 +771,6 @@ public sealed class PluginRuntimeManager
         PluginActivationCommit Commit)
     {
         public PluginRuntimeSession CreateSession()
-            => new(Candidate.PluginId, Plugin, Registrations, Candidate.HostServices, Lifetime);
+            => new(Candidate.PluginId, Plugin, Registrations, Candidate.HostServices, Lifetime, Candidate.Manifest);
     }
 }

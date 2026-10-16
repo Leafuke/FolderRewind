@@ -32,6 +32,7 @@ public enum PersistedArtifactTransformFailureBehavior
 
 public sealed class ArtifactTransformPolicySettings
 {
+    public bool ExperimentalEnabled { get; set; }
     public ArtifactTransformerReference Transformer { get; set; } = new();
     public Dictionary<string, JsonElement> Parameters { get; set; } = new(StringComparer.Ordinal);
     public PersistedArtifactTransformFailureBehavior FailureBehavior { get; set; }
