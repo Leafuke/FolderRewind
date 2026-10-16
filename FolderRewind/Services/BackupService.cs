@@ -804,7 +804,8 @@ namespace FolderRewind.Services
                 if (captureResult?.Outcome == SourceCaptureOutcome.Captured)
                 {
                     if (captureResult.CommitParticipant is { } participant)
-                        await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false);
+                        try { await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false); }
+                        finally { participant.EndOperation(); }
                     if (captureResult.CleanupHandle is { } cleanup)
                         await cleanup.CleanupAsync(CancellationToken.None).ConfigureAwait(false);
                     captureResult = null;
@@ -903,6 +904,7 @@ namespace FolderRewind.Services
             {
                 try { await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false); }
                 catch { }
+                finally { participant.EndOperation(); }
             }
             foreach (var cleanup in outcomes
                          .Select(item => item.CaptureResult?.CleanupHandle)

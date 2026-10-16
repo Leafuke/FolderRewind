@@ -24,7 +24,7 @@ internal static partial class NativeArtifactAcceptance
         if (request.Phase == "recover")
         {
             _crashAt = null;
-            await NativeArtifactHostService.RecoverOnceAsync(config, history, default);
+            await (await NativeHistoryApplicationService.CreateRestoreServiceAsync(config)).RecoverIncompleteAsync();
             var versions = await history.Query.GetAllVersionsAsync();
             var representations = await history.Query.GetAllRepresentationsAsync();
             var committed = request.CrashAt is not null && (request.CrashAt.StartsWith("HistoryPackCommitted:")

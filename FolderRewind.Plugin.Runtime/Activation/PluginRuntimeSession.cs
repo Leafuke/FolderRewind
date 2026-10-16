@@ -38,6 +38,18 @@ internal sealed class PluginRuntimeSession
         get { lock (_sync) return _activeLeases; }
     }
 
+    public PluginOperationLease? TryAcquireOperation(CancellationToken operationCancellation)
+    {
+        lock (_sync)
+        {
+            if (State != PluginRuntimeState.Active) return null;
+            var capabilities = Registrations.Capabilities.ToArray();
+            _activeLeases++;
+            return new(capabilities, Manifest,
+                new PluginInvocationContext(PluginId, HostServices, operationCancellation, Lifetime.Token), Release);
+        }
+    }
+
     public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>(CancellationToken operationCancellation)
         where TCapability : class, IPluginCapability
         => TryAcquire<TCapability>(_ => true, operationCancellation);
@@ -138,6 +150,26 @@ internal sealed class PluginRuntimeSession
 
         drained?.TrySetResult();
     }
+}
+
+/// <summary>Capabilities are selected from the pinned session, including while that session drains.</summary>
+public sealed class PluginOperationLease : IDisposable, IAsyncDisposable
+{
+    private readonly IReadOnlyList<IPluginCapability> _capabilities;
+    private Action? _release;
+    internal PluginOperationLease(IReadOnlyList<IPluginCapability> capabilities, PluginManifestContract? manifest,
+        PluginInvocationContext context, Action release)
+    { _capabilities = capabilities; Manifest = manifest; Context = context; _release = release; }
+    public PluginManifestContract? Manifest { get; }
+    public PluginInvocationContext Context { get; }
+    public TCapability? Find<TCapability>(Func<TCapability, bool> selector) where TCapability : class, IPluginCapability
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _release) is null, this);
+        Context.OperationCancellation.ThrowIfCancellationRequested();
+        return _capabilities.OfType<TCapability>().Where(selector).SingleOrDefault();
+    }
+    public void Dispose() => Interlocked.Exchange(ref _release, null)?.Invoke();
+    public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
 }
 
 public sealed class PluginCapabilityLease<TCapability> : IDisposable, IAsyncDisposable

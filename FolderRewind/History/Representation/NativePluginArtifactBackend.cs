@@ -32,7 +32,8 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
         if (!IsSupported(binding.Representation))
             return new(false, false, MaterializationFidelity.Unknown,
                 "[history.unsupported-experimental-format] Native evidence v2 is required.");
-        var manifest = plugins.GetActiveManifest(new(pluginId));
+        using var operation = plugins.TryAcquireOperation(new(pluginId), token);
+        var manifest = operation?.Manifest;
         if (manifest is null)
             return new(false, false, MaterializationFidelity.Unknown, "Required plugin is inactive.");
         if (!manifest.RestoreStrategies.Any(s => s.SupportedFormats.Any(f => f.Format.FormatId == binding.Representation.Format)))
@@ -42,7 +43,7 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
         try
         {
             await using var read = await storeFactory().OpenLazyAsync(new(root), token);
-            Validate(read, root, pluginId, binding);
+            Validate(read, root, pluginId, binding, manifest);
             return new(true, true, MaterializationFidelity.Exact, "metadata-and-availability-only");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -73,13 +74,14 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
         if (!IsSupported(binding.Representation))
             throw new InvalidDataException("[history.unsupported-experimental-format] Native evidence v2 is required.");
         if (!binding.LocalRegistered) throw new IOException("Native closure is not registered on this device.");
+        using var operation = plugins.TryAcquireOperation(new(pluginId), token) ?? throw new InvalidOperationException("Materializer unavailable.");
+        var manifest = operation.Manifest ?? throw new InvalidOperationException("Materializer manifest unavailable.");
         await using var read = await storeFactory().OpenAsync(new(root), token);
-        Validate(read, root, pluginId, binding);
+        Validate(read, root, pluginId, binding, manifest);
         var node = read.Artifacts.Single(a => a.ArtifactId.Value == root);
-        using var lease = plugins.TryAcquire<IRestoreMaterializerCapability>(node.RestoreStrategyId.PluginId,
-            c => c.RestoreStrategyId == node.RestoreStrategyId, token)
+        var materializer = operation.Find<IRestoreMaterializerCapability>(c => c.RestoreStrategyId == node.RestoreStrategyId)
             ?? throw new InvalidOperationException("Materializer unavailable.");
-        if (lease.Capability is not IArtifactFileViewProvider provider)
+        if (materializer is not IArtifactFileViewProvider provider)
             throw new InvalidOperationException("File-view provider unavailable.");
         var evidence = await IncrementalCaptureEvidence.ReadAsync(read, new(root), token);
         var entries = await read.Read.ListFilesAsync(node.Content, token);
@@ -90,15 +92,14 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
             || !StringComparer.OrdinalIgnoreCase.Equals(entries.Single(f => f.RelativePath == IncrementalCaptureEvidence.Path).Sha256, expectedEvidence))
             throw new InvalidDataException("Capture evidence binding mismatch.");
         await using var view = await provider.OpenFileViewAsync(new(binding.Config, binding.Folder, evidence.VersionId,
-            new(root), read.Artifacts, read.Read), lease.Context);
+            new(root), read.Artifacts, read.Read), operation.Context);
         if (destination is null) await evidence.VerifyViewAsync(view, token);
         else await evidence.CopyViewToAsync(view, destination, token);
-        lease.Context.OperationCancellation.ThrowIfCancellationRequested();
+        operation.Context.OperationCancellation.ThrowIfCancellationRequested();
     }
 
-    private void Validate(NativeArtifactReadLease read, Guid root, string pluginId, NativeArtifactBinding binding)
+    private static void Validate(NativeArtifactReadLease read, Guid root, string pluginId, NativeArtifactBinding binding, PluginManifestContract manifest)
     {
-        var manifest = plugins.GetActiveManifest(new(pluginId)) ?? throw new InvalidOperationException("Materializer plugin unavailable.");
         var node = read.Artifacts.Single(a => a.ArtifactId.Value == root);
         var stored = read.Nodes.Single(a => a.ArtifactId.Value == root);
         if (!binding.Representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expectedStorage)

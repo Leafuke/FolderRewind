@@ -396,6 +396,11 @@ public sealed class HistoryCommitCoordinator
             }
             throw;
         }
+        finally
+        {
+            foreach (var participant in request.SourceCaptureResults.Select(c => c.CommitParticipant).OfType<ICaptureCommitParticipant>().Distinct())
+                participant.EndOperation();
+        }
     }
 
     private async Task<HistoryCommitBatch> BuildBatchAsync(
@@ -1096,7 +1101,8 @@ public sealed class HistoryCommitCoordinator
         foreach (var participant in captures.Select(c => c.CommitParticipant).OfType<ICaptureCommitParticipant>().Distinct())
         {
             try { await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false); }
-            catch { /* Keep the pending root for restart recovery. */ }
+            catch { /* Keep the pending root for recovery. */ }
+            finally { participant.EndOperation(); }
         }
         foreach (var handle in captures
                      .Select(capture => capture.CleanupHandle)

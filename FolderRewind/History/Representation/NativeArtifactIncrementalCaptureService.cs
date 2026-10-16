@@ -24,6 +24,8 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
         string? stableSourceDirectory = null, EffectiveSourceBoundarySnapshot? directBoundary = null,
         SourceCaptureBaselineCandidate? directStatistics = null)
     {
+        using var operation = plugins.TryAcquireOperation(policy.TransformerId.PluginId, token)
+            ?? throw new InvalidOperationException("Transformer session unavailable.");
         var version = VersionId.New(); var representation = RepresentationId.New();
         var work = System.IO.Path.Combine(store.Root, ".capture", Guid.NewGuid().ToString("N"));
         var primary = stableSourceDirectory ?? System.IO.Path.Combine(work, "primary"); Directory.CreateDirectory(work);
@@ -73,7 +75,7 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
             var evidenceBytes = JsonSerializer.SerializeToUtf8Bytes(document);
             await using var prepared = await store.PrepareAsync(plugins, config, folder, version.ToString(), representation.ToString(), primary,
                 policy, encrypted, token, capture?.PayloadCandidate?.AbsolutePath, capture?.RepresentationCandidate?.RepresentationId.ToString(), plan.Input,
-                repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document), new(new("primary"), readPrimary));
+                repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document), new(new("primary"), readPrimary), operation);
             try
             {
                 if (prepared.RequiresFullVerification)
@@ -81,15 +83,15 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 await prepared.SealAndCommitGraphAsync(token);
                 await using var read = prepared.OpenLazy();
                 var node = read.Artifacts.Single(a => a.ArtifactId == prepared.Intent.Root);
-                using var materializer = plugins.TryAcquire<IRestoreMaterializerCapability>(node.RestoreStrategyId.PluginId,
-                    c => c.RestoreStrategyId == node.RestoreStrategyId, token) ?? throw new InvalidOperationException("Materializer unavailable.");
-                if (materializer.Capability is not IArtifactFileViewProvider provider) throw new InvalidOperationException("Incremental validation requires a file-view provider.");
-                await using var view = await provider.OpenFileViewAsync(new(config, folder, version.ToString(), node.ArtifactId, read.Artifacts, read.Read), materializer.Context);
+                var materializer = prepared.Operation.Find<IRestoreMaterializerCapability>(c => c.RestoreStrategyId == node.RestoreStrategyId)
+                    ?? throw new InvalidOperationException("Materializer unavailable.");
+                if (materializer is not IArtifactFileViewProvider provider) throw new InvalidOperationException("Incremental validation requires a file-view provider.");
+                await using var view = await provider.OpenFileViewAsync(new(config, folder, version.ToString(), node.ArtifactId, read.Artifacts, read.Read), prepared.Operation.Context);
                 IArtifactFileView? oldView = null;
                 try
                 {
                     if (prepared.BaselineRead is { } oldRead && plan.Input.BaseRootArtifactId is { } oldRoot)
-                        oldView = await provider.OpenFileViewAsync(new(config, folder, plan.Input.BaseVersionId!, oldRoot, oldRead.Artifacts, oldRead.Read), materializer.Context);
+                        oldView = await provider.OpenFileViewAsync(new(config, folder, plan.Input.BaseVersionId!, oldRoot, oldRead.Artifacts, oldRead.Read), prepared.Operation.Context);
                     using (ArtifactDiagnostics.Source.StartActivity("candidate.validate"))
                         await document.ValidateViewAsync(view, oldView, plan.Input with { Checkpoint = plan.Input.Checkpoint || prepared.RequiresFullVerification }, token);
                 }

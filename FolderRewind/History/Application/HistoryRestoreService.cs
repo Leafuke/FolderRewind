@@ -31,6 +31,7 @@ public sealed partial class HistoryRestoreService
     internal string? RestoreConfigurationSignature { get; init; }
     internal HistoryRestorePreparationSession? PreparationSession { get; set; }
     internal PreparedRestoreSource? ReusablePreparation { get; set; }
+    internal Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, Task>? RecoverNativeInsideOperation { get; init; }
 
     public HistoryRestoreService(
         HistoryRuntime history,
@@ -72,6 +73,8 @@ public sealed partial class HistoryRestoreService
         catch (Exception ex) { _history.CloudJobs.ObserveFailure(ex); }
         await _history.CleanupMergeArtifactsAsync().ConfigureAwait(false);
         await _history.RecoverChainRewritesAsync(cancellationToken, insideMutationGate: true).ConfigureAwait(false);
+        if (RecoverNativeInsideOperation is { } recoverNative)
+            await recoverNative(operation, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<HistoryRestoreResult> RestoreCheckpointAsync(

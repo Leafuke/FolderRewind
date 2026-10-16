@@ -26,6 +26,9 @@ public sealed class PluginRuntimeManager
 
     public bool IsSafeMode { get; }
     public int RestartRetainedCount => _restartRetained.Count;
+    /// <summary>Pins one session and all its capabilities for the complete Host operation.</summary>
+    public PluginOperationLease? TryAcquireOperation(PluginId pluginId, CancellationToken operationCancellation = default)
+        => _sessions.TryGetValue(pluginId, out var session) ? session.TryAcquireOperation(operationCancellation) : null;
     public PluginManifestContract? GetActiveManifest(PluginId pluginId)
         => _sessions.TryGetValue(pluginId, out var session) && session.State == PluginRuntimeState.Active ? session.Manifest : null;
 

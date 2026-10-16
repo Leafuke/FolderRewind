@@ -293,6 +293,25 @@ public sealed class PluginRuntimeManagerTests
     }
 
     [TestMethod]
+    public async Task PinnedOperationKeepsOneSessionCapabilitiesAvailableDuringReplacementDrain()
+    {
+        var manager = new PluginRuntimeManager();
+        await manager.ActivateAsync(Candidate(PluginOneId, PluginWithDiscovery("old"), new FakeStore()));
+        var operation = manager.TryAcquireOperation(PluginOneId)!;
+        var replacement = manager.ReplaceAsync(Candidate(PluginOneId, PluginWithDiscovery("new"), new FakeStore())).AsTask();
+        await WaitForStateAsync(manager, PluginOneId, PluginRuntimeState.Draining);
+        Assert.IsNull(manager.TryAcquireOperation(PluginOneId));
+        Assert.IsFalse(replacement.IsCompleted);
+        Assert.AreEqual("old", ((FakeDiscovery)operation.Find<IDiscoveryCapability>(_ => true)!).Marker);
+        Assert.AreEqual(1, manager.GetSnapshot(PluginOneId).ActiveLeases);
+        operation.Dispose();
+        Assert.IsTrue((await replacement).Success);
+        Assert.ThrowsExactly<ObjectDisposedException>(() => operation.Find<IDiscoveryCapability>(_ => true));
+        using var current = manager.TryAcquireOperation(PluginOneId)!;
+        Assert.AreEqual("new", ((FakeDiscovery)current.Find<IDiscoveryCapability>(_ => true)!).Marker);
+    }
+
+    [TestMethod]
     public async Task CancelingDrainRestoresExistingSession()
     {
         var manager = new PluginRuntimeManager();

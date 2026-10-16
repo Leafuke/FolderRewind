@@ -404,7 +404,7 @@ internal static partial class NativeHistoryApplicationService
         await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var existed = File.Exists(localPath);
         await using var prepared = await PrepareVersionDeletionAsync(config, versionId, representationId,
-            localPath, hideRecord: false, releaseVersion, token: cancellationToken).ConfigureAwait(false);
+            localPath, hideRecord: false, releaseVersion, operation, token: cancellationToken).ConfigureAwait(false);
         var result = await CommitVersionDeletionAsync(config, prepared, cancellationToken).ConfigureAwait(false);
         if (!result.Committed) throw new InvalidOperationException(result.Diagnostic);
         return new(existed, existed && !File.Exists(localPath), prepared.TargetReplicaCount);
@@ -441,6 +441,7 @@ internal static partial class NativeHistoryApplicationService
                 NativeHistoryRestoreOrchestrator.Current?.RestorePreservePaths) : null,
             token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token))
         {
+            RecoverNativeInsideOperation = (operation, token) => Plugins.V3.NativeArtifactHostService.RecoverInsideOperationAsync(config, runtime, operation, token),
             FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token),
             ValidateVersionTarget = validateVersionTarget,
             VerificationContext = verificationContext,

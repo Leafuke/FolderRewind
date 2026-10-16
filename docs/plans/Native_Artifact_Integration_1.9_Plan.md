@@ -22,7 +22,7 @@ Integrate Host 920162588f2a383b8107d8360cd5effca361086b with source 8e3bdab58558
 | M0 | Freeze refs/tools/samples, baseline checks, tracked decisions | Complete |
 | M1 | Merge full source histories; preserve target architecture; build/Core checks | Complete (integration foundation only) |
 | M2 | Logical tree/evidence, commit/restore consumers, Deep/readiness/deletion | Pending |
-| M3 | Budgets, secure workspaces, bounded I/O, leases, recovery/GC | Pending |
+| M3 | Budgets, secure workspaces, bounded I/O, leases, recovery/GC | Session/recovery implemented; resource work pending |
 | M4 | Native payload protocol throughout Cloud Job lifecycle | Pending |
 | M5 | Mixed migration, candidate passwords, isolated recovery/evidence | Pending |
 | M6 | Saved snapshot/checkpoint identity, warnings, stable version protocol, cleanup | Pending |
@@ -60,3 +60,7 @@ M2 local-contract checkpoint: introduced a separate native-artifacts-v2 namespac
 Native deletion now uses a separate prepared authorization/catalog transaction and DAG collection. It rechecks Workspace, pins, branches, Safety Snapshots, Cloud Jobs, Merge Sessions and preparation fingerprints, commits History/catalog before collection, and preserves shared nodes. Configuration cleanup runs Native GC once after Core groups, accounts actual payload bytes and object counts, and collects orphans even with KeepCount disabled. Existing Core chain rewriting remains intact. Review found no new XAML/API/MVVM issues; deletion confirmation and Native object reporting use both resource languages.
 
 Validation: full WinUI x64 Debug solution build passed (one existing MSTEST0037 warning). Host contract/restore/Checkout/Core-chain/cleanup regression: 174 passed, zero skipped/failed, with real 7z and RestoreProtocolProbe. After final inventory validation/report edits, 33 focused Host tests passed; Runtime 159 and Abstractions 15 passed. TRX: ignored artifacts/integration/m2. The initial no-probe run with skipped process tests is not acceptance evidence; the verified run enabled the probe. Production plugin entrypoint acceptance and secure resources/session/Cloud/migration contexts are still open in M3-M7; this checkpoint is not release acceptance.
+
+M3 session/recovery checkpoint: added an operation lease that atomically pins the session manifest and capability set. Native capture acquires it before source hashing and uses the same session for transform, materializer selection, validation and view/stream disposal; upgrades drain without rejecting this operation's later capability selections. Native read/Deep uses the same pattern. Removed success-cached RecoverOnce; Native journal replay now runs repeatedly inside the existing configuration/History recovery gates. Pack-durable participant failures end only in-memory ownership, retaining persistent roots for repeatable recovery. Deletion/export also enter the common recovery path before mutation.
+
+Validation: Runtime 160 passed (including replacement-drain/session identity), Host focused 65 passed (including durable participant failure and two consecutive in-process recovery scans), zero skipped/failed. WinUI solution build passed after the recovery wiring; resource quotas, private workspaces, bounded transfers/process output and durable physical-GC cleanup remain M3 work, not waived gates.

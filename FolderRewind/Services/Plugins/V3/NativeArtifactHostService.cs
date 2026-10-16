@@ -114,14 +114,13 @@ internal static class NativeArtifactHostService
     {
         public ValueTask DisposeAsync() { foreach (var gate in gates.AsEnumerable().Reverse()) gate.Dispose(); return ValueTask.CompletedTask; }
     }
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<Task>> Recoveries = new();
-    internal static async Task RecoverOnceAsync(BackupConfig config, HistoryRuntime history, CancellationToken token)
+    internal static Task RecoverInsideOperationAsync(BackupConfig config, HistoryRuntime history,
+        NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(config.DestinationPath)) return;
-        var root = NativeArtifactStore.ForConfig(config.DestinationPath, config.Id);
-        if (!Directory.Exists(root)) return;
-        try { await Recoveries.GetOrAdd(root, _ => new Lazy<Task>(() => NativeArtifactHistoryRecovery.RecoverAsync(history, Store(config), token))).Value; }
-        catch { Recoveries.TryRemove(root, out _); throw; }
+        operation.Require(history.ConfigId);
+        if (string.IsNullOrWhiteSpace(config.DestinationPath)
+            || !Directory.Exists(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))) return Task.CompletedTask;
+        return NativeArtifactHistoryRecovery.RecoverAsync(history, Store(config), token);
     }
     internal static NativeArtifactStore Store(BackupConfig config, IArtifactEnvelopeCodec? codec = null)
         => new(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id), codec ?? new SevenZipHistoryArchiveBackend(config)

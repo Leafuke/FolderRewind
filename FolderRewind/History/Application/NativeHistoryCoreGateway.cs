@@ -305,7 +305,6 @@ public static class NativeHistoryCoreGateway
             // Cached Runtime instances can acquire a pending journal after initialization.
             // Report readiness now; the caller's config-operation recovery entry owns repair.
             runtime.ObservePendingRecovery();
-            await Services.Plugins.V3.NativeArtifactHostService.RecoverOnceAsync(config, runtime, cancellationToken).ConfigureAwait(false);
             Failed.TryRemove(configId.Value, out _);
             return runtime;
         }

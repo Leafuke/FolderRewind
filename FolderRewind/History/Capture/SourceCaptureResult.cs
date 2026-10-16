@@ -135,6 +135,8 @@ public interface ICaptureCommitParticipant
     Task HistoryCommittedAsync(CancellationToken token);
     Task CompleteCommitAsync(CancellationToken token);
     Task AbortCommitAsync(CancellationToken token);
+    // Ends in-process ownership even when a durable pack still needs replay.
+    void EndOperation() { }
 }
 
 public sealed record CaptureConcurrencyFence(long WorkspaceRevision, VersionId? BaseVersionId,

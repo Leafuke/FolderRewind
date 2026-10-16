@@ -65,6 +65,25 @@ public sealed class NativeArtifactDeletionTests
         Assert.HasCount(1, (await f.History.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries);
     }
 
+    [TestMethod]
+    public async Task SameProcessRecoveryScansAgainAfterASuccessfulEarlierPass()
+    {
+        await using var f = new Fixture(); await f.InitializeAsync();
+        var recovery = new HistoryRestoreService(f.History,
+            new([new CoreArchiveRepresentationHandler(new UnusedCodec())]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
+            new FileSystemHistoryRestoreMutationBackend())
+        { RecoverNativeInsideOperation = (_, token) => NativeArtifactHistoryRecovery.RecoverAsync(f.History, f.Store, token) };
+        for (var i = 0; i < 2; i++)
+        {
+            await f.Store.SavePendingAsync(new(Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"),
+                Guid.NewGuid().ToString("N"), new(Guid.NewGuid()), "Prepared"), default);
+            Assert.HasCount(1, f.Store.Pending());
+            await recovery.RecoverIncompleteAsync();
+            Assert.IsEmpty(f.Store.Pending());
+        }
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string root = Path.Combine(Path.GetTempPath(), "NativeDeletion", Guid.NewGuid().ToString("N"));

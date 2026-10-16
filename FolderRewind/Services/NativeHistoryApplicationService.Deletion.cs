@@ -17,9 +17,11 @@ internal static partial class NativeHistoryApplicationService
     // Caller holds the configuration operation lease across preparation, confirmation and commit.
     public static async Task<PreparedHistoryDeletion> PrepareVersionDeletionAsync(BackupConfig config,
         VersionId versionId, RepresentationId representationId, string localPath, bool hideRecord,
-        bool releaseVersion, IProgress<HistoryChainRewriteProgress>? progress = null, CancellationToken token = default)
+        bool releaseVersion, NativeHistoryConfigurationOperationGate.Lease operation,
+        IProgress<HistoryChainRewriteProgress>? progress = null, CancellationToken token = default)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        await CreateRestoreService(config, runtime).RecoverInsideConfigurationAsync(operation, token).ConfigureAwait(false);
         var representation = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false))
             .Single(r => r.RepresentationId == representationId && r.VersionId == versionId);
         if (representation.Kind == RepresentationKind.PluginArtifact)

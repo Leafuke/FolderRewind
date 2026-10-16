@@ -101,8 +101,9 @@ public sealed partial class NativeArtifactStore
     public void CompletePending(string id)
     {
         File.Delete(Path.Combine(Root, "pending", RequireId(id) + ".json"));
-        Active.TryRemove(Path.Combine(Root, id), out _);
+        ReleasePendingOperation(id);
     }
+    public void ReleasePendingOperation(string id) => Active.TryRemove(Path.Combine(Root, RequireId(id)), out _);
 
     // Called after the History journal has recovered. The callback must inspect immutable packs,
     // not a potentially stale derived index. No plugin invocation is replayed here.
@@ -136,15 +137,17 @@ public sealed partial class NativeArtifactStore
         FolderSnapshot folder, string versionId, string representationId, string primaryDirectory,
         ArtifactTransformPolicy policy, bool encrypted, CancellationToken token, string? corePayloadPath = null, string? coreRepresentationId = null,
         ArtifactIncrementalInput? incrementalInput = null, Func<bool, byte[]>? hostCaptureEvidence = null,
-        NativeArtifactPrimaryInput? primaryInput = null)
+        NativeArtifactPrimaryInput? primaryInput = null, PluginOperationLease? operation = null)
     {
         var held = await EnterAsync(token);
-        PluginCapabilityLease<IBackupArtifactTransformerCapability>? lease = null;
+        PluginOperationLease? lease = null;
         ArtifactTransformStagingArea? staging = null;
         NativeArtifactReadLease? baselineRead = null;
         try
         {
-            var manifest = runtime.GetActiveManifest(policy.TransformerId.PluginId) ?? throw new InvalidOperationException("Active declared transformer required.");
+            lease = operation ?? runtime.TryAcquireOperation(policy.TransformerId.PluginId, token)
+                ?? throw new InvalidOperationException("Transformer session unavailable.");
+            var manifest = lease.Manifest ?? throw new InvalidOperationException("Active declared transformer required.");
             var declaration = manifest.ArtifactTransformers.SingleOrDefault(d => d.TransformerId == policy.TransformerId)
                 ?? throw new InvalidOperationException("Transformer is undeclared.");
             var mode = incrementalInput?.Kind == ArtifactCaptureInputKind.ChangesOnly ? CoreCaptureMode.Smart : CoreCaptureMode.Full;
@@ -154,8 +157,8 @@ public sealed partial class NativeArtifactStore
             if (!declaration.CompatibleConfigKinds.Contains(config.Kind) || !declaration.CompatibleCoreModes.Contains(mode)
                 || !declaration.CompatibleCompleteness.Contains(completeness)
                 || !declaration.SupportedFailureBehaviors.Contains(policy.FailureBehavior)) throw new InvalidOperationException("Transformer policy is incompatible.");
-            lease = runtime.TryAcquire<IBackupArtifactTransformerCapability>(policy.TransformerId.PluginId,
-                c => c.TransformerId == policy.TransformerId, token) ?? throw new InvalidOperationException("Transformer unavailable.");
+            var transformer = lease.Find<IBackupArtifactTransformerCapability>(c => c.TransformerId == policy.TransformerId)
+                ?? throw new InvalidOperationException("Transformer unavailable.");
             var current = await Ledger.LoadAsync(token);
             if (incrementalInput?.BaseRootArtifactId is { } baseRoot)
             {
@@ -183,7 +186,7 @@ public sealed partial class NativeArtifactStore
             { IncrementalInput = incrementalInput, ReadableArtifacts = baselineRead?.Artifacts ?? [] };
             ArtifactTransformResult result;
             using (ArtifactDiagnostics.Source.StartActivity("transform"))
-                result = await lease.Capability.TransformAsync(request, lease.Context);
+                result = await transformer.TransformAsync(request, lease.Context);
             lease.Context.OperationCancellation.ThrowIfCancellationRequested();
             if (result.Outcome is not (OperationOutcome.Success or OperationOutcome.SuccessWithWarnings) || result.Patch is null
                 || result.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
@@ -195,8 +198,7 @@ public sealed partial class NativeArtifactStore
                         && s.SupportedCompleteness.Contains(node.Completeness) && s.SupportedRestoreModes.Contains(RestoreMode.Clean)
                         && s.SupportedFormats.Any(f => f.Format == node.Format && f.MinimumVersion <= node.FormatVersion && f.MaximumVersion >= node.FormatVersion)))
                     throw new InvalidDataException("Undeclared artifact format or strategy.");
-                using var materializer = runtime.TryAcquire<IRestoreMaterializerCapability>(node.RestoreStrategyId.PluginId,
-                    c => c.RestoreStrategyId == node.RestoreStrategyId, token);
+                var materializer = lease.Find<IRestoreMaterializerCapability>(c => c.RestoreStrategyId == node.RestoreStrategyId);
                 if (materializer is null) throw new InvalidDataException("Declared materializer is unavailable.");
             }
             if (hostCaptureEvidence is not null)
@@ -409,7 +411,7 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     private readonly NativeArtifactStore _store;
     private readonly ArtifactTransformStagingArea _staging;
     private IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts> _facts;
-    private readonly PluginCapabilityLease<IBackupArtifactTransformerCapability> _lease;
+    private readonly PluginOperationLease _lease;
     private readonly IDisposable _held;
     private readonly ArtifactLedgerDocument _before;
     private readonly bool _encrypted;
@@ -419,11 +421,12 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     public NativeArtifactPending Intent { get; private set; }
     public IReadOnlyList<PluginDiagnostic> Diagnostics { get; }
     public NativeArtifactReadLease? BaselineRead => _baselineRead;
+    public PluginOperationLease Operation => _lease;
     public bool RequiresFullVerification { get; }
     internal PreparedNativeArtifact(NativeArtifactStore store, PluginRuntimeManager runtime, ConfigSnapshot config,
         FolderSnapshot folder, string version, ArtifactLedgerDocument before, ArtifactLedgerDocument after,
         ArtifactTransformStagingArea staging, IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts> facts,
-        NativeArtifactPending intent, PluginCapabilityLease<IBackupArtifactTransformerCapability> lease, IDisposable held,
+        NativeArtifactPending intent, PluginOperationLease lease, IDisposable held,
         IReadOnlyList<PluginDiagnostic> diagnostics, bool encrypted, NativeArtifactReadLease? baselineRead = null, bool requiresFullVerification = false)
     { _store = store; _before = before; Ledger = after; _staging = staging; _facts = facts; Intent = intent;
         _lease = lease; _held = held; Diagnostics = diagnostics; _encrypted = encrypted; _baselineRead = baselineRead;

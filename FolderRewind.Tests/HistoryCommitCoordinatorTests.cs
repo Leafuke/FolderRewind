@@ -28,6 +28,28 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task DurableParticipantFailureReleasesOperationOwnershipBeforeRepeatedRecovery()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var participant = new FailingParticipant();
+        var capture = CreateCapture(source, "first", -1, null) with { CommitParticipant = participant };
+        await Assert.ThrowsExactlyAsync<HistoryCommitRecoveryRequiredException>(() => runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, capture)));
+        Assert.IsTrue(participant.Ended);
+        Assert.IsFalse(participant.Aborted);
+        Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+    }
+    private sealed class FailingParticipant : ICaptureCommitParticipant
+    {
+        public bool Ended { get; private set; }
+        public bool Aborted { get; private set; }
+        public Task PrepareCommitAsync(PackId pack, HistoryTransactionId transaction, CancellationToken token) => Task.CompletedTask;
+        public Task HistoryCommittedAsync(CancellationToken token) => throw new IOException("injected participant failure");
+        public Task CompleteCommitAsync(CancellationToken token) => Task.CompletedTask;
+        public Task AbortCommitAsync(CancellationToken token) { Aborted = true; return Task.CompletedTask; }
+        public void EndOperation() => Ended = true;
+    }
+
+    [TestMethod]
     [DataRow("before-prepared")]
     [DataRow("prepared")]
     [DataRow("before-activate")]
