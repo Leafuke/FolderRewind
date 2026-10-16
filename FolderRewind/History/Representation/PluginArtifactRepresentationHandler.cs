@@ -1,6 +1,7 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.Index;
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -61,6 +62,20 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
         }
         if (!probe.ArtifactAvailable)
         {
+            var replicas = context.Environment.GetActiveSharedReplicas(context.Representation.RepresentationId)
+                .Where(r => context.Environment.GetSharedReplicaObservation(r.ReplicaId) is not
+                    { Availability: ReplicaAvailabilityObservation.Missing } and not
+                    { Integrity: ReplicaIntegrityObservation.Corrupt }).ToArray();
+            if (replicas.Length > 0)
+            {
+                return new RepresentationAssessment(context.Representation.RepresentationId,
+                    HistoryReadiness.PreparationRequired,
+                    Weakest(context.Representation.Fidelity, dependencyFidelity),
+                    replicas.Select(r => new RepresentationEvidence(RepresentationEvidenceKind.SharedReplica, r.ObjectKey,
+                        DateTimeOffset.UtcNow, context.Environment.GetSharedReplicaObservation(r.ReplicaId)?.Availability ?? ReplicaAvailabilityObservation.Unknown,
+                        context.Environment.GetSharedReplicaObservation(r.ReplicaId)?.Integrity ?? ReplicaIntegrityObservation.Unknown)),
+                    ["A shared Native closure must be prepared before materialization."]);
+            }
             return new RepresentationAssessment(
                 context.Representation.RepresentationId,
                 HistoryReadiness.Unavailable,

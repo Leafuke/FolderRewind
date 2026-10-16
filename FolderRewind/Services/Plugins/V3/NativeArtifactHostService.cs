@@ -27,9 +27,9 @@ internal static class NativeArtifactHostService
         var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
         var workspace = (await history.WorkspaceStore.LoadAsync(token)).Value;
         var state = workspace?.SourceBaselines.SingleOrDefault(s => s.SourceId.Value == sourceId);
-        if (state?.Relation != History.LocalState.WorkspaceBaselineRelation.Exact || state.BaseVersionId is not { } version) return null;
+        if (state?.Relation != History.LocalState.WorkspaceBaselineRelation.Exact || state.RequiresFullCapture || state.BaseVersionId is not { } version) return null;
         var representations = (await history.Query.GetAllRepresentationsAsync(token)).Where(r => r.VersionId == version
-            && r.Kind == RepresentationKind.PluginArtifact && r.RepresentationSpecificMetadata.ContainsKey("incrementalEvidence"))
+            && r.Kind == RepresentationKind.PluginArtifact && r.RepresentationSpecificMetadata.GetValueOrDefault("incrementalEvidence") == "2")
             .OrderBy(r => r.RepresentationId.ToString(), StringComparer.Ordinal);
         var store = Store(config);
         foreach (var representation in representations)
@@ -47,7 +47,7 @@ internal static class NativeArtifactHostService
                     store.PayloadPath(read.Nodes.Single(n => n.ArtifactId == root)), evidence.CapturesSinceCheckpoint,
                     evidence.FileStates.ToImmutableSortedDictionary(StringComparer.Ordinal), evidence.BoundaryFingerprint)
                 { ArtifactRootId = root.Value, EvidenceIdentity = representation.RepresentationSpecificMetadata["captureEvidenceSha256"],
-                    RequiresContentValidation = true, ContentRealizationId = state.ContentRealizationId };
+                    RequiresContentValidation = true, ContentRealizationId = state.ContentRealizationId, Directories = [.. evidence.Directories] };
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException) { /* Try another representation of this exact Version only. */ }
         }
@@ -123,8 +123,8 @@ internal static class NativeArtifactHostService
         try { await Recoveries.GetOrAdd(root, _ => new Lazy<Task>(() => NativeArtifactHistoryRecovery.RecoverAsync(history, Store(config), token))).Value; }
         catch { Recoveries.TryRemove(root, out _); throw; }
     }
-    internal static NativeArtifactStore Store(BackupConfig config)
-        => new(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id), new SevenZipHistoryArchiveBackend(config)
+    internal static NativeArtifactStore Store(BackupConfig config, IArtifactEnvelopeCodec? codec = null)
+        => new(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id), codec ?? new SevenZipHistoryArchiveBackend(config)
 #if NATIVE_ARTIFACT_ACCEPTANCE
             , Development.NativeArtifactAcceptance.Observe
 #endif
@@ -175,8 +175,8 @@ internal static class NativeArtifactHostService
             resolution.FolderSnapshot ?? throw new InvalidOperationException("Source snapshot required."), policy, token);
     }
 
-    internal static PluginArtifactRepresentationHandler Handler(BackupConfig config, HistoryRuntime history)
-        => new(new NativePluginArtifactBackend(PluginV3RuntimeService.Runtime, () => Store(config), async (root, token) =>
+    internal static PluginArtifactRepresentationHandler Handler(BackupConfig config, HistoryRuntime history, IArtifactEnvelopeCodec? codec = null)
+        => new(new NativePluginArtifactBackend(PluginV3RuntimeService.Runtime, () => Store(config, codec), async (root, token) =>
         {
             var representations = await history.Query.GetAllRepresentationsAsync(token);
             var representation = representations.Single(r => r.Kind == RepresentationKind.PluginArtifact
@@ -186,6 +186,8 @@ internal static class NativeArtifactHostService
             // Source may have been detached from current config; historical identity remains usable.
             var folder = snapshot.Folders.SingleOrDefault(f => f.FolderId == version.SourceId.Value)
                 ?? new FolderSnapshot(version.SourceId.Value, string.Empty, "Historical source", new System.Collections.Generic.Dictionary<StateOwnerId, ProviderStateSnapshot>());
-            return new NativeArtifactBinding(representation, snapshot, folder);
+            var catalog = (await history.LocalReplicaCatalogStore.LoadAsync(token)).Value;
+            return new NativeArtifactBinding(representation, snapshot, folder)
+            { LocalRegistered = catalog?.Entries.Any(e => e.RepresentationId == representation.RepresentationId) == true };
         }));
 }

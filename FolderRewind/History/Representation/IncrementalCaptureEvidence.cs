@@ -18,12 +18,17 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
     IReadOnlyList<ArtifactFileEntry> Files, IReadOnlyDictionary<string, SourceCaptureFileState> FileStates,
     int CapturesSinceCheckpoint)
 {
+    public const int CurrentSchema = 2;
     public const string Path = "_host/capture-evidence.json";
+    public IReadOnlyList<string> Directories { get; init; } = [];
     public string Fingerprint()
     {
-        var text = new StringBuilder("folderrewind/incremental-files/1\0");
+        SourceDirectorySnapshot.Validate(Directories, Files.Select(f => f.RelativePath));
+        var text = new StringBuilder("folderrewind/incremental-tree/2\0");
+        foreach (var directory in Directories.Order(StringComparer.Ordinal))
+            text.Append('D').Append(directory.Length).Append(':').Append(directory).Append('\n');
         foreach (var f in Files.OrderBy(f => f.RelativePath, StringComparer.Ordinal))
-            text.Append(f.RelativePath.Length).Append(':').Append(f.RelativePath).Append(':').Append(f.Length)
+            text.Append('F').Append(f.RelativePath.Length).Append(':').Append(f.RelativePath).Append(':').Append(f.Length)
                 .Append(':').Append(f.Sha256.ToUpperInvariant()).Append('\n');
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
     }
@@ -35,18 +40,24 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
         await using var input = await read.Read.OpenReadAsync(node.Content, Path, token);
         var result = await JsonSerializer.DeserializeAsync<IncrementalCaptureEvidence>(input, cancellationToken: token)
             ?? throw new InvalidDataException("Missing capture evidence.");
-        if (result.Schema != 1 || result.ConfigId != node.ConfigId || result.SourceId != node.FolderId
+        if (result.Schema != CurrentSchema || result.ConfigId != node.ConfigId || result.SourceId != node.FolderId
             || result.DetectionPolicy != "size-mtime-v1" || result.Files.Count > 100_000
             || result.Files.Select(f => ArtifactPathRules.NormalizeRelativePath(f.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).Count() != result.Files.Count
             || result.Files.Any(f => f.Length < 0 || f.Sha256.Length != 64)
             || !result.Files.Select(f => f.RelativePath).ToHashSet(StringComparer.Ordinal).SetEquals(result.FileStates.Keys))
             throw new InvalidDataException("Invalid capture evidence.");
+        SourceDirectorySnapshot.Validate(result.Directories, result.Files.Select(f => f.RelativePath));
         return result;
     }
+
+    public Task VerifyViewAsync(IArtifactFileView view, CancellationToken token)
+        => ValidateViewAsync(view, null, new(Guid.NewGuid(), ArtifactCaptureInputKind.Full,
+            BoundaryFingerprint, DetectionPolicy, null, null, null, [], [], [], true), token);
 
     public async Task ValidateViewAsync(IArtifactFileView view, IArtifactFileView? baseline,
         ArtifactIncrementalInput capture, CancellationToken token)
     {
+        SourceDirectorySnapshot.Validate(Directories, Files.Select(f => f.RelativePath));
         var expected = Files.ToDictionary(f => f.RelativePath, StringComparer.Ordinal);
         var actual = view.Files.ToDictionary(f => ArtifactPathRules.NormalizeRelativePath(f.RelativePath), StringComparer.Ordinal);
         if (actual.Count != expected.Count || !expected.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(actual.Keys))
@@ -76,7 +87,13 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
 
     public async Task CopyViewToAsync(IArtifactFileView view, string directory, CancellationToken token)
     {
+        SourceDirectorySnapshot.Validate(Directories, Files.Select(f => f.RelativePath));
         Directory.CreateDirectory(directory);
+        foreach (var relative in Directories)
+        {
+            token.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(ArtifactPathRules.ResolveUnderRoot(directory, relative));
+        }
         var actual = view.Files.ToDictionary(f => ArtifactPathRules.NormalizeRelativePath(f.RelativePath), StringComparer.Ordinal);
         if (!Files.Select(f => f.RelativePath).ToHashSet(StringComparer.Ordinal).SetEquals(actual.Keys))
             throw new InvalidDataException("Restore directory differs from committed evidence.");

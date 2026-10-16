@@ -407,7 +407,7 @@ internal static partial class NativeHistoryApplicationService
             localPath, hideRecord: false, releaseVersion, token: cancellationToken).ConfigureAwait(false);
         var result = await CommitVersionDeletionAsync(config, prepared, cancellationToken).ConfigureAwait(false);
         if (!result.Committed) throw new InvalidOperationException(result.Diagnostic);
-        return new(existed, existed && !File.Exists(localPath), prepared.Plan.Request.TargetReplicaIds.Length);
+        return new(existed, existed && !File.Exists(localPath), prepared.TargetReplicaCount);
     }
 
     public static async Task<HistoryRestoreService> CreateRestoreServiceAsync(
@@ -427,12 +427,7 @@ internal static partial class NativeHistoryApplicationService
     {
         var configSignature = expectedSignature ?? NativeHistoryConfigLease.Signature(config);
         var archive = new SevenZipHistoryArchiveBackend(config, verificationContext is not null);
-        var representations = new RepresentationRuntime(
-        [
-            new CoreArchiveRepresentationHandler(archive),
-            new SmartDeltaRepresentationHandler(archive),
-            Plugins.V3.NativeArtifactHostService.Handler(config, runtime)
-        ]);
+        var representations = HistoryRepresentationRuntimeFactory.Create(config, runtime, archive);
         return new HistoryRestoreService(
             runtime,
             representations,

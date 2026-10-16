@@ -809,7 +809,7 @@ public sealed partial class HistoryPageViewModel
         var result = await DeleteVersionAsync(item, (BackupDeleteMode)rawMode,
             async (prepared, token) => await _interactions.ConfirmAsync(
                 I18n.GetString("History_DeleteConfirm_Title"),
-                I18n.Format("History_Rewrite_Confirm", item.FileName, prepared.Mappings.Length,
+                prepared.IsNative ? I18n.Format("History_NativeDelete_Confirm", item.FileName) : I18n.Format("History_Rewrite_Confirm", item.FileName, prepared.RewrittenVersions,
                     (prepared.CreatedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture),
                     (prepared.ReclaimedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture),
                     (prepared.NetReleasedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture)),

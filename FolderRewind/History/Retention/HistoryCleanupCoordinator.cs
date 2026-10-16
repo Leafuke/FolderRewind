@@ -17,7 +17,7 @@ namespace FolderRewind.History.Retention;
 /// <summary>The caller owns the configuration operation lease for the complete run.</summary>
 public sealed class HistoryCleanupCoordinator(HistoryRuntime history, RepresentationRuntime engine,
     IHistoryChainRewriteArchiveBackend archive, HistoryRetentionPlanner planner, string backupRoot,
-    Func<CancellationToken, Task>? collectArtifacts = null)
+    Func<CancellationToken, Task<IReadOnlyList<NativeArtifactCollectionResult>>>? collectArtifacts = null)
 {
     public async Task<HistoryCleanupReport?> ExecuteAsync(int keepCount, int maximumDepth,
         HistoryRetentionBenefitPolicy policy, bool automatic, string compressionSignature,
@@ -120,8 +120,6 @@ public sealed class HistoryCleanupCoordinator(HistoryRuntime history, Representa
                         { pending.Status = "Blocked"; pending.Issues.Add(new("RecoveryRequired")); }
                     }
                     if (result.ReasonCode == "NoSpaceBenefit" && fingerprint is not null) cache[groupId] = fingerprint;
-                    if (!stopAfterGroup && collectArtifacts is not null)
-                        await collectArtifacts(token).ConfigureAwait(false);
                     foreach (var row in rows)
                     {
                         if (stopAfterGroup) { row.After = null; continue; }
@@ -134,7 +132,8 @@ public sealed class HistoryCleanupCoordinator(HistoryRuntime history, Representa
                         if (local.Entries.Any(e => currentGraph.TryGetValue(e.RepresentationId, out var r) && versions.TryGetValue(r.VersionId, out var v)
                             && v.SourceId == source && !protectedVersions.Contains(v.VersionId)
                             && (v.BoundaryConfidence != HistoricalBoundaryConfidence.Known || r.Fidelity != MaterializationFidelity.Exact
-                                || r.Kind is not (RepresentationKind.CoreFull or RepresentationKind.CoreRolling or RepresentationKind.CoreSmartDelta)
+                                || (r.Kind is not (RepresentationKind.CoreFull or RepresentationKind.CoreRolling or RepresentationKind.CoreSmartDelta)
+                                    && !NativePluginArtifactBackend.IsSupported(r))
                                 || e.Locator.Kind != LocalReplicaLocatorKind.ControlledAbsolutePath)))
                         {
                             row.Issues.Add(new("UnsupportedArchive"));
@@ -162,6 +161,25 @@ public sealed class HistoryCleanupCoordinator(HistoryRuntime history, Representa
                 if (stopAfterGroup) break;
                 if ((await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Status != DeviceLocalStateStatus.Valid)
                     throw new InvalidDataException("Local catalog requires recovery before another group can run.");
+            }
+            // Native planning and DAG collection run once for the entire configuration, including cached Core groups.
+            if (collectArtifacts is not null)
+            {
+                foreach (var collection in await collectArtifacts(token).ConfigureAwait(false))
+                {
+                    evaluated = true;
+                    var row = report.Sources.FirstOrDefault(r => r.SourceId == collection.SourceId.ToString());
+                    if (row is null)
+                    {
+                        row = new HistoryCleanupSourceReport { SourceId = collection.SourceId.ToString(), GroupId = collection.SourceId.ToString() };
+                        report.Sources.Add(row);
+                    }
+                    row.NativeDeletedObjects += collection.DeletedObjects;
+                    row.ReclaimedBytes += collection.ReclaimedBytes;
+                    if (row.Status is "Pending" or "NoWork" or "NoSpaceBenefit") row.Status = "Completed";
+                }
+                foreach (var row in report.Sources)
+                    if (Guid.TryParse(row.SourceId, out var source)) row.After = await CountReadyAsync(new(source), token).ConfigureAwait(false);
             }
             if (automatic && !evaluated && groups.Count > 0) return null;
             report.Status = report.Sources.Any(r => r.Status is "Blocked" or "Incomplete" or "NoSpaceBenefit" or "CleanupPending")

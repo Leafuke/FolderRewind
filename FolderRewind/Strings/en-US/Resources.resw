@@ -7128,4 +7128,6 @@ Task log
   <data name="SemanticBackup_CheckpointStableRequired" xml:space="preserve"><value>A semantic checkpoint requires a stable source view from a compatible plugin.</value></data>
   <data name="SemanticBackup_CheckpointUnavailable" xml:space="preserve"><value>Explicitly enable experimental semantic backup with complete sources in Smart or Full mode first.</value></data>
   <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>Manual semantic checkpoint</value></data>
+  <data name="History_NativeDelete_Confirm" xml:space="preserve"><value>Delete the local representation for “{0}” and collect Native objects that no version or job still references. Shared objects remain; released space depends on the complete closure.</value></data>
+  <data name="Retention_NativeObjects" xml:space="preserve"><value>Collected {0} Native objects. Shared objects remain protected by their closures; released bytes are included in the totals.</value></data>
 </root>

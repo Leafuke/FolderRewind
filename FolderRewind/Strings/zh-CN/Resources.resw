@@ -7128,4 +7128,6 @@ Pull Request：{1}</value>
   <data name="SemanticBackup_CheckpointStableRequired" xml:space="preserve"><value>创建语义检查点需要兼容插件提供稳定来源视图。</value></data>
   <data name="SemanticBackup_CheckpointUnavailable" xml:space="preserve"><value>请先显式启用实验性语义备份，并使用完整来源的智能或完整备份配置。</value></data>
   <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>手动语义 checkpoint</value></data>
+  <data name="History_NativeDelete_Confirm" xml:space="preserve"><value>删除“{0}”的本地表示后，将回收不再被其他版本或任务引用的 Native 对象。共享对象会保留，实际释放空间取决于完整闭包。</value></data>
+  <data name="Retention_NativeObjects" xml:space="preserve"><value>已回收 {0} 个 Native 对象；共享对象按闭包保留，释放字节已计入总量。</value></data>
 </root>

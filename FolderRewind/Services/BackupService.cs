@@ -630,10 +630,13 @@ namespace FolderRewind.Services
                     {
                         var states = ScanDirectory(sourcePath, runtimeConfig.Filters, selection: runtimeFolder.SourceScope);
                         var changes = CompareFileStates(states, captureBaseline?.FileStates);
+                        var directories = SourceDirectorySnapshot.Read(sourcePath,
+                            FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(sourceId, sourcePath, effectiveBoundary)), states.Keys, cancellationToken);
+                        var directoriesUnchanged = captureBaseline is not null && directories.SequenceEqual(captureBaseline.Directories);
                         if (captureScope != CaptureScope.FullSource) throw new InvalidOperationException("Semantic capture requires the complete effective boundary.");
                         if (BackupSourceAvailabilityPolicy.IsUnavailable(runtimeFolder.SourceScope, states.Count))
                             captureResult = SourceCaptureResult.Unavailable(sourceId, captureScope);
-                        else if (captureBaseline is not null && !changes.HasChanges
+                        else if (captureBaseline is not null && !changes.HasChanges && directoriesUnchanged
                             && (config.Archive.Mode == BackupMode.Smart || config.Archive.SkipIfUnchanged)
                             && !invocationOptions.RequestSemanticCheckpoint)
                             captureResult = SourceCaptureResult.NoChanges(sourceId, captureScope);
@@ -642,10 +645,10 @@ namespace FolderRewind.Services
                             var fileStates = states.ToImmutableSortedDictionary(StringComparer.Ordinal);
                             var plan = FileChangeCapturePlan.Create(fileStates, captureBaseline, effectiveBoundary,
                                 captureBaseline is not null && config.Archive.Mode == BackupMode.Smart,
-                                invocationOptions.RequestSemanticCheckpoint);
+                                invocationOptions.RequestSemanticCheckpoint) with { Directories = directories };
                             var witness = new SourceCaptureBaselineCandidate(captureBaseline?.Revision ?? -1, string.Empty, 0,
                                 fileStates, effectiveBoundary.Fingerprint)
-                            { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) };
+                            { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path), Directories = directories };
                             captureResult = await NativeArtifactHostService.CaptureDirectAsync(runtimeConfig,
                                 v3Session.SourceResolution, plan, witness, effectiveBoundary, sourcePath, cancellationToken).ConfigureAwait(false);
                         }
@@ -746,7 +749,7 @@ namespace FolderRewind.Services
                         await history.CaptureBaselines.SaveAsync(sourceId,
                             new(captureBaseline.Revision, captureBaseline.PayloadPath, captureBaseline.ConsecutiveSmartCaptures,
                                 captureBaseline.FileStates, captureBaseline.BoundaryFingerprint)
-                            { ArtifactRootId = captureBaseline.ArtifactRootId, EvidenceIdentity = captureBaseline.EvidenceIdentity,
+                            { ArtifactRootId = captureBaseline.ArtifactRootId, EvidenceIdentity = captureBaseline.EvidenceIdentity, Directories = captureBaseline.Directories,
                                 ContentRealizationId = (await history.WorkspaceStore.LoadAsync(cancellationToken)).Value!.GetSourceState(sourceId).ContentRealizationId,
                                 SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) },
                             captureBaseline.BaseVersionId, representation, cancellationToken).ConfigureAwait(false);

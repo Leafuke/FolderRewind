@@ -11,6 +11,7 @@ public sealed record FileChangeCapturePlan(ArtifactIncrementalInput Input,
     ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates,
     SourceCaptureBaseline? Baseline)
 {
+    public ImmutableArray<string> Directories { get; init; } = [];
     public static FileChangeCapturePlan Create(SourceCaptureResult capture, SourceCaptureBaseline? baseline, bool requestCheckpoint = false)
     {
         var states = capture.BaselineCandidate?.FileStates ?? throw new InvalidOperationException("File-state witness required.");

@@ -45,7 +45,7 @@ public sealed partial class NativeArtifactStore
     public string Root { get; }
     public FileArtifactLedgerStore Ledger { get; }
     public static string ForConfig(string destination, string configId)
-        => Path.Combine(Path.GetFullPath(destination), ".folderrewind", "native-artifacts",
+        => Path.Combine(Path.GetFullPath(destination), ".folderrewind", "native-artifacts-v2",
             Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(configId))).ToLowerInvariant());
 
     public NativeArtifactStore(string root, IArtifactEnvelopeCodec codec, Action<string>? observe = null)

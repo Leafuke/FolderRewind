@@ -29,6 +29,7 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
         var primary = stableSourceDirectory ?? System.IO.Path.Combine(work, "primary"); Directory.CreateDirectory(work);
         var boundary = capture?.EffectiveSourceBoundary ?? directBoundary ?? throw new InvalidOperationException("Source boundary required.");
         var statistics = capture?.BaselineCandidate ?? directStatistics ?? throw new InvalidOperationException("Capture witness required.");
+        SourceDirectorySnapshot.Validate(plan.Directories, plan.FileStates.Keys);
         if (plan.FileStates.Count > ArtifactTransformLimits.Default.MaximumFiles
             || plan.FileStates.Any(f => f.Value.Size < 0)
             || plan.FileStates.Sum(f => f.Value.Size) > ArtifactTransformLimits.Default.MaximumBytes)
@@ -65,9 +66,10 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 expected[file.RelativePath] = file;
             }
             if (!expected.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(plan.FileStates.Keys)) throw new InvalidDataException("Incomplete logical Source state.");
-            var document = new IncrementalCaptureEvidence(1, config.ConfigId, folder.FolderId, version.ToString(), representation.ToString(),
+            var document = new IncrementalCaptureEvidence(IncrementalCaptureEvidence.CurrentSchema, config.ConfigId, folder.FolderId, version.ToString(), representation.ToString(),
                 plan.Input.BoundaryFingerprint, plan.Input.DetectionPolicy, expected.Values.OrderBy(f => f.RelativePath, StringComparer.Ordinal).ToArray(),
-                plan.FileStates, plan.Input.Checkpoint ? 0 : checked((plan.Baseline?.ConsecutiveSmartCaptures ?? 0) + 1));
+                plan.FileStates, plan.Input.Checkpoint ? 0 : checked((plan.Baseline?.ConsecutiveSmartCaptures ?? 0) + 1))
+                { Directories = plan.Directories };
             var evidenceBytes = JsonSerializer.SerializeToUtf8Bytes(document);
             await using var prepared = await store.PrepareAsync(plugins, config, folder, version.ToString(), representation.ToString(), primary,
                 policy, encrypted, token, capture?.PayloadCandidate?.AbsolutePath, capture?.RepresentationCandidate?.RepresentationId.ToString(), plan.Input,
@@ -97,7 +99,7 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 var metadata = new Dictionary<string, string>
                 {
                     ["artifactRootId"] = node.ArtifactId.Value.ToString("D"), ["pluginId"] = node.Format.OwnerId.Value,
-                    ["storageSha256"] = stored.StorageSha256, ["nativeArtifactEnvelope"] = "1", ["incrementalEvidence"] = "1",
+                    ["storageSha256"] = stored.StorageSha256, ["nativeArtifactEnvelope"] = "1", ["incrementalEvidence"] = "2", ["nativeArtifactContractVersion"] = "2",
                     ["captureEvidenceSha256"] = Convert.ToHexString(SHA256.HashData(evidenceBytes)),
                     ["fileName"] = System.IO.Path.GetFileName(path), ["stateFingerprint"] = fingerprint
                 };
@@ -106,11 +108,13 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 var baselineCandidate = new SourceCaptureBaselineCandidate(statistics.ExpectedRevision, path,
                     document.CapturesSinceCheckpoint, plan.FileStates, document.BoundaryFingerprint)
                     { ArtifactRootId = node.ArtifactId.Value, EvidenceIdentity = metadata["captureEvidenceSha256"],
-                        SourcePathFingerprint = statistics.SourcePathFingerprint };
+                        SourcePathFingerprint = statistics.SourcePathFingerprint, Directories = plan.Directories };
                 return new SourceCaptureResult(new(folder.FolderId), SourceCaptureOutcome.Captured, CaptureScope.FullSource, fingerprint,
                     null, candidate, new(LocalReplicaId.New(), representation, LocalReplicaLocator.ControlledAbsolute(path), CapturePayloadState.VerifiedFinal, DateTimeOffset.UtcNow),
                     new(path, CapturePayloadState.VerifiedFinal, stored.StorageSize, stored.StorageSha256), capture?.ExpectedWorkspaceRevision ?? -1,
-                    capture?.ExpectedBaseVersionId ?? plan.Baseline?.BaseVersionId, capture?.CleanupHandle, capture?.Diagnostics ?? [], capture?.ExpectedMaterializationPolicyTipIds ?? [],
+                    capture?.ExpectedBaseVersionId ?? plan.Baseline?.BaseVersionId, capture?.CleanupHandle, (capture?.Diagnostics ?? []).Concat(prepared.Diagnostics.Select(d =>
+                        new HistoryDiagnostic(d.Code, d.Severity == DiagnosticSeverity.Error ? HistoryDiagnosticSeverity.Error : HistoryDiagnosticSeverity.Warning,
+                            d.Code + ": " + JsonSerializer.Serialize(d.Arguments)))), capture?.ExpectedMaterializationPolicyTipIds ?? [],
                     baselineCandidate, boundary, capture?.VersionMetadataCandidates ?? [])
                 { ReservedVersionId = version, CommitParticipant = new NativeArtifactCaptureService.Participant(store, prepared.Intent, cleanupPrimary: true) };
             }

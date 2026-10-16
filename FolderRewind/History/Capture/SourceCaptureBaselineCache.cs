@@ -25,13 +25,14 @@ public sealed record SourceCaptureBaseline(
     ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates,
     string BoundaryFingerprint = "")
 {
-    public const int CurrentFormatVersion = 3;
+    public const int CurrentFormatVersion = 4;
     public int FormatVersion => CurrentFormatVersion;
     public Guid? ArtifactRootId { get; init; }
     public string? EvidenceIdentity { get; init; }
     public bool RequiresContentValidation { get; init; }
     public Guid ContentRealizationId { get; init; }
     public string SourcePathFingerprint { get; init; } = "";
+    public ImmutableArray<string> Directories { get; init; } = [];
 }
 
 public sealed record SourceCaptureBaselineCandidate(
@@ -46,6 +47,7 @@ public sealed record SourceCaptureBaselineCandidate(
     public bool RequiresContentValidation { get; init; }
     public Guid ContentRealizationId { get; init; }
     public string SourcePathFingerprint { get; init; } = "";
+    public ImmutableArray<string> Directories { get; init; } = [];
 }
 
 public static class SourceCaptureBaselinePolicy
@@ -133,7 +135,8 @@ public sealed class SourceCaptureBaselineCache : IDisposable
                     && Guid.TryParse(rootText, out var parsedRoot) ? parsedRoot : null),
                 EvidenceIdentity = candidate.EvidenceIdentity ?? committedRepresentation.RepresentationSpecificMetadata.GetValueOrDefault("captureEvidenceSha256"),
                 RequiresContentValidation = candidate.RequiresContentValidation,
-                ContentRealizationId = candidate.ContentRealizationId, SourcePathFingerprint = candidate.SourcePathFingerprint };
+                ContentRealizationId = candidate.ContentRealizationId, SourcePathFingerprint = candidate.SourcePathFingerprint,
+                Directories = candidate.Directories };
             await AtomicFileService.WriteAsync(
                 PathFor(sourceId),
                 (stream, token) => JsonSerializer.SerializeAsync(stream, baseline, JsonOptions, token),
@@ -182,6 +185,7 @@ public sealed class SourceCaptureBaselineCache : IDisposable
         if (!File.Exists(path)) return null;
         try
         {
+            if (new FileInfo(path).Length > 64L * 1024 * 1024) return null;
             var bytes = File.ReadAllBytes(path);
             using var document = JsonDocument.Parse(bytes);
             if (!document.RootElement.TryGetProperty("formatVersion", out var formatVersion)
@@ -192,9 +196,10 @@ public sealed class SourceCaptureBaselineCache : IDisposable
             if (value is null
                 || value.SourceId != sourceId
                 || value.Revision < 0
-                || value.FileStates is null
+                || value.FileStates is null || value.Directories.IsDefault
                 || !Path.IsPathFullyQualified(value.PayloadPath))
                 return null;
+            if (value.ArtifactRootId is not null) SourceDirectorySnapshot.Validate(value.Directories, value.FileStates.Keys);
             return value;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
