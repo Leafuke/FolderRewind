@@ -46,6 +46,7 @@ public sealed partial class ConfigSettingsPage
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
         base.OnNavigatingFrom(e);
+        if (!_allowNavigation && ViewModel.IsSavingSettings) { e.Cancel = true; return; }
         if (_allowNavigation || !ViewModel.HasUnsavedChanges) return;
         e.Cancel = true;
         if (_leaving) return;
@@ -63,7 +64,7 @@ public sealed partial class ConfigSettingsPage
             if (answer == ContentDialogResult.Primary)
             {
                 await ViewModel.SaveCommand.ExecuteAsync(null);
-                if (!ViewModel.LastSaveSucceeded) return;
+                if (!ViewModel.LastSaveSucceeded || ViewModel.HasUnsavedChanges) return;
             }
             _allowNavigation = true;
             Frame.Navigate(destination, parameter);
@@ -81,12 +82,7 @@ public sealed partial class ConfigSettingsPage
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.SaveCommand.CanExecute(null)) return;
-        IsEnabled = false;
-        try
-        {
-            await ViewModel.SaveCommand.ExecuteAsync(null);
-        }
-        finally { IsEnabled = true; }
+        await ViewModel.SaveCommand.ExecuteAsync(null);
     }
     private void OnCancelClick(object sender, RoutedEventArgs e)
         => NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(Config.Id));

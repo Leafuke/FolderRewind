@@ -29,10 +29,14 @@ namespace FolderRewind.Services
     /// </summary>
     public static partial class BackupService
     {
-        internal static async Task<BackupOperationResult> CreateSemanticCheckpointAsync(BackupConfig config, CancellationToken token)
+        internal static Task<BackupOperationResult> CreateSemanticCheckpointAsync(BackupConfig config, CancellationToken token)
+            => CreateSemanticCheckpointAsync(config, new(config, config.Id, config.ConfigRevision, config.SourceFolders.Select(f => f.Id)), token);
+
+        internal static async Task<BackupOperationResult> CreateSemanticCheckpointAsync(BackupConfig config, BackupConfigurationHandoff handoff, CancellationToken token)
         {
             var result = await ExecuteBackupTransactionAsync(config, config.SourceFolders,
-                BackupInvocationOptions.ForManual(I18n.GetString("SemanticBackup_CheckpointHistoryComment")).WithSemanticCheckpoint(),
+                new BackupInvocationOptions { Source = BackupInvocationSource.Manual, PreferApplicationConsistentSnapshot = true,
+                    Comment = I18n.GetString("SemanticBackup_CheckpointHistoryComment"), RequestSemanticCheckpoint = true, ConfigurationHandoff = handoff },
                 HistoryCommitIntent.AdvanceBranch, cancellationToken: token).ConfigureAwait(false);
             return new(result.Outcome, result.CreatedNewArchive, result.HistoryRecoveryRequired);
         }

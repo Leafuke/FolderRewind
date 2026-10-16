@@ -18,6 +18,7 @@ namespace FolderRewind.Services
         public string Comment { get; init; } = string.Empty;
         public bool Protect { get; init; }
         public bool RequestSemanticCheckpoint { get; init; }
+        internal BackupConfigurationHandoff? ConfigurationHandoff { get; init; }
 
         public static BackupInvocationOptions Default { get; } = new();
 
@@ -58,7 +59,7 @@ namespace FolderRewind.Services
             PreferApplicationConsistentSnapshot = prefer,
             Comment = Comment,
             Protect = Protect,
-            RequestSemanticCheckpoint = RequestSemanticCheckpoint
+            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff
         };
 
         public BackupInvocationOptions WithComment(string? comment) => new()
@@ -67,19 +68,19 @@ namespace FolderRewind.Services
             PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
             Comment = comment ?? string.Empty,
             Protect = Protect,
-            RequestSemanticCheckpoint = RequestSemanticCheckpoint
+            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff
         };
 
         public BackupInvocationOptions WithProtection(bool protect) => new()
         {
             Source = Source, PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
-            Comment = Comment, Protect = protect, RequestSemanticCheckpoint = RequestSemanticCheckpoint
+            Comment = Comment, Protect = protect, RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff
         };
 
         public BackupInvocationOptions WithSemanticCheckpoint() => new()
         {
             Source = Source, PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
-            Comment = Comment, Protect = Protect, RequestSemanticCheckpoint = true
+            Comment = Comment, Protect = Protect, RequestSemanticCheckpoint = true, ConfigurationHandoff = ConfigurationHandoff
         };
     }
 }

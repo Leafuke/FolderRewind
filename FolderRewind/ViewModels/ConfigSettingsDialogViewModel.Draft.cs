@@ -15,6 +15,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     private bool _savingDraft;
     private bool? _draftSaveResult;
     public bool HasUnsavedChanges => _editingDraft?.IsDirty == true;
+    public bool IsSavingSettings => _savingDraft || _saveController.IsSaving;
     public string DraftStatusText => I18n.GetString(_savingDraft ? "SettingsProject_Saving"
         : _draftSaveResult == false ? "SettingsProject_SaveFailed"
         : HasUnsavedChanges ? "SettingsProject_Modified"
@@ -24,6 +25,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     {
         if (edited && !_savingDraft) _draftSaveResult = null;
         OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(IsSavingSettings));
         OnPropertyChanged(nameof(DraftStatusText));
     }
 

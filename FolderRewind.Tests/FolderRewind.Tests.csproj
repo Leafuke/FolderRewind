@@ -120,6 +120,7 @@
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoverySetIdentityMatcher.cs" Link="Source\DiscoverySetIdentityMatcher.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryThreeWayReviewService.cs" Link="Source\DiscoveryThreeWayReviewService.cs" />
     <Compile Include="..\FolderRewind\Services\OfficialPresetIndexMergePolicy.cs" Link="Source\OfficialPresetIndexMergePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupConfigurationHandoff.cs" Link="Source\BackupConfigurationHandoff.cs" />
     <Compile Include="..\FolderRewind\Services\BackupInvocationOptions.cs" Link="Source\BackupInvocationOptions.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\IGameDiscoveryProvider.cs" Link="Source\IGameDiscoveryProvider.cs" />

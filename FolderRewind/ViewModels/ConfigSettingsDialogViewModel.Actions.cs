@@ -23,6 +23,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     public bool LastSaveSucceeded { get; private set; }
     internal Func<Task<ConfigSaveResult>>? SaveDraft { get; set; }
     public bool LastDeleteSucceeded { get; private set; }
+    private bool CanStartSettingsOperation => _actionLifetime.CanExecute && !_savingDraft && !_saveController.IsSaving && !_semanticCheckpointRunning;
     private void InitializeActions(IConfigSettingsActions actions)
     {
         _actions = actions;
@@ -30,24 +31,25 @@ public sealed partial class ConfigSettingsDialogViewModel
         EditCommand = new RelayCommand<ConfigSettingsEditRequest>(ApplyDraftEdit);
         ActionCommand = new AsyncRelayCommand<ConfigSettingsAction>(
             (action, token) => _actionLifetime.RunAsync(ct => _actions.ExecuteAsync(action, ct), token),
-            _ => _actionLifetime.CanExecute && !_saveController.IsSaving);
+            _ => CanStartSettingsOperation);
         SaveCommand = new AsyncRelayCommand(async () =>
         {
             _savingDraft = true;
             RefreshDraftState();
+            RefreshCleanupActions();
             try
             {
                 LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave, SaveDraft ?? (() => ConfigService.SaveAsync()), ReportSettingsError);
                 _draftSaveResult = LastSaveSucceeded;
                 RefreshCleanupActions();
             }
-            finally { _savingDraft = false; RefreshDraftState(); }
-        }, () => _actionLifetime.CanExecute);
+            finally { _savingDraft = false; RefreshDraftState(); RefreshCleanupActions(); }
+        }, () => CanStartSettingsOperation);
         DeleteCommand = new AsyncRelayCommand(token => _actionLifetime.RunAsync(async ct =>
         {
             LastDeleteSucceeded = false;
             LastDeleteSucceeded = await DeleteAsync(ct);
-        }, token), () => _actionLifetime.CanExecute && !_saveController.IsSaving);
+        }, token), () => CanStartSettingsOperation);
     }
 
     private static void ReportSettingsError(string message)

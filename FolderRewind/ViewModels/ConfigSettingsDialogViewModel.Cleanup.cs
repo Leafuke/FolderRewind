@@ -18,15 +18,15 @@ public sealed partial class ConfigSettingsDialogViewModel
     internal async Task SaveForCleanupAsync(CancellationToken token)
     {
         string? error = null;
-        _savingDraft = true; RefreshDraftState();
+        _savingDraft = true; RefreshDraftState(); RefreshCleanupActions();
         try
         {
             LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave,
                 (_editingDraft is not null ? () => _editingDraft.CommitAsync(token) : SaveDraft ?? (() => ConfigService.SaveAsync())), message => error = message, token);
-            _draftSaveResult = LastSaveSucceeded;
+            _draftSaveResult = !LastSaveSucceeded && token.IsCancellationRequested ? null : LastSaveSucceeded;
             RefreshCleanupActions();
         }
-        finally { _savingDraft = false; RefreshDraftState(); }
+        finally { _savingDraft = false; RefreshDraftState(); RefreshCleanupActions(); }
         token.ThrowIfCancellationRequested();
         if (!LastSaveSucceeded) throw new InvalidOperationException(error ?? I18n.GetString("Common_Failed"));
     }

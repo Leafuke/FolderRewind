@@ -7132,4 +7132,5 @@ Task log
   <data name="Retention_NativeObjects" xml:space="preserve"><value>Collected {0} Native objects. Shared objects remain protected by their closures; released bytes are included in the totals.</value></data>
   <data name="Retention_Reason_CollectionAckPending" xml:space="preserve"><value>Objects were collected, but their accounting acknowledgement is pending. The next cleanup will retry.</value></data>
   <data name="Migration_NativePackageRequired" xml:space="preserve"><value>This version uses semantic backup storage. Recover it from a migration package or rebind its complete backup directory.</value></data>
+  <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>The saved configuration changed before the checkpoint started. Save again and retry.</value></data>
 </root>

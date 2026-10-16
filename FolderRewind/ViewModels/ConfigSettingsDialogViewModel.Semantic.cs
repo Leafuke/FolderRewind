@@ -62,7 +62,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     public bool CanConfigureCoreSmartChain => !ExperimentalSemanticBackupEnabled;
     public bool IsSemanticCheckpointRunning => _semanticCheckpointRunning;
     public bool CanCreateSemanticCheckpoint => ExperimentalSemanticBackupEnabled && _semanticUnavailableReason is null
-        && !_semanticCheckpointRunning && _actionLifetime.CanExecute && !_saveController.IsSaving;
+        && CanStartSettingsOperation;
     public string SemanticBackupAvailability => _semanticUnavailableReason is { } reason ? I18n.GetString(reason)
         : I18n.GetString(ExperimentalSemanticBackupEnabled ? "SemanticBackup_EnabledHint" : "SemanticBackup_DisabledHint");
     public string SemanticCheckpointLabel => I18n.GetString(HasUnsavedChanges ? "SemanticBackup_SaveCheckpoint" : "SemanticBackup_CreateCheckpoint");
@@ -110,8 +110,9 @@ public sealed partial class ConfigSettingsDialogViewModel
         try
         {
             await SaveForCleanupAsync(token);
-            var current = ConfigService.CurrentConfig.BackupConfigs.Single(c => c.Id == Config.Id);
-            var result = await Task.Run(() => BackupService.CreateSemanticCheckpointAsync(current, token), token);
+            var saved = _editingDraft?.LastCommittedSnapshot ?? throw new InvalidOperationException(I18n.GetString("SemanticBackup_CheckpointStale"));
+            var handoff = _editingDraft?.LastCommittedHandoff ?? throw new InvalidOperationException(I18n.GetString("SemanticBackup_CheckpointStale"));
+            var result = await Task.Run(() => BackupService.CreateSemanticCheckpointAsync(saved, handoff, token), token);
             SemanticCheckpointStatus = I18n.GetString(result.HistoryRecoveryRequired ? "SemanticBackup_CheckpointRecoveryRequired"
                 : result.Outcome == OperationOutcome.Canceled ? "SemanticBackup_CheckpointCanceled"
                 : !result.IsSuccessful || !result.CreatedNewArchive ? "SemanticBackup_CheckpointFailed"

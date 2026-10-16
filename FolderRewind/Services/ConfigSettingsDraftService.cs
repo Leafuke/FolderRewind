@@ -13,6 +13,8 @@ internal sealed class ConfigSettingsDraftService
     private string _expected;
     private string _baseline;
     public BackupConfig Draft { get; }
+    internal BackupConfig? LastCommittedSnapshot { get; private set; }
+    internal BackupConfigurationHandoff? LastCommittedHandoff { get; private set; }
     public ConfigSettingsDraftService(BackupConfig original)
     {
         _original = original;
@@ -51,30 +53,34 @@ internal sealed class ConfigSettingsDraftService
     public Task<ConfigSaveResult> CommitAsync() => CommitAsync(default);
     public async Task<ConfigSaveResult> CommitAsync(System.Threading.CancellationToken token)
     {
+        var submitted = BackupConfigCloneService.CloneForRuntimeMutation(Draft, I18n.GetString("Common_Failed"));
         await using var gate = await NativeHistoryConfigurationOperationGate.EnterAsync(_original.Id, token);
+        RefreshBackupTimesAfterOperation();
         var configs = ConfigService.CurrentConfig.BackupConfigs;
         var current = configs.FirstOrDefault(c => c.Id == _original.Id);
         if (current is null || !ReferenceEquals(current, _original) || Serialize(current) != _expected)
             return new() { Success = false, ErrorMessage = I18n.GetString("SettingsProject_Stale") };
-        if (string.IsNullOrWhiteSpace(Draft.Name) || configs.Any(c => c.Id != Draft.Id && string.Equals(c.Name.Trim(), Draft.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
+        if (string.IsNullOrWhiteSpace(submitted.Name) || configs.Any(c => c.Id != submitted.Id && string.Equals(c.Name.Trim(), submitted.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
             return new() { Success = false, ErrorMessage = I18n.GetString("Setup_InvalidName") };
-        if (string.IsNullOrWhiteSpace(Draft.DestinationPath) || configs.Any(c => c.Id != Draft.Id && string.Equals(
-            FolderNameConflictService.NormalizeDestinationPath(c.DestinationPath), FolderNameConflictService.NormalizeDestinationPath(Draft.DestinationPath), StringComparison.OrdinalIgnoreCase)))
+        if (string.IsNullOrWhiteSpace(submitted.DestinationPath) || configs.Any(c => c.Id != submitted.Id && string.Equals(
+            FolderNameConflictService.NormalizeDestinationPath(c.DestinationPath), FolderNameConflictService.NormalizeDestinationPath(submitted.DestinationPath), StringComparison.OrdinalIgnoreCase)))
             return new() { Success = false, ErrorMessage = I18n.GetString("Setup_InvalidDestination") };
-        if (Draft.DestinationPath != current.DestinationPath)
+        if (submitted.DestinationPath != current.DestinationPath)
         {
-            if (!Path.IsPathFullyQualified(Draft.DestinationPath))
+            if (!Path.IsPathFullyQualified(submitted.DestinationPath))
                 return new() { Success = false, ErrorMessage = I18n.GetString("Setup_InvalidDestination") };
-            foreach (var source in Draft.SourceFolders)
+            foreach (var source in submitted.SourceFolders)
             {
-                if (!BackupStoragePathService.TryResolveBackupStoragePaths(Draft.DestinationPath, source.DisplayName, source.Path,
+                if (!BackupStoragePathService.TryResolveBackupStoragePaths(submitted.DestinationPath, source.DisplayName, source.Path,
                     out _, out var archivePath, out var metadataPath)
-                    || !BackupPathOverlapPolicy.Validate(source.Path, Draft.DestinationPath, archivePath, metadataPath).IsSafe)
+                    || !BackupPathOverlapPolicy.Validate(source.Path, submitted.DestinationPath, archivePath, metadataPath).IsSafe)
                     return new() { Success = false, ErrorMessage = I18n.GetString("Setup_PathOverlap") };
             }
         }
         ConfigMutationProtection.RequireWritable(current);
-        var replacement = BackupConfigCloneService.CloneForRuntimeMutation(Draft, I18n.GetString("Common_Failed"));
+        foreach (var source in submitted.SourceFolders)
+            if (current.SourceFolders.FirstOrDefault(f => f.Id == source.Id) is { } savedSource) source.LastBackupTime = savedSource.LastBackupTime;
+        var replacement = BackupConfigCloneService.CloneForRuntimeMutation(submitted, I18n.GetString("Common_Failed"));
         var cloudChanged = replacement.Cloud.Enabled != current.Cloud.Enabled || replacement.Cloud.RemoteBasePath != current.Cloud.RemoteBasePath
             || replacement.Cloud.ConnectionProfileId != current.Cloud.ConnectionProfileId || replacement.Cloud.RcloneConfigPath != current.Cloud.RcloneConfigPath
             || replacement.Cloud.WritableEvidence != current.Cloud.WritableEvidence;
@@ -111,10 +117,13 @@ internal sealed class ConfigSettingsDraftService
         _original = replacement;
         _expected = Serialize(replacement);
         Draft.ConfigRevision = replacement.ConfigRevision;
-        Draft.Cloud.ConnectionProfileId = replacement.Cloud.ConnectionProfileId;
-        Draft.Cloud.RemotePathSuffix = replacement.Cloud.RemotePathSuffix;
-        Draft.Cloud.BindingRevision = replacement.Cloud.BindingRevision;
-        _baseline = Serialize(Draft);
+        if (Draft.Cloud.ConnectionProfileId == submitted.Cloud.ConnectionProfileId) Draft.Cloud.ConnectionProfileId = replacement.Cloud.ConnectionProfileId;
+        if (Draft.Cloud.RemotePathSuffix == submitted.Cloud.RemotePathSuffix) Draft.Cloud.RemotePathSuffix = replacement.Cloud.RemotePathSuffix;
+        if (Draft.Cloud.BindingRevision == submitted.Cloud.BindingRevision) Draft.Cloud.BindingRevision = replacement.Cloud.BindingRevision;
+        LastCommittedSnapshot = ConfigSnapshotMapper.Copy(replacement);
+        LastCommittedHandoff = replacement.SourceFolders.Count == 0 ? null
+            : new(replacement, replacement.Id, replacement.ConfigRevision, replacement.SourceFolders.Select(f => f.Id));
+        _baseline = Serialize(LastCommittedSnapshot);
         CloudSyncService.ResumeCloudJobs(replacement);
         return new() { Success = true };
     }

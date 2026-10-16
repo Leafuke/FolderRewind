@@ -120,6 +120,24 @@ public static partial class BackupService
             .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false) : null;
         var operationLease = existingOperation ?? ownedOperation!;
         using var captureOwnership = Plugin.Runtime.Artifacts.NativeArtifactStore.TrackConfigurationCapture(config.Id);
+        if (invocationOptions.ConfigurationHandoff is { } handoff)
+        {
+            var valid = false;
+            await RunOnUIAsync(() =>
+            {
+                var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => c.Id == config.Id);
+                valid = current is not null && handoff.Matches(current, current.Id, current.ConfigRevision, current.SourceFolders.Select(f => f.Id))
+                    && handoff.Matches(current, config.Id, config.ConfigRevision, config.SourceFolders.Select(f => f.Id))
+                    && handoff.Matches(current, config.Id, config.ConfigRevision, requestedFolders.Select(f => f.Id))
+                    && NativeHistoryConfigLease.Signature(current) == NativeHistoryConfigLease.Signature(config);
+                if (valid)
+                {
+                    // Use the validated registration for runtime facts such as LastBackupTime.
+                    config = current!; requestedFolders = current!.SourceFolders.ToArray();
+                }
+            }).ConfigureAwait(false);
+            if (!valid) throw new InvalidOperationException(I18n.GetString("SemanticBackup_CheckpointStale"));
+        }
         if (invocationOptions.RequestSemanticCheckpoint
             && (invocationOptions.Source != BackupInvocationSource.Manual
                 || !NativeHistoryArtifactTransformPolicy.IsIncremental(config.ArtifactTransformPolicy)
