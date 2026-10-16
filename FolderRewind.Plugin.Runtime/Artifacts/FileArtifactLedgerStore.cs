@@ -476,25 +476,34 @@ public sealed class FileArtifactLedgerStore
     private async ValueTask<T?> ReadJsonAsync<T>(string path, CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
-        return await JsonSerializer.DeserializeAsync<T>(stream, _json, cancellationToken).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<T>(await ArtifactMetadataFile.ReadStreamAsync(stream, 16 * 1024 * 1024, cancellationToken).ConfigureAwait(false), _json);
     }
 
     private async ValueTask WriteJsonAtomicallyAsync<T>(string path, T value, CancellationToken cancellationToken)
     {
         var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        await WriteJsonDurablyAsync(temporary, value, cancellationToken).ConfigureAwait(false);
-        if (File.Exists(path)) File.Move(temporary, path, overwrite: true);
-        else File.Move(temporary, path);
-        await using var verify = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
-        var readBack = await JsonSerializer.DeserializeAsync<T>(verify, _json, cancellationToken).ConfigureAwait(false);
-        if (readBack is null) throw new InvalidDataException("Atomic Artifact metadata read-back failed.");
+        try
+        {
+            await WriteJsonDurablyAsync(temporary, value, cancellationToken).ConfigureAwait(false);
+            // Validate the bounded readback before replacing the last readable graph.
+            if (await ReadJsonAsync<T>(temporary, cancellationToken).ConfigureAwait(false) is null)
+                throw new InvalidDataException("Atomic Artifact metadata read-back failed.");
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
     private async ValueTask WriteJsonDurablyAsync<T>(string path, T value, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true);
-        await JsonSerializer.SerializeAsync(stream, value, _json, cancellationToken).ConfigureAwait(false);
+        long bytes = 0;
+        using var bounded = new QuotaWriteStream(stream, count =>
+        {
+            bytes = checked(bytes + count);
+            if (bytes > 16 * 1024 * 1024) throw new InvalidDataException("Artifact metadata quota exceeded.");
+        }, () => { });
+        await JsonSerializer.SerializeAsync(bounded, value, _json, cancellationToken).ConfigureAwait(false);
         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
         stream.Flush(flushToDisk: true);
     }

@@ -87,7 +87,7 @@ public sealed partial class NativeArtifactStore
         => Directory.EnumerateFiles(Path.Combine(Root, "pending"), "*.json").Select(path =>
         {
             if (new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("Oversized native artifact intent.");
-            var value = JsonSerializer.Deserialize<NativeArtifactPending>(File.ReadAllText(path)) ?? throw new InvalidDataException("Empty native artifact intent.");
+            var value = ArtifactMetadataFile.ReadJson<NativeArtifactPending>(path, 1024 * 1024) ?? throw new InvalidDataException("Empty native artifact intent.");
             if (value.Root.Value == Guid.Empty || !Guid.TryParse(value.VersionId, out _) || !Guid.TryParse(value.RepresentationId, out _)
                 || value.Id != Path.GetFileNameWithoutExtension(path)
                 || !new[] { "Prepared", "PayloadsSealed", "ArtifactGraphCommitted", "HistoryPackCommitted", "LocalStateApplied", "Complete" }.Contains(value.Phase)
@@ -216,7 +216,7 @@ public sealed partial class NativeArtifactStore
             var candidate = ArtifactGraphPatchApplier.Apply(current, result.Patch,
                 new(policy.TransformerId.PluginId, config.ConfigId, folder.FolderId, baselineRead?.Artifacts.Select(a => a.ArtifactId).ToHashSet() ?? [], transaction,
                     new(Guid.NewGuid().ToString("N"))), facts);
-            var closure = ArtifactLedgerValidator.BuildClosure(candidate, [result.Patch.ResultRootArtifactId]);
+            var closure = NativeArtifactClosureLimits.Validate(candidate, result.Patch.ResultRootArtifactId);
             if (result.Patch.AddedArtifacts.Any(node => !closure.Reachable.Contains(node.ArtifactId)))
                 throw new InvalidDataException("Transform patch contains an unreachable new Artifact.");
             var resultNode = candidate.Artifacts.Single(a => a.ArtifactId == result.Patch.ResultRootArtifactId);
@@ -294,7 +294,7 @@ public sealed partial class NativeArtifactStore
     internal async Task<NativeArtifactReadLease> OpenWithoutGateAsync(ArtifactLedgerDocument ledger, ArtifactId root, IDisposable held, CancellationToken token)
     {
         using var phase = ArtifactDiagnostics.Source.StartActivity("closure.open.wall");
-        var closure = ArtifactLedgerValidator.BuildClosure(ledger, [root]);
+        var closure = NativeArtifactClosureLimits.Validate(ledger, root);
         var rows = ledger.Artifacts.ToDictionary(a => a.ArtifactId);
         var roots = new ConcurrentDictionary<ArtifactContentHandle, string>();
         var snapshots = new ConcurrentDictionary<ArtifactId, BackupArtifactSnapshot>();
@@ -313,7 +313,7 @@ public sealed partial class NativeArtifactStore
                 var logicalDirectory = directory;
                 if (File.Exists(envelopePath))
                 {
-                    var envelope = JsonSerializer.Deserialize<NativeEnvelope>(await File.ReadAllTextAsync(envelopePath, token)) ?? throw new InvalidDataException();
+                    var envelope = ArtifactMetadataFile.ReadJson<NativeEnvelope>(envelopePath, 4096) ?? throw new InvalidDataException();
                     if (envelope.Version != 1) throw new InvalidDataException("Unknown envelope version.");
                     using (var blob = File.OpenRead(PayloadPath(node)))
                         if (blob.Length != node.StorageSize || !StringComparer.OrdinalIgnoreCase.Equals(
@@ -352,7 +352,7 @@ public sealed partial class NativeArtifactStore
         var transfers = Path.Combine(Root, "transfers");
         var transferRoots = Directory.Exists(transfers) ? Directory.EnumerateFiles(transfers, "*.json").Select(path =>
         {
-            var transfer = JsonSerializer.Deserialize<NativeArtifactTransfer>(File.ReadAllText(path)) ?? throw new InvalidDataException("Invalid transfer intent.");
+            var transfer = ArtifactMetadataFile.ReadJson<NativeArtifactTransfer>(path, 1024 * 1024) ?? throw new InvalidDataException("Invalid transfer intent.");
             if (transfer.Root.Value == Guid.Empty || transfer.Id != Path.GetFileNameWithoutExtension(path)) throw new InvalidDataException("Invalid transfer identity.");
             return transfer;
         }).Where(t => !t.Complete).Select(t => t.Root).ToArray() : [];
@@ -438,6 +438,7 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
         var byId = _facts.Values.ToDictionary(f => f.ArtifactId);
         Ledger = Ledger with { Artifacts = Ledger.Artifacts.Select(a => byId.TryGetValue(a.ArtifactId, out var f)
             ? a with { StorageSha256 = f.StorageSha256, StorageSize = f.StorageSize } : a).ToArray() };
+        NativeArtifactClosureLimits.Validate(Ledger, Intent.Root);
         await _store.SavePendingAsync(Intent = Intent with { Phase = "PayloadsSealed" }, token);
         await _store.Ledger.CommitAsync(_before, Ledger, Intent.Id, _staging, _facts, token);
         await _store.SavePendingAsync(Intent = Intent with { Phase = "ArtifactGraphCommitted" }, token);

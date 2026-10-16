@@ -38,7 +38,7 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
         var files = await read.Read.ListFilesAsync(node.Content, token);
         if (files.Single(f => f.RelativePath == Path).Length > 64L * 1024 * 1024) throw new InvalidDataException("Capture evidence quota exceeded.");
         await using var input = await read.Read.OpenReadAsync(node.Content, Path, token);
-        var result = await JsonSerializer.DeserializeAsync<IncrementalCaptureEvidence>(input, cancellationToken: token)
+        var result = JsonSerializer.Deserialize<IncrementalCaptureEvidence>(await ArtifactMetadataFile.ReadStreamAsync(input, 64 * 1024 * 1024, token))
             ?? throw new InvalidDataException("Missing capture evidence.");
         if (result.Schema != CurrentSchema || result.ConfigId != node.ConfigId || result.SourceId != node.FolderId
             || result.DetectionPolicy != "size-mtime-v1" || result.Files.Count > 100_000

@@ -186,7 +186,7 @@ public sealed class SourceCaptureBaselineCache : IDisposable
         try
         {
             if (new FileInfo(path).Length > 64L * 1024 * 1024) return null;
-            var bytes = File.ReadAllBytes(path);
+            var bytes = FolderRewind.Plugin.Runtime.Artifacts.ArtifactMetadataFile.ReadBytes(path, 64 * 1024 * 1024);
             using var document = JsonDocument.Parse(bytes);
             if (!document.RootElement.TryGetProperty("formatVersion", out var formatVersion)
                 || !formatVersion.TryGetInt32(out var parsedFormatVersion)
@@ -202,7 +202,7 @@ public sealed class SourceCaptureBaselineCache : IDisposable
             if (value.ArtifactRootId is not null) SourceDirectorySnapshot.Validate(value.Directories, value.FileStates.Keys);
             return value;
         }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             // This cache is only an optimization. Any unreadable state forces the next capture to Full.
             return null;

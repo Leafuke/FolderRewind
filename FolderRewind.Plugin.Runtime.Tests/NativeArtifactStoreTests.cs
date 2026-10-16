@@ -30,6 +30,25 @@ public sealed class NativeArtifactStoreTests
     }
 
     [TestMethod]
+    public async Task ClosureLimitsAreSymmetricAndMetadataIsBoundedBeforeDeserialization()
+    {
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        var graph = await store.Ledger.LoadAsync();
+        foreach (var logical in new[] { false, true })
+        {
+            var oversized = graph with { Artifacts = graph.Artifacts.Select(n => logical
+                ? n with { LogicalSize = ArtifactTransformLimits.Default.MaximumBytes / 2 + 1 }
+                : n with { StorageSize = ArtifactTransformLimits.Default.MaximumBytes / 2 + 1 }).ToArray() };
+            Assert.ThrowsExactly<InvalidDataException>(() => NativeArtifactClosureLimits.Validate(oversized, root));
+        }
+        var descriptor = Path.Combine(fixture.Root, "oversized.json");
+        await File.WriteAllBytesAsync(descriptor, new byte[4097]);
+        Assert.ThrowsExactly<InvalidDataException>(() => ArtifactMetadataFile.ReadJson<NativeEnvelope>(descriptor, 4096));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => ArtifactMetadataFile.ReadStreamAsync(new MemoryStream(new byte[4097]), 4096, default));
+    }
+
+    [TestMethod]
     public async Task PreparedCandidateReusesFreshlyVerifiedOutputsWithoutUnpackingAgain()
     {
         using var fixture = new Fixture();
@@ -79,9 +98,13 @@ public sealed class NativeArtifactStoreTests
         public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token)
             => Task.FromResult(Bytes.TryGetValue(key, out var bytes) && bytes.LongLength == size
                 && StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)), sha256));
-        public Task UploadObjectAsync(string key, string path, long size, string sha256, CancellationToken token)
+        public Task UploadObjectAsync(string key, string path, long size, string sha256, ArtifactTransferBudget budget, CancellationToken token)
         { if (CancelUpload) throw new OperationCanceledException(); Bytes[key] = File.ReadAllBytes(path); Uploads++; return Task.CompletedTask; }
-        public Task DownloadObjectAsync(string key, string path, CancellationToken token) => File.WriteAllBytesAsync(path, Bytes[key], token);
+        public async Task DownloadObjectAsync(string key, string path, long expectedLength, ArtifactTransferBudget budget, CancellationToken token)
+        {
+            await using var target = File.Create(path);
+            await budget.CopyAsync(new MemoryStream(Bytes[key], false), target, expectedLength, token);
+        }
     }
 
     [TestMethod]

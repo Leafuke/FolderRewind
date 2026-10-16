@@ -20,10 +20,10 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     private readonly TimeSpan _timeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 86400));
     internal Func<CloudJobPhase, CancellationToken, Task>? ObserveJobPhase { get; set; }
     private string Append(params string[] parts) => CloudRemotePath.Append(context.RemoteRoot, parts);
-    private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key), CopyAsync, ReadBytesAsync, ObjectSizeAsync);
+    private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key), CopyAsync, (path, maximum, token) => ReadBytesAsync(path, token, maximum), ObjectSizeAsync, DownloadBoundedAsync);
     public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token) => Objects.HasVerifiedObjectAsync(key, size, sha256, token);
-    public Task UploadObjectAsync(string key, string path, long size, string sha256, CancellationToken token) => Objects.UploadObjectAsync(key, path, size, sha256, token);
-    public Task DownloadObjectAsync(string key, string path, CancellationToken token) => Objects.DownloadObjectAsync(key, path, token);
+    public Task UploadObjectAsync(string key, string path, long size, string sha256, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.UploadObjectAsync(key, path, size, sha256, budget, token);
+    public Task DownloadObjectAsync(string key, string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.DownloadObjectAsync(key, path, expectedLength, budget, token);
     private async Task<long?> ObjectSizeAsync(string remote, CancellationToken token)
     {
         try { using var doc = JsonDocument.Parse(await RunAsync(["lsjson", remote, "--stat"], token)); return doc.RootElement.GetProperty("Size").GetInt64(); }
@@ -104,8 +104,11 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         => RcloneConnectionService.RunAsync(context.CreateStartInfo(arguments), _timeout, token);
     private async Task CopyAsync(string source, string destination, bool immutable, CancellationToken token)
         => _ = await RunAsync(immutable ? ["copyto", source, destination, "--immutable"] : ["copyto", source, destination], token).ConfigureAwait(false);
-    private async Task<byte[]> ReadBytesAsync(string remote, CancellationToken token)
-        => await RcloneConnectionService.RunBytesAsync(context.CreateStartInfo(["cat", remote]), _timeout, token, 64 * 1024 * 1024).ConfigureAwait(false);
+    private async Task<byte[]> ReadBytesAsync(string remote, CancellationToken token, int maximumBytes = 64 * 1024 * 1024)
+        => await RcloneConnectionService.RunBytesAsync(context.CreateStartInfo(["cat", remote]), _timeout, token, maximumBytes).ConfigureAwait(false);
+    private Task DownloadBoundedAsync(string remote, string path, long expectedLength,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token)
+        => RcloneConnectionService.RunToFileAsync(context.CreateStartInfo(["cat", remote]), _timeout, token, path, expectedLength, budget);
     private async Task WriteOnceAsync(string remote, byte[] bytes, CancellationToken token)
     {
         var temporary = Temporary();

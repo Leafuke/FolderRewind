@@ -274,6 +274,7 @@ internal static partial class NativeArtifactAcceptance
         { await inner.UploadAsync(id, path, token); if (InterruptUpload) { InterruptUpload = false; throw new IOException("Injected interruption after real upload."); } }
         public Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token) => inner.VerifyRemoteAsync(id, token);
         public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) => inner.CommitManifestOnceAsync(manifest, token);
+        public Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId id, CancellationToken token) => inner.ReadManifestAsync(id, token);
         public async Task DownloadAsync(HistoryReplicaManifest manifest, string path, CancellationToken token)
         { await inner.DownloadAsync(manifest, path, token); if (CorruptDownload) { CorruptDownload = false; await File.AppendAllTextAsync(path, "damage", token); } }
         public Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token) => inner.DeletePhysicalAsync(manifest, token);

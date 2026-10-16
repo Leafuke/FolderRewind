@@ -15,7 +15,7 @@ public sealed partial class NativeArtifactStore
     {
         await using var read = await OpenAsync(root, token);
         var ledger = await Ledger.LoadAsync(token);
-        var closure = ArtifactLedgerValidator.BuildClosure(ledger, [root]);
+        var closure = NativeArtifactClosureLimits.Validate(ledger, root);
         var map = ledger.Artifacts.ToDictionary(n => n.ArtifactId);
         var nodes = closure.TopologicallySorted.Select(id => map[id]).ToArray();
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(destination))!);
@@ -52,12 +52,12 @@ public sealed partial class NativeArtifactStore
         var descriptor = zip.GetEntry("closure.json") ?? throw new InvalidDataException("Artifact closure descriptor missing.");
         if (descriptor.Length > 16 * 1024 * 1024 || zip.Entries.Count > 8193) throw new InvalidDataException("Artifact closure metadata quota exceeded.");
         using var manifest = descriptor.Open();
-        var closure = await JsonSerializer.DeserializeAsync<NativeArtifactClosure>(manifest, cancellationToken: token) ?? throw new InvalidDataException();
+        var closure = JsonSerializer.Deserialize<NativeArtifactClosure>(await ArtifactMetadataFile.ReadStreamAsync(manifest, 16 * 1024 * 1024, token)) ?? throw new InvalidDataException();
         if (closure.Version != 1 || closure.Root != expectedRoot || closure.Nodes.Count > 4096
             || closure.Nodes.Any(n => n.ConfigId != configId || n.FolderId != folderId)) throw new InvalidDataException("Foreign Artifact closure.");
         var graph = new ArtifactLedgerDocument(ArtifactLedgerValidator.CurrentSchemaVersion, new("import"), closure.Nodes);
         ArtifactLedgerValidator.Validate(graph);
-        var reachable = ArtifactLedgerValidator.BuildClosure(graph, [expectedRoot]);
+        var reachable = NativeArtifactClosureLimits.Validate(graph, expectedRoot);
         if (reachable.Reachable.Count != closure.Nodes.Count || zip.Entries.Count != closure.Nodes.Count * 2 + 1
             || zip.Entries.Select(e => e.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != zip.Entries.Count)
             throw new InvalidDataException("Artifact closure contains unrelated or duplicate entries.");

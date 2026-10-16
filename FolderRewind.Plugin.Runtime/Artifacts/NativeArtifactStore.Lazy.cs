@@ -18,7 +18,7 @@ public sealed partial class NativeArtifactStore
     internal NativeArtifactReadLease OpenLazyWithoutGate(ArtifactLedgerDocument ledger, ArtifactId root, IDisposable held,
         IReadOnlyDictionary<ArtifactId, string>? verifiedDirectories = null, NativeArtifactReadLease? baseline = null)
     {
-        var closure = ArtifactLedgerValidator.BuildClosure(ledger, [root]);
+        var closure = NativeArtifactClosureLimits.Validate(ledger, root);
         var map = ledger.Artifacts.ToDictionary(a => a.ArtifactId);
         var nodes = closure.TopologicallySorted.Select(id => map[id]).ToArray();
         var handles = new Dictionary<ArtifactContentHandle, ArtifactLedgerEntry>();
@@ -31,7 +31,7 @@ public sealed partial class NativeArtifactStore
                 throw new InvalidDataException("Artifact dependency is missing or its size changed.");
             var envelope = Path.Combine(Path.GetDirectoryName(payload)!, "envelope.json");
             if (!File.Exists(envelope) || new FileInfo(envelope).Length > 4096
-                || System.Text.Json.JsonSerializer.Deserialize<NativeEnvelope>(File.ReadAllBytes(envelope))?.Version != 1)
+                || ArtifactMetadataFile.ReadJson<NativeEnvelope>(envelope, 4096)?.Version != 1)
                 throw new InvalidDataException("Artifact envelope metadata is missing or invalid.");
             var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N"));
             handles.Add(handle, node);

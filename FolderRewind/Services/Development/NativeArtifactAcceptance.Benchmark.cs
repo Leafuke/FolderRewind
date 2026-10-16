@@ -147,7 +147,7 @@ internal static partial class NativeArtifactAcceptance
                 else if (scenario != "unchanged")
                 {
                     var local = (await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries.Single(e => e.RepresentationId == selected.RepresentationId);
-                    await remote.UploadObjectAsync(selected.RepresentationId.ToString(), local.Locator.AbsolutePath!, 0, "", default);
+                    await remote.UploadObjectAsync(selected.RepresentationId.ToString(), local.Locator.AbsolutePath!, 0, "", new(FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes), default);
                 }
                 var restored = Path.Combine(root, "benchmark-restored");
                 if (Directory.Exists(restored)) Directory.Delete(restored, true);
@@ -220,7 +220,7 @@ internal static partial class NativeArtifactAcceptance
             => Task.FromResult(_verified.TryGetValue(key, out var receipt) && receipt.Size == size
                 && StringComparer.OrdinalIgnoreCase.Equals(receipt.Hash, hash)
                 && new FileInfo(Path.Combine(directory, key.Replace('/', Path.DirectorySeparatorChar))) is { Exists: true } file && file.Length == size);
-        public async Task UploadObjectAsync(string key, string path, long size, string hash, CancellationToken token)
+        public async Task UploadObjectAsync(string key, string path, long size, string hash, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token)
         {
             var target = Path.Combine(directory, key.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -231,8 +231,13 @@ internal static partial class NativeArtifactAcceptance
             _verified[key] = (file.Length, actual);
             UploadedBytes += file.Length;
         }
-        public Task DownloadObjectAsync(string key, string path, CancellationToken token)
-        { File.Copy(Path.Combine(directory, key.Replace('/', Path.DirectorySeparatorChar)), path, true); return Task.CompletedTask; }
+        public async Task DownloadObjectAsync(string key, string path, long expectedLength,
+            FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token)
+        {
+            await using var input = File.OpenRead(Path.Combine(directory, key.Replace('/', Path.DirectorySeparatorChar)));
+            await using var output = File.Create(path);
+            await budget.CopyAsync(input, output, expectedLength, token);
+        }
     }
 }
 #endif

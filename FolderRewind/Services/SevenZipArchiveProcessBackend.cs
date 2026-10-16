@@ -353,29 +353,42 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         if (operation == "t") HistoryOperationDiagnostics.Current?.Count("archive-bytes-tested", new FileInfo(archivePath).Length);
         using var observation = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.ObserveProcess(process, operation);
         process.StandardInput.Close(); // 缺少密码时失败关闭，不等待不可见的交互输入。
-        var outputTask = process.StandardOutput.ReadToEndAsync();
-        var errorTask = process.StandardError.ReadToEndAsync();
+        var outputTask = ReadBoundedOutputAsync(process.StandardOutput, process, 64 * 1024 * 1024, cancellationToken);
+        var errorTask = ReadBoundedOutputAsync(process.StandardError, process, 1024 * 1024, cancellationToken);
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            var output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+            HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
+            return process.ExitCode == 0
+                ? (true, string.Empty, output)
+                : (false, $"7-Zip {operation} exited with code {process.ExitCode}: " + Redact(output + "\n" + error, password), "");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        finally
         {
             if (!process.HasExited)
             {
-                try { process.Kill(entireProcessTree: true); }
-                catch (InvalidOperationException) { }
+                try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-            throw;
+            try { await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false); } catch { }
         }
-        var output = await outputTask.ConfigureAwait(false);
-        var error = await errorTask.ConfigureAwait(false);
-        HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
-        return process.ExitCode == 0
-            ? (true, string.Empty, output)
-            : (false, $"7-Zip {operation} exited with code {process.ExitCode}: " +
-                Redact(output + "\n" + error, password), "");
+    }
+
+    private static async Task<string> ReadBoundedOutputAsync(StreamReader reader, Process process, int maximumCharacters, CancellationToken token)
+    {
+        var text = new System.Text.StringBuilder(); var buffer = new char[8192]; int count;
+        while ((count = await reader.ReadAsync(buffer.AsMemory(), token).ConfigureAwait(false)) != 0)
+        {
+            if (text.Length + count > maximumCharacters)
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                throw new InvalidDataException("Archive process output quota exceeded.");
+            }
+            text.Append(buffer, 0, count);
+        }
+        return text.ToString();
     }
 
 
