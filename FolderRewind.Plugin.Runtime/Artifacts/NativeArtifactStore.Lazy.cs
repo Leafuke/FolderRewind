@@ -47,6 +47,7 @@ public sealed partial class NativeArtifactStore
         IReadOnlyDictionary<ArtifactId, string>? verifiedDirectories, NativeArtifactReadLease? baseline) : IArtifactReadService, IAsyncDisposable
     {
         private readonly Dictionary<ArtifactContentHandle, NativeArtifactReadLease> _opened = [];
+        private readonly ArtifactExtractionBudget _decoded = new();
         private readonly SemaphoreSlim _gate = new(1, 1);
         private bool _disposed;
         private async Task<NativeArtifactReadLease> Open(ArtifactContentHandle handle, CancellationToken token)
@@ -73,7 +74,7 @@ public sealed partial class NativeArtifactStore
                     _opened.Add(handle, reused); return reused;
                 }
                 var isolated = ledger with { Artifacts = [node with { Dependencies = [] }] };
-                var opened = await store.OpenWithoutGateAsync(isolated, node.ArtifactId, new ActionLease(() => { }), token);
+                var opened = await store.OpenWithoutGateAsync(isolated, node.ArtifactId, new ActionLease(() => { }), token, _decoded);
                 _opened.Add(handle, opened);
                 return opened;
             }

@@ -55,6 +55,20 @@ public sealed partial class NativeArtifactStore
         Ledger = new FileArtifactLedgerStore(Root);
         Directory.CreateDirectory(Path.Combine(Root, "pending"));
     }
+    public string CreateWorkspace(string kind)
+    {
+        if (kind is not ("read" or "capture" or "materialize")) throw new ArgumentException("Unknown Artifact workspace kind.", nameof(kind));
+        var parent = Path.Combine(Root, "." + kind); HostArtifactWorkspace.CreatePrivateDirectory(parent);
+        var path = Path.Combine(parent, Guid.NewGuid().ToString("N")); HostArtifactWorkspace.CreatePrivateDirectory(path);
+        return path;
+    }
+
+    private Task UnpackBoundedAsync(string payload, string target, bool encrypted, long bytes,
+        ArtifactExtractionBudget budget, CancellationToken token)
+    {
+        if (_codec is not IBoundedArtifactEnvelopeCodec bounded) throw new InvalidOperationException("A bounded Native envelope decoder is required.");
+        return bounded.UnpackAsync(payload, target, encrypted, bytes, budget, token);
+    }
     public async ValueTask<IDisposable> EnterAsync(CancellationToken token)
     {
         await _gate.WaitAsync(token);
@@ -249,6 +263,7 @@ public sealed partial class NativeArtifactStore
     {
         using var phase = ArtifactDiagnostics.Source.StartActivity("envelopes.seal.wall");
         var result = new ConcurrentDictionary<ArtifactStagingHandle, StagedArtifactFacts>();
+        var decoded = new ArtifactExtractionBudget();
         await Parallel.ForEachAsync(facts, new ParallelOptions { MaxDegreeOfParallelism = EnvelopeConcurrency, CancellationToken = token }, async (pair, workerToken) =>
         {
             var (handle, fact) = pair;
@@ -259,6 +274,7 @@ public sealed partial class NativeArtifactStore
             Directory.CreateDirectory(sealedRoot);
             var payload = Path.Combine(sealedRoot, "payload.7z");
             using (ArtifactDiagnostics.Source.StartActivity("envelope.pack"))
+            using (ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(payload, checked(fact.LogicalSize + fact.LogicalSize / 100 + fact.FileCount * 4096L + 1024 * 1024))))
                 await _codec.PackAsync(source, payload, encrypted, token);
             await WriteAsync(Path.Combine(sealedRoot, "envelope.json"), new NativeEnvelope(1, encrypted), token);
             var verify = source + "-verify";
@@ -266,7 +282,7 @@ public sealed partial class NativeArtifactStore
             try
             {
                 using (ArtifactDiagnostics.Source.StartActivity("envelope.roundtrip.unpack"))
-                    await _codec.UnpackAsync(payload, verify, encrypted, token);
+                    await UnpackBoundedAsync(payload, verify, encrypted, fact.LogicalSize, decoded, token);
                 var logical = await HostArtifactReadService.ComputeLogicalFactsAsync(verify, token);
                 if (logical.Sha256 != fact.LogicalSha256 || logical.Size != fact.LogicalSize) throw new InvalidDataException("Envelope roundtrip mismatch.");
                 verified = true;
@@ -291,14 +307,16 @@ public sealed partial class NativeArtifactStore
         try { return await OpenWithoutGateAsync(await Ledger.LoadAsync(token), root, held, token); }
         catch { held.Dispose(); throw; }
     }
-    internal async Task<NativeArtifactReadLease> OpenWithoutGateAsync(ArtifactLedgerDocument ledger, ArtifactId root, IDisposable held, CancellationToken token)
+    internal async Task<NativeArtifactReadLease> OpenWithoutGateAsync(ArtifactLedgerDocument ledger, ArtifactId root, IDisposable held, CancellationToken token,
+        ArtifactExtractionBudget? decoded = null)
     {
         using var phase = ArtifactDiagnostics.Source.StartActivity("closure.open.wall");
         var closure = NativeArtifactClosureLimits.Validate(ledger, root);
         var rows = ledger.Artifacts.ToDictionary(a => a.ArtifactId);
         var roots = new ConcurrentDictionary<ArtifactContentHandle, string>();
         var snapshots = new ConcurrentDictionary<ArtifactId, BackupArtifactSnapshot>();
-        var temporary = Path.Combine(Root, ".read", Guid.NewGuid().ToString("N"));
+        var temporary = CreateWorkspace("read");
+        decoded ??= new ArtifactExtractionBudget();
         try
         {
             await Parallel.ForEachAsync(closure.TopologicallySorted,
@@ -324,8 +342,12 @@ public sealed partial class NativeArtifactStore
                         }
                     logicalDirectory = Path.Combine(temporary, id.Value.ToString("N"));
                     using (ArtifactDiagnostics.Source.StartActivity("artifact.unpack"))
-                        await _codec.UnpackAsync(PayloadPath(node), logicalDirectory, envelope.Encrypted, token);
+                        await UnpackBoundedAsync(PayloadPath(node), logicalDirectory, envelope.Encrypted, node.LogicalSize, decoded, token);
                 }
+                else throw new InvalidDataException("Native envelope metadata is missing.");
+                var paths = HostArtifactReadService.EnumerateSafeFiles(logicalDirectory);
+                if (ArtifactExtractionBudget.CountEntries(paths.Select(p => p.RelativePath)) != node.LogicalEntryCount)
+                    throw new InvalidDataException("Decoded entry count differs from committed Native evidence.");
                 var logical = await HostArtifactReadService.ComputeLogicalFactsAsync(logicalDirectory, token);
                 if (logical.Size != node.LogicalSize || !StringComparer.OrdinalIgnoreCase.Equals(logical.Sha256, node.LogicalSha256))
                 {
@@ -390,7 +412,7 @@ public sealed partial class NativeArtifactStore
         _observe?.Invoke("PrimaryCleanup:after");
     }
     internal static void DeleteDirectory(string path)
-    { if (Directory.Exists(path)) Directory.Delete(path, true); }
+    { HostArtifactWorkspace.DeleteOwnedDirectory(path); }
     private static string RequireId(string id) => Guid.TryParseExact(id, "N", out _) ? id : throw new InvalidDataException("Invalid intent identity.");
     internal sealed class ActionLease(Action release) : IDisposable
     { private Action? _release = release; public void Dispose() => Interlocked.Exchange(ref _release, null)?.Invoke(); }

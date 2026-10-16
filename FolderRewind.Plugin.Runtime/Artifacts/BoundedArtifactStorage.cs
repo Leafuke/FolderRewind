@@ -210,16 +210,7 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
         _root = Path.GetFullPath(root ?? throw new ArgumentNullException(nameof(root)));
         _maximumFiles = maximumFiles;
         _maximumBytes = maximumBytes;
-        Directory.CreateDirectory(_root);
-        if (File.GetAttributes(_root).HasFlag(FileAttributes.ReparsePoint))
-        {
-            throw new InvalidDataException("Artifact staging root cannot be a reparse point.");
-        }
-        var drive = new DriveInfo(Path.GetPathRoot(_root)!);
-        if (drive.AvailableFreeSpace < maximumBytes)
-        {
-            throw new IOException("Artifact staging cannot reserve its configured byte quota.");
-        }
+        HostArtifactWorkspace.CreatePrivateDirectory(_root);
     }
 
     public ValueTask<ArtifactStagingAllocation> CreateArtifactAsync(CancellationToken cancellationToken)
@@ -277,7 +268,7 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
                 64 * 1024,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
             _openStreams++;
-            return ValueTask.FromResult<Stream>(new QuotaWriteStream(stream, ReserveBytes, StreamClosed));
+            return ValueTask.FromResult<Stream>(new QuotaWriteStream(stream, ReserveBytes, StreamClosed, count => ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(_root, count))));
         }
     }
 
@@ -310,14 +301,14 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
                 logicalHash,
                 total,
                 logicalHash,
-                total));
+                total) { FileCount = allocation.Paths.Count, LogicalEntryCount = ArtifactExtractionBudget.CountEntries(allocation.Paths) });
         }
         return facts;
     }
 
     public ValueTask DisposeAsync()
     {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        HostArtifactWorkspace.DeleteOwnedDirectory(_root);
         return ValueTask.CompletedTask;
     }
 
@@ -390,7 +381,7 @@ public sealed class RestoreMaterializationWorkspace : IRestoreMaterializationWor
     public ValueTask DisposeAsync() => _storage.DisposeAsync();
 }
 
-internal sealed class QuotaWriteStream(Stream inner, Action<int> reserve, Action closed) : Stream
+internal sealed class QuotaWriteStream(Stream inner, Action<int> reserve, Action closed, Func<int, IDisposable>? reserveSpace = null) : Stream
 {
     private bool _closed;
     public override bool CanRead => false;
@@ -406,22 +397,26 @@ internal sealed class QuotaWriteStream(Stream inner, Action<int> reserve, Action
     public override void Write(byte[] buffer, int offset, int count)
     {
         reserve(count);
+        using var space = reserveSpace?.Invoke(count);
         inner.Write(buffer, offset, count);
     }
     public override void Write(ReadOnlySpan<byte> buffer)
     {
         reserve(buffer.Length);
+        using var space = reserveSpace?.Invoke(buffer.Length);
         inner.Write(buffer);
     }
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
         reserve(buffer.Length);
+        using var space = reserveSpace?.Invoke(buffer.Length);
         await inner.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
     }
-    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
         reserve(count);
-        return inner.WriteAsync(buffer, offset, count, cancellationToken);
+        using var space = reserveSpace?.Invoke(count);
+        await inner.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
     }
     protected override void Dispose(bool disposing)
     {

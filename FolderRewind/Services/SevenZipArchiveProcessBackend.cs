@@ -17,7 +17,7 @@ namespace FolderRewind.Services;
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
     bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend,
-    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, IBoundedPrimaryArchiveBackend
+    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, FolderRewind.Plugin.Runtime.Artifacts.IBoundedArtifactEnvelopeCodec, IBoundedPrimaryArchiveBackend
 {
     private readonly Dictionary<string, ArchiveSafeListing> _safeListings = new(StringComparer.OrdinalIgnoreCase);
     public bool TryGetListing(string path, out ArchiveSafeListing? listing) => _safeListings.TryGetValue(Path.GetFullPath(path), out listing);
@@ -62,16 +62,27 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         var result = await RunAsync("a", payload, null, source, token).ConfigureAwait(false);
         if (!result.Success) throw new InvalidDataException(result.Diagnostic);
     }
-    public async Task UnpackLogicalTreeAsync(string payload, string target, CancellationToken token)
+    public Task UnpackAsync(string payload, string target, bool requiresEncryption, long maximumBytes,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget budget, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
+        return UnpackLogicalTreeAsync(payload, target, token, maximumBytes, budget);
+    }
+    public async Task UnpackLogicalTreeAsync(string payload, string target, CancellationToken token,
+        long maximumBytes = 16L * 1024 * 1024 * 1024,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget? budget = null)
     {
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()) throw new IOException("Envelope workspace must be empty.");
         var list = await RunAsync("l", payload, null, null, token).ConfigureAwait(false);
         // Extraction validates CRC/decryption too; avoid a redundant complete test pass.
-        if (!list.Success || !SevenZipArchiveListingParser.TryParse(list.Output, out var entries)
-            || entries.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
-            || entries.Values.Sum(e => e.Size) > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes)
+        if (!list.Success || !SevenZipArchiveListingParser.TryParse(list.Output, out var entries, out var directories)
+            || entries.Count + directories.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
+            || entries.Values.Sum(e => e.Size) > Math.Min(maximumBytes, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes))
             throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");
-        Directory.CreateDirectory(target);
+        var bytes = entries.Values.Sum(e => e.Size);
+        (budget ?? new()).Reserve(bytes, entries.Count + directories.Count);
+        using var space = FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceRequest(target, checked(bytes + directories.Count * 4096L)));
+        FolderRewind.Plugin.Runtime.Artifacts.HostArtifactWorkspace.CreatePrivateDirectory(target);
         var result = await RunAsync("x", payload, target, null, token).ConfigureAwait(false);
         if (!result.Success) throw new InvalidDataException(result.Diagnostic);
     }

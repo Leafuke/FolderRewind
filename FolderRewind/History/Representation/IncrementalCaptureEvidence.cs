@@ -88,6 +88,8 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
     public async Task CopyViewToAsync(IArtifactFileView view, string directory, CancellationToken token)
     {
         SourceDirectorySnapshot.Validate(Directories, Files.Select(f => f.RelativePath));
+        using var space = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(directory,
+            checked(Files.Sum(f => f.Length) + Directories.Count * 4096L)));
         Directory.CreateDirectory(directory);
         foreach (var relative in Directories)
         {

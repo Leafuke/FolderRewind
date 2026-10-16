@@ -27,7 +27,7 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
         using var operation = plugins.TryAcquireOperation(policy.TransformerId.PluginId, token)
             ?? throw new InvalidOperationException("Transformer session unavailable.");
         var version = VersionId.New(); var representation = RepresentationId.New();
-        var work = System.IO.Path.Combine(store.Root, ".capture", Guid.NewGuid().ToString("N"));
+        var work = store.CreateWorkspace("capture");
         var primary = stableSourceDirectory ?? System.IO.Path.Combine(work, "primary"); Directory.CreateDirectory(work);
         var boundary = capture?.EffectiveSourceBoundary ?? directBoundary ?? throw new InvalidOperationException("Source boundary required.");
         var statistics = capture?.BaselineCandidate ?? directStatistics ?? throw new InvalidOperationException("Capture witness required.");
@@ -122,6 +122,6 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
             }
             catch { store.CompletePending(prepared.Intent.Id); throw; }
         }
-        finally { if (Directory.Exists(work)) Directory.Delete(work, true); }
+        finally { HostArtifactWorkspace.DeleteOwnedDirectory(work); }
     }
 }

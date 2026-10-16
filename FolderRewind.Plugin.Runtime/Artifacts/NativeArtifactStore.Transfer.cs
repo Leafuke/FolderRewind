@@ -19,6 +19,8 @@ public sealed partial class NativeArtifactStore
         var map = ledger.Artifacts.ToDictionary(n => n.ArtifactId);
         var nodes = closure.TopologicallySorted.Select(id => map[id]).ToArray();
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(destination))!);
+        using var space = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(destination,
+            checked(nodes.Sum(n => n.StorageSize) + nodes.Length * 8192L + 16 * 1024 * 1024)));
         using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         using var zip = new ZipArchive(output, ZipArchiveMode.Create);
         foreach (var node in nodes)
@@ -71,6 +73,7 @@ public sealed partial class NativeArtifactStore
         await using var staging = Ledger.CreateStagingArea(transaction, ArtifactTransformLimits.Default.MaximumFiles, ArtifactTransformLimits.Default.MaximumBytes);
         var facts = new Dictionary<ArtifactStagingHandle, StagedArtifactFacts>();
         var additions = new List<ArtifactLedgerEntry>();
+        var decoded = new ArtifactExtractionBudget();
         foreach (var node in closure.Nodes)
         {
             var old = current.Artifacts.SingleOrDefault(n => n.ArtifactId == node.ArtifactId);
@@ -79,11 +82,13 @@ public sealed partial class NativeArtifactStore
                 if (old.ConfigId != node.ConfigId || old.FolderId != node.FolderId || old.Format != node.Format
                     || old.FormatVersion != node.FormatVersion || old.RestoreStrategyId != node.RestoreStrategyId
                     || old.LogicalSha256 != node.LogicalSha256 || old.StorageSha256 != node.StorageSha256
+                    || old.LogicalSize != node.LogicalSize || old.StorageSize != node.StorageSize || old.LogicalEntryCount != node.LogicalEntryCount
+                    || old.Completeness != node.Completeness || old.CoreCaptureMode != node.CoreCaptureMode
                     || !old.Dependencies.SequenceEqual(node.Dependencies)) throw new InvalidDataException("Existing Artifact identity differs.");
                 var isolated = new ArtifactLedgerDocument(current.SchemaVersion, current.Revision, [old with { Dependencies = [] }]);
                 try
                 {
-                    await using (await OpenWithoutGateAsync(isolated, old.ArtifactId, new ActionLease(() => { }), token)) { }
+                    await using (await OpenWithoutGateAsync(isolated, old.ArtifactId, new ActionLease(() => { }), token, decoded)) { }
                     continue;
                 }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
@@ -94,7 +99,7 @@ public sealed partial class NativeArtifactStore
             foreach (var name in new[] { "payload.7z", "envelope.json" })
             {
                 var entry = zip.GetEntry(node.ArtifactId.Value.ToString("N") + "/" + name) ?? throw new InvalidDataException("Incomplete closure.");
-                if (entry.Length != (name == "payload.7z" ? node.StorageSize : Math.Min(entry.Length, 4096)))
+                if (entry.Length != (name == "payload.7z" ? node.StorageSize : Math.Min(entry.Length, NativeArtifactClosureLimits.MaximumEnvelopeBytes)))
                     throw new InvalidDataException("Invalid envelope size.");
                 await using var target = await staging.OpenWriteAsync(allocation.Staging, name, token);
                 using var source = entry.Open();
@@ -104,7 +109,7 @@ public sealed partial class NativeArtifactStore
             // Reuse exactly the same storage and logical verification as restore before publication.
             var temporaryGraph = graph with { Artifacts = closure.Nodes.Select(n => n.ArtifactId == node.ArtifactId
                 ? canonical with { ContentRelativePath = Path.GetRelativePath(Root, path).Replace('\\', '/'), Dependencies = [] } : n).ToArray() };
-            await using (await OpenWithoutGateAsync(temporaryGraph, node.ArtifactId, new ActionLease(() => { }), token)) { }
+            await using (await OpenWithoutGateAsync(temporaryGraph, node.ArtifactId, new ActionLease(() => { }), token, decoded)) { }
             if (old is not null)
             {
                 var destination = ArtifactPathRules.ResolveUnderRoot(Root, old.ContentRelativePath);
@@ -120,7 +125,7 @@ public sealed partial class NativeArtifactStore
                 continue;
             }
             facts.Add(allocation.Staging, new(node.ArtifactId, allocation.Staging, canonical.ContentRelativePath,
-                node.LogicalSha256, node.LogicalSize, node.StorageSha256, node.StorageSize));
+                node.LogicalSha256, node.LogicalSize, node.StorageSha256, node.StorageSize) { LogicalEntryCount = node.LogicalEntryCount });
             additions.Add(canonical);
         }
         if (additions.Count > 0)
@@ -128,7 +133,7 @@ public sealed partial class NativeArtifactStore
             var candidate = current with { Revision = new(Guid.NewGuid().ToString("N")), Artifacts = current.Artifacts.Concat(additions).ToArray() };
             await Ledger.CommitAsync(current, candidate, transaction, staging, facts, token);
         }
-        await using (await OpenWithoutGateAsync(await Ledger.LoadAsync(token), expectedRoot, new ActionLease(() => { }), token)) { }
+        // Every node was bounded and verified before publication; avoid decoding the closure again.
         return PayloadPath((await Ledger.LoadAsync(token)).Artifacts.Single(n => n.ArtifactId == expectedRoot));
     }
 }

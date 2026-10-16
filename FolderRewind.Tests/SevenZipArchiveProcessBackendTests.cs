@@ -57,6 +57,30 @@ public sealed class SevenZipArchiveProcessBackendTests
     }
 
     [TestMethod]
+    public async Task NativeExtractionChecksDeclaredBytesAndSharedEntryQuotaBeforeWriting()
+    {
+        var executable = SevenZipExecutableLocator.Resolve(Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z"));
+        if (executable is null) Assert.Inconclusive("Set FOLDERREWIND_TEST_7Z.");
+        var root = Path.Combine(Path.GetTempPath(), "NativeExtractionLimits", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var source = Path.Combine(root, "source"); Directory.CreateDirectory(source);
+            await File.WriteAllBytesAsync(Path.Combine(source, "one"), [1, 2, 3]);
+            var backend = new SevenZipArchiveProcessBackend(() => executable, () => null, false, ".restore-marker");
+            var payload = Path.Combine(root, "payload.7z"); await backend.PackAsync(source, payload, false, default);
+            var rejected = Path.Combine(root, "too-long");
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => backend.UnpackAsync(payload, rejected, false, 2, new(), default));
+            Assert.IsFalse(Directory.Exists(rejected));
+            var budget = new FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget(10, 1);
+            await backend.UnpackAsync(payload, Path.Combine(root, "first"), false, 3, budget, default);
+            var second = Path.Combine(root, "second");
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => backend.UnpackAsync(payload, second, false, 3, budget, default));
+            Assert.IsFalse(Directory.Exists(second));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
     public void CredentialsAreRemovedFromBackendOutput()
         => Assert.AreEqual("command -p[redacted]: [redacted]", SevenZipArchiveProcessBackend.Redact("command -psecret: secret", "secret"));
 

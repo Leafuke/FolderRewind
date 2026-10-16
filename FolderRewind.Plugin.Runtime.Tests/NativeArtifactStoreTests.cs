@@ -320,7 +320,7 @@ public sealed class NativeArtifactStoreTests
         public IPluginTemporaryStorage TemporaryStorage => throw new NotSupportedException();
         public IPluginLogger Logger => throw new NotSupportedException();
     }
-    private sealed class ZipCodec(int concurrency = 1) : IConcurrentArtifactEnvelopeCodec
+    private sealed class ZipCodec(int concurrency = 1) : IConcurrentArtifactEnvelopeCodec, IBoundedArtifactEnvelopeCodec
     {
         private int _unpacks;
         public int Unpacks => _unpacks;
@@ -337,6 +337,14 @@ public sealed class NativeArtifactStoreTests
         }
         public Task PackAsync(string source, string payload, bool encrypted, CancellationToken token)
             => Work(() => ZipFile.CreateFromDirectory(source, payload), token);
+        public Task UnpackAsync(string payload, string target, bool encrypted, long maximumBytes, ArtifactExtractionBudget budget, CancellationToken token)
+        {
+            using var zip = ZipFile.OpenRead(payload);
+            var bytes = zip.Entries.Sum(e => e.Length);
+            if (bytes > maximumBytes) throw new InvalidDataException("Declared node byte limit exceeded.");
+            budget.Reserve(bytes, zip.Entries.Count);
+            return UnpackAsync(payload, target, encrypted, token);
+        }
         public Task UnpackAsync(string payload, string target, bool encrypted, CancellationToken token)
             => Work(() => { if (FailUnpack) throw new InvalidDataException("Injected decoder failure.");
                 Interlocked.Increment(ref _unpacks); ZipFile.ExtractToDirectory(payload, target); }, token);

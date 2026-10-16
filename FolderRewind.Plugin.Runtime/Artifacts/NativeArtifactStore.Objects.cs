@@ -84,6 +84,8 @@ public sealed partial class NativeArtifactStore
         var transferBudget = new ArtifactTransferBudget(ArtifactTransformLimits.Default.MaximumBytes);
         try
         {
+            using (ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(bundle,
+                checked(graph.Artifacts.Sum(n => n.StorageSize) + graph.Artifacts.Count * 8192L + 16 * 1024 * 1024))))
             using (var output = new FileStream(bundle, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             using (var zip = new ZipArchive(output, ZipArchiveMode.Create))
             {

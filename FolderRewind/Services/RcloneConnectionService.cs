@@ -225,6 +225,7 @@ public static class RcloneConnectionService
     internal static async Task RunToFileAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token,
         string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget transferBudget)
     {
+        using var space = FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceRequest(path, expectedLength));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(timeout);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, deadline.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };

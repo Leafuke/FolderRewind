@@ -28,7 +28,7 @@ public sealed class NativeArtifactCaptureService(PluginRuntimeManager plugins, N
             if (capture.CaptureScope != CaptureScope.FullSource || capture.RepresentationCandidate?.Kind != RepresentationKind.CoreFull)
                 throw new InvalidOperationException("Native Artifact Full only accepts Complete CoreFull captures.");
             var version = VersionId.New(); var representation = RepresentationId.New();
-            var work = Path.Combine(store.Root, ".capture", Guid.NewGuid().ToString("N"));
+            var work = store.CreateWorkspace("capture");
             var primary = Path.Combine(work, "primary");
             Directory.CreateDirectory(work);
             try
@@ -80,7 +80,7 @@ public sealed class NativeArtifactCaptureService(PluginRuntimeManager plugins, N
                 }
                 catch { store.CompletePending(prepared.Intent.Id); throw; }
             }
-            finally { if (Directory.Exists(work)) Directory.Delete(work, true); }
+            finally { HostArtifactWorkspace.DeleteOwnedDirectory(work); }
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) when (policy.FailureBehavior == ArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)

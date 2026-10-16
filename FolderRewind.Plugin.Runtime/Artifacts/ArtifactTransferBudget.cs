@@ -25,16 +25,22 @@ public sealed class ArtifactTransferBudget(long maximumBytes)
 
 public static class NativeArtifactClosureLimits
 {
+    public static int MaximumEnvelopeBytes { get; } = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new NativeEnvelope(1, false)).Length;
     public static ArtifactClosurePlan Validate(ArtifactLedgerDocument graph, FolderRewind.Plugin.Abstractions.ArtifactId root)
     {
         var closure = ArtifactLedgerValidator.BuildClosure(graph, [root]);
-        long logical = 0, storage = 0;
+        long logical = 0, storage = 0; int entries = 0;
         foreach (var node in graph.Artifacts.Where(n => closure.Reachable.Contains(n.ArtifactId)))
         {
             if (node.LogicalSize > ArtifactTransformLimits.Default.MaximumBytes - logical
-                || node.StorageSize > ArtifactTransformLimits.Default.MaximumBytes - storage)
+                || node.StorageSize > ArtifactTransformLimits.Default.MaximumBytes - storage
+                || MaximumEnvelopeBytes > ArtifactTransformLimits.Default.MaximumBytes - storage - node.StorageSize)
                 throw new InvalidDataException("Native closure exceeds its logical or storage byte budget.");
-            logical += node.LogicalSize; storage += node.StorageSize;
+            if (node.LogicalEntryCount is not { } count)
+                throw new InvalidDataException("[history.unsupported-experimental-format] Native entry evidence is required.");
+            if (count > ArtifactTransformLimits.Default.MaximumFiles - entries)
+                throw new InvalidDataException("Native closure exceeds its decoded entry budget.");
+            logical += node.LogicalSize; storage += node.StorageSize + MaximumEnvelopeBytes; entries += count;
         }
         return closure;
     }
