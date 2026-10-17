@@ -119,3 +119,5 @@ Validation: 65 focused Native/contract/commit/retention/real-rclone checks and 2
 M7 resource checkpoint: Native consistency requests carry optional source-view limits before snapshot creation. The Host temporary storage validates directory ownership and reserves outstanding writes through the shared actual-volume budget. The plugin snapshot copier preflights the selected tree and checks cumulative bytes/directories while writing against that exact reservation. Ordinary Core consistency requests keep their existing policy. This is an API 3.10 compatible addition with a default temporary-storage method; the directory file-view API is unchanged.
 
 Host validation: five workspace/volume/owner tests passed, including cross-session reservation rejection, and the acceptance-mode x64 Debug build passed. Plugin preflight/growth/cancellation checks follow the frozen contract package.
+
+The six reviewed API 3.10 source-view/reservation signatures were explicitly added to the public API baseline; all 15 Abstractions tests pass. No prior signatures were removed or changed.

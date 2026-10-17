@@ -27,6 +27,7 @@ C public FolderRewind.Plugin.Abstractions.BackupScopeDescriptor(FolderRewind.Plu
 C public FolderRewind.Plugin.Abstractions.BackupScopeId(FolderRewind.Plugin.Abstractions.OwnerId ownerId,System.String scopeId)
 C public FolderRewind.Plugin.Abstractions.BackupScopeRequest(FolderRewind.Plugin.Abstractions.ConfigSnapshot Config,FolderRewind.Plugin.Abstractions.FolderSnapshot Folder,FolderRewind.Plugin.Abstractions.BackupScopeId ScopeId,System.Collections.Generic.IReadOnlyDictionary<System.String,System.Text.Json.JsonElement> Parameters)
 C public FolderRewind.Plugin.Abstractions.BackupScopeResult(FolderRewind.Plugin.Abstractions.OperationReadiness Readiness,System.Collections.Generic.IReadOnlyList<System.String> IncludePatterns,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.BackupSourceViewLimits(System.Int64 MaximumBytes,System.Int32 MaximumEntries)
 C public FolderRewind.Plugin.Abstractions.CapturedVersionMetadata(System.String SchemaId,System.Int32 SchemaVersion,System.Text.Json.JsonElement Payload)
 C public FolderRewind.Plugin.Abstractions.ConfigChangeProposal(System.String ProposalId,System.String ConfigId,FolderRewind.Plugin.Abstractions.ConfigRevision ExpectedRevision,System.String Reason,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigChange> Changes,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
 C public FolderRewind.Plugin.Abstractions.ConfigDraft(FolderRewind.Plugin.Abstractions.ConfigKindRef Kind,System.String SuggestedName,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.FolderDraft> Folders,System.Collections.Generic.IReadOnlyDictionary<FolderRewind.Plugin.Abstractions.StateOwnerId,FolderRewind.Plugin.Abstractions.ProviderStateDraft> ProviderStates)
@@ -224,6 +225,7 @@ M public abstract FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapab
 M public abstract FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView.OpenReadAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
 M public static FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands.Find(System.String command):FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor
 M public virtual FolderRewind.Plugin.Abstractions.IBackupRequestService.RequestAsync(System.String configId,System.Nullable<System.Guid> folderId,FolderRewind.Plugin.Abstractions.BackupRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public virtual FolderRewind.Plugin.Abstractions.IPluginTemporaryStorage.ReserveAsync(System.String directory,System.Int64 bytes,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IDisposable>
 M public virtual FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService.QueryAsync(System.Nullable<FolderRewind.Plugin.Abstractions.ConfigKindRef> kind,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigSnapshot>>
 M public virtual FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestAsync(System.String configId,System.Guid folderId,System.String versionId,FolderRewind.Plugin.Abstractions.RestoreRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
 M public virtual FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestQuickAsync(System.String configId,System.Guid folderId,FolderRewind.Plugin.Abstractions.RestoreRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
@@ -336,6 +338,7 @@ P FolderRewind.Plugin.Abstractions.BackupCompletionSnapshot.VersionId:System.Str
 P FolderRewind.Plugin.Abstractions.BackupConsistencyRequest.Config:FolderRewind.Plugin.Abstractions.ConfigSnapshot { public get; public init; }
 P FolderRewind.Plugin.Abstractions.BackupConsistencyRequest.Folder:FolderRewind.Plugin.Abstractions.FolderSnapshot { public get; public init; }
 P FolderRewind.Plugin.Abstractions.BackupConsistencyRequest.Intent:FolderRewind.Plugin.Abstractions.ConsistencyIntent { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupConsistencyRequest.SourceViewLimits:FolderRewind.Plugin.Abstractions.BackupSourceViewLimits { public get; public init; }
 P FolderRewind.Plugin.Abstractions.BackupRequestOptions.Comment:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.BackupRequestOptions.Default:FolderRewind.Plugin.Abstractions.BackupRequestOptions { public static get; }
 P FolderRewind.Plugin.Abstractions.BackupScopeDescriptor.DisplayName:System.String { public get; public init; }
@@ -350,6 +353,8 @@ P FolderRewind.Plugin.Abstractions.BackupScopeRequest.ScopeId:FolderRewind.Plugi
 P FolderRewind.Plugin.Abstractions.BackupScopeResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.BackupScopeResult.IncludePatterns:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.BackupScopeResult.Readiness:FolderRewind.Plugin.Abstractions.OperationReadiness { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupSourceViewLimits.MaximumBytes:System.Int64 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.BackupSourceViewLimits.MaximumEntries:System.Int32 { public get; public init; }
 P FolderRewind.Plugin.Abstractions.CapturedVersionMetadata.Payload:System.Text.Json.JsonElement { public get; public init; }
 P FolderRewind.Plugin.Abstractions.CapturedVersionMetadata.SchemaId:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.CapturedVersionMetadata.SchemaVersion:System.Int32 { public get; public init; }
@@ -748,6 +753,7 @@ T public sealed class FolderRewind.Plugin.Abstractions.BackupRequestOptions : Sy
 T public sealed class FolderRewind.Plugin.Abstractions.BackupScopeDescriptor : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupScopeDescriptor>
 T public sealed class FolderRewind.Plugin.Abstractions.BackupScopeRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupScopeRequest>
 T public sealed class FolderRewind.Plugin.Abstractions.BackupScopeResult : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupScopeResult>
+T public sealed class FolderRewind.Plugin.Abstractions.BackupSourceViewLimits : System.IEquatable<FolderRewind.Plugin.Abstractions.BackupSourceViewLimits>
 T public sealed class FolderRewind.Plugin.Abstractions.CapturedVersionMetadata : System.IEquatable<FolderRewind.Plugin.Abstractions.CapturedVersionMetadata>
 T public sealed class FolderRewind.Plugin.Abstractions.ConfigChangeProposal : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigChangeProposal>
 T public sealed class FolderRewind.Plugin.Abstractions.ConfigDraft : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigDraft>
