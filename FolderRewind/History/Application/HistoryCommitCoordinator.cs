@@ -521,25 +521,6 @@ public sealed class HistoryCommitCoordinator
                         var representation = capture.RepresentationCandidate!.ToFact(versionId);
                         versions.Add(version);
                         representations.Add(representation);
-                        if (capture.AdditionalRepresentations.Length > 1 || capture.AdditionalRepresentations.Length > 0
-                            && (capture.ReservedVersionId is null || representation.Kind != RepresentationKind.CoreFull || capture.CaptureScope != CaptureScope.FullSource))
-                            throw new HistoryCommitConflictException("Native paired capture requires a reserved identity and a Full Core control.");
-                        foreach (var extra in capture.AdditionalRepresentations)
-                        {
-                            if (extra.Representation.Kind != RepresentationKind.PluginArtifact
-                                || extra.Representation.Fidelity != MaterializationFidelity.Exact
-                                || extra.Representation.DependencyRepresentationIds.Length != 0
-                                || extra.Representation.Metadata.GetValueOrDefault("pairedCoreRepresentationId") != representation.RepresentationId.ToString())
-                                throw new HistoryCommitConflictException("Invalid paired native Artifact representation.");
-                            var verification = new SourceCaptureResult(capture.SourceId, SourceCaptureOutcome.Captured,
-                                capture.CaptureScope, capture.StateFingerprint, null, extra.Representation, extra.LocalReplica,
-                                extra.Payload, capture.ExpectedWorkspaceRevision, capture.ExpectedBaseVersionId, null, [],
-                                effectiveSourceBoundary: capture.EffectiveSourceBoundary);
-                            await ValidateCapturedResultAsync(verification, baseline, cancellationToken).ConfigureAwait(false);
-                            representations.Add(extra.Representation.ToFact(versionId));
-                            localEntries.Add(new LocalReplicaCatalogEntry(extra.LocalReplica.RepresentationId, extra.LocalReplica.LocalReplicaId,
-                                extra.LocalReplica.Locator, extra.LocalReplica.CapturedAtUtc));
-                        }
                         foreach (var candidate in capture.VersionMetadataCandidates)
                         {
                             metadataSnapshots.Add(VersionMetadataSnapshot.Create(

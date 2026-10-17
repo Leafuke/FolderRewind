@@ -27,24 +27,19 @@ public sealed class NativeArtifactCaptureTests
             var folder = new FolderSnapshot(source.Value, "live-must-not-be-read", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
             var config = new ConfigSnapshot("config", new("revision"), new(new("plugin.missing"), "world"), "test", [folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
             var store = new NativeArtifactStore(Path.Combine(root, "store"), new UnusedCodec());
-            var service = new NativeArtifactCaptureService(new PluginRuntimeManager(), store, new PrimaryBackend(), false);
+            var service = new NativeArtifactIncrementalCaptureService(new PluginRuntimeManager(), store, false);
             var policy = new ArtifactTransformPolicy(new(new("plugin.missing"), "full"), new Dictionary<string,System.Text.Json.JsonElement>(),
                 required ? ArtifactTransformFailureBehavior.RequireTransform : ArtifactTransformFailureBehavior.KeepPrimaryWithWarnings);
-            if (required)
-                await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.TransformAsync(capture, config, folder, policy, default));
-            else
-            {
-                var result = await service.TransformAsync(capture, config, folder, policy, default);
-                Assert.IsEmpty(result.AdditionalRepresentations); Assert.IsNull(result.ReservedVersionId);
-                Assert.IsTrue(result.Diagnostics.Any(d => d.Code == "plugin.artifact_primary_kept"));
-                Assert.AreEqual(capture.PayloadCandidate, result.PayloadCandidate);
-            }
+            var states = capture.BaselineCandidate!.FileStates;
+            var plan = FileChangeCapturePlan.Create(states, null, capture.EffectiveSourceBoundary, changesOnly: false);
+            Task<SourceCaptureResult> Capture(CancellationToken token) => service.CaptureAsync(plan, config, folder, policy,
+                root, capture.EffectiveSourceBoundary, capture.BaselineCandidate, token);
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => Capture(default));
             using var cancel = new CancellationTokenSource(); cancel.Cancel();
-            await Assert.ThrowsAsync<OperationCanceledException>(() => service.TransformAsync(capture, config, folder, policy, cancel.Token));
+            await Assert.ThrowsAsync<OperationCanceledException>(() => Capture(cancel.Token));
             Assert.IsEmpty((await store.Ledger.LoadAsync()).Artifacts);
             Assert.IsEmpty(store.Pending()); Assert.IsTrue(File.Exists(file));
-            var reused = SourceCaptureResult.NoChanges(source, CaptureScope.FullSource, 0, VersionId.New(), "unchanged");
-            Assert.AreSame(reused, await service.TransformAsync(reused, config, folder, policy, default));
+
         }
         finally { Directory.Delete(root, true); }
     }
@@ -52,14 +47,5 @@ public sealed class NativeArtifactCaptureTests
     {
         public Task PackAsync(string source, string target, bool encrypted, CancellationToken token) => throw new AssertFailedException("Unexpected envelope capture.");
         public Task UnpackAsync(string source, string target, bool encrypted, CancellationToken token) => throw new AssertFailedException("Unexpected envelope restore.");
-    }
-    private sealed class PrimaryBackend : IArchiveRepresentationBackend, IBoundedPrimaryArchiveBackend
-    {
-        public Task MaterializePrimaryAsync(string input, string target, CancellationToken token)
-        { Directory.CreateDirectory(target); File.WriteAllText(Path.Combine(target, "file"), "x"); return Task.CompletedTask; }
-        public ValueTask<PayloadVerificationResult> VerifyAsync(VersionRepresentation representation, string path, CancellationToken token)
-        { token.ThrowIfCancellationRequested(); return ValueTask.FromResult(new PayloadVerificationResult(true, "test-primary", "")); }
-        public ValueTask MaterializeAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string target, CancellationToken token)
-        { Directory.CreateDirectory(target); File.WriteAllText(Path.Combine(target, "file"), "x"); return ValueTask.CompletedTask; }
     }
 }

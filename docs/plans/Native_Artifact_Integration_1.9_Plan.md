@@ -25,7 +25,7 @@ Integrate Host 920162588f2a383b8107d8360cd5effca361086b with source 8e3bdab58558
 | M3 | Budgets, secure workspaces, bounded I/O, leases, recovery/GC | Resource/session/recovery/GC implemented; production fault matrix pending |
 | M4 | Native payload protocol throughout Cloud Job lifecycle | Implemented; production process-kill matrix pending |
 | M5 | Mixed migration, candidate passwords, isolated recovery/evidence | Protocol/context/authorization implemented; packaged wizard corpus pending |
-| M6 | Saved snapshot/checkpoint identity, warnings, stable version protocol, cleanup | Saved snapshot/checkpoint implemented; protocol and obsolete-path cleanup pending |
+| M6 | Saved snapshot/checkpoint identity, warnings, stable version protocol, cleanup | Implementation complete; production/UI validation in M7 |
 | M7 | Contract snapshot/plugin package/CI, end-to-end and final local merges | Pending |
 
 Every stage requires relevant checks and a Conventional Commit. A buildable merge foundation is an intermediate integration commit, not release acceptance.
@@ -110,3 +110,8 @@ Validation: 43 KnotLink/selector/handoff regression tests passed, zero skipped/f
 M6 warning projection checkpoint: source diagnostics now reach committed task/folder status, backup_warning events and warning notifications. Reused/no-new-file results preserve warnings rather than treating uncertain source state as confirmed no-change. Completion protocol keeps its legacy result field and adds outcome/has_warnings/created plus source warning codes. Post-commit and recovery outcomes retain their existing precedence. Both language resources and the shipped/generated manifest agree.
 
 Validation: 49 result/protocol/localization regressions passed, zero skipped/failed; acceptance-mode x64 Debug build passed with zero warnings/errors. UI interaction verification remains in M7.
+
+
+M6 obsolete-path checkpoint: removed the unpublished P2 Core/Native paired producer, paired capture/result and retention state, temporary Core-input pending fields/cleanup, and archive-first incremental adapter. The remaining Native capture takes only a stable bounded source and commits one representation. The History commit participant remains shared with replay. The unused primary archive extraction abstraction and the development opt-in bypass were removed. Independent CoreFull fallback uses configured compression, never a semantic base or an intermediate Smart delta. Full/checkpoint domain codecs and official Core/History readers remain. Automatic retention explicitly preserves unsupported experimental payloads without interpreting their old pair metadata.
+
+Validation: 65 focused Native/contract/commit/retention/real-rclone checks and 20 Runtime store/cloud/transform checks passed, zero skipped/failed. Acceptance-mode x64 Debug solution build passed (one pre-existing MSTest analyzer warning). The prior paired test was replaced with the one-Version/one-Native representation restart contract; a new regression proves unsupported experiment preservation. Packaged-plugin fallback, crash and long-chain service tests remain M7 gates.

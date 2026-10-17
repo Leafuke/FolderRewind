@@ -163,7 +163,7 @@ internal static class PluginV3BackupSourceResolver
                 intent);
         }
 
-        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id))
+        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy))
         {
             var diagnosticOwner = string.IsNullOrWhiteSpace(config.ArtifactTransformPolicy?.Transformer?.PluginId)
                 ? owner.Value

@@ -339,23 +339,6 @@ public sealed class HistoryRetentionPlanner
                 .Select(item => item.RepresentationId));
         }
 
-        // A P2 pair is a retention relationship, never a materialization dependency.
-        // Keep the protected format even while its plugin is disabled.
-        foreach (var plugin in allRepresentations.Where(r => r.Kind == RepresentationKind.PluginArtifact
-                     && versionRoots.ContainsKey(r.VersionId)))
-        {
-            if (!plugin.RepresentationSpecificMetadata.TryGetValue("pairedCoreRepresentationId", out var pairedText)) continue;
-            if (!Guid.TryParse(pairedText, out var pairedGuid)
-                || !representationMap.TryGetValue(new RepresentationId(pairedGuid), out var core)
-                || core.VersionId != plugin.VersionId || core.Kind != RepresentationKind.CoreFull)
-            {
-                Block("InvalidRepresentationPair", "Protected native Artifact pair is invalid.", plugin.VersionId);
-                continue;
-            }
-            operationClosure.UnionWith(BuildDependencyFirstClosure(plugin, representationMap).Select(r => r.RepresentationId));
-            operationClosure.Add(core.RepresentationId);
-        }
-
         var currentProtectedRepresentations = closures
             .SelectMany(item => item.DependencyFirstRepresentationIds)
             .Concat(operationClosure)
@@ -406,6 +389,11 @@ public sealed class HistoryRetentionPlanner
                          .Where(item => !hypotheticalProtected.Contains(item.RepresentationId))
                          .OrderBy(item => item.LocalReplicaId.ToString(), StringComparer.Ordinal))
             {
+                if (representationMap.TryGetValue(entry.RepresentationId, out var experimental)
+                    && experimental.Kind == RepresentationKind.PluginArtifact
+                    && experimental.RepresentationSpecificMetadata.ContainsKey("nativeArtifactEnvelope")
+                    && !NativePluginArtifactBackend.IsSupported(experimental))
+                    continue; // Unsupported experiments are preserved for explicit disposition.
                 if (representationMap.TryGetValue(entry.RepresentationId, out var legacyRepresentation)
                     && versionMap.TryGetValue(legacyRepresentation.VersionId, out var legacyVersion)
                     && legacyVersion.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)

@@ -103,7 +103,6 @@ internal static partial class NativeArtifactAcceptance
                 new PluginV3HostServices(manifest.PluginId, Path.Combine(root, "plugin-data"), Path.Combine(root, "plugin-temp")),
                 new PluginV3ActivationStore(), manifest));
             if (!activation.Success) throw new InvalidOperationException(JsonSerializer.Serialize(activation.Diagnostics));
-            using var enabled = request.ExperimentalDelivery ? null : NativeHistoryArtifactTransformPolicy.EnterAcceptance(config.Id);
             _crashAt = request.Phase == "recover" ? null : request.CrashAt;
             if (request.ExperimentalDelivery) return await RunExperimentalDeliveryAsync(config, root);
             if (request.Benchmark) return await RunBenchmarkAsync(request, config, root);

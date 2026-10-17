@@ -126,9 +126,6 @@ public interface ICaptureCleanupHandle
     ValueTask CleanupAsync(CancellationToken cancellationToken);
 }
 
-public sealed record AdditionalCaptureRepresentation(RepresentationCandidate Representation,
-    LocalReplicaCandidate LocalReplica, CapturePayloadCandidate Payload);
-
 public interface ICaptureCommitParticipant
 {
     Task PrepareCommitAsync(PackId packId, HistoryTransactionId transactionId, CancellationToken token);
@@ -200,7 +197,6 @@ public sealed record SourceCaptureResult
     public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
     public ImmutableArray<VersionMetadataCandidate> VersionMetadataCandidates { get; }
     public VersionId? ReservedVersionId { get; init; }
-    public ImmutableArray<AdditionalCaptureRepresentation> AdditionalRepresentations { get; init; } = [];
     public ICaptureCommitParticipant? CommitParticipant { get; init; }
     public CaptureConcurrencyFence? ConcurrencyFence { get; init; }
 
@@ -208,7 +204,7 @@ public sealed record SourceCaptureResult
         => new(SourceId, Outcome, CaptureScope, StateFingerprint, ExistingVersionId, RepresentationCandidate,
             LocalReplicaCandidate, PayloadCandidate, ExpectedWorkspaceRevision, ExpectedBaseVersionId, CleanupHandle,
             Diagnostics, ExpectedMaterializationPolicyTipIds, candidate, EffectiveSourceBoundary, VersionMetadataCandidates)
-        { ReservedVersionId = ReservedVersionId, AdditionalRepresentations = AdditionalRepresentations, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
+        { ReservedVersionId = ReservedVersionId, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
 
     public SourceCaptureResult WithEffectiveSourceBoundary(EffectiveSourceBoundarySnapshot boundary)
     {
@@ -231,7 +227,7 @@ public sealed record SourceCaptureResult
                 ? null
                 : BaselineCandidate with { BoundaryFingerprint = boundary.Fingerprint },
             boundary,
-            VersionMetadataCandidates) { ReservedVersionId = ReservedVersionId, AdditionalRepresentations = AdditionalRepresentations, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
+            VersionMetadataCandidates) { ReservedVersionId = ReservedVersionId, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
     }
 
     public SourceCaptureResult WithVersionMetadata(
@@ -253,7 +249,7 @@ public sealed record SourceCaptureResult
             ExpectedMaterializationPolicyTipIds,
             BaselineCandidate,
             EffectiveSourceBoundary,
-            candidates) { ReservedVersionId = ReservedVersionId, AdditionalRepresentations = AdditionalRepresentations, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
+            candidates) { ReservedVersionId = ReservedVersionId, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
 
     // Backup UI 只消费这些便捷投影；Native coordinator 仍以上面的结构化字段为准。
     public bool Success => Outcome is SourceCaptureOutcome.Captured

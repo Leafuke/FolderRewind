@@ -136,45 +136,13 @@ internal static class NativeArtifactHostService
         FileChangeCapturePlan plan, SourceCaptureBaselineCandidate statistics, EffectiveSourceBoundarySnapshot boundary,
         string stableSource, CancellationToken token)
     {
-        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id))
+        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy))
             throw new InvalidOperationException("Artifact transformation has not been explicitly enabled.");
         var settings = config.ArtifactTransformPolicy ?? throw new InvalidOperationException("Transform policy required.");
         var policy = new ArtifactTransformPolicy(new(new(settings.Transformer.PluginId), settings.Transformer.TransformerId),
             settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
-        return new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config),
-            new SevenZipHistoryArchiveBackend(config), config.IsEncrypted).TransformAsync(null, plan,
-                resolution.ConfigSnapshot!, resolution.FolderSnapshot!, policy, token, stableSource, boundary, statistics);
-    }
-
-    internal static async Task<SourceCaptureResult> TransformAsync(BackupConfig config, PluginV3BackupSourceResolution resolution,
-        SourceCaptureResult capture, CancellationToken token, SourceCaptureBaseline? baseline = null, bool stableSource = false)
-    {
-        if (config.ArtifactTransformPolicy is not { } settings || capture.Outcome != SourceCaptureOutcome.Captured) return capture;
-        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id))
-            throw new InvalidOperationException("Artifact transformation has not been explicitly enabled.");
-        if (IsIncrementalPolicy(config))
-        {
-            if (!stableSource) throw new InvalidOperationException("Incremental Artifact capture requires a stable source view.");
-            var incrementalPolicy = new ArtifactTransformPolicy(new(new(settings.Transformer.PluginId), settings.Transformer.TransformerId),
-                settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
-            return await new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config),
-                new SevenZipHistoryArchiveBackend(config), config.IsEncrypted).TransformAsync(capture,
-                FileChangeCapturePlan.Create(capture, baseline),
-                resolution.ConfigSnapshot!, resolution.FolderSnapshot!, incrementalPolicy, token);
-        }
-        if (config.Archive.Mode != BackupMode.Full)
-        {
-            if (settings.FailureBehavior == PersistedArtifactTransformFailureBehavior.RequireTransform)
-                throw new InvalidOperationException("P2 Artifact transformation requires Full mode; Smart and Rolling are not converted.");
-            return capture.WithVersionMetadata(capture.VersionMetadataCandidates,
-                [new HistoryDiagnostic("plugin.artifact_primary_kept", HistoryDiagnosticSeverity.Warning, "P2 requires Full mode.")]);
-        }
-        var policy = new ArtifactTransformPolicy(new(new(settings.Transformer.PluginId), settings.Transformer.TransformerId),
-            settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
-        return await new NativeArtifactCaptureService(PluginV3RuntimeService.Runtime, Store(config),
-            new SevenZipHistoryArchiveBackend(config), config.IsEncrypted).TransformAsync(capture,
-            resolution.ConfigSnapshot ?? throw new InvalidOperationException("Config snapshot required."),
-            resolution.FolderSnapshot ?? throw new InvalidOperationException("Source snapshot required."), policy, token);
+        return new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config), config.IsEncrypted)
+            .CaptureAsync(plan, resolution.ConfigSnapshot!, resolution.FolderSnapshot!, policy, stableSource, boundary, statistics, token);
     }
 
     internal static PluginArtifactRepresentationHandler Handler(BackupConfig config, HistoryRuntime history, IArtifactEnvelopeCodec? codec = null)

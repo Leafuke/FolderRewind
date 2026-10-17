@@ -141,7 +141,7 @@ public static partial class BackupService
         if (invocationOptions.RequestSemanticCheckpoint
             && (invocationOptions.Source != BackupInvocationSource.Manual
                 || !NativeHistoryArtifactTransformPolicy.IsIncremental(config.ArtifactTransformPolicy)
-                || NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy, config.Id)
+                || NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy)
                 || !ExperimentalArtifactPolicyService.SupportsConfiguration(config)))
             return BackupTransactionExecutionResult.Blocked(I18n.GetString("SemanticBackup_CheckpointUnavailable"));
         timing.MarkPhase("preflight");

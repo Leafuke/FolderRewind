@@ -9,7 +9,7 @@ namespace FolderRewind.Tests;
 public sealed class NativeHistoryArtifactTransformPolicyTests
 {
     [TestMethod]
-    public void OnlyExplicitCompatibleExperimentalPolicyLeavesTheDevelopmentGate()
+    public void OnlyExplicitCompatibleExperimentalPolicyEnablesCapture()
     {
         var policy = new ArtifactTransformPolicySettings
         {
@@ -18,7 +18,7 @@ public sealed class NativeHistoryArtifactTransformPolicyTests
         };
         Assert.IsTrue(NativeHistoryArtifactTransformPolicy.MustBlock(policy));
         policy.ExperimentalEnabled = true;
-        Assert.IsFalse(NativeHistoryArtifactTransformPolicy.MustBlock(policy, "ordinary-config"));
+        Assert.IsFalse(NativeHistoryArtifactTransformPolicy.MustBlock(policy));
         var persisted = JsonSerializer.Deserialize<ArtifactTransformPolicySettings>(JsonSerializer.Serialize(policy))!;
         Assert.IsTrue(persisted.ExperimentalEnabled);
         Assert.IsFalse(JsonSerializer.Deserialize<ArtifactTransformPolicySettings>("{}")!.ExperimentalEnabled);
@@ -36,17 +36,11 @@ public sealed class NativeHistoryArtifactTransformPolicyTests
         Assert.IsFalse(NativeHistoryArtifactTransformPolicy.SupportsCapture(CoreCaptureMode.Full, 0, false, false));
     }
     [TestMethod]
-    public void ConfiguredTransformRemainsBlockedOutsideAcceptanceScope()
+    public void LegacyPolicyCannotBypassExplicitOptIn()
     {
         Assert.IsFalse(NativeHistoryArtifactTransformPolicy.MustBlock(null));
         Assert.IsTrue(NativeHistoryArtifactTransformPolicy.MustBlock(new ArtifactTransformPolicySettings()));
         var policy = new ArtifactTransformPolicySettings();
-        using (NativeHistoryArtifactTransformPolicy.EnterAcceptance("isolated"))
-        {
-            Assert.IsFalse(NativeHistoryArtifactTransformPolicy.MustBlock(policy, "isolated"));
-            Assert.IsTrue(NativeHistoryArtifactTransformPolicy.MustBlock(policy, "another-config"));
-            Assert.IsTrue(NativeHistoryArtifactTransformPolicy.MustBlock(policy));
-        }
-        Assert.IsTrue(NativeHistoryArtifactTransformPolicy.MustBlock(policy, "isolated"));
+        Assert.IsTrue(NativeHistoryArtifactTransformPolicy.MustBlock(policy));
     }
 }

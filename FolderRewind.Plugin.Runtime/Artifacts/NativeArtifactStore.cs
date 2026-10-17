@@ -21,13 +21,7 @@ public interface IConcurrentArtifactEnvelopeCodec : IArtifactEnvelopeCodec
 
 public sealed record NativeEnvelope(int Version, bool Encrypted);
 public sealed record NativeArtifactPending(string Id, string VersionId, string RepresentationId, ArtifactId Root,
-    string Phase, string? HistoryPackId = null, string? HistoryTransactionId = null)
-{
-    public string? CorePayloadPath { get; init; }
-    public string? CoreRepresentationId { get; init; }
-    public bool TemporaryCoreInput { get; init; }
-    public string? CorePayloadSha256 { get; init; }
-}
+    string Phase, string? HistoryPackId = null, string? HistoryTransactionId = null);
 public sealed record NativeArtifactTransfer(string Id, ArtifactId Root, string RepresentationId, string ReplicaId, bool Complete)
 {
     public string? JobId { get; init; }
@@ -117,8 +111,6 @@ public sealed partial class NativeArtifactStore
                 || value.Id != Path.GetFileNameWithoutExtension(path)
                 || !new[] { "Prepared", "PayloadsSealed", "ArtifactGraphCommitted", "HistoryPackCommitted", "LocalStateApplied", "Complete" }.Contains(value.Phase)
                 || (value.HistoryPackId is null) != (value.HistoryTransactionId is null)
-                || (value.CorePayloadPath is null) != (value.CoreRepresentationId is null)
-                || value.CorePayloadPath is not null && (!Path.IsPathFullyQualified(value.CorePayloadPath) || !Guid.TryParse(value.CoreRepresentationId, out _))
                 || value.HistoryPackId is not null && (!Guid.TryParse(value.HistoryPackId, out _) || !Guid.TryParse(value.HistoryTransactionId, out _)))
                 throw new InvalidDataException("Invalid native artifact intent.");
             return value;
@@ -146,10 +138,7 @@ public sealed partial class NativeArtifactStore
         foreach (var intent in pending)
         {
             if (Active.ContainsKey(Path.Combine(Root, intent.Id))) continue;
-            var committed = await isCommitted(intent, token); // inconsistent/corrupt pack must throw and retain roots
-            if (!committed && intent.CorePayloadPath is not null)
-                await WriteAsync(Path.Combine(Root, "orphans", intent.Id + ".json"), intent, token);
-            if (committed && intent.TemporaryCoreInput) await CleanupPrimaryAsync(intent, token);
+            _ = await isCommitted(intent, token); // inconsistent/corrupt pack must throw and retain roots
             // Committed roots are protected by History; orphan roots become eligible for normal GC.
             CompletePending(intent.Id);
         }
@@ -165,8 +154,7 @@ public sealed partial class NativeArtifactStore
 
     public async Task<PreparedNativeArtifact> PrepareAsync(PluginRuntimeManager runtime, ConfigSnapshot config,
         FolderSnapshot folder, string versionId, string representationId, string primaryDirectory,
-        ArtifactTransformPolicy policy, bool encrypted, CancellationToken token, string? corePayloadPath = null, string? coreRepresentationId = null,
-        ArtifactIncrementalInput? incrementalInput = null, Func<bool, byte[]>? hostCaptureEvidence = null,
+        ArtifactTransformPolicy policy, bool encrypted, CancellationToken token, ArtifactIncrementalInput? incrementalInput = null, Func<bool, byte[]>? hostCaptureEvidence = null,
         NativeArtifactPrimaryInput? primaryInput = null, PluginOperationLease? operation = null)
     {
         var held = await EnterAsync(token);
@@ -256,10 +244,7 @@ public sealed partial class NativeArtifactStore
                 throw new InvalidDataException("Native Full artifacts must be a self-contained new closure.");
             if (result.RequiresFullVerification && !closure.Reachable.All(id => result.Patch.AddedArtifacts.Any(a => a.ArtifactId == id)))
                 throw new InvalidDataException("Compaction must produce a self-contained new closure.");
-            var pending = new NativeArtifactPending(transaction, versionId, representationId, result.Patch.ResultRootArtifactId, "Prepared")
-                { CorePayloadPath = corePayloadPath, CoreRepresentationId = coreRepresentationId, TemporaryCoreInput = incrementalInput is not null,
-                    CorePayloadSha256 = incrementalInput is not null && corePayloadPath is not null
-                        ? Convert.ToHexString(await HashFileAsync(corePayloadPath, token)) : null };
+            var pending = new NativeArtifactPending(transaction, versionId, representationId, result.Patch.ResultRootArtifactId, "Prepared");
             await SavePendingAsync(pending, token);
             Active.TryAdd(Path.Combine(Root, transaction), config.ConfigId);
             return new PreparedNativeArtifact(this, runtime, config, folder, versionId, current, candidate,
@@ -391,26 +376,6 @@ public sealed partial class NativeArtifactStore
             File.Move(temp, path, true);
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
-    }
-    private static async Task<byte[]> HashFileAsync(string path, CancellationToken token)
-    { await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true); return await SHA256.HashDataAsync(input, token); }
-
-    public async Task CleanupPrimaryAsync(NativeArtifactPending intent, CancellationToken token)
-    {
-        if (!intent.TemporaryCoreInput || intent.CorePayloadPath is not { } path || !File.Exists(path)) return;
-        // The owner is the configuration's backup destination, never an arbitrary journal path.
-        var destination = Directory.GetParent(Root)?.Parent?.Parent?.FullName ?? throw new InvalidDataException("Invalid Artifact store layout.");
-        var relative = Path.GetRelativePath(destination, Path.GetFullPath(path));
-        if (Path.IsPathRooted(relative) || relative.Split(Path.DirectorySeparatorChar).Any(p => p == "..")
-            || path.StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            || intent.CorePayloadSha256 is null)
-            throw new InvalidDataException("Temporary primary escaped its capture owner.");
-        HostArtifactReadService.EnsureNoReparsePoints(destination, path);
-        if (!StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(await HashFileAsync(path, token)), intent.CorePayloadSha256))
-            throw new InvalidDataException("Temporary primary changed; retaining it for recovery.");
-        _observe?.Invoke("PrimaryCleanup:before");
-        File.Delete(path);
-        _observe?.Invoke("PrimaryCleanup:after");
     }
     internal static void DeleteDirectory(string path)
     { HostArtifactWorkspace.DeleteOwnedDirectory(path); }

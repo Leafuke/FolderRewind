@@ -610,16 +610,6 @@ namespace FolderRewind.Services
                 if (incremental && captureBaseline?.RequiresContentValidation == true)
                     captureBaseline = await NativeArtifactHostService.RevalidateStatisticsAsync(runtimeConfig, sourcePath, captureBaseline,
                         ScanDirectory(sourcePath, runtimeConfig.Filters, selection: runtimeFolder.SourceScope), cancellationToken).ConfigureAwait(false);
-                var captureConfig = runtimeConfig;
-                if (incremental)
-                {
-                    (captureConfig, _) = PluginV3ModelMapper.CloneForOperation(runtimeConfig, runtimeFolder);
-                    captureConfig.Archive.Format = "7z";
-                    captureConfig.Archive.CompressionLevel = 0;
-                    captureConfig.Archive.Method = "Copy";
-                    captureConfig.Archive.FileTypeHandlingEnabled = false;
-                    captureConfig.Archive.AdditionalSevenZipArguments = string.Empty;
-                }
                 await RunOnUIAsync(() =>
                 {
                     task.Status = I18n.Format("BackupService_Task_Processing");
@@ -674,11 +664,25 @@ namespace FolderRewind.Services
                     sourceUnavailable = captureResult.IsUnavailable;
                     generatedFileName = captureResult.FileName;
                 }
+                else if (incremental)
+                {
+                    if (runtimeConfig.ArtifactTransformPolicy?.FailureBehavior != PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
+                        throw new InvalidOperationException("Semantic capture requires a stable source view.");
+                    captureResult = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, null,
+                        folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                    if (captureResult.BaselineCandidate is { } fallbackStats)
+                        captureResult = captureResult.WithBaselineCandidate(fallbackStats with { ExpectedRevision = captureBaseline?.Revision ?? -1 });
+                    captureResult = captureResult.WithVersionMetadata([], [new HistoryDiagnostic("plugin.artifact_primary_kept",
+                        HistoryDiagnosticSeverity.Warning, "Semantic capture requires a stable source view.")]);
+                    success = captureResult.Success;
+                    sourceUnavailable = captureResult.IsUnavailable;
+                    generatedFileName = captureResult.FileName;
+                }
                 else switch (config.Archive.Mode)
                 {
                     case BackupMode.Smart:
                         {
-                            var res = await DoSmartBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, captureConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoSmartBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
                             captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
@@ -697,7 +701,7 @@ namespace FolderRewind.Services
                     case BackupMode.Full:
                     default:
                         {
-                            var res = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, captureConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, captureBaseline, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
                             captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
@@ -715,36 +719,6 @@ namespace FolderRewind.Services
                     if (captureResult.BaselineCandidate is { } captureStats)
                         captureResult = captureResult.WithBaselineCandidate(captureStats with
                         { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) });
-                    try
-                    {
-                        if (!directSemantic)
-                            captureResult = await NativeArtifactHostService.TransformAsync(runtimeConfig,
-                                v3Session.SourceResolution, captureResult, cancellationToken, captureBaseline, v3Session.HasStableSourceView).ConfigureAwait(false);
-                    }
-                    catch (Exception transformError) when (transformError is not OperationCanceledException && !invocationOptions.RequestSemanticCheckpoint
-                        && incremental && runtimeConfig.ArtifactTransformPolicy?.FailureBehavior == PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
-                    {
-                        if (captureResult.RepresentationCandidate?.Kind == RepresentationKind.CoreSmartDelta
-                            && captureBaseline?.BaseRepresentationKind == RepresentationKind.PluginArtifact)
-                        {
-                            var expectedCacheRevision = captureResult.BaselineCandidate?.ExpectedRevision ?? -1;
-                            var capturedMetadata = captureResult.VersionMetadataCandidates;
-                            if (captureResult.CleanupHandle is { } cleanup) await cleanup.CleanupAsync(CancellationToken.None);
-                            captureResult = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, null,
-                                folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
-                            captureResult = captureResult.WithEffectiveSourceBoundary(effectiveBoundary);
-                            if (captureResult.BaselineCandidate is { } fallbackStats)
-                                captureResult = captureResult.WithBaselineCandidate(fallbackStats with
-                                { ExpectedRevision = expectedCacheRevision,
-                                    SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path) });
-                            captureResult = captureResult.WithVersionMetadata(capturedMetadata, []);
-                        }
-                        success = captureResult.Success;
-                        sourceUnavailable = captureResult.IsUnavailable;
-                        generatedFileName = captureResult.FileName;
-                        captureResult = captureResult.WithVersionMetadata(captureResult.VersionMetadataCandidates,
-                            [new HistoryDiagnostic("plugin.artifact_primary_kept", HistoryDiagnosticSeverity.Warning, transformError.Message)]);
-                    }
                 }
                 else if (incremental && captureResult?.Outcome == SourceCaptureOutcome.NoChanges && captureBaseline is not null)
                 {

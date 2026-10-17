@@ -12,14 +12,6 @@ public sealed record FileChangeCapturePlan(ArtifactIncrementalInput Input,
     SourceCaptureBaseline? Baseline)
 {
     public ImmutableArray<string> Directories { get; init; } = [];
-    public static FileChangeCapturePlan Create(SourceCaptureResult capture, SourceCaptureBaseline? baseline, bool requestCheckpoint = false)
-    {
-        var states = capture.BaselineCandidate?.FileStates ?? throw new InvalidOperationException("File-state witness required.");
-        if (capture.CaptureScope != CaptureScope.FullSource) throw new InvalidOperationException("Incremental policy requires a complete effective boundary.");
-        var changesOnly = capture.RepresentationCandidate?.Kind == RepresentationKind.CoreSmartDelta;
-        return Create(states, baseline, capture.EffectiveSourceBoundary, changesOnly, requestCheckpoint);
-    }
-
     public static FileChangeCapturePlan Create(ImmutableSortedDictionary<string, SourceCaptureFileState> states,
         SourceCaptureBaseline? baseline, EffectiveSourceBoundarySnapshot boundary, bool changesOnly, bool requestCheckpoint = false)
     {

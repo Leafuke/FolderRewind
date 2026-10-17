@@ -217,7 +217,7 @@ public static class NativeHistoryCoreGateway
                 result.ConcurrencyFence is { } fence ? fence.BaseVersionId : result.ExpectedBaseVersionId ?? baseline?.BaseVersionId, result.CleanupHandle,
                 result.Diagnostics, result.ConcurrencyFence?.PolicyTips ?? tips.Select(item => item.UpdateId).ToImmutableArray(), result.BaselineCandidate,
                 result.EffectiveSourceBoundary, result.VersionMetadataCandidates)
-                { ReservedVersionId = result.ReservedVersionId, AdditionalRepresentations = result.AdditionalRepresentations,
+                { ReservedVersionId = result.ReservedVersionId,
                     CommitParticipant = result.CommitParticipant });
         }
         var committed = await runtime.Commit.CommitAsync(new HistoryCommitRequest(

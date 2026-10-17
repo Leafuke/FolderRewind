@@ -17,7 +17,7 @@ namespace FolderRewind.Services;
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
     bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend,
-    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, FolderRewind.Plugin.Runtime.Artifacts.IBoundedArtifactEnvelopeCodec, IBoundedPrimaryArchiveBackend
+    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, FolderRewind.Plugin.Runtime.Artifacts.IBoundedArtifactEnvelopeCodec
 {
     private readonly Dictionary<string, ArchiveSafeListing> _safeListings = new(StringComparer.OrdinalIgnoreCase);
     public bool TryGetListing(string path, out ArchiveSafeListing? listing) => _safeListings.TryGetValue(Path.GetFullPath(path), out listing);
@@ -38,12 +38,6 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
     }
     // Bound independently of world size. Envelope jobs operate on disjoint immutable packs.
     public int MaximumConcurrency => Math.Min(4, Math.Max(1, Environment.ProcessorCount / 2));
-    public async Task MaterializePrimaryAsync(string archive, string directory, CancellationToken token)
-    {
-        await UnpackLogicalTreeAsync(archive, directory, token).ConfigureAwait(false);
-        var marker = Path.Combine(directory, restoreMarkerDirectory);
-        if (Directory.Exists(marker)) Directory.Delete(marker, true);
-    }
     public Task PackAsync(string source, string payload, bool requiresEncryption, CancellationToken token)
     {
         if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
