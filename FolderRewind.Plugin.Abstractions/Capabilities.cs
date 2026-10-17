@@ -115,7 +115,12 @@ public interface IBackupConsistencyCapability : IPluginCapability
     ValueTask<IConsistencyLease> AcquireAsync(BackupConsistencyRequest request, PluginInvocationContext context);
 }
 
-public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnapshot Folder, ConsistencyIntent Intent);
+public sealed record BackupSourceViewLimits(long MaximumBytes, int MaximumEntries);
+public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnapshot Folder, ConsistencyIntent Intent)
+{
+    /// <summary>Optional Host budget for a temporary source view. Null preserves ordinary capture policy.</summary>
+    public BackupSourceViewLimits? SourceViewLimits { get; init; }
+}
 public interface IConsistencyLease : IAsyncDisposable
 {
     string SourcePath { get; }

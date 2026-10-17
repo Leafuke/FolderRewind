@@ -67,7 +67,10 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             _resolution.FolderSnapshot,
             _resolution.Intent,
             _diagnostics,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(EffectiveConfig.ArtifactTransformPolicy)
+                ? new BackupSourceViewLimits(Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes,
+                    Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles) : null).ConfigureAwait(false);
     }
 
     public async ValueTask<PluginV3VersionMetadataCaptureResult> CaptureVersionMetadataAsync(

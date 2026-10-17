@@ -54,6 +54,17 @@ public sealed class OwnedPluginTemporaryStorage : IPluginTemporaryStorage, IAsyn
         return ValueTask.FromResult(path);
     }
 
+    public ValueTask<IDisposable> ReserveAsync(string directory, long bytes, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_ownership is null, this);
+        var path = Path.GetFullPath(directory);
+        if (!path.StartsWith(_directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !Directory.Exists(path))
+            throw new InvalidDataException("Temporary reservation does not belong to this plugin session.");
+        HostArtifactReadService.EnsureNoReparsePoints(_directory, path);
+        return ValueTask.FromResult(ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(path, bytes)));
+    }
+
     public ValueTask DisposeAsync()
     { Interlocked.Exchange(ref _ownership, null)?.Dispose(); return ValueTask.CompletedTask; }
 }

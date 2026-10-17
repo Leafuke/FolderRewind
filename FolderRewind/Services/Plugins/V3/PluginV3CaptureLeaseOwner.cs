@@ -28,7 +28,8 @@ internal sealed class PluginV3CaptureLeaseOwner
         FolderSnapshot folder,
         ConsistencyIntent intent,
         List<PluginDiagnostic> diagnostics,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        BackupSourceViewLimits? sourceViewLimits = null)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(config);
@@ -58,7 +59,7 @@ internal sealed class PluginV3CaptureLeaseOwner
         {
             using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             acquiredConsistency = await capabilityLease.Capability.AcquireAsync(
-                new BackupConsistencyRequest(config, folder, intent),
+                new BackupConsistencyRequest(config, folder, intent) { SourceViewLimits = sourceViewLimits },
                 capabilityLease.Context).ConfigureAwait(false);
             ArgumentNullException.ThrowIfNull(acquiredConsistency);
             ArgumentNullException.ThrowIfNull(acquiredConsistency.Diagnostics);

@@ -67,6 +67,9 @@ public sealed class ArtifactWorkspaceBudgetTests
             var legacy = Path.Combine(root, Guid.NewGuid().ToString("N")); Directory.CreateDirectory(legacy);
             await using var second = await OwnedPluginTemporaryStorage.CreateAsync(root);
             Assert.IsTrue(Directory.Exists(live));
+            using (await first.ReserveAsync(live, 1, default)) { }
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(async () => { using var reservation = await second.ReserveAsync(live, 1, default); });
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(async () => { using var reservation = await first.ReserveAsync(live, -1, default); });
             await first.DisposeAsync();
             await using var recovered = await OwnedPluginTemporaryStorage.CreateAsync(root);
             Assert.IsFalse(Directory.Exists(live));
