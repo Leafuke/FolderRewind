@@ -135,6 +135,8 @@ public sealed partial class NativeArtifactStore
         await Ledger.RecoverAsync(token);
         await RecoverRepairsWithoutGateAsync(token);
         await RecoverGarbageWithoutGateAsync(token);
+        // Per-operation locks preserve active transfers; stale imports/probes need no History intent.
+        await using (await OwnedPluginTemporaryStorage.CreateAsync(Path.Combine(Root, "transfer-workspaces"), token)) { }
         foreach (var intent in pending)
         {
             if (Active.ContainsKey(Path.Combine(Root, intent.Id))) continue;

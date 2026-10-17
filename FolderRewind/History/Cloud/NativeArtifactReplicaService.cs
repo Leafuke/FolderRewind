@@ -101,8 +101,9 @@ public sealed class NativeArtifactReplicaService
             if (representation.Kind != RepresentationKind.PluginArtifact) return await base.CanReuseAsync(representation, manifest, transport, token);
             RequireSupported(representation);
             if (manifest.Size is < 1 or > 16 * 1024 * 1024 || transport is not INativeArtifactObjectTransport objects) return false;
-            var file = Path.Combine(owner._store.Root, "transfers", "probe-" + Guid.NewGuid().ToString("N") + ".bundle");
-            HostArtifactWorkspace.CreatePrivateDirectory(Path.GetDirectoryName(file)!);
+            await using var workspaceOwner = await OwnedPluginTemporaryStorage.CreateAsync(Path.Combine(owner._store.Root, "transfer-workspaces"), token);
+            var workspace = await workspaceOwner.CreateDirectoryAsync(token);
+            var file = Path.Combine(workspace, "probe.bundle");
             try
             {
                 await transport.DownloadAsync(manifest, file, token);
@@ -116,7 +117,7 @@ public sealed class NativeArtifactReplicaService
                 return await NativeArtifactStore.AreObjectsAvailableAsync(descriptor, objects, token);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException) { return false; }
-            finally { if (File.Exists(file)) File.Delete(file); }
+            finally { HostArtifactWorkspace.DeleteOwnedDirectory(workspace); }
         }
     }
 

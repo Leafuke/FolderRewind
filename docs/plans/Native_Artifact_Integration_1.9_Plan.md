@@ -121,3 +121,7 @@ M7 resource checkpoint: Native consistency requests carry optional source-view l
 Host validation: five workspace/volume/owner tests passed, including cross-session reservation rejection, and the acceptance-mode x64 Debug build passed. Plugin preflight/growth/cancellation checks follow the frozen contract package.
 
 The six reviewed API 3.10 source-view/reservation signatures were explicitly added to the public API baseline; all 15 Abstractions tests pass. No prior signatures were removed or changed.
+
+M7 recovery/GC checkpoint: orphan-only Native GC can run with KeepCount off while known held Cloud Job roots remain protected. It still rejects uncertain/missing protection evidence; retention that removes registrations retains the existing stricter Cloud guard. Import/probe scratch now uses private per-operation ownership locks and is reclaimed after a killed owner during normal recovery. Persistent retry intents and descriptors remain separate from transient workspaces.
+
+Validation: 26 focused Native cloud/deletion/Cloud Job tests and the complete 174-test Runtime suite passed, zero skipped/failed. Production process-kill validation remains pending.

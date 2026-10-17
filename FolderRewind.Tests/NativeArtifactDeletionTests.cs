@@ -113,6 +113,24 @@ public sealed class NativeArtifactDeletionTests
         Assert.IsNull(await cleanup.ExecuteAsync(0, 0, HistoryRetentionBenefitPolicy.CountFirst, false, "test"));
     }
 
+    [TestMethod]
+    public async Task OrphanCollectionWithRetentionOffPreservesHeldCloudRootsAndRejectsUnknownProtection()
+    {
+        await using var f = new Fixture(); await f.InitializeAsync();
+        var protectedItem = await f.AddAsync(); var orphan = await f.AddAsync();
+        var pack = (await f.History.Repository.ReadAllPacksAsync()).Single(p => p.Pack.Objects.Any(o => o.Id == protectedItem.Representation.RepresentationId.ToString())).Pack;
+        _ = f.History.CloudJobs.RegisterManual(pack, new("test", "revision", "binding", "test:remote", f.History.ConfigId.Value), [protectedItem.Representation.RepresentationId]);
+        var catalog = (await f.History.LocalReplicaCatalogStore.LoadAsync()).Value!;
+        await f.History.LocalReplicaCatalogStore.SaveAsync(new(f.History.ConfigId, catalog.CatalogRevision + 1, []), catalog.CatalogRevision);
+        Assert.ThrowsExactly<InvalidOperationException>(() => f.History.CloudJobs.RequireCleanupSafe());
+        var results = await NativeArtifactRetention.CollectAsync(f.History, f.Planner(), f.Store, 0, default);
+        Assert.AreEqual(1L, results.Sum(r => r.ReclaimedBytes));
+        Assert.IsTrue(File.Exists(f.Store.PayloadPath(protectedItem.Node)));
+        Assert.IsFalse(File.Exists(f.Store.PayloadPath(orphan.Node)));
+        await File.WriteAllTextAsync(f.History.CloudJobs.JournalPath + ".attention", "unknown");
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => NativeArtifactRetention.CollectAsync(f.History, f.Planner(), f.Store, 0, default));
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string root = Path.Combine(Path.GetTempPath(), "NativeDeletion", Guid.NewGuid().ToString("N"));

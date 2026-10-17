@@ -26,7 +26,7 @@ public static class NativeArtifactRetention
         HistoryRetentionPlanner planner, NativeArtifactStore store, int keepCount, CancellationToken token, bool deferAcknowledgment = false)
     {
         await using var gate = await history.MutationGate.EnterAsync(token).ConfigureAwait(false);
-        history.CloudJobs.RequireCleanupSafe();
+        if (keepCount > 0) history.CloudJobs.RequireCleanupSafe();
         var catalog = await RequireCatalogAsync(history, token).ConfigureAwait(false);
         if (keepCount > 0)
         {
@@ -64,7 +64,7 @@ public static class NativeArtifactRetention
     internal static async Task<IReadOnlyList<NativeArtifactCollectionResult>> CollectRegisteredAsync(
         HistoryRuntime history, NativeArtifactStore store, CancellationToken token, bool deferAcknowledgment = false)
     {
-        history.CloudJobs.RequireCleanupSafe();
+        history.CloudJobs.RequireKnownProtection();
         var catalog = await RequireCatalogAsync(history, token).ConfigureAwait(false);
         var representations = await history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var registered = catalog.Entries.Select(e => e.RepresentationId).ToHashSet();

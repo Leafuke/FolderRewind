@@ -240,6 +240,12 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         if (File.Exists(JournalPath + ".attention") || document.Jobs.Any(j => j.Protection == CloudProtectionDisposition.Held))
             throw new InvalidOperationException("[cloud.intent-reconciliation-required] Pending cloud backups retain local payload protection.");
     }
+    public void RequireKnownProtection()
+    {
+        _ = Read();
+        if (File.Exists(JournalPath + ".attention"))
+            throw new InvalidOperationException("[cloud.intent-reconciliation-required] Cloud protection evidence needs reconciliation.");
+    }
     public void ObserveFailure(Exception error) { _uncertain = true; Diagnostic = error.Message; }
 }
 

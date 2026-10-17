@@ -118,7 +118,8 @@ public sealed partial class NativeArtifactStore
         var graph = new ArtifactLedgerDocument(ArtifactLedgerValidator.CurrentSchemaVersion, new("cloud-objects"), descriptor.Objects.Select(o => o.Node).ToArray());
         // Reuse the validated v1 import transaction. This temporary archive is restore-only,
         // never uploaded and never part of the incremental capture path.
-        var work = Path.Combine(Root, "transfers", "objects-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(work);
+        await using var owner = await OwnedPluginTemporaryStorage.CreateAsync(Path.Combine(Root, "transfer-workspaces"), token);
+        var work = await owner.CreateDirectoryAsync(token);
         var bundle = Path.Combine(work, "import.bundle");
         var transferBudget = new ArtifactTransferBudget(ArtifactTransformLimits.Default.MaximumBytes);
         try
