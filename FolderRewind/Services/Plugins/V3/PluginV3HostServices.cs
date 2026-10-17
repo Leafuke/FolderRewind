@@ -265,7 +265,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
         private readonly string _root;
         public TemporaryStorageService(string root)
         {
-            _root = Path.GetFullPath(root);
+            _root = Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage.ForLogicalRoot(root);
             _ = Owner().Value; // Startup recovery runs off the UI thread before the next snapshot request.
         }
         private Lazy<Task<Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage>> Owner()

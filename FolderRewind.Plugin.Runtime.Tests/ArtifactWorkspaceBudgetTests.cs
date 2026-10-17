@@ -62,6 +62,11 @@ public sealed class ArtifactWorkspaceBudgetTests
         var root = Path.Combine(Path.GetTempPath(), "PluginTemporaryOwners", Guid.NewGuid().ToString("N"));
         try
         {
+            var logical = Path.Combine(root, new string('x', 180));
+            var shortRoot = OwnedPluginTemporaryStorage.ForLogicalRoot(logical);
+            Assert.IsLessThan(Path.GetTempPath().Length + 70, shortRoot.Length);
+            Assert.AreEqual(shortRoot, OwnedPluginTemporaryStorage.ForLogicalRoot(logical + Path.DirectorySeparatorChar));
+            Assert.AreNotEqual(shortRoot, OwnedPluginTemporaryStorage.ForLogicalRoot(logical + "other"));
             await using var first = await OwnedPluginTemporaryStorage.CreateAsync(root);
             var live = await first.CreateDirectoryAsync(default); await File.WriteAllTextAsync(Path.Combine(live, "world"), "snapshot");
             var legacy = Path.Combine(root, Guid.NewGuid().ToString("N")); Directory.CreateDirectory(legacy);

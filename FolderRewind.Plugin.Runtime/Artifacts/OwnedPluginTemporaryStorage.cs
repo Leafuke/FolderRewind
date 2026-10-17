@@ -14,6 +14,17 @@ public sealed class OwnedPluginTemporaryStorage : IPluginTemporaryStorage, IAsyn
     private OwnedPluginTemporaryStorage(string directory, FileStream ownership)
     { _directory = directory; _ownership = ownership; }
 
+    // Process current directories still have a Windows length limit. Keep snapshots
+    // short without copying them again or creating aliases into a source directory.
+    public static string ForLogicalRoot(string root)
+    {
+        var canonical = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+        if (OperatingSystem.IsWindows()) canonical = canonical.ToUpperInvariant();
+        var identity = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return Path.Combine(Path.GetTempPath(), "FolderRewind-v3", identity);
+    }
+
     public static async Task<OwnedPluginTemporaryStorage> CreateAsync(string root, CancellationToken token = default)
     {
         root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
