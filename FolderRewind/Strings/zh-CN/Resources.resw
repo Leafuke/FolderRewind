@@ -7133,4 +7133,6 @@ Pull Request：{1}</value>
   <data name="Retention_Reason_CollectionAckPending" xml:space="preserve"><value>对象已回收，回收记录的确认尚未完成；下次清理会重试。</value></data>
   <data name="Migration_NativePackageRequired" xml:space="preserve"><value>此版本使用语义备份存储。请通过迁移包恢复，或重新绑定包含完整数据的备份目录。</value></data>
   <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>检查点开始前，已保存的配置已发生变化。请重新保存后重试。</value></data>
+  <data name="BackupService_Task_CompletedWithWarnings" xml:space="preserve"><value>已完成，有警告</value></data>
+  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>“{0}”备份已完成，但存在警告。请查看任务及版本详情。</value></data>
 </root>

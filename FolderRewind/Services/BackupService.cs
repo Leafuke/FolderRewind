@@ -110,6 +110,7 @@ namespace FolderRewind.Services
             public string ErrorMessage { get; init; } = string.Empty;
             public OperationOutcome OperationOutcome { get; init; } = OperationOutcome.Failed;
             public SourceCaptureResult? CaptureResult { get; init; }
+            public IReadOnlyList<string> WarningCodes { get; init; } = [];
             public string? GeneratedFileName { get; init; }
             public BackupTask? Task { get; init; }
             public bool CreatedNewArchive => Status == BackupSourceExecutionStatus.NewArchive;
@@ -829,6 +830,7 @@ namespace FolderRewind.Services
                     BackupSourceExecutionStatus.NewArchive,
                     captureResult: captureResult,
                     operationOutcome: completionOutcome,
+                    warningCodes: operationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning).Select(d => d.Code),
                     generatedFileName: generatedFileName,
                     task: task);
             }
@@ -837,6 +839,8 @@ namespace FolderRewind.Services
                 folder,
                 BackupSourceExecutionStatus.Reused,
                 captureResult: captureResult,
+                operationOutcome: completionOutcome == OperationOutcome.SuccessWithWarnings ? completionOutcome : null,
+                warningCodes: operationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning).Select(d => d.Code),
                 task: task);
         }
 
@@ -847,7 +851,8 @@ namespace FolderRewind.Services
             SourceCaptureResult? captureResult = null,
             OperationOutcome? operationOutcome = null,
             string? generatedFileName = null,
-            BackupTask? task = null) => new()
+            BackupTask? task = null,
+            IEnumerable<string>? warningCodes = null) => new()
         {
             Status = status,
             FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
@@ -855,6 +860,7 @@ namespace FolderRewind.Services
             FolderName = folder.DisplayName ?? string.Empty,
             ErrorMessage = errorMessage ?? string.Empty,
             CaptureResult = captureResult,
+            WarningCodes = (warningCodes ?? []).Concat(captureResult?.Diagnostics.Where(d => d.Severity == HistoryDiagnosticSeverity.Warning).Select(d => d.Code) ?? []).Distinct(StringComparer.Ordinal).ToArray(),
             OperationOutcome = operationOutcome ?? PluginBackupRequestResult.FromSource(status).Outcome,
             GeneratedFileName = generatedFileName,
             Task = task

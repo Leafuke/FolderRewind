@@ -106,3 +106,7 @@ Validation: 10 focused handoff/save-controller/invocation/localization checks pa
 M6 stable-version protocol checkpoint: KnotLink LIST_VERSIONS publishes logical Version IDs. Restore and pin/query commands accept version_id, reject a simultaneous legacy file selector, and validate source ownership. Legacy file selection fails closed if the same filename identifies multiple Versions; multiple representations of one Version remain one identity. Existing archive-name listing remains compatible. The generated and shipped core command manifests advance together to 3.1.0.
 
 Validation: 43 KnotLink/selector/handoff regression tests passed, zero skipped/failed. Acceptance-mode x64 Debug solution build passed with zero warnings/errors. The plugin command aliases will receive LIST_VERSIONS with the exact contract snapshot in M7.
+
+M6 warning projection checkpoint: source diagnostics now reach committed task/folder status, backup_warning events and warning notifications. Reused/no-new-file results preserve warnings rather than treating uncertain source state as confirmed no-change. Completion protocol keeps its legacy result field and adds outcome/has_warnings/created plus source warning codes. Post-commit and recovery outcomes retain their existing precedence. Both language resources and the shipped/generated manifest agree.
+
+Validation: 49 result/protocol/localization regressions passed, zero skipped/failed; acceptance-mode x64 Debug build passed with zero warnings/errors. UI interaction verification remains in M7.

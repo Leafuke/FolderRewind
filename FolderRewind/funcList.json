@@ -907,12 +907,21 @@
         "config": {
           "description": "Configuration ID."
         },
+        "created": {
+          "description": "Whether a new version was captured."
+        },
         "event": {
           "description": "Signal event name.",
           "verification": "backup_all_completed"
         },
         "from": {
           "description": "Caller identifier when emitted in a command conversation."
+        },
+        "has_warnings": {
+          "description": "Whether completion requires attention."
+        },
+        "outcome": {
+          "description": "Committed operation outcome, including success_with_warnings."
         },
         "request_id": {
           "description": "Request correlation ID when emitted in a command conversation."
@@ -1023,6 +1032,9 @@
         "from": {
           "description": "Caller identifier when emitted in a command conversation."
         },
+        "has_warnings": {
+          "description": "Whether the captured version has warnings."
+        },
         "request_id": {
           "description": "Request correlation ID when emitted in a command conversation."
         }
@@ -1048,6 +1060,9 @@
         },
         "request_id": {
           "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "warning_codes": {
+          "description": "Optional comma-separated source diagnostic codes."
         }
       }
     },
@@ -1091,6 +1106,9 @@
         "command": {
           "description": "Command name."
         },
+        "created": {
+          "description": "Whether a new version was captured."
+        },
         "error": {
           "description": "Optional error detail."
         },
@@ -1104,8 +1122,14 @@
         "from": {
           "description": "Caller identifier when emitted in a command conversation."
         },
+        "has_warnings": {
+          "description": "Whether completion requires attention."
+        },
         "important": {
           "description": "True only for a confirmed protected backup."
+        },
+        "outcome": {
+          "description": "Committed operation outcome, including success_with_warnings."
         },
         "progress": {
           "description": "Optional progress percentage."
@@ -1118,6 +1142,9 @@
         },
         "result": {
           "description": "Optional completion result."
+        },
+        "warning_codes": {
+          "description": "Optional comma-separated source diagnostic codes."
         }
       }
     },
@@ -1390,6 +1417,9 @@
         },
         "request_id": {
           "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "version_id": {
+          "description": "Stable logical Version ID."
         }
       }
     },

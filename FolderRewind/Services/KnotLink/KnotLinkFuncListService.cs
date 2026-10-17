@@ -190,6 +190,17 @@ namespace FolderRewind.Services.KnotLink
                 AddSignal(manifest, appId, signalId, name, $"Periodic backup event: {name}.", ("config", "Configuration ID."), ("folder", "Folder name."));
 
             AddSignal(manifest, appId, signalId, "mark_important", "A backup importance flag changed.", ("config", "Configuration ID."), ("folder", "Folder name."), ("file", "Backup archive file."), ("important", "New importance value."));
+            foreach (var name in new[] { "command_completed", "backup_all_completed" })
+            {
+                manifest.Signal[name].Returns["outcome"] = new() { Description = "Committed operation outcome, including success_with_warnings." };
+                manifest.Signal[name].Returns["has_warnings"] = new() { Description = "Whether completion requires attention." };
+                manifest.Signal[name].Returns["created"] = new() { Description = "Whether a new version was captured." };
+            }
+            manifest.Signal["command_completed"].Returns["warning_codes"] = new() { Description = "Optional comma-separated source diagnostic codes." };
+            manifest.Signal["backup_success"].Returns["has_warnings"] = new() { Description = "Whether the captured version has warnings." };
+            manifest.Signal["backup_warning"].Returns["warning_codes"] = new() { Description = "Optional comma-separated source diagnostic codes." };
+            manifest.Signal["mark_important"].Returns["version_id"] = new() { Description = "Stable logical Version ID." };
+
         }
 
         private static void AddFunction(

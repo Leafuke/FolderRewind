@@ -505,15 +505,10 @@ namespace FolderRewind.Services
                         });
                         return;
                     }
-                    BroadcastEvent(context, "backup_all_completed", new Dictionary<string, string?>
-                    {
-                        ["config"] = config.Id,
-                        ["result"] = result
-                    });
-                    BroadcastCommandLifecycle(context, "command_completed", new Dictionary<string, string?>
-                    {
-                        ["result"] = result
-                    });
+                    var completionFields = outcome.ToProtocolFields();
+                    completionFields["config"] = config.Id;
+                    BroadcastEvent(context, "backup_all_completed", completionFields);
+                    BroadcastCommandLifecycle(context, "command_completed", completionFields);
                 }
                 catch (Exception ex)
                 {

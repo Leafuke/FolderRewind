@@ -7133,4 +7133,6 @@ Task log
   <data name="Retention_Reason_CollectionAckPending" xml:space="preserve"><value>Objects were collected, but their accounting acknowledgement is pending. The next cleanup will retry.</value></data>
   <data name="Migration_NativePackageRequired" xml:space="preserve"><value>This version uses semantic backup storage. Recover it from a migration package or rebind its complete backup directory.</value></data>
   <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>The saved configuration changed before the checkpoint started. Save again and retry.</value></data>
+  <data name="BackupService_Task_CompletedWithWarnings" xml:space="preserve"><value>Completed with warnings</value></data>
+  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>Backup for "{0}" completed with warnings. Review task and version details.</value></data>
 </root>
