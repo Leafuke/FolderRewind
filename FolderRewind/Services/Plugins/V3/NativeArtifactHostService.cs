@@ -11,6 +11,7 @@ using FolderRewind.History.Representation;
 using FolderRewind.Models;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Artifacts;
+using FolderRewind.Plugin.Runtime.Activation;
 
 namespace FolderRewind.Services.Plugins.V3;
 
@@ -134,7 +135,7 @@ internal static class NativeArtifactHostService
 
     internal static Task<SourceCaptureResult> CaptureDirectAsync(BackupConfig config, PluginV3BackupSourceResolution resolution,
         FileChangeCapturePlan plan, SourceCaptureBaselineCandidate statistics, EffectiveSourceBoundarySnapshot boundary,
-        string stableSource, CancellationToken token)
+        string stableSource, CancellationToken token, PluginOperationLease? operation = null)
     {
         if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy))
             throw new InvalidOperationException("Artifact transformation has not been explicitly enabled.");
@@ -142,7 +143,7 @@ internal static class NativeArtifactHostService
         var policy = new ArtifactTransformPolicy(new(new(settings.Transformer.PluginId), settings.Transformer.TransformerId),
             settings.Parameters, (ArtifactTransformFailureBehavior)settings.FailureBehavior);
         return new NativeArtifactIncrementalCaptureService(PluginV3RuntimeService.Runtime, Store(config), config.IsEncrypted)
-            .CaptureAsync(plan, resolution.ConfigSnapshot!, resolution.FolderSnapshot!, policy, stableSource, boundary, statistics, token);
+            .CaptureAsync(plan, resolution.ConfigSnapshot!, resolution.FolderSnapshot!, policy, stableSource, boundary, statistics, token, operation);
     }
 
     internal static PluginArtifactRepresentationHandler Handler(BackupConfig config, HistoryRuntime history, IArtifactEnvelopeCodec? codec = null)

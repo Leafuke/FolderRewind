@@ -645,7 +645,7 @@ namespace FolderRewind.Services
                                 fileStates, effectiveBoundary.Fingerprint)
                             { SourcePathFingerprint = NativeArtifactHostService.SourcePathFingerprint(folder.Path), Directories = directories };
                             captureResult = await NativeArtifactHostService.CaptureDirectAsync(runtimeConfig,
-                                v3Session.SourceResolution, plan, witness, effectiveBoundary, sourcePath, cancellationToken).ConfigureAwait(false);
+                                v3Session.SourceResolution, plan, witness, effectiveBoundary, sourcePath, cancellationToken, v3Session.ArtifactOperation).ConfigureAwait(false);
                         }
                     }
                     catch (Exception transformError) when (transformError is not OperationCanceledException && !invocationOptions.RequestSemanticCheckpoint

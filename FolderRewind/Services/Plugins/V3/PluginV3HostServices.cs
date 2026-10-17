@@ -284,6 +284,12 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             var owner = await Owner().Value.WaitAsync(cancellationToken).ConfigureAwait(false);
             return await owner.CreateDirectoryAsync(cancellationToken).ConfigureAwait(false);
         }
+        public async ValueTask<IDisposable> ReserveAsync(string directory, long bytes, CancellationToken cancellationToken)
+        {
+            var owner = await Owner().Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await owner.ReserveAsync(directory, bytes, cancellationToken).ConfigureAwait(false);
+        }
+
     }
 
     private sealed class LoggerService(PluginId pluginId) : IPluginLogger

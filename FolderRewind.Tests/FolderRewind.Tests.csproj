@@ -152,6 +152,7 @@
     <Compile Include="..\FolderRewind\Services\BackupStoragePathService.cs" Link="Source\BackupStoragePathService.cs" />
     <Compile Include="..\FolderRewind\Services\NativeHistoryConfigurationOperationGate.cs" Link="Source\NativeHistoryConfigurationOperationGate.cs" />
     <Compile Include="..\FolderRewind\Services\NativeHostMutationContext.cs" Link="Source\NativeHostMutationContext.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginV3CaptureLeaseOwner.cs" Link="Source\PluginV3CaptureLeaseOwner.cs" />
     <Compile Include="..\FolderRewind\Services\BackupPathOverlapPolicy.cs" Link="Source\BackupPathOverlapPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupPerformancePolicy.cs" Link="Source\BackupPerformancePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupTimingService.cs" Link="Source\BackupTimingService.cs" />

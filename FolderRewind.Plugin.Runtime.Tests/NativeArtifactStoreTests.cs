@@ -15,6 +15,13 @@ public sealed class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    public async Task PreparedGraphDoesNotReleaseTheBorrowedOperationBeforeConsistencyAndStreamsFinish()
+    {
+        using var fixture = new Fixture();
+        _ = await fixture.CaptureAsync(borrowedOperation: true);
+    }
+
+    [TestMethod]
     public async Task ParallelEnvelopeJobsStayBoundedAndCorruptionDoesNotReturnAReadLease()
     {
         using var fixture = new Fixture();
@@ -302,7 +309,7 @@ public sealed class NativeArtifactStoreTests
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeArtifactTests", Guid.NewGuid().ToString("N"));
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
-            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false)
+            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false, bool borrowedOperation = false)
         {
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
@@ -321,8 +328,12 @@ public sealed class NativeArtifactStoreTests
             Assert.IsTrue(result.Success, JsonSerializer.Serialize(result.Diagnostics));
             var codec = suppliedCodec ?? new ZipCodec();
             var store = new NativeArtifactStore(storageRoot ?? Path.Combine(Root, "store"), codec);
-            await using var prepared = await store.PrepareAsync(runtime, config, Folder, Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
-                new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default);
+            using var operation = borrowedOperation ? runtime.TryAcquireOperation(Id) : null;
+            var prepared = await store.PrepareAsync(runtime, config, Folder, Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
+                new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default, operation: operation);
+            var capturedRoot = prepared.Intent.Root;
+            await using (prepared)
+            {
             await prepared.SealAndCommitGraphAsync(default);
             if (transferPendingOwnership) prepared.TransferPendingOwnership();
             if (validatePrepared)
@@ -339,7 +350,16 @@ public sealed class NativeArtifactStoreTests
                 Assert.AreEqual(unpacked, codec.Unpacks, "Already verified candidate bytes must not be decompressed a second time.");
             }
             if (complete) store.CompletePending(prepared.Intent.Id);
-            return (store, prepared.Intent.Root);
+            }
+            if (operation is not null)
+            {
+                Assert.IsNotNull(operation.Find<IRestoreMaterializerCapability>(m => m.RestoreStrategyId == Strategy));
+                var drain = runtime.DeactivateAsync(Id);
+                Assert.IsFalse(drain.IsCompleted);
+                operation.Dispose();
+                await drain;
+            }
+            return (store, capturedRoot);
         }
         public void Dispose() { if (Directory.Exists(Root)) Directory.Delete(Root, true); }
     }

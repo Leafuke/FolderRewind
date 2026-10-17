@@ -21,11 +21,11 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
 {
     public async Task<SourceCaptureResult> CaptureAsync(FileChangeCapturePlan plan,
         ConfigSnapshot config, FolderSnapshot folder, ArtifactTransformPolicy policy, string stableSourceDirectory,
-        EffectiveSourceBoundarySnapshot boundary, SourceCaptureBaselineCandidate statistics, CancellationToken token)
+        EffectiveSourceBoundarySnapshot boundary, SourceCaptureBaselineCandidate statistics, CancellationToken token, PluginOperationLease? operation = null)
     {
         token.ThrowIfCancellationRequested();
-        using var operation = plugins.TryAcquireOperation(policy.TransformerId.PluginId, token)
-            ?? throw new InvalidOperationException("Transformer session unavailable.");
+        using var ownedOperation = operation is null ? plugins.TryAcquireOperation(policy.TransformerId.PluginId, token) : null;
+        var captureOperation = operation ?? ownedOperation ?? throw new InvalidOperationException("Transformer session unavailable.");
         var version = VersionId.New(); var representation = RepresentationId.New();
         var primary = stableSourceDirectory;
         SourceDirectorySnapshot.Validate(plan.Directories, plan.FileStates.Keys);
@@ -64,7 +64,7 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
         var evidenceBytes = JsonSerializer.SerializeToUtf8Bytes(document);
         await using var prepared = await store.PrepareAsync(plugins, config, folder, version.ToString(), representation.ToString(), primary,
             policy, encrypted, token, plan.Input,
-            repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document), new(new("primary"), readPrimary), operation);
+            repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document), new(new("primary"), readPrimary), captureOperation);
         try
         {
             if (prepared.RequiresFullVerification)

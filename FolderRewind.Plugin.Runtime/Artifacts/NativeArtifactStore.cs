@@ -250,13 +250,13 @@ public sealed partial class NativeArtifactStore
             await SavePendingAsync(pending, token);
             Active.TryAdd(Path.Combine(Root, transaction), config.ConfigId);
             return new PreparedNativeArtifact(this, runtime, config, folder, versionId, current, candidate,
-                staging, facts, pending, lease, held, result.Diagnostics, encrypted, baselineRead, result.RequiresFullVerification);
+                staging, facts, pending, lease, held, result.Diagnostics, encrypted, baselineRead, result.RequiresFullVerification, operation is null);
         }
         catch
         {
             if (staging is not null) await staging.DisposeAsync();
             if (baselineRead is not null) await baselineRead.DisposeAsync();
-            lease?.Dispose(); held.Dispose(); throw;
+            if (operation is null) lease?.Dispose(); held.Dispose(); throw;
         }
     }
 
@@ -405,6 +405,7 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     private readonly IDisposable _held;
     private readonly ArtifactLedgerDocument _before;
     private readonly bool _encrypted;
+    private readonly bool _ownsLease;
     private readonly NativeArtifactReadLease? _baselineRead;
     private readonly Dictionary<ArtifactId, string> _verifiedDirectories = [];
     public ArtifactLedgerDocument Ledger { get; private set; }
@@ -419,8 +420,8 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
         FolderSnapshot folder, string version, ArtifactLedgerDocument before, ArtifactLedgerDocument after,
         ArtifactTransformStagingArea staging, IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts> facts,
         NativeArtifactPending intent, PluginOperationLease lease, IDisposable held,
-        IReadOnlyList<PluginDiagnostic> diagnostics, bool encrypted, NativeArtifactReadLease? baselineRead = null, bool requiresFullVerification = false)
-    { _store = store; _before = before; Ledger = after; _staging = staging; _facts = facts; Intent = intent;
+        IReadOnlyList<PluginDiagnostic> diagnostics, bool encrypted, NativeArtifactReadLease? baselineRead = null, bool requiresFullVerification = false, bool ownsLease = true)
+    { _ownsLease = ownsLease; _store = store; _before = before; Ledger = after; _staging = staging; _facts = facts; Intent = intent;
         _lease = lease; _held = held; Diagnostics = diagnostics; _encrypted = encrypted; _baselineRead = baselineRead;
         RequiresFullVerification = requiresFullVerification; }
     public async Task SealAndCommitGraphAsync(CancellationToken token)
@@ -443,6 +444,6 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     {
         try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); await _staging.DisposeAsync(); }
         catch { _store.ReleasePendingOperation(Intent.Id); throw; }
-        finally { if (!_historyOwnsIntent) _store.ReleasePendingOperation(Intent.Id); _lease.Dispose(); _held.Dispose(); }
+        finally { if (!_historyOwnsIntent) _store.ReleasePendingOperation(Intent.Id); if (_ownsLease) _lease.Dispose(); _held.Dispose(); }
     }
 }

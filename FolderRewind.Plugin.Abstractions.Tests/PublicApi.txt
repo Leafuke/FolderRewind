@@ -427,6 +427,7 @@ P FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot.VersionId:System.Strin
 P FolderRewind.Plugin.Abstractions.IArtifactFileView.Files:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ArtifactMaterializedFile> { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IBackupArtifactTransformerCapability.TransformerId:FolderRewind.Plugin.Abstractions.ArtifactTransformerId { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IBackupConsistencyCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IBackupConsistencyCapability.SupportsBoundedSourceView:System.Boolean { public virtual get; }
 P FolderRewind.Plugin.Abstractions.IBackupScopeCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IBackupScopeCapability.Scopes:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.BackupScopeDescriptor> { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IConfigReconciliationCapability.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public abstract get; }

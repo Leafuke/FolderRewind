@@ -112,6 +112,7 @@ public sealed record BackupScopeResult(OperationReadiness Readiness, IReadOnlyLi
 public interface IBackupConsistencyCapability : IPluginCapability
 {
     ConfigKindRef Kind { get; }
+    bool SupportsBoundedSourceView => false;
     ValueTask<IConsistencyLease> AcquireAsync(BackupConsistencyRequest request, PluginInvocationContext context);
 }
 
