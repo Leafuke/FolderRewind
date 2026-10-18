@@ -5011,7 +5011,6 @@ Pull Request：{1}</value>
   <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>这会用所选分支检查点精确替换当前备份项目中的所有源目录内容。请确认当前未提交的更改可以丢弃。</value></data>
   <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>丢弃当前更改并切换</value></data>
   <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>归档验证失败，未写入原生历史记录。</value></data>
-  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>当前版本尚未完成插件产物转换与原生历史记录的集成。请先关闭此配置的产物转换策略。</value></data>
   <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>历史记录初始化失败</value></data>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>无法为“{0}”初始化原生历史：{1}</value></data>
   <data name="HistoryPage_BranchFilter.Header" xml:space="preserve"><value>查看分支</value></data>
@@ -7135,4 +7134,6 @@ Pull Request：{1}</value>
   <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>检查点开始前，已保存的配置已发生变化。请重新保存后重试。</value></data>
   <data name="BackupService_Task_CompletedWithWarnings" xml:space="preserve"><value>已完成，有警告</value></data>
   <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>“{0}”备份已完成，但存在警告。请查看任务及版本详情。</value></data>
+  <data name="SemanticBackup_BoundedProviderUnavailable" xml:space="preserve"><value>当前一致性插件不支持有资源上限的稳定副本，请更新插件后重试。</value></data>
+  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>此配置的实验性产物转换策略尚未启用，或不符合语义捕获条件。请检查实验开关、插件与备份策略。</value></data>
 </root>

@@ -60,7 +60,7 @@ internal sealed class PluginV3CaptureLeaseOwner
         try
         {
             if (sourceViewLimits is not null && !capability.SupportsBoundedSourceView)
-                throw new InvalidOperationException("The consistency provider does not support bounded source views.");
+                throw new InvalidOperationException(I18n.GetString("SemanticBackup_BoundedProviderUnavailable"));
             using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             acquiredConsistency = await capability.AcquireAsync(
                 new BackupConsistencyRequest(config, folder, intent) { SourceViewLimits = sourceViewLimits },
