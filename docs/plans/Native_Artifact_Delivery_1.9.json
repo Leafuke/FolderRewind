@@ -63,5 +63,7 @@
     "packageSha256": "e0e7b5a510f8e130cd3bc10cbfa53c051b1371385a5a814f2a343570334f9674",
     "assemblySha256": "ce86d6eb92ecdae560ba8ba96062de79a39090225b4d9338d43c6988b339f76a"
   },
-  "stage": "acceptance candidate; final Host validation pending"
+  "stage": "accepted for local 1.9.x integration; experimental capture disabled by default",
+  "hostSourceFreezeCommit": "225b4bf5a05c989fcb615da3515df5a66d828592",
+  "normalHostAssemblySha256": "6bb9e50c0a3791ca438f8630818f8ea17fb6ba4f4ed91f6b5a6480b3203fbc3f"
 }

@@ -21,12 +21,12 @@ Integrate Host 920162588f2a383b8107d8360cd5effca361086b with source 8e3bdab58558
 |---|---|---|
 | M0 | Freeze refs/tools/samples, baseline checks, tracked decisions | Complete |
 | M1 | Merge full source histories; preserve target architecture; build/Core checks | Complete (integration foundation only) |
-| M2 | Logical tree/evidence, commit/restore consumers, Deep/readiness/deletion | Local contract implemented; production acceptance pending |
-| M3 | Budgets, secure workspaces, bounded I/O, leases, recovery/GC | Resource/session/recovery/GC implemented; production fault matrix pending |
-| M4 | Native payload protocol throughout Cloud Job lifecycle | Implemented; production process-kill matrix pending |
-| M5 | Mixed migration, candidate passwords, isolated recovery/evidence | Protocol/context/authorization implemented; packaged wizard corpus pending |
-| M6 | Saved snapshot/checkpoint identity, warnings, stable version protocol, cleanup | Implementation complete; production/UI validation in M7 |
-| M7 | Contract snapshot/plugin package/CI, end-to-end and final local merges | Pending |
+| M2 | Logical tree/evidence, commit/restore consumers, Deep/readiness/deletion | Complete; production preview/restore/export/Checkout/delete/cleanup accepted |
+| M3 | Budgets, secure workspaces, bounded I/O, leases, recovery/GC | Complete; bounded resources/session/recovery/GC and process-kill matrices accepted |
+| M4 | Native payload protocol throughout Cloud Job lifecycle | Complete; real rclone local backend and repeated process-kill recovery accepted |
+| M5 | Mixed migration, candidate passwords, isolated recovery/evidence | Complete; packaged Native/encrypted mixed migration, restart and authorization accepted |
+| M6 | Saved snapshot/checkpoint identity, warnings, stable version protocol, cleanup | Complete; production and winapp UI validation accepted |
+| M7 | Contract snapshot/plugin package/CI, end-to-end and final local merges | Accepted; see final local merge commits and acceptance report |
 
 Every stage requires relevant checks and a Conventional Commit. A buildable merge foundation is an intermediate integration commit, not release acceptance.
 
@@ -133,3 +133,5 @@ Validation: 32 Runtime operation/store tests, four source admission/capture test
 M7 production smoke passed three Native versions using the packaged MineRewind, with source reconstruction, explicit Deep, directory comparison and NoChanges. The long-run service matrix passed 32 Versions (31 loop versions plus a directory-only capture), including checkpoints, canceled checkpoint admission, cache loss and KeepCount=5 collection. The encrypted delivery matrix passed experimental opt-in/default-off, unchanged checkpoint, independent CoreFull fallback with warning, RequireTransform failure, cancellation, rolling rejection, disable/re-enable and missing-plugin behavior.
 
 That matrix exposed Windows CreateProcess rejecting a long current directory. Host-owned plugin snapshots now use a short, collision-resistant temporary scope keyed by their logical owner. No second source copy or filesystem alias is introduced; the same ownership locks, private ACLs, stale-owner cleanup and actual-volume reservations apply. The acceptance sidecar records the physical temporary scope so space sampling includes it. Five workspace/owner tests and the encrypted production fallback matrix passed after this correction.
+
+Final M7 acceptance (2026-10-18): [Chinese acceptance report](Native_Artifact_Integration_1.9_Acceptance.md) and [machine-readable evidence](Native_Artifact_Integration_1.9_Acceptance.json) supersede historical pending acceptance notes above. The final package is c70aa512 from plugin source a50104b. Host 1245, Runtime 176, Abstractions 15, adapter 94, World 74 passed in order, zero failures/skips. Production capture passed 32 Versions; 30 crash cases each recovered twice in separate processes. Actual plain/encrypted Cloud Jobs and independent read-only recovery passed against real rclone local. A normal MSI-channel build without the acceptance type also passed UI Native capture with fallback forbidden and exact restore. The encrypted-Core header-policy regression found by the full suite was isolated to Native envelopes and the full suite rerun passed. Experimental capture remains off by default; real cloud accounts, multiple devices and release channels remain pre-release checks.
