@@ -15,6 +15,30 @@ public sealed class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    public async Task TinyMetadataClosureAcceptsTheNodeLimitAndRejectsTheNextNodeWithoutPayloadAllocation()
+    {
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        var ledger = await store.Ledger.LoadAsync();
+        var template = ledger.Artifacts.Single(n => n.ArtifactId != root);
+        ArtifactLedgerEntry Leaf()
+        {
+            var id = new ArtifactId(Guid.NewGuid());
+            return template with { ArtifactId = id, ContentRelativePath = "objects/" + id + "/payload", LogicalSize = 1, StorageSize = 1, LogicalEntryCount = 1 };
+        }
+        var leaves = Enumerable.Range(0, ArtifactLedgerValidator.MaximumArtifacts - 1).Select(_ => Leaf()).ToArray();
+        var checkpoint = ledger.Artifacts.Single(n => n.ArtifactId == root) with { Dependencies = leaves.Select(n => n.ArtifactId).ToArray() };
+        var bounded = ledger with { Artifacts = leaves.Append(checkpoint).ToArray() };
+        Assert.HasCount(4096, NativeArtifactClosureLimits.Validate(bounded, root).Reachable);
+        var next = Leaf();
+        var oversized = bounded with { Artifacts = bounded.Artifacts.Append(next).ToArray() };
+        Assert.ThrowsExactly<InvalidDataException>(() => NativeArtifactClosureLimits.Validate(oversized, root));
+        Assert.HasCount(2, (await store.Ledger.LoadAsync()).Artifacts);
+        await using var readable = await store.OpenAsync(root, default);
+        Assert.HasCount(2, readable.Artifacts);
+    }
+
+    [TestMethod]
     public async Task PreparedGraphDoesNotReleaseTheBorrowedOperationBeforeConsistencyAndStreamsFinish()
     {
         using var fixture = new Fixture();
