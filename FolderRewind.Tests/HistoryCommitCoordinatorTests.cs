@@ -28,6 +28,40 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task CloudStatusReadersCanPollWhileWorkerAtomicallyReplacesJournal()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        runtime.CloudJobs.ConfigureAdmission(new("profile", "revision", "binding", "remote:backup", _configId.Value));
+        var source = SourceId.New();
+        await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, CreateCapture(source, "first", -1, null)));
+        var initial = runtime.CloudJobs.Read().Jobs.Single();
+        using var cancellation = new CancellationTokenSource();
+        var readers = Enumerable.Range(0, 2).Select(_ => Task.Run(async () =>
+        {
+            long revision = 0;
+            do
+            {
+                var observed = runtime.CloudJobs.Read();
+                Assert.IsGreaterThanOrEqualTo(revision, observed.Revision);
+                revision = observed.Revision;
+                Assert.AreEqual(initial.JobId, observed.Jobs.Single().JobId);
+                await Task.Yield();
+            } while (!cancellation.IsCancellationRequested);
+        })).ToArray();
+        try
+        {
+            for (var attempt = 1; attempt <= 100; attempt++)
+            {
+                await using var gate = await runtime.MutationGate.EnterAsync(default);
+                runtime.CloudJobs.Update(initial with { Attempt = attempt, Diagnostic = "polling regression" });
+            }
+        }
+        finally { cancellation.Cancel(); await Task.WhenAll(readers); }
+        Assert.AreEqual(100, runtime.CloudJobs.Read().Jobs.Single().Attempt);
+        Assert.IsFalse(File.Exists(runtime.CloudJobs.JournalPath + ".attention"));
+    }
+
+    [TestMethod]
     public async Task DurableParticipantFailureReleasesOperationOwnershipBeforeRepeatedRecovery()
     {
         await using var runtime = await CreateRuntimeAsync();

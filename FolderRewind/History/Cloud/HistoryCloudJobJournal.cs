@@ -32,9 +32,14 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
 {
     public string JournalPath => Path.Combine(history.Repository.Paths.LocalStateRoot, "cloud-jobs.json");
     private bool _uncertain;
+    private readonly object _fileGate = new();
     public string? Diagnostic { get; private set; }
     public Action<string>? Checkpoint { get; set; }
     public HistoryCloudJournalDocument Read()
+    {
+        lock (_fileGate) return ReadSnapshot();
+    }
+    private HistoryCloudJournalDocument ReadSnapshot()
     {
         if (_uncertain) throw new InvalidDataException("[cloud.intent-reconciliation-required] " + Diagnostic);
         try
@@ -44,8 +49,17 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
                 if (history.Repository.CloudAdmissionExpected || File.Exists(JournalPath + ".required")) throw new InvalidDataException("[cloud.intent-reconciliation-required] Expected cloud admission evidence is missing.");
                 return new(1, 0, [], []);
             }
-            if (new FileInfo(JournalPath).Length > 16 * 1024 * 1024) throw new InvalidDataException("Cloud journal exceeds its bound.");
-            var document = JsonSerializer.Deserialize(File.ReadAllBytes(JournalPath), CloudJobJsonContext.Default.HistoryCloudJournalDocument)
+            byte[] bytes;
+            // Readers observe one immutable file generation while the worker atomically replaces the path.
+            // UI polling must not deny that replacement or permanently poison protection on a sharing race.
+            using (var snapshot = new FileStream(JournalPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            {
+                if (snapshot.Length > 16 * 1024 * 1024) throw new InvalidDataException("Cloud journal exceeds its bound.");
+                bytes = new byte[checked((int)snapshot.Length)];
+                snapshot.ReadExactly(bytes);
+                if (snapshot.ReadByte() != -1) throw new InvalidDataException("Cloud journal changed during inspection.");
+            }
+            var document = JsonSerializer.Deserialize(bytes, CloudJobJsonContext.Default.HistoryCloudJournalDocument)
                 ?? throw new InvalidDataException("Cloud journal is empty.");
             if (document.Jobs.IsDefault || document.Admissions.IsDefault || document.Jobs.Any(j => j is null || j.Target is null)
                 || document.Admissions.Any(a => a is null || a.Target is null)) throw new InvalidDataException("Cloud journal contains null evidence.");
@@ -79,6 +93,10 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         { _uncertain = true; Diagnostic = ex.Message; throw; }
     }
     private void Save(HistoryCloudJournalDocument document)
+    {
+        lock (_fileGate) SaveSnapshot(document);
+    }
+    private void SaveSnapshot(HistoryCloudJournalDocument document)
     {
         try
         {
