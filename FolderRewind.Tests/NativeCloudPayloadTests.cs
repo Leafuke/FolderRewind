@@ -17,6 +17,34 @@ namespace FolderRewind.Tests;
 public sealed class NativeCloudPayloadTests
 {
     [TestMethod]
+    public async Task SuccessfulDownloadReleasesEquivalentStoppedAttemptsAndPreservesActiveOrForeignAttempts()
+    {
+        await using var f = new Fixture(); await f.InitializeAsync(); var remote = new MemoryTransport();
+        Assert.IsTrue((await f.UploadAsync(f.Job("a"), remote)).Complete);
+        var recovered = new NativeArtifactStore(Path.Combine(f.Root, "recovered"), new ZipCodec());
+        var native = new NativeArtifactReplicaService(recovered, f.Replicas(remote));
+        NativeArtifactTransfer Attempt(string representation)
+        {
+            var replica = ReplicaId.New().ToString();
+            return new("download-" + replica, f.ArtifactRoot, representation, replica, false);
+        }
+        var stopped = Attempt(f.Representation.RepresentationId.ToString());
+        var active = Attempt(f.Representation.RepresentationId.ToString());
+        var foreign = Attempt(RepresentationId.New().ToString());
+        foreach (var attempt in new[] { stopped, active, foreign }) await recovered.SaveTransferAsync(attempt, default);
+        var directory = Path.Combine(recovered.Root, "transfers");
+        using (var live = new FileStream(Path.Combine(directory, active.Id + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            var result = await native.DownloadAsync(f.Representation, remote.Manifests.Values.Single(), f.ConfigId, f.Source.Value, default);
+            Assert.AreEqual(HistoryReplicaOperationStatus.Succeeded, result.Status, result.Diagnostic);
+            CollectionAssert.AreEquivalent(new[] { active.Id, foreign.Id }, recovered.Transfers().Select(t => t.Id).ToArray());
+        }
+        Assert.AreEqual(HistoryReplicaOperationStatus.Succeeded,
+            (await native.DownloadAsync(f.Representation, remote.Manifests.Values.Single(), f.ConfigId, f.Source.Value, default)).Status);
+        Assert.AreEqual(foreign.Id, recovered.Transfers().Single().Id);
+    }
+
+    [TestMethod]
     public async Task JobPersistsOneIdentityBeforeObjectPublicationAndRetryRepairsMissingClosureEvidence()
     {
         await using var f = new Fixture(); await f.InitializeAsync(); var remote = new MemoryTransport();

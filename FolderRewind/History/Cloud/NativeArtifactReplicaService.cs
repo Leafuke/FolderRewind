@@ -174,8 +174,30 @@ public sealed class NativeArtifactReplicaService
             using (await _store.EnterAsync(token)) await _store.SaveTransferAsync(intent with { Complete = true }, token);
             File.Delete(bundle);
             using (await _store.EnterAsync(token)) File.Delete(path);
+            await ReleaseEquivalentStoppedDownloadsAsync(root, representation.RepresentationId, id, token);
         }
         return result;
+    }
+
+    private async Task ReleaseEquivalentStoppedDownloadsAsync(ArtifactId root, RepresentationId representation, string currentId, CancellationToken token)
+    {
+        // Successful import and catalog registration now protect this complete local realization.
+        // Failed attempts through another replica no longer need their own retry roots.
+        using var held = await _store.EnterAsync(token);
+        foreach (var transfer in _store.Transfers().Where(t => t.JobId is null && t.Id != currentId
+            && t.Id.StartsWith("download-", StringComparison.Ordinal) && t.Root == root && t.RepresentationId == representation.ToString()))
+        {
+            var path = Path.Combine(_store.Root, "transfers", transfer.Id + ".json");
+            FileStream lease;
+            try { lease = new(Path.ChangeExtension(path, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose); }
+            catch (IOException) { continue; } // A different download still owns its attempt.
+            using (lease)
+            {
+                await _store.SaveTransferAsync(transfer with { Complete = true }, token);
+                File.Delete(Path.ChangeExtension(path, ".bundle"));
+                File.Delete(path);
+            }
+        }
     }
 
     private Task<string> ImportDescriptorAsync(string path, VersionRepresentation representation, string configId, Guid folderId, CancellationToken token)
