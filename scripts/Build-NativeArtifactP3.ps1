@@ -1,45 +1,56 @@
 param(
     [string]$PluginRepository = (Join-Path $PSScriptRoot '../FolderRewind-Plugin-Minecraft'),
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '../artifacts/incremental-p3/build')
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot '../artifacts/native-integration/build')
 )
 $ErrorActionPreference = 'Stop'
-$p3HostRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$p3PluginRoot = (Resolve-Path -LiteralPath $PluginRepository).Path
-$p3Output = [IO.Path]::GetFullPath($OutputDirectory)
-New-Item -ItemType Directory -Path $p3Output -Force | Out-Null
-$p3Feed = Join-Path $p3Output 'feed'
-New-Item -ItemType Directory -Path $p3Feed -Force | Out-Null
-$p3Api = Join-Path $p3HostRoot 'FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj'
-# Hash the contract sources, not a mutable global package cache or an assumed public release.
-$p3Contract = (Get-ChildItem -LiteralPath (Split-Path $p3Api) -File | Where-Object Extension -in '.cs','.csproj' |
-    Sort-Object Name | ForEach-Object { $_.Name + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }) -join "`n"
-$p3Hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($p3Contract))).ToLowerInvariant()
-$p3Version = '3.10.0-p3.b' + $p3Hash.Substring(0, 16)
-$p3Package = Join-Path $p3Feed "FolderRewind.Plugin.Abstractions.$p3Version.nupkg"
-if (!(Test-Path -LiteralPath $p3Package)) {
-    & dotnet pack $p3Api -c Release "-p:PackageVersion=$p3Version" -o $p3Feed
-    if ($LASTEXITCODE -ne 0) { throw 'API pack failed.' }
+$hostRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$pluginRoot = (Resolve-Path -LiteralPath $PluginRepository).Path
+$output = [IO.Path]::GetFullPath($OutputDirectory)
+# Kept as a command-name compatibility entry point. Integration uses the committed
+# exact contract and source mapping; it never generates an ad-hoc experimental feed.
+& (Join-Path $pluginRoot 'tools/Verify-Contract.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Committed contract verification failed.' }
+$dirty = & git -C $pluginRoot status --porcelain
+if ($LASTEXITCODE -ne 0 -or $dirty) { throw 'Plugin source must be a clean committed checkout.' }
+$provenance = Get-Content (Join-Path $pluginRoot 'contracts/source-manifest.json') -Raw | ConvertFrom-Json
+function Read-GitBlob([string]$Repository, [string]$Path) {
+    $start = [Diagnostics.ProcessStartInfo]::new('git')
+    $start.UseShellExecute = $false; $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    foreach($argument in @('-C', $Repository, 'show', ('HEAD:' + $Path))) { $start.ArgumentList.Add($argument) }
+    $process = [Diagnostics.Process]::Start($start)
+    $memory = [IO.MemoryStream]::new()
+    try {
+        $process.StandardOutput.BaseStream.CopyTo($memory)
+        $errorText = $process.StandardError.ReadToEnd(); $process.WaitForExit()
+        if ($process.ExitCode -ne 0) { throw $errorText }
+        return ,$memory.ToArray()
+    } finally { $process.Dispose(); $memory.Dispose() }
 }
-$p3Nuget = Join-Path $p3Output 'NuGet.Config'
-$p3EscapedFeed = [Security.SecurityElement]::Escape($p3Feed)
-$p3EscapedCache = [Security.SecurityElement]::Escape((Join-Path $p3Output 'packages'))
-@"
-<configuration><packageSources><clear/><add key="p3" value="$p3EscapedFeed"/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></packageSources><config><add key="globalPackagesFolder" value="$p3EscapedCache"/></config></configuration>
-"@ | Set-Content -LiteralPath $p3Nuget
-$p3Project = Join-Path $p3PluginRoot 'MineRewind/MineRewind.csproj'
-& dotnet restore $p3Project --configfile $p3Nuget "-p:PluginApiPackageVersion=$p3Version"
+if ((& git -C $hostRoot status --porcelain -- FolderRewind.Plugin.Abstractions)) { throw 'Host contract has uncommitted changes.' }
+foreach($source in $provenance.sources) {
+    $bytes = Read-GitBlob $hostRoot $source.path
+    if ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([byte[]]$bytes)) -ine $source.sha256) {
+        throw ('Host contract differs from the frozen package: ' + $source.path)
+    }
+}
+New-Item -ItemType Directory -Path $output -Force | Out-Null
+[xml]$projectXml = Get-Content (Join-Path $pluginRoot 'MineRewind/MineRewind.csproj') -Raw
+$version = [string]$projectXml.Project.PropertyGroup.Version
+$package = Join-Path $output ("MineRewind-$version.frplugin")
+$project = Join-Path $pluginRoot 'MineRewind/MineRewind.csproj'
+& dotnet restore $project --configfile (Join-Path $pluginRoot 'NuGet.Config')
 if ($LASTEXITCODE -ne 0) { throw 'Plugin restore failed.' }
-& dotnet build $p3Project -c Release --no-restore "-p:PluginApiPackageVersion=$p3Version"
-if ($LASTEXITCODE -ne 0) { throw 'Plugin build failed.' }
-$p3PluginOutput = Join-Path $p3PluginRoot 'MineRewind/bin/Release/net10.0'
-$p3Frplugin = Join-Path $p3Output 'MineRewind-incremental.frplugin'
-& dotnet run --project (Join-Path $p3PluginRoot 'tools/MineRewind.Pack/MineRewind.Pack.csproj') -c Release -- $p3PluginOutput $p3Frplugin
-if ($LASTEXITCODE -ne 0) { throw 'Plugin packaging failed.' }
-$p3Archive = [IO.Compression.ZipFile]::OpenRead($p3Frplugin)
+& dotnet build $project -c Release --no-restore -t:PackFrPlugin "-p:FrPluginOutput=$package"
+if ($LASTEXITCODE -ne 0) { throw 'Plugin build or clean-staging packaging failed.' }
+$archive = [IO.Compression.ZipFile]::OpenRead($package)
 try {
-    if ($p3Archive.Entries.Name -contains 'FolderRewind.Plugin.Abstractions.dll') { throw 'Host contract DLL must not be bundled.' }
-} finally { $p3Archive.Dispose() }
-[pscustomobject]@{ ApiVersion = $p3Version; ApiSourcesSha256 = $p3Hash; Package = $p3Frplugin;
-    PackageSha256 = (Get-FileHash -LiteralPath $p3Frplugin -Algorithm SHA256).Hash } |
-    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $p3Output 'build.json')
-Get-Content -LiteralPath (Join-Path $p3Output 'build.json')
+    $expected = @('MineRewind.dll','MineRewind.World.dll','fNbt.dll','manifest.json','settings.schema.json','contract-source.json')
+    $actual = @($archive.Entries.FullName)
+    if ($actual.Count -ne $expected.Count -or (Compare-Object $expected $actual)) { throw 'Unexpected plugin payload inventory.' }
+} finally { $archive.Dispose() }
+@{ ApiVersion=$provenance.version; ApiSourcesSha256=$provenance.sourceDigestSha256;
+   PluginSourceCommit=(& git -C $pluginRoot rev-parse HEAD); HostSourceCommit=(& git -C $hostRoot rev-parse HEAD);
+   Package=$package; PackageSha256=(Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash } |
+    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'build.json') -Encoding utf8
+Get-Content -LiteralPath (Join-Path $output 'build.json')
