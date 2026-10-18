@@ -129,6 +129,7 @@ public sealed partial class ConfigSettingsDialogViewModel
         finally
         {
             _editingDraft?.RefreshBackupTimesAfterOperation();
+            RefreshDraftState();
             _semanticCheckpointRunning = false;
             RefreshSemanticAvailability();
         }
