@@ -11,7 +11,7 @@ namespace FolderRewind.Services.KnotLink
     public static class KnotLinkFuncListService
     {
         public const string SpecVersion = "1.0";
-        public const string ManifestVersion = "3.0.0";
+        public const string ManifestVersion = "3.1.0";
         public const string DefaultAppId = "0x00000020";
         public const string DefaultOpenSocketId = "0x00000010";
         public const string DefaultSignalId = "0x00000020";
@@ -167,6 +167,7 @@ namespace FolderRewind.Services.KnotLink
             AddSignal(manifest, appId, signalId, "list_configs", "Backup configuration list was queried.", ("data", "Encoded result data."));
             AddSignal(manifest, appId, signalId, "list_folders", "Managed folder list was queried.", ("config", "Configuration ID."), ("data", "Encoded result data."));
             AddSignal(manifest, appId, signalId, "list_backups", "Backup archive list was queried.", ("config", "Configuration ID."), ("folder", "Folder name."), ("data", "Encoded result data."));
+            AddSignal(manifest, appId, signalId, "list_versions", "Logical version list was queried.", ("config", "Configuration ID."), ("folder", "Folder name."), ("data", "Encoded result data."));
             AddSignal(manifest, appId, signalId, "get_config", "Backup configuration details were queried.", ("config", "Configuration ID."));
             AddSignal(manifest, appId, signalId, "status", "Runtime status was queried.");
 
@@ -189,6 +190,17 @@ namespace FolderRewind.Services.KnotLink
                 AddSignal(manifest, appId, signalId, name, $"Periodic backup event: {name}.", ("config", "Configuration ID."), ("folder", "Folder name."));
 
             AddSignal(manifest, appId, signalId, "mark_important", "A backup importance flag changed.", ("config", "Configuration ID."), ("folder", "Folder name."), ("file", "Backup archive file."), ("important", "New importance value."));
+            foreach (var name in new[] { "command_completed", "backup_all_completed" })
+            {
+                manifest.Signal[name].Returns["outcome"] = new() { Description = "Committed operation outcome, including success_with_warnings." };
+                manifest.Signal[name].Returns["has_warnings"] = new() { Description = "Whether completion requires attention." };
+                manifest.Signal[name].Returns["created"] = new() { Description = "Whether a new version was captured." };
+            }
+            manifest.Signal["command_completed"].Returns["warning_codes"] = new() { Description = "Optional comma-separated source diagnostic codes." };
+            manifest.Signal["backup_success"].Returns["has_warnings"] = new() { Description = "Whether the captured version has warnings." };
+            manifest.Signal["backup_warning"].Returns["warning_codes"] = new() { Description = "Optional comma-separated source diagnostic codes." };
+            manifest.Signal["mark_important"].Returns["version_id"] = new() { Description = "Stable logical Version ID." };
+
         }
 
         private static void AddFunction(

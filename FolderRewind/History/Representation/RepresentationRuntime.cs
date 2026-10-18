@@ -59,6 +59,7 @@ public sealed class RepresentationRuntime
         var selected = candidateAssessments
             .Where(item => Satisfies(item.Fidelity, requiredFidelity))
             .OrderBy(SelectionScore)
+            .ThenBy(item => graph[item.RepresentationId].Kind == RepresentationKind.CoreFull ? 0 : 1)
             .ThenBy(item => item.RepresentationId.ToString(), StringComparer.Ordinal)
             .FirstOrDefault();
         if (selected is null)
@@ -101,12 +102,15 @@ public sealed class RepresentationRuntime
             throw new KeyNotFoundException($"Representation '{representationId}' does not exist.");
         }
 
+        var handler = ResolveHandler(representation)
+            ?? throw new InvalidOperationException($"No handler understands {representation.Kind}/{representation.Format}.");
+        var inlineVerification = handler is IInlineVerifiedMaterializer verifier && verifier.CanVerifyDuringMaterialization(representation);
         var assessments = new Dictionary<RepresentationId, RepresentationAssessment>();
         await AssessRepresentationAsync(
             representation,
             graph,
             environment,
-            AssessmentDepth.Deep,
+            inlineVerification ? AssessmentDepth.Fast : AssessmentDepth.Deep,
             assessments,
             new HashSet<RepresentationId>(),
             cancellationToken, restoreVerification).ConfigureAwait(false);
@@ -119,9 +123,6 @@ public sealed class RepresentationRuntime
         }
 
         var closure = BuildDependencyFirstClosure(representation, graph);
-        var handler = ResolveHandler(representation)
-            ?? throw new InvalidOperationException(
-                $"No handler understands {representation.Kind}/{representation.Format}.");
         Directory.CreateDirectory(stagingDirectory);
         await handler.MaterializeAsync(
             new RepresentationMaterializationContext(

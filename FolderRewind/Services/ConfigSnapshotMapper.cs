@@ -217,6 +217,7 @@ internal static class ConfigSnapshotMapper
 
     public static ArtifactTransformPolicySettings Copy(ArtifactTransformPolicySettings? value) => value is null ? null! : new ArtifactTransformPolicySettings
     {
+        ExperimentalEnabled = value.ExperimentalEnabled,
         Transformer = Copy(value.Transformer),
         Parameters = value.Parameters is null ? null! : value.Parameters.ToDictionary(pair0 => pair0.Key, pair0 => pair0.Value.Clone(), value.Parameters.Comparer),
         FailureBehavior = value.FailureBehavior,

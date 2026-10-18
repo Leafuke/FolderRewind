@@ -120,6 +120,7 @@
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoverySetIdentityMatcher.cs" Link="Source\DiscoverySetIdentityMatcher.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryThreeWayReviewService.cs" Link="Source\DiscoveryThreeWayReviewService.cs" />
     <Compile Include="..\FolderRewind\Services\OfficialPresetIndexMergePolicy.cs" Link="Source\OfficialPresetIndexMergePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupConfigurationHandoff.cs" Link="Source\BackupConfigurationHandoff.cs" />
     <Compile Include="..\FolderRewind\Services\BackupInvocationOptions.cs" Link="Source\BackupInvocationOptions.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\IGameDiscoveryProvider.cs" Link="Source\IGameDiscoveryProvider.cs" />
@@ -151,6 +152,7 @@
     <Compile Include="..\FolderRewind\Services\BackupStoragePathService.cs" Link="Source\BackupStoragePathService.cs" />
     <Compile Include="..\FolderRewind\Services\NativeHistoryConfigurationOperationGate.cs" Link="Source\NativeHistoryConfigurationOperationGate.cs" />
     <Compile Include="..\FolderRewind\Services\NativeHostMutationContext.cs" Link="Source\NativeHostMutationContext.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginV3CaptureLeaseOwner.cs" Link="Source\PluginV3CaptureLeaseOwner.cs" />
     <Compile Include="..\FolderRewind\Services\BackupPathOverlapPolicy.cs" Link="Source\BackupPathOverlapPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupPerformancePolicy.cs" Link="Source\BackupPerformancePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupTimingService.cs" Link="Source\BackupTimingService.cs" />
@@ -158,12 +160,14 @@
     <Compile Include="..\FolderRewind\Services\RcloneConnectionService.cs" Link="Source\RcloneConnectionService.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneNativeHistoryTransport.cs" Link="Source\RcloneNativeHistoryTransport.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneMigrationSnapshotTransport.cs" Link="Source\RcloneMigrationSnapshotTransport.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneArtifactObjectTransport.cs" Link="Source\RcloneArtifactObjectTransport.cs" />
     <Compile Include="..\FolderRewind\Services\ProcessArgumentTokenizer.cs" Link="Source\ProcessArgumentTokenizer.cs" />
     <Compile Include="..\FolderRewind\Services\ToolArchiveInstaller.cs" Link="Source\ToolArchiveInstaller.cs" />
     <Compile Include="..\FolderRewind\Services\ToolExecutableVerifier.cs" Link="Source\ToolExecutableVerifier.cs" />
     <Compile Include="..\FolderRewind\Services\OnboardingRepairPolicy.cs" Link="Source\OnboardingRepairPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\OnboardingOperationBudgets.cs" Link="Source\OnboardingOperationBudgets.cs" />
     <Compile Include="..\FolderRewind\Models\OnboardingModels.cs" Link="Source\OnboardingModels.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryVersionFileSelector.cs" Link="Source\HistoryVersionFileSelector.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryVersionExportService.cs" Link="Source\History\Application\HistoryVersionExportService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryArchiveRecoveryService.cs" Link="Source\History\Application\HistoryArchiveRecoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />
@@ -175,6 +179,7 @@
     <Compile Include="..\FolderRewind\History\Application\HistoryMigrationContinuationService.cs" Link="Source\HistoryMigrationContinuationService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleModels.cs" Link="Source\HistoryMigrationBundleModels.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.cs" Link="Source\HistoryMigrationBundleService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.Native.cs" Link="Source\HistoryMigrationBundleService.Native.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.Payloads.cs" Link="Source\HistoryMigrationBundleService.Payloads.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationPathRebindPolicy.cs" Link="Source\MigrationPathRebindPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MigrationBatchConfirmation.cs" Link="Source\MigrationBatchConfirmation.cs" />

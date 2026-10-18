@@ -678,7 +678,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             mode).ConfigureAwait(false);
     }
     public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode,
-        Func<FolderRewind.History.Retention.PreparedHistoryChainRewrite, CancellationToken, Task<bool>>? confirm = null,
+        Func<FolderRewind.History.Retention.PreparedHistoryDeletion, CancellationToken, Task<bool>>? confirm = null,
         IProgress<FolderRewind.History.Retention.HistoryChainRewriteProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -713,7 +713,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 await using var prepared = await NativeHistoryApplicationService.PrepareVersionDeletionAsync(
                     config, item.VersionId, representationId, item.LocalPath,
                     hideRecord: mode == BackupDeleteMode.LocalArchiveAndRecord,
-                    releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord, progress, cancellationToken);
+                    releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord, operationLease, progress, cancellationToken);
                 if (confirm is not null && !await confirm(prepared, cancellationToken))
                     return new() { Success = true };
                 deletion = await NativeHistoryApplicationService.CommitVersionDeletionAsync(config, prepared, cancellationToken);

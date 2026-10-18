@@ -17,6 +17,7 @@ public sealed class HistoryCleanupReport
     public HistoryRetentionBenefitPolicy Policy { get; set; }
     public string Status { get; set; } = "Running";
     public List<HistoryCleanupSourceReport> Sources { get; set; } = [];
+    public List<string> NativeCollectionIds { get; set; } = [];
     public List<HistoryCleanupIssue> Issues { get; set; } = [];
     [JsonIgnore]
     public bool HasWarnings => Status is not ("Completed" or "NoWork")
@@ -35,6 +36,7 @@ public sealed class HistoryCleanupSourceReport
     public int? ExtraProtected { get; set; }
     // Shared-group byte/file totals are attached only to the first member, never double counted.
     public int DeletedArchives { get; set; }
+    public int NativeDeletedObjects { get; set; }
     public long CreatedBytes { get; set; }
     public long ReclaimedBytes { get; set; }
     public List<HistoryCleanupIssue> Issues { get; set; } = [];

@@ -42,6 +42,60 @@ public sealed class RcloneCredentialRefreshTests
     }
 
     [TestMethod]
+    public async Task IdleSnapshotFromStoppedContextIsRecoveredBeforeRetry()
+    {
+        string snapshot;
+        using (var original = Context())
+        {
+            snapshot = original.SnapshotPath;
+            original.PreserveSnapshot = true; // A kill between context construction and its first command.
+        }
+        await RcloneCredentialRefresh.PrepareStoreAsync(_config, _root, true, default);
+        Assert.IsFalse(File.Exists(snapshot));
+        await RcloneCredentialRefresh.PrepareStoreAsync(_config, _root, true, default);
+        using var next = Context();
+        await RcloneConnectionService.RunAsync(Start(next), TimeSpan.FromSeconds(10), default);
+    }
+
+    [TestMethod]
+    public async Task SettledSnapshotAfterRefreshIsRecoveredWithoutLosingTokens()
+    {
+        string snapshot;
+        using (var original = Context())
+        {
+            snapshot = original.SnapshotPath;
+            await RcloneConnectionService.RunAsync(Start(original), TimeSpan.FromSeconds(10), default);
+            original.PreserveSnapshot = true; // A kill between successfully completed commands.
+        }
+        await RcloneCredentialRefresh.PrepareStoreAsync(_config, _root, true, default);
+        Assert.IsFalse(File.Exists(snapshot));
+        StringAssert.Contains(File.ReadAllText(_config), "\"access_token\":\"new\"");
+    }
+
+    [TestMethod]
+    public async Task UnrecordedSnapshotChangeIsRetainedAndBlocksRetry()
+    {
+        string snapshot;
+        using (var original = Context())
+        {
+            snapshot = original.SnapshotPath;
+            File.WriteAllText(snapshot, File.ReadAllText(snapshot).Replace("old", "unsettled"));
+            original.PreserveSnapshot = true;
+        }
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => RcloneCredentialRefresh.PrepareStoreAsync(_config, _root, true, default));
+        StringAssert.Contains(File.ReadAllText(snapshot), "unsettled");
+        StringAssert.Contains(File.ReadAllText(_config), "\"access_token\":\"old\"");
+    }
+
+    [TestMethod]
+    public async Task LiveIdleSnapshotIsNeverRecoveredAsAnOrphan()
+    {
+        using var active = Context();
+        await RcloneCredentialRefresh.PrepareStoreAsync(_config, _root, true, default);
+        Assert.IsTrue(File.Exists(active.SnapshotPath));
+    }
+
+    [TestMethod]
     public async Task ControlledChildRefreshIsMergedWithoutChangingOtherSections()
     {
         using var context = Context();

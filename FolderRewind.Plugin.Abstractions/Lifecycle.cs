@@ -121,6 +121,9 @@ public interface IPluginDataStore
 public interface IPluginTemporaryStorage
 {
     ValueTask<string> CreateDirectoryAsync(CancellationToken cancellationToken);
+    /// <summary>Reserve outstanding writes on the volume of a Host-owned temporary directory.</summary>
+    ValueTask<IDisposable> ReserveAsync(string directory, long bytes, CancellationToken cancellationToken)
+        => throw new NotSupportedException("This Host does not support temporary volume reservations.");
 }
 
 public interface IPluginLogger

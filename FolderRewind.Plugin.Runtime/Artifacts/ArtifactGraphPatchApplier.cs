@@ -70,7 +70,7 @@ public static class ArtifactGraphPatchApplier
                 node.Dependencies.ToArray(),
                 scope.TransactionId,
                 ArtifactAvailability.Available,
-                ArtifactAvailability.Pending));
+                ArtifactAvailability.Pending) { LogicalEntryCount = facts.LogicalEntryCount });
         }
 
         if ((!addedIds.Contains(patch.ResultRootArtifactId)

@@ -304,6 +304,9 @@ public sealed class HistoryCommitCoordinator
                 currentCatalog,
                 cancellationToken).ConfigureAwait(false);
             preparedPack = batch.Pack;
+            foreach (var capture in request.SourceCaptureResults)
+                if (capture.CommitParticipant is { } participant)
+                    await participant.PrepareCommitAsync(batch.Pack.PackId, batch.Pack.TransactionId, cancellationToken).ConfigureAwait(false);
             try
             {
                 var graph = (await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false))
@@ -339,8 +342,14 @@ public sealed class HistoryCommitCoordinator
                 _runtime.LocalReplicaCatalogStore);
             try
             {
+                foreach (var capture in request.SourceCaptureResults)
+                    if (capture.CommitParticipant is { } participant)
+                        await participant.HistoryCommittedAsync(CancellationToken.None).ConfigureAwait(false);
                 await recovery.ApplyCommittedStateAsync(journal, cancellationToken).ConfigureAwait(false);
                 _runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.LocalStateApplied });
+                foreach (var capture in request.SourceCaptureResults)
+                    if (capture.CommitParticipant is { } participant)
+                        await participant.CompleteCommitAsync(CancellationToken.None).ConfigureAwait(false);
                 _runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.Complete });
             }
             catch (Exception ex)
@@ -386,6 +395,11 @@ public sealed class HistoryCommitCoordinator
                 await CleanupUncommittedCaptureAsync(request.SourceCaptureResults).ConfigureAwait(false);
             }
             throw;
+        }
+        finally
+        {
+            foreach (var participant in request.SourceCaptureResults.Select(c => c.CommitParticipant).OfType<ICaptureCommitParticipant>().Distinct())
+                participant.EndOperation();
         }
     }
 
@@ -483,7 +497,10 @@ public sealed class HistoryCommitCoordinator
                             throw new HistoryCommitConflictException(
                                 "A boundary-changing capture must use a self-contained Representation.");
                         }
-                        var versionId = VersionId.New();
+                        var versionId = capture.ReservedVersionId ?? VersionId.New();
+                        if (await _runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false) is not null
+                            || versions.Any(v => v.VersionId == versionId))
+                            throw new HistoryCommitConflictException("Reserved Version identity already exists.");
                         var continuationParent = state.RequiresFullCapture ? currentCheckpoint?.VersionId : null;
                         var parents = (reliableBaseline ?? continuationParent) is { } parent ? new[] { parent } : Array.Empty<VersionId>();
                         var version = new SourceVersion(
@@ -1062,6 +1079,12 @@ public sealed class HistoryCommitCoordinator
     private static async Task CleanupUncommittedCaptureAsync(
         IEnumerable<SourceCaptureResult> captures)
     {
+        foreach (var participant in captures.Select(c => c.CommitParticipant).OfType<ICaptureCommitParticipant>().Distinct())
+        {
+            try { await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { /* Keep the pending root for recovery. */ }
+            finally { participant.EndOperation(); }
+        }
         foreach (var handle in captures
                      .Select(capture => capture.CleanupHandle)
                      .Where(handle => handle is not null)

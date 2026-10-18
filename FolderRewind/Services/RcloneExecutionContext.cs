@@ -82,6 +82,7 @@ public sealed class RcloneExecutionContext : IDisposable
             CleanupExpired(root, DateTimeOffset.UtcNow);
             CreatePrivateDirectory(_taskDirectory);
             ownership = new FileStream(Path.Combine(_taskDirectory, "ownership.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+            RcloneCredentialRefresh.RegisterSnapshot(_taskDirectory, ConfigPath, RevisionEvidence);
             File.WriteAllBytes(SnapshotPath, content);
             _ownership = ownership;
             Contexts[SnapshotPath] = this;
@@ -89,7 +90,7 @@ public sealed class RcloneExecutionContext : IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             ownership?.Dispose();
-            try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
+            try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
             catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
             throw RcloneConnectionDiagnostics.Failure("cloud.snapshot-create-failed", "CloudSetup_SnapshotCreateFailed", ex);
         }
@@ -141,13 +142,14 @@ public sealed class RcloneExecutionContext : IDisposable
             if (name.Length != 37 || !Guid.TryParseExact(name[5..], "N", out _) || !Path.GetFullPath(directory).StartsWith(root, StringComparison.OrdinalIgnoreCase)
                 || (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0 || now.UtcDateTime - Directory.GetLastWriteTimeUtc(directory) < TimeSpan.FromDays(2)) continue;
             var marker = Path.Combine(directory, "ownership.lock"); var config = Path.Combine(directory, "rclone.conf");
+            var registration = Path.Combine(directory, "snapshot.json");
             // 旧版/未知快照没有刷新完成证据，不再按年龄删除可能唯一的新 Token。
             if (!File.Exists(marker) || File.Exists(config) || Directory.GetDirectories(directory).Length != 0
-                || Directory.GetFiles(directory).Any(file => file != marker)) continue;
+                || Directory.GetFiles(directory).Any(file => file != marker && file != registration)) continue;
             try
             {
                 // 活跃任务持有此独占句柄；崩溃后只有锁已释放的本应用目录能回收。
-                using (var lease = new FileStream(marker, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) File.Delete(config);
+                using (var lease = new FileStream(marker, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) File.Delete(registration);
                 File.Delete(marker); Directory.Delete(directory); cleaned++;
             }
             catch (IOException) { }
@@ -201,7 +203,7 @@ public sealed class RcloneExecutionContext : IDisposable
         _ownership.Dispose();
         if (PreserveSnapshot || File.Exists(Path.Combine(_taskDirectory, "attempt.json"))) return;
         // 只清理由本任务创建的确切文件，不递归清理用户凭据目录。
-        try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
+        try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
         catch (IOException) { } // 临时锁释放后可由有界过期回收处理，不改变业务成功事实。
         catch (UnauthorizedAccessException) { }
     }

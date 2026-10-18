@@ -17,7 +17,7 @@ public static class HistoryCloudReplicaValidity
         => actual.RepresentationId == expected.RepresentationId && actual.ReplicaId == expected.ReplicaId
             && actual.ObjectKey == expected.ObjectKey && actual.Size == expected.Size
             && StringComparer.OrdinalIgnoreCase.Equals(actual.StorageSha256, expected.StorageSha256)
-            && (expected.ArtifactRootId is null || actual.ArtifactRootId == expected.ArtifactRootId);
+            && actual.ArtifactRootId == expected.ArtifactRootId;
     public static Guid? ArtifactRoot(VersionRepresentation representation)
         => representation.RepresentationSpecificMetadata.TryGetValue("artifactRootId", out var value)
             && Guid.TryParse(value, out var id) ? id : null;

@@ -5,6 +5,7 @@ using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
 using FolderRewind.History.Representation;
 using FolderRewind.Models;
+using FolderRewind.Plugin.Runtime.Artifacts;
 using System;
 using System.IO;
 using System.Linq;
@@ -15,11 +16,16 @@ namespace FolderRewind.Services;
 
 internal static class CloudReadOnlyRecoveryService
 {
-    private static RepresentationRuntime CreateRepresentations(string? password)
+    private static (RepresentationRuntime Representations, NativeArtifactStore Store) CreateRepresentations(HistoryRuntime runtime, string? password)
     {
-        var backend = new SevenZipArchiveProcessBackend(() => SevenZipExecutableLocator.Resolve(ConfigService.CurrentConfig.GlobalSettings.SevenZipPath),
+        var executable = SevenZipExecutableLocator.Resolve(ConfigService.CurrentConfig.GlobalSettings.SevenZipPath);
+        var backend = new SevenZipArchiveProcessBackend(() => executable,
             () => password, !string.IsNullOrEmpty(password), BackupService.InternalRestoreMarkerDirectoryName);
-        return new([new CoreArchiveRepresentationHandler(backend), new SmartDeltaRepresentationHandler(backend)]);
+        var snapshot = new BackupConfig { Id = runtime.ConfigId.Value, Name = runtime.ConfigId.Value, IsEncrypted = !string.IsNullOrEmpty(password) };
+        var root = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "downloaded-native-v2");
+        HostArtifactWorkspace.CreatePrivateDirectory(root);
+        var store = new NativeArtifactStore(root, backend);
+        return (HistoryRepresentationRuntimeFactory.Create(new(snapshot, runtime, backend, () => store)), store);
     }
 
     internal static async Task<HistoryRecoveryPreview> PreviewAsync(HistoryRuntime runtime, VersionId versionId,
@@ -28,7 +34,7 @@ internal static class CloudReadOnlyRecoveryService
         var version = await runtime.Query.GetVersionAsync(versionId, token).ConfigureAwait(false)
             ?? throw new InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
         var graph = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).ToDictionary(r => r.RepresentationId);
-        var assessment = await CreateRepresentations(null).AssessVersionAsync(versionId, graph.Values.ToArray(),
+        var assessment = await CreateRepresentations(runtime, null).Representations.AssessVersionAsync(versionId, graph.Values.ToArray(),
             await NativeHistoryApplicationService.BuildEnvironmentAsync(runtime, token).ConfigureAwait(false), AssessmentDepth.Fast,
             HistoryRecoveryPreview.FidelityFor(version), token).ConfigureAwait(false);
         var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
@@ -38,7 +44,14 @@ internal static class CloudReadOnlyRecoveryService
         if (assessment.Selected is not null)
             foreach (var representation in ExactReplicaPreparation.Closure(graph[assessment.Selected.RepresentationId], graph))
                 foreach (var replica in await GetActiveCloudReplicasAsync(runtime, representation.RepresentationId, token).ConfigureAwait(false))
-                    if (!sizes.ContainsKey(representation.RepresentationId)) sizes.Add(representation.RepresentationId, replica.ExpectedSize!.Value);
+                    if (!sizes.ContainsKey(representation.RepresentationId))
+                    {
+                        if (representation.Kind != RepresentationKind.PluginArtifact) sizes.Add(representation.RepresentationId, replica.ExpectedSize!.Value);
+                        else if (representation.RepresentationSpecificMetadata.TryGetValue("nativeClosureStorageBytes", out var declared)
+                            && long.TryParse(declared, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var bytes)
+                            && bytes is >= 0 and <= 16L * 1024 * 1024 * 1024)
+                            sizes.Add(representation.RepresentationId, checked(bytes + replica.ExpectedSize!.Value));
+                    }
         return HistoryRecoveryPreview.Create(version, graph, assessment, local.Contains,
             id => sizes.TryGetValue(id, out var bytes) ? bytes : null);
     }
@@ -62,7 +75,8 @@ internal static class CloudReadOnlyRecoveryService
         RepresentationId? confirmedRepresentation = null, Action<RepresentationId, bool>? progress = null)
     {
         var version = await runtime.Query.GetVersionAsync(versionId, token).ConfigureAwait(false) ?? throw new InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
-        var representations = CreateRepresentations(password);
+        var consumer = CreateRepresentations(runtime, password);
+        var representations = consumer.Representations;
         var preview = await PreviewAsync(runtime, versionId, token).ConfigureAwait(false);
         if (!preview.CanPrepare || confirmedRepresentation is { } expected && preview.Assessment.Selected?.RepresentationId != expected)
             throw new InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
@@ -82,8 +96,11 @@ internal static class CloudReadOnlyRecoveryService
                 string? diagnostic = null;
                 foreach (var replica in await GetActiveCloudReplicasAsync(runtime, representation.RepresentationId, ct).ConfigureAwait(false))
                 {
-                    var manifest = new HistoryReplicaManifest(representation.RepresentationId, replica.ReplicaId, null, replica.ObjectKey, replica.ExpectedSize!.Value, replica.ExpectedStorageSha256!);
-                    var downloaded = await replicas.DownloadAsync(manifest, Path.Combine(payloadRoot, representation.RepresentationId + ".payload"), ct).ConfigureAwait(false);
+                    var manifest = new HistoryReplicaManifest(representation.RepresentationId, replica.ReplicaId,
+                        HistoryCloudReplicaValidity.ArtifactRoot(representation), replica.ObjectKey, replica.ExpectedSize!.Value, replica.ExpectedStorageSha256!);
+                    var downloaded = representation.Kind == RepresentationKind.PluginArtifact
+                        ? await new NativeArtifactReplicaService(consumer.Store, replicas).DownloadAsync(representation, manifest, runtime.ConfigId.Value, source.Value, ct).ConfigureAwait(false)
+                        : await replicas.DownloadAsync(manifest, Path.Combine(payloadRoot, representation.RepresentationId + ".payload"), ct).ConfigureAwait(false);
                     if (downloaded.Status == HistoryReplicaOperationStatus.Succeeded) { local.Add(representation.RepresentationId); progress?.Invoke(representation.RepresentationId, true); return true; }
                     diagnostic = downloaded.Diagnostic;
                 }

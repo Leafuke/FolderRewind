@@ -26,7 +26,7 @@ public static class PluginV3RuntimeService
         PluginActivationCandidate candidate,
         CancellationToken cancellationToken = default)
     {
-        var result = await Runtime.ActivateAsync(candidate, cancellationToken).ConfigureAwait(false);
+        var result = await Runtime.ActivateAsync(WithArtifactGuard(candidate), cancellationToken).ConfigureAwait(false);
         var manifest = candidate.Manifest;
         if (result.Success && manifest is not null)
         {
@@ -40,7 +40,7 @@ public static class PluginV3RuntimeService
         PluginActivationCandidate candidate,
         CancellationToken cancellationToken = default)
     {
-        var result = await Runtime.ReplaceAsync(candidate, cancellationToken).ConfigureAwait(false);
+        var result = await Runtime.ReplaceAsync(WithArtifactGuard(candidate), cancellationToken).ConfigureAwait(false);
         if (result.Success && candidate.Manifest is not null)
         {
             Manifests[candidate.PluginId] = candidate.Manifest;
@@ -65,6 +65,10 @@ public static class PluginV3RuntimeService
 
     public static PluginManifestContract? FindManifest(PluginId pluginId)
         => Manifests.TryGetValue(pluginId, out var manifest) ? manifest : null;
+
+    private static PluginActivationCandidate WithArtifactGuard(PluginActivationCandidate candidate)
+        => candidate.Manifest is null ? candidate : candidate with
+        { CommitGuard = token => NativeArtifactHostService.AcquireCompatibilityGuardAsync(candidate.Manifest, token) };
 
     public static ConfigKindDeclaration? FindKind(ConfigKindRef kind)
         => Manifests.Values.SelectMany(manifest => manifest.ConfigKinds)

@@ -71,7 +71,10 @@ public sealed record ArtifactTransformerDeclaration(
     IReadOnlyList<CoreCaptureMode> CompatibleCoreModes,
     IReadOnlyList<ArtifactCompleteness> CompatibleCompleteness,
     JsonElement ParameterSchema,
-    IReadOnlyList<ArtifactTransformFailureBehavior> SupportedFailureBehaviors);
+    IReadOnlyList<ArtifactTransformFailureBehavior> SupportedFailureBehaviors)
+{
+    public bool SupportsIncrementalInput { get; init; }
+}
 
 public sealed record ArtifactFormatVersionRange(
     ArtifactFormatRef Format,

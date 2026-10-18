@@ -68,6 +68,23 @@ public sealed class SourceCaptureBaselineCacheTests
     }
 
     [TestMethod]
+    public async Task InvalidNativeDirectoryCacheIsDiscardedInsteadOfBlockingCapture()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "NativeInvalidCache", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var source = SourceId.New(); var version = VersionId.New();
+            var representation = new VersionRepresentation(RepresentationId.New(), version, RepresentationKind.PluginArtifact,
+                "native", [], MaterializationFidelity.Exact, null, null, null);
+            using var cache = new SourceCaptureBaselineCache(root);
+            await cache.SaveAsync(source, new(-1, Path.Combine(root, "payload"), 0, ImmutableSortedDictionary<string, SourceCaptureFileState>.Empty)
+                { ArtifactRootId = Guid.NewGuid(), Directories = ["missing/parent"] }, version, representation);
+            Assert.IsNull(await cache.LoadAsync(source));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
     public void ApplicabilityRequiresReliableMatchingWorkspaceVersion()
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));

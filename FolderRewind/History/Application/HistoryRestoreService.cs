@@ -31,6 +31,7 @@ public sealed partial class HistoryRestoreService
     internal string? RestoreConfigurationSignature { get; init; }
     internal HistoryRestorePreparationSession? PreparationSession { get; set; }
     internal PreparedRestoreSource? ReusablePreparation { get; set; }
+    internal Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, Task>? RecoverNativeInsideOperation { get; init; }
 
     public HistoryRestoreService(
         HistoryRuntime history,
@@ -72,6 +73,8 @@ public sealed partial class HistoryRestoreService
         catch (Exception ex) { _history.CloudJobs.ObserveFailure(ex); }
         await _history.CleanupMergeArtifactsAsync().ConfigureAwait(false);
         await _history.RecoverChainRewritesAsync(cancellationToken, insideMutationGate: true).ConfigureAwait(false);
+        if (RecoverNativeInsideOperation is { } recoverNative)
+            await recoverNative(operation, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<HistoryRestoreResult> RestoreCheckpointAsync(
@@ -144,7 +147,7 @@ public sealed partial class HistoryRestoreService
                     item.Fidelity == MaterializationFidelity.Exact
                         && item.ApplyMode == HistoryRestoreApplyMode.Clean
                         ? WorkspaceBaselineRelation.Exact
-                        : WorkspaceBaselineRelation.Derived)));
+                        : WorkspaceBaselineRelation.Derived) { ContentRealizationId = Guid.NewGuid() }));
             var desired = current.WithContentBaselines(baselines);
             return await ExecuteMutationAsync(prepared, current, desired, cancellationToken, preparationSession: session).ConfigureAwait(false);
         }
@@ -206,7 +209,7 @@ public sealed partial class HistoryRestoreService
                 : WorkspaceBaselineRelation.Derived;
             var baselines = current.SourceBaselines
                 .Where(item => item.SourceId != source.SourceId)
-                .Append(new WorkspaceSourceBaseline(source.SourceId, versionId, relation));
+                .Append(new WorkspaceSourceBaseline(source.SourceId, versionId, relation) { ContentRealizationId = Guid.NewGuid() });
             var desired = current.WithContentBaselines(baselines);
             return await ExecuteMutationAsync(
                 [prepared], current, desired, cancellationToken, preparationSession: session).ConfigureAwait(false);

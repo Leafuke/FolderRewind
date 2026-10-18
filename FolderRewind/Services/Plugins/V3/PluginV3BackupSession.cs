@@ -25,6 +25,8 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     private readonly PluginV3CaptureLeaseOwner _captureLeaseOwner = new();
     private readonly PluginV3BackupSourceResolution _resolution;
     private readonly List<PluginDiagnostic> _diagnostics;
+    private PluginOperationLease? _artifactOperation;
+    internal PluginOperationLease? ArtifactOperation => _artifactOperation;
 
     public PluginV3BackupSession(PluginV3BackupSourceResolution resolution)
     {
@@ -40,6 +42,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public IReadOnlyList<PluginDiagnostic> Diagnostics => _diagnostics;
     public bool IsBlocked => _resolution.IsBlocked;
     public string SourcePath => _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
+    public bool HasStableSourceView => _captureLeaseOwner.StableSourcePath is not null;
 
     public static async ValueTask<PluginV3BackupSession> PrepareAsync(
         BackupConfig originalConfig,
@@ -59,6 +62,9 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public async ValueTask AcquireConsistencyAsync(CancellationToken cancellationToken = default)
     {
         if (_resolution.PluginId is null || _resolution.ConfigSnapshot is null || _resolution.FolderSnapshot is null) return;
+        if (NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(EffectiveConfig.ArtifactTransformPolicy))
+            _artifactOperation = PluginV3RuntimeService.Runtime.TryAcquireOperation(new(EffectiveConfig.ArtifactTransformPolicy!.Transformer.PluginId), cancellationToken)
+                ?? throw new InvalidOperationException("Native operation session unavailable.");
         await _captureLeaseOwner.AcquireAsync(
             PluginV3RuntimeService.Runtime,
             _resolution.PluginId.Value,
@@ -66,7 +72,11 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             _resolution.FolderSnapshot,
             _resolution.Intent,
             _diagnostics,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(EffectiveConfig.ArtifactTransformPolicy)
+                ? new BackupSourceViewLimits(Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes,
+                    Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles) : null,
+            EffectiveConfig.ArtifactTransformPolicy?.Transformer.PluginId == _resolution.PluginId.Value.Value ? _artifactOperation : null).ConfigureAwait(false);
     }
 
     public async ValueTask<PluginV3VersionMetadataCaptureResult> CaptureVersionMetadataAsync(
@@ -74,11 +84,12 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     {
         if (_resolution.PluginId is null || _resolution.ConfigSnapshot is null || _resolution.FolderSnapshot is null)
             return PluginV3VersionMetadataCaptureResult.Empty;
-        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IVersionMetadataProviderCapability>(
-            _resolution.PluginId.Value,
-            capability => capability.Kind == _resolution.ConfigSnapshot.Kind,
-            cancellationToken);
-        if (lease is null) return PluginV3VersionMetadataCaptureResult.Empty;
+        var operation = EffectiveConfig.ArtifactTransformPolicy?.Transformer.PluginId == _resolution.PluginId.Value.Value ? _artifactOperation : null;
+        using var lease = operation is null ? PluginV3RuntimeService.Runtime.TryAcquire<IVersionMetadataProviderCapability>(
+            _resolution.PluginId.Value, capability => capability.Kind == _resolution.ConfigSnapshot.Kind, cancellationToken) : null;
+        var capability = operation?.Find<IVersionMetadataProviderCapability>(c => c.Kind == _resolution.ConfigSnapshot.Kind) ?? lease?.Capability;
+        var context = operation?.Context ?? lease?.Context;
+        if (capability is null || context is null) return PluginV3VersionMetadataCaptureResult.Empty;
         var stableSourcePath = stagedSourcePath ?? _captureLeaseOwner.StableSourcePath;
         if (stableSourcePath is null)
         {
@@ -98,12 +109,12 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         try
         {
             using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
-            var result = await lease.Capability.CaptureAsync(
+            var result = await capability.CaptureAsync(
                 new VersionMetadataCaptureRequest(
                     _resolution.ConfigSnapshot,
                     _resolution.FolderSnapshot,
                     new StableCaptureSourceView(stableSourcePath)),
-                lease.Context).ConfigureAwait(false);
+                context).ConfigureAwait(false);
             ArgumentNullException.ThrowIfNull(result);
             ArgumentNullException.ThrowIfNull(result.Snapshots);
             ArgumentNullException.ThrowIfNull(result.Diagnostics);
@@ -165,7 +176,11 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         }
     }
 
-    public ValueTask CompleteCaptureAsync() => _captureLeaseOwner.CompleteAsync();
+    public async ValueTask CompleteCaptureAsync()
+    {
+        try { await _captureLeaseOwner.CompleteAsync().ConfigureAwait(false); }
+        finally { System.Threading.Interlocked.Exchange(ref _artifactOperation, null)?.Dispose(); }
+    }
 
     public async ValueTask DisposeAsync() => await CompleteCaptureAsync().ConfigureAwait(false);
 

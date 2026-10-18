@@ -75,8 +75,8 @@ public sealed class HistoryExactWorkingStateProbe(HistoryRuntime history, Histor
             if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Exact working-state probe cannot follow links.");
             var emptyRelative = Path.GetRelativePath(root, directory).Replace('\\', '/');
-            if (emptyRelative != "." && include(emptyRelative) && !Directory.EnumerateFileSystemEntries(directory).Any())
-                result.Add(emptyRelative + "/", "empty-directory");
+            if (emptyRelative != "." && include(emptyRelative))
+                result.Add(emptyRelative + "/", "directory");
             foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
             {
                 var attributes = File.GetAttributes(entry);

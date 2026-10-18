@@ -75,6 +75,7 @@ internal static class MigrationWorkflowCoordinator
         var config = (await MigrationBatchRecoveryService.CaptureAsync().ConfigureAwait(false)).Single(c => new HistoryConfigId(project.ConfigId).Matches(c.Id));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config.Id, token).ConfigureAwait(false);
         var representation = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).Single(r => r.RepresentationId.ToString() == representationId);
+        if (representation.Kind == RepresentationKind.PluginArtifact) throw new InvalidOperationException(I18n.GetString("Migration_NativePackageRequired"));
         HistoryReplicaRecoveryService.RequireRegularPath(config.DestinationPath, path);
         var facts = await HistoryReplicaRecoveryService.ReadFileFactsAsync(path, token).ConfigureAwait(false);
         var state = DataMigrationStateStore.Load(ConfigService.ConfigDirectory, new(config.Id));

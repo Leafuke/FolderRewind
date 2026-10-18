@@ -15,11 +15,18 @@ namespace FolderRewind.Services;
 internal static partial class NativeHistoryApplicationService
 {
     // Caller holds the configuration operation lease across preparation, confirmation and commit.
-    public static async Task<PreparedHistoryChainRewrite> PrepareVersionDeletionAsync(BackupConfig config,
+    public static async Task<PreparedHistoryDeletion> PrepareVersionDeletionAsync(BackupConfig config,
         VersionId versionId, RepresentationId representationId, string localPath, bool hideRecord,
-        bool releaseVersion, IProgress<HistoryChainRewriteProgress>? progress = null, CancellationToken token = default)
+        bool releaseVersion, NativeHistoryConfigurationOperationGate.Lease operation,
+        IProgress<HistoryChainRewriteProgress>? progress = null, CancellationToken token = default)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        await CreateRestoreService(config, runtime).RecoverInsideConfigurationAsync(operation, token).ConfigureAwait(false);
+        var representation = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false))
+            .Single(r => r.RepresentationId == representationId && r.VersionId == versionId);
+        if (representation.Kind == RepresentationKind.PluginArtifact)
+            return new(await new NativeArtifactVersionDeletion(runtime, Plugins.V3.NativeArtifactHostService.Store(config))
+                .PrepareAsync(versionId, representationId, localPath, GetRewriteBackupRoot(config), hideRecord, releaseVersion, token).ConfigureAwait(false));
         var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value
             ?? throw new InvalidOperationException("Local Replica Catalog requires recovery.");
         var path = Path.GetFullPath(localPath);
@@ -28,26 +35,28 @@ internal static partial class NativeHistoryApplicationService
             && StringComparer.OrdinalIgnoreCase.Equals(e.Locator.AbsolutePath, path)).Select(e => e.LocalReplicaId).ToArray();
         if (targets.Length == 0) throw new InvalidOperationException("The selected local backup is no longer registered.");
         var archive = new SevenZipHistoryArchiveBackend(config);
-        var engine = RewriteEngine(archive);
+        var engine = RewriteEngine(archive, config, runtime);
         var request = new HistoryChainRewriteRequest(HistoryChainRewriteOrigin.Manual, [.. targets], [versionId], [],
             config.Archive.MaxSmartBackupsPerFull, hideRecord, releaseVersion, GetRewriteBackupRoot(config));
         progress?.Report(new("analyze", 0, 0));
         var plan = await new HistoryChainRewritePlanner(runtime, engine).PlanAsync(request, token).ConfigureAwait(false);
-        return await new HistoryChainRewriteExecutor(runtime, engine, archive).PrepareAsync(plan, progress, token).ConfigureAwait(false);
+        return new(await new HistoryChainRewriteExecutor(runtime, engine, archive).PrepareAsync(plan, progress, token).ConfigureAwait(false));
     }
 
     public static async Task<HistoryChainRewriteResult> CommitVersionDeletionAsync(BackupConfig config,
-        PreparedHistoryChainRewrite prepared, CancellationToken token = default)
+        PreparedHistoryDeletion prepared, CancellationToken token = default)
     {
-        if (!StringComparer.OrdinalIgnoreCase.Equals(GetRewriteBackupRoot(config), prepared.Plan.Request.BackupRoot))
+        if (!StringComparer.OrdinalIgnoreCase.Equals(GetRewriteBackupRoot(config), prepared.BackupRoot))
             throw new InvalidOperationException("History changed after preparation; prepare the deletion again.");
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        if (prepared.Native is { } native)
+            return await new NativeArtifactVersionDeletion(runtime, Plugins.V3.NativeArtifactHostService.Store(config)).CommitAsync(native, token).ConfigureAwait(false);
         var archive = new SevenZipHistoryArchiveBackend(config);
-        return await new HistoryChainRewriteExecutor(runtime, RewriteEngine(archive), archive).CommitAsync(prepared, token).ConfigureAwait(false);
+        return await new HistoryChainRewriteExecutor(runtime, RewriteEngine(archive, config, runtime), archive).CommitAsync(prepared.Core!, token).ConfigureAwait(false);
     }
 
-    private static RepresentationRuntime RewriteEngine(SevenZipHistoryArchiveBackend archive)
-        => new([new CoreArchiveRepresentationHandler(archive), new SmartDeltaRepresentationHandler(archive)]);
+    private static RepresentationRuntime RewriteEngine(SevenZipHistoryArchiveBackend archive, BackupConfig config, HistoryRuntime runtime)
+        => HistoryRepresentationRuntimeFactory.Create(config, runtime, archive);
 
     private static string GetRewriteBackupRoot(BackupConfig config)
     {

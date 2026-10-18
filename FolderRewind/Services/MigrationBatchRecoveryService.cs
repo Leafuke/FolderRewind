@@ -2,6 +2,7 @@ using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
+using FolderRewind.History.Representation;
 using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
@@ -85,6 +86,21 @@ internal static class MigrationBatchRecoveryService
                         backupErrors.Add(I18n.GetString("Migration_LocalStateDamaged"));
                     foreach (var name in new[] { "workspace.json", "replicas.json", "migration.json" })
                         ReadEvidence(Path.Combine(paths.LocalStateRoot, name), stamp);
+                    var known = decoded.SelectMany(p => p.Pack.Objects).Where(o => o.SchemaVersion == 1 && HistoryObjectKinds.IsKnown(o.Kind))
+                        .DistinctBy(o => (o.Kind, o.Id)).Select(codec.DeserializeKnown).ToArray();
+                    var native = known.OfType<VersionRepresentation>().Where(NativePluginArtifactBackend.IsSupported).ToArray();
+                    if (native.Any(r => replicas.Value?.Entries.Any(e => e.RepresentationId == r.RepresentationId) == true))
+                    {
+                        var root = Plugin.Runtime.Artifacts.NativeArtifactStore.ForConfig(snapshot.DestinationPath, snapshot.Id);
+                        if (!Directory.Exists(root)) throw new IOException("Native recovery storage is missing.");
+                        var proof = await NativeArtifactMaterializationEvidence.CaptureAsync(descriptor.ConfigId,
+                            Plugins.V3.NativeArtifactHostService.Store(snapshot, BackupPasswordPreparationService.CreateBackend(snapshot)),
+                            native, known.OfType<SourceVersion>().ToArray(), replicas.Value?.Entries ?? [], token).ConfigureAwait(false);
+                        stamp.Append(proof);
+                        var recovered = DataMigrationStateStore.Load(ConfigService.ConfigDirectory, descriptor.ConfigId);
+                        if (recovered is not { RecoveryCompleted: true } || recovered.NativeEvidence != proof)
+                            backupErrors.Add(I18n.GetString("Migration_CheckExpired"));
+                    }
                 }
                 ReadEvidence(Path.Combine(ConfigService.ConfigDirectory, "migration", "config-import", "setup.json"), stamp);
             }

@@ -154,9 +154,13 @@ namespace FolderRewind.Views
                 }
 
                 // 1. 执行跳转
-                if (!ContentFrame.Navigate(pageType, parameter, new SuppressNavigationTransitionInfo()))
+                if (!ContentFrame.Navigate(pageType, parameter, new SuppressNavigationTransitionInfo())
+                    || ContentFrame.Content?.GetType() != pageType)
                 {
                     UpdateNavSelection(GetPageTagFromType(ContentFrame.SourcePageType) ?? "");
+                    // NavigationView completes its selection event after this callback. Reapply
+                    // the actual page then so a canceled settings navigation cannot select Home.
+                    DispatcherQueue.TryEnqueue(() => UpdateNavSelection(GetPageTagFromType(ContentFrame.SourcePageType) ?? ""));
                     return;
                 }
 

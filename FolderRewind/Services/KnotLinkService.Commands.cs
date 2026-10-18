@@ -132,6 +132,7 @@ namespace FolderRewind.Services
                 "LIST_CONFIGS" => await HandleListConfigs(context),
                 "LIST_FOLDERS" => await HandleListFolders(context),
                 "LIST_BACKUPS" => await HandleListBackups(context),
+                "LIST_VERSIONS" => await HandleListVersions(context),
                 "GET_CONFIG" => await HandleGetConfig(context),
                 "GET_STATUS" => await HandleGetStatus(context),
                 "GET_CAPABILITIES" => HandleGetCapabilities(context),
@@ -277,6 +278,18 @@ namespace FolderRewind.Services
             return "OK:" + data;
         }
 
+        private static async Task<string> HandleListVersions(KnotLinkCommandContext context)
+        {
+            if (!TryResolveConfig(context.Request, out var config, out var error)) return error;
+            if (!TryResolveFolder(context.Request, config!, out var folder, out error)) return error;
+            if (!Guid.TryParse(folder!.Id, out var source) || source == Guid.Empty) return "ERROR:invalid_source_identity";
+            var versions = await NativeHistoryCoreGateway.ListVersionsAsync(config!.Id, new(source)).ConfigureAwait(false);
+            var data = JsonSerializer.Serialize(versions.Select(v => new Dictionary<string, string?>
+            { ["version_id"] = v.VersionId.ToString(), ["file"] = v.FileName, ["important"] = v.IsPinned ? "true" : "false" }).ToArray());
+            BroadcastEvent(context, "list_versions", new Dictionary<string, string?> { ["config"] = config.Id, ["folder"] = folder.DisplayName, ["data"] = data });
+            return KnotLinkProtocolFormatter.FormatOk(context, new Dictionary<string, string?> { ["data"] = data });
+        }
+
         private static Task<string> HandleGetConfig(KnotLinkCommandContext context)
         {
             if (!TryResolveConfig(context.Request, out var config, out var error))
@@ -390,10 +403,9 @@ namespace FolderRewind.Services
             if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
                 return "ERROR:invalid_source_identity";
             VersionId? versionId = null;
-            if (!string.IsNullOrWhiteSpace(backupFile))
+            if (!string.IsNullOrWhiteSpace(backupFile) || request.HasOption("version_id"))
             {
-                var version = await NativeHistoryCoreGateway.FindVersionByFileAsync(
-                    config!.Id, new SourceId(sourceGuid), backupFile).ConfigureAwait(false);
+                var version = await ResolveVersionSelectorAsync(config!, new(sourceGuid), request).ConfigureAwait(false);
                 if (version is null) return "ERROR:history_version_not_found";
                 versionId = version.VersionId;
             }
@@ -493,15 +505,10 @@ namespace FolderRewind.Services
                         });
                         return;
                     }
-                    BroadcastEvent(context, "backup_all_completed", new Dictionary<string, string?>
-                    {
-                        ["config"] = config.Id,
-                        ["result"] = result
-                    });
-                    BroadcastCommandLifecycle(context, "command_completed", new Dictionary<string, string?>
-                    {
-                        ["result"] = result
-                    });
+                    var completionFields = outcome.ToProtocolFields();
+                    completionFields["config"] = config.Id;
+                    BroadcastEvent(context, "backup_all_completed", completionFields);
+                    BroadcastCommandLifecycle(context, "command_completed", completionFields);
                 }
                 catch (Exception ex)
                 {
@@ -639,48 +646,43 @@ namespace FolderRewind.Services
             return Task.FromResult($"OK:Auto-backup task for folder '{folder.DisplayName}' has been stopped.");
         }
 
+        private static Task<FolderRewind.History.Application.TimelineEntrySummary?> ResolveVersionSelectorAsync(BackupConfig config,
+            SourceId source, KnotLinkCommandRequest request)
+        {
+            if (request.GetString("version_id") is { Length: > 0 } value)
+                return NativeHistoryCoreGateway.FindVersionByIdAsync(config.Id, source, new(Guid.Parse(value)));
+            return NativeHistoryCoreGateway.FindVersionByFileAsync(config.Id, source, request.GetString("file") ?? "");
+        }
+
         private static async Task<string> HandleGetImportance(KnotLinkCommandContext context)
         {
             var request = context.Request;
             if (!TryResolveConfig(request, out var config, out var error)) return error;
             if (!TryResolveFolder(request, config!, out var folder, out error)) return error;
-            var file = request.GetString("file");
-            if (string.IsNullOrWhiteSpace(file)) return "ERROR:Missing backup file.";
-            if (!Guid.TryParse(folder!.Id, out var source) || source == Guid.Empty)
-                return "ERROR:Managed source has no stable identity.";
-            var entry = await NativeHistoryCoreGateway.FindVersionByFileAsync(config!.Id, new SourceId(source), file).ConfigureAwait(false);
-            if (entry is null) return "ERROR:Backup entry not found: " + file;
+            if (!request.HasOption("version_id") && string.IsNullOrWhiteSpace(request.GetString("file"))) return "ERROR:missing_version_selector";
+            if (!Guid.TryParse(folder!.Id, out var source) || source == Guid.Empty) return "ERROR:invalid_source_identity";
+            var entry = await ResolveVersionSelectorAsync(config!, new(source), request).ConfigureAwait(false);
+            if (entry is null) return "ERROR:history_version_not_found";
             return KnotLinkProtocolFormatter.FormatOk(context, new Dictionary<string, string?>
-            { ["file"] = file, ["important"] = entry.IsPinned ? "true" : "false" });
+            { ["version_id"] = entry.VersionId.ToString(), ["file"] = entry.FileName, ["important"] = entry.IsPinned ? "true" : "false" });
         }
 
         private static async Task<string> HandleMarkImportant(KnotLinkCommandContext context)
         {
             var request = context.Request;
-            if (!TryGetBoolOption(request, "important", true, out var isImportant, out var error)) return error;
-
-            var backupFile = request.GetString("file");
+            if (!TryGetBoolOption(request, "important", true, out var important, out var error)) return error;
             if (!TryResolveConfig(request, out var config, out error)) return error;
             if (!TryResolveFolder(request, config!, out var folder, out error)) return error;
-            if (string.IsNullOrWhiteSpace(backupFile)) return "ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile");
-
-            if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
-                return "ERROR:Managed source has no stable identity.";
-            bool success = await NativeHistoryCoreGateway.SetVersionPinByFileAsync(
-                config!.Id, new SourceId(sourceGuid), backupFile!, isImportant).ConfigureAwait(false);
-            if (!success) return $"ERROR:Backup entry not found: {backupFile}";
-
-            var action = isImportant ? "marked as important" : "unmarked";
-            BroadcastEvent(context, "mark_important", new Dictionary<string, string?>
-            {
-                ["config"] = config.Id,
-                ["folder"] = folder.DisplayName,
-                ["file"] = backupFile,
-                ["important"] = isImportant.ToString()
-            });
-            BroadcastCommandLifecycle(context, "command_completed");
-            return KnotLinkProtocolFormatter.FormatOk(context, new Dictionary<string, string?>
-            { ["message"] = $"Backup '{backupFile}' {action}", ["file"] = backupFile, ["important"] = isImportant ? "true" : "false" });
+            if (!request.HasOption("version_id") && string.IsNullOrWhiteSpace(request.GetString("file"))) return "ERROR:missing_version_selector";
+            if (!Guid.TryParse(folder!.Id, out var source) || source == Guid.Empty) return "ERROR:invalid_source_identity";
+            var entry = await ResolveVersionSelectorAsync(config!, new(source), request).ConfigureAwait(false);
+            if (entry is null || !await NativeHistoryCoreGateway.SetVersionPinAsync(config!.Id, new(source), entry.VersionId, important).ConfigureAwait(false))
+                return "ERROR:history_version_not_found";
+            var fields = new Dictionary<string, string?> { ["config"] = config!.Id, ["folder"] = folder.DisplayName,
+                ["version_id"] = entry.VersionId.ToString(), ["file"] = entry.FileName, ["important"] = important ? "true" : "false",
+                ["message"] = $"Backup '{entry.FileName}' {(important ? "marked as important" : "unmarked")}" };
+            BroadcastEvent(context, "mark_important", fields); BroadcastCommandLifecycle(context, "command_completed");
+            return KnotLinkProtocolFormatter.FormatOk(context, fields);
         }
         #endregion
 

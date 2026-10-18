@@ -123,6 +123,7 @@ namespace FolderRewind.Services
                 var operation = arguments.Split(' ', 2)[0];
                 using var phase = HistoryOperationDiagnostics.Current?.Measure("archive-" + operation);
                 HistoryOperationDiagnostics.Current?.Count("7z-" + operation);
+                using var observation = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.ObserveProcess(p, "core");
                 ApplyLowPriorityIfRequested(p, runAtLowPriority);
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();

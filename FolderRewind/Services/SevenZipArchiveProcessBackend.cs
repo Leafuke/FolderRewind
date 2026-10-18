@@ -16,7 +16,8 @@ namespace FolderRewind.Services;
 
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
-    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend
+    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend,
+    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, FolderRewind.Plugin.Runtime.Artifacts.IBoundedArtifactEnvelopeCodec
 {
     private readonly Dictionary<string, ArchiveSafeListing> _safeListings = new(StringComparer.OrdinalIgnoreCase);
     public bool TryGetListing(string path, out ArchiveSafeListing? listing) => _safeListings.TryGetValue(Path.GetFullPath(path), out listing);
@@ -34,6 +35,52 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             return new(false, string.Empty, "Archive entries are unsafe or could not be validated.");
         _safeListings[Path.GetFullPath(path)] = new(files, directories);
         return new(true, "safe-listing; full content not tested", string.Empty);
+    }
+    // Bound independently of world size. Envelope jobs operate on disjoint immutable packs.
+    public int MaximumConcurrency => Math.Min(4, Math.Max(1, Environment.ProcessorCount / 2));
+    public Task PackAsync(string source, string payload, bool requiresEncryption, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
+        return PackLogicalTreeAsync(source, payload, token);
+    }
+
+    public Task UnpackAsync(string payload, string target, bool requiresEncryption, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) return new SevenZipArchiveProcessBackend(executablePath, credential, requiresEncryption,
+            restoreMarkerDirectory).UnpackLogicalTreeAsync(payload, target, token);
+        return UnpackLogicalTreeAsync(payload, target, token);
+    }
+    public async Task PackLogicalTreeAsync(string source, string payload, CancellationToken token)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(payload))!);
+        if (File.Exists(payload)) throw new IOException("Envelope output already exists.");
+        var result = await RunAsync("a", payload, null, source, token, protectHeaders: true).ConfigureAwait(false);
+        if (!result.Success) throw new InvalidDataException(result.Diagnostic);
+    }
+    public Task UnpackAsync(string payload, string target, bool requiresEncryption, long maximumBytes,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget budget, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) return new SevenZipArchiveProcessBackend(executablePath, credential, requiresEncryption,
+            restoreMarkerDirectory).UnpackLogicalTreeAsync(payload, target, token, maximumBytes, budget);
+        return UnpackLogicalTreeAsync(payload, target, token, maximumBytes, budget);
+    }
+    public async Task UnpackLogicalTreeAsync(string payload, string target, CancellationToken token,
+        long maximumBytes = 16L * 1024 * 1024 * 1024,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget? budget = null)
+    {
+        if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()) throw new IOException("Envelope workspace must be empty.");
+        var list = await RunAsync("l", payload, null, null, token).ConfigureAwait(false);
+        // Extraction validates CRC/decryption too; avoid a redundant complete test pass.
+        if (!list.Success || !SevenZipArchiveListingParser.TryParse(list.Output, out var entries, out var directories)
+            || entries.Count + directories.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
+            || entries.Values.Sum(e => e.Size) > Math.Min(maximumBytes, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes))
+            throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");
+        var bytes = entries.Values.Sum(e => e.Size);
+        (budget ?? new()).Reserve(bytes, entries.Count + directories.Count);
+        using var space = FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceRequest(target, checked(bytes + directories.Count * 4096L)));
+        FolderRewind.Plugin.Runtime.Artifacts.HostArtifactWorkspace.CreatePrivateDirectory(target);
+        var result = await RunAsync("x", payload, target, null, token).ConfigureAwait(false);
+        if (!result.Success) throw new InvalidDataException(result.Diagnostic);
     }
     public async ValueTask<PayloadVerificationResult> VerifyAsync(
         VersionRepresentation representation,
@@ -268,7 +315,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         string archivePath,
         string? outputDirectory,
         string? workingDirectory,
-        CancellationToken cancellationToken, string? includeList = null)
+        CancellationToken cancellationToken, string? includeList = null, bool protectHeaders = false)
     {
         var executable = executablePath();
         if (string.IsNullOrWhiteSpace(executable))
@@ -302,6 +349,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             start.ArgumentList.Add("-r-");
         }
         if (operation == "a") start.ArgumentList.Add(Path.Combine(Path.GetFullPath(workingDirectory!), "*"));
+        if (operation == "a" && encrypted && protectHeaders) start.ArgumentList.Add("-mhe=on");
         start.ArgumentList.Add("-y");
         if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);
         using var process = new Process { StartInfo = start };
@@ -310,30 +358,44 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         var processHandle = process.Handle; // 保持内核进程对象至统计完成，短命子进程退出后不再查询 Process 属性。
         HistoryOperationDiagnostics.Current?.Count("7z-" + operation);
         if (operation == "t") HistoryOperationDiagnostics.Current?.Count("archive-bytes-tested", new FileInfo(archivePath).Length);
+        using var observation = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.ObserveProcess(process, operation);
         process.StandardInput.Close(); // 缺少密码时失败关闭，不等待不可见的交互输入。
-        var outputTask = process.StandardOutput.ReadToEndAsync();
-        var errorTask = process.StandardError.ReadToEndAsync();
+        var outputTask = ReadBoundedOutputAsync(process.StandardOutput, process, 64 * 1024 * 1024, cancellationToken);
+        var errorTask = ReadBoundedOutputAsync(process.StandardError, process, 1024 * 1024, cancellationToken);
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            var output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+            HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
+            return process.ExitCode == 0
+                ? (true, string.Empty, output)
+                : (false, $"7-Zip {operation} exited with code {process.ExitCode}: " + Redact(output + "\n" + error, password), "");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        finally
         {
             if (!process.HasExited)
             {
-                try { process.Kill(entireProcessTree: true); }
-                catch (InvalidOperationException) { }
+                try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-            throw;
+            try { await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false); } catch { }
         }
-        var output = await outputTask.ConfigureAwait(false);
-        var error = await errorTask.ConfigureAwait(false);
-        HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
-        return process.ExitCode == 0
-            ? (true, string.Empty, output)
-            : (false, $"7-Zip {operation} exited with code {process.ExitCode}: " +
-                Redact(output + "\n" + error, password), "");
+    }
+
+    private static async Task<string> ReadBoundedOutputAsync(StreamReader reader, Process process, int maximumCharacters, CancellationToken token)
+    {
+        var text = new System.Text.StringBuilder(); var buffer = new char[8192]; int count;
+        while ((count = await reader.ReadAsync(buffer.AsMemory(), token).ConfigureAwait(false)) != 0)
+        {
+            if (text.Length + count > maximumCharacters)
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                throw new InvalidDataException("Archive process output quota exceeded.");
+            }
+            text.Append(buffer, 0, count);
+        }
+        return text.ToString();
     }
 
 

@@ -54,5 +54,10 @@ public sealed class BackupOperationResultTests
         var warning = new BackupOperationResult(OperationOutcome.SuccessWithWarnings, false);
         Assert.AreEqual(2, warning.NextNoChangeCount(2));
         Assert.IsFalse(warning.CanStopForNoChanges);
+        Assert.AreEqual("success_with_warnings", warning.ToProtocolFields()["outcome"]);
+        Assert.AreEqual("true", warning.ToProtocolFields()["has_warnings"]);
+        Assert.AreEqual("false", warning.ToProtocolFields()["created"]);
+        Assert.AreEqual("true", recovery.ToProtocolFields()["has_warnings"]);
+        Assert.AreEqual("false", new BackupOperationResult(OperationOutcome.Success, true).ToProtocolFields()["has_warnings"]);
     }
 }

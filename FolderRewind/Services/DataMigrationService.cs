@@ -43,8 +43,16 @@ internal static class DataMigrationService
             return;
         }
         var projects = snapshot.Original.BackupConfigs.Where(c => ids.Contains(new HistoryConfigId(c.Id))).Select(c =>
-            new HistoryMigrationExportProject(new(new(c.Id), c.Name, [.. c.SourceFolders.Select(f => new HistoryTransferSource(new(Guid.Parse(f.Id)), f.DisplayName, f.Path))], runtimes[new(c.Id)]),
-                c.DestinationPath, BackupPasswordPreparationService.CreateBackend(c))).ToArray();
+        {
+            var runtime = runtimes[new(c.Id)]; var archive = BackupPasswordPreparationService.CreateBackend(c);
+            return new HistoryMigrationExportProject(new(new(c.Id), c.Name,
+                [.. c.SourceFolders.Select(f => new HistoryTransferSource(new(Guid.Parse(f.Id)), f.DisplayName, f.Path))], runtime), c.DestinationPath, archive)
+            {
+                NativeStore = Directory.Exists(Plugin.Runtime.Artifacts.NativeArtifactStore.ForConfig(c.DestinationPath, c.Id))
+                    ? Plugins.V3.NativeArtifactHostService.Store(c, archive) : null,
+                Consumers = HistoryRepresentationRuntimeFactory.Create(c, runtime, archive)
+            };
+        }).ToArray();
         if (scope == DataMigrationScope.MetadataOnly)
             await new HistoryRepositoryBatchTransferService().ExportAsync(projects.Select(p => p.History).ToArray(), path, AppRuntimeInfo.GetApplicationVersion()?.ToString() ?? "unknown", token).ConfigureAwait(false);
         else
@@ -207,10 +215,14 @@ internal static class DataMigrationService
         var signature = NativeHistoryConfigLease.Signature(snapshot);
         var live = (await MigrationBatchRecoveryService.CaptureAsync().ConfigureAwait(false)).Single(c => id.Matches(c.Id));
         if (NativeHistoryConfigLease.Signature(live) != signature) throw new InvalidOperationException(I18n.GetString("Migration_CheckExpired"));
-        var credentialReady = !snapshot.IsEncrypted || EncryptionService.HasStoredPassword(snapshot.Id);
-        var replicas = await new HistoryReplicaRecoveryService(context.Runtime).ApplyAsync(context.Replicas, candidates,
-            BackupPasswordPreparationService.CreateBackend(snapshot), true, credentialReady, token).ConfigureAwait(false);
-        if (snapshot.IsEncrypted && replicas.Versions.Length > 0 && replicas.Versions.All(v => v.Readiness != HistoryReadiness.Ready)) credentialReady = false;
+        var credentialRequired = await NativeMigrationConsumerSession.RequiresCredentialAsync(snapshot, context.Runtime, token).ConfigureAwait(false);
+        var credentialReady = !credentialRequired || EncryptionService.HasStoredPassword(snapshot.Id);
+        var archive = BackupPasswordPreparationService.CreateBackend(snapshot);
+        var native = credentialReady ? await NativeMigrationConsumerSession.RegisterAsync(context, archive, token).ConfigureAwait(false) : (context.Replicas, 0);
+        var replicas = await new HistoryReplicaRecoveryService(context.Runtime).ApplyAsync(native.Item1, candidates,
+            archive, true, credentialReady, token, HistoryRepresentationRuntimeFactory.Create(snapshot, context.Runtime, archive)).ConfigureAwait(false);
+        replicas = replicas with { RegisteredReplicas = replicas.RegisteredReplicas + native.Item2 };
+        if (credentialRequired && replicas.Versions.Length > 0 && replicas.Versions.All(v => v.Readiness != HistoryReadiness.Ready)) credentialReady = false;
         var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(snapshot, token).ConfigureAwait(false);
         var workspace = await new HistoryMigrationContinuationService(context.Runtime,
             (binding, version, cancellation) => new HistoryExactWorkingStateProbe(context.Runtime, restore).MatchesVersionAsync(binding, version, cancellation))
@@ -222,7 +234,8 @@ internal static class DataMigrationService
             new(id, snapshot.Name, [.. snapshot.SourceFolders.Select(f => new HistoryTransferSource(new(Guid.Parse(f.Id)), f.DisplayName, f.Path))],
                 0, 0, ImmutableSortedDictionary<string, string>.Empty), "", "");
         DataMigrationStateStore.Save(ConfigService.ConfigDirectory, state with { RecoveryCompleted = credentialReady, CompletedConfigSignature = signature,
-            ConfigImportId = new ConfigImportTransactionStore(ConfigService.ConfigFilePath).PendingToken(snapshot.Id) ?? "" });
+            ConfigImportId = new ConfigImportTransactionStore(ConfigService.ConfigFilePath).PendingToken(snapshot.Id) ?? "",
+            NativeEvidence = await NativeMigrationConsumerSession.EvidenceAsync(snapshot, context.Runtime, token).ConfigureAwait(false) });
         return new(replicas, workspace, credentialReady);
     }
 }

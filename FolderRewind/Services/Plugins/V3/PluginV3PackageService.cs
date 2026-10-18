@@ -943,6 +943,14 @@ public static class PluginV3PackageService
         CancellationToken cancellationToken)
     {
         var result = new List<ArtifactLedgerEntry>();
+        foreach (var config in ConfigService.CurrentConfig.BackupConfigs.Where(c => !string.IsNullOrWhiteSpace(c.DestinationPath)))
+        {
+            if (!Directory.Exists(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))) continue;
+            var native = NativeArtifactHostService.Store(config);
+            using var gate = await native.EnterAsync(cancellationToken);
+            var ledger = await native.Ledger.LoadAsync(cancellationToken);
+            result.AddRange(ledger.Artifacts.Where(a => a.Format.OwnerId.Value == pluginId.Value));
+        }
         foreach (var destination in ConfigService.CurrentConfig.BackupConfigs
                      .Select(value => value.DestinationPath)
                      .Where(value => !string.IsNullOrWhiteSpace(value))

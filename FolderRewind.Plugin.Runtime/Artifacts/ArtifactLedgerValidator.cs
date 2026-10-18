@@ -94,7 +94,7 @@ public static class ArtifactLedgerValidator
             || string.IsNullOrWhiteSpace(artifact.TransactionId)
             || artifact.FormatVersion < 0
             || artifact.LogicalSize < 0
-            || artifact.StorageSize < 0
+            || artifact.StorageSize < 0 || artifact.LogicalEntryCount is < 0
             || !IsSha256(artifact.LogicalSha256)
             || !IsSha256(artifact.StorageSha256))
         {

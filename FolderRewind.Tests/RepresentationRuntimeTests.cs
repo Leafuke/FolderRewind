@@ -221,6 +221,69 @@ public sealed class RepresentationRuntimeTests
     }
 
     [TestMethod]
+    public async Task InlineVerificationRejectsCorruptionAndDoesNotWeakenExplicitDeepVerify()
+    {
+        _plugin.InlineVerification = true;
+        var representation = new VersionRepresentation(RepresentationId.New(), _versionId, RepresentationKind.PluginArtifact,
+            "test", [], MaterializationFidelity.Exact, null, null, new Dictionary<string, string>
+            {
+                [PluginArtifactRepresentationHandler.ArtifactRootIdMetadataKey] = Guid.NewGuid().ToString("D"),
+                [PluginArtifactRepresentationHandler.PluginIdMetadataKey] = "plugin.test"
+            });
+        await _runtime.MaterializeAsync(representation.RepresentationId, [representation], Environment(),
+            MaterializationFidelity.Exact, Path.Combine(_root, "verified"));
+        Assert.AreEqual(0, _plugin.VerificationCount);
+        Assert.AreEqual(1, _plugin.MaterializeCount);
+        _plugin.Corrupt = true;
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => _runtime.MaterializeAsync(representation.RepresentationId,
+            [representation], Environment(), MaterializationFidelity.Exact, Path.Combine(_root, "rejected")));
+        var deep = await _runtime.AssessVersionAsync(_versionId, [representation], Environment(), AssessmentDepth.Deep, MaterializationFidelity.Exact);
+        Assert.AreEqual(HistoryReadiness.Unavailable, deep.Readiness);
+        Assert.AreEqual(1, _plugin.VerificationCount);
+    }
+
+    [TestMethod]
+    public async Task NativeCloudOnlyNeedsPreparationAndKnownBadReplicasCannotPrepare()
+    {
+        _plugin.ArtifactAvailable = false;
+        var representation = new VersionRepresentation(RepresentationId.New(), _versionId, RepresentationKind.PluginArtifact,
+            "test", [], MaterializationFidelity.Exact, null, null, new Dictionary<string, string>
+            {
+                [PluginArtifactRepresentationHandler.ArtifactRootIdMetadataKey] = Guid.NewGuid().ToString("D"),
+                [PluginArtifactRepresentationHandler.PluginIdMetadataKey] = "plugin.test"
+            });
+        var replica = new StorageReplica(ReplicaId.New(), representation.RepresentationId, ReplicaProviderKind.Cloud,
+            "native/descriptor", 10, null, HistoryProvenance.Native("test"));
+        var environment = new RepresentationEnvironment([], [replica], [replica.ReplicaId]);
+        var assessment = await _runtime.AssessVersionAsync(_versionId, [representation], environment,
+            AssessmentDepth.Fast, MaterializationFidelity.Exact);
+        Assert.AreEqual(HistoryReadiness.PreparationRequired, assessment.Readiness);
+        Assert.AreEqual(0, _plugin.MaterializeCount);
+        foreach (var observation in new[] {
+            new HistoryReplicaObservation("test", ReplicaAvailabilityObservation.Missing, ReplicaIntegrityObservation.Unknown, DateTimeOffset.UtcNow, "missing"),
+            new HistoryReplicaObservation("test", ReplicaAvailabilityObservation.Available, ReplicaIntegrityObservation.Corrupt, DateTimeOffset.UtcNow, "corrupt") })
+        {
+            var unavailable = await _runtime.AssessVersionAsync(_versionId, [representation],
+                new RepresentationEnvironment([], [replica], [replica.ReplicaId], [new(replica.ReplicaId, observation)]),
+                AssessmentDepth.Fast, MaterializationFidelity.Exact);
+            Assert.AreEqual(HistoryReadiness.Unavailable, unavailable.Readiness);
+        }
+        _plugin.PluginAvailable = false;
+        var blocked = await _runtime.AssessVersionAsync(_versionId, [representation], environment, AssessmentDepth.Fast, MaterializationFidelity.Exact);
+        Assert.AreEqual(HistoryReadiness.Blocked, blocked.Readiness);
+    }
+
+    [TestMethod]
+    public void OldNativeEvidenceIsExplicitlyUnsupported()
+    {
+        var legacy = CreateRepresentation(RepresentationKind.PluginArtifact, MaterializationFidelity.Exact);
+        Assert.IsFalse(NativePluginArtifactBackend.IsSupported(legacy));
+        var v2 = new VersionRepresentation(legacy.RepresentationId, _versionId, legacy.Kind, legacy.Format, [], legacy.Fidelity,
+            null, null, new Dictionary<string, string> { ["nativeArtifactContractVersion"] = "2", ["incrementalEvidence"] = "2" });
+        Assert.IsTrue(NativePluginArtifactBackend.IsSupported(v2));
+    }
+
+    [TestMethod]
     public async Task ExactRequirementRejectsPartialButOrdinaryRestoreCanSelectIt()
     {
         var partial = CreateRepresentation(RepresentationKind.LegacyArchive, MaterializationFidelity.Partial);
@@ -310,9 +373,14 @@ public sealed class RepresentationRuntimeTests
         }
     }
 
-    private sealed class FakePluginBackend : IPluginArtifactBackend
+    private sealed class FakePluginBackend : IPluginArtifactBackend, IInlineVerifiedMaterializer
     {
+        public bool InlineVerification { get; set; }
+        public bool Corrupt { get; set; }
+        public int VerificationCount { get; private set; }
+        public bool CanVerifyDuringMaterialization(VersionRepresentation representation) => InlineVerification;
         public bool PluginAvailable { get; set; } = true;
+        public bool ArtifactAvailable { get; set; } = true;
         public int ProbeCount { get; private set; }
         public int MaterializeCount { get; private set; }
 
@@ -324,7 +392,7 @@ public sealed class RepresentationRuntimeTests
             ProbeCount++;
             return ValueTask.FromResult(new PluginArtifactProbeResult(
                 PluginAvailable,
-                ArtifactAvailable: true,
+                ArtifactAvailable,
                 MaterializationFidelity.Exact,
                 PluginAvailable ? "available" : "plugin missing"));
         }
@@ -333,7 +401,10 @@ public sealed class RepresentationRuntimeTests
             Guid artifactRootId,
             string pluginId,
             CancellationToken cancellationToken)
-            => ValueTask.FromResult(new PayloadVerificationResult(true, "verified", string.Empty));
+        {
+            VerificationCount++;
+            return ValueTask.FromResult(new PayloadVerificationResult(!Corrupt, "verified", Corrupt ? "corrupt" : string.Empty));
+        }
 
         public ValueTask MaterializeAsync(
             Guid artifactRootId,
@@ -342,6 +413,7 @@ public sealed class RepresentationRuntimeTests
             CancellationToken cancellationToken)
         {
             MaterializeCount++;
+            if (InlineVerification && Corrupt) throw new InvalidDataException("Inline verification rejected corruption.");
             return ValueTask.CompletedTask;
         }
     }

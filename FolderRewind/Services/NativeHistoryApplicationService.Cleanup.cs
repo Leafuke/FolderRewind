@@ -36,7 +36,6 @@ internal static partial class NativeHistoryApplicationService
         HistoryRetentionBenefitPolicy policy, bool automatic, IProgress<HistoryChainRewriteProgress>? progress, CancellationToken token,
         NativeHistoryConfigurationOperationGate.Lease? recoveryOperation = null)
     {
-        if (config.Archive.KeepCount <= 0) return null;
         try
         {
             if (recoveryOperation is not null)
@@ -46,7 +45,7 @@ internal static partial class NativeHistoryApplicationService
             }
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
             var archive = new SevenZipHistoryArchiveBackend(config);
-            var engine = RewriteEngine(archive);
+            var engine = RewriteEngine(archive, config, runtime);
             async Task<IRepresentationEnvironment> Environment(CancellationToken ct) => await BuildEnvironmentAsync(runtime, ct).ConfigureAwait(false);
             var planner = new HistoryRetentionPlanner(runtime, engine, Environment, new FileSystemHistoryLocalPayloadStore());
             var signature = JsonSerializer.Serialize(config.Archive, AppJsonContext.Default.ArchiveSettings) + "|" + config.DestinationPath + "|" + config.IsEncrypted;
@@ -60,7 +59,10 @@ internal static partial class NativeHistoryApplicationService
                         : Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(Path.Combine(ConfigService.ConfigDirectory, "encrypted_passwords.dat"), token).ConfigureAwait(false)));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { signature += Guid.NewGuid().ToString(); }
-            var result = await new HistoryCleanupCoordinator(runtime, engine, archive, planner, GetRewriteBackupRoot(config))
+            Func<CancellationToken, Task<System.Collections.Generic.IReadOnlyList<NativeArtifactCollectionResult>>>? collectArtifacts = Directory.Exists(Plugin.Runtime.Artifacts.NativeArtifactStore.ForConfig(config.DestinationPath, config.Id))
+                ? ct => NativeArtifactRetention.CollectAsync(runtime, planner, Plugins.V3.NativeArtifactHostService.Store(config), config.Archive.KeepCount, ct, deferAcknowledgment: true)
+                : null;
+            var result = await new HistoryCleanupCoordinator(runtime, engine, archive, planner, GetRewriteBackupRoot(config), collectArtifacts)
                 .ExecuteAsync(config.Archive.KeepCount, config.Archive.MaxSmartBackupsPerFull, policy, automatic, signature, progress, token).ConfigureAwait(false);
             if (result is not null)
             {

@@ -30,16 +30,16 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
         if (project.RecoveryEvidence.Length == 0) return false;
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config.Id, token).ConfigureAwait(false);
         // Recheck real encrypted payloads as well as local revisions before permission confirmation.
-        if (config.IsEncrypted)
+        if (await NativeMigrationConsumerSession.RequiresCredentialAsync(config, runtime, token).ConfigureAwait(false))
         {
             var password = EncryptionService.RetrievePassword(config.Id);
             if (password is null || !await VerifyCredentialAsync(await DataMigrationService.PrepareRecoveryAsync(config, token).ConfigureAwait(false),
                 project, password, token).ConfigureAwait(false)) return false;
         }
-        return project.RecoveryEvidence == await CaptureEvidenceAsync(runtime, token).ConfigureAwait(false);
+        return project.RecoveryEvidence == await CaptureEvidenceAsync(runtime, config, token).ConfigureAwait(false);
     }
 
-    private static async Task<string> CaptureEvidenceAsync(HistoryRuntime runtime, CancellationToken token)
+    private static async Task<string> CaptureEvidenceAsync(HistoryRuntime runtime, BackupConfig snapshot, CancellationToken token)
     {
         var stamp = new StringBuilder();
         var paths = runtime.Repository.Paths;
@@ -61,6 +61,7 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
             await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
             stamp.Append(Convert.ToHexString(await SHA256.HashDataAsync(input, token).ConfigureAwait(false))).Append(';');
         }
+        stamp.Append(await NativeMigrationConsumerSession.EvidenceAsync(snapshot, runtime, token).ConfigureAwait(false));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(stamp.ToString())));
     }
 
@@ -89,8 +90,16 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
         if (versions.Count > 0 && !Directory.Exists(config.DestinationPath))
             return Block(MigrationProjectPhase.AwaitingPaths, I18n.GetString("MigrationWizard_CheckPaths"));
         var archives = ImmutableArray.CreateBuilder<MigrationArchiveChoice>();
+        var incoming = graph.Any(NativePluginArtifactBackend.IsSupported)
+            ? await NativeMigrationConsumerSession.IncomingAsync(config, token).ConfigureAwait(false) : null;
+        var localCatalog = (await context.Runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         foreach (var representation in graph)
         {
+            if (representation.Kind == RepresentationKind.PluginArtifact
+                && (NativePluginArtifactBackend.IsSupported(representation)
+                    && (incoming?.NativePayloads.IsDefault == false && incoming.NativePayloads.Any(p => p.RepresentationId == representation.RepresentationId)
+                        || localCatalog?.Entries.Any(e => e.RepresentationId == representation.RepresentationId) == true)
+                    || !NativePluginArtifactBackend.IsSupported(representation) && graph.Any(r => r.VersionId == representation.VersionId && r.Kind != RepresentationKind.PluginArtifact))) continue;
             var version = versions.Single(v => v.VersionId == representation.VersionId);
             var source = config.SourceFolders.Single(f => new SourceId(Guid.Parse(f.Id)) == version.SourceId);
             var candidates = context.Replicas.Candidates.Where(c => c.RepresentationId == representation.RepresentationId).ToArray();
@@ -112,7 +121,7 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
             s.SuggestedUpdateId?.ToString(), [.. s.Candidates.Select(c => new MigrationBranchCandidate(c.UpdateId.ToString(), c.Name, c.VersionId.ToString()))]));
         var result = new MigrationProjectInspection(project.ConfigId, NativeHistoryConfigLease.Signature(config), new ConfigImportTransactionStore(ConfigService.ConfigFilePath).PendingToken(config.Id) ?? "",
             archives.ToImmutable(), [.. branches]) { Context = context, CloudEnabled = config.Cloud.Enabled, CurrentPaths = MigrationWorkflowCoordinator.PathsFor(config) };
-        if (config.IsEncrypted)
+        if (await NativeMigrationConsumerSession.RequiresCredentialAsync(config, context.Runtime, token).ConfigureAwait(false))
         {
             var stored = EncryptionService.RetrievePassword(config.Id);
             if (stored is null || !await VerifyCredentialAsync(context, project, stored, token).ConfigureAwait(false))
@@ -130,12 +139,9 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
         var entries = (catalog?.Entries ?? []).Concat(unique.Select(c => new FolderRewind.History.LocalState.LocalReplicaCatalogEntry(c.RepresentationId,
             LocalReplicaId.New(), FolderRewind.History.LocalState.LocalReplicaLocator.ControlledAbsolute(c.Path), DateTimeOffset.UtcNow)));
         var graph = await context.Runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
-        var backend = BackupPasswordPreparationService.CreateBackend(context.Snapshot, password);
-        var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(backend), new SmartDeltaRepresentationHandler(backend)]);
         var environment = new RepresentationEnvironment(entries, [], []);
-        foreach (var version in await context.Runtime.Query.GetAllVersionsAsync(token).ConfigureAwait(false))
-            if ((await engine.AssessVersionAsync(version.VersionId, graph, environment, AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false)).Readiness == HistoryReadiness.Ready) return true;
-        return false;
+        return await NativeMigrationConsumerSession.VerifyCredentialAsync(context.Snapshot, context.Runtime,
+            BackupPasswordPreparationService.CreateBackend(context.Snapshot, password), graph, environment, token).ConfigureAwait(false);
     }
 
     public async Task<MigrationWorkflowRecovery> RecoverAsync(MigrationProjectInspection inspection, MigrationRecoveryDecision decision, CancellationToken token)
@@ -147,7 +153,7 @@ internal sealed class MigrationWorkflowBackend : IMigrationWorkflowBackend
         var result = await DataMigrationService.CompleteRecoveryAsync(context, candidates, selections, token).ConfigureAwait(false);
         return new(result.Replicas.Versions.Count(v => v.Readiness == HistoryReadiness.Ready), result.Replicas.Versions.Length,
             result.Workspace.SourceBaselines.Count(s => s.RequiresFullCapture), result.CredentialReady,
-            [.. result.Replicas.Failures.Select(f => f.Diagnostic)], await CaptureEvidenceAsync(context.Runtime, token).ConfigureAwait(false));
+            [.. result.Replicas.Failures.Select(f => f.Diagnostic)], await CaptureEvidenceAsync(context.Runtime, context.Snapshot, token).ConfigureAwait(false));
     }
 
     public async Task<MigrationWorkflowPermission> InspectPermissionsAsync(MigrationWorkflowProject project, CancellationToken token)

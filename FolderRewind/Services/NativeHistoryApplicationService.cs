@@ -404,10 +404,10 @@ internal static partial class NativeHistoryApplicationService
         await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var existed = File.Exists(localPath);
         await using var prepared = await PrepareVersionDeletionAsync(config, versionId, representationId,
-            localPath, hideRecord: false, releaseVersion, token: cancellationToken).ConfigureAwait(false);
+            localPath, hideRecord: false, releaseVersion, operation, token: cancellationToken).ConfigureAwait(false);
         var result = await CommitVersionDeletionAsync(config, prepared, cancellationToken).ConfigureAwait(false);
         if (!result.Committed) throw new InvalidOperationException(result.Diagnostic);
-        return new(existed, existed && !File.Exists(localPath), prepared.Plan.Request.TargetReplicaIds.Length);
+        return new(existed, existed && !File.Exists(localPath), prepared.TargetReplicaCount);
     }
 
     public static async Task<HistoryRestoreService> CreateRestoreServiceAsync(
@@ -427,11 +427,7 @@ internal static partial class NativeHistoryApplicationService
     {
         var configSignature = expectedSignature ?? NativeHistoryConfigLease.Signature(config);
         var archive = new SevenZipHistoryArchiveBackend(config, verificationContext is not null);
-        var representations = new RepresentationRuntime(
-        [
-            new CoreArchiveRepresentationHandler(archive),
-            new SmartDeltaRepresentationHandler(archive)
-        ]);
+        var representations = HistoryRepresentationRuntimeFactory.Create(config, runtime, archive);
         return new HistoryRestoreService(
             runtime,
             representations,
@@ -445,6 +441,7 @@ internal static partial class NativeHistoryApplicationService
                 NativeHistoryRestoreOrchestrator.Current?.RestorePreservePaths) : null,
             token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token))
         {
+            RecoverNativeInsideOperation = (operation, token) => Plugins.V3.NativeArtifactHostService.RecoverInsideOperationAsync(config, runtime, operation, token),
             FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token),
             ValidateVersionTarget = validateVersionTarget,
             VerificationContext = verificationContext,
@@ -647,9 +644,16 @@ internal static partial class NativeHistoryApplicationService
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(config.DestinationPath)) return;
+            var native = Plugins.V3.NativeArtifactHostService.Store(config);
+            var nativeLedger = await native.Ledger.LoadAsync(cancellationToken).ConfigureAwait(false);
+            var nativeIds = nativeLedger.Artifacts.Select(a => a.ArtifactId.Value).ToHashSet();
+            await native.CollectAsync(protectedArtifactRootIds.Where(nativeIds.Contains).Select(id => new ArtifactId(id)), cancellationToken);
             var store = new FileArtifactLedgerStore(config.DestinationPath);
+            var legacy = await store.LoadAsync(cancellationToken).ConfigureAwait(false);
+            // A destination may be shared by configurations; never collect another config's nodes.
+            var foreign = legacy.Artifacts.Where(a => a.ConfigId != config.Id).Select(a => a.ArtifactId);
             await store.GarbageCollectUnreachableAsync(
-                protectedArtifactRootIds.Select(id => new ArtifactId(id)),
+                protectedArtifactRootIds.Where(id => !nativeIds.Contains(id)).Select(id => new ArtifactId(id)).Concat(foreign),
                 dryRun: false,
                 cancellationToken).ConfigureAwait(false);
         }

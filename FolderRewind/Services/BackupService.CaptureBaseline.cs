@@ -123,7 +123,9 @@ public static partial class BackupService
                             pair => pair.Value,
                             StringComparer.Ordinal),
                         (await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false))
-                            ?.EffectiveSourceBoundaryFingerprint ?? string.Empty),
+                            ?.EffectiveSourceBoundaryFingerprint ?? string.Empty)
+                    { ContentRealizationId = workspaceBaseline.ContentRealizationId,
+                        SourcePathFingerprint = Plugins.V3.NativeArtifactHostService.SourcePathFingerprint(folder.Path) },
                     versionId,
                     local.Representation,
                     cancellationToken).ConfigureAwait(false);

@@ -16,7 +16,7 @@ namespace FolderRewind.Tests;
 public sealed class MineRewindPerformanceIntegrationTests
 {
     [TestMethod]
-    public async Task ShippedApi39PolicyUsesFileDeltaAndPreservesLockedExcludedFile()
+    public async Task ShippedPolicyUsesFileDeltaAndPreservesLockedExcludedFile()
     {
         await using var f = new HistoryChainRewriteFixture(); await f.InitializeAsync();
         var target = Path.Combine(f.Root, "world"); Directory.CreateDirectory(target);
@@ -48,7 +48,7 @@ public sealed class MineRewindPerformanceIntegrationTests
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "AGENTS.md"))) repo = repo.Parent;
         Assert.IsNotNull(repo);
-        var package = Path.Combine(repo.FullName, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.8.frplugin");
+        var package = Path.Combine(repo.FullName, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.9.frplugin");
         Assert.IsTrue(File.Exists(package));
         var root = Path.Combine(Path.GetTempPath(), "fr-minerewind-package-" + Guid.NewGuid().ToString("N"));
         ZipFile.ExtractToDirectory(package, root);
