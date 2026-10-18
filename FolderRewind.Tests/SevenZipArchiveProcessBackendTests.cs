@@ -123,9 +123,13 @@ public sealed class SevenZipArchiveProcessBackendTests
             var valid = new SevenZipArchiveProcessBackend(() => executable, () => "fixture-key", true, ".marker");
             await valid.PackAsync(source, payload, true, default);
             Assert.DoesNotContain("private-world-file", System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(payload)));
+            var representation = new VersionRepresentation(RepresentationId.New(), VersionId.New(), RepresentationKind.CoreFull,
+                "7z", [], MaterializationFidelity.Exact, null, null, null);
             foreach (var password in new string?[] { null, "wrong-key" })
             {
                 var invalid = new SevenZipArchiveProcessBackend(() => executable, () => password, true, ".marker");
+                Assert.IsFalse((await invalid.PreflightAsync(representation, payload, false, default)).Success,
+                    "Native envelope names must require the correct credential even for a safe listing.");
                 await Assert.ThrowsExactlyAsync<InvalidDataException>(() => invalid.UnpackAsync(payload, Path.Combine(root, "invalid"), true, default));
             }
             await valid.UnpackAsync(payload, Path.Combine(root, "restored"), true, default);

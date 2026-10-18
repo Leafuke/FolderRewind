@@ -54,7 +54,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(payload))!);
         if (File.Exists(payload)) throw new IOException("Envelope output already exists.");
-        var result = await RunAsync("a", payload, null, source, token).ConfigureAwait(false);
+        var result = await RunAsync("a", payload, null, source, token, protectHeaders: true).ConfigureAwait(false);
         if (!result.Success) throw new InvalidDataException(result.Diagnostic);
     }
     public Task UnpackAsync(string payload, string target, bool requiresEncryption, long maximumBytes,
@@ -315,7 +315,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         string archivePath,
         string? outputDirectory,
         string? workingDirectory,
-        CancellationToken cancellationToken, string? includeList = null)
+        CancellationToken cancellationToken, string? includeList = null, bool protectHeaders = false)
     {
         var executable = executablePath();
         if (string.IsNullOrWhiteSpace(executable))
@@ -349,7 +349,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             start.ArgumentList.Add("-r-");
         }
         if (operation == "a") start.ArgumentList.Add(Path.Combine(Path.GetFullPath(workingDirectory!), "*"));
-        if (operation == "a" && encrypted) start.ArgumentList.Add("-mhe=on");
+        if (operation == "a" && encrypted && protectHeaders) start.ArgumentList.Add("-mhe=on");
         start.ArgumentList.Add("-y");
         if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);
         using var process = new Process { StartInfo = start };
