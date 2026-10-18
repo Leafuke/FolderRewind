@@ -1,6 +1,7 @@
 using FolderRewind.History.Cloud;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Storage;
+using FolderRewind.Plugin.Runtime.Artifacts;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,7 +21,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     private readonly TimeSpan _timeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 86400));
     internal Func<CloudJobPhase, CancellationToken, Task>? ObserveJobPhase { get; set; }
     private string Append(params string[] parts) => CloudRemotePath.Append(context.RemoteRoot, parts);
-    private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key), CopyAsync, (path, maximum, token) => ReadBytesAsync(path, token, maximum), ObjectSizeAsync, DownloadBoundedAsync);
+    private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key), CopyAsync, (path, maximum, token) => ReadBytesAsync(path, token, maximum), ObjectSizeAsync, DownloadBoundedAsync, TemporaryRoot);
     public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token) => Objects.HasVerifiedObjectAsync(key, size, sha256, token);
     public Task UploadObjectAsync(string key, string path, long size, string sha256, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.UploadObjectAsync(key, path, size, sha256, budget, token);
     public Task DownloadObjectAsync(string key, string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.DownloadObjectAsync(key, path, expectedLength, budget, token);
@@ -65,7 +66,8 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     public async Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token)
     {
         if (ObserveJobPhase is not null) await ObserveJobPhase(CloudJobPhase.Verifying, token).ConfigureAwait(false);
-        var temporary = Temporary();
+        await using var work = await OwnedArtifactTemporaryWorkspace.CreateAsync(TemporaryRoot, token);
+        var temporary = Path.Combine(work.Root, "payload");
         try
         {
             await CopyAsync(ReplicaRoot(id) + "/payload", temporary, false, token).ConfigureAwait(false);
@@ -80,7 +82,8 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     {
         if (expected.ArtifactRootId is null) return await VerifyRemoteAsync(expected.ReplicaId, token).ConfigureAwait(false);
         if (ObserveJobPhase is not null) await ObserveJobPhase(CloudJobPhase.Verifying, token).ConfigureAwait(false);
-        var temporary = Temporary();
+        await using var work = await OwnedArtifactTemporaryWorkspace.CreateAsync(TemporaryRoot, token);
+        var temporary = Path.Combine(work.Root, "payload");
         try
         {
             await DownloadAsync(expected, temporary, token).ConfigureAwait(false);
@@ -131,7 +134,9 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         => RcloneConnectionService.RunToFileAsync(context.CreateStartInfo(["cat", remote]), _timeout, token, path, expectedLength, budget);
     private async Task WriteOnceAsync(string remote, byte[] bytes, CancellationToken token)
     {
-        var temporary = Temporary();
+        await using var work = await OwnedArtifactTemporaryWorkspace.CreateAsync(TemporaryRoot, token);
+        var temporary = Path.Combine(work.Root, "payload");
+        using var space = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(temporary, bytes.LongLength));
         try
         {
             await File.WriteAllBytesAsync(temporary, bytes, token).ConfigureAwait(false);
@@ -144,7 +149,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
-    private static string Temporary() => Path.Combine(Path.GetTempPath(), "FolderRewind-native-" + Guid.NewGuid().ToString("N") + ".tmp");
+    private string TemporaryRoot => Path.Combine(context.TaskRoot, "native-transfers");
 }
 
 [JsonSerializable(typeof(HistoryReplicaManifest))]
