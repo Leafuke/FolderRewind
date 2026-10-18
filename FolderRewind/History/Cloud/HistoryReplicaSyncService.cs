@@ -36,6 +36,13 @@ public sealed class HistoryReplicaSyncService
         _retirementGuard = retirementGuard ?? throw new ArgumentNullException(nameof(retirementGuard));
     }
 
+    private static void Observe(string stage)
+    {
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        FolderRewind.Services.Development.NativeArtifactAcceptance.Observe(stage);
+#endif
+    }
+
     public async Task<HistoryReplicaOperationResult> UploadAsync(
         RepresentationId representationId,
         string localPath,
@@ -57,7 +64,9 @@ public sealed class HistoryReplicaSyncService
                 HistoryRepositoryPaths.CreateReplicaObjectKey(replicaId), expectedSize, expectedHash);
             if (persistIntent is not null) await persistIntent(intent, cancellationToken).ConfigureAwait(false);
             if (publishPayloadDependencies is not null) await publishPayloadDependencies(cancellationToken).ConfigureAwait(false);
+            Observe("CloudDescriptor:before");
             await _transport.UploadAsync(replicaId, localPath, cancellationToken).ConfigureAwait(false);
+            Observe("CloudDescriptor:after");
             var verification = await _transport.VerifyRemoteAsync(intent, cancellationToken).ConfigureAwait(false);
             if (!verification.Success || verification.Size != expectedSize || !StringComparer.OrdinalIgnoreCase.Equals(verification.StorageSha256, expectedHash))
                 throw new InvalidDataException("Uploaded replica does not match the local payload: " + verification.Diagnostic);
@@ -65,7 +74,9 @@ public sealed class HistoryReplicaSyncService
             var manifest = new HistoryReplicaManifest(
                 representationId, replicaId, artifactRootId, objectKey,
                 verification.Size, verification.StorageSha256);
+            Observe("CloudManifest:before");
             await _transport.CommitManifestOnceAsync(manifest, cancellationToken).ConfigureAwait(false);
+            Observe("CloudManifest:after");
             var remoteManifest = await _transport.ReadManifestAsync(replicaId, cancellationToken).ConfigureAwait(false);
             if (remoteManifest is null || !HistoryCloudReplicaValidity.Matches(remoteManifest, manifest))
                 throw new InvalidDataException("[cloud.manifest-invalid] Remote manifest does not match the upload intent.");
@@ -78,7 +89,12 @@ public sealed class HistoryReplicaSyncService
                 DateTimeOffset.UtcNow, "Physical payload and manifest verified.");
             var existing = (await _history.Query.GetStorageReplicasAsync(representationId, cancellationToken).ConfigureAwait(false))
                 .SingleOrDefault(r => r.ReplicaId == replicaId);
-            if (existing is null) await CommitFactsAsync([replica, active], cancellationToken).ConfigureAwait(false);
+            if (existing is null)
+            {
+                Observe("CloudFacts:before");
+                await CommitFactsAsync([replica, active], cancellationToken).ConfigureAwait(false);
+                Observe("CloudFacts:after");
+            }
             else if (existing.ObjectKey != objectKey || existing.ExpectedSize != manifest.Size
                 || !StringComparer.OrdinalIgnoreCase.Equals(existing.ExpectedStorageSha256, manifest.StorageSha256)
                 || !HistoryCloudReplicaValidity.IsActive(await _history.Query.GetReplicaLifecycleUpdatesAsync(replicaId, cancellationToken).ConfigureAwait(false)))

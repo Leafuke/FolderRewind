@@ -74,7 +74,9 @@ public sealed partial class HistoryMigrationBundleService
             }
             var journal = new HistoryMigrationPayloadJournal(1, session, id, root, migration, [.. missing.Select(f => f.RelativePath)]);
             token.ThrowIfCancellationRequested();
+            ObservePayload("MigrationPrepared:before");
             AtomicFileService.Write(journalPath, stream => JsonSerializer.Serialize(stream, journal, JsonOptions));
+            ObservePayload("MigrationPrepared:after");
             decided = true; PayloadCheckpoint?.Invoke("prepared");
             await RecoverPayloadJournalAsync(journalPath, id, root, CancellationToken.None).ConfigureAwait(false);
         }
@@ -114,7 +116,9 @@ public sealed partial class HistoryMigrationBundleService
             await VerifyPayloadAsync(root, staged, file, token).ConfigureAwait(false);
             EnsureDirectory(root, Path.GetDirectoryName(destination)!);
             HistoryReplicaRecoveryService.RequireRegularPath(root, Path.GetDirectoryName(destination)!);
+            ObservePayload("MigrationPayload:before");
             File.Move(staged, destination, false); PayloadCheckpoint?.Invoke("payload-installed");
+            ObservePayload("MigrationPayload:after");
         }
         foreach (var directory in journal.Migration.PayloadDirectories.IsDefault ? [] : journal.Migration.PayloadDirectories)
         {
@@ -132,6 +136,13 @@ public sealed partial class HistoryMigrationBundleService
         }
         AtomicFileService.Write(journalPath, stream => JsonSerializer.Serialize(stream, journal with { Installed = true }, JsonOptions));
         CleanupPayloadStaging(root, staging);
+    }
+
+    private static void ObservePayload(string point)
+    {
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        FolderRewind.Services.Development.NativeArtifactAcceptance.Observe(point);
+#endif
     }
     private static async Task VerifyPayloadAsync(string root, string path, HistoryTransferPayloadFile expected, CancellationToken token)
     {

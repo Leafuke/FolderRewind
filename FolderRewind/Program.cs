@@ -27,6 +27,11 @@ internal static class Program
             using var userIdentity = WindowsIdentity.GetCurrent();
             // Share the guard across builds and installation paths for this user.
             string identity = "Leafuke.FolderRewind." + (userIdentity.User?.Value ?? Environment.UserName);
+#if NATIVE_ARTIFACT_ACCEPTANCE
+            if (AppRuntimeInfo.IsMsiDistribution && Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_DATA_ROOT") is { Length: > 0 } testData)
+                identity += ".acceptance." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(testData).ToUpperInvariant())));
+#endif
             using var instance = SingleInstanceCoordinator.TryAcquire(identity);
             if (instance == null)
             {

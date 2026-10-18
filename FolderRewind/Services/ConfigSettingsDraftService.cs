@@ -54,6 +54,9 @@ internal sealed class ConfigSettingsDraftService
     public async Task<ConfigSaveResult> CommitAsync(System.Threading.CancellationToken token)
     {
         var submitted = BackupConfigCloneService.CloneForRuntimeMutation(Draft, I18n.GetString("Common_Failed"));
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        await Development.NativeArtifactAcceptance.PauseUiFixtureAsync("settings-save", token);
+#endif
         await using var gate = await NativeHistoryConfigurationOperationGate.EnterAsync(_original.Id, token);
         RefreshBackupTimesAfterOperation();
         var configs = ConfigService.CurrentConfig.BackupConfigs;

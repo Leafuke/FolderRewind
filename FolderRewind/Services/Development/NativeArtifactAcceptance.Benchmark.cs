@@ -37,8 +37,11 @@ internal static partial class NativeArtifactAcceptance
         private readonly CancellationTokenSource _sampling = new();
         private readonly Task _sampler;
         private long _childPeak;
-        public StageRecorder()
+        private long _temporaryPeak;
+        private readonly string[] _temporaryRoots;
+        public StageRecorder(params string[] temporaryRoots)
         {
+            _temporaryRoots = temporaryRoots;
             _listener = new ActivityListener
             {
                 ShouldListenTo = source => source.Name is "FolderRewind.Artifacts" or "MineRewind.Semantic",
@@ -65,7 +68,17 @@ internal static partial class NativeArtifactAcceptance
                     while (await timer.WaitForNextTickAsync(_sampling.Token))
                     {
                         var bytes = ArtifactDiagnostics.SampleChildWorkingSet();
-                        lock (_gate) _childPeak = Math.Max(_childPeak, bytes);
+                        long temporary = 0;
+                        foreach (var root in _temporaryRoots)
+                            try
+                            {
+                                if (Directory.Exists(root))
+                                    foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                                        try { temporary = checked(temporary + new FileInfo(path).Length); }
+                                        catch (IOException) { }
+                            }
+                            catch (IOException) { } // Concurrently disposed owned workspace.
+                        lock (_gate) { _childPeak = Math.Max(_childPeak, bytes); _temporaryPeak = Math.Max(_temporaryPeak, temporary); }
                     }
                 }
                 catch (OperationCanceledException) when (_sampling.IsCancellationRequested) { }
@@ -77,7 +90,8 @@ internal static partial class NativeArtifactAcceptance
             {
                 var snapshot = _stages.ToDictionary(p => p.Key, p => p.Value);
                 snapshot["diagnostics/children"] = new(1, 0, new Dictionary<string, long> { ["sampled.peak.workingSet.bytes"] = _childPeak });
-                _stages.Clear(); _childPeak = 0; return snapshot;
+                snapshot["diagnostics/temporary"] = new(1, 0, new Dictionary<string, long> { ["sampled.peak.bytes"] = _temporaryPeak });
+                _stages.Clear(); _childPeak = 0; _temporaryPeak = 0; return snapshot;
             }
         }
         public void Dispose() { _listener.Dispose(); _sampling.Cancel(); _sampler.GetAwaiter().GetResult(); _sampling.Dispose(); }
@@ -85,7 +99,8 @@ internal static partial class NativeArtifactAcceptance
 
     private static async Task<int> RunBenchmarkAsync(Request request, BackupConfig config, string root)
     {
-        using var stages = new StageRecorder();
+        using var stages = new StageRecorder(await File.ReadAllTextAsync(Path.Combine(root, "temporary-scope")),
+            Path.Combine(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id), "tmp"));
         var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config);
         var archive = new SevenZipHistoryArchiveBackend(config);
         var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(archive),
@@ -97,6 +112,12 @@ internal static partial class NativeArtifactAcceptance
         var rows = new List<BenchmarkRow>();
         var remote = new BenchmarkObjects(Path.Combine(root, "measured-remote"));
         var checkpointAfter = 0;
+        if (request.Phase == "capture")
+        {
+            var deletionRoot = Path.Combine(source, "benchmark-deletions"); Directory.CreateDirectory(deletionRoot);
+            for (var i = 0; i <= request.Iterations; i++)
+                await File.WriteAllTextAsync(Path.Combine(deletionRoot, i + ".txt"), "isolated deletion fixture " + i);
+        }
         config.Archive.MaxSmartBackupsPerFull = 0;
         var scenarios = request.Phase == "capture" ? new[] { "baseline", "unchanged", "sparse", "dense", "deletion", "checkpoint" }
             : new[] { "unchanged", "sparse", "dense", "deletion", "checkpoint" };
@@ -113,7 +134,7 @@ internal static partial class NativeArtifactAcceptance
                 }
                 if (scenario == "deletion")
                 {
-                    var candidate = Directory.EnumerateFiles(Path.Combine(source, "poi"), "*.mca").Order(StringComparer.Ordinal).First();
+                    var candidate = Directory.EnumerateFiles(Path.Combine(source, "benchmark-deletions"), "*.txt").Order(StringComparer.Ordinal).First();
                     File.Delete(candidate);
                 }
                 if (scenario == "checkpoint")

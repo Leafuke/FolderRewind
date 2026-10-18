@@ -623,6 +623,9 @@ namespace FolderRewind.Services
                 {
                     try
                     {
+#if NATIVE_ARTIFACT_ACCEPTANCE
+                        if (invocationOptions.RequestSemanticCheckpoint) await Development.NativeArtifactAcceptance.PauseUiFixtureAsync("checkpoint", cancellationToken);
+#endif
                         var states = ScanDirectory(sourcePath, runtimeConfig.Filters, selection: runtimeFolder.SourceScope);
                         var changes = CompareFileStates(states, captureBaseline?.FileStates);
                         var directories = SourceDirectorySnapshot.Read(sourcePath,

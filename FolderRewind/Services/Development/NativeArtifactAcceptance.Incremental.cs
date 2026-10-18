@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Cloud;
+using FolderRewind.History.Capture;
+using FolderRewind.Plugin.Abstractions;
 using FolderRewind.History.Merge;
 using FolderRewind.History.Representation;
 using FolderRewind.Models;
@@ -28,8 +30,7 @@ internal static partial class NativeArtifactAcceptance
             var versions = await history.Query.GetAllVersionsAsync();
             var representations = await history.Query.GetAllRepresentationsAsync();
             var committed = request.CrashAt is not null && (request.CrashAt.StartsWith("HistoryPackCommitted:")
-                || request.CrashAt.StartsWith("LocalStateApplied:") || request.CrashAt.StartsWith("Complete:")
-                || request.CrashAt.StartsWith("PrimaryCleanup:"));
+                || request.CrashAt.StartsWith("LocalStateApplied:") || request.CrashAt.StartsWith("Complete:"));
             if (versions.Count != request.PreviousVersions + (committed ? 1 : 0) || representations.Count != versions.Count
                 || representations.Any(r => r.Kind != RepresentationKind.PluginArtifact))
                 throw new InvalidDataException("P3 crash recovery manufactured or lost committed History.");
@@ -39,7 +40,7 @@ internal static partial class NativeArtifactAcceptance
                 Guid.Parse(r.RepresentationSpecificMetadata["artifactRootId"]))), default);
             if (versions.Count > 0)
             {
-                var restored = Path.Combine(root, "p3-recovered");
+                var restored = Path.Combine(root, "p3-recovered-" + Guid.NewGuid().ToString("N"));
                 var current = (await history.WorkspaceStore.LoadAsync()).Value!.SourceBaselines.Single().BaseVersionId;
                 await new RepresentationRuntime([NativeArtifactHostService.Handler(config, history)]).MaterializeAsync(
                     representations.Single(r => r.VersionId == current).RepresentationId, representations,
@@ -88,9 +89,33 @@ internal static partial class NativeArtifactAcceptance
                 else { await File.WriteAllBytesAsync(file, new byte[] { 80, 51, (byte)i, 7 }); File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddSeconds(i + 1)); }
                 await File.WriteAllTextAsync(Path.Combine(root, "p3-after-digest"),
                     (await MergeTreeManifest.ReadAsync(source.Path, p => p != "session.lock", default)).Digest);
+                if (request.Iterations >= 30)
+                {
+                    if (i == 7)
+                    {
+                        var count = (await history.Query.GetAllVersionsAsync()).Count;
+                        try { await BackupService.CreateSemanticCheckpointAsync(config, new System.Threading.CancellationToken(true)); throw new IOException("Canceled checkpoint ran."); }
+                        catch (OperationCanceledException) { }
+                        if ((await history.Query.GetAllVersionsAsync()).Count != count) throw new IOException("Canceled checkpoint published History.");
+                    }
+                    if (i == 12)
+                    {
+                        var draft = new ConfigSettingsDraftService(config); draft.Draft.Archive.KeepCount = 5;
+                        if (!(await draft.CommitAsync()).Success) throw new IOException("Retention settings did not save.");
+                        config = ConfigService.CurrentConfig.BackupConfigs.Single();
+                    }
+                    if (i % 4 == 0) Directory.CreateDirectory(Path.Combine(source.Path, "empty-" + i));
+                    if (i == 16)
+                    {
+                        var cached = await history.CaptureBaselines.LoadAsync(new(Guid.Parse(source.Id)));
+                        if (cached is not null) await history.CaptureBaselines.RemoveAsync(cached.SourceId, cached.Revision);
+                    }
+                }
                 var before = (await NativeArtifactHostService.Store(config).Ledger.LoadAsync()).Artifacts.Sum(a => a.StorageSize);
                 var watch = System.Diagnostics.Stopwatch.StartNew();
-                var result = await BackupService.BackupConfigAsync(config);
+                var result = request.Iterations >= 30 && i % 10 == 0
+                    ? await BackupService.CreateSemanticCheckpointAsync(config, default)
+                    : await BackupService.BackupConfigAsync(config);
                 watch.Stop();
                 if (!result.CreatedNewArchive) throw new InvalidDataException("Incremental production capture failed: " + JsonSerializer.Serialize(result));
                 var after = (await NativeArtifactHostService.Store(config).Ledger.LoadAsync()).Artifacts.Sum(a => a.StorageSize);
@@ -107,12 +132,13 @@ internal static partial class NativeArtifactAcceptance
             if (baseline?.BaseRepresentationId != selected.RepresentationId || baseline.ArtifactRootId is null)
                 throw new InvalidDataException("Capture cache does not bind the committed semantic representation.");
             var restored = Path.Combine(root, "p3-restored-" + Guid.NewGuid().ToString("N"));
-            var engine = new RepresentationRuntime([NativeArtifactHostService.Handler(config, history)]);
+            var engine = HistoryRepresentationRuntimeFactory.Create(config, history, new SevenZipHistoryArchiveBackend(config));
             await engine.MaterializeAsync(selected.RepresentationId, representations,
                 await NativeHistoryApplicationService.BuildEnvironmentAsync(history, default), MaterializationFidelity.Exact, restored);
-            var expected = await MergeTreeManifest.ReadAsync(source.Path, p => !p.Equals("session.lock", StringComparison.OrdinalIgnoreCase), default);
-            var actual = await MergeTreeManifest.ReadAsync(restored, _ => true, default);
-            if (expected.Digest != actual.Digest) throw new InvalidDataException("Incremental restore differs from source bytes.");
+            await VerifyCapturedTreeAsync(history, selected, source.Path, restored);
+            var assessment = await engine.AssessVersionAsync(current, representations,
+                await NativeHistoryApplicationService.BuildEnvironmentAsync(history, default), AssessmentDepth.Deep, MaterializationFidelity.Exact);
+            if (assessment.Selected?.RepresentationId != selected.RepresentationId) throw new IOException("Explicit Deep did not accept the source reconstruction.");
             var noChanges = await BackupService.BackupConfigAsync(config);
             if (noChanges.CreatedNewArchive) throw new InvalidDataException("No-change backup created a new representation.");
         }
@@ -147,6 +173,16 @@ internal static partial class NativeArtifactAcceptance
             var download = await native.DownloadAsync(selected, manifest, config.Id, Guid.Parse(request.SourceId), default);
             if (download.Status != HistoryReplicaOperationStatus.Succeeded) throw new IOException(download.Diagnostic);
         }
+        if (request.Iterations >= 30)
+        {
+            var initial = (await history.Query.GetAllVersionsAsync()).OrderBy(v => v.CreatedAtUtc).First();
+            var before = (await history.Query.GetAllVersionsAsync()).Count;
+            Directory.CreateDirectory(Path.Combine(source.Path, "directory-only-final"));
+            if (!(await BackupService.BackupConfigAsync(config)).CreatedNewArchive || (await history.Query.GetAllVersionsAsync()).Count != before + 1)
+                throw new IOException("Directory-only change was lost as NoChanges.");
+            var cleanup = await NativeHistoryApplicationService.RunManualCleanupAsync(config.Id, config.ConfigRevision, History.Retention.HistoryRetentionBenefitPolicy.CountFirst, null, default);
+            if (cleanup?.HasWarnings == true) throw new IOException("Long-run Native cleanup has warnings: " + JsonSerializer.Serialize(cleanup));
+        }
         await File.WriteAllTextAsync(Path.Combine(root, "p3-" + request.Phase + "-result.json"), JsonSerializer.Serialize(new
         {
             Success = true, Started = started, Ended = DateTimeOffset.UtcNow, Measurements = measurements,
@@ -157,5 +193,17 @@ internal static partial class NativeArtifactAcceptance
         }, new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
+    private static async Task VerifyCapturedTreeAsync(HistoryRuntime history, VersionRepresentation representation, string source, string restored)
+    {
+        var version = await history.Query.GetVersionAsync(representation.VersionId) ?? throw new InvalidDataException("Version is missing.");
+        var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(version.SourceId, source, version.EffectiveSourceBoundary));
+        var expected = await MergeTreeManifest.ReadAsync(source, include, default);
+        var actual = await MergeTreeManifest.ReadAsync(restored, _ => true, default);
+        if (expected.Digest != actual.Digest) throw new InvalidDataException("Restored bytes differ from the effective source boundary.");
+        var expectedDirs = SourceDirectorySnapshot.Read(source, include, expected.Files.Keys, default);
+        var actualDirs = SourceDirectorySnapshot.Read(restored, _ => true, actual.Files.Keys, default);
+        if (!expectedDirs.SequenceEqual(actualDirs)) throw new InvalidDataException("Restored directory evidence differs.");
+    }
+
 }
 #endif
