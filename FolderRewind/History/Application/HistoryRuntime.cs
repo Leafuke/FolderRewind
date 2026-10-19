@@ -31,6 +31,11 @@ public sealed class HistoryRuntime : IAsyncDisposable
     private readonly SemaphoreSlim _initializationGate = new(1, 1);
     private bool _initialized;
     private bool _disposed;
+    private readonly object _restoreCleanupSync = new();
+    private readonly CancellationTokenSource _restoreCleanupLifetime = new();
+    private Task _restoreCleanupTask = Task.CompletedTask;
+    private bool _restoreCleanupRunning, _restoreCleanupRequested;
+    private int _restoreCleanupGeneration;
 
     public HistoryRuntime(FileHistoryRepository repository, HistoryPackCodec? codec = null)
     {
@@ -89,6 +94,53 @@ public sealed class HistoryRuntime : IAsyncDisposable
 
     internal void ReportMaintenance(string? diagnostic) => MaintenanceDiagnostic = diagnostic;
 
+    internal void ScheduleRestoreCleanup()
+    {
+        lock (_restoreCleanupSync)
+        {
+            if (_disposed) return;
+            _restoreCleanupRequested = true;
+            if (_restoreCleanupRunning) return;
+            _restoreCleanupRunning = true;
+            int generation = ++_restoreCleanupGeneration;
+            _restoreCleanupTask = Task.Run(async () =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        lock (_restoreCleanupSync) _restoreCleanupRequested = false;
+                        // 等待核心操作结束后立即释放租约；清理只访问旧容器，不长期占用配置锁。
+                        await using (await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(ConfigId, _restoreCleanupLifetime.Token).ConfigureAwait(false)) { }
+                        _restoreCleanupLifetime.Token.ThrowIfCancellationRequested();
+                        new HistoryRestoreTransactionJournalStore(this, new FileSystemHistoryRestoreMutationBackend()).RetryDeferredCleanup();
+                        await RefreshLocalStateHealthAsync(_restoreCleanupLifetime.Token).ConfigureAwait(false);
+                        ChangeFeed.Publish(ConfigId, HistoryChangeKind.LocalStateChanged);
+                        lock (_restoreCleanupSync)
+                        {
+                            if (_restoreCleanupRequested) continue;
+                            _restoreCleanupRunning = false;
+                            return;
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (_restoreCleanupLifetime.IsCancellationRequested) { }
+                catch (Exception ex) { ReportMaintenance("Restore cleanup: " + ex.Message); }
+                finally { lock (_restoreCleanupSync) if (_restoreCleanupGeneration == generation) _restoreCleanupRunning = false; }
+            });
+        }
+    }
+    internal async Task DrainRestoreCleanupAsync(CancellationToken token = default)
+    {
+        while (true)
+        {
+            Task pending;
+            lock (_restoreCleanupSync) pending = _restoreCleanupTask;
+            await pending.WaitAsync(token).ConfigureAwait(false);
+            lock (_restoreCleanupSync) if (!_restoreCleanupRunning) return;
+        }
+    }
+
     internal async Task<bool> CleanupMergeArtifactsAsync()
     {
         if (!Directory.Exists(MergeSessions.Root)) return true;
@@ -107,8 +159,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         await InitializeReadableAsync(cancellationToken).ConfigureAwait(false);
-        await using var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(ConfigId, cancellationToken).ConfigureAwait(false);
-        await RecoverInsideOperationAsync(operation, new FileSystemHistoryRestoreMutationBackend(), cancellationToken).ConfigureAwait(false);
+        await using (var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(ConfigId, cancellationToken).ConfigureAwait(false))
+            await RecoverInsideOperationAsync(operation, new FileSystemHistoryRestoreMutationBackend(), cancellationToken).ConfigureAwait(false);
+        await DrainRestoreCleanupAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task InitializeReadableAsync(CancellationToken cancellationToken = default)
@@ -156,10 +209,12 @@ public sealed class HistoryRuntime : IAsyncDisposable
         }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (_disposed) return ValueTask.CompletedTask;
+        if (_disposed) return;
         _disposed = true;
+        _restoreCleanupLifetime.Cancel();
+        await _restoreCleanupTask.ConfigureAwait(false);
         MutationGate.Dispose();
         WorkspaceStore.Dispose();
         LocalReplicaCatalogStore.Dispose();
@@ -167,7 +222,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         Index.Dispose();
         Repository.Dispose();
         _initializationGate.Dispose();
-        return ValueTask.CompletedTask;
+        _restoreCleanupLifetime.Dispose();
     }
 
     // Compatibility observation for synchronous consumers; recovery always recomputes all causes.
@@ -178,7 +233,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
             HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot);
             Retention.HistoryChainRewriteJournalStore.RequireRecovered(Repository.Paths.LocalStateRoot);
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
         {
             Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
             HealthDiagnostic = $"Config {ConfigId}: transactions: {ex.Message}";
@@ -248,8 +303,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
         try
         {
             var cleanup = Directory.Exists(Repository.Paths.TransactionsRoot)
-                ? Directory.GetFiles(Repository.Paths.TransactionsRoot, "restore-cleanup.json", SearchOption.AllDirectories) : [];
-            if (cleanup.Length > 0) issues.Add(new(HistoryRuntimeIssueKind.Maintenance, "Preparation cleanup pending: " + string.Join(", ", cleanup), false));
+                ? Directory.EnumerateFiles(Repository.Paths.TransactionsRoot, "restore-*.json", SearchOption.AllDirectories)
+                    .Where(path => Path.GetFileName(path) is "restore-cleanup.json" or "restore-preparation.json").ToArray() : [];
+            if (cleanup.Length > 0) issues.Add(new(HistoryRuntimeIssueKind.Maintenance, "Restore preparation/cleanup pending: " + string.Join(", ", cleanup), false));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { issues.Add(new(HistoryRuntimeIssueKind.Maintenance, ex.Message, false, ex.HResult)); }
@@ -262,7 +318,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         void Observe(HistoryRuntimeIssueKind kind, Action read)
         {
             try { read(); }
-            catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException or ArgumentException)
+            catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException or ArgumentException)
             {
                 health |= kind == HistoryRuntimeIssueKind.Migration ? HistoryRuntimeHealth.LocalStateInitializationRequired : HistoryRuntimeHealth.WorkspaceRecoveryRequired;
                 issues.Add(new(kind, $"Config {ConfigId}: transactions/local state: {ex.Message}", true, ex.HResult));

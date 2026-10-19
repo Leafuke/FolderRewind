@@ -58,6 +58,7 @@ public sealed class HistoryQuickRestoreExecutionTests
             Assert.AreEqual(1, preparations);
             Assert.AreEqual(1L, diagnostic.Summary!.Counters["7z-x"]);
             Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+            await f.History.DrainRestoreCleanupAsync();
             Assert.IsFalse(Directory.EnumerateDirectories(f.Root, ".folderrewind-restore-*").Any());
         }
     }
@@ -81,6 +82,7 @@ public sealed class HistoryQuickRestoreExecutionTests
             }, _ => Task.CompletedTask, cancellation.Token);
         Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, result.Status, result.Diagnostic);
         Assert.AreEqual("local original", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+        await f.History.DrainRestoreCleanupAsync();
         Assert.IsFalse(Directory.EnumerateDirectories(f.Root, ".folderrewind-restore-*").Any());
     }
 }

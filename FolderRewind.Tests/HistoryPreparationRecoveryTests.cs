@@ -46,7 +46,11 @@ public sealed class HistoryPreparationRecoveryTests
             {
                 if (contradictoryProgress)
                     await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.RecoverIncompleteAsync(default));
-                else await store.RecoverIncompleteAsync(default);
+                else
+                {
+                    await store.RecoverIncompleteAsync(default);
+                    await runtime.DrainRestoreCleanupAsync();
+                }
             }
             Assert.IsTrue(HistoryWorkspace.StateEquals(updated, (await runtime.WorkspaceStore.LoadAsync()).Value!));
             Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());

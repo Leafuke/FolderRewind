@@ -18,6 +18,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
     private readonly HistoryRestorePreparationSession? _previous;
     private readonly HistoryRestoreTransactionJournalStore _store;
     private readonly string _repository;
+    private readonly HistoryConfigId _config;
     private bool _finished;
     private readonly List<IDisposable> _bindings = [];
     internal HistoryRestoreTransactionJournal Journal { get; private set; }
@@ -25,7 +26,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
     internal HistoryRestorePreparationSession(HistoryRuntime history, HistoryRestoreTransactionJournalStore store,
         HistoryWorkspace expected, IReadOnlyList<HistoryRestoreSourceBinding> bindings, IEnumerable<string> protectedRoots, string? configurationSignature = null)
     {
-        _store = store; _repository = history.Repository.Paths.RepositoryRoot;
+        _store = store; _repository = history.Repository.Paths.RepositoryRoot; _config = history.ConfigId;
         var id = HistoryTransactionId.New();
         var locations = HistoryRestoreWorkspacePlanner.Plan(id, bindings, protectedRoots.Append(_repository));
         try
@@ -45,10 +46,14 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         Journal = new(id, HistoryRestoreTransactionPhase.Preparing, expected, expected, [], [], [], [],
             ProtocolVersion: 2, Workspaces: [.. locations.Select(location => new RestoreWorkspaceRegistration(location, Guid.NewGuid().ToString("N"), null, []))],
             ConfigurationSignature: configurationSignature ?? history.ConfigId.ToString());
-        try { _store.Save(Journal); }
+        try { _store.SavePreparation(PreparationRecord); }
         catch { foreach (var binding in _bindings) binding.Dispose(); throw; }
         _previous = Active.Value; Active.Value = this;
     }
+    internal HistoryRestorePreparationRecord PreparationRecord => new(1, _config, Journal.TransactionId, Journal.Workspaces, Journal.ConfigurationSignature);
+    internal static bool OwnsPreparation(HistoryTransactionId transaction, string root) => Active.Value is { } active
+        && active.Journal.TransactionId == transaction && !active._finished
+        && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(root), Path.Combine(active._repository, "transactions"));
     internal HistoryRestoreSourceBinding BindSource(HistoryRestoreSourceBinding source)
     {
         var location = Journal.Workspaces.Single(w => w.Location.SourceId == source.SourceId).Location;
@@ -72,7 +77,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         {
             HistoryRestoreFileSystemPlanStore.Reach("after-container-before-register");
             registration = registration with { ContainerIdentity = created.Identity,
-                KnownObjects = [new(registration.Location.Container, created.Identity, FileAttributes.Directory)] };
+                KnownObjects = [] };
             Set(index, registration);
             // 容器仅供本次进程用户和 SYSTEM 使用，发布时再恢复目标的权限继承。
             var security = new DirectorySecurity();
@@ -89,8 +94,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
             }
             var staging = Path.Combine(registration.Location.Container, "staging");
             var stage = WindowsRestoreFileSystem.CreateDirectoryNew(staging, created.Identity); stage.Handle.Dispose();
-            registration = registration with { KnownObjects = [.. HistoryRestoreFileSystemPlanStore.CaptureTree(registration.Location.Container)] };
-            Set(index, registration); HistoryRestoreFileSystemPlanStore.Reach("after-container-register");
+            HistoryRestoreFileSystemPlanStore.Reach("after-container-register");
             return staging;
         }
     }
@@ -101,31 +105,32 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         if (WindowsRestoreFileSystem.Identity(registration.Location.Container) != registration.ContainerIdentity
             || File.ReadAllText(Path.Combine(registration.Location.Container, "owner.json")) != registration.OwnerNonce)
             throw new IOException("Restore preparation ownership proof changed.");
-        Set(index, registration with { KnownObjects = [.. HistoryRestoreFileSystemPlanStore.CaptureTree(registration.Location.Container)] });
     }
     internal void RebindExpected(HistoryWorkspace expected)
     {
         if (Journal.Phase != HistoryRestoreTransactionPhase.Preparing) throw new InvalidOperationException("Restore preparation is already frozen.");
-        Journal = Journal with { ExpectedWorkspace = expected, DesiredWorkspace = expected }; _store.Save(Journal);
+        Journal = Journal with { ExpectedWorkspace = expected, DesiredWorkspace = expected };
     }
     internal HistoryRestoreTransactionJournal Freeze(HistoryRestoreFileSystemPlan plan, HistoryWorkspace expected, HistoryWorkspace desired)
     {
         var path = Path.Combine(_store.TransactionDirectory(Journal.TransactionId), "restore-plan.json");
         var proof = HistoryRestoreFileSystemPlanStore.Save(path, plan);
-        Journal = Journal with { Phase = HistoryRestoreTransactionPhase.Prepared, ExpectedWorkspace = expected, DesiredWorkspace = desired,
+        HistoryRestoreFileSystemPlanStore.Reach("after-plan-before-prepared");
+        var frozen = Journal with { Phase = HistoryRestoreTransactionPhase.Prepared, ExpectedWorkspace = expected, DesiredWorkspace = desired,
             FileSystemPlan = proof, Workspaces = [.. Journal.Workspaces.Select(workspace => workspace with { KnownObjects = [] })] };
-        _store.Save(Journal); HistoryRestoreFileSystemPlanStore.Reach("after-prepared"); return Journal;
+        _store.Save(frozen); Journal = frozen;
+        HistoryRestoreFileSystemPlanStore.Reach("after-prepared"); return Journal;
     }
     internal void SetJournal(HistoryRestoreTransactionJournal journal) { Journal = journal; _store.Save(Journal); }
     internal void Finish() => _finished = true;
     private void Set(int index, RestoreWorkspaceRegistration registration)
-    { Journal = Journal with { Workspaces = Journal.Workspaces.SetItem(index, registration) }; _store.Save(Journal); }
+    { Journal = Journal with { Workspaces = Journal.Workspaces.SetItem(index, registration) }; _store.SavePreparation(PreparationRecord); }
     internal void Abort()
     {
         if (_finished || Journal.Phase != HistoryRestoreTransactionPhase.Preparing) return;
         try
         {
-            _store.AbandonPreparation(Journal);
+            _store.AbandonPreparationRecord(PreparationRecord);
             Journal = Journal with { Phase = HistoryRestoreTransactionPhase.Complete };
             _finished = true;
         }

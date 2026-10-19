@@ -46,7 +46,7 @@ internal sealed record HistoryRestoreTransactionJournal(
     bool? CleanupCommitted = null,
     string? ConfigurationSignature = null);
 
-internal sealed class HistoryRestoreTransactionJournalStore
+internal sealed partial class HistoryRestoreTransactionJournalStore
 {
     private const string FileName = "restore-journal.json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -67,6 +67,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
     internal static void RequireRecovered(string root)
     {
         if (!Directory.Exists(root)) return;
+        RequireSafePreparationRecords(root);
         foreach (var path in Directory.EnumerateFiles(root, FileName, SearchOption.AllDirectories))
         {
             var journal = JsonSerializer.Deserialize<HistoryRestoreTransactionJournal>(File.ReadAllBytes(path), JsonOptions);
@@ -98,6 +99,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
     {
         var root = _runtime.Repository.Paths.TransactionsRoot;
         if (!Directory.Exists(root)) return false;
+        RecoverPreparationRecords();
         bool recovered = false;
         foreach (var path in Directory.GetFiles(root, FileName, SearchOption.AllDirectories))
         {
@@ -163,7 +165,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
                     _runtime.MergeSessions.Update(session, MergeSessionState.Ready);
                 }
             }
-        RetryPreparationCleanup();
+        if (Directory.EnumerateFiles(root, "restore-cleanup.json", SearchOption.AllDirectories).Any()) _runtime.ScheduleRestoreCleanup();
         return recovered;
     }
 
@@ -219,9 +221,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
             HistoryRestoreFileSystemPlanStore.ValidateFinal(plan, false);
         }
         else HistoryRestoreFileSystemPlanStore.ValidateOutsideContainers(plan, false);
-        Save(journal with { Phase = HistoryRestoreTransactionPhase.Cleaning, CleanupCommitted = committed });
-        HistoryRestoreFileSystemPlanStore.Cleanup(plan, committed, allowMissing: true);
-        Save(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
+        CompleteWithDeferredCleanup(journal, committed);
     }
 
     // This record covers only abandoned preparation containers, never original rollback objects.
@@ -254,10 +254,13 @@ internal sealed class HistoryRestoreTransactionJournalStore
             if (owned)
             {
                 using var ancestors = new WindowsDirectoryReadLease(Path.Combine(registration.Location.Container, "unused-child"));
-                var rollback = Path.Combine(registration.Location.Container, "rollback");
-                if (Path.Exists(rollback) && ((File.GetAttributes(rollback) & FileAttributes.ReparsePoint) != 0
-                    || Directory.Exists(rollback) && Directory.EnumerateFileSystemEntries(rollback).Any()))
-                    throw new InvalidDataException("Preparing container contains rollback evidence; preserve transaction data.");
+                foreach (var name in new[] { "rollback", "rollback-items" })
+                {
+                    var rollback = Path.Combine(registration.Location.Container, name);
+                    if (Path.Exists(rollback) && ((File.GetAttributes(rollback) & FileAttributes.ReparsePoint) != 0
+                        || Directory.Exists(rollback) && Directory.EnumerateFileSystemEntries(rollback).Any()))
+                        throw new InvalidDataException("Preparing container contains rollback evidence; preserve transaction data.");
+                }
             }
         }
         var orphanPlan = Path.Combine(directory, "restore-plan.json");
@@ -274,7 +277,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
         // Persist the handoff before completing the blocking transaction. A crash retries either side.
         AtomicFileService.Write(Path.Combine(directory, "restore-cleanup.json"), stream => JsonSerializer.Serialize(stream, record, JsonOptions));
         Save(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
-        RetryPreparationCleanup();
+        _runtime.ScheduleRestoreCleanup();
     }
 
     private void ValidatePreparationLocation(HistoryTransactionId transaction, RestoreWorkspaceRegistration registration)
@@ -282,47 +285,13 @@ internal sealed class HistoryRestoreTransactionJournalStore
         var location = registration.Location;
         var target = Path.GetFullPath(location.Target);
         var container = Path.GetFullPath(location.Container);
+        var repository = HistoryRestoreWorkspacePlanner.ResolvePath(_runtime.Repository.Paths.RepositoryRoot);
         var expected = Path.Combine(Path.GetDirectoryName(target)!, $".folderrewind-restore-{transaction}-{location.SourceId}");
         if (!Path.IsPathFullyQualified(location.Target) || !Path.IsPathFullyQualified(location.Container)
             || !StringComparer.OrdinalIgnoreCase.Equals(container, expected)
-            || HistoryRestoreWorkspacePlanner.Overlaps(container, _runtime.Repository.Paths.RepositoryRoot)
-            || HistoryRestoreWorkspacePlanner.Overlaps(target, _runtime.Repository.Paths.RepositoryRoot))
+            || HistoryRestoreWorkspacePlanner.Overlaps(container, repository)
+            || HistoryRestoreWorkspacePlanner.Overlaps(target, repository))
             throw new InvalidDataException("Preparation container binding is invalid.");
-    }
-
-    private void RetryPreparationCleanup()
-    {
-        if (_runtime.MaintenanceDiagnostic?.StartsWith("Preparation cleanup (", StringComparison.Ordinal) == true) _runtime.ReportMaintenance(null);
-        var root = _runtime.Repository.Paths.TransactionsRoot;
-        if (!Directory.Exists(root)) return;
-        foreach (var path in Directory.GetFiles(root, "restore-cleanup.json", SearchOption.AllDirectories))
-        {
-            try
-            {
-                var record = JsonSerializer.Deserialize<PreparationCleanup>(File.ReadAllBytes(path), JsonOptions)
-                    ?? throw new InvalidDataException("Preparation cleanup record is empty.");
-                if (record.FormatVersion != 1 || record.Workspaces.IsDefaultOrEmpty
-                    || !StringComparer.OrdinalIgnoreCase.Equals(Path.GetDirectoryName(path), TransactionDirectory(record.TransactionId)))
-                    throw new InvalidDataException("Preparation cleanup record is incompatible.");
-                foreach (var registration in record.Workspaces)
-                {
-                    ValidatePreparationLocation(record.TransactionId, registration);
-                    using var ancestors = new WindowsDirectoryReadLease(registration.Location.Container);
-                    if (WindowsRestoreFileSystem.Identity(Path.GetDirectoryName(registration.Location.Container)!) != registration.Location.ParentIdentity)
-                        throw new IOException("Preparation parent identity changed; preserve container.");
-                    var identity = WindowsRestoreFileSystem.TryIdentity(registration.Location.Container);
-                    if (identity is null) continue;
-                    if (registration.ContainerIdentity is null || identity != registration.ContainerIdentity)
-                        throw new IOException("Preparation ownership cannot be proved; preserve container.");
-                    // CaptureTree refuses links; cleanup never follows an entry outside this container.
-                    var objects = HistoryRestoreFileSystemPlanStore.CaptureTree(registration.Location.Container);
-                    HistoryRestoreFileSystemPlanStore.Cleanup(new(record.TransactionId, [registration.Location.Container], objects, []), false, true);
-                }
-                File.Delete(path);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException)
-            { _runtime.ReportMaintenance($"Preparation cleanup ({path}): {ex.Message}"); }
-        }
     }
 
     private static bool IsWithin(string path, HistoryRestoreWorkspaceLocation location)

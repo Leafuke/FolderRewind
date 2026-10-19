@@ -158,7 +158,7 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (History is not null) await History.DisposeAsync();
+        if (History is not null) { await History.DrainRestoreCleanupAsync(); await History.DisposeAsync(); }
         if (Directory.Exists(Root)) Directory.Delete(Root, true);
     }
 

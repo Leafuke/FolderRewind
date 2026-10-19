@@ -40,17 +40,7 @@ public sealed partial class HistoryRestoreService
                 await _journals.CompleteLocalStateAsync(journal, token).ConfigureAwait(false);
                 HistoryRestoreFileSystemPlanStore.Reach("after-workspace");
                 HistoryRestoreFileSystemPlanStore.ValidatePublished(plan);
-            }
-            journal = journal with { Phase = HistoryRestoreTransactionPhase.Cleaning, CleanupCommitted = true }; session.SetJournal(journal);
-            try
-            {
-                HistoryRestoreFileSystemPlanStore.Cleanup(plan, true, true);
-                session.SetJournal(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
-            }
-            catch (Exception cleanup)
-            {
-                session.Finish();
-                return new(HistoryRestoreStatus.CommittedWithPostActionWarning, "Restore committed; owned cleanup deferred: " + cleanup.Message, true, applied);
+                _journals.CompleteWithDeferredCleanup(journal, committed: true);
             }
             session.Finish();
             await _history.EnsureIndexCurrentAsync(CancellationToken.None).ConfigureAwait(false);

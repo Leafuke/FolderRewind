@@ -14,6 +14,7 @@ namespace FolderRewind.History.Application;
 
 public sealed partial class HistoryRestoreService
 {
+    internal Services.NativeHistoryConfigurationOperationGate.Lease? ExistingOperation { get; set; }
     private readonly HistoryRuntime _history;
     private readonly RepresentationRuntime _representations;
     private readonly Func<CancellationToken, Task<IRepresentationEnvironment>> _environmentFactory;
@@ -52,8 +53,14 @@ public sealed partial class HistoryRestoreService
 
     public async Task RecoverIncompleteAsync(CancellationToken cancellationToken = default)
     {
-        await using var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false);
-        await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
+        if (ExistingOperation is { } existing)
+        {
+            await RecoverInsideConfigurationAsync(existing, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        await using (var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false))
+            await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
+        await _history.DrainRestoreCleanupAsync(cancellationToken).ConfigureAwait(false);
     }
 
     internal Task RecoverInsideConfigurationAsync(Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken cancellationToken = default)
@@ -79,7 +86,10 @@ public sealed partial class HistoryRestoreService
         ArgumentNullException.ThrowIfNull(selections);
         using var diagnostics = Services.HistoryOperationDiagnostics.Current is null ? Services.HistoryOperationDiagnostics.Begin("restore-versions") : null;
         ArgumentNullException.ThrowIfNull(mappedSources);
-        await RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
+        await using var ownedOperation = ExistingOperation is null
+            ? await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false) : null;
+        var operation = ExistingOperation ?? ownedOperation!;
+        await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
         if (selections.Count == 0 || mappedSources.Count != selections.Count
             || mappedSources.Select(b => b.SourceId).Distinct().Count() != mappedSources.Count
             || !mappedSources.Select(b => b.SourceId).ToHashSet().SetEquals(selections.Keys)
@@ -115,7 +125,7 @@ public sealed partial class HistoryRestoreService
 
         try
         {
-            await using var guard = await EnterFinalGuardAsync(cancellationToken).ConfigureAwait(false);
+            await using var guard = await EnterFinalGuardAsync(cancellationToken, operation).ConfigureAwait(false);
             await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
             for (int i = 0; i < prepared.Count; i++)
@@ -148,7 +158,10 @@ public sealed partial class HistoryRestoreService
         CancellationToken cancellationToken = default)
     {
         using var diagnostics = Services.HistoryOperationDiagnostics.Current is null ? Services.HistoryOperationDiagnostics.Begin("restore-version") : null;
-        await RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
+        await using var ownedOperation = ExistingOperation is null
+            ? await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false) : null;
+        var operation = ExistingOperation ?? ownedOperation!;
+        await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
         var version = await _history.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
         if (version is null || version.SourceId != source.SourceId)
             return Blocked("Version does not exist or belongs to another Source.");
@@ -162,9 +175,10 @@ public sealed partial class HistoryRestoreService
         {
             var effectiveMode = version.CaptureScope == CaptureScope.PartialSource
                 ? HistoryRestoreApplyMode.Overwrite : requestedMode;
+            var boundSource = session?.BindSource(source) ?? source;
             prepared = ReusablePreparation is { } reused && reused.Version.VersionId == versionId
                 && reused.Binding.SourceId == source.SourceId && reused.ApplyMode == effectiveMode
-                && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(reused.Binding.TargetDirectory), Path.GetFullPath(source.TargetDirectory))
+                && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(reused.Binding.TargetDirectory), Path.GetFullPath(boundSource.TargetDirectory))
                 ? reused : await PrepareSourceAsync(
                 version,
                 source,
@@ -179,7 +193,7 @@ public sealed partial class HistoryRestoreService
 
         try
         {
-            await using var guard = await EnterFinalGuardAsync(cancellationToken).ConfigureAwait(false);
+            await using var guard = await EnterFinalGuardAsync(cancellationToken, operation).ConfigureAwait(false);
             await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
             prepared = await PrepareOrdinaryRestoreAsync(prepared, cancellationToken).ConfigureAwait(false);

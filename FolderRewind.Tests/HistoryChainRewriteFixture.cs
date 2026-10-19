@@ -140,7 +140,7 @@ internal sealed class HistoryChainRewriteFixture : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (History is not null) await History.DisposeAsync();
+        if (History is not null) { await History.DrainRestoreCleanupAsync(); await History.DisposeAsync(); }
         if (!Directory.Exists(Root)) return;
         foreach (var file in Directory.EnumerateFiles(Root, "*", SearchOption.AllDirectories)) File.SetAttributes(file, FileAttributes.Normal);
         Directory.Delete(Root, true);

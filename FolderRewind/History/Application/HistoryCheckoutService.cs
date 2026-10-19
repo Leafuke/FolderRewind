@@ -42,7 +42,10 @@ public sealed class HistoryCheckoutService
     {
         ArgumentNullException.ThrowIfNull(currentConfigSources);
         ArgumentNullException.ThrowIfNull(expectedWorkspace);
-        await _restore.RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
+        await using var ownedOperation = _restore.ExistingOperation is null
+            ? await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false) : null;
+        var operation = _restore.ExistingOperation ?? ownedOperation!;
+        await _restore.RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
 
         HistoryCheckoutPlan? plan = null;
         try
@@ -70,9 +73,9 @@ public sealed class HistoryCheckoutService
             {
                 if (_protector is null)
                     return Blocked("Current-work protection is required but no protector is available.");
-                protectedWorkspace = await _protector.ProtectAsync(
-                    expectedWorkspace,
-                    cancellationToken).ConfigureAwait(false);
+                protectedWorkspace = _protector is IHistoryWorkingStateProtectorInsideOperation inside
+                    ? await inside.ProtectInsideOperationAsync(expectedWorkspace, operation, cancellationToken).ConfigureAwait(false)
+                    : await _protector.ProtectAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -113,7 +116,7 @@ public sealed class HistoryCheckoutService
 
         try
         {
-            await using var guard = await _restore.EnterFinalGuardAsync(cancellationToken).ConfigureAwait(false);
+            await using var guard = await _restore.EnterFinalGuardAsync(cancellationToken, operation).ConfigureAwait(false);
             await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await _restore.RequireExpectedWorkspaceAsync(protectedWorkspace, cancellationToken).ConfigureAwait(false);
             var authoritativeBindings = _reloadBindings is null ? currentConfigSources

@@ -50,6 +50,11 @@ public static class RestoreProtocolProbeHost
             await journals.RecoverIncompleteAsync(default);
             return;
         }
+        if (args[0] == "new")
+        {
+            await RunNewProtocolAsync(history, journals, root, args[3]);
+            return;
+        }
         var source = SourceId.New(); var transaction = HistoryTransactionId.New();
         var target = Path.Combine(root, "world"); Directory.CreateDirectory(target);
         File.WriteAllText(Path.Combine(target, "file.txt"), "original");
@@ -58,6 +63,7 @@ public static class RestoreProtocolProbeHost
         var desired = expected.WithSourceStates([new(source, VersionId.New(), WorkspaceBaselineRelation.Exact)]);
         await history.WorkspaceStore.SaveAsync(expected, -1);
         var location = HistoryRestoreWorkspacePlanner.Plan(transaction, [new(source, target)], [Path.Combine(root, "history")]).Single();
+        target = location.Target;
         var journal = new HistoryRestoreTransactionJournal(transaction, HistoryRestoreTransactionPhase.Preparing, expected, desired,
             [], [], [], [], ProtocolVersion: 2, Workspaces: [new(location, Guid.NewGuid().ToString("N"), null, [])]);
         journals.Save(journal);
@@ -99,7 +105,7 @@ public static class RestoreProtocolProbeHost
                 File.WriteAllText(Path.Combine(staging, "batch-" + i), "restored-" + i);
             }
         var members = HistoryRestoreFileSystemPlanStore.CaptureTree(location.Container).Concat(HistoryRestoreFileSystemPlanStore.CaptureTree(target))
-            .Append(new RestorePlanObject(root, WindowsRestoreFileSystem.Identity(root), File.GetAttributes(root))).ToArray();
+            .Append(new RestorePlanObject(Path.GetDirectoryName(location.Container)!, location.ParentIdentity, FileAttributes.Directory)).ToArray();
         var moves = new List<RestoreMoveAction>();
         var parent = location.ParentIdentity; var container = owned.Identity;
         if (args[3] is "swap" or "merge")
@@ -159,6 +165,49 @@ public static class RestoreProtocolProbeHost
         HistoryRestoreFileSystemPlanStore.Cleanup(plan, true, true);
         journals.Save(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
         HistoryRestoreFileSystemPlanStore.Reach("after-complete");
+    }
+    private static async Task RunNewProtocolAsync(HistoryRuntime history, HistoryRestoreTransactionJournalStore journals, string root, string strategy)
+    {
+        await using (var operation = await FolderRewind.Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(history.ConfigId, default))
+        {
+            var source = SourceId.New(); var target = Path.Combine(root, "world"); Directory.CreateDirectory(target);
+            File.WriteAllText(Path.Combine(target, "file.txt"), "original");
+            var expected = new HistoryWorkspace(history.ConfigId, 0, [new(source, null, WorkspaceBaselineRelation.Unknown)]);
+            await history.WorkspaceStore.SaveAsync(expected, -1);
+            using var session = new HistoryRestorePreparationSession(history, journals, expected, [new(source, target)], []);
+            var staging = session.CreateStaging(source);
+            File.WriteAllText(Path.Combine(staging, "file.txt"), "restored");
+            if (strategy == "abandon")
+            {
+                var next = expected.WithSourceStates([expected.GetSourceState(source) with { RequiresFullCapture = true }]);
+                await history.WorkspaceStore.SaveAsync(next, expected.StateRevision);
+                File.Copy(Path.Combine(history.Repository.Paths.LocalStateRoot, "workspace.json"), Path.Combine(root, "committed-workspace.json"));
+                HistoryRestoreFileSystemPlanStore.Reach("after-snapshot-before-rebind");
+                session.Abort();
+            }
+            else
+            {
+                var registration = session.Journal.Workspaces.Single(); var location = registration.Location;
+                var container = registration.ContainerIdentity!; target = location.Target;
+                var objects = HistoryRestoreFileSystemPlanStore.CaptureTree(location.Container).Concat(HistoryRestoreFileSystemPlanStore.CaptureTree(target))
+                    .Append(new RestorePlanObject(Path.GetDirectoryName(target)!, location.ParentIdentity, FileAttributes.Directory)).ToArray();
+                var plan = new HistoryRestoreFileSystemPlan(session.Journal.TransactionId, [location.Container], objects,
+                    [new(0, source, target, Path.Combine(location.Container, "rollback"), WindowsRestoreFileSystem.Identity(target), location.ParentIdentity, container),
+                     new(1, source, staging, target, WindowsRestoreFileSystem.Identity(staging), container, location.ParentIdentity)]);
+                var desired = expected.WithSourceStates([new(source, VersionId.New(), WorkspaceBaselineRelation.Exact)]);
+                var journal = session.Freeze(plan, expected, desired);
+                using (HistoryRestoreFileSystemPlanStore.Execute(plan, Path.Combine(journals.TransactionDirectory(journal.TransactionId), "restore-progress.bin"), default))
+                {
+                    HistoryRestoreFileSystemPlanStore.ValidatePublished(plan);
+                    HistoryRestoreFileSystemPlanStore.Reach("before-workspace");
+                    await journals.CompleteLocalStateAsync(journal, default);
+                    HistoryRestoreFileSystemPlanStore.Reach("after-workspace");
+                    journals.CompleteWithDeferredCleanup(journal, true);
+                    session.Finish();
+                }
+            }
+        }
+        await history.DrainRestoreCleanupAsync();
     }
     private static void ConfigureFault(string root, string point)
     {
