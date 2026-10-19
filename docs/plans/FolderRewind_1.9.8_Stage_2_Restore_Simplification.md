@@ -1,6 +1,6 @@
 # FolderRewind 1.9.8 阶段二：还原简化、兼容性与性能收敛
 
-状态：第二阶段实施中；自动化、硬件及性能验收均为 **待执行**。实施基线 `3bfc761`，分支 `codex/1.9.8-stage-2`。阶段一人工 UI 验收按用户要求本轮跳过，不计为通过，不阻止本阶段实施。
+状态：代码已实现，服务自动化及 x64 Debug 编译通过；性能对照实施中，真实 USB 等硬件验收待执行。新增用例初始均为待执行，实际结果持续回填至第 6 节。实施基线 `3bfc761`，分支 `codex/1.9.8-stage-2`。阶段一人工 UI 验收按用户要求本轮跳过，不计为通过，不阻止本阶段实施。
 
 ## 本轮复核与实施补充
 
@@ -124,6 +124,7 @@ flowchart LR
 
 - 允许配置根自身或祖先的常见 Junction/目录符号链接，解析结果必须是支持的本地 NTFS 目录。断链、循环、未知重解析类型及解析到网络卷明确拒绝。
 - 记录并保护链接入口、必要祖先与实际父目录绑定；准备和执行共用该绑定，发布前重新确认。操作实际物理目录，保留配置中的链接入口，不把 Junction 本身换成普通目录。
+- 内部 Core 保护快照显式接收准备结果的物理绑定；直接读取目标时使用该实际卷及目录，过滤仍使用逻辑入口。插件已提供稳定视图时继续使用其视图租约。快照前和固定执行计划前重新确认入口及对象；恢复重放只使用原事务位置。
 - 保留配置路径、Source 身份与插件领域上下文中的逻辑信息。物理目录名不能替代游戏世界身份，不能为文件操作方便而改写历史描述或 KnotLink 的世界选择。
 - 在实际物理父目录同卷创建准备容器；DirectorySwap 操作最终目录，FileDelta 操作其受管理路径。执行/恢复不能因逻辑盘符或别名变化写到另一位置。
 - 应用、配置、History 和备份存储的保护关系按物理身份及祖先关系比较，支持 LocalState 等正常重定向。不同逻辑盘符不是跳过比较的依据。
@@ -231,10 +232,13 @@ if ($LASTEXITCODE) { throw 'WinUI build failed.' }
 | 输入验证/容量 | 验证、Quick 与目标卷组合 25 项通过；容量及旧版本兼容 64 项通过，包含同卷累计不足时零提取、准备落盘后释放预留 | `input-capacity`、`capacity-legacy-final` |
 | 旧协议补充修正 | 旧覆盖路径切换为卷 GUID 后，嵌套路径需使用本机分隔符；真实 1.8.2 Smart 恢复检出并修正，补充成功结果断言 | `legacy-diagnostic`、`capacity-legacy-final` |
 | 输入/容量编译 | x64 Debug solution 通过；既有 MSTEST0037 警告 | `artifacts/1.9.8/stage-2/input-build.log` |
-| 内部快照真实接线 | 无窗口 Host 共 19 个场景通过：Full/Smart/Rolling × 两档备份验证 × 缓存存在/缺失 12 项；额外根重定向 1 项；Checkout 3 项；白名单/明确保留 2 项；多 Source 1 项。快照导出字节与同大小同时间戳的真实修改一致，旧载荷摘要不变 | `artifacts/1.9.8/stage-2/host-acceptance-03/host-stage2.json` |
+| 内部快照真实接线 | 最终无窗口 Host 21 个场景通过：Full/Smart/Rolling × 两档备份验证 × 缓存存在/缺失 12 项；额外根重定向 1 项；Checkout 4 项（含同版本零移动）；白名单/明确保留 2 项；多 Source 1 项；实际位置读取与逻辑绝对过滤 1 项。快照导出字节与同大小同时间戳的真实修改一致，旧载荷摘要不变 | `artifacts/1.9.8/stage-2/host-acceptance-bound-final/host-stage2.json` |
 | 真实 Host 检出的额外缺陷 | 同秒创建 Full/Smart 会撞旧载荷名称，受保护输入锁使快照创建失败；复用 Rolling 的重名处理。第一次真实验收失败保留。第二次因测试误解白名单“仅保留备份中缺失文件”的原语义而失败，修正测试后通过，未改变白名单语义 | `host-acceptance-01/failure.txt`、`host-acceptance-02/failure.txt` |
-| 比较/恢复证据 | Checkout/Quick 等原有组合 19 项通过；新增证据/结构退役/修复重定向组合 18 项通过；最终全量及探针待执行 | `unified-flow`、`evidence` |
-| 统一编排、性能最终验收 | 待执行 | 后续补充 |
+| 比较/恢复证据 | Checkout/Quick 原有组合 19 项通过；证据/结构退役/修复重定向组合 18 项通过；最后补充元数据差异优先于打开占用文件，比较/Quick 18 项通过；真实循环与断链 Junction 2 项通过 | `unified-flow`、`evidence`、`metadata-first-comparison`、`disconnected-bindings` |
+| 清理补充修正 | 全量复现旧后端清理目录项 pending 阻塞；新增保留读取句柄的最小反例先失败，采用 POSIX 句柄删除后清理/只读硬链接/Merge 35 项通过。ACL 测试夹具恢复曾错误请求 SACL 权限，改为仅恢复 DACL；真实访问故障交接维护及重试通过 | `core-release-final`、`delete-pending-reproducer`、`cleanup-posix-final`、`maintenance-acl-retry` |
+| 最终服务验证 | Host 核心全量 1,324 通过、5 个显式性能入口未启用而跳过；之后新增循环/断链 2 项单独通过。Runtime 176 通过；公开契约 15 通过；x64 Debug solution 编译通过（仅既有 MSTEST0037）；MSI 无窗口工具编译 0 警告 0 错误 | `core-complete-final`、`runtime-final`、`contracts-final`、`final-solution-build.log`、`final-host-build.log` |
+| 新协议最终回归 | 新旧准备、维护及进程终止组合 96 项通过；其中新版真实强杀 13 个持久化窗口，每项恢复两次。最终全量包含这些用例 | `protocol-final-guard`、`core-complete-final` |
+| 性能最终验收 | 待执行；候选与 `3bfc761` 使用相同工具、同卷输入和五次采样，分别报告文件可用及清理后总成本 | 后续补充 |
 | UI、真实 USB 断连 | UI 按要求本轮跳过；真实 USB 待硬件验收 | 不计为通过 |
 
 若实现发现无法满足上述边界，应记录具体不成立的保证并修订方案；不得以全树复制、全局拒绝特殊对象或静默关闭校验代替本阶段目标。

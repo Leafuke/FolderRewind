@@ -78,7 +78,17 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
             if (journal is not null && HistoryRestorePreparationSession.OwnsPreparing(journal, root)) continue;
             if (journal is null || journal.Phase != HistoryRestoreTransactionPhase.Complete)
                 throw new InvalidOperationException($"Transaction {journal?.TransactionId} phase {journal?.Phase} ({path}) requires recovery before further mutations or GC.");
+            ValidateJournalEnvelope(journal, path);
         }
+    }
+
+    private static void ValidateJournalEnvelope(HistoryRestoreTransactionJournal? journal, string path)
+    {
+        if (journal is null || journal.ExpectedWorkspace is null || journal.DesiredWorkspace is null
+            || string.IsNullOrWhiteSpace(journal.ExpectedWorkspace.ConfigId.Value)
+            || journal.ExpectedWorkspace.ConfigId != journal.DesiredWorkspace.ConfigId
+            || !Path.GetFileName(Path.GetDirectoryName(path)!).Equals(journal.TransactionId.ToString(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Restore journal identity or state evidence is invalid; preserve transaction data.");
     }
 
     public void Save(HistoryRestoreTransactionJournal journal)
@@ -107,6 +117,8 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
             var journal = JsonSerializer.Deserialize<HistoryRestoreTransactionJournal>(
                 await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false),
                 JsonOptions) ?? throw new InvalidDataException($"Restore journal '{path}' is empty.");
+            ValidateJournalEnvelope(journal, path);
+            if (journal.ExpectedWorkspace.ConfigId != _runtime.ConfigId) throw new InvalidDataException("Restore journal belongs to another configuration.");
             if (journal.ProtocolVersion is not (1 or 2)) throw new InvalidDataException("Unsupported restore journal protocol; preserve transaction data.");
             if (!Enum.IsDefined(journal.Phase)) throw new InvalidDataException("Unknown restore journal phase; preserve transaction data.");
             if (journal.ProtocolVersion == 1 && journal.Phase > HistoryRestoreTransactionPhase.Complete) throw new InvalidDataException("Invalid legacy restore journal phase.");
@@ -257,7 +269,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
                 foreach (var name in new[] { "rollback", "rollback-items" })
                 {
                     var rollback = Path.Combine(registration.Location.Container, name);
-                    if (Path.Exists(rollback) && ((File.GetAttributes(rollback) & FileAttributes.ReparsePoint) != 0
+                    if (Path.Exists(rollback) && (name == "rollback" || (File.GetAttributes(rollback) & FileAttributes.ReparsePoint) != 0
                         || Directory.Exists(rollback) && Directory.EnumerateFileSystemEntries(rollback).Any()))
                         throw new InvalidDataException("Preparing container contains rollback evidence; preserve transaction data.");
                 }

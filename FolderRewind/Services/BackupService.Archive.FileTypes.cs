@@ -33,7 +33,8 @@ namespace FolderRewind.Services
             FilterSettings? filters = null,
             string? password = null,
             BackupTask? taskToUpdate = null,
-            BackupSourceScope? selection = null)
+            BackupSourceScope? selection = null,
+            string? originalSourcePath = null)
         {
             if (!settings.FileTypeHandlingEnabled || settings.FileTypeRules == null || settings.FileTypeRules.Count == 0)
                 return true;
@@ -116,6 +117,7 @@ namespace FolderRewind.Services
                             matchedWhitelistFiles = EnumerateBackupRelativeFiles(
                                     sourceDir,
                                     filters,
+                                    originalSourcePath,
                                     selection: selection)
                                 .Where(relPath => MatchesAnyFileTypePattern(relPath, patternMatchers))
                                 .ToList();
@@ -158,6 +160,7 @@ namespace FolderRewind.Services
                             {
                                 var trimmedRule = rule.Trim();
                                 if (trimmedRule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase)) continue;
+                                if (Path.IsPathRooted(trimmedRule)) trimmedRule = Path.GetRelativePath(originalSourcePath ?? sourceDir, trimmedRule);
                                 sb.Append($" -xr!\"{trimmedRule}\"");
                             }
                         }

@@ -54,6 +54,7 @@ public sealed class HistoryRestoreProtocolCrashTests
 
     [TestMethod]
     [DataRow("execute", "before-container")]
+    [DataRow("execute", "after-container-before-register")]
     [DataRow("execute", "after-container-register")]
     [DataRow("execute", "after-plan-before-prepared")]
     [DataRow("execute", "after-prepared")]
@@ -76,7 +77,7 @@ public sealed class HistoryRestoreProtocolCrashTests
             for (int repeat = 0; repeat < 2; repeat++) await RunRecoveryProbeAsync(probe, root, point, strategy, repeat);
             bool committed = point is "after-workspace" or "after-cleanup-record-before-complete" or "after-cleanup-handoff" or "before-cleanup" or "after-cleanup-object";
             Assert.AreEqual(committed ? "restored" : "original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
-            Assert.IsEmpty(Directory.GetDirectories(root, ".folderrewind-restore-*"));
+            Assert.HasCount(point == "after-container-before-register" ? 1 : 0, Directory.GetDirectories(root, ".folderrewind-restore-*"));
             if (strategy == "abandon") CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "committed-workspace.json")),
                 File.ReadAllBytes(Path.Combine(root, "history", "local-state", "workspace.json")));
         }

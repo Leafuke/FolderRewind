@@ -11,6 +11,56 @@ namespace FolderRewind.Tests;
 public sealed class HistoryRestoreMaintenanceTests
 {
     [TestMethod]
+    public async Task InaccessibleOwnedPreparationBecomesMaintenanceAndCanBeRetried()
+    {
+        if (!OperatingSystem.IsWindows()) { Assert.Inconclusive("NTFS ACL requires Windows."); return; }
+        await using var f = new HistoryMergeArchiveFixture(); await f.SeedAsync();
+        var store = new HistoryRestoreTransactionJournalStore(f.History, new FileSystemHistoryRestoreMutationBackend());
+        string container;
+        using (var session = new HistoryRestorePreparationSession(f.History, store, f.Before, [new(f.Source, f.Target)], []))
+        {
+            File.WriteAllText(Path.Combine(session.CreateStaging(f.Source), "partial"), "owned");
+            container = session.Journal.Workspaces.Single().Location.Container;
+            session.Finish();
+        }
+        var directory = new DirectoryInfo(container);
+        var original = System.IO.FileSystemAclExtensions.GetAccessControl(directory);
+        var saved = original.GetSecurityDescriptorSddlForm(System.Security.AccessControl.AccessControlSections.Access);
+        using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+        var user = identity.User!;
+        try
+        {
+            original.AddAccessRule(new(user, System.Security.AccessControl.FileSystemRights.ListDirectory,
+                System.Security.AccessControl.AccessControlType.Deny));
+            System.IO.FileSystemAclExtensions.SetAccessControl(directory, original);
+            await store.RecoverIncompleteAsync(default); await f.History.DrainRestoreCleanupAsync();
+            HistoryRestoreTransactionJournalStore.RequireRecovered(f.History.Repository.Paths.TransactionsRoot);
+            Assert.IsTrue(Directory.Exists(container));
+            Assert.IsNotNull(f.History.MaintenanceDiagnostic);
+            Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+        }
+        finally
+        {
+            var restored = new System.Security.AccessControl.DirectorySecurity();
+            restored.SetSecurityDescriptorSddlForm(saved, System.Security.AccessControl.AccessControlSections.Access);
+            System.IO.FileSystemAclExtensions.SetAccessControl(directory, restored);
+        }
+        f.History.ScheduleRestoreCleanup(); await f.History.DrainRestoreCleanupAsync();
+        Assert.IsFalse(Directory.Exists(container));
+    }
+
+    [TestMethod]
+    public async Task LiveExecutionRejectsChangedLogicalMappingEvenWhenRecordedPhysicalObjectsRemain()
+    {
+        await using var f = new HistoryMergeArchiveFixture(); await f.SeedAsync();
+        var location = HistoryRestoreWorkspacePlanner.Plan(HistoryTransactionId.New(), [new(f.Source, f.Target)], []).Single();
+        HistoryRestoreWorkspacePlanner.ValidateBinding(location);
+        Assert.Throws<IOException>(() => HistoryRestoreWorkspacePlanner.ValidateBinding(location with { LogicalTarget = f.OtherTarget }));
+        Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+        Assert.AreEqual("untouched", File.ReadAllText(Path.Combine(f.OtherTarget, "keep.txt")));
+    }
+
+    [TestMethod]
     public async Task NewPreparationDoesNotPersistWorkspaceAndCanBeAbandonedAfterWorkspaceChanges()
     {
         var root = Path.Combine(Path.GetTempPath(), "fr-preparation-record-" + Guid.NewGuid().ToString("N"));
@@ -43,6 +93,54 @@ public sealed class HistoryRestoreMaintenanceTests
             Assert.IsEmpty(Directory.GetDirectories(root, ".folderrewind-restore-*"));
         }
         finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    [DataRow("rollback", false, true)]
+    [DataRow("rollback-items", true, true)]
+    [DataRow("rollback-items", false, false)]
+    public async Task PreparationNeverDiscardsAnOriginalRootEvenWhenItsDirectoryIsEmpty(string name, bool hasFile, bool blocks)
+    {
+        await using var f = new HistoryMergeArchiveFixture(); await f.SeedAsync();
+        var store = new HistoryRestoreTransactionJournalStore(f.History, new FileSystemHistoryRestoreMutationBackend());
+        string container;
+        using (var session = new HistoryRestorePreparationSession(f.History, store, f.Before, [new(f.Source, f.Target)], []))
+        {
+            session.CreateStaging(f.Source); container = session.Journal.Workspaces.Single().Location.Container;
+            var rollback = Path.Combine(container, name); Directory.CreateDirectory(rollback);
+            if (hasFile) File.WriteAllText(Path.Combine(rollback, "original"), "must remain");
+            session.Finish();
+        }
+        if (blocks)
+        {
+            Assert.Throws<InvalidDataException>(() => HistoryRestoreTransactionJournalStore.RequireRecovered(f.History.Repository.Paths.TransactionsRoot));
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.RecoverIncompleteAsync(default));
+            Assert.IsTrue(Directory.Exists(Path.Combine(container, name)));
+        }
+        else
+        {
+            await store.RecoverIncompleteAsync(default); await f.History.DrainRestoreCleanupAsync();
+            Assert.IsFalse(Directory.Exists(container));
+        }
+        Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+    }
+
+    [TestMethod]
+    public async Task DamagedCompleteEnvelopeCannotBypassMutationGateOrHideReadableHistory()
+    {
+        await using var f = new HistoryMergeArchiveFixture(); await f.SeedAsync();
+        var result = await f.Restore(targetVolume: true).RestoreVersionAsync(f.Ours.NewVersions.Single().VersionId,
+            new(f.Source, f.Target), f.Before, HistoryRestoreApplyMode.Clean);
+        Assert.IsTrue(result.Succeeded, result.Diagnostic);
+        await f.History.DrainRestoreCleanupAsync();
+        var path = Directory.GetFiles(f.History.Repository.Paths.TransactionsRoot, "restore-journal.json", SearchOption.AllDirectories)
+            .Single(p => System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(p))!["protocolVersion"]?.GetValue<int>() == 2);
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllBytes(path))!;
+        json["expectedWorkspace"] = null; File.WriteAllText(path, json.ToJsonString());
+        await f.History.RefreshLocalStateHealthAsync();
+        Assert.IsTrue(f.History.Issues.Any(i => i.Kind == HistoryRuntimeIssueKind.Transaction && i.BlocksMutation));
+        Assert.Throws<InvalidDataException>(() => HistoryRestoreTransactionJournalStore.RequireRecovered(f.History.Repository.Paths.TransactionsRoot));
+        Assert.IsNotEmpty(await f.History.Query.GetAllVersionsAsync());
     }
 
     [TestMethod]

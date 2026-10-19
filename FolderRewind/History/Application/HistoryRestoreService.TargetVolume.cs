@@ -29,7 +29,9 @@ public sealed partial class HistoryRestoreService
         try
         {
             token.ThrowIfCancellationRequested();
-            var plan = HistoryRestoreMutationPlanner.Build(session, prepared, AllowDirectorySwap);
+            var plan = HistoryRestoreMutationPlanner.Build(session, prepared, AllowDirectorySwap && !HoldCurrentReadProtection,
+                HoldCurrentReadProtection, UnchangedTargetSources);
+            ValidateCurrentInputs?.Invoke();
             journal = session.Freeze(plan, expected, desired);
             using (HistoryRestoreFileSystemPlanStore.Execute(plan,
                 Path.Combine(_journals.TransactionDirectory(journal.TransactionId), "restore-progress.bin"), token))

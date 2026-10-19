@@ -7161,4 +7161,14 @@ Pull Request：{1}</value>
   <data name="History_Repair_Completed" xml:space="preserve"><value>本机工作状态已重建。下一次备份需要完整捕获；其他故障仍需分别处理。</value></data>
   <data name="History_Repair_AlreadyHealthy" xml:space="preserve"><value>工作状态已经有效，已重新检查，没有重建。</value></data>
   <data name="History_Recovery_UnsupportedFormat" xml:space="preserve"><value>本机状态格式不兼容，请使用支持该格式的版本；不能通过修复降级。</value></data>
+  <data name="Restore_CoordinatorPostActionFailed" xml:space="preserve">
+    <value>文件处理结果已保留，后续联动未完成：{0}</value>
+  </data>
+  <data name="Restore_CoordinatorPostActionWarning" xml:space="preserve">
+    <value>游戏协调器报告了警告。</value>
+  </data>
+  <data name="Restore_MaintenanceIncomplete" xml:space="preserve">
+    <value>文件处理结果已保留，维护尚未完成：{0}</value>
+  </data>
+  <data name="Restore_ConfigurationChanged" xml:space="preserve"><value>配置在本次操作期间发生变化。</value></data>
 </root>

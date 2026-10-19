@@ -3,6 +3,7 @@ using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Application;
+using FolderRewind.History.Storage;
 using FolderRewind.Services.KnotLink;
 using FolderRewind.Services.Plugins.V3;
 using FolderRewind.Plugin.Abstractions;
@@ -184,13 +185,17 @@ namespace FolderRewind.Services
             SafetySnapshotReason reason,
             CancellationToken cancellationToken = default,
             NativeHistoryConfigurationOperationGate.Lease? existingOperation = null,
-            System.Collections.Generic.IReadOnlyCollection<SourceId>? affectedSources = null)
+            System.Collections.Generic.IReadOnlyCollection<SourceId>? affectedSources = null,
+            System.Collections.Generic.IReadOnlyList<HistoryRestoreSourceBinding>? physicalBindings = null)
         {
             ArgumentNullException.ThrowIfNull(config);
-            var options = BackupInvocationOptions.ForSafetySnapshot();
+            var options = BackupInvocationOptions.ForSafetySnapshot(physicalBindings);
+            var sources = config.SourceFolders.Where(f => affectedSources is null || affectedSources.Contains(new SourceId(Guid.Parse(f.Id)))).ToArray();
+            if (options.PhysicalSourceBindings is { } bindings && sources.Any(f => !bindings.ContainsKey(new SourceId(Guid.Parse(f.Id)))))
+                throw new InvalidOperationException("Safety snapshot requires a physical binding for every affected Source.");
             var result = await ExecuteBackupTransactionAsync(
                 config,
-                config.SourceFolders.Where(f => affectedSources is null || affectedSources.Contains(new SourceId(Guid.Parse(f.Id)))).ToArray(),
+                sources,
                 options,
                 HistoryCommitIntent.IndependentRecoveryPoint,
                 new HistorySafetySnapshotIntent(reason),
@@ -482,6 +487,18 @@ namespace FolderRewind.Services
             }
 
             string sourcePath = v3Session.SourcePath;
+            var physicalBinding = invocationOptions.PhysicalSourceBindings?.GetValueOrDefault(new SourceId(Guid.Parse(folder.Id)));
+            using var physicalSource = physicalBinding is not null && !NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig)
+                ? new WindowsPhysicalDirectoryLease(physicalBinding.TargetDirectory) : null;
+            if (physicalSource is not null)
+            {
+                if (!StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(runtimeFolder.Path), Path.GetFullPath(physicalBinding!.ComparisonRoot))
+                    || physicalBinding.Boundary.Fingerprint != effectiveBoundary.Fingerprint
+                    || !StringComparer.OrdinalIgnoreCase.Equals(HistoryRestoreWorkspacePlanner.ResolvePath(runtimeFolder.Path), physicalSource.PhysicalPath))
+                    throw new IOException("Safety snapshot Source binding changed during restore preparation.");
+                // 插件提供的稳定视图仍由其租约负责；直接读取目标时使用同一实际卷及目录。
+                if (!v3Session.HasStableSourceView) sourcePath = physicalSource.PhysicalPath;
+            }
             if (!string.Equals(sourcePath, folder.Path, StringComparison.OrdinalIgnoreCase))
             {
                 var overridePathFailure = await RejectOverlappingPathAsync(sourcePath);
@@ -670,7 +687,8 @@ namespace FolderRewind.Services
                     var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                     var cacheRevision = (await history.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false))?.Revision ?? -1;
                     captureResult = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, null,
-                        folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task).ConfigureAwait(false);
+                        folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task,
+                        originalSourcePath: physicalBinding?.ComparisonRoot).ConfigureAwait(false);
                     if (captureResult.BaselineCandidate is { } fullStats)
                         captureResult = captureResult.WithBaselineCandidate(fullStats with { ExpectedRevision = cacheRevision });
                     success = captureResult.Success;

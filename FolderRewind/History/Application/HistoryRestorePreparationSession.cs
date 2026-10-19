@@ -59,6 +59,11 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         var location = Journal.Workspaces.Single(w => w.Location.SourceId == source.SourceId).Location;
         return source with { TargetDirectory = location.Target, LogicalDirectory = source.ComparisonRoot };
     }
+    internal void ValidateBindings()
+    {
+        foreach (var workspace in Journal.Workspaces)
+            HistoryRestoreWorkspacePlanner.ValidateBinding(workspace.Location);
+    }
     internal static bool OwnsPreparing(HistoryRestoreTransactionJournal journal, string root) => Active.Value is { } active
         && active.Journal.TransactionId == journal.TransactionId && journal.ProtocolVersion == 2
         && journal.Phase == HistoryRestoreTransactionPhase.Preparing

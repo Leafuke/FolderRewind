@@ -163,7 +163,8 @@ internal static class WindowsRestoreFileSystem
         try
         {
             // 只删除目录项，不改变范围外硬链接共享的 ReadOnly 或 ACL。
-            Marshal.WriteInt32(disposition, 0x11); // DELETE | IGNORE_READONLY_ATTRIBUTE
+            // 立即解除已确认归属的目录项，避免其他允许删除的读取句柄留下 pending 名称阻塞父目录清理。
+            Marshal.WriteInt32(disposition, 0x13); // DELETE | POSIX_SEMANTICS | IGNORE_READONLY_ATTRIBUTE
             if (!SetFileInformationByHandle(handle, 21, disposition, 4))
             {
                 if ((Attributes(handle) & FileAttributes.ReadOnly) != 0) throw Error("Owned readonly cleanup requires maintenance.");

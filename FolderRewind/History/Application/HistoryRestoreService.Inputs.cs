@@ -1,5 +1,6 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
+using FolderRewind.History.Storage;
 using FolderRewind.Plugin.Runtime.Artifacts;
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,30 @@ namespace FolderRewind.History.Application;
 public sealed partial class HistoryRestoreService
 {
     internal ArtifactSpaceBudget SpaceBudget { get; init; } = ArtifactSpaceBudget.Shared;
+    private IDisposable EnterCurrentInputScope(IEnumerable<HistoryRestoreSourceBinding> bindings) => new CurrentInputScope(this, bindings);
+    private sealed class CurrentInputScope : IDisposable
+    {
+        private readonly HistoryRestoreService _restore;
+        private readonly List<HistoryWorkingTreeReadLease> _leases = [];
+        private readonly bool _previousProtection;
+        private readonly Action? _previousValidation;
+        internal CurrentInputScope(HistoryRestoreService restore, IEnumerable<HistoryRestoreSourceBinding> bindings)
+        {
+            _restore = restore; _previousProtection = restore.HoldCurrentReadProtection; _previousValidation = restore.ValidateCurrentInputs;
+            try
+            {
+                foreach (var binding in bindings) _leases.Add(new(binding));
+                restore.HoldCurrentReadProtection = true;
+                restore.ValidateCurrentInputs = () => { _previousValidation?.Invoke(); foreach (var lease in _leases) lease.Validate(); };
+            }
+            catch { Dispose(); throw; }
+        }
+        public void Dispose()
+        {
+            _restore.HoldCurrentReadProtection = _previousProtection; _restore.ValidateCurrentInputs = _previousValidation;
+            foreach (var lease in _leases) lease.Dispose(); _leases.Clear();
+        }
+    }
     internal IDisposable? EnterInputScope()
     {
         if (VerificationContext is not null) return null;

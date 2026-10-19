@@ -12,9 +12,11 @@ namespace FolderRewind.History.Application;
 internal static class HistoryRestoreMutationPlanner
 {
     internal static HistoryRestoreFileSystemPlan Build(HistoryRestorePreparationSession session,
-        IReadOnlyList<HistoryRestoreService.PreparedRestoreSource> sources, bool allowDirectorySwap)
+        IReadOnlyList<HistoryRestoreService.PreparedRestoreSource> sources, bool allowDirectorySwap, bool protectCurrentFiles = false,
+        IReadOnlySet<SourceId>? unchangedTargets = null)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Restore mutation planning requires Windows NTFS.");
+        session.ValidateBindings();
         var objects = new Dictionary<string, RestorePlanObject>(StringComparer.OrdinalIgnoreCase);
         var actions = new List<RestoreMoveAction>();
         var evidence = new List<RestoreSourcePlanEvidence>();
@@ -27,6 +29,20 @@ internal static class HistoryRestoreMutationPlanner
                 || WindowsRestoreFileSystem.TryIdentity(target) != location.TargetIdentity)
                 throw new IOException("Restore target binding changed during preparation.");
             var boundary = source.Binding.Boundary;
+            if (unchangedTargets?.Contains(source.Binding.SourceId) == true)
+            {
+                // 一致证据仍被持有时，同一版本只需提交分支状态，无需替换相同文件。
+                var entries = new HistoryRestoreTreeScope(source.Binding).Enumerate(target, includeExcluded: true).ToArray();
+                foreach (var entry in entries.Where(e => e.Managed)) AddPath(entry.FullPath);
+                AddPath(target);
+                foreach (var item in HistoryRestoreFileSystemPlanStore.CaptureTree(location.Container)) Add(item);
+                evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
+                    entries.Where(e => e.Managed && !e.Directory).Select(e => e.RelativePath).ToArray(),
+                    entries.Where(e => e.Managed && e.Directory && !entries.Any(c => Under(c.RelativePath, e.RelativePath)))
+                        .Select(e => e.RelativePath).ToArray(), source.Binding.ComparisonRoot));
+                Services.HistoryOperationDiagnostics.Current?.Count("unchanged-target-sources");
+                continue;
+            }
             bool physicalAll = boundary.ScopeMode == EffectiveBoundaryScopeMode.All
                 && boundary.FilterMode == EffectiveBoundaryFilterMode.Blacklist && boundary.FilterRules.IsEmpty;
             bool swap = allowDirectorySwap && source.ApplyMode == HistoryRestoreApplyMode.Clean && physicalAll
@@ -178,6 +194,12 @@ internal static class HistoryRestoreMutationPlanner
 
             void Retire(string relative, bool directory, bool empty = false)
             {
+                if (directory && !empty && protectCurrentFiles)
+                {
+                    foreach (var child in current.Where(p => Under(p.Key, relative)).OrderByDescending(p => p.Key.Length))
+                        Retire(child.Key, child.Value, empty: child.Value);
+                    empty = true;
+                }
                 var from = Path.Combine(target, relative.Replace('/', Path.DirectorySeparatorChar));
                 var parent = Path.GetDirectoryName(from)!;
                 var identity = WindowsRestoreFileSystem.Identity(from);

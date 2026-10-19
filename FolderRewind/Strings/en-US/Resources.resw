@@ -7161,4 +7161,14 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="History_Repair_Completed" xml:space="preserve"><value>Local working state was rebuilt. The next backup requires a full capture. Other issues still need separate attention.</value></data>
   <data name="History_Repair_AlreadyHealthy" xml:space="preserve"><value>Working state is already valid. It was checked without rebuilding.</value></data>
   <data name="History_Recovery_UnsupportedFormat" xml:space="preserve"><value>The local state format is incompatible. Use a version that supports it; repair cannot downgrade this state.</value></data>
+  <data name="Restore_CoordinatorPostActionFailed" xml:space="preserve">
+    <value>File result retained. Follow-up action failed: {0}</value>
+  </data>
+  <data name="Restore_CoordinatorPostActionWarning" xml:space="preserve">
+    <value>The game coordinator reported a warning.</value>
+  </data>
+  <data name="Restore_MaintenanceIncomplete" xml:space="preserve">
+    <value>File result retained. Maintenance is incomplete: {0}</value>
+  </data>
+  <data name="Restore_ConfigurationChanged" xml:space="preserve"><value>The configuration changed during this operation.</value></data>
 </root>

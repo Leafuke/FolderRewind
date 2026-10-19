@@ -24,7 +24,7 @@ namespace FolderRewind.Services
         /// SkipIfUnchanged 短路需同时满足两个前提：确无变更，且缓存引用的上个归档文件仍然存在
         /// （防止基于已被手动删除的 payload 判定"无变化"）。FileTypeRules 追加压缩失败只记警告。
         /// </remarks>
-        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null, string? originalSourcePath = null)
         {
             if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
             {
@@ -33,7 +33,7 @@ namespace FolderRewind.Services
                     captureScope,
                     "Partial capture requires an Exact parent patch and cannot be represented by CoreFull.");
             }
-            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            var currentStates = ScanDirectory(source, config.Filters, originalSourcePath, selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
                 return SourceCaptureResult.Unavailable(sourceId, captureScope);
@@ -65,12 +65,12 @@ namespace FolderRewind.Services
             using var outputSpace = Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(destDir,
                 checked(inputBytes + currentStates.Count * 4096L + Math.Max(8L * 1024 * 1024, inputBytes / 20))));
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection, originalSourcePath: originalSourcePath);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate, selection);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate, selection, originalSourcePath);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);

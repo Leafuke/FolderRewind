@@ -85,26 +85,26 @@ internal static partial class NativeHistoryApplicationService
         if (selections.Count == 0) return Blocked("Restore selection is empty.");
         var folders = config.SourceFolders.Where(f => selections.ContainsKey(Source(f))).ToArray();
         if (folders.Length != selections.Count) return Blocked("Restore requires current bindings for every selected Source.");
+        PreflightRestoreLocations(config, await BindingsAsync(config, folders, token).ConfigureAwait(false));
         var revision = config.ConfigRevision;
+        var signature = NativeHistoryConfigLease.Signature(config);
         return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(config, folders, "batch-restore",
             async cancellation =>
             {
-                if (config.ConfigRevision != revision) return Blocked("Configuration changed before batch restore.");
+                if (config.ConfigRevision != revision || NativeHistoryConfigLease.Signature(config) != signature) return Blocked("Configuration changed before batch restore.");
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellation).ConfigureAwait(false);
                 using var verification = new ArchiveRestoreVerificationContext(config.Archive.RestorePreflightMode);
+                await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, cancellation).ConfigureAwait(false);
+                if (NativeHistoryConfigLease.Signature(config) != signature) return Blocked("Configuration changed before batch restore.");
+                var restore = CreateRestoreService(config, runtime, ordinaryRestore: true, expectedSignature: signature, verificationContext: verification);
+                restore.ExistingOperation = operation;
+                await restore.RecoverInsideConfigurationAsync(operation, cancellation).ConfigureAwait(false);
                 var workspace = await RequireWorkspaceAsync(runtime, cancellation).ConfigureAwait(false);
                 var bindings = await BindingsAsync(config, folders, cancellation).ConfigureAwait(false);
-                if (config.Archive.BackupBeforeRestore)
-                {
-                    var protection = await ProtectBeforeRestoreAsync(config, runtime, selections.Keys.ToArray(), cancellation).ConfigureAwait(false);
-                    if (protection.Result is not null) return protection.Result;
-                    workspace = protection.Workspace!;
-                }
-                var result = await CreateRestoreService(config, runtime, ordinaryRestore: true, verificationContext: verification).RestoreVersionsAsync(
+                ConfigureRestoreProtection(restore, config, runtime, selections.Keys.ToArray(), config.Archive.BackupBeforeRestore);
+                var result = await restore.RestoreVersionsAsync(
                     selections, bindings, workspace, MapRestoreMode(mode), cancellation).ConfigureAwait(false);
-                if (result.Succeeded)
-                    await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, result.AppliedSources, cancellation).ConfigureAwait(false);
-                return result;
+                return await FinishRestoreMaintenanceAsync(config, runtime, result, operation, signature, cancellation).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
     }
 }

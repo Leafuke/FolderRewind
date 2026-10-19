@@ -127,7 +127,7 @@ internal static class NativeArtifactHostService
             history.CloudJobs.Read().Jobs.Where(j => j.Protection != History.Cloud.CloudProtectionDisposition.Held).Select(j => j.JobId), token).ConfigureAwait(false);
     }
     internal static NativeArtifactStore Store(BackupConfig config, IArtifactEnvelopeCodec? codec = null)
-        => new(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id), codec ?? new SevenZipHistoryArchiveBackend(config)
+        => new(HistoryRestoreWorkspacePlanner.ResolvePath(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id)), codec ?? new SevenZipHistoryArchiveBackend(config)
 #if NATIVE_ARTIFACT_ACCEPTANCE
             , Development.NativeArtifactAcceptance.Observe
 #endif

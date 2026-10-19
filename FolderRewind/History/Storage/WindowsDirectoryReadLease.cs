@@ -10,9 +10,9 @@ namespace FolderRewind.History.Storage;
 /// <summary>固定载荷路径祖先，防止读取租约期间通过替换父目录改变路径绑定。</summary>
 internal sealed class WindowsDirectoryReadLease : IDisposable
 {
-    internal static FileStream OpenPayload(string path)
+    internal static FileStream OpenPayload(string path, bool allowRename = false)
     {
-        var handle = CreateFileW(ExtendedPath(Path.GetFullPath(path)), 0x80000000, 1, IntPtr.Zero, 3, 0x40200000, IntPtr.Zero);
+        var handle = CreateFileW(ExtendedPath(Path.GetFullPath(path)), 0x80000000, allowRename ? 5u : 1u, IntPtr.Zero, 3, 0x40200000, IntPtr.Zero);
         try
         {
             if (handle.IsInvalid) throw new IOException("Cannot protect archive payload.", new Win32Exception(Marshal.GetLastWin32Error()));

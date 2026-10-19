@@ -27,6 +27,26 @@ public sealed class HistoryWorkspaceRepairTests
     }
 
     [TestMethod]
+    public async Task RepairThroughLocalStateDirectoryRedirectionPreservesLinkAndDamagedBytes()
+    {
+        var physical = Path.Combine(_root, "physical-state"); Directory.CreateDirectory(physical);
+        var alias = Path.Combine(_root, "LocalState");
+        Directory.CreateSymbolicLink(alias, physical);
+        var link = WindowsRestoreFileSystem.Identity(alias);
+        await using var history = new HistoryRuntime(new(new("redirected-state"), new(alias)));
+        await history.InitializeReadableAsync();
+        var path = Path.Combine(history.Repository.Paths.LocalStateRoot, "workspace.json");
+        File.WriteAllText(path, "redirected damaged state");
+        var source = SourceId.New(); var repair = new HistoryWorkspaceRepairService(history);
+        var preview = await repair.PreviewAsync([source], "config");
+        var result = await repair.RepairAsync(preview, [source], "config");
+        Assert.IsTrue(result.Rebuilt);
+        Assert.AreEqual("redirected damaged state", File.ReadAllText(result.PreservedPath!));
+        Assert.AreEqual(link, WindowsRestoreFileSystem.Identity(alias));
+        Assert.IsTrue(result.Workspace.GetSourceState(source).RequiresFullCapture);
+    }
+
+    [TestMethod]
     public async Task RepairPreservesBytesAndDoesNotRepairIndependentCatalogDamage()
     {
         File.WriteAllText(WorkspacePath, "original damaged state");

@@ -20,6 +20,7 @@ namespace FolderRewind.Services
         public bool RequestSemanticCheckpoint { get; init; }
         internal BackupConfigurationHandoff? ConfigurationHandoff { get; init; }
         internal bool ForceFullCapture { get; init; }
+        internal System.Collections.Generic.IReadOnlyDictionary<History.Domain.SourceId, History.Application.HistoryRestoreSourceBinding>? PhysicalSourceBindings { get; init; }
 
         public static BackupInvocationOptions Default { get; } = new();
 
@@ -53,10 +54,11 @@ namespace FolderRewind.Services
             Source = BackupInvocationSource.Internal,
             PreferApplicationConsistentSnapshot = false
         };
-        internal static BackupInvocationOptions ForSafetySnapshot() => new()
+        internal static BackupInvocationOptions ForSafetySnapshot(System.Collections.Generic.IReadOnlyList<History.Application.HistoryRestoreSourceBinding>? bindings = null) => new()
         {
             Source = BackupInvocationSource.Internal,
-            ForceFullCapture = true
+            ForceFullCapture = true,
+            PhysicalSourceBindings = bindings is null ? null : System.Linq.Enumerable.ToDictionary(bindings, b => b.SourceId)
         };
 
         public BackupInvocationOptions WithApplicationConsistentSnapshot(bool prefer = true) => new()
@@ -65,7 +67,7 @@ namespace FolderRewind.Services
             PreferApplicationConsistentSnapshot = prefer,
             Comment = Comment,
             Protect = Protect,
-            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
+            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture, PhysicalSourceBindings = PhysicalSourceBindings
         };
 
         public BackupInvocationOptions WithComment(string? comment) => new()
@@ -74,19 +76,19 @@ namespace FolderRewind.Services
             PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
             Comment = comment ?? string.Empty,
             Protect = Protect,
-            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
+            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture, PhysicalSourceBindings = PhysicalSourceBindings
         };
 
         public BackupInvocationOptions WithProtection(bool protect) => new()
         {
             Source = Source, PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
-            Comment = Comment, Protect = protect, RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
+            Comment = Comment, Protect = protect, RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture, PhysicalSourceBindings = PhysicalSourceBindings
         };
 
         public BackupInvocationOptions WithSemanticCheckpoint() => new()
         {
             Source = Source, PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
-            Comment = Comment, Protect = Protect, RequestSemanticCheckpoint = true, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
+            Comment = Comment, Protect = Protect, RequestSemanticCheckpoint = true, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture, PhysicalSourceBindings = PhysicalSourceBindings
         };
     }
 }

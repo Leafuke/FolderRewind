@@ -131,7 +131,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
 
             if (!gate.WasInvoked || mutationResult is null)
                 return Blocked("RestoreCoordinator did not invoke the supplied Host continuation.");
-            if (!mutationResult.TargetCommitted || mutationResult.Status == HistoryRestoreStatus.CommittedRecoveryRequired)
+            if (mutationResult.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired)
                 return mutationResult;
             if (coordinated.Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings)
             {
@@ -147,27 +147,16 @@ internal sealed class NativeHistoryRestoreOrchestrator
         }
         catch (Exception ex)
         {
-            if (mutationResult?.Status == HistoryRestoreStatus.CommittedRecoveryRequired) return mutationResult;
-            return mutationResult?.TargetCommitted == true
-                ? mutationResult with
-                {
-                    Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
-                    Diagnostic = $"Target mutation committed; coordinator post-action failed: {ex.Message}"
-                }
-                : mutationResult ?? Blocked(ex.Message);
+            if (mutationResult?.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired) return mutationResult;
+            return mutationResult?.WithPostActionWarning(I18n.Format("Restore_CoordinatorPostActionFailed", ex.Message)) ?? Blocked(ex.Message);
         }
     }
 
     private static HistoryRestoreResult WithPostActionWarning(
         HistoryRestoreResult committed,
         IReadOnlyList<PluginDiagnostic> diagnostics)
-        => committed with
-        {
-            Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
-            Diagnostic = diagnostics.Count == 0
-                ? "Target mutation committed; coordinator reported a post-action warning."
-                : string.Join("; ", diagnostics.Select(item => item.Code))
-        };
+        => committed.WithPostActionWarning(I18n.Format("Restore_CoordinatorPostActionFailed", diagnostics.Count == 0
+            ? I18n.GetString("Restore_CoordinatorPostActionWarning") : string.Join("; ", diagnostics.Select(item => item.Code))));
 
     private static HistoryRestoreResult Blocked(string diagnostic)
         => new(HistoryRestoreStatus.BlockedBeforeMutation, diagnostic, false, []);

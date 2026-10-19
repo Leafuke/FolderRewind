@@ -6,6 +6,23 @@ namespace FolderRewind.Tests;
 public sealed class WindowsRestoreFileSystemTests
 {
     [TestMethod]
+    public void CleanupRemovesOwnedNamesWhileOtherReadHandlesRemainUsable()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "fr-open-cleanup-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        var container = Path.Combine(root, "owned"); Directory.CreateDirectory(container);
+        var file = Path.Combine(container, "file"); File.WriteAllText(file, "original bytes");
+        try
+        {
+            using var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+            WindowsRestoreFileSystem.DeleteOwned(file, WindowsRestoreFileSystem.Identity(file));
+            Assert.IsEmpty(Directory.GetFileSystemEntries(container), "A pending name must not obstruct cleanup of its owned container.");
+            WindowsRestoreFileSystem.DeleteOwned(container, WindowsRestoreFileSystem.Identity(container));
+            Assert.IsEmpty(Directory.GetFileSystemEntries(root));
+            Assert.AreEqual((int)'o', input.ReadByte(), "The existing handle retains its original data.");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+    [TestMethod]
     public void CachedCleanupParentsBlockRenameAndRejectReplacementOrUnprotectedParent()
     {
         var root = Path.Combine(Path.GetTempPath(), "fr-cleanup-parents-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);

@@ -57,6 +57,13 @@ public sealed record HistoryRestoreResult(
     HistoryCheckoutPlan? CheckoutPlan = null,
     Merge.HistoryMergeDiagnostic? MergeDiagnostic = null)
 {
+    public string? PostActionDiagnostic { get; init; }
+    internal HistoryRestoreResult WithPostActionWarning(string diagnostic) => this with
+    {
+        Status = Status == HistoryRestoreStatus.Committed ? HistoryRestoreStatus.CommittedWithPostActionWarning : Status,
+        PostActionDiagnostic = diagnostic,
+        Diagnostic = string.IsNullOrEmpty(Diagnostic) ? diagnostic : Diagnostic + "; " + diagnostic
+    };
     public bool Succeeded => Status is HistoryRestoreStatus.Committed
         or HistoryRestoreStatus.CommittedWithPostActionWarning
         or HistoryRestoreStatus.NoChanges;
@@ -89,7 +96,8 @@ public interface IHistoryWorkingStateProbe
 internal interface IHistoryWorkingStateProtectorInsideOperation
 {
     Task<HistoryWorkspace> ProtectInsideOperationAsync(HistoryWorkspace expected,
-        Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token);
+        Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token,
+        IReadOnlyList<HistoryRestoreSourceBinding>? physicalBindings = null);
 }
 
 public interface IHistoryRestoreMutationBackend

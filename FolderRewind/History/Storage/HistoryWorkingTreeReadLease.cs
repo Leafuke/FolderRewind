@@ -19,36 +19,56 @@ internal sealed class HistoryWorkingTreeReadLease : IDisposable
     {
         _root = binding.TargetDirectory;
         _binding = binding;
-        if (!Directory.Exists(binding.TargetDirectory)) return;
-        _parents = new WindowsPhysicalDirectoryLease(binding.TargetDirectory);
+        try { _parents = new WindowsPhysicalDirectoryLease(binding.TargetDirectory); }
+        catch (FileNotFoundException) { return; }
+        catch (DirectoryNotFoundException) { return; }
         _root = _parents.PhysicalPath;
         _binding = binding with { TargetDirectory = _root, LogicalDirectory = binding.ComparisonRoot };
         try
         {
             _directories.Add(_root, _parents.Identity);
-            foreach (var entry in new HistoryRestoreTreeScope(_binding).Enumerate(_root))
+            WindowsDirectoryReadLease? parent = null;
+            string? parentPath = null;
+            try
             {
-                if (entry.Directory) { _directories.Add(entry.FullPath, WindowsRestoreFileSystem.Identity(entry.FullPath)); continue; }
-                var stream = new FileStream(entry.FullPath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
-                try { _files.Add(entry.FullPath, (WindowsRestoreFileSystem.Identity(stream.SafeFileHandle), stream)); }
-                catch { stream.Dispose(); throw; }
+                foreach (var entry in TrackedEntries())
+                {
+                    if (entry.Directory) { _directories.Add(entry.FullPath, WindowsRestoreFileSystem.Identity(entry.FullPath)); continue; }
+                    var directory = Path.GetDirectoryName(entry.FullPath)!;
+                    if (directory != parentPath)
+                    {
+                        parent?.Dispose(); parent = new WindowsDirectoryReadLease(entry.FullPath); parentPath = directory;
+                        if (!_directories.TryGetValue(directory, out var expected) || WindowsRestoreFileSystem.Identity(parent.PhysicalDirectory) != expected)
+                            throw new IOException("Managed file parent changed before protected read.");
+                    }
+                    var stream = WindowsDirectoryReadLease.OpenPayload(entry.FullPath, allowRename: true);
+                    try { _files.Add(entry.FullPath, (WindowsRestoreFileSystem.Identity(stream.SafeFileHandle), stream)); }
+                    catch { stream.Dispose(); throw; }
+                }
             }
+            finally { parent?.Dispose(); }
         }
         catch { Dispose(); throw; }
     }
     internal void Validate()
     {
         if (_disposed) return;
-        var entries = Directory.Exists(_root) ? new HistoryRestoreTreeScope(_binding).Enumerate(_root).ToArray() : [];
+        bool present = Directory.Exists(_root);
+        var entries = present ? TrackedEntries().ToArray() : [];
         var files = entries.Where(e => !e.Directory).Select(e => e.FullPath).ToArray();
         if (files.Length != _files.Count || files.Any(path => !_files.TryGetValue(path, out var known)
             || WindowsRestoreFileSystem.Identity(path) != known.Id))
             throw new IOException("Current files changed during Quick restore preparation.");
-        var directories = entries.Where(e => e.Directory).Select(e => e.FullPath).Prepend(_root).ToArray();
+        var directories = entries.Where(e => e.Directory).Select(e => e.FullPath).Concat(present ? [_root] : Array.Empty<string>()).ToArray();
         if (directories.Length != _directories.Count || directories.Any(path => !_directories.TryGetValue(path, out var known)
             || WindowsRestoreFileSystem.Identity(path) != known)) throw new IOException("Current directories changed during Quick restore preparation.");
     }
     internal string PhysicalRoot => _root;
+    private IEnumerable<RestoreTreeEntry> TrackedEntries()
+    {
+        var scope = new HistoryRestoreTreeScope(_binding);
+        return scope.Enumerate(_root, includeExcluded: true).Where(e => e.Managed || e.Directory && scope.MayDescend(e.RelativePath));
+    }
     internal FileStream GetStream(string relative)
     {
         var stream = _files[Path.Combine(_root, relative.Replace('/', Path.DirectorySeparatorChar))].Stream;

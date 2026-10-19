@@ -123,6 +123,7 @@ public sealed class RepresentationRuntime
         }
 
         var closure = BuildDependencyFirstClosure(representation, graph);
+        Services.HistoryOperationDiagnostics.Current?.Count("logical-materializations");
         Directory.CreateDirectory(stagingDirectory);
         await handler.MaterializeAsync(
             new RepresentationMaterializationContext(

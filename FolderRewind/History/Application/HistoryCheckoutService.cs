@@ -42,80 +42,63 @@ public sealed class HistoryCheckoutService
     {
         ArgumentNullException.ThrowIfNull(currentConfigSources);
         ArgumentNullException.ThrowIfNull(expectedWorkspace);
+        using var inputScope = _restore.EnterInputScope();
         await using var ownedOperation = _restore.ExistingOperation is null
             ? await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false) : null;
         var operation = _restore.ExistingOperation ?? ownedOperation!;
         await _restore.RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
-
         HistoryCheckoutPlan? plan = null;
+        var prepared = new List<HistoryRestoreService.PreparedRestoreSource>();
+        var evidence = new List<HistoryWorkingStateEvidence>();
+        var originalProtection = _restore.HoldCurrentReadProtection;
+        var originalValidation = _restore.ValidateCurrentInputs;
+        var originalUnchanged = _restore.UnchangedTargetSources;
         try
         {
-            plan = await _planner.BuildAsync(
-                selectedTipId,
-                currentConfigSources,
-                expectedWorkspace,
-                AssessmentDepth.Deep,
-                cancellationToken, workingStateCheck: HistoryWorkingStateCheckMode.CompareContent).ConfigureAwait(false);
-            if (!plan.CanExecute)
-                return Blocked(plan.Diagnostic, plan);
+            plan = await _planner.BuildAsync(selectedTipId, currentConfigSources, expectedWorkspace,
+                AssessmentDepth.Fast, cancellationToken).ConfigureAwait(false);
+            if (!plan.CanExecute) return Blocked(plan.Diagnostic, plan);
             _ = await _restore.RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-                return Blocked(ex.Message, plan);
-        }
-
-        HistoryWorkspace protectedWorkspace;
-        try
-        {
-            if (plan!.RequiresProtection
-                && protectionMode == HistoryCheckoutProtectionMode.ProtectCurrentWork)
+            var selections = new List<(SourceVersion Version, HistoryRestoreSourceBinding Binding, MaterializationFidelity Fidelity)>();
+            foreach (var source in plan.Sources.Where(s => s.Action == HistoryCheckoutSourceAction.Restore))
             {
-                if (_protector is null)
-                    return Blocked("Current-work protection is required but no protector is available.");
+                var version = await _history.Query.GetVersionAsync(source.VersionId!.Value, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("Checkpoint SourceVersion is missing.");
+                selections.Add((version, source.Binding!, MaterializationFidelity.Exact));
+            }
+            using var session = _restore.TryCreatePreparationSession(selections.Select(s => s.Binding).ToArray(), expectedWorkspace, out var preparationError);
+            if (preparationError is not null) return Blocked(preparationError);
+            await _restore.ReservePreparationSpaceAsync(selections, session, cancellationToken).ConfigureAwait(false);
+            foreach (var source in selections)
+                prepared.Add(await _restore.PrepareSourceAsync(source.Version, source.Binding, MaterializationFidelity.Exact,
+                    HistoryRestoreApplyMode.Clean, cancellationToken, session).ConfigureAwait(false));
+
+            bool needsProtection = false;
+            if (protectionMode == HistoryCheckoutProtectionMode.ProtectCurrentWork)
+            {
+                var probe = new HistoryExactWorkingStateProbe(_history, _restore);
+                foreach (var source in prepared)
+                {
+                    var baseline = expectedWorkspace.SourceBaselines.SingleOrDefault(s => s.SourceId == source.Binding.SourceId);
+                    var compared = baseline is null
+                        ? new HistoryWorkingStateEvidence(new(HistoryWorkingStateComparisonStatus.Unknown, "BaselineUnavailable"))
+                        : await probe.CompareWithEvidenceAsync(source.Binding, baseline, cancellationToken, source).ConfigureAwait(false);
+                    evidence.Add(compared);
+                    needsProtection |= !compared.Comparison.IsEqual;
+                }
+            }
+            var protectedWorkspace = expectedWorkspace;
+            if (needsProtection)
+            {
+                foreach (var held in evidence) held.Dispose();
+                evidence.Clear();
+                if (_protector is null) return Blocked("Current-work protection is required but no protector is available.");
+                session?.ValidateBindings();
                 protectedWorkspace = _protector is IHistoryWorkingStateProtectorInsideOperation inside
-                    ? await inside.ProtectInsideOperationAsync(expectedWorkspace, operation, cancellationToken).ConfigureAwait(false)
+                    ? await inside.ProtectInsideOperationAsync(expectedWorkspace, operation, cancellationToken, prepared.Select(p => p.Binding).ToArray()).ConfigureAwait(false)
                     : await _protector.ProtectAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
             }
-            else
-            {
-                protectedWorkspace = expectedWorkspace;
-            }
-            _ = await _restore.RequireExpectedWorkspaceAsync(protectedWorkspace, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            return Blocked(ex.Message);
-        }
-
-        var prepared = new List<HistoryRestoreService.PreparedRestoreSource>();
-        using var session = _restore.TryCreatePreparationSession(plan!.Sources.Where(item => item.Action == HistoryCheckoutSourceAction.Restore)
-            .Select(item => item.Binding!).ToArray(), protectedWorkspace, out var preparationError);
-        if (preparationError is not null) return Blocked(preparationError);
-        try
-        {
-            foreach (var sourcePlan in plan!.Sources.Where(item => item.Action == HistoryCheckoutSourceAction.Restore))
-            {
-                var version = await _history.Query.GetVersionAsync(
-                    sourcePlan.VersionId!.Value,
-                    cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException("Checkpoint SourceVersion is missing.");
-                prepared.Add(await _restore.PrepareSourceAsync(
-                    version,
-                    sourcePlan.Binding!,
-                    MaterializationFidelity.Exact,
-                    HistoryRestoreApplyMode.Clean,
-                    cancellationToken, session).ConfigureAwait(false));
-            }
-        }
-        catch (Exception ex)
-        {
-            HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Select(item => item.StagingDirectory));
-            return Blocked(ex.Message);
-        }
-
-        try
-        {
+            session?.RebindExpected(protectedWorkspace);
             await using var guard = await _restore.EnterFinalGuardAsync(cancellationToken, operation).ConfigureAwait(false);
             await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await _restore.RequireExpectedWorkspaceAsync(protectedWorkspace, cancellationToken).ConfigureAwait(false);
@@ -124,56 +107,45 @@ public sealed class HistoryCheckoutService
             if (authoritativeBindings.Count != currentConfigSources.Count
                 || currentConfigSources.Any(expected => !authoritativeBindings.Any(actual =>
                     actual.SourceId == expected.SourceId
-                    && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(actual.TargetDirectory),
-                        Path.GetFullPath(expected.TargetDirectory))
+                    && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(actual.TargetDirectory), Path.GetFullPath(expected.TargetDirectory))
                     && actual.Boundary.Fingerprint == expected.Boundary.Fingerprint)))
                 throw new InvalidOperationException("Configuration bindings changed during materialization.");
-            var revalidated = await _planner.BuildAsync(
-                selectedTipId,
-                authoritativeBindings,
-                current,
-                AssessmentDepth.Deep,
-                cancellationToken, workingStateCheck: HistoryWorkingStateCheckMode.CompareContent).ConfigureAwait(false);
-            if (!revalidated.CanExecute
-                || revalidated.Update!.UpdateId != plan.Update!.UpdateId
+            var revalidated = await _planner.BuildAsync(selectedTipId, authoritativeBindings, current,
+                AssessmentDepth.Fast, cancellationToken).ConfigureAwait(false);
+            if (!revalidated.CanExecute || revalidated.Update!.UpdateId != plan.Update!.UpdateId
                 || revalidated.Checkpoint!.CheckpointId != plan.Checkpoint!.CheckpointId)
-            {
                 throw new InvalidOperationException("Branch selection changed during materialization.");
-            }
-            if (revalidated.RequiresProtection
-                && protectionMode == HistoryCheckoutProtectionMode.ProtectCurrentWork)
+            foreach (var held in evidence) held.Validate();
+            _restore.HoldCurrentReadProtection = evidence.Count > 0;
+            _restore.UnchangedTargetSources = evidence.Count == prepared.Count ? prepared
+                .Where(s => expectedWorkspace.GetSourceState(s.Binding.SourceId).BaseVersionId == s.Version.VersionId)
+                .Select(s => s.Binding.SourceId).ToHashSet() : new HashSet<SourceId>();
+            _restore.ValidateCurrentInputs = () =>
             {
-                throw new InvalidOperationException(
-                    "Working files changed after the SafetySnapshot; rebuild protection before Checkout.");
-            }
-
-            var restoredIds = plan!.Sources
-                .Where(item => item.Action == HistoryCheckoutSourceAction.Restore)
-                .Select(item => item.SourceId)
-                .ToHashSet();
-            // current-only Source 保留最终 revalidation 时的 baseline；若前面创建过保护点，这里不会回退到旧 request。
-            var desiredBaselines = current.SourceBaselines
-                .Where(item => !restoredIds.Contains(item.SourceId))
-                .Concat(plan.Checkpoint!.Sources.Select(source => new WorkspaceSourceBaseline(
-                    source.SourceId,
-                    source.VersionId,
-                    WorkspaceBaselineRelation.Exact)));
-            var sourceState = current.GetSourceState(plan.Checkpoint!.SourceId) with {
-                ContentRealizationId = Guid.NewGuid(),
-                BaseVersionId = plan.Checkpoint.VersionId, Relation = WorkspaceBaselineRelation.Exact, RequiresFullCapture = false,
+                originalValidation?.Invoke();
+                foreach (var held in evidence) held.Validate();
+            };
+            var sourceState = current.GetSourceState(plan.Checkpoint!.SourceId) with
+            {
+                ContentRealizationId = Guid.NewGuid(), BaseVersionId = plan.Checkpoint.VersionId,
+                Relation = WorkspaceBaselineRelation.Exact, RequiresFullCapture = false,
                 ActiveBranchId = plan.Update!.BranchId, ActiveBranchUpdateId = plan.Update.UpdateId,
-                CheckpointAncestryAnchorId = plan.Checkpoint.CheckpointId };
-            var desired = current.WithSourceStates([sourceState]);
-            return await _restore.ExecuteMutationAsync(
-                prepared,
-                current,
-                desired,
+                CheckpointAncestryAnchorId = plan.Checkpoint.CheckpointId
+            };
+            return await _restore.ExecuteMutationAsync(prepared, current, current.WithSourceStates([sourceState]),
                 cancellationToken, preparationSession: session).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Select(item => item.StagingDirectory));
-            return Blocked(ex.Message);
+            HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Select(s => s.StagingDirectory));
+            return Blocked(ex.Message, plan);
+        }
+        finally
+        {
+            _restore.HoldCurrentReadProtection = originalProtection;
+            _restore.ValidateCurrentInputs = originalValidation;
+            _restore.UnchangedTargetSources = originalUnchanged;
+            foreach (var held in evidence) held.Dispose();
         }
     }
 

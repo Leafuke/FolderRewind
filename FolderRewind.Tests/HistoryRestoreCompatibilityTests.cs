@@ -12,6 +12,23 @@ namespace FolderRewind.Tests;
 public sealed class HistoryRestoreCompatibilityTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void CyclicOrDisconnectedRootJunctionNeverBecomesANewOrdinaryTarget(bool cycle)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "fr-disconnected-root-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        var link = Path.Combine(root, "logical"); var target = cycle ? link : Path.Combine(root, "missing");
+        if (!cycle) Directory.CreateDirectory(target);
+        CreateDirectoryLink(link, target, false);
+        try
+        {
+            if (!cycle) Directory.Delete(target);
+            Assert.Throws<IOException>(() => HistoryRestoreWorkspacePlanner.ResolvePath(link));
+            Assert.AreNotEqual(0, (int)(File.GetAttributes(link) & FileAttributes.ReparsePoint));
+        }
+        finally { Directory.Delete(link); Directory.Delete(root, true); }
+    }
+    [TestMethod]
     [DataRow(false, false)]
     [DataRow(false, true)]
     [DataRow(true, false)]

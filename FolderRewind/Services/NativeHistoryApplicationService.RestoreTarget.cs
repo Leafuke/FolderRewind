@@ -25,7 +25,7 @@ internal static partial class NativeHistoryApplicationService
         NativeHostMutationContext.ThrowIfNestedMutation();
         var signature = expectedConfigSignature ?? NativeHistoryConfigLease.Signature(config);
         if (NativeHistoryConfigLease.Signature(config) != signature)
-            return (null, I18n.GetString("SettingsProject_Stale"));
+            return (null, I18n.GetString("Restore_ConfigurationChanged"));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         await runtime.EnsureIndexCurrentAsync(token).ConfigureAwait(false);
         var source = Source(folder);
@@ -53,6 +53,9 @@ internal static partial class NativeHistoryApplicationService
             return (null, HistoryQuickRestoreResolver.AssessmentDiagnostic(assessment,
                 $"Restore Version {version.VersionId} is not recoverable with {fidelity} fidelity."));
         var representation = await runtime.Query.GetRepresentationAsync(assessment.Selected.RepresentationId, token).ConfigureAwait(false);
+        try { PreflightRestoreLocations(config, [await BindingAsync(config, folder, token).ConfigureAwait(false)]); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        { return (null, ex.Message); }
         var file = representation?.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
             ?? representation?.RepresentationSpecificMetadata.GetValueOrDefault("legacyFileName")
             ?? (assessment.Selected.SelectedLocalPath is { } path ? Path.GetFileName(path) : version.VersionId.ToString());
@@ -64,7 +67,7 @@ internal static partial class NativeHistoryApplicationService
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
         if (Source(folder) != target.Version.SourceId || NativeHistoryConfigLease.Signature(config) != target.ConfigSignature)
-            return Blocked(I18n.GetString("SettingsProject_Stale"));
+            return Blocked(I18n.GetString("Restore_ConfigurationChanged"));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         using var verification = new ArchiveRestoreVerificationContext(config.Archive.RestorePreflightMode);
         using var diagnostics = HistoryOperationDiagnostics.Begin(target.QuickSelection is null ? "ordinary-restore" : "quick-restore");
@@ -78,8 +81,15 @@ internal static partial class NativeHistoryApplicationService
         LogService.Log($"Restore target '{target.FileName}': requested_mode={target.RequestedMode.ToString().ToLowerInvariant()}; "
             + $"effective_mode={options.Mode}; version={target.Version.VersionId}", source: "History");
         return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(config, [folder], target.Version.VersionId.ToString(),
-            cancellation => RestoreVersionCoreAsync(config, folder, target.Version.VersionId, target.EffectiveMode, cancellation,
-                expectedSignature: target.ConfigSignature,
-                quickSelection: target.QuickSelection, verificationContext: verification), token, options: options).ConfigureAwait(false);
+            async cancellation =>
+            {
+                try
+                {
+                    return await RestoreVersionCoreAsync(config, folder, target.Version.VersionId, target.EffectiveMode, cancellation,
+                        expectedSignature: target.ConfigSignature,
+                        quickSelection: target.QuickSelection, verificationContext: verification).ConfigureAwait(false);
+                }
+                finally { verification.Dispose(); }
+            }, token, options: options).ConfigureAwait(false);
     }
 }

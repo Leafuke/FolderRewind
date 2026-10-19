@@ -73,6 +73,13 @@ internal static class HistoryRestoreWorkspacePlanner
             return physical;
         }
     }
+    internal static void ValidateBinding(HistoryRestoreWorkspaceLocation location)
+    {
+        if (!StringComparer.OrdinalIgnoreCase.Equals(ResolvePath(location.LogicalTarget ?? location.Target), location.Target)
+            || WindowsRestoreFileSystem.Identity(Path.GetDirectoryName(location.Target)!) != location.ParentIdentity
+            || WindowsRestoreFileSystem.TryIdentity(location.Target) != location.TargetIdentity)
+            throw new IOException("Restore target binding changed during preparation.");
+    }
     internal static bool Overlaps(string a, string b) => StringComparer.OrdinalIgnoreCase.Equals(a, b)
         || a.StartsWith(b + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
         || b.StartsWith(a + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);

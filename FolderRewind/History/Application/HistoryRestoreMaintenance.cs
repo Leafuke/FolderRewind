@@ -31,6 +31,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
     private void ValidatePreparationRecord(HistoryRestorePreparationRecord record, string path)
     {
         if (record.FormatVersion != 1 || record.ConfigId != _runtime.ConfigId || record.Workspaces.IsDefaultOrEmpty
+            || record.Workspaces.Any(w => w is null || w.Location is null)
             || record.Workspaces.Select(w => w.Location.SourceId).Distinct().Count() != record.Workspaces.Length
             || !Path.GetFullPath(path).Equals(PreparationPath(record.TransactionId), StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Restore preparation record is incompatible; preserve data.");
@@ -44,6 +45,8 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
             var record = JsonSerializer.Deserialize<HistoryRestorePreparationRecord>(File.ReadAllBytes(path), JsonOptions)
                 ?? throw new InvalidDataException("Restore preparation record is empty.");
             if (record.FormatVersion != 1 || record.Workspaces.IsDefaultOrEmpty
+                || record.Workspaces.Any(w => w is null || w.Location is null
+                    || !Path.IsPathFullyQualified(w.Location.Container) || !Path.IsPathFullyQualified(w.Location.Target))
                 || !Path.GetFileName(Path.GetDirectoryName(path)!).Equals(record.TransactionId.ToString(), StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Unknown restore preparation record; preserve data.");
             if (HistoryRestorePreparationSession.OwnsPreparation(record.TransactionId, root)) continue;
@@ -51,6 +54,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
             if (!File.Exists(Path.Combine(directory, FileName))
                 && (File.Exists(Path.Combine(directory, "restore-progress.bin")) || File.Exists(Path.Combine(directory, "restore-plan.json"))))
                 throw new InvalidDataException("Orphan restore execution evidence requires recovery: " + path);
+            if (!File.Exists(Path.Combine(directory, FileName))) RequireNoPreparationRollbackMaterial(record.Workspaces);
         }
     }
     private void RecoverPreparationRecords()
@@ -72,21 +76,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
         if (File.Exists(GetPath(record.TransactionId))) throw new InvalidDataException("Published restore journal must be recovered before abandoning preparation.");
         var directory = TransactionDirectory(record.TransactionId);
         if (File.Exists(Path.Combine(directory, "restore-progress.bin"))) throw new InvalidDataException("Preparation contains execution progress; preserve data.");
-        foreach (var registration in record.Workspaces)
-        {
-            if (registration.ContainerIdentity is null) continue;
-            RestoreObjectIdentity? actual;
-            try { actual = WindowsRestoreFileSystem.TryIdentity(registration.Location.Container); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
-            if (actual != registration.ContainerIdentity) continue;
-            foreach (var name in new[] { "rollback", "rollback-items" })
-            {
-                var rollback = Path.Combine(registration.Location.Container, name);
-                if (Path.Exists(rollback) && ((File.GetAttributes(rollback) & FileAttributes.ReparsePoint) != 0
-                    || Directory.Exists(rollback) && Directory.EnumerateFileSystemEntries(rollback).Any()))
-                    throw new InvalidDataException("Preparation contains original rollback material; preserve data.");
-            }
-        }
+        RequireNoPreparationRollbackMaterial(record.Workspaces);
         var orphan = Path.Combine(directory, "restore-plan.json");
         if (File.Exists(orphan))
         {
@@ -99,6 +89,30 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
         HistoryRestoreFileSystemPlanStore.Reach("after-preparation-cleanup-record");
         File.Delete(PreparationPath(record.TransactionId));
         _runtime.ScheduleRestoreCleanup();
+    }
+    private static void RequireNoPreparationRollbackMaterial(ImmutableArray<RestoreWorkspaceRegistration> workspaces)
+    {
+        foreach (var registration in workspaces)
+        {
+            if (registration.ContainerIdentity is null) continue;
+            RestoreObjectIdentity? actual;
+            try { actual = WindowsRestoreFileSystem.TryIdentity(registration.Location.Container); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+            if (actual != registration.ContainerIdentity) continue;
+            try
+            {
+                using var held = new WindowsDirectoryReadLease(Path.Combine(registration.Location.Container, "unused-child"));
+                foreach (var name in new[] { "rollback", "rollback-items" })
+                {
+                    var rollback = Path.Combine(registration.Location.Container, name);
+                    if (Path.Exists(rollback) && (name == "rollback" || (File.GetAttributes(rollback) & FileAttributes.ReparsePoint) != 0
+                        || Directory.Exists(rollback) && Directory.EnumerateFileSystemEntries(rollback).Any()))
+                        throw new InvalidDataException("Preparation contains original rollback material; preserve data.");
+                }
+            }
+            // 没有执行日志/进度的有效准备记录可交接维护；访问失败仍会阻止清理，不会采用陌生材料。
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
     private static void ValidatePlanLocations(HistoryRestoreFileSystemPlan plan, ImmutableArray<RestoreWorkspaceRegistration> workspaces)
     {
@@ -167,6 +181,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
                     if (record.Plan is not null || record.DurableOutcomeProof is not null || journal?.FileSystemPlan is not null
                         || File.Exists(Path.Combine(TransactionDirectory(record.TransactionId), "restore-progress.bin")))
                         throw new InvalidDataException("Preparation cleanup conflicts with execution evidence.");
+                    RequireNoPreparationRollbackMaterial(record.Workspaces);
                     foreach (var registration in record.Workspaces)
                     {
                         if (!Path.Exists(registration.Location.Container)) continue;

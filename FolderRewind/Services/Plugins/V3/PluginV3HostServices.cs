@@ -119,15 +119,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 config,
                 folder,
                 cancellationToken, options).ConfigureAwait(false);
-            return result.Status switch
-            {
-                HistoryRestoreStatus.CommittedRecoveryRequired => OperationOutcome.CommittedRecoveryRequired,
-                HistoryRestoreStatus.MutationFailedRecoveryRequired => OperationOutcome.RecoveryRequired,
-                HistoryRestoreStatus.NoChanges => OperationOutcome.NoChanges,
-                _ when result.Succeeded => OperationOutcome.Success,
-                HistoryRestoreStatus.BlockedBeforeMutation => OperationOutcome.Blocked,
-                _ => OperationOutcome.Failed
-            };
+            return HistoryRestoreOutcomePolicy.ForRequest(result);
         }
 
         public async ValueTask<OperationOutcome> RequestAsync(
@@ -154,12 +146,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 parsed,
                 options.Mode == "overwrite" ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean,
                 cancellationToken, options).ConfigureAwait(false);
-            return result.Status switch
-            {
-                HistoryRestoreStatus.CommittedRecoveryRequired => OperationOutcome.CommittedRecoveryRequired,
-                HistoryRestoreStatus.MutationFailedRecoveryRequired => OperationOutcome.RecoveryRequired,
-                _ => result.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed
-            };
+            return HistoryRestoreOutcomePolicy.ForRequest(result);
         }
     }
 
