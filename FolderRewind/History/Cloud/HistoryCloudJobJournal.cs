@@ -10,6 +10,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FolderRewind.History.Cloud;
 
@@ -185,6 +187,20 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         Checkpoint?.Invoke("before-activate");
         Save(document with { Jobs = [.. document.Jobs.Select(j => j.PackId == pack && j.Phase == CloudJobPhase.Prepared ? j with { Phase = CloudJobPhase.Pending } : j)] });
     }
+    internal async Task ReplayAsync(Func<CancellationToken, Task<IReadOnlyList<HistoryPackReadResult>>> loadPacks,
+        CancellationToken token)
+    {
+        // Preserve the same missing/uncertain/attention checks before the no-journal return.
+        // Packs are unnecessary when this device has no cloud journal to reconcile.
+        token.ThrowIfCancellationRequested();
+        _uncertain = false;
+        var document = Read();
+        if (File.Exists(JournalPath + ".attention") && document.Admissions.IsEmpty)
+            throw new InvalidDataException("[cloud.intent-reconciliation-required] Admission evidence is missing.");
+        if (!File.Exists(JournalPath)) return;
+        Replay(await loadPacks(token).ConfigureAwait(false));
+    }
+
     public void Replay(IReadOnlyList<HistoryPackReadResult> packs)
     {
         // 本地 History 与 Local State 已恢复之后，补账必须先于链重写收尾/GC。

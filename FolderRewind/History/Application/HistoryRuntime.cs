@@ -254,7 +254,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
             await Repository.Journals.RecoverAsync(local.ApplyCommittedStateAsync, (_, _) => Task.CompletedTask, token).ConfigureAwait(false);
             await new HistoryRestoreTransactionJournalStore(this, backend).RecoverIncompleteAsync(token).ConfigureAwait(false);
             await EnsureIndexCurrentAsync(token).ConfigureAwait(false);
-            try { CloudJobs.Replay(await Repository.ReadAllPacksAsync(token).ConfigureAwait(false)); }
+            try { await CloudJobs.ReplayAsync(Repository.ReadAllPacksAsync, token).ConfigureAwait(false); }
             catch (Exception ex) { CloudJobs.ObserveFailure(ex); }
             await CleanupMergeArtifactsAsync().ConfigureAwait(false);
             await RecoverChainRewritesAsync(token, insideMutationGate: true).ConfigureAwait(false);
