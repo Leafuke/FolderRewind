@@ -83,8 +83,9 @@ winapp ui screenshot --on sandbox -w $MainHwnd --output <新的宿主PNG路径> 
 | 还原/导出 | `HistoryVersionRestore_<VersionId>`、`HistoryRunRestore_<RunId>`、`HistoryExportVersion_<VersionId>`（先打开该条目菜单） |
 | 分支对话框 | `HistoryRunCreateBranch_<RunId>`、`AppDialogTextInput`；实际对话框按钮 `PrimaryButton`/`CloseButton` |
 | 维护/快照 | `HistoryMaintenanceDropDown`、`HistorySafetySnapshots`、`HistoryScanRecover`、`HistoryClearMissing` |
-| 配置/等级 | `ConfigSettingsName`、`DestPathBox`、`ConfigSettingsTabBackup/Restore/Filter`、`ProjectSettingsSave`、`BackupVerificationBalanced/Strict`、`ConfigSettingsDialog_BackupMode` |
-| 呈现 | `SettingsTheme`、`LogLiveRefresh`、`LogAutoScroll`、`LogEntries`；导航按实际树 |
+| 配置/等级 | `ConfigSettingsName`、`DestPathBox`、`ConfigSettingsTabBackup`、`ConfigSettingsTabRestore`、`ConfigSettingsTabFilter`、`ProjectSettingsSave`、`BackupVerificationBalanced`、`BackupVerificationStrict`、`ConfigSettingsDialog_BackupMode` |
+| 还原设置 | `ConfigSettingsDialog_BackupBeforeRestore`、`ConfigSettingsDialog_QuickSafetySnapshot`、`RestorePreflightBalanced`、`RestorePreflightStrict` |
+| 呈现 | `SettingsLanguage`、`SettingsTheme`、`LogLiveRefresh`、`LogAutoScroll`、`LogEntries`；导航按实际树 |
 
 动态后缀来自当前列表/持久化记录，禁止猜 GUID；重复 Source 按钮先限定 Run/Source 祖先，不取首个匹配。虚拟化条目先滚动生成。文本 TwoWay 设置后保存/切焦点，再核对持久化；没有精确 ID 时先源码/inspect 定位，不能坐标盲点。
 
@@ -107,7 +108,9 @@ winapp ui screenshot --on sandbox -w $MainHwnd --output <新的宿主PNG路径> 
 | R1-11 | 损坏 A：修复先取消再确认，打开保全位置，退出重启后备份 | 取消不替换；说明未知基线/下次完整捕获；保全字节等于损坏原件，历史与 ConfigId/SourceId 不变，完整捕获新分支身份 |
 | R1-12 | 既有竞态/保全失败/保全后/发布后强杀；UI 复核重试 | 不丢原件，重复修复不重置有效状态；不绕过待恢复执行事务；随机 Kill 不算精确窗口 |
 
-Workspace 文件名从 `HistoryLocalStateStores.cs` 和真实诊断核对，在该配置 `history/.../local-state` 下。保全目录由预览/诊断给出，不猜路径、不放入普通临时清理。
+Workspace 为该配置 `history/<编码ConfigId>/local-state/workspace.json`，以真实诊断复核。保全材料是同目录 `workspace.json.<随机ID>.original`（可能另有 `.object` 原对象）；预览、实际文件和原始摘要一并核对，不放入普通临时清理。修复后逐 Source 检查 `requiresFullCapture=true`、基线/分支续接锚点未知，再验证后续捕获的新分支身份。
+
+比较取消必须在实际运行态触发；小夹具过快完成不能记为取消通过，可使用现有的大文件合成夹具复验。无法可靠进入运行态则该子项 BLOCKED，不新增暂停钩子或测试构建。
 
 ## 5. 阶段二：范围、保护与恢复
 
@@ -143,6 +146,8 @@ Workspace 文件名从 `HistoryLocalStateStores.cs` 和真实诊断核对，在�
 | R3-10 | 干净安装/首次启动/退出重启/同身份升级/备份还原导出/插件加载 | 实际 X64 1.9.8.0 关联冻结摘要，依赖完整，持久化在容器；Setup/ARM64/Store/线上更新 DEFERRED |
 
 同身份升级参见 [Add-AppxPackage](https://learn.microsoft.com/en-us/powershell/module/appx/add-appxpackage?view=windowsserver2025-ps)。保存旧包 manifest/摘要/签名/来源；本机注册的开发包不等于正式 Store 版本。
+
+R3-07 的 UI 顺序：从 B0 分出 Main/Feature，各自增加独立文件并更改 shared.txt；选择目标分支、`HistoryBranchMerge`，在 `MergeChangeList` 确认独立变化与冲突，按计划用 `MergeWorkspace_BatchOurs`/`MergeWorkspace_BatchTheirs` 选择并复核后 `MergeWorkspace_Generate`，检查结果后 `MergeWorkspace_ApplyReviewed`。必须核对双方独立文件保留及 shared.txt 的已选内容，取消不得应用目标。随后导出当前版本到新目录、删除明确选中的非必要历史并执行既有 Retention 场景，检查必要依赖闭包仍可还原，再捕获新版本。Cloud 使用隔离本地 rclone 后端，上传后从另一个隔离副本下载并还原，以载荷与文件摘要证明一致；没有所需界面/依赖/夹具则对应子项 BLOCKED，不连接现有用户远端。
 
 ### 6.1 既有脚本适用性
 
