@@ -23,6 +23,7 @@ public sealed class HistoryOperationDiagnostics : IDisposable
     private readonly string _operation;
     private readonly long _started = Stopwatch.GetTimestamp();
     private readonly DateTimeOffset _date = DateTimeOffset.UtcNow;
+    private readonly ProcessIo? _initialIo = ReadCurrentIo();
     private bool _disposed;
     public HistoryOperationDiagnostic? Summary { get; private set; }
     public static HistoryOperationDiagnostics? Current => Ambient.Value;
@@ -44,7 +45,24 @@ public sealed class HistoryOperationDiagnostics : IDisposable
         if (GetProcessMemoryInfo(handle, out var memory, (uint)System.Runtime.InteropServices.Marshal.SizeOf<ProcessMemoryCounters>()))
             Current.Maximum("observed-7z-peak-working-set", checked((long)memory.PeakWorkingSet.ToUInt64()));
         else Current.Observe("child-memory", "unavailable");
+        if (GetProcessIoCounters(handle, out var io))
+        {
+            Current.Count("7z-os-read-bytes", checked((long)io.ReadBytes));
+            Current.Count("7z-os-write-bytes", checked((long)io.WriteBytes));
+        }
+        else Current.Observe("child-io", "unavailable");
     }
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct ProcessIo { internal ulong Reads, Writes, Other, ReadBytes, WriteBytes, OtherBytes; }
+    private static ProcessIo? ReadCurrentIo()
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        using var process = Process.GetCurrentProcess();
+        return GetProcessIoCounters(process.Handle, out var io) ? io : null;
+    }
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool GetProcessIoCounters(IntPtr process, out ProcessIo counters);
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct ProcessMemoryCounters
     {
@@ -60,6 +78,11 @@ public sealed class HistoryOperationDiagnostics : IDisposable
         {
             if (_disposed) return;
             _disposed = true;
+            if (_initialIo is { } before && ReadCurrentIo() is { } after)
+            {
+                _counters["host-os-read-bytes"] = checked((long)(after.ReadBytes - before.ReadBytes));
+                _counters["host-os-write-bytes"] = checked((long)(after.WriteBytes - before.WriteBytes));
+            }
             try
             {
                 using var process = Process.GetCurrentProcess();
