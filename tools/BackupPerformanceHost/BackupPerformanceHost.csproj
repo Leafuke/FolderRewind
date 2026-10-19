@@ -18,7 +18,12 @@
     <RootNamespace>FolderRewind.PerformanceHost</RootNamespace>
     <FolderRewindHostProject Condition="'$(FolderRewindHostProject)'==''">../../FolderRewind/FolderRewind.csproj</FolderRewindHostProject>
   </PropertyGroup>
+  <!-- Historical hosts can run the unchanged benchmark without stage-two-only service APIs. -->
+  <PropertyGroup Condition="'$(FolderRewindBenchmarkOnly)'=='true'">
+    <DefineConstants>$(DefineConstants);FOLDERREWIND_BENCHMARK_ONLY</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="StageTwoAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
     <Page Remove="BenchApplication.xaml" />
     <ApplicationDefinition Include="BenchApplication.xaml" />
     <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />

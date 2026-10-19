@@ -69,3 +69,15 @@ $env:FOLDERREWIND_BENCHMARK_REPEATS = '5'
 也可使用 `Run-StageTwoComparison.ps1 -BaselineExe <冻结的基线 EXE> -CandidateExe <冻结的候选 EXE> -SevenZipExe <7za.exe> -OutputRoot <尚不存在的目录> -MiB 64` 串行执行完整两轮。它第二轮交换先后顺序，保存每组退出码及时间；退出码 2 的内容错误保留原始数据并使最终验收失败。
 
 结果分别保存 API 文件可用时间、等待清理及日志排空后的总时间、清理/日志排空耗时、日志字节、物化/补丁/归档调用及读写计数。Host OS I/O 为进程级 inclusive 逻辑字节，不能与其嵌套 scope 重复相加，也不能当成物理磁盘流量。载荷 SHA 检查在计时之外，按表示身份记住首次摘要，避免基线缺少存储摘要时漏掉归档撞名。工具退出码 2 表示矩阵完成但有内容/结果错误；错误组不能作为有效性能对照。连续两轮中位数退化同时超过 10% 和 20 ms 需处理。
+
+## 1.9.8 第三阶段：复用现有场景比较正式基线
+
+正式对照为 `v1.9.7 / 91ed4ffd` 和原规划起点 `53975eb4`。使用同一份当前工具源码与各自 Host 项目，构建时加 `-p:FolderRewindBenchmarkOnly=true`，只排除引用阶段二专用 API 的既有 `StageTwoAcceptance.cs`；Full/Smart/Quick 采样逻辑不变。该构建拒绝 `stage2` 模式，接线验收使用正常构建。不同 Host 构建后立即冻结完整输出，不能保留同一工具目录供后续覆盖。
+
+旧 Host 仅应用阶段二已有的 `baseline-diagnostics.patch`（23 行进程 I/O 适配），记录精确补丁/源码/工具摘要，不移植业务实现。缺少的指标在各组 counters 中缺省，不应在跨版本报告中填零。旧 Host 无后台清理 API 时，清理已包含在 API 耗时，`cleanupDrainMs=0` 只表示 API 后无额外排空。
+
+`Run-StageTwoComparison.ps1` 增加可选 `-Rounds 1`（默认仍为 2）和 `-BackupOnly`，复用已有 2 GiB Full/Smart 场景，不运行大型 Quick 交叉组合。对应汇总也传 `-BackupOnly`。小型 64 MiB 使用原默认完整组合；大型先一轮，命中回归则同条件再测，原始轮次和根目录分别保留。所有组每次五个样本，判定不变；参数不会新增测试场景。
+
+需要单独复测第二轮时，使用新的 OutputRoot 并传 `-FirstRound 2 -Rounds 2`，保留 r2 标记和交换后的执行顺序。把两份报告按相同场景/策略/指标组合检查连续回归，不修改原始 r1 JSON。
+
+MSI 属性的无窗口工具是服务性能证据，不是 x64 MSIX 安装、启动或 UI 验收。第三阶段不新增 UI 脚本，交接规则见 `docs/plans/FolderRewind_1.9.8_Automated_Acceptance.md`。

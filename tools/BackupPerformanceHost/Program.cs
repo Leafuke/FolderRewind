@@ -62,9 +62,13 @@ internal static class Program
                 ConfigService.CurrentConfig.GlobalSettings.SevenZipPath = exe;
                 if (Acceptance)
                 {
+#if FOLDERREWIND_BENCHMARK_ONLY
+                    throw new InvalidOperationException("The benchmark-only build cannot run stage-two service acceptance.");
+#else
                     await StageTwoAcceptance.RunAsync();
                     Environment.Exit(0);
                     return;
+#endif
                 }
                 var source = Path.Combine(Root, "source"); Directory.CreateDirectory(source);
                 var block = new byte[1024 * 1024]; var random = new Random(719);

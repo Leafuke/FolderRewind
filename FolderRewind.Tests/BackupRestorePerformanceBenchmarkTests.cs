@@ -197,8 +197,13 @@ public sealed class BackupRestorePerformanceBenchmarkTests
             using var verification = Candidate ? new ArchiveRestoreVerificationContext(Policy) : null;
             var diagnosticScope = HistoryOperationDiagnostics.Begin("B1-B5-full-restore");
             HistoryRestoreResult result;
+            double fileReadyMs;
             using (diagnosticScope)
+            {
                 result = await f.Restore(verification: verification, targetVolume: Candidate).RestoreVersionAsync(version, new(f.Source, target), workspace, mode);
+                fileReadyMs = clock.Elapsed.TotalMilliseconds;
+                await DrainDeferredCleanupAsync(f.History);
+            }
             clock.Stop();
             Assert.IsTrue(result.Succeeded, result.Diagnostic);
             var actual = (await MergeTreeManifest.ReadAsync(target,
@@ -206,7 +211,8 @@ public sealed class BackupRestorePerformanceBenchmarkTests
             Assert.AreEqual(expected, actual);
             var diagnostic = diagnosticScope.Summary;
             results.Add(new { scenario = targetVolume == "D" ? "B5" : "B1", mode = mode.ToString(), repeat,
-                mib, files = mib + 1002, elapsedMs = clock.Elapsed.TotalMilliseconds,
+                mib, files = mib + 1002, elapsedMs = clock.Elapsed.TotalMilliseconds, fileReadyMs,
+                totalMs = clock.Elapsed.TotalMilliseconds, cleanupDrainMs = clock.Elapsed.TotalMilliseconds - fileReadyMs,
                 cache = "uncontrolled", installation = "linked-service-test", candidate = Candidate, policy = Policy.ToString(), diagnostic, correct = true });
             Directory.Delete(root, true);
         }
@@ -216,5 +222,13 @@ public sealed class BackupRestorePerformanceBenchmarkTests
             dataset = "synthetic-mixed-seed-719", sourceMiB = mib,
             sevenZipSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(exe))), results
         }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    // Measurement only: older hosts perform cleanup inside the API instead of exposing a drain.
+    private static async Task DrainDeferredCleanupAsync(HistoryRuntime history)
+    {
+        var drain = history.GetType().GetMethod("DrainRestoreCleanupAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        if (drain is not null) await (Task)drain.Invoke(history, [CancellationToken.None])!;
     }
 }
