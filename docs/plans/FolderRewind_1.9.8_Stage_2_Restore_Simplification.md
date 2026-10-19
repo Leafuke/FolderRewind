@@ -1,6 +1,6 @@
 # FolderRewind 1.9.8 阶段二：还原简化、兼容性与性能收敛
 
-状态：代码已实现，服务自动化及 x64 Debug 编译通过；性能对照实施中，真实 USB 等硬件验收待执行。新增用例初始均为待执行，实际结果持续回填至第 6 节。实施基线 `3bfc761`，分支 `codex/1.9.8-stage-2`。阶段一人工 UI 验收按用户要求本轮跳过，不计为通过，不阻止本阶段实施。
+状态：第二阶段代码、相关自动化、x64 Debug 编译与双轮工程性能对照通过。真实 USB 等硬件及阶段三发行验收待执行；UI 自动化未运行，人工 UI 本轮跳过，不计为通过。新增用例初始均为待执行，实际结果见第 6 节及[详细验收报告](FolderRewind_1.9.8_Stage_2_Validation_Report.md)。实施基线 `3bfc761`，分支 `codex/1.9.8-stage-2`。
 
 ## 本轮复核与实施补充
 
@@ -171,21 +171,21 @@ Quick 无变化路径先检查 Source、版本、边界和低成本结构差异�
 
 | 用例 | 必须验证 | 状态 |
 |---|---|---|
-| R2-01 | 祖先/保护目录/边界外文件有 ADS：正常还原，原无关对象及流不变 | 待执行 |
-| R2-02 | 受影响文件和旧根有 ADS：成功采用备份内容，失败回滚原对象/流；拒绝危险归档条目 | 待执行 |
-| R2-03 | LocalState Junction、备份根重定向、目标根/祖先 Junction 与目录符号链接：两种提交策略及两种模式正确，链接入口保留 | 待执行 |
-| R2-04 | 通过别名发生真实保护目录重叠、嵌套 Source 或重复目标：修改前拒绝 | 待执行 |
-| R2-05 | 循环、断链、未知 tag、准备后入口改变：不越界；修改后的冲突进入恢复 | 待执行 |
-| R2-06 | 受影响硬链接指向管理范围外：成功/回滚内容正确，外部路径内容与属性不受原位修改；只读清理可安全处理或延后 | 待执行 |
-| R2-07 | 边界外大目录及链接被剪枝；白名单后代、空目录、结构冲突、Preserve/玩家补丁、多 Source 仍正确 | 待执行 |
-| R2-08 | 容器创建、归属登记、解压、补丁、构建计划任一点中断：准备可放弃，未知归属不删除，无永久写入阻断 | 待执行 |
-| R2-09 | 快照提交后/Prepared 前强杀：新流程只留下准备材料，保留新 Workspace；旧记录仍通过 R1-04 | 待执行 |
-| R2-10 | 第一/中间移动、64 动作边界、Workspace 或 Pack 提交前后、清理记录/结束日志之间强杀：恢复两次，结果一致，不丢原材料 | 待执行 |
-| R2-11 | 备份/还原等级及普通/Quick 快照开关组合：快照等级准确、完整测试不重复、物化及补丁各一次，证据标签真实 | 待执行 |
-| R2-12 | Quick 相同内容、首个/末个差异、大小/mtime 相同但字节变化、Unknown/取消：NoChanges 不误判，差异比较可提前结束 | 待执行 |
-| R2-13 | 同配置备份与还原竞争、内部快照重用租约、配置变更：无死锁、无错误基线提交，重进等待不持有核心锁 | 待执行 |
-| R2-14 | 多 Source 同卷预算、不同卷快照、准备中磁盘满、USB 暂时离线及重连：原数据保留，不把同盘符新设备当旧设备 | 待执行 |
-| R2-15 | 提交/回滚后清理失败，再合法推进 Workspace，重启清理：旧清理不依赖旧 revision、不触及新世界 | 待执行 |
+| R2-01 | 祖先/保护目录/边界外文件有 ADS：正常还原，原无关对象及流不变 | 自动化通过：身份及 ADS 兼容、范围剪枝用例；不承诺 NTFS 完整克隆 |
+| R2-02 | 受影响文件和旧根有 ADS：成功采用备份内容，失败回滚原对象/流；拒绝危险归档条目 | 自动化通过：两种策略的 ADS 成功/回滚及既有归档安全测试 |
+| R2-03 | LocalState Junction、备份根重定向、目标根/祖先 Junction 与目录符号链接：两种提交策略及两种模式正确，链接入口保留 | 自动化通过：真实 NTFS 兼容、Workspace 修复；最终 Host 在普通及应用状态 Junction 下各 22 场景 |
+| R2-04 | 通过别名发生真实保护目录重叠、嵌套 Source 或重复目标：修改前拒绝 | 自动化通过：WorkspacePlanner、ProtectedAliases 等用例 |
+| R2-05 | 循环、断链、未知 tag、准备后入口改变：不越界；修改后的冲突进入恢复 | 循环/断链真实 Junction、入口保护、实际位置证据、矛盾恢复通过；未知 tag 的真实设备/提供程序环境待验证（源码仅接受两种已知 tag） |
+| R2-06 | 受影响硬链接指向管理范围外：成功/回滚内容正确，外部路径内容与属性不受原位修改；只读清理可安全处理或延后 | 自动化通过：含只读、同树第二链接、范围外链接、旧协议及 POSIX 删除的保留读取句柄 |
+| R2-07 | 边界外大目录及链接被剪枝；白名单后代、空目录、结构冲突、Preserve/玩家补丁、多 Source 仍正确 | 范围、结构及保留服务测试通过；Host 验证 LockedView/白名单/明确保留/多 Source。实际游戏玩家数据联动留阶段三 |
+| R2-08 | 容器创建、归属登记、解压、补丁、构建计划任一点中断：准备可放弃，未知归属不删除，无永久写入阻断 | 自动化通过：准备失败/取消、真实强杀；未登记容器保留维护，不接管 |
+| R2-09 | 快照提交后/Prepared 前强杀：新流程只留下准备材料，保留新 Workspace；旧记录仍通过 R1-04 | 自动化通过：after-snapshot-before-rebind、after-plan-before-prepared；旧准备恢复保留新状态 |
+| R2-10 | 第一/中间移动、64 动作边界、Workspace 或 Pack 提交前后、清理记录/结束日志之间强杀：恢复两次，结果一致，不丢原材料 | 自动化通过：实际探针、批量进度、回滚/清理强杀及原有 Merge/Pack 恢复测试 |
+| R2-11 | 备份/还原等级及普通/Quick 快照开关组合：快照等级准确、完整测试不重复、物化及补丁各一次，证据标签真实 | 自动化及真实 Host 通过；验证复用测试保留显式 Deep；计数及最终性能见验收报告 |
+| R2-12 | Quick 相同内容、首个/末个差异、大小/mtime 相同但字节变化、Unknown/取消：NoChanges 不误判，差异比较可提前结束 | 自动化通过；元数据差异可在其他文件占用时直接确认 Different，同版本 Checkout 零文件移动 |
+| R2-13 | 同配置备份与还原竞争、内部快照重用租约、配置变更：无死锁、无错误基线提交，重进等待不持有核心锁 | 配置租约/保护/服务测试及真实内部快照通过；游戏重进由阶段三实际联动验收 |
+| R2-14 | 多 Source 同卷预算、不同卷快照、准备中磁盘满、USB 暂时离线及重连：原数据保留，不把同盘符新设备当旧设备 | 同卷累计预算、空间失败注入、释放预留和绑定变化拒绝通过；真实耗尽磁盘、跨物理设备输出及 USB 断连/盘符换设备待硬件验证 |
+| R2-15 | 提交/回滚后清理失败，再合法推进 Workspace，重启清理：旧清理不依赖旧 revision、不触及新世界 | 自动化通过：DeferredCleanup、访问故障维护重试、旧格式兼容及双次恢复 |
 
 真实进程终止点要落在实际持久化边界，不以抛异常代替全部强杀测试。Junction/硬链接/ADS 使用真实 NTFS 集成测试；目录符号链接需要测试环境具备相应创建能力，缺少能力标为未验证，不把跳过算通过。
 
@@ -209,15 +209,29 @@ dotnet build .\FolderRewind.slnx -c Debug -p:Platform=x64 `
 if ($LASTEXITCODE) { throw 'WinUI build failed.' }
 ```
 
-新增准备/清理测试类补入筛选。将旧 ADS/硬链接一律拒绝的测试改为正向兼容与负向边界用例，不能只删断言。Native、Merge 和 Cloud 的相关回归继续使用原有真实工具。性能场景、五次采样与门槛统一按阶段三执行。
+新增准备/清理/容量/比较/结果测试已纳入最终全量；不能仅删除旧断言来取得通过。Native、Merge 和 Cloud 使用既有真实工具回归。完整串行验证还包括：
 
-- [ ] 阶段一全部退出条件持续成立，R2-01～R2-15 取得实际结果。
-- [ ] 新准备记录不绑定 Workspace；执行前意图和状态已可靠固定。
-- [ ] 无待恢复事务时，浏览历史无物化、无整树世界读取、无 restore journal。
-- [ ] 受支持还原单次物化、单次领域补丁；验证调用次数与用户选择一致。
-- [ ] 物理根重定向可用；真实重叠、越界和不支持对象仍准确拒绝。
-- [ ] 清理与未来 Workspace 解耦；强杀和重复恢复不损坏当前世界。
-- [ ] 原文件回滚、只读/硬链接、过滤范围、加密及必要完整性保护未减弱。
+```powershell
+. .\.github\scripts\Initialize-CoreTestEnvironment.ps1
+dotnet test .\FolderRewind.Tests\FolderRewind.Tests.csproj -c Release --no-restore --logger trx
+dotnet test .\FolderRewind.Plugin.Runtime.Tests\FolderRewind.Plugin.Runtime.Tests.csproj -c Release --no-restore --logger trx
+dotnet test .\FolderRewind.Plugin.Abstractions.Tests\FolderRewind.Plugin.Abstractions.Tests.csproj -c Release --no-restore --logger trx
+# 任一步失败立即停止，不继续执行下一项。
+```
+
+真实 Host、两个冻结二进制及性能复现命令见 `tools/performance/BackupRestore-README.md`。阶段二采用 `3bfc761` 工程对照；阶段三仍需两个正式基线及真实发行组合。
+
+代码退出条件与发行/硬件验收分别记录：
+
+- [x] 阶段一相关服务/恢复回归持续通过；R2-01～R2-15 已写明实际结果及未覆盖边界，人工 UI 本轮跳过。
+- [x] 新准备记录不绑定 Workspace；执行前意图和状态已可靠固定。
+- [x] 无待恢复事务时，浏览历史无物化、无整树世界读取、无 restore journal（相关回归包含在核心全量）。
+- [x] 受支持还原每 Source 目标单次逻辑物化、适用时单次领域补丁；Smart 链所需归档提取单独计数，验证次数与用户选择一致。
+- [x] 已支持的物理根重定向通过；真实重叠、越界及对象替换仍拒绝。未知 tag 的实际环境不计通过。
+- [x] 清理与未来 Workspace 解耦；强杀和重复恢复不损坏当前世界。
+- [x] 原文件回滚、只读/硬链接、过滤范围、加密及必要完整性保护的相关自动化通过。
+- [x] 相关服务及真实工具验证、x64 Debug 编译通过；双轮工程性能对照无约定门槛回归。
+- [ ] 真实硬件、实际游戏重进、UI、架构及渠道正式验收完成（由阶段三承接，不阻止本阶段代码退出）。
 
 ## 6. 实际执行记录
 
@@ -232,13 +246,16 @@ if ($LASTEXITCODE) { throw 'WinUI build failed.' }
 | 输入验证/容量 | 验证、Quick 与目标卷组合 25 项通过；容量及旧版本兼容 64 项通过，包含同卷累计不足时零提取、准备落盘后释放预留 | `input-capacity`、`capacity-legacy-final` |
 | 旧协议补充修正 | 旧覆盖路径切换为卷 GUID 后，嵌套路径需使用本机分隔符；真实 1.8.2 Smart 恢复检出并修正，补充成功结果断言 | `legacy-diagnostic`、`capacity-legacy-final` |
 | 输入/容量编译 | x64 Debug solution 通过；既有 MSTEST0037 警告 | `artifacts/1.9.8/stage-2/input-build.log` |
-| 内部快照真实接线 | 最终无窗口 Host 21 个场景通过：Full/Smart/Rolling × 两档备份验证 × 缓存存在/缺失 12 项；额外根重定向 1 项；Checkout 4 项（含同版本零移动）；白名单/明确保留 2 项；多 Source 1 项；实际位置读取与逻辑绝对过滤 1 项。快照导出字节与同大小同时间戳的真实修改一致，旧载荷摘要不变 | `artifacts/1.9.8/stage-2/host-acceptance-bound-final/host-stage2.json` |
+| 内部快照真实接线 | 前期无窗口 Host 21 个场景通过，随后补充 Smart 链成为最终 22 项：Full/Smart/Rolling × 两档备份验证 × 缓存存在/缺失 12 项；额外根重定向 1 项；Checkout 4 项（含同版本零移动）；白名单/明确保留 2 项；多 Source 1 项；实际位置读取与逻辑绝对过滤 1 项。快照导出字节与同大小同时间戳的真实修改一致，旧载荷摘要不变 | `artifacts/1.9.8/stage-2/host-acceptance-bound-final/host-stage2.json`；最终结果见后续行 |
 | 真实 Host 检出的额外缺陷 | 同秒创建 Full/Smart 会撞旧载荷名称，受保护输入锁使快照创建失败；复用 Rolling 的重名处理。第一次真实验收失败保留。第二次因测试误解白名单“仅保留备份中缺失文件”的原语义而失败，修正测试后通过，未改变白名单语义 | `host-acceptance-01/failure.txt`、`host-acceptance-02/failure.txt` |
 | 比较/恢复证据 | Checkout/Quick 原有组合 19 项通过；证据/结构退役/修复重定向组合 18 项通过；最后补充元数据差异优先于打开占用文件，比较/Quick 18 项通过；真实循环与断链 Junction 2 项通过 | `unified-flow`、`evidence`、`metadata-first-comparison`、`disconnected-bindings` |
 | 清理补充修正 | 全量复现旧后端清理目录项 pending 阻塞；新增保留读取句柄的最小反例先失败，采用 POSIX 句柄删除后清理/只读硬链接/Merge 35 项通过。ACL 测试夹具恢复曾错误请求 SACL 权限，改为仅恢复 DACL；真实访问故障交接维护及重试通过 | `core-release-final`、`delete-pending-reproducer`、`cleanup-posix-final`、`maintenance-acl-retry` |
 | 最终服务验证 | Host 核心全量 1,324 通过、5 个显式性能入口未启用而跳过；之后新增循环/断链 2 项单独通过。Runtime 176 通过；公开契约 15 通过；x64 Debug solution 编译通过（仅既有 MSTEST0037）；MSI 无窗口工具编译 0 警告 0 错误 | `core-complete-final`、`runtime-final`、`contracts-final`、`final-solution-build.log`、`final-host-build.log` |
 | 新协议最终回归 | 新旧准备、维护及进程终止组合 96 项通过；其中新版真实强杀 13 个持久化窗口，每项恢复两次。最终全量包含这些用例 | `protocol-final-guard`、`core-complete-final` |
-| 性能最终验收 | 待执行；候选与 `3bfc761` 使用相同工具、同卷输入和五次采样，分别报告文件可用及清理后总成本 | 后续补充 |
+| 应用状态整体重定向 | 前期 Host 21 个场景在应用状态祖先 Junction 下全部通过；含逻辑绝对排除与实际物理读取；最终 22 项见后续行 | `artifacts/1.9.8/stage-2/bound-redirected-state-physical/run/host-stage2.json` |
+| 最终真实 Smart 链及 Host | 串行正式重建后，普通根及应用状态 Junction 下各 22 场景全部通过。新增实际 BackupService 创建六层 Smart 链再还原，目标逻辑物化 1 次、所需 owner 归档提取 2 次、严格验证 6 个独立输入各 1 次；保护快照另完整捕获并按严格级别验证 1 次 | `host-acceptance-serial-final/host-stage2.json`、`serial-redirected-state-physical/run/host-stage2.json`、`smart-chain-host-build-serial.log` |
+| 性能最终验收 | 两档、两轮、每组五次，合计 120 组 / 600 样本全部正确；单轮及连续双轮超限均为 0。保留 API 文件可用及包含清理/日志的总成本，不宣称所有普通备份都改善；明细见验收报告 | `performance-summary.json`、`performance/run-status.json`；Git 中另存小型元数据及全部比较 CSV |
+| 最后工具争用修正 | 补充工具构建尚未完成时被提前启动，导致 PRI 文件占用；该轮不计正式验收。进程退出后串行重建及上述两组 22 场景重跑通过；性能使用此前冻结二进制，不受影响 | `smart-chain-host-build.log` 为失败记录；`smart-chain-host-build-serial.log` 为后续通过记录 |
 | UI、真实 USB 断连 | UI 按要求本轮跳过；真实 USB 待硬件验收 | 不计为通过 |
 
 若实现发现无法满足上述边界，应记录具体不成立的保证并修订方案；不得以全树复制、全局拒绝特殊对象或静默关闭校验代替本阶段目标。
