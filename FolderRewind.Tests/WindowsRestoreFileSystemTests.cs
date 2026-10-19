@@ -47,15 +47,19 @@ public sealed class WindowsRestoreFileSystemTests
         finally { Directory.Delete(root, true); }
     }
     [TestMethod]
-    public void AlternateDataStreamIsRejectedBeforeMutation()
+    public void AlternateDataStreamIsAllowedAndMovesWithOriginalObject()
     {
         var root = Path.Combine(Path.GetTempPath(), "fr-ads-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
         try
         {
             var file = Path.Combine(root, "file"); File.WriteAllText(file, "world");
             File.WriteAllText(file + ":external", "keep");
-            Assert.Throws<IOException>(() => WindowsRestoreFileSystem.Identity(file));
-            Assert.AreEqual("world", File.ReadAllText(file)); Assert.AreEqual("keep", File.ReadAllText(file + ":external"));
+            var identity = WindowsRestoreFileSystem.Identity(file);
+            var retired = Path.Combine(root, "retired");
+            WindowsRestoreFileSystem.MoveOwnedNoReplace(file, retired, identity);
+            Assert.AreEqual("world", File.ReadAllText(retired)); Assert.AreEqual("keep", File.ReadAllText(retired + ":external"));
+            WindowsRestoreFileSystem.MoveOwnedNoReplace(retired, file, identity);
+            Assert.AreEqual("keep", File.ReadAllText(file + ":external"));
         }
         finally { Directory.Delete(root, true); }
     }

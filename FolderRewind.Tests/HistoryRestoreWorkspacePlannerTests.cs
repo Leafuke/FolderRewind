@@ -15,12 +15,12 @@ public sealed class HistoryRestoreWorkspacePlannerTests
         {
             var target = Path.Combine(root, "world");
             var plan = HistoryRestoreWorkspacePlanner.Plan(HistoryTransactionId.New(), [new(SourceId.New(), target)], []);
-            Assert.AreEqual(Path.GetPathRoot(target), Path.GetPathRoot(plan.Single().Container));
+            Assert.AreEqual(FolderRewind.History.Storage.WindowsRestoreFileSystem.Identity(root), plan.Single().ParentIdentity);
             Assert.IsFalse(Path.Exists(plan.Single().Container)); Assert.IsFalse(Path.Exists(target));
             Directory.CreateDirectory(target);
             var trailing = HistoryRestoreWorkspacePlanner.Plan(HistoryTransactionId.New(), [new(SourceId.New(), target + Path.DirectorySeparatorChar)], []);
-            Assert.AreEqual(target, trailing.Single().Target);
-            Assert.AreEqual(root, Path.GetDirectoryName(trailing.Single().Container));
+            Assert.AreEqual(target, trailing.Single().LogicalTarget);
+            Assert.AreEqual(plan.Single().ParentIdentity, trailing.Single().ParentIdentity);
             Directory.Delete(target);
             Assert.Throws<IOException>(() => HistoryRestoreWorkspacePlanner.Plan(HistoryTransactionId.New(),
                 [new(SourceId.New(), target), new(SourceId.New(), Path.Combine(target, "nested"))], []));

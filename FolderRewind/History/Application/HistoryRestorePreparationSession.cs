@@ -19,6 +19,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
     private readonly HistoryRestoreTransactionJournalStore _store;
     private readonly string _repository;
     private bool _finished;
+    private readonly List<IDisposable> _bindings = [];
     internal HistoryRestoreTransactionJournal Journal { get; private set; }
     internal string? Diagnostic { get; private set; }
     internal HistoryRestorePreparationSession(HistoryRuntime history, HistoryRestoreTransactionJournalStore store,
@@ -27,10 +28,31 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         _store = store; _repository = history.Repository.Paths.RepositoryRoot;
         var id = HistoryTransactionId.New();
         var locations = HistoryRestoreWorkspacePlanner.Plan(id, bindings, protectedRoots.Append(_repository));
+        try
+        {
+            foreach (var location in locations)
+            {
+                var logical = location.LogicalTarget!;
+                _bindings.Add(new WindowsPhysicalDirectoryLease(Directory.Exists(logical) ? logical : Path.GetDirectoryName(logical)!, !Directory.Exists(logical)));
+            }
+            foreach (var root in protectedRoots.Append(_repository).Where(Directory.Exists))
+                _bindings.Add(new WindowsPhysicalDirectoryLease(root));
+            foreach (var location in locations)
+                if (!StringComparer.OrdinalIgnoreCase.Equals(HistoryRestoreWorkspacePlanner.ResolvePath(location.LogicalTarget!), location.Target))
+                    throw new IOException("Restore logical binding changed during preparation.");
+        }
+        catch { foreach (var binding in _bindings) binding.Dispose(); throw; }
         Journal = new(id, HistoryRestoreTransactionPhase.Preparing, expected, expected, [], [], [], [],
             ProtocolVersion: 2, Workspaces: [.. locations.Select(location => new RestoreWorkspaceRegistration(location, Guid.NewGuid().ToString("N"), null, []))],
             ConfigurationSignature: configurationSignature ?? history.ConfigId.ToString());
-        _store.Save(Journal); _previous = Active.Value; Active.Value = this;
+        try { _store.Save(Journal); }
+        catch { foreach (var binding in _bindings) binding.Dispose(); throw; }
+        _previous = Active.Value; Active.Value = this;
+    }
+    internal HistoryRestoreSourceBinding BindSource(HistoryRestoreSourceBinding source)
+    {
+        var location = Journal.Workspaces.Single(w => w.Location.SourceId == source.SourceId).Location;
+        return source with { TargetDirectory = location.Target, LogicalDirectory = source.ComparisonRoot };
     }
     internal static bool OwnsPreparing(HistoryRestoreTransactionJournal journal, string root) => Active.Value is { } active
         && active.Journal.TransactionId == journal.TransactionId && journal.ProtocolVersion == 2
@@ -109,5 +131,14 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         }
         catch (Exception error) { Diagnostic = "Restore preparation requires recovery: " + error.Message; }
     }
-    public void Dispose() { Abort(); if (ReferenceEquals(Active.Value, this)) Active.Value = _previous; }
+    public void Dispose()
+    {
+        try { Abort(); }
+        finally
+        {
+            if (ReferenceEquals(Active.Value, this)) Active.Value = _previous;
+            for (int i = _bindings.Count - 1; i >= 0; i--) _bindings[i].Dispose();
+            _bindings.Clear();
+        }
+    }
 }

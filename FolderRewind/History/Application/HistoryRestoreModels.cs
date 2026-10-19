@@ -43,6 +43,8 @@ public sealed record HistoryRestoreSourceBinding(
     string TargetDirectory,
     EffectiveSourceBoundarySnapshot? EffectiveSourceBoundary = null)
 {
+    internal string? LogicalDirectory { get; init; }
+    internal string ComparisonRoot => LogicalDirectory ?? TargetDirectory;
     public EffectiveSourceBoundarySnapshot Boundary =>
         EffectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
 }

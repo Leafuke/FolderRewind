@@ -17,7 +17,8 @@ internal static class WindowsRestoreFileSystem
         RestoreObjectIdentity expectedParent)
     {
         using var ancestors = new WindowsDirectoryReadLease(path);
-        using var parent = Open(Path.GetDirectoryName(Path.GetFullPath(path))!, 0x81, 3);
+        using var parent = Open(ancestors.PhysicalDirectory, 0x81, 3);
+        RequireOrdinary(parent);
         if (Identity(parent) != expectedParent) throw new IOException("Restore preparation parent changed.");
         var name = Path.GetFileName(path);
         var text = Marshal.StringToHGlobalUni(name);
@@ -51,37 +52,16 @@ internal static class WindowsRestoreFileSystem
     {
         if (!GetFileInformationByHandleEx(handle, 18, out var id, (uint)Marshal.SizeOf<FileIdInfo>())
             || !GetFileInformationByHandle(handle, out var info)) throw Error("Cannot identify restore object.");
-        if ((info.Attributes & (uint)FileAttributes.ReparsePoint) != 0) throw new IOException("Restore object is a reparse point.");
-        if ((info.Attributes & (uint)FileAttributes.Directory) == 0 && info.Links != 1)
-            throw new IOException("Restore mutation does not support affected hard links.");
-        RequireNoAlternateStreams(handle, (info.Attributes & (uint)FileAttributes.Directory) != 0);
         return new(id.Volume, id.Low, id.High, (info.Attributes & (uint)FileAttributes.Directory) != 0);
     }
-    private static void RequireNoAlternateStreams(SafeFileHandle handle, bool directory)
+    internal static FileAttributes Attributes(SafeFileHandle handle)
     {
-        var buffer = Marshal.AllocHGlobal(65536);
-        try
-        {
-            if (!GetRawInformation(handle, 7, buffer, 65536))
-            {
-                var error = Marshal.GetLastWin32Error();
-                if (directory && error == 38) return;
-                throw new IOException("Cannot prove restore stream safety.", new Win32Exception(error));
-            }
-            int offset = 0;
-            while (true)
-            {
-                if (offset > 65536 - 24) throw new IOException("Restore stream metadata is ambiguous.");
-                var entry = buffer + offset; int next = Marshal.ReadInt32(entry), length = Marshal.ReadInt32(entry, 4);
-                if (length < 0 || length > 65536 - offset - 24 || length % 2 != 0) throw new IOException("Restore stream metadata is invalid.");
-                var name = Marshal.PtrToStringUni(entry + 24, length / 2);
-                if (name != "::$DATA") throw new IOException("Restore mutation does not support alternate data streams.");
-                if (next == 0) break;
-                if (next < 24 + length) throw new IOException("Restore stream metadata overlaps.");
-                offset = checked(offset + next);
-            }
-        }
-        finally { Marshal.FreeHGlobal(buffer); }
+        if (!GetFileInformationByHandle(handle, out var info)) throw Error("Cannot inspect restore object.");
+        return (FileAttributes)info.Attributes;
+    }
+    internal static void RequireOrdinary(SafeFileHandle handle)
+    {
+        if ((Attributes(handle) & FileAttributes.ReparsePoint) != 0) throw new IOException("Affected restore object is a reparse point.");
     }
     internal static void MoveOwnedNoReplace(string source, string destination, RestoreObjectIdentity expected,
         RestoreObjectIdentity? expectedSourceParent = null, RestoreObjectIdentity? expectedDestinationParent = null, bool ancestorsProtected = false,
@@ -91,18 +71,21 @@ internal static class WindowsRestoreFileSystem
         using var sourceParents = ancestorsProtected ? null : new WindowsDirectoryReadLease(source);
         using var targetParents = ancestorsProtected ? null : new WindowsDirectoryReadLease(destination);
         using var handle = Open(source, 0x80010180, 1); // READ + DELETE + WRITE/READ_ATTRIBUTES，禁止外部写入与删除。
+        RequireOrdinary(handle);
         if (Identity(handle) != expected) throw new IOException("Restore source identity changed.");
         using var content = expectedContentHash is not null ? new FileStream(handle, FileAccess.Read) : null;
         if (content is not null && !StringComparer.Ordinal.Equals(expectedContentHash,
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(content))))
             throw new IOException("Local state content changed before protected retirement.");
         var cachedSource = protectedParents?.Find(expectedSourceParent);
-        using var sourceParent = cachedSource is null ? Open(Path.GetDirectoryName(Path.GetFullPath(source))!, 0x80, 3) : null;
+        using var sourceParent = cachedSource is null ? Open(sourceParents?.PhysicalDirectory ?? Path.GetDirectoryName(Path.GetFullPath(source))!, 0x80, 3) : null;
+        if (sourceParent is not null) RequireOrdinary(sourceParent);
         if (cachedSource is null && expectedSourceParent is not null && Identity(sourceParent!) != expectedSourceParent)
             throw new IOException("Restore source parent identity changed.");
-        var parent = Path.GetDirectoryName(Path.GetFullPath(destination))!;
+        var parent = targetParents?.PhysicalDirectory ?? Path.GetDirectoryName(Path.GetFullPath(destination))!;
         var cachedTarget = protectedParents?.Find(expectedDestinationParent);
         using var targetParent = cachedTarget is null ? Open(parent, 0x80, 3) : null;
+        if (targetParent is not null) RequireOrdinary(targetParent);
         var targetParentIdentity = cachedTarget is not null ? expectedDestinationParent! : Identity(targetParent!);
         if (expectedDestinationParent is not null && targetParentIdentity != expectedDestinationParent)
             throw new IOException("Restore destination parent identity changed.");
@@ -144,6 +127,7 @@ internal static class WindowsRestoreFileSystem
                     var handle = Open(parent.Path, 0x81, allowChildRenames ? 3u : 1u);
                     try
                     {
+                        RequireOrdinary(handle);
                         if (Identity(handle) != parent.Identity) throw new IOException("Restore parent binding changed.");
                         _handles.Add(parent.Identity, handle);
                         _paths.Add(Path.GetFullPath(parent.Path));
@@ -168,25 +152,24 @@ internal static class WindowsRestoreFileSystem
         using var parents = protectedParents is null ? new WindowsDirectoryReadLease(path) : null;
         if (protectedParents is not null && !protectedParents.Protects(Path.GetDirectoryName(Path.GetFullPath(path))!))
             throw new IOException("Restore cleanup parent is not protected.");
-        using var handle = Open(path, 0x80010180, 1);
+        using var handle = Open(path, 0x80010080, 1);
+        RequireOrdinary(handle);
         if (Identity(handle) != expected) throw new IOException("Restore cleanup ownership changed.");
         if (expected.Directory && Directory.EnumerateFileSystemEntries(path).GetEnumerator() is var entries)
         {
             using (entries) if (entries.MoveNext()) throw new IOException("Restore cleanup directory has new members.");
         }
-        // 文件属性不作为所有权证明。只调整已固定对象的 ReadOnly 位，避免清理更改陌生对象。
-        if (!GetFileInformationByHandle(handle, out var info)) throw Error("Cannot inspect cleanup object.");
-        if ((info.Attributes & (uint)FileAttributes.ReadOnly) != 0)
-        {
-            var basic = new FileBasicInfo { Attributes = info.Attributes & ~(uint)FileAttributes.ReadOnly };
-            if (basic.Attributes == 0) basic.Attributes = (uint)FileAttributes.Normal;
-            if (!SetBasicInformation(handle, 0, ref basic, (uint)Marshal.SizeOf<FileBasicInfo>())) throw Error("Cannot clear owned readonly attribute.");
-        }
         var disposition = Marshal.AllocHGlobal(4);
         try
         {
-            Marshal.WriteInt32(disposition, 1);
-            if (!SetFileInformationByHandle(handle, 4, disposition, 4)) throw Error("Owned restore cleanup failed.");
+            // 只删除目录项，不改变范围外硬链接共享的 ReadOnly 或 ACL。
+            Marshal.WriteInt32(disposition, 0x11); // DELETE | IGNORE_READONLY_ATTRIBUTE
+            if (!SetFileInformationByHandle(handle, 21, disposition, 4))
+            {
+                if ((Attributes(handle) & FileAttributes.ReadOnly) != 0) throw Error("Owned readonly cleanup requires maintenance.");
+                Marshal.WriteInt32(disposition, 1);
+                if (!SetFileInformationByHandle(handle, 4, disposition, 4)) throw Error("Owned restore cleanup failed.");
+            }
         }
         finally { Marshal.FreeHGlobal(disposition); }
     }
@@ -194,13 +177,18 @@ internal static class WindowsRestoreFileSystem
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Restore moves require Windows NTFS.");
         var absolute = Path.GetFullPath(path);
-        if (absolute.StartsWith("\\\\", StringComparison.Ordinal)) throw new IOException("Network restore paths are unsupported.");
-        var handle = CreateFileW("\\\\?\\" + absolute, access, share, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+        var handle = CreateFileW(ExtendedPath(absolute), access, share, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
         if (!handle.IsInvalid) return handle;
         var error = Marshal.GetLastWin32Error(); handle.Dispose();
         if (error == 2) throw new FileNotFoundException("Restore object is absent.", path);
         if (error == 3) throw new DirectoryNotFoundException("Restore object parent is absent.");
         throw new IOException("Cannot protect restore object.", new Win32Exception(error));
+    }
+    internal static string ExtendedPath(string path)
+    {
+        if (path.StartsWith("\\\\?\\", StringComparison.Ordinal)) return path;
+        if (path.StartsWith("\\\\", StringComparison.Ordinal)) throw new IOException("Network restore paths are unsupported.");
+        return "\\\\?\\" + path;
     }
     internal static (RestoreObjectIdentity Identity, ulong FreeBytes) RequireLocalNtfs(string parent)
     {

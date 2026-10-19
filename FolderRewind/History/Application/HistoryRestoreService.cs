@@ -237,6 +237,7 @@ public sealed partial class HistoryRestoreService
         HistoryRestorePreparationSession? session = null)
     {
         using var phase = Services.HistoryOperationDiagnostics.Current?.Measure("prepare-source");
+        source = session?.BindSource(source) ?? source;
         if (applyMode == HistoryRestoreApplyMode.Clean)
             LegacyRecoveryPolicy.RequireKnownBoundary(version);
         var allRepresentations = await _history.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);

@@ -26,6 +26,22 @@ public sealed class BackupSourceScopePatternSet
 
     public IReadOnlyList<string> Patterns { get; }
 
+    internal bool MayContainDescendant(string directory)
+    {
+        var prefix = directory.Replace('\\', '/').Trim('/') + "/";
+        return Patterns.Any(pattern =>
+        {
+            int wildcard = pattern.IndexOfAny(['*', '?', '[']);
+            if (wildcard < 0) return pattern.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+            var fixedParent = pattern[..wildcard];
+            int separator = fixedParent.LastIndexOf('/');
+            if (separator < 0) return true;
+            fixedParent = fixedParent[..(separator + 1)];
+            return prefix.StartsWith(fixedParent, StringComparison.OrdinalIgnoreCase)
+                || fixedParent.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
     public bool IsMatch(string relativePath)
     {
         if (!IsSafeRelativePattern(relativePath))

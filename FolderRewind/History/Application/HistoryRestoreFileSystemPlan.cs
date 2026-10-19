@@ -21,7 +21,8 @@ internal sealed record HistoryRestoreFileSystemPlan(HistoryTransactionId Transac
     IReadOnlyList<string> Containers, IReadOnlyList<RestorePlanObject> Objects, IReadOnlyList<RestoreMoveAction> Actions,
     IReadOnlyList<RestoreSourcePlanEvidence>? Sources = null);
 internal sealed record RestoreSourcePlanEvidence(SourceId Source, VersionId Version, string Target,
-    EffectiveSourceBoundarySnapshot Boundary, IReadOnlyList<string> Files, IReadOnlyList<string> EmptyDirectories);
+    EffectiveSourceBoundarySnapshot Boundary, IReadOnlyList<string> Files, IReadOnlyList<string> EmptyDirectories,
+    string? LogicalTarget = null);
 internal sealed record RestorePlanProof(string Path, long Length, string Sha256);
 
 /// <summary>不可变意图与线性进度。恢复方向由 Workspace/Pack 判定，进度只作经过校验的提示。</summary>
@@ -44,7 +45,7 @@ internal static class HistoryRestoreFileSystemPlanStore
             throw new InvalidDataException("Restore immutable plan proof mismatch.");
         var plan = JsonSerializer.Deserialize<HistoryRestoreFileSystemPlan>(bytes, Options) ?? throw new InvalidDataException("Restore plan is empty.");
         if (plan.TransactionId != transaction || plan.Actions.Select(a => a.ActionId).Where((id, index) => id != index).Any()
-            || plan.Containers.Count == 0 || plan.Objects.GroupBy(o => o.Identity).Any(g => g.Count() > 1))
+            || plan.Containers.Count == 0 || plan.Objects.Where(o => o.Identity.Directory).GroupBy(o => o.Identity).Any(g => g.Count() > 1))
             throw new InvalidDataException("Restore plan identity or action sequence is invalid.");
         return plan;
     }
@@ -53,6 +54,7 @@ internal static class HistoryRestoreFileSystemPlanStore
         var objects = new List<RestorePlanObject>(); var pending = new Stack<string>(); pending.Push(root);
         while (pending.TryPop(out var path))
         {
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new IOException("Owned restore tree contains a link: " + path);
             var id = WindowsRestoreFileSystem.Identity(path);
             objects.Add(new(Path.GetFullPath(path), id, File.GetAttributes(path)));
             if (id.Directory)
@@ -161,11 +163,12 @@ internal static class HistoryRestoreFileSystemPlanStore
     internal static void Rollback(HistoryRestoreFileSystemPlan plan)
     {
         using var stableParents = ProtectExternalParents(plan);
-        var known = plan.Objects.Select(o => o.Identity).ToHashSet();
         foreach (var action in plan.Actions.Reverse())
         {
             var source = WindowsRestoreFileSystem.TryIdentity(action.From); var destination = WindowsRestoreFileSystem.TryIdentity(action.To);
-            if (source == action.Identity && (destination is null || known.Contains(destination))) continue;
+            if (source == action.Identity && (destination is null
+                || plan.Objects.Any(o => o.Path.Equals(action.To, StringComparison.OrdinalIgnoreCase) && o.Identity == destination)
+                || plan.Actions.Any(a => a.ActionId < action.ActionId && a.To.Equals(action.To, StringComparison.OrdinalIgnoreCase) && a.Identity == destination))) continue;
             if (destination == action.Identity && source is null)
             {
                 Reach("before-undo-" + action.ActionId);
@@ -239,22 +242,15 @@ internal static class HistoryRestoreFileSystemPlanStore
         foreach (var source in plan.Sources ?? [])
         {
             HistoryOperationDiagnostics.Current?.Count("published-tree-scans");
-            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(source.Source, source.Target, source.Boundary));
+            var scope = new HistoryRestoreTreeScope(new(source.Source, source.Target, source.Boundary) { LogicalDirectory = source.LogicalTarget });
             var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var empty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var pending = new Stack<string>(); pending.Push(source.Target);
-            while (pending.TryPop(out var directory))
+            var entries = scope.Enumerate(source.Target, includeExcluded: true).ToArray();
+            foreach (var entry in entries.Where(e => e.Managed))
             {
-                var entries = Directory.GetFileSystemEntries(directory);
-                var relativeDirectory = Path.GetRelativePath(source.Target, directory).Replace('\\', '/');
-                if (relativeDirectory != "." && entries.Length == 0 && include(relativeDirectory)) empty.Add(relativeDirectory);
-                foreach (var path in entries)
-                {
-                    var attributes = File.GetAttributes(path);
-                    if ((attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("Published restore gained a link.");
-                    if ((attributes & FileAttributes.Directory) != 0) pending.Push(path);
-                    else { var relative = Path.GetRelativePath(source.Target, path).Replace('\\', '/'); if (include(relative)) files.Add(relative); }
-                }
+                if (!entry.Directory) files.Add(entry.RelativePath);
+                else if (!entries.Any(child => child.RelativePath.StartsWith(entry.RelativePath + "/", StringComparison.OrdinalIgnoreCase)))
+                    empty.Add(entry.RelativePath);
             }
             if (!files.SetEquals(source.Files) || !empty.SetEquals(source.EmptyDirectories))
                 throw new IOException("Published managed paths changed outside the restore plan.");

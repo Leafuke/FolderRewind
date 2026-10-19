@@ -26,7 +26,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         HistoryRestoreSourceBinding source,
         HistoryTransactionId transactionId)
     {
-        var target = Path.GetFullPath(source.TargetDirectory);
+        var target = HistoryRestoreWorkspacePlanner.ResolvePath(source.TargetDirectory);
         var parent = Path.GetDirectoryName(target)
             ?? throw new InvalidOperationException("Restore target has no parent directory.");
         if (File.Exists(target))
@@ -166,24 +166,8 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
 
     internal static Func<string, bool> CreateBoundaryMatcher(HistoryRestoreSourceBinding source)
     {
-        var boundary = source.Boundary;
-        var scope = boundary.ScopeMode == EffectiveBoundaryScopeMode.Include
-            ? BackupSourceScopePatternSet.Compile(boundary.ScopeRules)
-            : null;
-        var filter = PathRuleMatcher.CreateForBackup(
-            boundary.FilterRules,
-            source.TargetDirectory,
-            source.TargetDirectory,
-            boundary.UseRegex);
-        return relativePath =>
-        {
-            var normalized = relativePath.Replace('\\', '/');
-            if (scope is not null && !scope.IsMatch(normalized)) return false;
-            var matched = filter.IsMatch(Path.Combine(source.TargetDirectory, normalized));
-            return boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist
-                ? matched
-                : !matched;
-        };
+        var scope = new Storage.HistoryRestoreTreeScope(source);
+        return relativePath => scope.Includes(relativePath.Replace('\\', '/'));
     }
 
     private static Task MoveDirectoryWithRetryAsync(
