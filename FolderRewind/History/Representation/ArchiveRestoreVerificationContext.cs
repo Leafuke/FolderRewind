@@ -19,6 +19,7 @@ internal interface IArchiveRestorePreflightBackend
         bool fullContentTest, CancellationToken token);
     ValueTask MaterializeRestoreAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging,
         ArchiveRestoreVerificationContext context, CancellationToken token);
+    long EstimateMaterializationBytes(IReadOnlyList<ArchiveMaterializationInput> inputs, ArchiveRestoreVerificationContext context);
 }
 
 /// <summary>仅本次操作复用：先固定父目录和文件对象，再验证摘要/清单。生命周期覆盖全部必要读取。</summary>
@@ -26,8 +27,9 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
 {
     private sealed record Input(VersionRepresentation Representation, string Path,
         WindowsDirectoryReadLease Parents, FileStream Stream, object PolicyIdentity, PayloadVerificationResult Result,
-        Services.ArchiveSafeListing? Listing);
+        Services.ArchiveSafeListing? Listing, IArchiveRestorePreflightBackend Backend);
     private readonly Dictionary<RepresentationId, Input> _inputs = [];
+    private readonly Dictionary<string, IDisposable> _space = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
     public RestoreArchivePreflightMode Mode { get; } = Enum.IsDefined(mode) ? mode : throw new ArgumentOutOfRangeException(nameof(mode));
@@ -56,12 +58,13 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
                 {
                     using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("storage-hash");
                     var actual = Convert.ToHexString(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false));
+                    Services.HistoryOperationDiagnostics.Current?.Count("storage-hash-bytes", stream.Length);
                     if (!StringComparer.OrdinalIgnoreCase.Equals(actual, expected)) throw new IOException("Restore storage hash mismatch.");
                     stream.Position = 0;
                 }
                 var result = await backend.PreflightAsync(representation, absolute, Mode == RestoreArchivePreflightMode.Strict, token).ConfigureAwait(false);
                 backend.TryGetListing(absolute, out var listing);
-                _inputs.Add(representation.RepresentationId, new(representation, absolute, parents, stream, backend.InputPolicyIdentity, result, listing));
+                _inputs.Add(representation.RepresentationId, new(representation, absolute, parents, stream, backend.InputPolicyIdentity, result, listing, backend));
                 return result;
             }
             catch { stream?.Dispose(); parents.Dispose(); throw; }
@@ -74,6 +77,13 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
         && a.DependencyRepresentationIds.SequenceEqual(b.DependencyRepresentationIds)
         && a.RepresentationSpecificMetadata.Count == b.RepresentationSpecificMetadata.Count
         && a.RepresentationSpecificMetadata.All(p => b.RepresentationSpecificMetadata.TryGetValue(p.Key, out var v) && v == p.Value);
+    internal bool Protects(VersionRepresentation representation, string path)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _inputs.TryGetValue(representation.RepresentationId, out var held) && held.Result.Success
+            && Equivalent(held.Representation, representation)
+            && StringComparer.OrdinalIgnoreCase.Equals(held.Path, Path.GetFullPath(path));
+    }
     internal Services.ArchiveSafeListing RequireListing(ArchiveMaterializationInput input)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -83,9 +93,30 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
             throw new IOException("Materialization input has no protected safe listing.");
         return held.Listing;
     }
+    internal void ReserveMaterializationSpace(RepresentationId root, IReadOnlyList<VersionRepresentation> graph, string staging,
+        Plugin.Runtime.Artifacts.ArtifactSpaceBudget budget)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var path = Path.GetFullPath(staging);
+        if (_space.ContainsKey(path) || !_inputs.TryGetValue(root, out var input)) return; // Native 使用其既有 Artifact 预算。
+        var byId = graph.ToDictionary(r => r.RepresentationId);
+        var inputs = RepresentationRuntime.BuildDependencyFirstClosure(byId[root], byId)
+            .Select(r => new ArchiveMaterializationInput(r, _inputs.TryGetValue(r.RepresentationId, out var held)
+                ? held.Path : throw new IOException("Materialization budget has an unprotected dependency."))).ToArray();
+        long bytes = input.Backend.EstimateMaterializationBytes(inputs, this);
+        _space.Add(path, budget.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(path, bytes)));
+        Services.HistoryOperationDiagnostics.Current?.Count("restore-space-reserved", bytes);
+    }
+    internal bool HasMaterializationSpace(string staging) => _space.ContainsKey(Path.GetFullPath(staging));
+    internal void ReleaseMaterializationSpace(string staging)
+    {
+        if (_space.Remove(Path.GetFullPath(staging), out var reservation)) reservation.Dispose();
+    }
     public void Dispose()
     {
         if (_disposed) return; _disposed = true;
+        foreach (var reservation in _space.Values) reservation.Dispose();
+        _space.Clear();
         foreach (var input in _inputs.Values) { input.Stream.Dispose(); input.Parents.Dispose(); }
         _inputs.Clear(); _gate.Dispose();
     }

@@ -228,7 +228,10 @@ if ($LASTEXITCODE) { throw 'WinUI build failed.' }
 | 准备/清理协议 | 原有恢复/Quick 组合 84 项通过；新增协议强杀 12 项通过；清理服务 5 项通过（旧格式/伪提交证明 2 项独立复跑通过） | `protocol`、`new-protocol-final`、`legacy-cleanup`；均位于本阶段 artifacts 目录 |
 | 协议边界修正 | 新增强杀发现“计划已写出、Prepared 未发布”的诊断异常未被归类，已修正；首次失败及测试夹具断言修正前结果保留 | `new-protocol`、`new-protocol-final` |
 | 协议编译/审阅 | x64 Debug solution 通过；按 WinUI review 检查异步释放、单清理任务与持久记录边界，无 UI 修改 | `artifacts/1.9.8/stage-2/protocol-build.log` |
-| 验证复用、统一编排、性能 | 待执行 | 后续补充 |
+| 输入验证/容量 | 验证、Quick 与目标卷组合 25 项通过；容量及旧版本兼容 64 项通过，包含同卷累计不足时零提取、准备落盘后释放预留 | `input-capacity`、`capacity-legacy-final` |
+| 旧协议补充修正 | 旧覆盖路径切换为卷 GUID 后，嵌套路径需使用本机分隔符；真实 1.8.2 Smart 恢复检出并修正，补充成功结果断言 | `legacy-diagnostic`、`capacity-legacy-final` |
+| 输入/容量编译 | x64 Debug solution 通过；既有 MSTEST0037 警告 | `artifacts/1.9.8/stage-2/input-build.log` |
+| 内部快照、统一编排、性能 | 待执行 | 后续补充 |
 | UI、真实 USB 断连 | UI 按要求本轮跳过；真实 USB 待硬件验收 | 不计为通过 |
 
 若实现发现无法满足上述边界，应记录具体不成立的保证并修订方案；不得以全树复制、全局拒绝特殊对象或静默关闭校验代替本阶段目标。

@@ -124,12 +124,12 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
         Func<HistoryCommitPack, CancellationToken, Task>? publisher = null,
         ArchiveRestoreVerificationContext? verification = null, bool targetVolume = false, bool allowSwap = true,
         Func<HistoryRestoreSourceBinding, string, CancellationToken, Task<bool>>? prepare = null,
-        IReadOnlyList<string>? protectedRoots = null)
+        IReadOnlyList<string>? protectedRoots = null, FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget? spaceBudget = null)
         => new(History, new RepresentationRuntime([new CoreArchiveRepresentationHandler(Archives.Inner)]),
             async token => new RepresentationEnvironment((await History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []),
             mutation ?? new FileSystemHistoryRestoreMutationBackend(), prepare) { PackPublisher = publisher,
                 VerificationContext = verification, UseTargetVolumeWorkspaces = targetVolume, AllowDirectorySwap = allowSwap,
-                ProtectedRestoreRoots = protectedRoots ?? [] };
+                ProtectedRestoreRoots = protectedRoots ?? [], SpaceBudget = spaceBudget ?? FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared };
 
     public HistoryMergeCommitBuilder Builder(HistoryRestoreService? restore = null)
         => new(History, restore ?? Restore(), Archives, Archives);

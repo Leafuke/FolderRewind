@@ -25,7 +25,7 @@ public sealed partial class HistoryRestoreService
     private readonly Func<CancellationToken, ValueTask<IAsyncDisposable>>? _finalGuard;
     internal Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, ValueTask<IAsyncDisposable>>? FinalGuardInsideOperation { get; init; }
     internal Func<SourceVersion, CancellationToken, Task>? ValidateVersionTarget { get; init; }
-    internal ArchiveRestoreVerificationContext? VerificationContext { get; init; }
+    internal ArchiveRestoreVerificationContext? VerificationContext { get; set; }
     internal bool UseTargetVolumeWorkspaces { get; init; }
     internal bool AllowDirectorySwap { get; init; } = true;
     internal IReadOnlyList<string> ProtectedRestoreRoots { get; init; } = [];
@@ -84,6 +84,7 @@ public sealed partial class HistoryRestoreService
         HistoryWorkspace expectedWorkspace, HistoryRestoreApplyMode requestedMode, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(selections);
+        using var inputs = EnterInputScope();
         using var diagnostics = Services.HistoryOperationDiagnostics.Current is null ? Services.HistoryOperationDiagnostics.Begin("restore-versions") : null;
         ArgumentNullException.ThrowIfNull(mappedSources);
         await using var ownedOperation = ExistingOperation is null
@@ -102,6 +103,7 @@ public sealed partial class HistoryRestoreService
         var session = PreparationSession ?? ownedPreparation;
         try
         {
+            var chosen = new List<(SourceVersion Version, HistoryRestoreSourceBinding Binding, HistoryRestoreApplyMode Mode)>();
             foreach (var binding in mappedSources)
             {
                 var version = await _history.Query.GetVersionAsync(selections[binding.SourceId], cancellationToken).ConfigureAwait(false)
@@ -109,6 +111,11 @@ public sealed partial class HistoryRestoreService
                 if (version.ConfigId != _history.ConfigId || version.SourceId != binding.SourceId)
                     throw new InvalidOperationException("Restore selection crosses Source identity.");
                 var effectiveMode = version.CaptureScope == CaptureScope.PartialSource ? HistoryRestoreApplyMode.Overwrite : requestedMode;
+                chosen.Add((version, binding, effectiveMode));
+            }
+            await ReservePreparationSpaceAsync(chosen.Select(s => (s.Version, s.Binding, RequiredFidelity(s.Mode))), session, cancellationToken).ConfigureAwait(false);
+            foreach (var (version, binding, effectiveMode) in chosen)
+            {
                 prepared.Add(await PrepareSourceAsync(
                     version,
                     binding,
@@ -158,6 +165,7 @@ public sealed partial class HistoryRestoreService
         CancellationToken cancellationToken = default)
     {
         using var diagnostics = Services.HistoryOperationDiagnostics.Current is null ? Services.HistoryOperationDiagnostics.Begin("restore-version") : null;
+        using var inputs = EnterInputScope();
         await using var ownedOperation = ExistingOperation is null
             ? await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false) : null;
         var operation = ExistingOperation ?? ownedOperation!;
@@ -176,6 +184,7 @@ public sealed partial class HistoryRestoreService
             var effectiveMode = version.CaptureScope == CaptureScope.PartialSource
                 ? HistoryRestoreApplyMode.Overwrite : requestedMode;
             var boundSource = session?.BindSource(source) ?? source;
+            if (ReusablePreparation is null) await ReservePreparationSpaceAsync([(version, source, RequiredFidelity(effectiveMode))], session, cancellationToken).ConfigureAwait(false);
             prepared = ReusablePreparation is { } reused && reused.Version.VersionId == versionId
                 && reused.Binding.SourceId == source.SourceId && reused.ApplyMode == effectiveMode
                 && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(reused.Binding.TargetDirectory), Path.GetFullPath(boundSource.TargetDirectory))
@@ -224,8 +233,8 @@ public sealed partial class HistoryRestoreService
         var staging = Path.Combine(Path.GetTempPath(), "FolderRewind-comparison", Guid.NewGuid().ToString("N"));
         try
         {
-            using var inputs = await _representations.LockExactVersionAsync(version.VersionId, graph, environment, token).ConfigureAwait(false);
-            await _representations.MaterializeAsync(inputs.RepresentationId, graph, environment, MaterializationFidelity.Exact, staging, token, VerificationContext).ConfigureAwait(false);
+            using var inputs = await _representations.LockExactVersionAsync(version.VersionId, graph, environment, token, VerificationContext).ConfigureAwait(false);
+            await _representations.MaterializeAsync(inputs.RepresentationId, graph, environment, MaterializationFidelity.Exact, staging, token, inputs.VerificationContext).ConfigureAwait(false);
             try { _ = File.GetAttributes(binding.TargetDirectory); }
             catch (FileNotFoundException) { return new(HistoryWorkingStateComparisonStatus.Different, "TargetMissing"); }
             catch (DirectoryNotFoundException) { return new(HistoryWorkingStateComparisonStatus.Different, "TargetMissing"); }
@@ -275,14 +284,14 @@ public sealed partial class HistoryRestoreService
         {
             using var legacyRead = version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown
                 ? await _representations.LockVersionAsync(version.VersionId, allRepresentations, environment,
-                    requiredFidelity, cancellationToken).ConfigureAwait(false) : null;
+                    requiredFidelity, cancellationToken, VerificationContext).ConfigureAwait(false) : null;
             await _representations.MaterializeAsync(
                 legacyRead?.RepresentationId ?? assessment.Selected.RepresentationId,
                 allRepresentations,
                 environment,
                 requiredFidelity,
                 staging,
-                cancellationToken, VerificationContext).ConfigureAwait(false);
+                cancellationToken, legacyRead?.VerificationContext ?? VerificationContext).ConfigureAwait(false);
             session?.RecordPrepared(source.SourceId);
             return new PreparedRestoreSource(
                 source with { EffectiveSourceBoundary = version.EffectiveSourceBoundary },
@@ -296,6 +305,7 @@ public sealed partial class HistoryRestoreService
             HistoryRestoreTransactionJournalStore.CleanupStaging([staging]);
             throw;
         }
+        finally { VerificationContext?.ReleaseMaterializationSpace(staging); }
     }
 
     internal async Task<PreparedRestoreSource> PrepareOrdinaryRestoreAsync(PreparedRestoreSource source, CancellationToken token)
@@ -330,11 +340,11 @@ public sealed partial class HistoryRestoreService
         LegacyRecoveryPolicy.RequireKnownBoundary(version);
         var representations = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var environment = await _environmentFactory(token).ConfigureAwait(false);
-        var lease = await _representations.LockExactVersionAsync(version.VersionId, representations, environment, token).ConfigureAwait(false);
+        var lease = await _representations.LockExactVersionAsync(version.VersionId, representations, environment, token, VerificationContext).ConfigureAwait(false);
         var staging = Path.Combine(_history.Repository.Paths.TransactionsRoot, "merge-verification", Guid.NewGuid().ToString("N"));
         try
         {
-            await _representations.MaterializeAsync(lease.RepresentationId, representations, environment, MaterializationFidelity.Exact, staging, token).ConfigureAwait(false);
+            await _representations.MaterializeAsync(lease.RepresentationId, representations, environment, MaterializationFidelity.Exact, staging, token, lease.VerificationContext).ConfigureAwait(false);
             var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(version.SourceId, staging, version.EffectiveSourceBoundary));
             if ((await Merge.MergeTreeManifest.ReadAsync(staging, include, token).ConfigureAwait(false)).Digest != expectedDigest)
                 throw new IOException("Exact representation no longer matches the fixed Merge input.");

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <Compile Include="..\FolderRewind\History\Application\HistoryRestoreMaintenance.cs" Link="Source\HistoryRestoreMaintenance.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.Inputs.cs" Link="Source\HistoryRestoreService.Inputs.cs" />
   </ItemGroup>
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

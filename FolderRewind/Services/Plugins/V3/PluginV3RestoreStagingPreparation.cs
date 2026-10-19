@@ -61,6 +61,8 @@ internal static class PluginV3RestoreStagingPreparation
             proposals = RestoreStagingProposalValidator.ValidateAndFreeze(new(proposed.Values.ToArray(), []), include);
         }
         bool changed = false;
+        using var space = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(staging,
+            checked(proposals.Sum(p => (long)p.Content.Length + 4096))));
         foreach (var relative in deletes)
         {
             token.ThrowIfCancellationRequested();

@@ -154,7 +154,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             cancellationToken.ThrowIfCancellationRequested();
             var relative = Path.GetRelativePath(source, file).Replace('\\', '/');
             if (include is not null && !include(relative)) continue;
-            var destination = Path.Combine(targetDirectory, relative);
+            var destination = Path.Combine(targetDirectory, relative.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             await using var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
             await using var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true);

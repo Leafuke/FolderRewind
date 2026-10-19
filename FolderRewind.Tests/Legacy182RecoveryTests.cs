@@ -155,7 +155,8 @@ public sealed class Legacy182RecoveryTests
         var binding = new HistoryRestoreSourceBinding(_source, Source.OriginalPath);
         var blocked = await restore.RestoreVersionAsync(targetVersion.VersionId, binding, workspace, HistoryRestoreApplyMode.Clean);
         StringAssert.Contains(blocked.Diagnostic, "boundary");
-        await restore.RestoreVersionAsync(targetVersion.VersionId, binding, workspace, HistoryRestoreApplyMode.Overwrite);
+        var restored = await restore.RestoreVersionAsync(targetVersion.VersionId, binding, workspace, HistoryRestoreApplyMode.Overwrite);
+        Assert.IsTrue(restored.Succeeded, restored.Diagnostic);
         Assert.AreEqual("keep", File.ReadAllText(Path.Combine(Source.OriginalPath, "unmanaged.txt")));
         Assert.AreEqual("new", File.ReadAllText(Path.Combine(Source.OriginalPath, "a.txt")));
         Assert.AreNotEqual(WorkspaceBaselineRelation.Exact, (await runtime.WorkspaceStore.LoadAsync()).Value!.SourceBaselines.Single().Relation);

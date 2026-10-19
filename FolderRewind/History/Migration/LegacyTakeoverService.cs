@@ -73,7 +73,7 @@ public sealed class LegacyTakeoverService(string configDirectory, HistoryConfigI
             var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(backend)]);
             using var lease = await engine.LockVersionAsync(LegacyHistoryMigrationIdentityV1.Version(originKey), graph,
                 environment, MaterializationFidelity.Partial, token).ConfigureAwait(false);
-            await engine.MaterializeAsync(lease.RepresentationId, graph, environment, MaterializationFidelity.Partial, staging, token).ConfigureAwait(false);
+            await engine.MaterializeAsync(lease.RepresentationId, graph, environment, MaterializationFidelity.Partial, staging, token, lease.VerificationContext).ConfigureAwait(false);
             if (fingerprint is null || fingerprint != VerificationFingerprint(item))
                 throw new IOException("Legacy archives or metadata changed during verification; recheck before restoring.");
             item = item with { Status = "RestrictedReady", Diagnostic = LegacyRecoveryPolicy.BoundaryDiagnostic,

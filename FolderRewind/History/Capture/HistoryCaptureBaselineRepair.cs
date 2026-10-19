@@ -53,7 +53,7 @@ public static class HistoryCaptureBaselineRepair
         var staging = Path.Combine(history.Repository.Paths.TransactionsRoot, "baseline-" + Guid.NewGuid().ToString("N"));
         try
         {
-            await engine.MaterializeAsync(representation.RepresentationId, graph, environment, MaterializationFidelity.Exact, staging, token).ConfigureAwait(false);
+            await engine.MaterializeAsync(representation.RepresentationId, graph, environment, MaterializationFidelity.Exact, staging, token, held.VerificationContext).ConfigureAwait(false);
             var tree = await HistoryRewriteTree.ReadAsync(staging, token).ConfigureAwait(false);
             var existing = await history.CaptureBaselines.LoadAsync(source, token).ConfigureAwait(false);
             var files = tree.Files.ToImmutableSortedDictionary(p => p.Key, p => new SourceCaptureFileState(p.Value.Length, p.Value.LastWriteUtc), StringComparer.Ordinal);

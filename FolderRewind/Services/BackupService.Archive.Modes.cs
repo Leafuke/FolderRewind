@@ -61,6 +61,9 @@ namespace FolderRewind.Services
             }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
+            var inputBytes = currentStates.Values.Sum(file => file.Size);
+            using var outputSpace = Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(destDir,
+                checked(inputBytes + currentStates.Count * 4096L + Math.Max(8L * 1024 * 1024, inputBytes / 20))));
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
             bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
 

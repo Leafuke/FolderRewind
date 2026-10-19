@@ -27,7 +27,7 @@ public sealed class HistoryVersionExportService(RepresentationRuntime representa
         {
             using var lease = await representations.LockVersionAsync(versionId, graph, environment, requiredFidelity, token).ConfigureAwait(false);
             await representations.MaterializeAsync(lease.RepresentationId, graph, environment,
-                requiredFidelity, staging, token).ConfigureAwait(false);
+                requiredFidelity, staging, token, lease.VerificationContext).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             RequireDestination(target, protectedRoots);
             RequireNoLinks(parent);
