@@ -1,4 +1,4 @@
-using FolderRewind.History.Application;
+﻿using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
 using FolderRewind.Models;
@@ -16,7 +16,7 @@ internal static partial class NativeHistoryApplicationService
         VersionId versionId, CancellationToken token = default)
     {
         var signature = NativeHistoryConfigLease.Signature(config);
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token).ConfigureAwait(false);
         var version = await runtime.Query.GetVersionAsync(versionId, token).ConfigureAwait(false);
         if (version is null || version.SourceId.Value != System.Guid.Parse(source.Id))
             throw new System.InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
@@ -27,7 +27,7 @@ internal static partial class NativeHistoryApplicationService
     public static async Task<VersionAssessment> PreviewExportAsync(BackupConfig config, VersionId versionId,
         CancellationToken token = default)
     {
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token).ConfigureAwait(false);
         var version = await runtime.Query.GetVersionAsync(versionId, token).ConfigureAwait(false)
             ?? throw new System.InvalidOperationException(I18n.GetString("Export_IdentityChanged"));
         var engine = CreateExportRuntime(config, runtime);
@@ -42,9 +42,8 @@ internal static partial class NativeHistoryApplicationService
         string destination, CancellationToken token = default)
     {
         var signature = NativeHistoryConfigLease.Signature(config);
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token).ConfigureAwait(false);
         await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, token).ConfigureAwait(false);
-        await CreateRestoreService(config, runtime).RecoverInsideConfigurationAsync(operation, token).ConfigureAwait(false);
         await using var guard = await NativeHistoryConfigLease.EnterInsideOperationAsync(config, signature, operation, token).ConfigureAwait(false);
         var version = await runtime.Query.GetVersionAsync(versionId, token).ConfigureAwait(false);
         if (version is null || version.SourceId.Value != System.Guid.Parse(source.Id))

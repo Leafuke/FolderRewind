@@ -1,4 +1,4 @@
-using FolderRewind.History.Domain;
+﻿using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using FolderRewind.History.Storage;
@@ -56,26 +56,8 @@ public sealed partial class HistoryRestoreService
         await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
     }
 
-    internal async Task RecoverInsideConfigurationAsync(Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken cancellationToken = default)
-    {
-        operation.Require(_history.ConfigId);
-        await using var lease = await _history.MutationGate.EnterForRecoveryAsync(cancellationToken).ConfigureAwait(false);
-        var localRecovery = new HistoryLocalStateJournalRecovery(_history.WorkspaceStore, _history.LocalReplicaCatalogStore);
-        await _history.Repository.Journals.RecoverAsync(localRecovery.ApplyCommittedStateAsync,
-            (_, _) => Task.CompletedTask, cancellationToken).ConfigureAwait(false);
-        if (await _journals.RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false))
-        {
-            await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
-            await _history.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
-            _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
-        }
-        try { _history.CloudJobs.Replay(await _history.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false)); }
-        catch (Exception ex) { _history.CloudJobs.ObserveFailure(ex); }
-        await _history.CleanupMergeArtifactsAsync().ConfigureAwait(false);
-        await _history.RecoverChainRewritesAsync(cancellationToken, insideMutationGate: true).ConfigureAwait(false);
-        if (RecoverNativeInsideOperation is { } recoverNative)
-            await recoverNative(operation, cancellationToken).ConfigureAwait(false);
-    }
+    internal Task RecoverInsideConfigurationAsync(Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken cancellationToken = default)
+        => _history.RecoverInsideOperationAsync(operation, _mutation, cancellationToken, RecoverNativeInsideOperation);
 
     public async Task<HistoryRestoreResult> RestoreCheckpointAsync(
         CheckpointId checkpointId, IReadOnlyList<HistoryRestoreSourceBinding> mappedSources,

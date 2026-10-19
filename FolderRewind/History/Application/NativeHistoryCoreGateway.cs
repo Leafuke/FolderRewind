@@ -1,4 +1,4 @@
-using FolderRewind.History.Representation;
+﻿using FolderRewind.History.Representation;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Migration;
@@ -49,6 +49,8 @@ public static class NativeHistoryCoreGateway
             try
             {
                 var runtime = await EnsureReadyAsync(config, configDirectory, legacy, cancellationToken).ConfigureAwait(false);
+                await (await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false))
+                    .RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
                 await new LegacyTakeoverService(configDirectory, new HistoryConfigId(config.Id))
                     .ResumeAsync(runtime, MigrationSources(config), config.DestinationPath, cancellationToken).ConfigureAwait(false);
                 CloudSyncService.ResumeCloudJobs(config);
@@ -60,6 +62,16 @@ public static class NativeHistoryCoreGateway
             }
         }
     }
+
+    public static Task<HistoryRuntime> EnsureReadableAsync(BackupConfig config, CancellationToken cancellationToken = default)
+        => Runtimes.GetOrCreateAsync(new HistoryConfigId(config.Id), (_, token) =>
+        {
+            var paths = HistoryRepositoryPaths.ForConfigDirectory(ConfigService.ConfigDirectory, new HistoryConfigId(config.Id));
+            // Reading an existing repository must not trigger legacy takeover or persist a binding.
+            var descriptor = HistoryRepositoryDescriptor.Parse(File.ReadAllBytes(paths.DescriptorPath));
+            if (descriptor.ConfigId != new HistoryConfigId(config.Id)) throw new HistoryIntegrityConflictException("Repository identity differs from configuration.");
+            return Task.FromResult(new FileHistoryRepository(descriptor.ConfigId, paths));
+        }, cancellationToken);
 
     public static Task<HistoryRuntime> EnsureReadyAsync(
         BackupConfig config,
@@ -315,7 +327,7 @@ public static class NativeHistoryCoreGateway
                 cancellationToken).ConfigureAwait(false);
             // Cached Runtime instances can acquire a pending journal after initialization.
             // Report readiness now; the caller's config-operation recovery entry owns repair.
-            runtime.ObservePendingRecovery();
+            await runtime.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
             Failed.TryRemove(configId.Value, out _);
             return runtime;
         }

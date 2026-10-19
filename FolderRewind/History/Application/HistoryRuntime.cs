@@ -1,4 +1,4 @@
-using FolderRewind.History.Domain;
+﻿using FolderRewind.History.Domain;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Index;
 using FolderRewind.History.LocalState;
@@ -21,6 +21,9 @@ public enum HistoryRuntimeHealth
     LocalReplicaCatalogRecoveryRequired = 2,
     LocalStateInitializationRequired = 4
 }
+
+public enum HistoryRuntimeIssueKind { Workspace, Transaction, ReplicaCatalog, Migration, Maintenance }
+public sealed record HistoryRuntimeIssue(HistoryRuntimeIssueKind Kind, string Diagnostic, bool BlocksMutation, int? ErrorCode = null);
 
 public sealed class HistoryRuntime : IAsyncDisposable
 {
@@ -82,6 +85,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public HistoryRuntimeHealth Health { get; private set; }
     public string? MaintenanceDiagnostic { get; private set; }
     public string? HealthDiagnostic { get; private set; }
+    public IReadOnlyList<HistoryRuntimeIssue> Issues { get; private set; } = [];
+
+    internal void ReportMaintenance(string diagnostic) => MaintenanceDiagnostic = diagnostic;
 
     internal async Task<bool> CleanupMergeArtifactsAsync()
     {
@@ -97,7 +103,15 @@ public sealed class HistoryRuntime : IAsyncDisposable
         catch (Exception ex) { MaintenanceDiagnostic = ex.Message; return false; }
     }
 
+    // Explicit compatibility entry for startup/recovery consumers. Queries use InitializeReadableAsync.
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        await InitializeReadableAsync(cancellationToken).ConfigureAwait(false);
+        await using var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(ConfigId, cancellationToken).ConfigureAwait(false);
+        await RecoverInsideOperationAsync(operation, new FileSystemHistoryRestoreMutationBackend(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task InitializeReadableAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         await _initializationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -107,23 +121,6 @@ public sealed class HistoryRuntime : IAsyncDisposable
             await Repository.InitializeAsync(cancellationToken).ConfigureAwait(false);
             var packs = await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
             new HistoryRepositoryValidator(_codec).Validate(ConfigId, packs);
-
-            await using (var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(ConfigId, cancellationToken).ConfigureAwait(false))
-                await new HistoryRestoreTransactionJournalStore(this, new FileSystemHistoryRestoreMutationBackend())
-                    .RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
-
-            var localRecovery = new HistoryLocalStateJournalRecovery(
-                WorkspaceStore,
-                LocalReplicaCatalogStore);
-            await MigrationState.RecoverAsync(localRecovery, cancellationToken).ConfigureAwait(false);
-            await Repository.Journals.RecoverAsync(
-                localRecovery.ApplyCommittedStateAsync,
-                (_, _) => Task.CompletedTask,
-                cancellationToken).ConfigureAwait(false);
-            try { CloudJobs.Replay(packs); }
-            catch (Exception ex) { CloudJobs.ObserveFailure(ex); MaintenanceDiagnostic = ex.Message; }
-            if (CloudJobs.Diagnostic is null && CloudJobs.ProtectedRoots().IsEmpty)
-                await CleanupMergeArtifactsAsync().ConfigureAwait(false);
 
             var rebuilt = false;
             try
@@ -144,7 +141,6 @@ public sealed class HistoryRuntime : IAsyncDisposable
             }
 
             await Index.RecordFilesAsync(Repository.GetPackFiles(), cancellationToken).ConfigureAwait(false);
-            await RecoverChainRewritesAsync(cancellationToken).ConfigureAwait(false);
             await RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
 
             _initialized = true;
@@ -174,6 +170,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         return ValueTask.CompletedTask;
     }
 
+    // Compatibility observation for synchronous consumers; recovery always recomputes all causes.
     internal void ObservePendingRecovery()
     {
         try
@@ -184,7 +181,36 @@ public sealed class HistoryRuntime : IAsyncDisposable
         catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
         {
             Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
-            HealthDiagnostic = $"Config {ConfigId}: transactions ({Repository.Paths.TransactionsRoot}): {ex.Message}";
+            HealthDiagnostic = $"Config {ConfigId}: transactions: {ex.Message}";
+        }
+    }
+
+    internal async Task RecoverInsideOperationAsync(Services.NativeHistoryConfigurationOperationGate.Lease operation,
+        IHistoryRestoreMutationBackend backend, CancellationToken token,
+        Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, Task>? recoverNative = null)
+    {
+        operation.Require(ConfigId);
+        await using var lease = await MutationGate.EnterForRecoveryAsync(token).ConfigureAwait(false);
+        Exception? failure = null;
+        try
+        {
+            var local = new HistoryLocalStateJournalRecovery(WorkspaceStore, LocalReplicaCatalogStore);
+            await MigrationState.RecoverAsync(local, token).ConfigureAwait(false);
+            await Repository.Journals.RecoverAsync(local.ApplyCommittedStateAsync, (_, _) => Task.CompletedTask, token).ConfigureAwait(false);
+            await new HistoryRestoreTransactionJournalStore(this, backend).RecoverIncompleteAsync(token).ConfigureAwait(false);
+            await EnsureIndexCurrentAsync(token).ConfigureAwait(false);
+            try { CloudJobs.Replay(await Repository.ReadAllPacksAsync(token).ConfigureAwait(false)); }
+            catch (Exception ex) { CloudJobs.ObserveFailure(ex); }
+            await CleanupMergeArtifactsAsync().ConfigureAwait(false);
+            await RecoverChainRewritesAsync(token, insideMutationGate: true).ConfigureAwait(false);
+            if (recoverNative is not null) await recoverNative(operation, token).ConfigureAwait(false);
+        }
+        catch (Exception ex) { failure = ex; throw; }
+        finally
+        {
+            try { await RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch when (failure is not null) { /* Preserve the recovery failure. */ }
+            ChangeFeed.Publish(ConfigId, HistoryChangeKind.LocalStateChanged);
         }
     }
 
@@ -200,31 +226,50 @@ public sealed class HistoryRuntime : IAsyncDisposable
 
     internal async Task RefreshLocalStateHealthAsync(CancellationToken cancellationToken = default)
     {
+        var issues = new List<HistoryRuntimeIssue>();
+        var health = HistoryRuntimeHealth.Ready;
+        Observe(HistoryRuntimeIssueKind.Transaction, () => HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot));
+        Observe(HistoryRuntimeIssueKind.Transaction, Repository.Journals.RequireRecovered);
+        Observe(HistoryRuntimeIssueKind.Transaction, () => Retention.HistoryChainRewriteJournalStore.RequireRecovered(Repository.Paths.LocalStateRoot));
+        bool migrating = false;
+        Observe(HistoryRuntimeIssueKind.Migration, () => { migrating = MigrationState.Load()?.InitializationPending == true; MigrationState.RequireRecovered(); });
+        if (migrating)
+        {
+            health |= HistoryRuntimeHealth.LocalStateInitializationRequired;
+            issues.Add(new(HistoryRuntimeIssueKind.Migration, $"Config {ConfigId}: migration initialization pending.", true));
+        }
         var workspace = await WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var packCount = Repository.GetPackFiles().Count;
-        Health = HistoryRuntimeHealth.Ready;
-        HealthDiagnostic = null;
-        ObservePendingRecovery();
-        var migrating = MigrationState.Load()?.InitializationPending == true;
-        if (workspace.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
-            || (workspace.Status == DeviceLocalStateStatus.Missing && packCount > 0))
+        var hasPacks = Repository.GetPackFiles().Count > 0;
+        AddState(HistoryRuntimeIssueKind.Workspace, "workspace.json", workspace.Status, workspace.Diagnostic,
+            HistoryRuntimeHealth.WorkspaceRecoveryRequired);
+        AddState(HistoryRuntimeIssueKind.ReplicaCatalog, "replicas.json", catalog.Status, catalog.Diagnostic,
+            HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired);
+        var cleanup = Directory.Exists(Repository.Paths.TransactionsRoot)
+            ? Directory.GetFiles(Repository.Paths.TransactionsRoot, "restore-cleanup.json", SearchOption.AllDirectories) : [];
+        if (cleanup.Length > 0) issues.Add(new(HistoryRuntimeIssueKind.Maintenance, "Preparation cleanup pending: " + string.Join(", ", cleanup), false));
+        if (MaintenanceDiagnostic is { Length: > 0 } maintenance)
+            issues.Add(new(HistoryRuntimeIssueKind.Maintenance, maintenance, false));
+        Health = health;
+        Issues = issues.ToArray();
+        HealthDiagnostic = issues.Any(i => i.BlocksMutation) ? string.Join("\n", issues.Where(i => i.BlocksMutation).Select(i => i.Diagnostic)) : null;
+
+        void Observe(HistoryRuntimeIssueKind kind, Action read)
         {
-            Health |= migrating && workspace.Status == DeviceLocalStateStatus.Missing
-                ? HistoryRuntimeHealth.LocalStateInitializationRequired : HistoryRuntimeHealth.WorkspaceRecoveryRequired;
-            HealthDiagnostic = AppendDiagnostic(HealthDiagnostic, $"Config {ConfigId}: workspace.json: {workspace.Status}. {workspace.Diagnostic}");
+            try { read(); }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException or ArgumentException)
+            {
+                health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
+                issues.Add(new(kind, $"Config {ConfigId}: transactions/local state: {ex.Message}", true, ex.HResult));
+            }
         }
-        if (catalog.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
-            || (catalog.Status == DeviceLocalStateStatus.Missing && packCount > 0))
+        void AddState(HistoryRuntimeIssueKind kind, string role, DeviceLocalStateStatus status, string diagnostic, HistoryRuntimeHealth flag)
         {
-            Health |= migrating && catalog.Status == DeviceLocalStateStatus.Missing
-                ? HistoryRuntimeHealth.LocalStateInitializationRequired : HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
-            HealthDiagnostic = AppendDiagnostic(HealthDiagnostic, $"Config {ConfigId}: replicas.json: {catalog.Status}. {catalog.Diagnostic}");
+            if (status == DeviceLocalStateStatus.Valid || status == DeviceLocalStateStatus.Missing && !hasPacks) return;
+            health |= migrating && status == DeviceLocalStateStatus.Missing ? HistoryRuntimeHealth.LocalStateInitializationRequired : flag;
+            issues.Add(new(kind, $"Config {ConfigId}: {role}: {status}. {diagnostic}", true));
         }
     }
-
-    private static string AppendDiagnostic(string? previous, string next)
-        => string.IsNullOrWhiteSpace(previous) ? next : previous + "\n" + next;
 
     private async Task ApplyInstalledPacksAsync(IReadOnlyList<HistoryPackReadResult> existing,
         IReadOnlyList<HistoryPackReadResult> installed, CancellationToken token)

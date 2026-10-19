@@ -25,6 +25,58 @@ public sealed class HistoryRuntimeTests
     }
 
     [TestMethod]
+    public async Task ReadableInitializationSurvivesBrokenRecoveryAndKeepsMutationGate()
+    {
+        var repository = await CreateRepositoryAsync(_configId, "readable");
+        var codec = new HistoryPackCodec();
+        var version = CreateVersion(SourceId.New());
+        await repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            [codec.CreateObject(version)]));
+        var journal = Path.Combine(repository.Paths.TransactionsRoot, "restore-journal.json");
+        File.WriteAllText(journal, "null");
+        await using var manager = new HistoryRuntimeManager();
+        var runtime = await manager.GetOrCreateAsync(_configId, (_, _) => Task.FromResult(repository));
+        Assert.HasCount(1, await runtime.Query.GetVersionsForSourceAsync(version.SourceId));
+        Assert.IsTrue(runtime.Issues.Any(i => i.Kind == HistoryRuntimeIssueKind.Transaction));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+        { await using var lease = await runtime.MutationGate.EnterAsync(); });
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => runtime.InitializeAsync());
+        Assert.IsTrue(manager.TryGet(_configId, out var same));
+        Assert.AreSame(runtime, same);
+        Assert.AreEqual("null", File.ReadAllText(journal));
+    }
+
+    [TestMethod]
+    public async Task RecoveryWithoutReplayClearsOnlyResolvedCauses()
+    {
+        await using var runtime = new HistoryRuntime(await CreateRepositoryAsync(_configId, "no-replay"));
+        await runtime.InitializeReadableAsync();
+        var journal = Path.Combine(runtime.Repository.Paths.TransactionsRoot, "restore-journal.json");
+        File.WriteAllText(journal, "null");
+        await runtime.RefreshLocalStateHealthAsync();
+        File.Delete(journal);
+        File.WriteAllText(Path.Combine(runtime.Repository.Paths.LocalStateRoot, "replicas.json"), "broken");
+        await using var operation = await FolderRewind.Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_configId);
+        await runtime.RecoverInsideOperationAsync(operation, new FileSystemHistoryRestoreMutationBackend(), default);
+        Assert.IsFalse(runtime.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired));
+        Assert.IsTrue(runtime.Health.HasFlag(HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired));
+        Assert.IsFalse(runtime.Issues.Any(i => i.Kind == HistoryRuntimeIssueKind.Transaction));
+    }
+
+    [TestMethod]
+    public async Task ReadableInitializationReportsIndependentMigrationAndLocalStateDamage()
+    {
+        var repository = await CreateRepositoryAsync(_configId, "diagnostics");
+        File.WriteAllText(Path.Combine(repository.Paths.LocalStateRoot, "migration.json"), "broken");
+        File.WriteAllText(Path.Combine(repository.Paths.LocalStateRoot, "workspace.json"), "broken");
+        File.WriteAllText(Path.Combine(repository.Paths.LocalStateRoot, "replicas.json"), "broken");
+        await using var runtime = new HistoryRuntime(repository);
+        await runtime.InitializeReadableAsync();
+        CollectionAssert.AreEquivalent(new[] { HistoryRuntimeIssueKind.Migration, HistoryRuntimeIssueKind.Workspace, HistoryRuntimeIssueKind.ReplicaCatalog },
+            runtime.Issues.Select(i => i.Kind).ToArray());
+    }
+
+    [TestMethod]
     public async Task EmptyRepositoryMissingStateIsHealthyButCorruptionAndTransactionsAreNot()
     {
         await using var runtime = new HistoryRuntime(await CreateRepositoryAsync(_configId, "empty"));

@@ -1,4 +1,4 @@
-using FolderRewind.History.Application;
+﻿using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
 using FolderRewind.History.Legacy;
@@ -409,7 +409,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             if (!request.IsCurrent || !_isActive) return;
             ApplyMigrationStatus(migrationStatus);
             if (migrationStatus == MigrationHistoryStatus.AwaitingHistory) { ClearPresentation(); return; }
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token);
             SourceId? sourceId = !IsGroupedRunView && folder is not null
                 && Guid.TryParse(folder.Id, out var id)
                 && id != Guid.Empty
