@@ -51,7 +51,7 @@ namespace FolderRewind.Services
                 }
             }
 
-            string fileName = GenerateFileName(baseName, config.Archive.Format, "Full", comment);
+            string fileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Full", comment);
             string destFile = Path.Combine(destDir, fileName);
 
             // 获取加密密码
@@ -225,7 +225,7 @@ namespace FolderRewind.Services
                 File.WriteAllLines(listFile, mainFiles);
             }
 
-            string fileName = GenerateFileName(baseName, config.Archive.Format, "Smart", comment);
+            string fileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Smart", comment);
             string destFile = Path.Combine(destDir, fileName);
 
             // 4. 执行压缩 (使用 @listfile)
@@ -368,7 +368,7 @@ namespace FolderRewind.Services
                 return await FallbackToFullAsync();
             }
 
-            string finalFileName = CreateUniqueRollingFileName(destDir, baseName, config.Archive.Format, comment);
+            string finalFileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Rolling", comment);
             string finalPath = Path.Combine(destDir, finalFileName);
             string? changedListFile = null;
             string? deletedListFile = null;
@@ -557,10 +557,10 @@ namespace FolderRewind.Services
 
 
 
-        private static string CreateUniqueRollingFileName(string destinationDirectory, string baseName, string format, string comment)
+        private static string CreateUniqueArchiveFileName(string destinationDirectory, string baseName, string format, string prefix, string comment)
         {
-            string candidate = GenerateFileName(baseName, format, "Rolling", comment);
-            if (!File.Exists(Path.Combine(destinationDirectory, candidate)))
+            string candidate = GenerateFileName(baseName, format, prefix, comment);
+            if (!Path.Exists(Path.Combine(destinationDirectory, candidate)))
             {
                 return candidate;
             }

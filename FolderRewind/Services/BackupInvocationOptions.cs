@@ -19,6 +19,7 @@ namespace FolderRewind.Services
         public bool Protect { get; init; }
         public bool RequestSemanticCheckpoint { get; init; }
         internal BackupConfigurationHandoff? ConfigurationHandoff { get; init; }
+        internal bool ForceFullCapture { get; init; }
 
         public static BackupInvocationOptions Default { get; } = new();
 
@@ -52,6 +53,11 @@ namespace FolderRewind.Services
             Source = BackupInvocationSource.Internal,
             PreferApplicationConsistentSnapshot = false
         };
+        internal static BackupInvocationOptions ForSafetySnapshot() => new()
+        {
+            Source = BackupInvocationSource.Internal,
+            ForceFullCapture = true
+        };
 
         public BackupInvocationOptions WithApplicationConsistentSnapshot(bool prefer = true) => new()
         {
@@ -59,7 +65,7 @@ namespace FolderRewind.Services
             PreferApplicationConsistentSnapshot = prefer,
             Comment = Comment,
             Protect = Protect,
-            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff
+            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
         };
 
         public BackupInvocationOptions WithComment(string? comment) => new()
@@ -68,19 +74,19 @@ namespace FolderRewind.Services
             PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
             Comment = comment ?? string.Empty,
             Protect = Protect,
-            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff
+            RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
         };
 
         public BackupInvocationOptions WithProtection(bool protect) => new()
         {
             Source = Source, PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
-            Comment = Comment, Protect = protect, RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff
+            Comment = Comment, Protect = protect, RequestSemanticCheckpoint = RequestSemanticCheckpoint, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
         };
 
         public BackupInvocationOptions WithSemanticCheckpoint() => new()
         {
             Source = Source, PreferApplicationConsistentSnapshot = PreferApplicationConsistentSnapshot,
-            Comment = Comment, Protect = Protect, RequestSemanticCheckpoint = true, ConfigurationHandoff = ConfigurationHandoff
+            Comment = Comment, Protect = Protect, RequestSemanticCheckpoint = true, ConfigurationHandoff = ConfigurationHandoff, ForceFullCapture = ForceFullCapture
         };
     }
 }

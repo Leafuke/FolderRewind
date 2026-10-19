@@ -231,7 +231,10 @@ if ($LASTEXITCODE) { throw 'WinUI build failed.' }
 | 输入验证/容量 | 验证、Quick 与目标卷组合 25 项通过；容量及旧版本兼容 64 项通过，包含同卷累计不足时零提取、准备落盘后释放预留 | `input-capacity`、`capacity-legacy-final` |
 | 旧协议补充修正 | 旧覆盖路径切换为卷 GUID 后，嵌套路径需使用本机分隔符；真实 1.8.2 Smart 恢复检出并修正，补充成功结果断言 | `legacy-diagnostic`、`capacity-legacy-final` |
 | 输入/容量编译 | x64 Debug solution 通过；既有 MSTEST0037 警告 | `artifacts/1.9.8/stage-2/input-build.log` |
-| 内部快照、统一编排、性能 | 待执行 | 后续补充 |
+| 内部快照真实接线 | 无窗口 Host 共 19 个场景通过：Full/Smart/Rolling × 两档备份验证 × 缓存存在/缺失 12 项；额外根重定向 1 项；Checkout 3 项；白名单/明确保留 2 项；多 Source 1 项。快照导出字节与同大小同时间戳的真实修改一致，旧载荷摘要不变 | `artifacts/1.9.8/stage-2/host-acceptance-03/host-stage2.json` |
+| 真实 Host 检出的额外缺陷 | 同秒创建 Full/Smart 会撞旧载荷名称，受保护输入锁使快照创建失败；复用 Rolling 的重名处理。第一次真实验收失败保留。第二次因测试误解白名单“仅保留备份中缺失文件”的原语义而失败，修正测试后通过，未改变白名单语义 | `host-acceptance-01/failure.txt`、`host-acceptance-02/failure.txt` |
+| 比较/恢复证据 | Checkout/Quick 等原有组合 19 项通过；新增证据/结构退役/修复重定向组合 18 项通过；最终全量及探针待执行 | `unified-flow`、`evidence` |
+| 统一编排、性能最终验收 | 待执行 | 后续补充 |
 | UI、真实 USB 断连 | UI 按要求本轮跳过；真实 USB 待硬件验收 | 不计为通过 |
 
 若实现发现无法满足上述边界，应记录具体不成立的保证并修订方案；不得以全树复制、全局拒绝特殊对象或静默关闭校验代替本阶段目标。

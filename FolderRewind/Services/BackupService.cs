@@ -187,7 +187,7 @@ namespace FolderRewind.Services
             System.Collections.Generic.IReadOnlyCollection<SourceId>? affectedSources = null)
         {
             ArgumentNullException.ThrowIfNull(config);
-            var options = BackupInvocationOptions.ForInternal();
+            var options = BackupInvocationOptions.ForSafetySnapshot();
             var result = await ExecuteBackupTransactionAsync(
                 config,
                 config.SourceFolders.Where(f => affectedSources is null || affectedSources.Contains(new SourceId(Guid.Parse(f.Id)))).ToArray(),
@@ -198,26 +198,9 @@ namespace FolderRewind.Services
 
             var snapshot = result.SafetySnapshot
                 ?? result.CommittedBatch?.NewSafetySnapshot
-                ?? throw new InvalidOperationException("Independent recovery commit did not create a SafetySnapshot.");
-            // 恢复点的明确深度确认独立于普通归档入库等级，并覆盖所有参与的 Source。
-            // 不复用单 Source 的 Protect/pin 分支，也不把均衡清单证据当作内容测试。
-            using var timing = HistoryOperationDiagnostics.Current?.Measure("safety-snapshot-deep-confirmation");
-            using var verification = new FolderRewind.History.Representation.ArchiveRestoreVerificationContext(RestoreArchivePreflightMode.Strict);
-            var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken, verification).ConfigureAwait(false);
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-            foreach (var checkpointId in snapshot.CheckpointIds)
-            {
-                var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException("SafetySnapshot checkpoint is missing.");
-                var version = await runtime.Query.GetVersionAsync(checkpoint.VersionId, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException("SafetySnapshot Version is missing.");
-                var fidelity = version.CaptureScope == CaptureScope.FullSource && version.BoundaryConfidence == HistoricalBoundaryConfidence.Known
-                    ? MaterializationFidelity.Exact : MaterializationFidelity.Partial;
-                var assessment = await restore.AssessVersionAsync(version.VersionId, fidelity,
-                    FolderRewind.History.Representation.AssessmentDepth.Deep, cancellationToken).ConfigureAwait(false);
-                if (assessment.Readiness != FolderRewind.History.Representation.HistoryReadiness.Ready || assessment.Selected is null)
-                    throw new InvalidOperationException("SafetySnapshot is durable but its captured contents could not be confirmed.");
-            }
+                ?? throw new InvalidOperationException("Independent recovery commit did not create a SafetySnapshot: " + result.Outcome + "; "
+                    + (result.Diagnostic ?? result.RecoveryMessage ?? string.Join("; ", result.SourceOutcomes.Select(o => o.ErrorMessage))));
+            // 每个载荷已按配置的备份验证等级在入库前验证；提交后不再无条件完整重验。
             return snapshot;
         }
 
@@ -541,6 +524,7 @@ namespace FolderRewind.Services
             SourceCaptureResult? captureResult = null;
             var sourceId = new SourceId(Guid.Parse(folder.Id));
             SourceCaptureBaseline? captureBaseline;
+            var forceCoreFull = invocationOptions.ForceFullCapture && !NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig);
             CaptureConcurrencyFence? captureFence = null;
             try
             {
@@ -552,7 +536,7 @@ namespace FolderRewind.Services
                     var tips = baseVersion is { } id ? await history.Query.GetMaterializationPolicyTipsAsync(id, cancellationToken).ConfigureAwait(false) : [];
                     captureFence = new(workspace?.StateRevision ?? -1, baseVersion, tips.Select(t => t.UpdateId).ToImmutableArray());
                 }
-                captureBaseline = await NativeHistoryCoreGateway.LoadCaptureBaselineAsync(
+                captureBaseline = forceCoreFull ? null : await NativeHistoryCoreGateway.LoadCaptureBaselineAsync(
                     config.Id,
                     sourceId,
                     cancellationToken).ConfigureAwait(false);
@@ -565,7 +549,7 @@ namespace FolderRewind.Services
                 }
                 if (captureBaseline is null && NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig))
                     captureBaseline = await NativeArtifactHostService.RebuildIncrementalBaselineAsync(runtimeConfig, sourceId.Value, cancellationToken).ConfigureAwait(false);
-                if (captureBaseline is null && !NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig))
+                if (captureBaseline is null && !forceCoreFull && !NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig))
                 {
                     var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                     var archive = new SevenZipHistoryArchiveBackend(config);
@@ -680,6 +664,19 @@ namespace FolderRewind.Services
                     success = captureResult.Success;
                     sourceUnavailable = captureResult.IsUnavailable;
                     generatedFileName = captureResult.FileName;
+                }
+                else if (forceCoreFull)
+                {
+                    var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                    var cacheRevision = (await history.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false))?.Revision ?? -1;
+                    captureResult = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, null,
+                        folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task).ConfigureAwait(false);
+                    if (captureResult.BaselineCandidate is { } fullStats)
+                        captureResult = captureResult.WithBaselineCandidate(fullStats with { ExpectedRevision = cacheRevision });
+                    success = captureResult.Success;
+                    sourceUnavailable = captureResult.IsUnavailable;
+                    generatedFileName = captureResult.FileName;
+                    HistoryOperationDiagnostics.Current?.Count("safety-full-captures");
                 }
                 else switch (config.Archive.Mode)
                 {

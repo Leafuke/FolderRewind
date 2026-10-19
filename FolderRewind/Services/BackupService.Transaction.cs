@@ -27,12 +27,13 @@ public static partial class BackupService
         public SafetySnapshot? SafetySnapshot => CommittedBatch?.NewSafetySnapshot;
         public bool HistoryRecoveryRequired { get; init; }
         public string? RecoveryMessage { get; init; }
+        public string? Diagnostic { get; init; }
 
         public static BackupTransactionExecutionResult Blocked(string message) => new()
         {
             Outcome = OperationOutcome.Blocked,
             CreatedNewArchive = false,
-            SourceOutcomes = Array.Empty<BackupSourceExecutionOutcome>()
+            SourceOutcomes = Array.Empty<BackupSourceExecutionOutcome>(), Diagnostic = message
         };
 
         public static BackupTransactionExecutionResult Canceled(IReadOnlyList<BackupSourceExecutionOutcome> outcomes) => new()
@@ -46,7 +47,7 @@ public static partial class BackupService
         {
             Outcome = OperationOutcome.Failed,
             CreatedNewArchive = false,
-            SourceOutcomes = outcomes
+            SourceOutcomes = outcomes, Diagnostic = message
         };
     }
 
