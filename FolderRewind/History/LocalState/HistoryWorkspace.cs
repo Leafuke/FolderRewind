@@ -61,5 +61,9 @@ public sealed record HistoryWorkspace
 }
 
 public enum DeviceLocalStateStatus { Valid = 0, Missing = 1, Corrupt = 2, Inaccessible = 3 }
-public sealed record DeviceLocalStateLoadResult<T>(DeviceLocalStateStatus Status, T? Value, string Diagnostic) where T : class;
+public sealed record DeviceLocalStateLoadResult<T>(DeviceLocalStateStatus Status, T? Value, string Diagnostic) where T : class
+{
+    public bool IsUnsupportedFormat { get; init; }
+    public int? ErrorCode { get; init; }
+}
 public sealed class DeviceLocalStateConflictException(string message) : Exception(message);

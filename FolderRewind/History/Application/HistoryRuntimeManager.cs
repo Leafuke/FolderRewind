@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Domain;
+using FolderRewind.History.Domain;
 using FolderRewind.History.Storage;
 using System;
 using System.Collections.Concurrent;

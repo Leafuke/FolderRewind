@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text;
 
 namespace FolderRewind.Tests;
@@ -7,6 +7,48 @@ namespace FolderRewind.Tests;
 [DoNotParallelize]
 public sealed class HistoryRestoreProtocolCrashTests
 {
+    [TestMethod]
+    [DataRow("preparation-drift", "after-snapshot-before-rebind")]
+    [DataRow("repair", "repair-after-preservation")]
+    [DataRow("repair", "repair-before-publication")]
+    [DataRow("repair", "repair-after-publication")]
+    public async Task StageOneTerminationPreservesCommittedStateAndRepairMaterials(string scenario, string point)
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-stage-one-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            var command = scenario == "repair" ? "repair" : "apply";
+            await StopAtAsync(probe, command, root, point, scenario);
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                var result = await RunProbeAsync(probe, scenario == "repair" ? "repair" : "recover", root,
+                    "none", scenario, "stage-one-recovery=" + repeat, false, TimeSpan.FromSeconds(30));
+                Assert.AreEqual(0, result.ExitCode, result.Diagnostic);
+            }
+            var statePath = Path.Combine(root, "history", "local-state", "workspace.json");
+            if (scenario == "repair")
+            {
+                var copies = Directory.GetFiles(Path.GetDirectoryName(statePath)!, "*.original");
+                Assert.IsNotEmpty(copies);
+                Assert.IsTrue(copies.All(p => File.ReadAllText(p) == "damaged original"));
+                using var workspace = new FolderRewind.History.LocalState.HistoryWorkspaceStore(new("protocol-probe"), statePath);
+                var state = (await workspace.LoadAsync()).Value!;
+                Assert.IsTrue(state.SourceBaselines.All(s => s.RequiresFullCapture && s.BaseVersionId is null && s.ActiveBranchId is null));
+            }
+            else
+            {
+                CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "committed-workspace.json")), File.ReadAllBytes(statePath));
+                Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
+                await using var history = new FolderRewind.History.Application.HistoryRuntime(new(new("protocol-probe"), new(Path.Combine(root, "history"))));
+                await history.InitializeReadableAsync();
+                Assert.HasCount(1, await history.Query.GetSafetySnapshotsAsync());
+            }
+        }
+        finally { CleanupRoot(root); }
+    }
+
     public TestContext TestContext { get; set; } = null!;
     private readonly HashSet<string> _rootsWithLiveProbes = [];
 

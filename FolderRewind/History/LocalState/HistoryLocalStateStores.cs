@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.LocalState;
 
-public sealed class HistoryWorkspaceStore : IDisposable
+public sealed partial class HistoryWorkspaceStore : IDisposable
 {
     public const long MissingRevision = -1;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -49,11 +49,6 @@ public sealed class HistoryWorkspaceStore : IDisposable
 
     private DeviceLocalStateLoadResult<HistoryWorkspace> LoadInsideGate()
     {
-        if (!File.Exists(_path))
-        {
-            return new(DeviceLocalStateStatus.Missing, null, "Workspace state is missing; disk state is unknown.");
-        }
-
         try
         {
             var bytes = File.ReadAllBytes(_path);
@@ -61,7 +56,7 @@ public sealed class HistoryWorkspaceStore : IDisposable
             var formatVersion = document.RootElement.GetProperty("formatVersion").GetInt32();
             if (formatVersion != 3 && formatVersion != HistoryWorkspace.CurrentFormatVersion)
             {
-                return new(DeviceLocalStateStatus.Corrupt, null, "Workspace format is unsupported.");
+                return new(DeviceLocalStateStatus.Corrupt, null, "Workspace format is unsupported.") { IsUnsupportedFormat = true };
             }
 
             var workspace = JsonSerializer.Deserialize<HistoryWorkspace>(bytes, JsonOptions)
@@ -69,15 +64,19 @@ public sealed class HistoryWorkspaceStore : IDisposable
             Validate(workspace);
             return new(DeviceLocalStateStatus.Valid, workspace, string.Empty);
         }
+        catch (FileNotFoundException)
+        {
+            return new(DeviceLocalStateStatus.Missing, null, "Local state file is missing.");
+        }
         catch (UnauthorizedAccessException ex)
         {
-            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message);
+            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message) { ErrorCode = ex.HResult };
         }
         catch (IOException ex)
         {
-            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message);
+            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message) { ErrorCode = ex.HResult };
         }
-        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidDataException or KeyNotFoundException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidDataException or KeyNotFoundException or InvalidOperationException or FormatException or OverflowException)
         {
             return new(DeviceLocalStateStatus.Corrupt, null, ex.Message);
         }
@@ -246,18 +245,13 @@ public sealed class LocalReplicaCatalogStore : IDisposable
 
     private DeviceLocalStateLoadResult<LocalReplicaCatalog> LoadInsideGate()
     {
-        if (!File.Exists(_path))
-        {
-            return new(DeviceLocalStateStatus.Missing, null, "Local Replica Catalog is missing; payload locations are unknown.");
-        }
-
         try
         {
             var bytes = File.ReadAllBytes(_path);
             using var document = JsonDocument.Parse(bytes);
             if (document.RootElement.GetProperty("formatVersion").GetInt32() != LocalReplicaCatalog.CurrentFormatVersion)
             {
-                return new(DeviceLocalStateStatus.Corrupt, null, "Local Replica Catalog format is unsupported.");
+                return new(DeviceLocalStateStatus.Corrupt, null, "Local Replica Catalog format is unsupported.") { IsUnsupportedFormat = true };
             }
 
             var catalog = JsonSerializer.Deserialize<LocalReplicaCatalog>(bytes, JsonOptions)
@@ -265,15 +259,19 @@ public sealed class LocalReplicaCatalogStore : IDisposable
             Validate(catalog);
             return new(DeviceLocalStateStatus.Valid, catalog, string.Empty);
         }
+        catch (FileNotFoundException)
+        {
+            return new(DeviceLocalStateStatus.Missing, null, "Local state file is missing.");
+        }
         catch (UnauthorizedAccessException ex)
         {
-            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message);
+            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message) { ErrorCode = ex.HResult };
         }
         catch (IOException ex)
         {
-            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message);
+            return new(DeviceLocalStateStatus.Inaccessible, null, ex.Message) { ErrorCode = ex.HResult };
         }
-        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidDataException or KeyNotFoundException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidDataException or KeyNotFoundException or InvalidOperationException or FormatException or OverflowException)
         {
             return new(DeviceLocalStateStatus.Corrupt, null, ex.Message);
         }

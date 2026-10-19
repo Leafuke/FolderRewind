@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Application;
+using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
 using FolderRewind.History.Legacy;
@@ -269,7 +269,11 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         var shouldRefresh = config is not null
             && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null));
         IsLoading = shouldRefresh;
-        if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id) SelectedBranch = null;
+        if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id)
+        {
+            SelectedBranch = null;
+            ApplyRecoveryState(null);
+        }
         _currentConfig = config;
         _currentFolder = folder;
         var migrationStatus = config is null ? MigrationHistoryStatus.None : await MigrationWorkflowCoordinator.HistoryStatusAsync(config, request.Token);
@@ -282,7 +286,11 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
         if (config is not null)
         {
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
+            // New configurations/legacy takeover retain their explicit bootstrap path.
+            // Bound history selection must only initialize readable metadata.
+            var runtime = config.HistoryRepositoryBinding is null
+                ? await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token)
+                : await NativeHistoryCoreGateway.EnsureReadableAsync(config, request.Token);
             if (!request.IsCurrent) return;
             _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
             var pending = false;
@@ -415,6 +423,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             ApplyMigrationStatus(migrationStatus);
             if (migrationStatus == MigrationHistoryStatus.AwaitingHistory) { ClearPresentation(); return; }
             var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token);
+            var workspaceState = await Task.Run(() => runtime.WorkspaceStore.LoadAsync(token), token);
             SourceId? sourceId = !IsGroupedRunView && folder is not null
                 && Guid.TryParse(folder.Id, out var id)
                 && id != Guid.Empty
@@ -433,6 +442,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasMoreHistory));
             OnPropertyChanged(nameof(CanLoadMore));
             OnPropertyChanged(nameof(HasMissing));
+            ApplyRecoveryState(runtime, workspaceState);
             _presentationRuntime = runtime;
             _presentationSequence = page.Revision;
             _presentationSource = sourceId;
@@ -1025,6 +1035,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _nextCursor = null;
         OnPropertyChanged(nameof(HasMoreHistory));
         OnPropertyChanged(nameof(CanLoadMore));
+        ApplyRecoveryState(null);
         _presentationRuntime = null;
         _presentationSequence = -1;
         _allVersions.Clear();

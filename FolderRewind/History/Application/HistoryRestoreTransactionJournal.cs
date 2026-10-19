@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Domain;
+using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
 using FolderRewind.Services;
@@ -237,15 +237,28 @@ internal sealed class HistoryRestoreTransactionJournalStore
             || !journal.RollbackSnapshots.IsDefaultOrEmpty || !journal.AppliedSources.IsDefaultOrEmpty
             || !journal.StartedSources.IsDefaultOrEmpty || journal.IntendedPackBytes is not null || journal.CleanupCommitted is not null)
             throw new InvalidDataException("Preparation has conflicting execution evidence; preserve transaction data.");
+        if (journal.Workspaces.Select(w => w.Location.SourceId).Distinct().Count() != journal.Workspaces.Length)
+            throw new InvalidDataException("Preparing Source registrations are ambiguous.");
         var directory = TransactionDirectory(journal.TransactionId);
         if (File.Exists(Path.Combine(directory, "restore-progress.bin")))
             throw new InvalidDataException("Preparing transaction contains execution progress; preserve transaction data.");
         foreach (var registration in journal.Workspaces)
         {
             ValidatePreparationLocation(journal.TransactionId, registration);
-            var rollback = Path.Combine(registration.Location.Container, "rollback");
-            if (Directory.Exists(rollback) && Directory.EnumerateFileSystemEntries(rollback).Any())
-                throw new InvalidDataException("Preparing container contains rollback material; preserve transaction data.");
+            if (WindowsRestoreFileSystem.TryIdentity(registration.Location.Target) != registration.Location.TargetIdentity)
+                throw new InvalidDataException("Preparing target identity changed; preserve transaction data.");
+            // Unknown containers are preserved as maintenance; do not traverse them to inspect evidence.
+            bool owned;
+            try { owned = registration.ContainerIdentity is not null && WindowsRestoreFileSystem.TryIdentity(registration.Location.Container) == registration.ContainerIdentity; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { owned = false; }
+            if (owned)
+            {
+                using var ancestors = new WindowsDirectoryReadLease(Path.Combine(registration.Location.Container, "unused-child"));
+                var rollback = Path.Combine(registration.Location.Container, "rollback");
+                if (Path.Exists(rollback) && ((File.GetAttributes(rollback) & FileAttributes.ReparsePoint) != 0
+                    || Directory.Exists(rollback) && Directory.EnumerateFileSystemEntries(rollback).Any()))
+                    throw new InvalidDataException("Preparing container contains rollback evidence; preserve transaction data.");
+            }
         }
         var orphanPlan = Path.Combine(directory, "restore-plan.json");
         if (File.Exists(orphanPlan))
@@ -255,6 +268,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
                 Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))), journal.TransactionId);
             if (plan.Actions.Any(a => !journal.Workspaces.Any(w => w.Location.SourceId == a.Source && IsWithin(a.From, w.Location) && IsWithin(a.To, w.Location))))
                 throw new InvalidDataException("Unpublished preparation plan escapes registered locations.");
+            HistoryRestoreFileSystemPlanStore.ValidateFinal(plan, false);
         }
         var record = new PreparationCleanup(1, journal.TransactionId, journal.Workspaces);
         // Persist the handoff before completing the blocking transaction. A crash retries either side.
@@ -278,6 +292,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
 
     private void RetryPreparationCleanup()
     {
+        if (_runtime.MaintenanceDiagnostic?.StartsWith("Preparation cleanup (", StringComparison.Ordinal) == true) _runtime.ReportMaintenance(null);
         var root = _runtime.Repository.Paths.TransactionsRoot;
         if (!Directory.Exists(root)) return;
         foreach (var path in Directory.GetFiles(root, "restore-cleanup.json", SearchOption.AllDirectories))

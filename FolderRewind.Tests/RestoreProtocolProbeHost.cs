@@ -29,6 +29,21 @@ public static class RestoreProtocolProbeHost
         await using var history = new HistoryRuntime(new FileHistoryRepository(config, new(Path.Combine(root, "history"))));
         await history.InitializeAsync();
         var journals = new HistoryRestoreTransactionJournalStore(history, new FileSystemHistoryRestoreMutationBackend());
+        if (args[0] == "repair")
+        {
+            var roster = Path.Combine(root, "repair-source.txt");
+            if (!File.Exists(roster))
+            {
+                File.WriteAllText(roster, SourceId.New().ToString());
+                File.WriteAllText(Path.Combine(history.Repository.Paths.LocalStateRoot, "workspace.json"), "damaged original");
+            }
+            var repairSource = SourceId.Parse(File.ReadAllText(roster));
+            history.WorkspaceStore.RepairFault = point => HistoryRestoreFileSystemPlanStore.Reach("repair-" + point);
+            var service = new HistoryWorkspaceRepairService(history);
+            var preview = await service.PreviewAsync([repairSource], "probe-config");
+            await service.RepairAsync(preview, [repairSource], "probe-config");
+            return;
+        }
         if (args[0] == "recover")
         {
             ConfigureFault(root, args[2]);
@@ -59,6 +74,24 @@ public static class RestoreProtocolProbeHost
         HistoryRestoreFileSystemPlanStore.Reach("after-container-register");
         var staging = Path.Combine(location.Container, "staging"); Directory.CreateDirectory(staging);
         File.WriteAllText(Path.Combine(staging, "file.txt"), "restored");
+        if (args[3] == "preparation-drift")
+        {
+            var codec = new HistoryPackCodec();
+            var version = new SourceVersion(VersionId.New(), config, source, [], DateTimeOffset.UtcNow, null,
+                CaptureScope.FullSource, CaptureOutcome.Captured, [], new("world", target), null, HistoryProvenance.Native("test"));
+            var checkpoint = new SourceCheckpoint(CheckpointId.New(), config, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+                [new CheckpointSource(source, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+            var representation = new VersionRepresentation(RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull,
+                "7z", [], MaterializationFidelity.Exact, null, null, null);
+            desired = expected.WithSourceStates([new(source, version.VersionId, WorkspaceBaselineRelation.Exact)]);
+            var safety = new SafetySnapshot(SafetySnapshotId.New(), checkpoint.CheckpointId, DateTimeOffset.UtcNow, SafetySnapshotReason.BeforeRestore);
+            await history.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+                new object[] { version, representation, checkpoint, safety }.Select(o => codec.CreateObject(o))));
+            await history.WorkspaceStore.SaveAsync(desired, expected.StateRevision);
+            File.Copy(Path.Combine(history.Repository.Paths.LocalStateRoot, "workspace.json"), Path.Combine(root, "committed-workspace.json"));
+            HistoryRestoreFileSystemPlanStore.Reach("after-snapshot-before-rebind");
+            return;
+        }
         if (args[3] == "batch")
             for (int i = 0; i < 70; i++)
             {

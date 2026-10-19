@@ -85,13 +85,17 @@ internal static class WindowsRestoreFileSystem
     }
     internal static void MoveOwnedNoReplace(string source, string destination, RestoreObjectIdentity expected,
         RestoreObjectIdentity? expectedSourceParent = null, RestoreObjectIdentity? expectedDestinationParent = null, bool ancestorsProtected = false,
-        RestoreParentHandles? protectedParents = null)
+        RestoreParentHandles? protectedParents = null, string? expectedContentHash = null)
     {
         using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("identity-move");
         using var sourceParents = ancestorsProtected ? null : new WindowsDirectoryReadLease(source);
         using var targetParents = ancestorsProtected ? null : new WindowsDirectoryReadLease(destination);
         using var handle = Open(source, 0x80010180, 1); // READ + DELETE + WRITE/READ_ATTRIBUTES，禁止外部写入与删除。
         if (Identity(handle) != expected) throw new IOException("Restore source identity changed.");
+        using var content = expectedContentHash is not null ? new FileStream(handle, FileAccess.Read) : null;
+        if (content is not null && !StringComparer.Ordinal.Equals(expectedContentHash,
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(content))))
+            throw new IOException("Local state content changed before protected retirement.");
         var cachedSource = protectedParents?.Find(expectedSourceParent);
         using var sourceParent = cachedSource is null ? Open(Path.GetDirectoryName(Path.GetFullPath(source))!, 0x80, 3) : null;
         if (cachedSource is null && expectedSourceParent is not null && Identity(sourceParent!) != expectedSourceParent)

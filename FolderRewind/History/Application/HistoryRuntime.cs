@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Domain;
+using FolderRewind.History.Domain;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Index;
 using FolderRewind.History.LocalState;
@@ -87,7 +87,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public string? HealthDiagnostic { get; private set; }
     public IReadOnlyList<HistoryRuntimeIssue> Issues { get; private set; } = [];
 
-    internal void ReportMaintenance(string diagnostic) => MaintenanceDiagnostic = diagnostic;
+    internal void ReportMaintenance(string? diagnostic) => MaintenanceDiagnostic = diagnostic;
 
     internal async Task<bool> CleanupMergeArtifactsAsync()
     {
@@ -242,12 +242,17 @@ public sealed class HistoryRuntime : IAsyncDisposable
         var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var hasPacks = Repository.GetPackFiles().Count > 0;
         AddState(HistoryRuntimeIssueKind.Workspace, "workspace.json", workspace.Status, workspace.Diagnostic,
-            HistoryRuntimeHealth.WorkspaceRecoveryRequired);
+            HistoryRuntimeHealth.WorkspaceRecoveryRequired, workspace.ErrorCode);
         AddState(HistoryRuntimeIssueKind.ReplicaCatalog, "replicas.json", catalog.Status, catalog.Diagnostic,
-            HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired);
-        var cleanup = Directory.Exists(Repository.Paths.TransactionsRoot)
-            ? Directory.GetFiles(Repository.Paths.TransactionsRoot, "restore-cleanup.json", SearchOption.AllDirectories) : [];
-        if (cleanup.Length > 0) issues.Add(new(HistoryRuntimeIssueKind.Maintenance, "Preparation cleanup pending: " + string.Join(", ", cleanup), false));
+            HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired, catalog.ErrorCode);
+        try
+        {
+            var cleanup = Directory.Exists(Repository.Paths.TransactionsRoot)
+                ? Directory.GetFiles(Repository.Paths.TransactionsRoot, "restore-cleanup.json", SearchOption.AllDirectories) : [];
+            if (cleanup.Length > 0) issues.Add(new(HistoryRuntimeIssueKind.Maintenance, "Preparation cleanup pending: " + string.Join(", ", cleanup), false));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { issues.Add(new(HistoryRuntimeIssueKind.Maintenance, ex.Message, false, ex.HResult)); }
         if (MaintenanceDiagnostic is { Length: > 0 } maintenance)
             issues.Add(new(HistoryRuntimeIssueKind.Maintenance, maintenance, false));
         Health = health;
@@ -259,15 +264,15 @@ public sealed class HistoryRuntime : IAsyncDisposable
             try { read(); }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException or ArgumentException)
             {
-                health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
+                health |= kind == HistoryRuntimeIssueKind.Migration ? HistoryRuntimeHealth.LocalStateInitializationRequired : HistoryRuntimeHealth.WorkspaceRecoveryRequired;
                 issues.Add(new(kind, $"Config {ConfigId}: transactions/local state: {ex.Message}", true, ex.HResult));
             }
         }
-        void AddState(HistoryRuntimeIssueKind kind, string role, DeviceLocalStateStatus status, string diagnostic, HistoryRuntimeHealth flag)
+        void AddState(HistoryRuntimeIssueKind kind, string role, DeviceLocalStateStatus status, string diagnostic, HistoryRuntimeHealth flag, int? errorCode)
         {
             if (status == DeviceLocalStateStatus.Valid || status == DeviceLocalStateStatus.Missing && !hasPacks) return;
             health |= migrating && status == DeviceLocalStateStatus.Missing ? HistoryRuntimeHealth.LocalStateInitializationRequired : flag;
-            issues.Add(new(kind, $"Config {ConfigId}: {role}: {status}. {diagnostic}", true));
+            issues.Add(new(kind, $"Config {ConfigId}: {role}: {status}. {diagnostic}", true, errorCode));
         }
     }
 

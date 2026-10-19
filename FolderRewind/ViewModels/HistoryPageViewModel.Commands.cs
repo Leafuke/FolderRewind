@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Input;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
@@ -28,6 +28,7 @@ public sealed partial class HistoryPageViewModel
     {
         _interactions = interactions ?? throw new ArgumentNullException(nameof(interactions));
         _interactionController = new HistoryInteractionController(interactions);
+        InitializeWorkspaceRepairCommands();
 
         ChangeSelectionCommand = new AsyncRelayCommand<HistorySelectionRequest>(
             ChangeSelectionCommandAsync,
@@ -1041,6 +1042,8 @@ public sealed partial class HistoryPageViewModel
     {
         CancelOperationCommand.NotifyCanExecuteChanged();
         RetryCommand.NotifyCanExecuteChanged();
+        RepairWorkspaceCommand.NotifyCanExecuteChanged();
+        RetryRecoveryCommand.NotifyCanExecuteChanged();
         EditVersionCommentCommand.NotifyCanExecuteChanged();
         ToggleVersionImportantCommand.NotifyCanExecuteChanged();
         CreateBranchFromVersionCommand.NotifyCanExecuteChanged();
@@ -1078,6 +1081,8 @@ public sealed partial class HistoryPageViewModel
     private void CancelCurrentOperationCommands()
     {
         RetryCommand.Cancel();
+        RepairWorkspaceCommand.Cancel();
+        RetryRecoveryCommand.Cancel();
         EditVersionCommentCommand.Cancel();
         ToggleVersionImportantCommand.Cancel();
         CreateBranchFromVersionCommand.Cancel();

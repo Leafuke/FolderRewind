@@ -1081,6 +1081,29 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task RepairedWorkspaceRequiresFullCaptureAndCreatesDistinctBranchIdentity()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "original", -1, null)));
+        var oldBranch = first.NewBranchUpdates.Single().BranchId;
+        var oldVersion = first.NewVersions.Single().VersionId;
+        var workspaceFile = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json");
+        File.WriteAllText(workspaceFile, "damaged");
+        var repair = new HistoryWorkspaceRepairService(runtime);
+        var preview = await repair.PreviewAsync([source], "config");
+        var workspace = (await repair.RepairAsync(preview, [source], "config")).Workspace;
+        var reused = SourceCaptureResult.NoChanges(source, CaptureScope.FullSource, workspace.StateRevision, oldVersion, "state-original");
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(Request(snapshot, workspace, reused)));
+        var second = await runtime.Commit.CommitAsync(Request(snapshot, workspace, CreateCapture(source, "current", workspace.StateRevision, null)));
+        Assert.AreNotEqual(oldBranch, second.NewBranchUpdates.Single().BranchId);
+        Assert.IsEmpty(second.NewVersions.Single().ParentVersionIds);
+        Assert.IsFalse(second.UpdatedWorkspace!.GetSourceState(source).RequiresFullCapture);
+        Assert.IsNotNull(await runtime.Query.GetVersionAsync(oldVersion));
+        Assert.HasCount(1, await runtime.Query.GetBranchTipsAsync(oldBranch));
+    }
+
+    [TestMethod]
     public async Task MigratedChangedWorkspaceContinuesOriginalBranchWithSelfContainedFullParent()
     {
         await using var runtime = await CreateRuntimeAsync();

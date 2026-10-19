@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Application;
+using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
 using FolderRewind.Models;

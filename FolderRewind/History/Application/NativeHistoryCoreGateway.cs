@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Representation;
+using FolderRewind.History.Representation;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Migration;
@@ -75,7 +75,7 @@ public static class NativeHistoryCoreGateway
             if (descriptor.ConfigId != identity) throw new HistoryIntegrityConflictException("Repository identity differs from configuration.");
             return new FileHistoryRepository(identity, paths);
         }, token), cancellationToken).ConfigureAwait(false);
-        await runtime.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
+        await Task.Run(() => runtime.RefreshLocalStateHealthAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
         return runtime;
     }
 

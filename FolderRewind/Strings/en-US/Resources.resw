@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -7142,4 +7142,23 @@ Task log
   <data name="History_Compare_Different" xml:space="preserve"><value>Current managed content differs from the baseline.</value></data>
   <data name="History_Compare_Unknown" xml:space="preserve"><value>Unable to determine whether current content matches the baseline. History remains available.</value></data>
   <data name="History_Compare_Cancelled" xml:space="preserve"><value>Comparison cancelled.</value></data>
+  <data name="HistoryPage_RepairWorkspace.Content" xml:space="preserve"><value>Repair local state</value></data>
+  <data name="HistoryPage_RetryRecovery.Content" xml:space="preserve"><value>Retry recovery</value></data>
+  <data name="HistoryPage_OpenPreservation.Content" xml:space="preserve"><value>Open preservation folder</value></data>
+  <data name="History_Recovery_Readable" xml:space="preserve"><value>History remains available. These issues may restrict writes or require maintenance:</value></data>
+  <data name="History_Recovery_Workspace" xml:space="preserve"><value>Local working state needs attention.</value></data>
+  <data name="History_Recovery_Transaction" xml:space="preserve"><value>A target or history transaction requires recovery.</value></data>
+  <data name="History_Recovery_ReplicaCatalog" xml:space="preserve"><value>Archive associations need recovery; repairing working state does not rebuild them.</value></data>
+  <data name="History_Recovery_Migration" xml:space="preserve"><value>Migration is incomplete or its records need attention.</value></data>
+  <data name="History_Recovery_Maintenance" xml:space="preserve"><value>Preparation files or other maintenance cleanup remain pending.</value></data>
+  <data name="History_Recovery_Failed" xml:space="preserve"><value>Recovery did not finish. Materials were preserved. Review the details before retrying.</value></data>
+  <data name="History_Repair_Title" xml:space="preserve"><value>Repair local working state</value></data>
+  <data name="History_Repair_Primary" xml:space="preserve"><value>Preserve and rebuild</value></data>
+  <data name="History_Repair_Confirm" xml:space="preserve"><value>Configuration: {0}
+Preservation folder: {1}
+
+Damaged files will be preserved first. Existing backups and branches remain available. The original baseline will not be guessed. The next backup must capture everything and create a new branch identity. Continue?</value></data>
+  <data name="History_Repair_Completed" xml:space="preserve"><value>Local working state was rebuilt. The next backup requires a full capture. Other issues still need separate attention.</value></data>
+  <data name="History_Repair_AlreadyHealthy" xml:space="preserve"><value>Working state is already valid. It was checked without rebuilding.</value></data>
+  <data name="History_Recovery_UnsupportedFormat" xml:space="preserve"><value>The local state format is incompatible. Use a version that supports it; repair cannot downgrade this state.</value></data>
 </root>

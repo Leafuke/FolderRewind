@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Application;
+using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
@@ -62,6 +62,15 @@ public sealed class HistoryCheckoutServiceTests
         Assert.IsEmpty(Directory.GetFiles(runtime.Repository.Paths.TransactionsRoot, "restore-journal.json", SearchOption.AllDirectories));
         Assert.AreEqual(DeviceLocalStateStatus.Missing, (await runtime.WorkspaceStore.LoadAsync()).Status);
         Assert.AreEqual("changed", File.ReadAllText(file));
+        var damagedJournal = Path.Combine(runtime.Repository.Paths.TransactionsRoot, "restore-journal.json");
+        File.WriteAllText(damagedJournal, "null");
+        File.WriteAllText(Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json"), "damaged");
+        var destination = Path.Combine(_root, "export-from-damaged-local-state");
+        await new HistoryVersionExportService(new([new ExactTestRepresentationHandler()])).ExportAsync(version.VersionId,
+            await runtime.Query.GetAllRepresentationsAsync(), new RepresentationEnvironment([], [], []), destination, [target, runtime.Repository.Paths.RepositoryRoot]);
+        Assert.AreEqual("new", File.ReadAllText(Path.Combine(destination, "restored.txt")));
+        Assert.AreEqual("null", File.ReadAllText(damagedJournal));
+        Assert.AreEqual("damaged", File.ReadAllText(Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json")));
     }
 
     private sealed class RejectUnexpectedProbe : IHistoryWorkingStateProbe

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -7142,4 +7142,23 @@ Pull Request：{1}</value>
   <data name="History_Compare_Different" xml:space="preserve"><value>当前管理内容与基线不同。</value></data>
   <data name="History_Compare_Unknown" xml:space="preserve"><value>无法确定当前内容与基线是否一致；历史仍可浏览。</value></data>
   <data name="History_Compare_Cancelled" xml:space="preserve"><value>比对已取消。</value></data>
+  <data name="HistoryPage_RepairWorkspace.Content" xml:space="preserve"><value>修复本机状态</value></data>
+  <data name="HistoryPage_RetryRecovery.Content" xml:space="preserve"><value>重试恢复</value></data>
+  <data name="HistoryPage_OpenPreservation.Content" xml:space="preserve"><value>打开保全位置</value></data>
+  <data name="History_Recovery_Readable" xml:space="preserve"><value>历史仍可浏览。以下问题可能限制写入或需要维护：</value></data>
+  <data name="History_Recovery_Workspace" xml:space="preserve"><value>本机工作状态需要处理。</value></data>
+  <data name="History_Recovery_Transaction" xml:space="preserve"><value>目标或历史事务尚待恢复。</value></data>
+  <data name="History_Recovery_ReplicaCatalog" xml:space="preserve"><value>归档关联需要恢复；修复工作状态不会重建归档关联。</value></data>
+  <data name="History_Recovery_Migration" xml:space="preserve"><value>迁移尚未完成或迁移记录需要处理。</value></data>
+  <data name="History_Recovery_Maintenance" xml:space="preserve"><value>准备材料或其他维护清理尚未完成。</value></data>
+  <data name="History_Recovery_Failed" xml:space="preserve"><value>本次恢复未完成，材料已保留。请查看详细原因后重试。</value></data>
+  <data name="History_Repair_Title" xml:space="preserve"><value>修复本机工作状态</value></data>
+  <data name="History_Repair_Primary" xml:space="preserve"><value>保全并重建</value></data>
+  <data name="History_Repair_Confirm" xml:space="preserve"><value>配置：{0}
+保全位置：{1}
+
+损坏文件会先保全。旧备份和分支保留；不猜测原基线。下一次备份必须完整捕获，并建立新的分支身份。是否继续？</value></data>
+  <data name="History_Repair_Completed" xml:space="preserve"><value>本机工作状态已重建。下一次备份需要完整捕获；其他故障仍需分别处理。</value></data>
+  <data name="History_Repair_AlreadyHealthy" xml:space="preserve"><value>工作状态已经有效，已重新检查，没有重建。</value></data>
+  <data name="History_Recovery_UnsupportedFormat" xml:space="preserve"><value>本机状态格式不兼容，请使用支持该格式的版本；不能通过修复降级。</value></data>
 </root>

@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Domain;
+using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using System;
@@ -24,9 +24,12 @@ public sealed class HistoryExactWorkingStateProbe(HistoryRuntime history, Histor
         => (await CompareAsync(binding, baseline, cancellationToken).ConfigureAwait(false)).IsEqual;
 
     public Task<HistoryWorkingStateComparison> CompareAsync(HistoryRestoreSourceBinding binding, WorkspaceSourceBaseline baseline, CancellationToken token)
-        => baseline.Relation != WorkspaceBaselineRelation.Exact || baseline.RequiresFullCapture || baseline.BaseVersionId is not { } id
+    {
+        token.ThrowIfCancellationRequested();
+        return baseline.Relation != WorkspaceBaselineRelation.Exact || baseline.RequiresFullCapture || baseline.BaseVersionId is not { } id
             ? Task.FromResult(new HistoryWorkingStateComparison(HistoryWorkingStateComparisonStatus.Unknown, "BaselineUnavailable"))
             : CompareVersionAsync(binding, id, token);
+    }
 
     public async Task<bool> MatchesVersionAsync(HistoryRestoreSourceBinding binding, VersionId id, CancellationToken cancellationToken)
         => (await CompareVersionAsync(binding, id, cancellationToken).ConfigureAwait(false)).IsEqual;

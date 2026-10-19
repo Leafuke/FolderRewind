@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Merge;
+using FolderRewind.History.Merge;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
@@ -26,7 +26,7 @@ internal static partial class NativeHistoryApplicationService
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         return await new SafetySnapshotService(runtime).QueryAsync(activeOnly, cancellationToken)
             .ConfigureAwait(false);
@@ -274,7 +274,10 @@ internal static partial class NativeHistoryApplicationService
 
     internal static async Task<HistoryWorkingStateComparison> CompareWorkingStateAsync(BackupConfig config, SourceId source, CancellationToken token)
     {
+        var signature = NativeHistoryConfigLease.Signature(config);
         var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token).ConfigureAwait(false);
+        await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, token).ConfigureAwait(false);
+        await using var guard = await NativeHistoryConfigLease.EnterInsideOperationAsync(config, signature, operation, token).ConfigureAwait(false);
         var baseline = (await runtime.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value?.SourceBaselines.SingleOrDefault(s => s.SourceId == source);
         if (baseline is null) return new(HistoryWorkingStateComparisonStatus.Unknown, "BaselineUnavailable");
         var binding = (await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == source), token).ConfigureAwait(false)).Single();
