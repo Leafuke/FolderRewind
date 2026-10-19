@@ -26,6 +26,7 @@ internal static class StageTwoAcceptance
         await VerifyExcludedLinkAndPreserveAsync();
         await VerifyOrdinaryProtectionAsync(BackupMode.Full, BackupArchiveVerificationLevel.Balanced, false, redirectedRoot: true);
         await VerifyBoundSnapshotFiltersAsync();
+        await VerifySmartChainTargetAsync();
         await VerifyBatchAsync();
         await File.WriteAllTextAsync(Path.Combine(Root, "host-stage2.json"), JsonSerializer.Serialize(new
         { source = "real BackupService / Restore / Checkout", ui = "not executed", results = Results }, new JsonSerializerOptions { WriteIndented = true }));
@@ -189,6 +190,42 @@ internal static class StageTwoAcceptance
             && new DirectoryInfo(Path.Combine(folder.Path, "cache")).LinkTarget is not null, "Physical capture lost logical absolute-filter semantics.");
         await AssertSnapshotAsync(config, history, (await history.Query.GetSafetySnapshotsAsync()).Single(), changed);
         await RecordAsync(new { scenario = "physical-snapshot-logical-absolute-filter", measured.FileReadyMs, measured.TotalMs, measured.Diagnostics });
+        await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
+    }
+
+    private static async Task VerifySmartChainTargetAsync()
+    {
+        var (config, folder) = await CreateAsync("smart-chain-target", BackupMode.Smart, BackupArchiveVerificationLevel.Strict);
+        config.Archive.MaxSmartBackupsPerFull = 8; await SaveAsync();
+        var path = Path.Combine(folder.Path, "world.bin");
+        for (byte layer = 1; layer <= 5; layer++)
+        {
+            var contents = new byte[65536]; contents[0] = layer; File.WriteAllBytes(path, contents);
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddSeconds(layer));
+            Require((await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal())).CreatedNewArchive,
+                "Actual Smart chain layer was not captured.");
+        }
+        var history = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var source = new SourceId(Guid.Parse(folder.Id));
+        var selected = (await history.WorkspaceStore.LoadAsync()).Value!.GetSourceState(source).BaseVersionId!.Value;
+        var representations = await history.Query.GetAllRepresentationsAsync();
+        Require(representations.Count(r => r.Kind == RepresentationKind.CoreSmartDelta) == 5, "The target must be a real six-layer Smart chain.");
+        var archives = (await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries
+            .ToDictionary(e => e.Locator.AbsolutePath!, e => System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(e.Locator.AbsolutePath!)));
+        var changed = new byte[65536]; changed[0] = 9; File.WriteAllBytes(path, changed);
+        config.Archive.BackupBeforeRestore = true; await SaveAsync();
+        var measured = await MeasureAsync(history, "smart-chain", () => InvokeAsync<HistoryRestoreResult>("RestoreVersionAsync", config, folder,
+            selected, BackupService.RestoreMode.Clean, CancellationToken.None));
+        Require(measured.Result.Succeeded && File.ReadAllBytes(path)[0] == 5, measured.Result.Diagnostic);
+        var stats = measured.Diagnostics.Single(d => d.Operation == "ordinary-restore");
+        Require(stats.Counters.GetValueOrDefault("logical-materializations") == 1
+            && stats.Counters.GetValueOrDefault("target-source-materializations") == 1, "Smart target must materialize logically once.");
+        Require(stats.Counters.GetValueOrDefault("7z-x") >= 2, "Smart owner extracts must remain distinct from logical materialization count.");
+        foreach (var archive in archives)
+            Require(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(archive.Key)).AsSpan().SequenceEqual(archive.Value),
+                "Actual Smart capture or protection changed an older payload.");
+        await AssertSnapshotAsync(config, history, (await history.Query.GetSafetySnapshotsAsync()).Single(), changed);
+        await RecordAsync(new { scenario = "real-six-layer-smart-target", measured.FileReadyMs, measured.TotalMs, measured.Diagnostics });
         await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
     }
 

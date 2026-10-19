@@ -66,4 +66,6 @@ $env:FOLDERREWIND_BENCHMARK_REPEATS = '5'
 ./tools/performance/Summarize-StageTwo.ps1 -InputRoot ./artifacts/1.9.8/stage-2/performance -Output ./artifacts/1.9.8/stage-2/performance-summary.json
 ```
 
+也可使用 `Run-StageTwoComparison.ps1 -BaselineExe <冻结的基线 EXE> -CandidateExe <冻结的候选 EXE> -SevenZipExe <7za.exe> -OutputRoot <尚不存在的目录> -MiB 64` 串行执行完整两轮。它第二轮交换先后顺序，保存每组退出码及时间；退出码 2 的内容错误保留原始数据并使最终验收失败。
+
 结果分别保存 API 文件可用时间、等待清理及日志排空后的总时间、清理/日志排空耗时、日志字节、物化/补丁/归档调用及读写计数。Host OS I/O 为进程级 inclusive 逻辑字节，不能与其嵌套 scope 重复相加，也不能当成物理磁盘流量。载荷 SHA 检查在计时之外，按表示身份记住首次摘要，避免基线缺少存储摘要时漏掉归档撞名。工具退出码 2 表示矩阵完成但有内容/结果错误；错误组不能作为有效性能对照。连续两轮中位数退化同时超过 10% 和 20 ms 需处理。
