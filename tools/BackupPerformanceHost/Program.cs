@@ -107,7 +107,9 @@ internal static class Program
                         results.Add(new { mode = mode.ToString(), repeat, layer, policy = policyProperty is null ? "BaselineStrict" : Policy,
                             elapsedMs = clock.Elapsed.TotalMilliseconds, fileReadyMs, totalMs = clock.Elapsed.TotalMilliseconds,
                             logDrainMs = clock.Elapsed.TotalMilliseconds - fileReadyMs, logBytes = LogLength() - logBefore,
-                            correct = payloadsIntact, result.Outcome, diagnostic, cache = "uncontrolled", installation = "headless-msi-service-host" });
+                            correct = payloadsIntact, result.Outcome, diagnostic,
+                            timing = BackupTimingService.GetRecent(config.Id).LastOrDefault(),
+                            cache = "uncontrolled", installation = "headless-msi-service-host" });
                     }
                     if (Quick && mode == BackupMode.Full)
                     {
