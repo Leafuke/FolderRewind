@@ -1,4 +1,4 @@
-using FolderRewind.History.Merge;
+﻿using FolderRewind.History.Merge;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
@@ -272,13 +272,22 @@ internal static partial class NativeHistoryApplicationService
             WorkspaceOperationKind.Checkout).ConfigureAwait(false);
     }
 
+    internal static async Task<HistoryWorkingStateComparison> CompareWorkingStateAsync(BackupConfig config, SourceId source, CancellationToken token)
+    {
+        var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token).ConfigureAwait(false);
+        var baseline = (await runtime.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value?.SourceBaselines.SingleOrDefault(s => s.SourceId == source);
+        if (baseline is null) return new(HistoryWorkingStateComparisonStatus.Unknown, "BaselineUnavailable");
+        var binding = (await BindingsAsync(config, config.SourceFolders.Where(f => Source(f) == source), token).ConfigureAwait(false)).Single();
+        return await new HistoryExactWorkingStateProbe(runtime, CreateRestoreService(config, runtime)).CompareAsync(binding, baseline, token).ConfigureAwait(false);
+    }
+
     public static async Task<HistoryCheckoutPlan> PlanCheckoutAsync(
         BackupConfig config,
         BranchUpdateId selectedTipId,
         AssessmentDepth assessmentDepth = AssessmentDepth.Fast,
         CancellationToken cancellationToken = default)
     {
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var update = await runtime.Query.GetBranchUpdateAsync(selectedTipId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Branch update is missing.");

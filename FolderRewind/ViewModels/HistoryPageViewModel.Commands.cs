@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
@@ -58,6 +58,7 @@ public sealed partial class HistoryPageViewModel
         DeleteRunCommand = new AsyncRelayCommand<BackupRunViewItem>(DeleteRunCommandAsync, CanExecuteItemOperation);
 
         MergeBranchCommand = new AsyncRelayCommand(MergeBranchCommandAsync, () => CanExecuteOperation() && CanUsePerSourceActions);
+        CompareWorkingStateCommand = new AsyncRelayCommand(CompareWorkingStateAsync, () => CanExecuteOperation() && CanUsePerSourceActions);
         CheckoutBranchCommand = new AsyncRelayCommand(CheckoutBranchCommandAsync, () => CanExecuteOperation() && CanStartCheckoutSelectedBranch);
         ReconcileBranchCommand = new AsyncRelayCommand(ReconcileBranchCommandAsync, () => CanExecuteOperation() && CanReconcileSelectedBranch);
         RenameBranchCommand = new AsyncRelayCommand(RenameBranchCommandAsync, () => CanExecuteOperation() && CanRenameSelectedBranch);
@@ -96,6 +97,7 @@ public sealed partial class HistoryPageViewModel
     public IAsyncRelayCommand<BackupRunViewItem> DeleteRunCommand { get; }
     public IAsyncRelayCommand MergeBranchCommand { get; }
     public IAsyncRelayCommand CheckoutBranchCommand { get; }
+    public IAsyncRelayCommand CompareWorkingStateCommand { get; }
     public IAsyncRelayCommand ReconcileBranchCommand { get; }
     public IAsyncRelayCommand RenameBranchCommand { get; }
     public IAsyncRelayCommand DeleteBranchCommand { get; }
@@ -1056,6 +1058,7 @@ public sealed partial class HistoryPageViewModel
         DeleteRunCommand.NotifyCanExecuteChanged();
         MergeBranchCommand.NotifyCanExecuteChanged();
         CheckoutBranchCommand.NotifyCanExecuteChanged();
+        CompareWorkingStateCommand.NotifyCanExecuteChanged();
         ReconcileBranchCommand.NotifyCanExecuteChanged();
         RenameBranchCommand.NotifyCanExecuteChanged();
         DeleteBranchCommand.NotifyCanExecuteChanged();
@@ -1092,6 +1095,8 @@ public sealed partial class HistoryPageViewModel
         DeleteRunCommand.Cancel();
         MergeBranchCommand.Cancel();
         CheckoutBranchCommand.Cancel();
+        CompareWorkingStateCommand.Cancel();
+        CancelWorkingComparison();
         ReconcileBranchCommand.Cancel();
         RenameBranchCommand.Cancel();
         DeleteBranchCommand.Cancel();

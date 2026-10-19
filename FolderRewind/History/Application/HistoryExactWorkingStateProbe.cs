@@ -1,4 +1,4 @@
-using FolderRewind.History.Domain;
+﻿using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using System;
@@ -11,45 +11,39 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Application;
 
+public enum HistoryWorkingStateComparisonStatus { Equal, Different, Unknown }
+public sealed record HistoryWorkingStateComparison(HistoryWorkingStateComparisonStatus Status, string Reason)
+{
+    public bool IsEqual => Status == HistoryWorkingStateComparisonStatus.Equal;
+}
+
 public sealed class HistoryExactWorkingStateProbe(HistoryRuntime history, HistoryRestoreService restore)
     : IHistoryWorkingStateProbe
 {
-    public async Task<bool> IsExactAsync(
-        HistoryRestoreSourceBinding binding,
-        WorkspaceSourceBaseline baseline,
-        CancellationToken cancellationToken)
-    {
-        if (baseline.Relation != WorkspaceBaselineRelation.Exact
-            || baseline.RequiresFullCapture
-            || baseline.BaseVersionId is not { } id
-            || !Directory.Exists(binding.TargetDirectory)) return false;
-        return await MatchesVersionAsync(binding, id, cancellationToken).ConfigureAwait(false);
-    }
+    public async Task<bool> IsExactAsync(HistoryRestoreSourceBinding binding, WorkspaceSourceBaseline baseline, CancellationToken cancellationToken)
+        => (await CompareAsync(binding, baseline, cancellationToken).ConfigureAwait(false)).IsEqual;
+
+    public Task<HistoryWorkingStateComparison> CompareAsync(HistoryRestoreSourceBinding binding, WorkspaceSourceBaseline baseline, CancellationToken token)
+        => baseline.Relation != WorkspaceBaselineRelation.Exact || baseline.RequiresFullCapture || baseline.BaseVersionId is not { } id
+            ? Task.FromResult(new HistoryWorkingStateComparison(HistoryWorkingStateComparisonStatus.Unknown, "BaselineUnavailable"))
+            : CompareVersionAsync(binding, id, token);
 
     public async Task<bool> MatchesVersionAsync(HistoryRestoreSourceBinding binding, VersionId id, CancellationToken cancellationToken)
+        => (await CompareVersionAsync(binding, id, cancellationToken).ConfigureAwait(false)).IsEqual;
+
+    private async Task<HistoryWorkingStateComparison> CompareVersionAsync(HistoryRestoreSourceBinding binding, VersionId id, CancellationToken token)
     {
-        if (!Directory.Exists(binding.TargetDirectory)) return false;
-        var version = await history.Query.GetVersionAsync(id, cancellationToken).ConfigureAwait(false);
-        if (version is null || version.SourceId != binding.SourceId
-            || version.ConfigId != history.ConfigId
-            || version.EffectiveSourceBoundaryFingerprint != binding.Boundary.Fingerprint) return false;
-        HistoryRestoreService.PreparedRestoreSource? prepared = null;
-        var workspace = (await history.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
-        using var session = workspace is null ? null : restore.CreatePreparationSession([binding], workspace);
+        token.ThrowIfCancellationRequested();
         try
         {
-            prepared = await restore.PrepareSourceAsync(version, binding, MaterializationFidelity.Exact,
-                HistoryRestoreApplyMode.Clean, cancellationToken, session).ConfigureAwait(false);
-            return await MatchesPreparedAsync(prepared, binding, cancellationToken).ConfigureAwait(false);
+            var version = await history.Query.GetVersionAsync(id, token).ConfigureAwait(false);
+            if (version is null || version.SourceId != binding.SourceId || version.ConfigId != history.ConfigId
+                || version.EffectiveSourceBoundaryFingerprint != binding.Boundary.Fingerprint)
+                return new(HistoryWorkingStateComparisonStatus.Unknown, "BaselineBoundaryMismatch");
+            return await restore.CompareReadOnlyAsync(version, binding, token).ConfigureAwait(false);
         }
-        catch (IOException) { return false; }
-        catch (UnauthorizedAccessException) { return false; }
-        catch (InvalidOperationException) { return false; }
-        finally
-        {
-            if (prepared is not null)
-                HistoryRestoreTransactionJournalStore.CleanupStaging([prepared.StagingDirectory]);
-        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException or System.ComponentModel.Win32Exception)
+        { return new(HistoryWorkingStateComparisonStatus.Unknown, ex.Message); }
     }
 
     internal static async Task<bool> MatchesPreparedAsync(HistoryRestoreService.PreparedRestoreSource prepared,

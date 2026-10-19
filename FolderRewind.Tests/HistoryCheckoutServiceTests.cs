@@ -1,4 +1,4 @@
-using FolderRewind.History.Application;
+﻿using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
@@ -22,6 +22,52 @@ public sealed class HistoryCheckoutServiceTests
     public void Cleanup()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task MetadataPlanningNeverProbesAndExplicitComparisonDoesNotCreateRestoreTransactions()
+    {
+        var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(config, new(Path.Combine(_root, "read-only-comparison"))));
+        await runtime.InitializeReadableAsync();
+        var source = SourceId.New();
+        var version = Version(config, source, "compare");
+        var checkpoint = new SourceCheckpoint(CheckpointId.New(), config, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(source, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var branch = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created, sourceId: source);
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, Representation(version.VersionId), checkpoint, branch }.Select(o => codec.CreateObject(o))));
+        await runtime.EnsureIndexCurrentAsync();
+        var baseline = new WorkspaceSourceBaseline(source, version.VersionId, WorkspaceBaselineRelation.Exact);
+        var workspace = new HistoryWorkspace(config, 0, [baseline]);
+        var target = Path.Combine(_root, "comparison-world"); Directory.CreateDirectory(target);
+        var file = Path.Combine(target, "restored.txt"); File.WriteAllText(file, "new");
+        var restore = new HistoryRestoreService(runtime, new([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), new FileSystemHistoryRestoreMutationBackend());
+        var planner = new HistoryCheckoutPlanner(runtime, restore, new RejectUnexpectedProbe());
+        using (var locked = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var plan = await planner.BuildAsync(branch.UpdateId, [new(source, target)], workspace, AssessmentDepth.Fast);
+            Assert.IsTrue(plan.CanExecute);
+            var unknown = await new HistoryExactWorkingStateProbe(runtime, restore).CompareAsync(new(source, target), baseline, default);
+            Assert.AreEqual(HistoryWorkingStateComparisonStatus.Unknown, unknown.Status);
+        }
+        var probe = new HistoryExactWorkingStateProbe(runtime, restore);
+        Assert.AreEqual(HistoryWorkingStateComparisonStatus.Equal, (await probe.CompareAsync(new(source, target), baseline, default)).Status);
+        File.WriteAllText(file, "changed");
+        Assert.AreEqual(HistoryWorkingStateComparisonStatus.Different, (await probe.CompareAsync(new(source, target), baseline, default)).Status);
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => probe.CompareAsync(new(source, target), baseline, cancelled.Token));
+        Assert.IsEmpty(Directory.GetFiles(runtime.Repository.Paths.TransactionsRoot, "restore-journal.json", SearchOption.AllDirectories));
+        Assert.AreEqual(DeviceLocalStateStatus.Missing, (await runtime.WorkspaceStore.LoadAsync()).Status);
+        Assert.AreEqual("changed", File.ReadAllText(file));
+    }
+
+    private sealed class RejectUnexpectedProbe : IHistoryWorkingStateProbe
+    {
+        public Task<bool> IsExactAsync(HistoryRestoreSourceBinding binding, WorkspaceSourceBaseline baseline, CancellationToken token)
+            => throw new AssertFailedException("Metadata planning must not inspect current content.");
     }
 
     [TestMethod]

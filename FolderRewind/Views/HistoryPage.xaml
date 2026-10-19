@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="FolderRewind.Views.HistoryPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -132,6 +132,7 @@
                                 <FontIcon Glyph="&#xE712;" FontSize="12"/>
                                 <DropDownButton.Flyout>
                                     <MenuFlyout>
+                                        <MenuFlyoutItem x:Uid="HistoryPage_CompareWorkingState" AutomationProperties.AutomationId="HistoryCompareWorkingState" Command="{x:Bind ViewModel.CompareWorkingStateCommand}"/>
                                         <MenuFlyoutItem x:Uid="HistoryPage_BranchMergeItem" AutomationProperties.AutomationId="HistoryBranchMerge" Command="{x:Bind ViewModel.MergeBranchCommand}"/>
                                         <MenuFlyoutItem x:Name="BranchReconcileItem"
                                                         x:Uid="HistoryPage_BranchReconcileItem"
@@ -235,6 +236,11 @@
             <InfoBar Title="{x:Bind ViewModel.MigrationNoticeTitle, Mode=OneWay}" IsOpen="{x:Bind ViewModel.ShowMigrationNotice, Mode=OneWay}" IsClosable="False" Severity="Informational"
                      Message="{x:Bind ViewModel.MigrationStatusMessage, Mode=OneWay}" AutomationProperties.AutomationId="HistoryMigrationPending">
                 <InfoBar.ActionButton><Button Content="{x:Bind ViewModel.MigrationActionText, Mode=OneWay}" Click="OnContinueMigration" AutomationProperties.AutomationId="HistoryContinueMigration"/></InfoBar.ActionButton>
+            </InfoBar>
+            <InfoBar IsOpen="{x:Bind ViewModel.HasWorkingComparisonMessage, Mode=OneWay}" IsClosable="False" Severity="Informational"
+                     Message="{x:Bind ViewModel.WorkingComparisonMessage, Mode=OneWay}" AutomationProperties.AutomationId="HistoryWorkingComparison">
+                <InfoBar.ActionButton><Button x:Uid="HistoryCancelOperation" Command="{x:Bind ViewModel.CancelWorkingComparisonCommand}" AutomationProperties.AutomationId="HistoryCancelComparison"/></InfoBar.ActionButton>
+                <Expander x:Uid="HistoryLoad_TechnicalDetails"><TextBlock Text="{x:Bind ViewModel.WorkingComparisonDetails, Mode=OneWay}" TextWrapping="Wrap"/></Expander>
             </InfoBar>
             <InfoBar x:Name="HistoryLoadError"
                      Title="{x:Bind ViewModel.HistoryLoadMessageTitle, Mode=OneWay}"

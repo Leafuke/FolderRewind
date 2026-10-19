@@ -63,15 +63,21 @@ public static class NativeHistoryCoreGateway
         }
     }
 
-    public static Task<HistoryRuntime> EnsureReadableAsync(BackupConfig config, CancellationToken cancellationToken = default)
-        => Runtimes.GetOrCreateAsync(new HistoryConfigId(config.Id), (_, token) =>
+    public static async Task<HistoryRuntime> EnsureReadableAsync(BackupConfig config, CancellationToken cancellationToken = default)
+    {
+        var identity = new HistoryConfigId(config.Id);
+        var directory = ConfigService.ConfigDirectory;
+        var runtime = await Runtimes.GetOrCreateAsync(identity, (_, token) => Task.Run(() =>
         {
-            var paths = HistoryRepositoryPaths.ForConfigDirectory(ConfigService.ConfigDirectory, new HistoryConfigId(config.Id));
+            var paths = HistoryRepositoryPaths.ForConfigDirectory(directory, identity);
             // Reading an existing repository must not trigger legacy takeover or persist a binding.
             var descriptor = HistoryRepositoryDescriptor.Parse(File.ReadAllBytes(paths.DescriptorPath));
-            if (descriptor.ConfigId != new HistoryConfigId(config.Id)) throw new HistoryIntegrityConflictException("Repository identity differs from configuration.");
-            return Task.FromResult(new FileHistoryRepository(descriptor.ConfigId, paths));
-        }, cancellationToken);
+            if (descriptor.ConfigId != identity) throw new HistoryIntegrityConflictException("Repository identity differs from configuration.");
+            return new FileHistoryRepository(identity, paths);
+        }, token), cancellationToken).ConfigureAwait(false);
+        await runtime.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
+        return runtime;
+    }
 
     public static Task<HistoryRuntime> EnsureReadyAsync(
         BackupConfig config,

@@ -62,6 +62,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         if (_presentationMode == mode) return;
         _presentationMode = mode;
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         if (!IsAdvancedHistory) SelectedBranch = Branches.FirstOrDefault(branch => branch.IsActive);
         OnPropertyChanged(nameof(IsAdvancedHistory));
         OnPropertyChanged(nameof(ShowBranchTools));
@@ -179,6 +180,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         set
         {
             if (!SetProperty(ref _selectedBranch, value)) return;
+            CancelWorkingComparison();
             NotifyBranchSelectionChanged();
             if (!_refreshingBranches)
             {
@@ -260,6 +262,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         MigrationWorkflowCoordinator.Changed += OnMigrationWorkflowChanged;
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
         ErrorMessage = string.Empty;
@@ -329,6 +332,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _selectionRequests.CancelCurrent();
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
         IsLoading = false;
@@ -397,6 +401,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IsLoading = true;
         ErrorMessage = string.Empty;
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         try
         {
             if (config is null)
@@ -1007,7 +1012,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         catch (OperationCanceledException) when (request.Token.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            if (request.IsCurrent) { branch.SetAssessment(null); ReportOperationFailure("branch assessment", ex); }
+            if (request.IsCurrent) { branch.SetAssessment(null); WorkingComparisonMessage = I18n.GetString("History_Compare_Unknown"); WorkingComparisonDetails = CloudCommandSecurity.Redact(ex.Message); }
         }
         finally
         {

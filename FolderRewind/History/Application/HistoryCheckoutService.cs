@@ -1,4 +1,4 @@
-using FolderRewind.History.Domain;
+﻿using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using System;
@@ -52,7 +52,7 @@ public sealed class HistoryCheckoutService
                 currentConfigSources,
                 expectedWorkspace,
                 AssessmentDepth.Deep,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, workingStateCheck: HistoryWorkingStateCheckMode.CompareContent).ConfigureAwait(false);
             if (!plan.CanExecute)
                 return Blocked(plan.Diagnostic, plan);
             _ = await _restore.RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
@@ -130,7 +130,7 @@ public sealed class HistoryCheckoutService
                 authoritativeBindings,
                 current,
                 AssessmentDepth.Deep,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, workingStateCheck: HistoryWorkingStateCheckMode.CompareContent).ConfigureAwait(false);
             if (!revalidated.CanExecute
                 || revalidated.Update!.UpdateId != plan.Update!.UpdateId
                 || revalidated.Checkpoint!.CheckpointId != plan.Checkpoint!.CheckpointId)

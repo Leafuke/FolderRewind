@@ -203,6 +203,31 @@ public sealed partial class HistoryRestoreService
         }
     }
 
+    internal async Task<HistoryWorkingStateComparison> CompareReadOnlyAsync(SourceVersion version, HistoryRestoreSourceBinding binding, CancellationToken token)
+    {
+        var graph = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
+        var environment = await _environmentFactory(token).ConfigureAwait(false);
+        var staging = Path.Combine(Path.GetTempPath(), "FolderRewind-comparison", Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var inputs = await _representations.LockExactVersionAsync(version.VersionId, graph, environment, token).ConfigureAwait(false);
+            await _representations.MaterializeAsync(inputs.RepresentationId, graph, environment, MaterializationFidelity.Exact, staging, token, VerificationContext).ConfigureAwait(false);
+            try { _ = File.GetAttributes(binding.TargetDirectory); }
+            catch (FileNotFoundException) { return new(HistoryWorkingStateComparisonStatus.Different, "TargetMissing"); }
+            catch (DirectoryNotFoundException) { return new(HistoryWorkingStateComparisonStatus.Different, "TargetMissing"); }
+            using var current = new Storage.HistoryWorkingTreeReadLease(binding);
+            var prepared = new PreparedRestoreSource(binding, version, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, staging);
+            var equal = await HistoryExactWorkingStateProbe.MatchesPreparedAsync(prepared, binding, token).ConfigureAwait(false);
+            current.Validate();
+            return new(equal ? HistoryWorkingStateComparisonStatus.Equal : HistoryWorkingStateComparisonStatus.Different, string.Empty);
+        }
+        finally
+        {
+            try { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _history.ReportMaintenance("Comparison cleanup: " + ex.Message); }
+        }
+    }
+
     internal async Task<PreparedRestoreSource> PrepareSourceAsync(
         SourceVersion version,
         HistoryRestoreSourceBinding source,

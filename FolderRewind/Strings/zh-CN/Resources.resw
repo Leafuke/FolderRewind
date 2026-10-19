@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -7136,4 +7136,10 @@ Pull Request：{1}</value>
   <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>“{0}”备份已完成，但存在警告。请查看任务及版本详情。</value></data>
   <data name="SemanticBackup_BoundedProviderUnavailable" xml:space="preserve"><value>当前一致性插件不支持有资源上限的稳定副本，请更新插件后重试。</value></data>
   <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>此配置的实验性产物转换策略尚未启用，或不符合语义捕获条件。请检查实验开关、插件与备份策略。</value></data>
+  <data name="HistoryPage_CompareWorkingState.Text" xml:space="preserve"><value>比对当前文件与基线</value></data>
+  <data name="History_Compare_Running" xml:space="preserve"><value>正在比对当前文件与基线…</value></data>
+  <data name="History_Compare_Equal" xml:space="preserve"><value>当前管理内容与基线一致。</value></data>
+  <data name="History_Compare_Different" xml:space="preserve"><value>当前管理内容与基线不同。</value></data>
+  <data name="History_Compare_Unknown" xml:space="preserve"><value>无法确定当前内容与基线是否一致；历史仍可浏览。</value></data>
+  <data name="History_Compare_Cancelled" xml:space="preserve"><value>比对已取消。</value></data>
 </root>
