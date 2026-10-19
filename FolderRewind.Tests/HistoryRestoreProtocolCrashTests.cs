@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 
 namespace FolderRewind.Tests;
@@ -81,7 +81,7 @@ public sealed class HistoryRestoreProtocolCrashTests
             }
             for (int repeat = 0; repeat < 2; repeat++)
             {
-                await RunRecoveryProbeAsync(probe, root, point + "/" + scenario, "swap", repeat, scenario == "half-progress");
+                await RunRecoveryProbeAsync(probe, root, point + "/" + scenario, "swap", repeat, scenario is "half-progress" or "unregistered");
             }
             if (scenario == "half-progress") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
             else if (scenario == "unregistered") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));

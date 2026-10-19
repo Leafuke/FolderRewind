@@ -1,4 +1,4 @@
-using FolderRewind.History.Domain;
+﻿using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
 using System;
@@ -103,18 +103,9 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         if (_finished || Journal.Phase != HistoryRestoreTransactionPhase.Preparing) return;
         try
         {
-            foreach (var workspace in Journal.Workspaces.ToArray())
-            {
-                if (workspace.ContainerIdentity is null)
-                {
-                    if (Path.Exists(workspace.Location.Container)) throw new IOException("Unregistered restore container is preserved for recovery.");
-                    continue;
-                }
-                var index = Journal.Workspaces.IndexOf(workspace);
-                Set(index, workspace with { CleanupStarted = true });
-                HistoryRestoreFileSystemPlanStore.Cleanup(new(Journal.TransactionId, [workspace.Location.Container], workspace.KnownObjects, []), false, true);
-            }
-            SetJournal(Journal with { Phase = HistoryRestoreTransactionPhase.Complete }); _finished = true;
+            _store.AbandonPreparation(Journal);
+            Journal = Journal with { Phase = HistoryRestoreTransactionPhase.Complete };
+            _finished = true;
         }
         catch (Exception error) { Diagnostic = "Restore preparation requires recovery: " + error.Message; }
     }
