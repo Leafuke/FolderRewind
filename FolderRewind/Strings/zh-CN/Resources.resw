@@ -7133,7 +7133,7 @@ Pull Request：{1}</value>
   <data name="Migration_NativePackageRequired" xml:space="preserve"><value>此版本使用语义备份存储。请通过迁移包恢复，或重新绑定包含完整数据的备份目录。</value></data>
   <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>检查点开始前，已保存的配置已发生变化。请重新保存后重试。</value></data>
   <data name="BackupService_Task_CompletedWithWarnings" xml:space="preserve"><value>已完成，有警告</value></data>
-  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>“{0}”备份已完成，但存在警告。请查看任务及版本详情。</value></data>
+  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>“{0}”备份已完成，但存在警告。请查看任务详情或日志。</value></data>
   <data name="SemanticBackup_BoundedProviderUnavailable" xml:space="preserve"><value>当前一致性插件不支持有资源上限的稳定副本，请更新插件后重试。</value></data>
   <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>此配置的实验性产物转换策略尚未启用，或不符合语义捕获条件。请检查实验开关、插件与备份策略。</value></data>
   <data name="HistoryPage_CompareWorkingState.Text" xml:space="preserve"><value>比对当前文件与基线</value></data>
@@ -7171,4 +7171,38 @@ Pull Request：{1}</value>
     <value>文件处理结果已保留，维护尚未完成：{0}</value>
   </data>
   <data name="Restore_ConfigurationChanged" xml:space="preserve"><value>配置在本次操作期间发生变化。</value></data>
+  <data name="BackupTasks_WarningSummary.Text" xml:space="preserve"><value>任务包含警告，请查看详情或日志。</value></data>
+  <data name="BackupTasks_DetailsErrors" xml:space="preserve"><value>错误</value></data>
+  <data name="BackupTasks_DetailsWarnings" xml:space="preserve"><value>警告</value></data>
+  <data name="BackupTasks_DetailsLog" xml:space="preserve"><value>日志</value></data>
+  <data name="Restore_CoordinatorUnavailable" xml:space="preserve"><value>还原所需的插件协调能力不可用。请启用或更新对应插件后重试。</value></data>
+  <data name="Restore_CoordinatorContinuationMissing" xml:space="preserve"><value>插件报告操作已完成，但没有交由应用执行还原。请更新插件并查看日志。</value></data>
+  <data name="Restore_CoordinatorContinuationFailed" xml:space="preserve"><value>插件已请求还原，但应用没有返回有效结果。请查看日志中的执行异常。</value></data>
+  <data name="Restore_CoordinatorCanceled" xml:space="preserve"><value>还原在修改目标文件前已取消。</value></data>
+  <data name="Restore_CoordinatorFailed" xml:space="preserve"><value>插件在还原前的协调步骤失败，目标文件尚未修改。请查看日志。</value></data>
+  <data name="Restore_CoordinatorBlocked" xml:space="preserve"><value>插件阻止了此次还原，目标文件尚未修改。请查看日志中的阻止原因。</value></data>
+  <data name="OperationDiagnostic_Unknown" xml:space="preserve"><value>插件或组件报告了诊断，请查看日志中的详细信息。</value></data>
+  <data name="OperationDiagnostic_WorldLockProbeFailed" xml:space="preserve"><value>无法确认世界已释放：{0}。请检查文件访问权限和磁盘状态后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreKnotLinkUnavailable" xml:space="preserve"><value>世界文件仍被占用，且互联服务不可用。请退出世界并等待文件释放后重试；热还原需要启用互联服务。</value></data>
+  <data name="OperationDiagnostic_RestoreHandshakeUnavailable" xml:space="preserve"><value>世界文件仍被占用，兼容的 MineBackup 模组未响应握手。请退出世界后重试，或检查模组版本及互联连接。</value></data>
+  <data name="OperationDiagnostic_RestoreExitTimeout" xml:space="preserve"><value>等待游戏保存并退出世界超时。请手动退出世界，确认存档已释放后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreWorldOccupied" xml:space="preserve"><value>世界文件仍被其他进程占用，还原尚未执行。请确认游戏及其他占用程序已释放存档后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreMultipleWorlds" xml:space="preserve"><value>多个受影响世界仍被占用，无法安全协调还原。请退出这些世界后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreCoordinationFailed" xml:space="preserve"><value>世界还原协调失败。请查看日志中的原始异常，并检查游戏状态及互联连接。</value></data>
+  <data name="OperationDiagnostic_RestoreRejoinFailed" xml:space="preserve"><value>游戏未能自动重新进入世界。请先查看还原结果，再手动进入世界。</value></data>
+  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>世界文件仍被占用，未能协调游戏保存；已尽力创建备份副本，但无法保证来自同一次完整保存。请退出世界后再备份，或检查互联连接。</value></data>
+  <data name="OperationDiagnostic_ConsistencyHandshakeUnavailable" xml:space="preserve"><value>备份时兼容模组未响应握手，无法确认游戏已保存。请检查模组和互联连接，或退出世界后重新备份。</value></data>
+  <data name="OperationDiagnostic_ConsistencySaveTimeout" xml:space="preserve"><value>等待游戏确认保存超时，备份一致性未得到确认。请退出世界后重新备份。</value></data>
+  <data name="OperationDiagnostic_ConsistencyCoordinationFailed" xml:space="preserve"><value>备份前的游戏保存协调失败，已尽力继续备份。请查看日志，退出世界后重新备份。</value></data>
+  <data name="OperationDiagnostic_SnapshotFallback" xml:space="preserve"><value>稳定副本创建失败，已回退到读取原目录。请查看日志，确认文件权限和可用空间后重试。</value></data>
+  <data name="OperationDiagnostic_SnapshotLinksSkipped" xml:space="preserve"><value>创建备份副本时跳过了目录内的文件系统链接。请在详情中检查跳过的路径。</value></data>
+  <data name="OperationDiagnostic_ConsistencyFallback" xml:space="preserve"><value>插件一致性能力不可用，已按尽力备份策略继续。请检查插件状态，并在退出游戏后重新备份。</value></data>
+  <data name="OperationDiagnostic_ConsistencyCleanupFailed" xml:space="preserve"><value>备份读取已结束，但插件临时副本清理失败。请查看日志并检查临时目录权限。</value></data>
+  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>归档大小低于设置的警告阈值。请检查备份范围及归档内容，详情中包含实际大小。</value></data>
+  <data name="OperationDiagnostic_BackupHistoryRecovery" xml:space="preserve"><value>备份已经提交，但本地历史状态需要恢复。请查看日志并完成恢复后再进行其他历史操作。</value></data>
+  <data name="OperationDiagnostic_BackupFinalizationFailed" xml:space="preserve"><value>备份已提交，但完成后的辅助处理失败。请查看详情中的原始错误。</value></data>
+  <data name="OperationDiagnostic_BackupConfigSaveFailed" xml:space="preserve"><value>备份已提交，但最近备份时间等配置保存失败。请检查配置目录的访问权限。</value></data>
+  <data name="OperationDiagnostic_BackupCloudFailed" xml:space="preserve"><value>本地备份已提交，但云同步任务未能正常登记。请查看日志及云同步状态。</value></data>
+  <data name="OperationDiagnostic_BackupRetentionFailed" xml:space="preserve"><value>备份已提交，但自动清理未完全完成。请查看清理报告和日志。</value></data>
+  <data name="OperationDiagnostic_BackupWarningUnspecified" xml:space="preserve"><value>备份已完成，但组件没有提供具体警告原因。请保留日志用于排查。</value></data>
 </root>

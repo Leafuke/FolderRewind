@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\NativeRestoreCoordinationPolicy.cs" Link="Source\NativeRestoreCoordinationPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\OperationDiagnosticFormatter.cs" Link="Source\OperationDiagnosticFormatter.cs" />
+    <Compile Include="..\FolderRewind\Models\BackupActivityModels.cs" Link="Source\BackupActivityModels.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRestoreMaintenance.cs" Link="Source\HistoryRestoreMaintenance.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRestoreRecoveryDiagnostics.cs" Link="Source\HistoryRestoreRecoveryDiagnostics.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.Inputs.cs" Link="Source\HistoryRestoreService.Inputs.cs" />

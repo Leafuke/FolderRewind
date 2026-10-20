@@ -4,4 +4,5 @@ namespace FolderRewind.Services;
 internal static class I18n
 {
     public static string GetString(string key) => key;
+    public static string Format(string key, params object[] arguments) => key + ": " + string.Join("; ", arguments);
 }

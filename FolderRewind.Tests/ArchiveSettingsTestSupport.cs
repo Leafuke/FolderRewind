@@ -11,6 +11,7 @@ public enum BackupMode { Full = 0, Smart = 1, Rolling = 2 }
 public class ObservableObject : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null) => PropertyChanged?.Invoke(this, new(propertyName));
     [JsonExtensionData] public Dictionary<string, JsonElement> SchemaExtensions { get; set; } = new();
     protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {

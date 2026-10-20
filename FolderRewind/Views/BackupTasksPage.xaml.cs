@@ -20,10 +20,11 @@ namespace FolderRewind.Views
         private async void OnViewDetails(object sender, RoutedEventArgs e)
         {
             if (sender is not FrameworkElement { DataContext: BackupTask task }) return;
-            var text = I18n.Format("BackupTasks_DetailsBody", task.ErrorMessage, task.Log);
-            var details = new TextBox { Text = text, IsReadOnly = true, AcceptsReturn = true,
-                TextWrapping = TextWrapping.Wrap, MinWidth = 240, MaxHeight = 420 };
+            var text = OperationDiagnosticFormatter.TaskDetails(task);
+            var details = new TextBox { IsReadOnly = true, AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap, MinWidth = 240, MaxHeight = 420, Text = text };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(details, I18n.GetString("BackupTasks_DetailsLabel"));
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(details, "BackupTaskDetailsText");
             var dialog = new ContentDialog { Title = I18n.Format("BackupTasks_DetailsTitle", task.FolderName), Content = details,
                 PrimaryButtonText = I18n.GetString("BackupTasks_CopyDetails"), CloseButtonText = I18n.GetString("Common_Close") };
             dialog.PrimaryButtonClick += (_, args) => { args.Cancel = true; var package = new DataPackage(); package.SetText(text); Clipboard.SetContent(package); };

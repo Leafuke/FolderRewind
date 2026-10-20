@@ -14,7 +14,10 @@ namespace FolderRewind.Services;
 internal sealed class NativeHistoryRestoreOrchestrator
 {
     internal sealed record Operation(Guid Id, bool PreservePlayerData, bool? PreservePlayerDataOverride,
-        IReadOnlyList<string> RestoreWhitelist, IReadOnlyList<string> RestorePreservePaths);
+        IReadOnlyList<string> RestoreWhitelist, IReadOnlyList<string> RestorePreservePaths)
+    {
+        internal OperationOutcome? CoordinatorOutcome { get; set; }
+    }
     private static readonly AsyncLocal<Operation?> CurrentOperation = new();
     internal static Operation? Current => CurrentOperation.Value;
     public static bool IsCoordinatorAvailable(BackupConfig config, out string diagnostic)
@@ -37,7 +40,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
             capability => capability.Kind == kind,
             CancellationToken.None);
         if (lease is not null) return true;
-        diagnostic = "Required RestoreCoordinator is unavailable.";
+        diagnostic = I18n.GetString("Restore_CoordinatorUnavailable");
         return false;
     }
 
@@ -56,8 +59,29 @@ internal sealed class NativeHistoryRestoreOrchestrator
             isRestore ? options?.PreservePlayerDataOverride : null,
             isRestore ? options?.RestoreWhitelist?.ToArray() ?? [] : [],
             isRestore ? RestorePreservePaths.Normalize(options?.RestorePreservePaths ?? []) : []);
-        try { return await ExecuteCoreAsync(config, affectedFolders, targetIdentity, hostMutation,
-            cancellationToken, operationKind).ConfigureAwait(false); }
+        try
+        {
+            var result = await ExecuteCoreAsync(config, affectedFolders, targetIdentity, hostMutation,
+                cancellationToken, operationKind).ConfigureAwait(false);
+            var canceled = cancellationToken.IsCancellationRequested || Current?.CoordinatorOutcome == OperationOutcome.Canceled;
+            var level = canceled ? LogLevel.Info : result.Succeeded
+                ? result.PostActionDiagnostic is null ? LogLevel.Info : LogLevel.Warning
+                : result.Status == HistoryRestoreStatus.BlockedBeforeMutation && Current?.CoordinatorOutcome != OperationOutcome.Failed
+                    ? LogLevel.Warning : LogLevel.Error;
+            LogService.Log($"Restore completed: {Context(config, affectedFolders, targetIdentity, operationKind)}; status={result.Status}; "
+                + $"outcome={Current?.CoordinatorOutcome}; diagnostic={result.Diagnostic}", level, "History");
+            return result;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            LogService.LogInfo("Restore canceled: " + Context(config, affectedFolders, targetIdentity, operationKind), "History");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogService.LogError($"Restore failed: {Context(config, affectedFolders, targetIdentity, operationKind)}; hresult=0x{ex.HResult:X8}", "History", ex);
+            throw;
+        }
         finally { CurrentOperation.Value = previous; }
     }
 
@@ -90,7 +114,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
         if (lease is null)
         {
             return required
-                ? Blocked("Required RestoreCoordinator is unavailable.")
+                ? Blocked(I18n.GetString("Restore_CoordinatorUnavailable"))
                 : await hostMutation(cancellationToken).ConfigureAwait(false);
         }
 
@@ -129,34 +153,30 @@ internal sealed class NativeHistoryRestoreOrchestrator
             }
             finally { await gate.CloseAndDrainAsync().ConfigureAwait(false); }
 
-            if (!gate.WasInvoked || mutationResult is null)
-                return Blocked("RestoreCoordinator did not invoke the supplied Host continuation.");
-            if (mutationResult.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired)
-                return mutationResult;
-            if (coordinated.Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings)
-            {
-                return coordinated.Outcome == OperationOutcome.SuccessWithWarnings
-                    ? WithPostActionWarning(mutationResult, coordinated.Diagnostics)
-                    : mutationResult;
-            }
-            return WithPostActionWarning(mutationResult, coordinated.Diagnostics);
+            Current!.CoordinatorOutcome = coordinated.Outcome;
+            var context = Context(config, affectedFolders, targetIdentity, operationKind)
+                + $"; outcome={coordinated.Outcome}; continuation_invoked={gate.WasInvoked}";
+            OperationDiagnosticFormatter.Log(coordinated.Diagnostics, context, "History",
+                coordinated.Outcome == OperationOutcome.Canceled ? LogLevel.Info : null);
+            return NativeRestoreCoordinationPolicy.Resolve(gate.WasInvoked, mutationResult, coordinated);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested && mutationResult is null)
         {
-            return Blocked("Restore was canceled before Host target mutation.");
+            Current!.CoordinatorOutcome = OperationOutcome.Canceled;
+            return Blocked(I18n.GetString("Restore_CoordinatorCanceled"));
         }
         catch (Exception ex)
         {
+            Current!.CoordinatorOutcome = OperationOutcome.Failed;
+            LogService.LogError($"Restore callback/coordinator failed: {Context(config, affectedFolders, targetIdentity, operationKind)}; "
+                + $"continuation_invoked={gate.WasInvoked}; hresult=0x{ex.HResult:X8}", "History", ex);
             if (mutationResult?.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired) return mutationResult;
             return mutationResult?.WithPostActionWarning(I18n.Format("Restore_CoordinatorPostActionFailed", ex.Message)) ?? Blocked(ex.Message);
         }
     }
 
-    private static HistoryRestoreResult WithPostActionWarning(
-        HistoryRestoreResult committed,
-        IReadOnlyList<PluginDiagnostic> diagnostics)
-        => committed.WithPostActionWarning(I18n.Format("Restore_CoordinatorPostActionFailed", diagnostics.Count == 0
-            ? I18n.GetString("Restore_CoordinatorPostActionWarning") : string.Join("; ", diagnostics.Select(item => item.Code))));
+    private static string Context(BackupConfig config, IReadOnlyList<ManagedFolder> folders, string target, WorkspaceOperationKind kind)
+        => $"operation={Current?.Id}; config={config.Id}; sources={string.Join(",", folders.Select(folder => folder.Id))}; target={target}; kind={kind}";
 
     private static HistoryRestoreResult Blocked(string diagnostic)
         => new(HistoryRestoreStatus.BlockedBeforeMutation, diagnostic, false, []);

@@ -71,9 +71,12 @@
                                          Maximum="100" 
                                          Margin="0,12,0,0" Height="4" CornerRadius="4"/>
 
-                            <!-- Row 2: 失败原因 - 仅在有错误信息时显示 -->
-                            <StackPanel Grid.Row="2" Spacing="8" Margin="0,8,0,0" Visibility="{x:Bind ErrorMessage, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}">
-                                <TextBlock x:Uid="BackupTasks_FailureSummary" TextWrapping="Wrap" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                            <!-- Row 2: error and warning details remain available after completion. -->
+                            <StackPanel Grid.Row="2" Spacing="8" Margin="0,8,0,0" Visibility="{x:Bind HasDetails, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock x:Uid="BackupTasks_FailureSummary" TextWrapping="Wrap" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           Visibility="{x:Bind ErrorMessage, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}"/>
+                                <TextBlock x:Uid="BackupTasks_WarningSummary" AutomationProperties.AutomationId="BackupTaskWarningSummary" TextWrapping="Wrap" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Visibility="{x:Bind HasWarnings, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                                 <Button x:Uid="BackupTasks_ViewDetails" Click="OnViewDetails" HorizontalAlignment="Left" AutomationProperties.AutomationId="BackupTaskDetails"/>
                             </StackPanel>
                         </Grid>

@@ -32,6 +32,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     private bool _initialized;
     private bool _disposed;
     private readonly object _restoreCleanupSync = new();
+    private readonly HashSet<string> _activeRestorePreparations = new(StringComparer.OrdinalIgnoreCase);
     private readonly CancellationTokenSource _restoreCleanupLifetime = new();
     private Task _restoreCleanupTask = Task.CompletedTask;
     private bool _restoreCleanupRunning, _restoreCleanupRequested;
@@ -94,6 +95,24 @@ public sealed class HistoryRuntime : IAsyncDisposable
 
     internal void ReportMaintenance(string? diagnostic) => MaintenanceDiagnostic = diagnostic;
 
+    internal void TrackRestorePreparation(string path, bool active)
+    {
+        lock (_restoreCleanupSync)
+        {
+            if (active) _activeRestorePreparations.Add(path);
+            else _activeRestorePreparations.Remove(path);
+        }
+    }
+
+    private bool IsRestoreMaintenanceInProgress(string path)
+    {
+        // Presentation only: recovery validation and mutation admission still inspect every record.
+        lock (_restoreCleanupSync)
+            return _activeRestorePreparations.Contains(path)
+                || Path.GetFileName(path) == "restore-cleanup.json" && (_restoreCleanupRunning
+                    || _activeRestorePreparations.Contains(Path.Combine(Path.GetDirectoryName(path)!, "restore-preparation.json")));
+    }
+
     internal void ScheduleRestoreCleanup()
     {
         lock (_restoreCleanupSync)
@@ -114,8 +133,6 @@ public sealed class HistoryRuntime : IAsyncDisposable
                         await using (await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(ConfigId, _restoreCleanupLifetime.Token).ConfigureAwait(false)) { }
                         _restoreCleanupLifetime.Token.ThrowIfCancellationRequested();
                         new HistoryRestoreTransactionJournalStore(this, new FileSystemHistoryRestoreMutationBackend()).RetryDeferredCleanup();
-                        await RefreshLocalStateHealthAsync(_restoreCleanupLifetime.Token).ConfigureAwait(false);
-                        ChangeFeed.Publish(ConfigId, HistoryChangeKind.LocalStateChanged);
                         lock (_restoreCleanupSync)
                         {
                             if (_restoreCleanupRequested) continue;
@@ -126,7 +143,12 @@ public sealed class HistoryRuntime : IAsyncDisposable
                 }
                 catch (OperationCanceledException) when (_restoreCleanupLifetime.IsCancellationRequested) { }
                 catch (Exception ex) { ReportMaintenance("Restore cleanup: " + ex.Message); }
-                finally { lock (_restoreCleanupSync) if (_restoreCleanupGeneration == generation) _restoreCleanupRunning = false; }
+                finally
+                {
+                    lock (_restoreCleanupSync) if (_restoreCleanupGeneration == generation) _restoreCleanupRunning = false;
+                    await RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
+                    ChangeFeed.Publish(ConfigId, HistoryChangeKind.LocalStateChanged);
+                }
             });
         }
     }
@@ -304,7 +326,8 @@ public sealed class HistoryRuntime : IAsyncDisposable
         {
             var cleanup = Directory.Exists(Repository.Paths.TransactionsRoot)
                 ? Directory.EnumerateFiles(Repository.Paths.TransactionsRoot, "restore-*.json", SearchOption.AllDirectories)
-                    .Where(path => Path.GetFileName(path) is "restore-cleanup.json" or "restore-preparation.json").ToArray() : [];
+                    .Where(path => Path.GetFileName(path) is "restore-cleanup.json" or "restore-preparation.json")
+                    .Where(path => !IsRestoreMaintenanceInProgress(path)).ToArray() : [];
             if (cleanup.Length > 0) issues.Add(new(HistoryRuntimeIssueKind.Maintenance, "Restore preparation/cleanup pending: " + string.Join(", ", cleanup), false));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

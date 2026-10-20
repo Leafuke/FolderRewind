@@ -109,9 +109,12 @@ namespace FolderRewind.Services
             public string FolderPath { get; init; } = string.Empty;
             public string FolderName { get; init; } = string.Empty;
             public string ErrorMessage { get; init; } = string.Empty;
-            public OperationOutcome OperationOutcome { get; init; } = OperationOutcome.Failed;
+            public OperationOutcome OperationOutcome { get; set; } = OperationOutcome.Failed;
             public SourceCaptureResult? CaptureResult { get; init; }
-            public IReadOnlyList<string> WarningCodes { get; init; } = [];
+            public IReadOnlyList<PluginDiagnostic> WarningDiagnostics { get; set; } = [];
+            public IReadOnlyList<string> WarningCodes => WarningDiagnostics.Select(item => item.Code).Distinct(StringComparer.Ordinal).ToArray();
+            internal HashSet<string> PublishedWarningIdentities { get; } = new(StringComparer.Ordinal);
+            internal bool WarningNotificationSent { get; set; }
             public string? GeneratedFileName { get; init; }
             public BackupTask? Task { get; init; }
             public bool CreatedNewArchive => Status == BackupSourceExecutionStatus.NewArchive;
@@ -473,7 +476,8 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                Log($"[PluginV3] Consistency acquisition failed: {ex.Message}", LogLevel.Error);
+                LogService.LogError($"[PluginV3] Consistency acquisition failed: {ex.Message}; HResult=0x{ex.HResult:X8}",
+                    nameof(BackupService), ex);
                 await RunOnUIAsync(() =>
                 {
                     task.Status = I18n.Format("BackupService_Task_Failed");
@@ -794,6 +798,7 @@ namespace FolderRewind.Services
                     BackupSourceExecutionStatus.Unavailable,
                     errorMessage: I18n.GetString("BackupService_Folder_NoMatchingFiles"),
                     captureResult: captureResult,
+                    warningDiagnostics: operationDiagnostics,
                     task: task);
             }
             if (!success)
@@ -813,6 +818,7 @@ namespace FolderRewind.Services
                     errorMessage: task.ErrorMessage,
                     captureResult: captureResult,
                     operationOutcome: canceled ? OperationOutcome.Canceled : OperationOutcome.Failed,
+                    warningDiagnostics: operationDiagnostics,
                     task: task);
             }
             if (!string.IsNullOrWhiteSpace(generatedFileName))
@@ -822,7 +828,7 @@ namespace FolderRewind.Services
                     BackupSourceExecutionStatus.NewArchive,
                     captureResult: captureResult,
                     operationOutcome: completionOutcome,
-                    warningCodes: operationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning).Select(d => d.Code),
+                    warningDiagnostics: operationDiagnostics,
                     generatedFileName: generatedFileName,
                     task: task);
             }
@@ -832,7 +838,7 @@ namespace FolderRewind.Services
                 BackupSourceExecutionStatus.Reused,
                 captureResult: captureResult,
                 operationOutcome: completionOutcome == OperationOutcome.SuccessWithWarnings ? completionOutcome : null,
-                warningCodes: operationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning).Select(d => d.Code),
+                warningDiagnostics: operationDiagnostics,
                 task: task);
         }
 
@@ -844,7 +850,7 @@ namespace FolderRewind.Services
             OperationOutcome? operationOutcome = null,
             string? generatedFileName = null,
             BackupTask? task = null,
-            IEnumerable<string>? warningCodes = null) => new()
+            IEnumerable<PluginDiagnostic>? warningDiagnostics = null) => new()
         {
             Status = status,
             FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
@@ -852,7 +858,7 @@ namespace FolderRewind.Services
             FolderName = folder.DisplayName ?? string.Empty,
             ErrorMessage = errorMessage ?? string.Empty,
             CaptureResult = captureResult,
-            WarningCodes = (warningCodes ?? []).Concat(captureResult?.Diagnostics.Where(d => d.Severity == HistoryDiagnosticSeverity.Warning).Select(d => d.Code) ?? []).Distinct(StringComparer.Ordinal).ToArray(),
+            WarningDiagnostics = OperationDiagnosticFormatter.CaptureWarnings(warningDiagnostics ?? [], captureResult?.Diagnostics ?? []),
             OperationOutcome = operationOutcome ?? PluginBackupRequestResult.FromSource(status).Outcome,
             GeneratedFileName = generatedFileName,
             Task = task

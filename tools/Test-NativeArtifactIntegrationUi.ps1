@@ -47,8 +47,12 @@ try {
     if (!$Resume) {
     Case 'Bundled upgrade preserves previous formal version' {
         $state = Get-Content (Join-Path $root 'appdata/FolderRewind/plugins/com.folderrewind.minerewind/install-state.v1.json') -Raw | ConvertFrom-Json
-        if ($state.currentVersion -ne '1.9.9' -or $state.previousKnownGoodVersion -ne '1.9.8') { throw 'Expected the real bundled upgrade.' }
-        if ($state.versions[-1].sha256 -ne 'c70aa5127092a82ac6089b56ce55dc7b4b5f7bee163eb1105cedc568f33e658b') { throw 'Wrong final package.' }
+        $bundle = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '../FolderRewind/Assets/Plugins') -Filter 'MineRewind-*.frplugin')
+        if ($bundle.Count -ne 1) { throw 'Expected exactly one bundled plugin.' }
+        $expectedVersion = $bundle[0].BaseName.Substring('MineRewind-'.Length)
+        $expectedHash = ((Get-Content -LiteralPath ($bundle[0].FullName + '.sha256') -Raw) -split '\s+')[0]
+        if ($state.currentVersion -ne $expectedVersion -or $state.previousKnownGoodVersion -ne '1.9.8') { throw 'Expected the real bundled upgrade.' }
+        if ($state.versions[-1].sha256 -ne $expectedHash) { throw 'Wrong final package.' }
     }
     Case 'Experimental default is off' {
         Ui @('invoke','ConfigSettingsTabBackup') | Out-Null

@@ -7133,7 +7133,7 @@ Task log
   <data name="Migration_NativePackageRequired" xml:space="preserve"><value>This version uses semantic backup storage. Recover it from a migration package or rebind its complete backup directory.</value></data>
   <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>The saved configuration changed before the checkpoint started. Save again and retry.</value></data>
   <data name="BackupService_Task_CompletedWithWarnings" xml:space="preserve"><value>Completed with warnings</value></data>
-  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>Backup for "{0}" completed with warnings. Review task and version details.</value></data>
+  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>Backup for "{0}" completed with warnings. Review task details or logs.</value></data>
   <data name="SemanticBackup_BoundedProviderUnavailable" xml:space="preserve"><value>The consistency plugin cannot create a stable snapshot within resource limits. Update the plugin and try again.</value></data>
   <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>Experimental artifact transforms are disabled or the configuration does not support semantic capture. Check the experimental setting, plugin, and backup policy.</value></data>
   <data name="HistoryPage_CompareWorkingState.Text" xml:space="preserve"><value>Compare current files with baseline</value></data>
@@ -7171,4 +7171,38 @@ Damaged files will be preserved first. Existing backups and branches remain avai
     <value>File result retained. Maintenance is incomplete: {0}</value>
   </data>
   <data name="Restore_ConfigurationChanged" xml:space="preserve"><value>The configuration changed during this operation.</value></data>
+  <data name="BackupTasks_WarningSummary.Text" xml:space="preserve"><value>This task has warnings. Review details or logs.</value></data>
+  <data name="BackupTasks_DetailsErrors" xml:space="preserve"><value>Errors</value></data>
+  <data name="BackupTasks_DetailsWarnings" xml:space="preserve"><value>Warnings</value></data>
+  <data name="BackupTasks_DetailsLog" xml:space="preserve"><value>Log</value></data>
+  <data name="Restore_CoordinatorUnavailable" xml:space="preserve"><value>The plugin coordination capability required for restore is unavailable. Enable or update the plugin and try again.</value></data>
+  <data name="Restore_CoordinatorContinuationMissing" xml:space="preserve"><value>The plugin reported completion without asking the app to perform the restore. Update the plugin and review the logs.</value></data>
+  <data name="Restore_CoordinatorContinuationFailed" xml:space="preserve"><value>The plugin requested a restore, but the app did not return a valid result. Review the execution error in the logs.</value></data>
+  <data name="Restore_CoordinatorCanceled" xml:space="preserve"><value>Restore was canceled before target files were changed.</value></data>
+  <data name="Restore_CoordinatorFailed" xml:space="preserve"><value>Plugin coordination failed before restore. Target files have not been changed. Review the logs.</value></data>
+  <data name="Restore_CoordinatorBlocked" xml:space="preserve"><value>The plugin blocked this restore before target files were changed. Review the reason in the logs.</value></data>
+  <data name="OperationDiagnostic_Unknown" xml:space="preserve"><value>A plugin or component reported a diagnostic. Review the logs for details.</value></data>
+  <data name="OperationDiagnostic_WorldLockProbeFailed" xml:space="preserve"><value>Could not confirm that the world is released: {0}. Check file permissions and drive availability, then try again.</value></data>
+  <data name="OperationDiagnostic_RestoreKnotLinkUnavailable" xml:space="preserve"><value>World files are still in use and the integration service is unavailable. Exit the world and wait for its files to be released, or enable integration for a hot restore.</value></data>
+  <data name="OperationDiagnostic_RestoreHandshakeUnavailable" xml:space="preserve"><value>World files are still in use, and a compatible MineBackup mod did not answer the handshake. Exit the world, or check the mod version and integration connection.</value></data>
+  <data name="OperationDiagnostic_RestoreExitTimeout" xml:space="preserve"><value>Timed out waiting for the game to save and exit the world. Exit manually and confirm its files are released before trying again.</value></data>
+  <data name="OperationDiagnostic_RestoreWorldOccupied" xml:space="preserve"><value>World files are still in use by another process. Restore has not started. Wait for the game and other programs to release the save, then try again.</value></data>
+  <data name="OperationDiagnostic_RestoreMultipleWorlds" xml:space="preserve"><value>Several affected worlds are in use, so restore cannot be coordinated safely. Exit those worlds and try again.</value></data>
+  <data name="OperationDiagnostic_RestoreCoordinationFailed" xml:space="preserve"><value>World restore coordination failed. Review the original error in the logs and check the game state and integration connection.</value></data>
+  <data name="OperationDiagnostic_RestoreRejoinFailed" xml:space="preserve"><value>The game could not rejoin the world automatically. Check the restore result before joining manually.</value></data>
+  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>World files are in use and a game save could not be coordinated. A best-effort copy was captured, but it may span multiple saves. Exit the world and back up again, or check integration.</value></data>
+  <data name="OperationDiagnostic_ConsistencyHandshakeUnavailable" xml:space="preserve"><value>A compatible mod did not answer the backup handshake, so a game save could not be confirmed. Check integration or exit the world and back up again.</value></data>
+  <data name="OperationDiagnostic_ConsistencySaveTimeout" xml:space="preserve"><value>Timed out waiting for the game to confirm saving. Backup consistency is unconfirmed. Exit the world and back up again.</value></data>
+  <data name="OperationDiagnostic_ConsistencyCoordinationFailed" xml:space="preserve"><value>Game-save coordination failed before backup. Backup continued on a best-effort basis. Review the logs and back up again after exiting the world.</value></data>
+  <data name="OperationDiagnostic_SnapshotFallback" xml:space="preserve"><value>A stable copy could not be created; the original directory was read instead. Check the logs, file permissions, and available space before trying again.</value></data>
+  <data name="OperationDiagnostic_SnapshotLinksSkipped" xml:space="preserve"><value>Filesystem links inside the source were skipped when creating the backup copy. Review the skipped paths in details.</value></data>
+  <data name="OperationDiagnostic_ConsistencyFallback" xml:space="preserve"><value>Plugin consistency support was unavailable. Backup continued on a best-effort basis. Check the plugin and back up again after exiting the game.</value></data>
+  <data name="OperationDiagnostic_ConsistencyCleanupFailed" xml:space="preserve"><value>Backup reading finished, but plugin temporary-copy cleanup failed. Review the logs and temporary-folder permissions.</value></data>
+  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>The archive is smaller than the configured warning threshold. Check the backup scope and archive contents; details include its actual size.</value></data>
+  <data name="OperationDiagnostic_BackupHistoryRecovery" xml:space="preserve"><value>The backup was committed, but local history state needs recovery. Review the logs and complete recovery before other history operations.</value></data>
+  <data name="OperationDiagnostic_BackupFinalizationFailed" xml:space="preserve"><value>The backup was committed, but a completion action failed. Review the original error in task details.</value></data>
+  <data name="OperationDiagnostic_BackupConfigSaveFailed" xml:space="preserve"><value>The backup was committed, but settings such as the last backup time could not be saved. Check configuration-folder permissions.</value></data>
+  <data name="OperationDiagnostic_BackupCloudFailed" xml:space="preserve"><value>The local backup was committed, but cloud synchronization registration needs attention. Review the logs and cloud status.</value></data>
+  <data name="OperationDiagnostic_BackupRetentionFailed" xml:space="preserve"><value>The backup was committed, but automatic cleanup did not fully complete. Review the cleanup report and logs.</value></data>
+  <data name="OperationDiagnostic_BackupWarningUnspecified" xml:space="preserve"><value>Backup completed, but the component did not provide a specific warning reason. Keep the logs for diagnosis.</value></data>
 </root>

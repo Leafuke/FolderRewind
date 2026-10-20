@@ -17,6 +17,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
     private static readonly AsyncLocal<HistoryRestorePreparationSession?> Active = new();
     private readonly HistoryRestorePreparationSession? _previous;
     private readonly HistoryRestoreTransactionJournalStore _store;
+    private readonly HistoryRuntime _history;
     private readonly string _repository;
     private readonly HistoryConfigId _config;
     private bool _finished;
@@ -26,7 +27,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
     internal HistoryRestorePreparationSession(HistoryRuntime history, HistoryRestoreTransactionJournalStore store,
         HistoryWorkspace expected, IReadOnlyList<HistoryRestoreSourceBinding> bindings, IEnumerable<string> protectedRoots, string? configurationSignature = null)
     {
-        _store = store; _repository = history.Repository.Paths.RepositoryRoot; _config = history.ConfigId;
+        _store = store; _history = history; _repository = history.Repository.Paths.RepositoryRoot; _config = history.ConfigId;
         var id = HistoryTransactionId.New();
         var locations = HistoryRestoreWorkspacePlanner.Plan(id, bindings, protectedRoots.Append(_repository));
         try
@@ -46,8 +47,14 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         Journal = new(id, HistoryRestoreTransactionPhase.Preparing, expected, expected, [], [], [], [],
             ProtocolVersion: 2, Workspaces: [.. locations.Select(location => new RestoreWorkspaceRegistration(location, Guid.NewGuid().ToString("N"), null, []))],
             ConfigurationSignature: configurationSignature ?? history.ConfigId.ToString());
+        _history.TrackRestorePreparation(_store.PreparationPath(id), active: true);
         try { _store.SavePreparation(PreparationRecord); }
-        catch { foreach (var binding in _bindings) binding.Dispose(); throw; }
+        catch
+        {
+            _history.TrackRestorePreparation(_store.PreparationPath(id), active: false);
+            foreach (var binding in _bindings) binding.Dispose();
+            throw;
+        }
         _previous = Active.Value; Active.Value = this;
     }
     internal HistoryRestorePreparationRecord PreparationRecord => new(1, _config, Journal.TransactionId, Journal.Workspaces, Journal.ConfigurationSignature);
@@ -150,6 +157,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         try { Abort(); }
         finally
         {
+            _history.TrackRestorePreparation(_store.PreparationPath(Journal.TransactionId), active: false);
             if (ReferenceEquals(Active.Value, this)) Active.Value = _previous;
             for (int i = _bindings.Count - 1; i >= 0; i--) _bindings[i].Dispose();
             _bindings.Clear();

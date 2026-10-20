@@ -20,6 +20,7 @@ internal static class Program
     internal static bool Quick;
     internal static bool Acceptance;
     internal static bool RestoreCleanupAcceptance;
+    internal static bool RestoreCoordinationAcceptanceMode;
     internal static int Repeats = 5;
     [STAThread]
     private static void Main(string[] args)
@@ -31,6 +32,7 @@ internal static class Program
         Quick = args.Length > 3 && args[3] == "quick";
         Acceptance = args.Length > 3 && args[3] == "stage2";
         RestoreCleanupAcceptance = args.Length > 3 && args[3] == "restore-cleanup";
+        RestoreCoordinationAcceptanceMode = args.Length > 3 && args[3] == "restore-coordination";
         if (Environment.GetEnvironmentVariable("FOLDERREWIND_BENCHMARK_REPEATS") is { } configured)
             Repeats = int.Parse(configured);
         if (Repeats is < 1 or > 20) throw new ArgumentException("Repeat count must be between 1 and 20.");
@@ -62,12 +64,13 @@ internal static class Program
                 ConfigService.Initialize();
                 var exe = Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z") ?? throw new InvalidOperationException("7-Zip path required.");
                 ConfigService.CurrentConfig.GlobalSettings.SevenZipPath = exe;
-                if (Acceptance || RestoreCleanupAcceptance)
+                if (Acceptance || RestoreCleanupAcceptance || RestoreCoordinationAcceptanceMode)
                 {
 #if FOLDERREWIND_BENCHMARK_ONLY
                     throw new InvalidOperationException("The benchmark-only build cannot run stage-two service acceptance.");
 #else
-                    if (RestoreCleanupAcceptance) await StageTwoAcceptance.RunRestoreCleanupAsync();
+                    if (RestoreCoordinationAcceptanceMode) await RestoreCoordinationAcceptance.RunAsync();
+                    else if (RestoreCleanupAcceptance) await StageTwoAcceptance.RunRestoreCleanupAsync();
                     else await StageTwoAcceptance.RunAsync();
                     Environment.Exit(0);
                     return;

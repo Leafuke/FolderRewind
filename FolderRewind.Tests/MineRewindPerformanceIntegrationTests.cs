@@ -48,7 +48,7 @@ public sealed class MineRewindPerformanceIntegrationTests
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "AGENTS.md"))) repo = repo.Parent;
         Assert.IsNotNull(repo);
-        var package = Path.Combine(repo.FullName, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.9.frplugin");
+        var package = Directory.GetFiles(Path.Combine(repo.FullName, "FolderRewind", "Assets", "Plugins"), "MineRewind-*.frplugin").Single();
         Assert.IsTrue(File.Exists(package));
         var root = Path.Combine(Path.GetTempPath(), "fr-minerewind-package-" + Guid.NewGuid().ToString("N"));
         ZipFile.ExtractToDirectory(package, root);
