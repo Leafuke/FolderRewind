@@ -372,7 +372,8 @@ namespace FolderRewind
             try
             {
                 _trayIcon = Resources["TrayIcon"] as TaskbarIcon;
-                _trayIcon?.ForceCreate();
+                // 后台仍需执行备份、还原等任务，避免托盘初始化降低整个进程的调度优先级。
+                _trayIcon?.ForceCreate(enablesEfficiencyMode: false);
 
                 if (_trayIcon != null)
                 {
