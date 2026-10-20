@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Text;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Merge;
 using FolderRewind.History.Representation;
@@ -9,6 +11,101 @@ namespace FolderRewind.Tests;
 [TestClass]
 public sealed class SevenZipArchiveProcessBackendTests
 {
+    [TestMethod]
+    public async Task UnsafeArchiveDiagnosticsReachVerificationAndExtractionWithoutRevealingPaths()
+    {
+        var executable = SevenZipExecutableLocator.Resolve(Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z"));
+        if (executable is null) Assert.Inconclusive("Set FOLDERREWIND_TEST_7Z for real-process tests.");
+        var root = Path.Combine(Path.GetTempPath(), "FolderRewindUnsafeListing", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string payload = Path.Combine(root, "unsafe.zip");
+            using (var zip = System.IO.Compression.ZipFile.Open(payload, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                var entry = zip.CreateEntry("../private-name.txt"); entry.ExternalAttributes = (int)FileAttributes.Archive;
+                using var writer = new StreamWriter(entry.Open()); writer.Write("private contents");
+            }
+            var backend = new SevenZipArchiveProcessBackend(() => executable, () => null, false, ".marker");
+            var representation = new VersionRepresentation(RepresentationId.New(), VersionId.New(), RepresentationKind.CoreFull,
+                "zip", [], MaterializationFidelity.Exact, null, null, null);
+            foreach (bool strict in new[] { false, true })
+            {
+                var result = await backend.PreflightAsync(representation, payload, strict, default);
+                Assert.IsFalse(result.Success);
+                StringAssert.Contains(result.Diagnostic, "Reason=UnsafePath; EntryIndex=1; Field=Path");
+                Assert.DoesNotContain("private-name", result.Diagnostic);
+            }
+            string target = Path.Combine(root, "target");
+            var failure = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => backend.UnpackAsync(payload, target, false, default));
+            StringAssert.Contains(failure.Message, "Reason=UnsafePath");
+            Assert.DoesNotContain("private-name", failure.Message);
+            Assert.IsFalse(Directory.Exists(target));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    [DataRow("7z")]
+    [DataRow("zip")]
+    public async Task NormalAndArchiveAttributesRoundTripThroughRealListingsAndVerification(string format)
+    {
+        var executable = SevenZipExecutableLocator.Resolve(Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z"));
+        if (executable is null) Assert.Inconclusive("Set FOLDERREWIND_TEST_7Z for real-process tests.");
+        var root = Path.Combine(Path.GetTempPath(), "FolderRewindNormalAttributes", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var source = Path.Combine(root, "source");
+            Directory.CreateDirectory(Path.Combine(source, "中文目录", "empty"));
+            var normal = Path.Combine(source, "normal.txt");
+            File.WriteAllText(normal, "normal attributes");
+            File.SetAttributes(normal, FileAttributes.Normal);
+            File.WriteAllText(Path.Combine(source, "archive.txt"), "archive attributes");
+            File.SetAttributes(Path.Combine(source, "archive.txt"), FileAttributes.Archive);
+            File.WriteAllText(Path.Combine(source, "中文目录", "文件.txt"), "中文内容");
+            Assert.AreEqual(FileAttributes.Normal, File.GetAttributes(normal));
+            string archive = Path.Combine(root, "payload." + format);
+
+            async Task<string> RunAsync(params string[] arguments)
+            {
+                using var process = new Process { StartInfo = new ProcessStartInfo(executable)
+                {
+                    UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
+                    RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
+                }};
+                foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+                process.Start();
+                var output = process.StandardOutput.ReadToEndAsync();
+                var error = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync();
+                string stdout = await output, stderr = await error;
+                Assert.AreEqual(0, process.ExitCode, stderr);
+                return stdout;
+            }
+
+            await RunAsync("a", "-t" + format, archive, Path.Combine(source, "*"), "-y", "-sccUTF-8");
+            string listing = await RunAsync("l", "-slt", "-sccUTF-8", archive);
+            await RunAsync("t", archive, "-y");
+            Assert.IsTrue(SevenZipArchiveListingParser.TryParse(listing, out var files, out var folders, out var failure), failure?.ToString());
+            var expected = Directory.GetFiles(source, "*", SearchOption.AllDirectories).ToDictionary(
+                path => Path.GetRelativePath(source, path).Replace('\\', '/'), path => new FileInfo(path).Length, StringComparer.OrdinalIgnoreCase);
+            Assert.IsTrue(ArchiveLogicalStateVerifier.Matches(expected, files));
+            CollectionAssert.Contains(folders.ToArray(), "中文目录/empty");
+
+            var backend = new SevenZipArchiveProcessBackend(() => executable, () => null, false, ".restore-marker");
+            var representation = new VersionRepresentation(RepresentationId.New(), VersionId.New(), RepresentationKind.CoreFull,
+                format, [], MaterializationFidelity.Exact, null, null, null);
+            foreach (bool strict in new[] { false, true })
+                Assert.IsTrue((await backend.PreflightAsync(representation, archive, strict, default)).Success);
+            var restored = Path.Combine(root, "restored");
+            await backend.UnpackAsync(archive, restored, false, default);
+            Assert.AreEqual((await MergeTreeManifest.ReadAsync(source, _ => true, default)).Digest,
+                (await MergeTreeManifest.ReadAsync(restored, _ => true, default)).Digest);
+            Assert.IsTrue(Directory.Exists(Path.Combine(restored, "中文目录", "empty")));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     [TestMethod]
     [DataRow(false, false)]
     [DataRow(true, false)]

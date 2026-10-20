@@ -32,8 +32,8 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             return new(false, string.Empty, "Unsupported development-era legacy representation.");
         var listing = await RunAsync("l", path, null, null, token).ConfigureAwait(false);
         if (!listing.Success) return new(false, string.Empty, listing.Diagnostic);
-        if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var files, out var directories))
-            return new(false, string.Empty, "Archive entries are unsafe or could not be validated.");
+        if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var files, out var directories, out var failure))
+            return new(false, string.Empty, $"Archive entries are unsafe or could not be validated. {failure}");
         if (!representation.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.OwnersKey)
             && representation.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.FilesKey, out var manifest)
             && !LegacySmartPlan.Paths(JsonSerializer.Deserialize<string[]>(manifest)).SetEquals(files.Keys))
@@ -76,8 +76,10 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()) throw new IOException("Envelope workspace must be empty.");
         var list = await RunAsync("l", payload, null, null, token).ConfigureAwait(false);
         // Extraction validates CRC/decryption too; avoid a redundant complete test pass.
-        if (!list.Success || !SevenZipArchiveListingParser.TryParse(list.Output, out var entries, out var directories)
-            || entries.Count + directories.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
+        if (!list.Success) throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");
+        if (!SevenZipArchiveListingParser.TryParse(list.Output, out var entries, out var directories, out var failure))
+            throw new InvalidDataException($"Invalid or inaccessible Artifact envelope. {failure}");
+        if (entries.Count + directories.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
             || entries.Values.Sum(e => e.Size) > Math.Min(maximumBytes, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes))
             throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");
         var bytes = entries.Values.Sum(e => e.Size);
@@ -102,8 +104,10 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         if (result.Success)
         {
             var listing = await RunAsync("l", localPath, outputDirectory: null, workingDirectory: null, cancellationToken).ConfigureAwait(false);
-            if (!listing.Success || !SevenZipArchiveListingParser.TryParse(listing.Output, out var entries, out var directories))
+            if (!listing.Success)
                 return new(false, string.Empty, "Archive entries are unsafe or could not be validated.");
+            if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var entries, out var directories, out var failure))
+                return new(false, string.Empty, $"Archive entries are unsafe or could not be validated. {failure}");
             if (!representation.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.OwnersKey)
                 && representation.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.FilesKey, out var manifest)
                 && !LegacySmartPlan.Paths(JsonSerializer.Deserialize<string[]>(manifest)).SetEquals(entries.Keys))
@@ -253,8 +257,10 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
                     if (actual is null)
                     {
                         var listing = await RunAsync("l", input.LocalPath, null, null, token).ConfigureAwait(false);
-                        if (!listing.Success || !SevenZipArchiveListingParser.TryParse(listing.Output, out var entries))
+                        if (!listing.Success)
                             throw new InvalidDataException("Legacy archive cannot be listed.");
+                        if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var entries, out _, out var failure))
+                            throw new InvalidDataException($"Legacy archive cannot be listed. {failure}");
                         actual = entries;
                     }
                     if (selected.Any(file => !actual.ContainsKey(file)))

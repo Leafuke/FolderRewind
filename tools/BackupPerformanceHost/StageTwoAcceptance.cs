@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text.Json;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
+using FolderRewind.History.Merge;
 using FolderRewind.History.Representation;
 using FolderRewind.Models;
 using FolderRewind.Plugin.Abstractions;
@@ -20,6 +21,10 @@ internal static class StageTwoAcceptance
     {
         foreach (var mode in new[] { BackupMode.Full, BackupMode.Smart, BackupMode.Rolling })
         foreach (var grade in new[] { BackupArchiveVerificationLevel.Balanced, BackupArchiveVerificationLevel.Strict })
+        foreach (var format in new[] { "7z", "zip" })
+            await VerifyArchiveListingAttributesAsync(mode, grade, format);
+        foreach (var mode in new[] { BackupMode.Full, BackupMode.Smart, BackupMode.Rolling })
+        foreach (var grade in new[] { BackupArchiveVerificationLevel.Balanced, BackupArchiveVerificationLevel.Strict })
         foreach (bool missingCache in new[] { false, true })
             await VerifyOrdinaryProtectionAsync(mode, grade, missingCache);
         foreach (var scenario in new[] { "equal", "equal-same-version", "different", "unknown" }) await VerifyCheckoutAsync(scenario);
@@ -30,6 +35,62 @@ internal static class StageTwoAcceptance
         await VerifyBatchAsync();
         await File.WriteAllTextAsync(Path.Combine(Root, "host-stage2.json"), JsonSerializer.Serialize(new
         { source = "real BackupService / Restore / Checkout", ui = "not executed", results = Results }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static async Task VerifyArchiveListingAttributesAsync(BackupMode mode, BackupArchiveVerificationLevel grade, string format)
+    {
+        string name = $"archive-listing-{mode}-{grade}-{format}";
+        var (config, folder) = await CreateAsync(name, mode, grade, archiveFormat: format, normalAttributes: true);
+        var history = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var source = new SourceId(Guid.Parse(folder.Id));
+        var originalArchives = (await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries
+            .ToDictionary(entry => entry.Locator.AbsolutePath!, entry => System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(entry.Locator.AbsolutePath!)));
+        string world = Path.Combine(folder.Path, "world.bin");
+        Require(File.GetAttributes(world) == FileAttributes.Normal, "Initial input did not retain Normal attributes.");
+        File.WriteAllBytes(world, Enumerable.Repeat((byte)7, 65537).ToArray());
+        File.SetAttributes(world, FileAttributes.Normal);
+        string added = Path.Combine(folder.Path, "中文目录", "新增.txt");
+        File.WriteAllText(added, "新增的普通文件");
+        File.SetAttributes(added, FileAttributes.Normal);
+
+        var diagnostics = HistoryOperationDiagnostics.Begin("host-archive-listing");
+        using (diagnostics)
+            Require((await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal())).CreatedNewArchive,
+                "Changed Normal-attribute files were not committed by the actual Host.");
+        var statistics = HistoryOperationDiagnostics.GetRecent().Single(item => item.Operation == "backup"
+            && item.StartedAtUtc >= diagnostics.Summary!.StartedAtUtc);
+        var representations = await history.Query.GetAllRepresentationsAsync();
+        var selected = (await history.WorkspaceStore.LoadAsync()).Value!.GetSourceState(source).BaseVersionId!.Value;
+        var current = representations.Single(representation => representation.VersionId == selected);
+        Require((await history.Query.GetAllCheckpointsAsync()).Count == 2, "Both captures must have committed checkpoints.");
+        var expectedKind = mode switch
+        {
+            BackupMode.Smart => RepresentationKind.CoreSmartDelta,
+            BackupMode.Rolling => RepresentationKind.CoreRolling,
+            _ => RepresentationKind.CoreFull
+        };
+        Require(current.Kind == expectedKind,
+            "The changed capture used an unexpected representation or fell back to Full.");
+        Require(statistics.Counters.GetValueOrDefault("7z-u") == (mode == BackupMode.Rolling ? 1 : 0)
+            && statistics.Counters.GetValueOrDefault("7z-a") == (mode == BackupMode.Rolling ? 0 : 1),
+            "Rolling must update the staging archive; a Full fallback does not validate Rolling.");
+
+        var backendType = typeof(BackupService).Assembly.GetType("FolderRewind.Services.SevenZipHistoryArchiveBackend")!;
+        var backend = (IArchiveRepresentationBackend)Activator.CreateInstance(backendType, BindingFlags.Instance | BindingFlags.NonPublic,
+            null, [config, true], null)!;
+        var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(backend), new SmartDeltaRepresentationHandler(backend)]);
+        var export = Path.Combine(Root, name + "-export");
+        await new HistoryVersionExportService(engine).ExportAsync(selected, representations,
+            new RepresentationEnvironment((await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries, [], []),
+            export, [config.DestinationPath, folder.Path]);
+        Require((await MergeTreeManifest.ReadAsync(folder.Path, _ => true, default)).Digest
+            == (await MergeTreeManifest.ReadAsync(export, _ => true, default)).Digest, "Exported content differs from the captured source.");
+        foreach (var original in originalArchives)
+            Require(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(original.Key)).AsSpan().SequenceEqual(original.Value),
+                "The later capture or export modified an existing immutable archive.");
+        await RecordAsync(new { scenario = "archive-listing-normal-attributes", mode, grade, format,
+            current.Kind, statistics, initialAndChangedCaptureCommitted = true, exportMatchesSource = true, oldPayloadUnchanged = true });
+        await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
     }
 
     private static async Task VerifyOrdinaryProtectionAsync(BackupMode mode, BackupArchiveVerificationLevel grade, bool missingCache, bool redirectedRoot = false)
@@ -230,7 +291,8 @@ internal static class StageTwoAcceptance
     }
 
     private static async Task<(BackupConfig Config, ManagedFolder Folder)> CreateAsync(string name, BackupMode mode, BackupArchiveVerificationLevel grade,
-        bool excludeCache = false, bool redirectedRoot = false, bool absoluteExclusion = false)
+        bool excludeCache = false, bool redirectedRoot = false, bool absoluteExclusion = false,
+        string? archiveFormat = null, bool normalAttributes = false)
     {
         var directory = Path.Combine(Root, name); var source = Path.Combine(directory, "world");
         if (redirectedRoot)
@@ -239,9 +301,22 @@ internal static class StageTwoAcceptance
         }
         else Directory.CreateDirectory(source);
         File.WriteAllBytes(Path.Combine(source, "world.bin"), new byte[65536]); File.WriteAllText(Path.Combine(source, "keep.txt"), "original");
+        if (normalAttributes)
+        {
+            File.SetAttributes(Path.Combine(source, "world.bin"), FileAttributes.Normal);
+            Directory.CreateDirectory(Path.Combine(source, "中文目录"));
+            string normal = Path.Combine(source, "中文目录", "普通文件.txt");
+            File.WriteAllText(normal, "正常的初始内容"); File.SetAttributes(normal, FileAttributes.Normal);
+            File.SetAttributes(Path.Combine(source, "keep.txt"), FileAttributes.Archive);
+        }
         var config = new BackupConfig { Name = name, DestinationPath = Path.Combine(directory, "backups") };
         var folder = new ManagedFolder { Path = source, DisplayName = "world" }; config.SourceFolders.Add(folder);
         config.Archive.Mode = mode; config.Archive.SkipIfUnchanged = false; config.Archive.BackupVerificationLevel = grade;
+        if (archiveFormat is not null)
+        {
+            config.Archive.Format = archiveFormat;
+            config.Archive.Method = archiveFormat == "zip" ? "Deflate" : "LZMA2";
+        }
         config.Archive.RestorePreflightMode = grade == BackupArchiveVerificationLevel.Strict ? RestoreArchivePreflightMode.Strict : RestoreArchivePreflightMode.Balanced;
         if (excludeCache) config.Filters.Blacklist.Add("cache");
         if (absoluteExclusion) config.Filters.Blacklist.Add(Path.Combine(source, "cache"));
