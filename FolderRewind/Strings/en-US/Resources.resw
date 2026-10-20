@@ -6122,12 +6122,12 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>Resume preparation</value></data>
   <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>This folder has no valid active branch. Back up or check out a branch first.</value></data>
   <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>There is no other eligible branch. A source needs a unique, valid history tip.</value></data>
-  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} files</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} files, {1} folders</value></data>
   <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>The selected branch is invalid, is the current branch, or has multiple tips.</value></data>
   <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>These branches have no common base for a three-way merge.</value></data>
   <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>There are multiple best common bases; this merge engine cannot safely select one.</value></data>
   <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>Start a new merge from the sessions menu and choose another source. Resolve branch divergence first if needed.</value></data>
-  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>This file is handled automatically by file-level rules. Review its actual writes before applying.</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>This file or folder is handled automatically by three-way merge rules. Review its actual writes before applying.</value></data>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>File-level base previews are unavailable for scope or source conflicts.</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>Return to backup history and keep this merge</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Back to history · Your merge is kept</value></data>

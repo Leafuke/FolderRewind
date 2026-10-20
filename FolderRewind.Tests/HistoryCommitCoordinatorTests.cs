@@ -1000,17 +1000,21 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
-    public async Task ProtectedCaptureRejectsFilteredBoundaryBeforeCommit()
+    public async Task ProtectedCapturePinsVersionWithinFilteredBoundary()
     {
         await using var runtime = await CreateRuntimeAsync();
         var id = SourceId.New();
         var boundary = new EffectiveSourceBoundarySnapshot(EffectiveBoundaryScopeMode.All, [],
             EffectiveBoundaryFilterMode.Blacklist, ["playerdata"], false);
         var capture = CreateCapture(id, "filtered", -1, null, boundary: boundary);
-        var snapshot = Snapshot(Source(id, "source")); var request = Request(snapshot, null, capture);
-        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(
-            new HistoryCommitRequest(snapshot, request.Invocation, null, [capture], protect: true)));
-        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+        var snapshot = Snapshot(Source(id, "source", boundary)); var request = Request(snapshot, null, capture);
+        var committed = await runtime.Commit.CommitAsync(
+            new HistoryCommitRequest(snapshot, request.Invocation, null, [capture], protect: true));
+        var version = committed.NewVersions.Single();
+        Assert.AreEqual(boundary.Fingerprint, version.EffectiveSourceBoundaryFingerprint);
+        Assert.IsTrue(committed.Pack.Objects.Any(o => o.Kind == HistoryObjectKinds.HistoryAnnotationUpdate));
+        var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.VersionId.Value);
+        Assert.IsTrue(HistoryAnnotationProjection.Project(target, await runtime.Query.GetAnnotationUpdatesAsync(target)).IsPinned);
     }
 
     [TestMethod]

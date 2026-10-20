@@ -1,3 +1,4 @@
+using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
@@ -27,6 +28,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
 {
     internal async Task<IDisposable> ValidateAndLockAsync(PreparedMerge prepared, CancellationToken token)
     {
+        history.MergeSessions.RequireCurrentContract(prepared.Session);
         var held = new PayloadLocks();
         try
         {
@@ -72,6 +74,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
         var stage = "load-prepared";
         try
         {
+            history.MergeSessions.RequireCurrentContract(session);
             if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
             if (history.MergeSessions.LoadPrepared(session) is { } stored) return stored.Restore(session);
             var service = new HistoryMergeService(history, restore);
@@ -102,27 +105,48 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 else
                 {
                     var files = tree.Files.ToBuilder();
+                    var directories = tree.Directories.ToHashSet(StringComparer.Ordinal);
                     foreach (var (conflict, resolution) in service.AllConflicts(session, plan.SourceId))
                     {
                         if (resolution is null || resolution.PlanRevision != session.Plan.Revision || resolution.InputSignature != conflict.InputSignature)
                             throw new InvalidOperationException("Conflict resolution is missing or stale.");
-                        foreach (var path in conflict.Subject.Paths) files.Remove(path);
+                        foreach (var path in conflict.Subject.Paths) { files.Remove(path); directories.Remove(path); }
                         if (resolution.Choice == MergeResolutionChoice.Manual)
                         {
-                            if (conflict.Subject.Paths.Length != 1 || resolution.Manual is null || conflict.Kind == MergeConflictKind.PathStructure)
+                            if (!conflict.CanImportFile || resolution.Manual is null)
                                 throw new InvalidOperationException("Invalid manual file resolution.");
                             files.Add(conflict.Subject.Paths[0], resolution.Manual);
                         }
-                        else foreach (var pair in resolution.Choice == MergeResolutionChoice.Ours ? conflict.Ours : conflict.Theirs) files.Add(pair.Key, pair.Value);
+                        else
+                        {
+                            foreach (var pair in resolution.Choice == MergeResolutionChoice.Ours ? conflict.Ours : conflict.Theirs) files.Add(pair.Key, pair.Value);
+                            directories.UnionWith(resolution.Choice == MergeResolutionChoice.Ours ? conflict.OursDirectories : conflict.TheirsDirectories);
+                        }
                     }
-                    tree = MergeTreeManifest.Create(files);
+                    tree = MergeTreeManifest.Create(files, directories);
                     if (tree.Digest == source.Ours.Digest) selected = plan.Ours;
                     else if (tree.Digest == source.Theirs.Digest) selected = plan.Theirs;
                 }
-                if (GenericFileMergeProvider.StructuralGroups(tree.Files.Keys).Count != 0) throw new InvalidOperationException("Resolved tree contains path conflicts.");
+                SourceDirectorySnapshot.Validate(tree.Directories, tree.Files.Keys);
+                if (GenericFileMergeProvider.StructuralGroups(tree).Count != 0) throw new InvalidOperationException("Resolved tree contains path conflicts.");
                 var descriptor = selected ?? plan.Ours ?? plan.Theirs ?? throw new InvalidOperationException("Merge cannot create a Source without parents.");
                 var staging = Path.Combine(root, plan.SourceId.ToString()); Directory.CreateDirectory(staging);
                 var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(plan.SourceId, staging, descriptor.EffectiveSourceBoundary));
+                foreach (var path in tree.Files.Keys)
+                    if (!include(path)) throw new InvalidOperationException("Merge proposal escapes its boundary.");
+                var allowedDirectories = tree.Directories.Where(include).ToHashSet(StringComparer.Ordinal);
+                foreach (var path in tree.Files.Keys.Concat(allowedDirectories.ToArray()))
+                    for (int slash = path.LastIndexOf('/'); slash >= 0; slash = path.LastIndexOf('/', slash - 1))
+                    {
+                        allowedDirectories.Add(path[..slash]);
+                        if (slash == 0) break;
+                    }
+                foreach (var directory in tree.Directories)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (!allowedDirectories.Contains(directory)) throw new InvalidOperationException("Merge directory escapes its boundary.");
+                    Directory.CreateDirectory(Plugin.Runtime.Artifacts.ArtifactPathRules.ResolveUnderRoot(staging, directory));
+                }
                 foreach (var pair in tree.Files)
                 {
                     if (!include(pair.Key)) throw new InvalidOperationException("Merge proposal escapes its boundary.");

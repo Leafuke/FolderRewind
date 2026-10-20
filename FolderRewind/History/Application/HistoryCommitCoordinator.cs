@@ -426,11 +426,8 @@ public sealed class HistoryCommitCoordinator
             }
         }
         if (request.Protect && (request.AffectedSourceIds.Length != 1
-            || request.SourceCaptureResults.Any(c => c.CaptureScope != CaptureScope.FullSource
-                || c.EffectiveSourceBoundary.ScopeMode != EffectiveBoundaryScopeMode.All
-                || c.EffectiveSourceBoundary.FilterMode != EffectiveBoundaryFilterMode.Blacklist
-                || !c.EffectiveSourceBoundary.FilterRules.IsEmpty)))
-            throw new HistoryCommitConflictException("Protected backup requires one complete, unfiltered source; partial scope is not supported.");
+            || request.SourceCaptureResults.Any(c => c.CaptureScope != CaptureScope.FullSource)))
+            throw new HistoryCommitConflictException("Protected backup requires one FullSource result covering its complete effective boundary; PartialSource is not supported.");
         var protectionAnnotations = new List<HistoryAnnotationUpdate>();
         var versions = ImmutableArray.CreateBuilder<SourceVersion>();
         var representations = ImmutableArray.CreateBuilder<VersionRepresentation>();

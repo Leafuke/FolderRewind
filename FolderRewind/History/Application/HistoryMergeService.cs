@@ -56,13 +56,18 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
     public async Task<MergeSession> PrepareAsync(MergeSession session, CancellationToken token = default)
     {
         try { return await PrepareCoreAsync(session, token).ConfigureAwait(false); }
-        catch (HistoryMergeBlockedException ex) { return history.MergeSessions.SetDiagnostic(session, ex.Diagnostic); }
+        catch (HistoryMergeBlockedException ex)
+        {
+            // Contract rejection can already have advanced the Session to Stale.
+            if (ex.Diagnostic.Code == MergeDiagnosticCode.Stale) session = history.MergeSessions.Load(session.Id);
+            return history.MergeSessions.SetDiagnostic(session, ex.Diagnostic);
+        }
     }
 
     private async Task<MergeSession> PrepareCoreAsync(MergeSession session, CancellationToken token)
     {
-        if (session.State != MergeSessionState.Preparing || session.Plan.ProviderVersion != _provider.Descriptor.Identity
-            || session.Plan.PolicyVersion != _provider.Descriptor.PolicyIdentity)
+        history.MergeSessions.RequireCurrentContract(session, _provider.Descriptor);
+        if (session.State != MergeSessionState.Preparing)
             throw new InvalidOperationException("Merge preparation requires its fixed provider and Preparing state.");
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), session.Plan.Revision.ToString("N"));
         Directory.CreateDirectory(root);
@@ -129,7 +134,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                             + JsonSerializer.Serialize(plan) + b.Digest + o.Digest + t.Digest + _provider.Version + session.Plan.PolicyVersion)));
                         conflicts = [new(signature, new(plan.SourceId, [], "source"),
                             plan.Action == HistoryMergeSourceAction.SourceBoundaryConflict ? MergeConflictKind.SourceBoundary : MergeConflictKind.SourceRoster,
-                            signature, b.Files, o.Files, t.Files)];
+                            signature, b.Files, o.Files, t.Files)
+                            { BaseDirectories = b.Directories, OursDirectories = o.Directories, TheirsDirectories = t.Directories }];
                     }
                 }
             }
@@ -145,16 +151,19 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     internal static string ConflictSignature(HistoryMergePlan plan, HistoryMergeSourcePlan source, MergeConflict conflict)
     {
-        object Role(CheckpointSource? role, ImmutableSortedDictionary<string, MergeFileValue> values) => new
+        object Role(CheckpointSource? role, ImmutableSortedDictionary<string, MergeFileValue> values, ImmutableArray<string> directories) => new
         {
             Present = role?.VersionId is not null, Boundary = role?.EffectiveSourceBoundaryFingerprint,
-            Files = values.Select(p => new { Path = p.Key, p.Value.Digest, p.Value.Length }).ToArray()
+            Files = values.Select(p => new { Path = p.Key, p.Value.Digest, p.Value.Length }).ToArray(),
+            Directories = directories.Order(StringComparer.Ordinal).ToArray()
         };
         var canonical = JsonSerializer.Serialize(new
         {
-            Contract = "folderrewind/conflict/2", source.SourceId, source.Action, conflict.Kind,
+            Contract = "folderrewind/conflict/3", source.SourceId, source.Action, conflict.Kind,
             Paths = conflict.Subject.Paths.Order(StringComparer.Ordinal).ToArray(), conflict.Subject.ProviderUnitId,
-            Base = Role(source.Base, conflict.Base), Ours = Role(source.Ours, conflict.Ours), Theirs = Role(source.Theirs, conflict.Theirs),
+            Base = Role(source.Base, conflict.Base, conflict.BaseDirectories),
+            Ours = Role(source.Ours, conflict.Ours, conflict.OursDirectories),
+            Theirs = Role(source.Theirs, conflict.Theirs, conflict.TheirsDirectories),
             plan.ProviderVersion, plan.PolicyVersion
         });
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
@@ -162,7 +171,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     public async Task<MergeSession> ImportManualAsync(MergeSession session, MergeConflict conflict, string externalFile, CancellationToken token = default)
     {
-        if (conflict.Subject.Paths.Length != 1 || conflict.Kind == MergeConflictKind.PathStructure)
+        history.MergeSessions.RequireCurrentContract(session, _provider.Descriptor);
+        if (!conflict.CanImportFile)
             throw new InvalidOperationException("Manual import requires a single-file content conflict.");
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), "manual", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root); var path = Path.Combine(root, "content");
@@ -188,7 +198,10 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     internal static void ValidateProposal(SourceId source, MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t, MergeFileProposal proposal)
     {
-        var paths = b.Files.Keys.Concat(o.Files.Keys).Concat(t.Files.Keys).ToHashSet(StringComparer.Ordinal);
+        var paths = b.Paths.Concat(o.Paths).Concat(t.Paths).ToHashSet(StringComparer.Ordinal);
+        var bd = b.Directories.ToHashSet(StringComparer.Ordinal);
+        var od = o.Directories.ToHashSet(StringComparer.Ordinal);
+        var td = t.Directories.ToHashSet(StringComparer.Ordinal);
         if (proposal.HandledPaths.IsDefault || proposal.HandledPaths.Length != paths.Count || !paths.SetEquals(proposal.HandledPaths))
             throw new InvalidDataException("Provider must claim each authorized path exactly once.");
         var claimed = new HashSet<string>(StringComparer.Ordinal);
@@ -198,19 +211,30 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 throw new InvalidDataException("Provider returned an uncontrolled file value.");
             claimed.Add(pair.Key);
         }
+        foreach (var directory in proposal.Automatic.Directories)
+            if (!(bd.Contains(directory) || od.Contains(directory) || td.Contains(directory))
+                || !claimed.Add(directory))
+                throw new InvalidDataException("Provider returned an uncontrolled or overlapping directory.");
         foreach (var conflict in proposal.Conflicts)
         {
             if (conflict.Subject.SourceId != source || conflict.Subject.Paths.IsEmpty)
                 throw new InvalidDataException("Provider returned an invalid conflict subject.");
             foreach (var path in conflict.Subject.Paths)
                 if (!paths.Contains(path) || !claimed.Add(path)) throw new InvalidDataException("Provider claims overlap or escape authorized paths.");
-            void Check(ImmutableSortedDictionary<string, MergeFileValue> values, MergeTreeManifest tree)
+            void Check(ImmutableSortedDictionary<string, MergeFileValue> values, ImmutableArray<string> directories,
+                MergeTreeManifest tree, HashSet<string> directoryPaths)
             {
-                var expected = tree.Files.Where(p => conflict.Subject.Paths.Contains(p.Key)).ToArray();
+                var expected = conflict.Subject.Paths.Where(tree.Files.ContainsKey)
+                    .Select(path => new KeyValuePair<string, MergeFileValue>(path, tree.Files[path])).ToArray();
                 if (expected.Length != values.Count || expected.Any(p => !values.TryGetValue(p.Key, out var v) || v != p.Value))
                     throw new InvalidDataException("Provider conflict inputs differ from the fixed views.");
+                var expectedDirectories = conflict.Subject.Paths.Where(directoryPaths.Contains).Order(StringComparer.Ordinal);
+                if (!directories.SequenceEqual(expectedDirectories, StringComparer.Ordinal))
+                    throw new InvalidDataException("Provider conflict directories differ from the fixed views.");
             }
-            Check(conflict.Base, b); Check(conflict.Ours, o); Check(conflict.Theirs, t);
+            Check(conflict.Base, conflict.BaseDirectories, b, bd);
+            Check(conflict.Ours, conflict.OursDirectories, o, od);
+            Check(conflict.Theirs, conflict.TheirsDirectories, t, td);
         }
     }
 }

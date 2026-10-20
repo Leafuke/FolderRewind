@@ -101,7 +101,9 @@ internal sealed partial class MergeOperationService
         {
             var current = Runtime!.MergeSessions.Load(session.Id);
             if (current.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready
-                && current.Plan.ConfigRevision != _configSignature)
+                && (current.Plan.ConfigRevision != _configSignature
+                    || current.Plan.ProviderVersion != MergeProviderDescriptor.GenericIdentity
+                    || current.Plan.PolicyVersion != MergeProviderDescriptor.GenericPolicyIdentity))
                 current = Runtime.MergeSessions.Update(current, MergeSessionState.Stale);
             SetSession(current);
         }

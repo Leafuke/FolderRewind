@@ -40,7 +40,8 @@ public sealed partial class MergePageViewModel
     public bool CanNext => !IsBusy && _unresolved > 0;
     public string RecomputeSummary => Operations?.RecomputeSummary ?? "";
     public string AdoptOursLabel => I18n.GetString("MergeWorkspace_Adopt") + " " + OursLabel;
-    public string AdoptTheirsLabel => CheckedCount == 0 && SelectedChange is { IsAutomatic: false, Conflict.Theirs.Count: 0 }
+    public string AdoptTheirsLabel => CheckedCount == 0 && SelectedChange is { IsAutomatic: false, Conflict: var c }
+        && c.Theirs.IsEmpty && c.TheirsDirectories.IsEmpty
         ? I18n.GetString("MergeWorkspace_AdoptDeletion") : I18n.GetString("MergeWorkspace_Adopt") + " " + TheirsLabel;
     private MergeChangeItem[] SelectedDecisions()
     {
@@ -112,15 +113,17 @@ public sealed partial class MergePageViewModel
         {
             OursLines.Clear(); TheirsLines.Clear(); BaseText = ""; PreviewNotice = I18n.GetString("MergeWorkspace_PreviewLoading"); Notify();
             var conflict = row.Conflict;
-            if (conflict.Subject.Paths.Length != 1 || conflict.Kind is MergeConflictKind.PathStructure or MergeConflictKind.SourceBoundary or MergeConflictKind.SourceRoster)
+            if (!conflict.CanImportFile)
             {
-                foreach (var path in conflict.Ours.Keys) OursLines.Add(new("", "", path));
-                foreach (var path in conflict.Theirs.Keys) TheirsLines.Add(new("", "", path));
+                static IEnumerable<string> Entries(IReadOnlyDictionary<string, MergeFileValue> files, IEnumerable<string> directories)
+                    => files.Keys.Concat(directories.Select(path => path + "/")).Order(StringComparer.Ordinal);
+                foreach (var path in Entries(conflict.Ours, conflict.OursDirectories)) OursLines.Add(new("", "", path));
+                foreach (var path in Entries(conflict.Theirs, conflict.TheirsDirectories)) TheirsLines.Add(new("", "", path));
                 BaseText = conflict.Kind is MergeConflictKind.SourceBoundary or MergeConflictKind.SourceRoster
-                    ? I18n.GetString("MergeWorkspace_GroupBaseUnavailable") : string.Join("\n", conflict.Base.Keys);
-                OursInfo = string.Format(I18n.GetString("MergeWorkspace_GroupCount"), conflict.Ours.Count);
-                TheirsInfo = string.Format(I18n.GetString("MergeWorkspace_GroupCount"), conflict.Theirs.Count);
-                PreviewNotice = I18n.GetString("MergeWorkspace_GroupDecision"); Notify(); return;
+                    ? I18n.GetString("MergeWorkspace_GroupBaseUnavailable") : string.Join("\n", Entries(conflict.Base, conflict.BaseDirectories));
+                OursInfo = string.Format(I18n.GetString("MergeWorkspace_GroupCount"), conflict.Ours.Count, conflict.OursDirectories.Length);
+                TheirsInfo = string.Format(I18n.GetString("MergeWorkspace_GroupCount"), conflict.Theirs.Count, conflict.TheirsDirectories.Length);
+                PreviewNotice = I18n.GetString(row.IsAutomatic ? "MergeWorkspace_AutomaticNotice" : "MergeWorkspace_GroupDecision"); Notify(); return;
             }
             var pathKey = conflict.Subject.Paths[0];
             var previews = await Task.WhenAll(new[] { conflict.Ours, conflict.Theirs, conflict.Base }

@@ -21,6 +21,7 @@ internal static partial class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
+        runtime.MergeSessions.RequireCurrentContract(session);
         var workspace = session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace;
         var liveWorkspace = (await runtime.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value;
         if (liveWorkspace is null || !HistoryRestoreTransactionJournalStore.WorkspaceEquals(liveWorkspace, workspace))

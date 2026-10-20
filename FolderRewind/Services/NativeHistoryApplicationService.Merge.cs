@@ -42,6 +42,8 @@ internal static partial class NativeHistoryApplicationService
             throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
+        await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
+        runtime.MergeSessions.RequireCurrentContract(session);
         try
         {
             var inputs = session.Plan.Sources.SelectMany(s => s.Action == HistoryMergeSourceAction.Reuse
@@ -86,6 +88,7 @@ internal static partial class NativeHistoryApplicationService
         try
         {
             await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
+            runtime.MergeSessions.RequireCurrentContract(session);
             stage = "build-result";
             prepared = review?.Prepared ?? await builder.BuildAsync(session, token).ConfigureAwait(false);
             review?.RequireIdentity(runtime.MergeSessions.Load(session.Id), prepared);

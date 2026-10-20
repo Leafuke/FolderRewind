@@ -34,7 +34,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false) : MergeTreeManifest.Empty;
             if (exists && live.Digest == source.TreeDigest) continue;
             writes.Add(binding.SourceId, live.Digest);
-            if (live.Files.Count != 0 && !await IsCleanAsync(workspace, [binding], token).ConfigureAwait(false))
+            if (!live.IsEmpty && !await IsCleanAsync(workspace, [binding], token).ConfigureAwait(false))
                 needsProtection = true;
         }
         return new(writes, needsProtection);

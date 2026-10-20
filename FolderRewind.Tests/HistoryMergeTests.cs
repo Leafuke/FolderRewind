@@ -157,7 +157,7 @@ public sealed class HistoryMergeTests
 
         var conflict = result.Conflicts.Single();
         Assert.AreEqual(MergeConflictKind.PathStructure, conflict.Kind);
-        CollectionAssert.AreEquivalent(new[] { "World/ours.dat", "world/theirs.dat" }, conflict.Subject.Paths.ToArray());
+        CollectionAssert.AreEquivalent(new[] { "World", "world", "World/ours.dat", "world/theirs.dat" }, conflict.Subject.Paths.ToArray());
     }
 
     [TestMethod]

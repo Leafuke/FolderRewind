@@ -6122,12 +6122,12 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>继续准备</value></data>
   <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>当前文件夹尚无有效的活动分支，请先备份或检出一个分支。</value></data>
   <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>没有其他可合并分支。来源分支须有唯一、有效的历史节点。</value></data>
-  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} 个文件</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} 个文件，{1} 个文件夹</value></data>
   <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>所选分支无效、与当前分支相同或存在多个分支头。</value></data>
   <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>这两个分支没有共同基点，无法进行三方合并。</value></data>
   <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>存在多个最佳共同基点，当前合并器无法安全选择。</value></data>
   <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>请通过右上角任务菜单新建合并并选择其他来源；必要时先解决分支分歧。</value></data>
-  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>此文件由文件级规则自动处理，可在最终审阅中核对实际写入。</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>此文件或文件夹由三方合并规则自动处理，可在最终审阅中核对实际写入。</value></data>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>此类范围或来源冲突不提供文件级共同基点预览。</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>返回备份历史，保留合并任务</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>返回历史 · 任务将保留</value></data>

@@ -1,5 +1,7 @@
+using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.Models;
+using FolderRewind.Plugin.Runtime.Artifacts;
 using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
@@ -150,14 +152,22 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         var source = Path.GetFullPath(sourceDirectory);
         if (!Directory.Exists(source)) throw new DirectoryNotFoundException($"Materialized directory '{source}' is missing.");
         Directory.CreateDirectory(targetDirectory);
-        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        var files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
+            .Select(file => (FullPath: file, RelativePath: Path.GetRelativePath(source, file).Replace('\\', '/')))
+            .Where(file => include is null || include(file.RelativePath)).ToArray();
+        var directories = SourceDirectorySnapshot.Read(source, include ?? (_ => true), files.Select(file => file.RelativePath), cancellationToken);
+        SourceDirectorySnapshot.Validate(directories, files.Select(file => file.RelativePath));
+        foreach (var directory in directories)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var relative = Path.GetRelativePath(source, file).Replace('\\', '/');
-            if (include is not null && !include(relative)) continue;
-            var destination = Path.Combine(targetDirectory, relative.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(ArtifactPathRules.ResolveUnderRoot(targetDirectory, directory));
+        }
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var destination = ArtifactPathRules.ResolveUnderRoot(targetDirectory, file.RelativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            await using var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
+            await using var input = new FileStream(file.FullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
             await using var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true);
             await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
             HistoryOperationDiagnostics.Current?.Count("copy-tree-bytes", input.Length);
