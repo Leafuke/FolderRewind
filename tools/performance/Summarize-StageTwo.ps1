@@ -96,7 +96,7 @@ $report = [ordered]@{
     schema = 1; generatedAt = [DateTimeOffset]::UtcNow.ToString('O'); inputRoot = (Resolve-Path -LiteralPath $InputRoot).Path
     samplesPerGroup = 5; cache = 'uncontrolled; no cache purge; immutable-payload checks outside operation timing'
     ioMeaning = 'GetProcessIoCounters logical process bytes, including cache; not physical disk bytes. Host inclusive counters are not summed across nested scopes.'
-    totalMeaning = 'API result + deferred cleanup drain + log drain; fileReady is measured at API completion.'
+    totalMeaning = $(if ($RestoreComponents) { 'API result + deferred cleanup drain; component benchmark does not measure log drain. fileReady is measured at API completion.' } else { 'API result + deferred cleanup drain + log drain; fileReady is measured at API completion.' })
     baselineCorrectnessFailures = @($groups | Where-Object { $_.cohort -eq 'baseline' -and !$_.valid }).Count
     candidateCorrectnessFailures = @($groups | Where-Object { $_.cohort -eq 'candidate' -and !$_.valid }).Count
     groups = @($groups); comparisons = @($comparisons); persistentRegressions = @($persistent)

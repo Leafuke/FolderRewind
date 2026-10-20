@@ -76,6 +76,8 @@ $env:FOLDERREWIND_BENCHMARK_REPEATS = '5'
 
 旧 Host 仅应用阶段二已有的 `baseline-diagnostics.patch`（23 行进程 I/O 适配），记录精确补丁/源码/工具摘要，不移植业务实现。缺少的指标在各组 counters 中缺省，不应在跨版本报告中填零。旧 Host 无后台清理 API 时，清理已包含在 API 耗时，`cleanupDrainMs=0` 只表示 API 后无额外排空。
 
+既有 `MeasureFullRestoreComponents` 同时记录 API 返回和清理排空后的时间；通过反射兼容没有后台清理入口的旧 Runtime。旧测试入口只增加相同计时适配和三次→五次参数，完整补丁为本轮 `v197-measurement.patch` / `starting-measurement.patch`，没有新增测试方法。C/D 是逻辑目标卷，是否同一物理盘以本轮 `volume-layout.json` 为准。只用 `--filter FullyQualifiedName~MeasureFullRestoreComponents` 执行已有 Clean/Overwrite 小型及 2 GiB 场景；JSON 用 `Summarize-StageTwo.ps1 -RestoreComponents` 汇总，未测日志数据保持 null。
+
 `Run-StageTwoComparison.ps1` 增加可选 `-Rounds 1`（默认仍为 2）和 `-BackupOnly`，复用已有 2 GiB Full/Smart 场景，不运行大型 Quick 交叉组合。对应汇总也传 `-BackupOnly`。小型 64 MiB 使用原默认完整组合；大型先一轮，命中回归则同条件再测，原始轮次和根目录分别保留。所有组每次五个样本，判定不变；参数不会新增测试场景。
 
 需要单独复测第二轮时，使用新的 OutputRoot 并传 `-FirstRound 2 -Rounds 2`，保留 r2 标记和交换后的执行顺序。把两份报告按相同场景/策略/指标组合检查连续回归，不修改原始 r1 JSON。
