@@ -68,6 +68,8 @@ winapp ui screenshot --on sandbox -w $MainHwnd --output <新的宿主PNG路径> 
 
 在 guest 任务 workRoot 的 `Fixtures` 内放模板和实际 Source。通过 UI 创建普通配置 `FR198-A`（Source A/B、Backup-A）和独立 `FR198-B`（故障隔离）。先做 B0→Main→Feature 三次备份并从指定批次创建分支，记录实际 ConfigId/SourceId/VersionId/RunId、分支和快照数，归档干净起点。
 
+首次启动选择普通文件夹流程，不执行 “Minecraft Enhanced Experience” 增强预设；现有预设包含 KnotLink Service 安装及启用动作，属于本轮延期范围。插件兼容只在插件管理入口单独加载冻结内置包/已核来源旧包，不启动预设的外部互联安装。
+
 复用 `scripts/tests/Set-HistoryAcceptanceFixture.ps1` 的 B0/Main/Feature/Tiny；保持 guest checkout 相对结构并确认其 `.tmp/FolderRewindEval/SourceA` 在隔离根内。它仅准备明确文件，不创建备份/配置；不能在宿主运行后误认为 guest 已准备。每个破坏性组用独立配置或恢复任务环境。
 
 文件断言包含相对路径集合、SHA-256、空目录集合；ADS/硬链接/只读另外取流、对象和属性证据。Archive/Packs 操作前后留摘要，不能只检查一个文本文件；验证成本不混入产品性能时间。
@@ -88,6 +90,8 @@ winapp ui screenshot --on sandbox -w $MainHwnd --output <新的宿主PNG路径> 
 | 呈现 | `SettingsLanguage`、`SettingsTheme`、`LogLiveRefresh`、`LogAutoScroll`、`LogEntries`；导航按实际树 |
 
 动态后缀来自当前列表/持久化记录，禁止猜 GUID；重复 Source 按钮先限定 Run/Source 祖先，不取首个匹配。虚拟化条目先滚动生成。文本 TwoWay 设置后保存/切焦点，再核对持久化；没有精确 ID 时先源码/inspect 定位，不能坐标盲点。
+
+状态文本从本轮对应语言 `Resources.resw` 的 `History_Compare_Running/Equal/Different/Unknown/Cancelled`、`History_Recovery_*`、`History_Repair_Confirm/Completed` 取期望值；未请求比较是正常未知状态，不得显示故障或已确认不同。对 InfoBar 同时确认实际打开/可见及正确消息，不以隐藏元素出现在树中判成功。
 
 ## 4. 阶段一：历史、比较与修复
 
@@ -132,6 +136,8 @@ Workspace 为该配置 `history/<编码ConfigId>/local-state/workspace.json`，�
 
 同大小/mtime 场景记录时间戳、改一个管理文件字节再还原时间戳；不能以改长度代替。guest 内核对文件，摘要/JSON 经 `target pull` 带回宿主。
 
+成功 Checkout 的 Unknown 场景使用受控修复后基线未知、目标历史载荷仍有效的独立配置；文件占用导致的 Unknown 只证明比较无法确定，不能在目标仍占用时要求 Checkout 成功。目录符号链接/ACL/磁盘夹具缺权限时标环境 BLOCKED，不放宽产品保护或操作宿主数据。
+
 ## 6. 阶段三与 x64 MSIX
 
 | ID | 操作 | 成功及延期边界 |
@@ -175,12 +181,53 @@ dotnet test .\FolderRewind.Plugin.Abstractions.Tests\FolderRewind.Plugin.Abstrac
 
 缺真实工具不能将 Inconclusive 当通过。性能复用 `tools/performance/BackupRestore-README.md` 与冻结工具，两个正式基线、每组五次、正确性/API/总成本及计数分别保留。服务性能不能被 UI 成功替代，UI 自动化命令开销不混入产品计时。
 
+2026-10-20 用户已确认收敛剩余性能验证、优先候选交付；本轮已有 880 个正式样本，详见[实际报告](FolderRewind_1.9.8_Stage_3_Validation_Report.md)。后续 agent 复核现有记录，不自行启动已标 NOT_RUN 的大矩阵；相关实现改变或出现明确卡顿时，再按受影响组定向复测。
+
 失败立即保存包身份、候选 SHA、命令错误码、树、截图、日志和文件摘要，保留损坏/回滚材料。禁止改阶段、删 journal、清健康位或关验证“继续跑”。前置条件不足 BLOCKED，行为不符 FAIL。
 
 执行 agent 不修改冻结包或产品来修复失败；提交复现/证据给实现任务。修复生成新候选后重跑受影响组及必要回归；旧证据不移植。取证前保留 guest，只清理确认本任务归属的合成材料。
 
 完成报告独立列：既有服务/协议、实际 MSIX 安装/升级/UI、NOT_RUN/BLOCKED 的条件，以及 DEFERRED 的互联/渠道/发布。只有结构化结果和关键截图目视均完成才可 UI PASS；不宣称正式发行就绪。
 
-## 8. 本轮冻结交接输入（构建后填写）
+## 8. 本轮冻结交接输入（2026-10-20）
 
-待 MSIX 构建、签名与冻结。缺少本节实际输入不得开始安装。
+宿主冻结目录：`D:/Programs/FolderRewind/artifacts/1.9.8/stage-3/20261019-212212/candidate-01/`。源码 `714eef2bf72b585dd70ccdc41e1d46fdde3f8092`，业务与通过回归的 `d41bac3871795c1d9f73032227c7b4e0b0c23a50` 一致。后续文档提交不改变此候选来源。
+
+- 应用：`FolderRewind_1.9.8.0_x64.msix`，SHA-256 **`B5FDA61AC53CB2210881D6B99099E3CE22F0C2893E20AB89EC2372EC0DEDF718`**。
+- `manifest.json` 的 SHA-256：`BCD78DB857DFDBC7A9740FDD27C2D8BC614C396426A7B6DAD2AD9C6F872C234C`。先与 Git 中[交付摘要](FolderRewind_1.9.8_Stage_3_Artifacts.json)核对，再逐项核对 manifest.files；`SHA256SUMS.txt` 也覆盖 manifest。传入 guest 后再次核对，不只检查宿主副本。
+- 公钥：`FolderRewind-Candidate.cer`，证书指纹 `883C19BCC7CF69295C8CC4081629EC13FF18934A`，文件 SHA-256 `640DDF7DED2F145AF1041110C64790AAE219868ADCEA9F59C4A699C2E1AD077C`。Subject 等于包 Publisher，证书至 2027-04-16 有效；候选未时间戳。公钥信任仅限本任务隔离 guest。
+- 身份：`Leafuke.FolderRewind` / `1.9.8.0` / x64，Publisher `CN=ED2D4126-34BC-411D-8CD7-C15336441263`；预期 PFN `Leafuke.FolderRewind_xh6qzj9v1wvnm`、Application Id `App`。注册后核对实际值，再发现 PID/窗口。
+- 实际 MSIX 状态：**安装、升级、激活、UI 全部 NOT_RUN**。静态/签名通过不改变这些状态。真实游戏/KnotLink、其他渠道架构和发布 DEFERRED。
+
+### 8.1 依赖与安装顺序（仅在隔离 guest 执行）
+
+保持框架依赖部署，不重新打包为自包含。`runtimeconfig.json` 要求 `Microsoft.NETCore.App 10.0.0`，交付官方 10.0.13 x64 安装器；不要求 guest 安装 SDK 或 WindowsDesktop Runtime。包 manifest 要求 Windows App Runtime Framework >=2.5.1.0；同时交付同版 Main/Singleton，避免离线 guest 在初始化时缺包。
+
+| 相对冻结目录的文件 | 实际版本/用途 |
+|---|---|
+| `Dependencies/dotnet-runtime-10.0.13-win-x64.exe` | .NET Runtime 10.0.13，官方发布摘要与微软签名已核对 |
+| `Dependencies/x64/Microsoft.WindowsAppRuntime.2.msix` | Framework 2.5.1.0；无其他 PackageDependency |
+| `Dependencies/x64/Microsoft.WindowsAppRuntime.Main.2.msix` | Main 2.5.1.0，依赖上述 Framework |
+| `Dependencies/x64/Microsoft.WindowsAppRuntime.Singleton.2.msix` | Singleton 8002.5.1.0，依赖上述 Framework |
+| `Tools/rclone.exe` | 1.75.1，仅隔离本地 Cloud 验收时配置；不是应用启动依赖 |
+
+以下是在 guest 内逐条执行的安装说明，不在宿主执行，也不运行构建目录生成的自动安装脚本。先完成第 2 节目标/摘要/归属检查；以 snapshot 的实际 workRoot 确定路径。
+
+```powershell
+$fr198Candidate = '<guest 实际 Candidate 绝对路径>'
+Import-Certificate -FilePath (Join-Path $fr198Candidate 'FolderRewind-Candidate.cer') -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+$fr198Runtime = Start-Process -FilePath (Join-Path $fr198Candidate 'Dependencies\dotnet-runtime-10.0.13-win-x64.exe') -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru -WindowStyle Hidden
+$fr198Runtime.ExitCode
+# 0 表示安装成功；3010 先记录并完成 guest 重启，再核对运行时；其他码停止。
+& 'C:\Program Files\dotnet\dotnet.exe' --list-runtimes
+$fr198Framework = Join-Path $fr198Candidate 'Dependencies\x64\Microsoft.WindowsAppRuntime.2.msix'
+Add-AppxPackage -Path $fr198Framework
+Add-AppxPackage -Path (Join-Path $fr198Candidate 'Dependencies\x64\Microsoft.WindowsAppRuntime.Main.2.msix') -DependencyPath $fr198Framework
+Add-AppxPackage -Path (Join-Path $fr198Candidate 'Dependencies\x64\Microsoft.WindowsAppRuntime.Singleton.2.msix') -DependencyPath $fr198Framework
+Add-AppxPackage -Path (Join-Path $fr198Candidate 'FolderRewind_1.9.8.0_x64.msix') -DependencyPath $fr198Framework
+Get-AppxPackage -Name Leafuke.FolderRewind
+```
+
+每一步单独保存退出码或 PowerShell ErrorRecord/ActivityId，出现失败立即停止，不把示例当成无条件流水脚本。安装后按第 2 节激活已安装包，核对实际依赖版本、LocalState、PID、窗口后再进入各阶段矩阵。Main/Singleton/Framework 的微软签名日志与应用签名日志均在 `Logs/`；包内资源和程序集检查在 `Inspection/`。
+
+冻结包已检查中英文各 3617 键、x64 载荷、开发入口关闭及插件/7-Zip 摘要。它们是准备证据，呈现正确、插件实际加载、首次启动和升级仍由执行 agent 验收。[验证报告](FolderRewind_1.9.8_Stage_3_Validation_Report.md)列出所有服务结果、性能波动和未执行项。
