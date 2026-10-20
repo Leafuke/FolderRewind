@@ -54,7 +54,9 @@ internal static class HistoryRestoreFileSystemPlanStore
         var objects = new List<RestorePlanObject>(); var pending = new Stack<string>(); pending.Push(root);
         while (pending.TryPop(out var path))
         {
-            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new IOException("Owned restore tree contains a link: " + path);
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                throw HistoryRestoreRecoveryDiagnostics.Mark(new IOException("Owned restore tree contains a link: " + path),
+                    RestoreRecoveryFailureKind.OwnershipUnproven, root, Path.GetRelativePath(root, path));
             var id = WindowsRestoreFileSystem.Identity(path);
             objects.Add(new(Path.GetFullPath(path), id, File.GetAttributes(path)));
             if (id.Directory)
@@ -177,7 +179,10 @@ internal static class HistoryRestoreFileSystemPlanStore
                 continue;
             }
             // 陌生对象、重复身份或丢失对象都不是“尚未执行”，不猜测覆盖或删除。
-            throw new IOException("Restore rollback requires recovery: ambiguous object placement.");
+            var container = plan.Containers.FirstOrDefault(root => action.From.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || action.To.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+            throw HistoryRestoreRecoveryDiagnostics.Mark(new IOException("Restore rollback requires recovery: ambiguous object placement."),
+                RestoreRecoveryFailureKind.ConflictingExecutionEvidence, container, container is null ? null : Path.GetRelativePath(container, action.From));
         }
     }
     private static IDisposable? ProtectExternalParents(HistoryRestoreFileSystemPlan plan)
@@ -199,7 +204,7 @@ internal static class HistoryRestoreFileSystemPlanStore
         }
         catch { lease.Dispose(); throw; }
     }
-    internal static void Cleanup(HistoryRestoreFileSystemPlan plan, bool applied, bool allowMissing)
+    internal static void Cleanup(HistoryRestoreFileSystemPlan plan, bool applied, bool allowMissing, string? preparationOwnerMarker = null)
     {
         using var timing = HistoryOperationDiagnostics.Current?.Measure("owned-cleanup");
         var expected = FinalLocations(plan, applied);
@@ -208,24 +213,52 @@ internal static class HistoryRestoreFileSystemPlanStore
         using var ancestors = new CompositeLease();
         foreach (var root in plan.Containers)
         {
-            if (!Path.Exists(root)) { if (!allowMissing) throw new IOException("Restore owned container disappeared."); continue; }
+            if (!Path.Exists(root))
+            {
+                if (!allowMissing) throw HistoryRestoreRecoveryDiagnostics.Mark(new IOException("Restore owned container disappeared."),
+                    RestoreRecoveryFailureKind.IdentityMismatch, root, ".");
+                continue;
+            }
             ancestors.Add(new WindowsDirectoryReadLease(root));
             foreach (var actual in CaptureTree(root))
-                if (!owned.TryGetValue(actual.Path, out var planned) || planned.Identity != actual.Identity)
-                    throw new IOException("Restore cleanup found an external member; preserving the container.");
+            {
+                if (!owned.TryGetValue(actual.Path, out var planned))
+                    throw HistoryRestoreRecoveryDiagnostics.Mark(new IOException("Restore cleanup found an external member; preserving the container."),
+                        RestoreRecoveryFailureKind.UnregisteredObject, root, Path.GetRelativePath(root, actual.Path));
+                if (planned.Identity != actual.Identity)
+                    throw HistoryRestoreRecoveryDiagnostics.Mark(new IOException("Restore cleanup found an external member; preserving the container."),
+                        RestoreRecoveryFailureKind.IdentityMismatch, root, Path.GetRelativePath(root, actual.Path));
+            }
         }
         // 文件删除期间固定所有现存父目录，避免每个文件重复打开整条祖先链。
         // 删除目录前释放这些句柄；目录仍逐项核对身份、检查为空，并固定祖先。
         using (var parents = new WindowsRestoreFileSystem.RestoreParentHandles(owned.Values
             .Where(item => item.Identity.Directory && Path.Exists(item.Path)).Select(item => (item.Path, item.Identity))))
-            foreach (var item in owned.Values.Where(item => !item.Identity.Directory)) Delete(item, parents);
-        foreach (var item in owned.Values.Where(item => item.Identity.Directory).OrderByDescending(o => o.Path.Length)) Delete(item, null);
+            foreach (var item in owned.Values.Where(item => !item.Identity.Directory
+                && !StringComparer.OrdinalIgnoreCase.Equals(item.Path, preparationOwnerMarker))) Delete(item, parents);
+        foreach (var item in owned.Values.Where(item => item.Identity.Directory
+            && (preparationOwnerMarker is null || !plan.Containers.Contains(item.Path, StringComparer.OrdinalIgnoreCase)))
+            .OrderByDescending(o => o.Path.Length)) Delete(item, null);
+        if (preparationOwnerMarker is not null)
+        {
+            // Keep the namespace proof until its contents are gone. A crash after marker deletion
+            // leaves only the registered empty root, which can be retried without adopting new files.
+            if (owned.TryGetValue(preparationOwnerMarker, out var marker)) Delete(marker, null);
+            Reach("after-preparation-marker-cleanup");
+            foreach (var root in plan.Containers) Delete(owned[root], null);
+        }
 
         void Delete(RestorePlanObject item, WindowsRestoreFileSystem.RestoreParentHandles? parents)
         {
             var identity = WindowsRestoreFileSystem.TryIdentity(item.Path);
             if (identity is null) { if (!allowMissing) throw new IOException("Restore cleanup member is missing."); return; }
-            if (identity != item.Identity) throw new IOException("Restore cleanup member was replaced.");
+            if (identity != item.Identity)
+            {
+                var root = plan.Containers.First(container => item.Path.Equals(container, StringComparison.OrdinalIgnoreCase)
+                    || item.Path.StartsWith(container + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+                throw HistoryRestoreRecoveryDiagnostics.Mark(new IOException("Restore cleanup member was replaced."),
+                    RestoreRecoveryFailureKind.IdentityMismatch, root, Path.GetRelativePath(root, item.Path));
+            }
             WindowsRestoreFileSystem.DeleteOwned(item.Path, item.Identity, parents);
             Reach("after-cleanup-object");
         }

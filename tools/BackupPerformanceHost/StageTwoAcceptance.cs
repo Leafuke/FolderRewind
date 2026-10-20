@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Merge;
@@ -17,6 +18,90 @@ internal static class StageTwoAcceptance
 {
     private static readonly Type Native = typeof(BackupService).Assembly.GetType("FolderRewind.Services.NativeHistoryApplicationService")!;
     private static readonly List<object> Results = [];
+    internal static async Task RunRestoreCleanupAsync()
+    {
+        const BindingFlags instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var assembly = typeof(BackupService).Assembly;
+        foreach (var scenario in new[] { "materialize-failure", "legacy-197", "legacy-unproven" })
+        {
+            var (config, folder) = await CreateAsync("restore-cleanup-" + scenario, BackupMode.Full, BackupArchiveVerificationLevel.Strict);
+            var history = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+            var source = new SourceId(Guid.Parse(folder.Id));
+            var workspace = (await history.WorkspaceStore.LoadAsync()).Value!;
+            var selected = workspace.GetSourceState(source).BaseVersionId!.Value;
+            File.WriteAllText(Path.Combine(folder.Path, "keep.txt"), "current user world");
+            var digest = (await MergeTreeManifest.ReadAsync(folder.Path, _ => true, default)).Digest;
+            string? container = null;
+            if (scenario == "materialize-failure")
+            {
+                var backendType = assembly.GetType("FolderRewind.Services.SevenZipHistoryArchiveBackend")!;
+                var backend = (IArchiveRepresentationBackend)Activator.CreateInstance(backendType, instance, null, [config, true], null)!;
+                var handler = new FailedHostMaterializer(new CoreArchiveRepresentationHandler(backend));
+                var restore = new HistoryRestoreService(history, new RepresentationRuntime([handler]),
+                    async token => new RepresentationEnvironment((await history.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []),
+                    new FileSystemHistoryRestoreMutationBackend());
+                typeof(HistoryRestoreService).GetProperty("UseTargetVolumeWorkspaces", instance)!.SetValue(restore, true);
+                var failed = await restore.RestoreVersionAsync(selected, new(source, folder.Path), workspace, HistoryRestoreApplyMode.Clean);
+                Require(failed.Status == HistoryRestoreStatus.BlockedBeforeMutation && handler.Materialized,
+                    "Expected a failure after the real 7-Zip materializer produced staging output.");
+            }
+            else
+            {
+                var storeType = assembly.GetType("FolderRewind.History.Application.HistoryRestoreTransactionJournalStore")!;
+                var store = Activator.CreateInstance(storeType, instance, null, [history, new FileSystemHistoryRestoreMutationBackend()], null)!;
+                var sessionType = assembly.GetType("FolderRewind.History.Application.HistoryRestorePreparationSession")!;
+                using (var session = (IDisposable)Activator.CreateInstance(sessionType, instance, null,
+                    [history, store, workspace, new[] { new HistoryRestoreSourceBinding(source, folder.Path) }, Array.Empty<string>(), null], null)!)
+                {
+                    var staging = (string)sessionType.GetMethod("CreateStaging", instance)!.Invoke(session, [source])!;
+                    container = Path.GetDirectoryName(staging)!;
+                    var journal = sessionType.GetProperty("Journal", instance)!.GetValue(session)!;
+                    var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+                    var json = JsonSerializer.SerializeToNode(journal, journal.GetType(), options)!;
+                    var planType = assembly.GetType("FolderRewind.History.Application.HistoryRestoreFileSystemPlanStore")!;
+                    var known = planType.GetMethod("CaptureTree", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [container])!;
+                    json["workspaces"]![0]!["knownObjects"] = JsonSerializer.SerializeToNode(known, known.GetType(), options);
+                    Directory.CreateDirectory(Path.Combine(staging, "region"));
+                    File.WriteAllText(Path.Combine(staging, "region", "r.0.0.mca"), "old unregistered output");
+                    var transactionDirectory = Path.GetDirectoryName(Directory.GetFiles(history.Repository.Paths.TransactionsRoot, "restore-preparation.json", SearchOption.AllDirectories).Single())!;
+                    File.WriteAllText(Path.Combine(transactionDirectory, "restore-journal.json"), json.ToJsonString(options));
+                    File.Delete(Path.Combine(transactionDirectory, "restore-preparation.json"));
+                    if (scenario == "legacy-unproven") File.WriteAllText(Path.Combine(container, "owner.json"), "unproven owner");
+                    sessionType.GetMethod("Finish", instance)!.Invoke(session, null);
+                }
+            }
+            // Exercise the production preflight, capture, and commit rather than just its admission gate.
+            var backup = await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal());
+            Require(backup.CreatedNewArchive, "BackupService remained blocked after preparation recovery: " + scenario);
+            await (Task)typeof(HistoryRuntime).GetMethod("DrainRestoreCleanupAsync", instance)!.Invoke(history, [CancellationToken.None])!;
+            Require(digest == (await MergeTreeManifest.ReadAsync(folder.Path, _ => true, default)).Digest,
+                "Recovery or the later backup changed the current world.");
+            if (container is not null)
+                Require(Directory.Exists(container) == (scenario == "legacy-unproven"), "Unexpected preparation preservation policy.");
+            Require(!history.Issues.Any(issue => issue.BlocksMutation), "Preparation left a blocking runtime issue.");
+            Results.Add(new { scenario, realBackupCommitted = true, currentWorldUnchanged = true,
+                preservedAsMaintenance = scenario == "legacy-unproven", history.MaintenanceDiagnostic });
+            await File.WriteAllTextAsync(Path.Combine(Root, "host-restore-cleanup.json"), JsonSerializer.Serialize(new { results = Results }, new JsonSerializerOptions { WriteIndented = true }));
+            await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
+        }
+        await LogService.FlushAsync();
+    }
+
+    private sealed class FailedHostMaterializer(IRepresentationHandler inner) : IRepresentationHandler
+    {
+        internal bool Materialized;
+        public bool CanHandle(VersionRepresentation representation) => inner.CanHandle(representation);
+        public ValueTask<RepresentationAssessment> AssessAsync(RepresentationAssessmentContext context, CancellationToken token)
+            => inner.AssessAsync(context, token);
+        public async ValueTask MaterializeAsync(RepresentationMaterializationContext context, CancellationToken token)
+        {
+            await inner.MaterializeAsync(context, token);
+            Require(Directory.EnumerateFileSystemEntries(context.StagingDirectory).Any(), "Real materializer produced no output.");
+            Materialized = true;
+            throw new IOException("Injected failure after real archive materialization.");
+        }
+    }
+
     internal static async Task RunAsync()
     {
         foreach (var mode in new[] { BackupMode.Full, BackupMode.Smart, BackupMode.Rolling })

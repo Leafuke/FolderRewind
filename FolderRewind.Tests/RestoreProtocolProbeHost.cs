@@ -2,6 +2,8 @@ using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace FolderRewind.Tests;
 
@@ -25,7 +27,24 @@ public static class RestoreProtocolProbeHost
             await new HistoryRestoreTransactionJournalStore(recovered, new FileSystemHistoryRestoreMutationBackend()).RecoverIncompleteAsync(default);
             return;
         }
-        var config = new HistoryConfigId("protocol-probe");
+        if (args[0] == "partial")
+        {
+            await using var fixture = await RestorePreparationFixture.CreateAsync(root);
+            File.WriteAllText(Path.Combine(root, "probe-config.txt"), fixture.Config.ToString());
+            if (args[3] == "legacy")
+            {
+                fixture.CreateLegacyPreparation();
+                HistoryRestoreFileSystemPlanStore.Reach("after-partial-materialization");
+                await fixture.Journals.RecoverIncompleteAsync(default);
+            }
+            else
+                await fixture.Restore(new PartialRestoreMaterializer()).RestoreVersionAsync(fixture.Version.VersionId,
+                    new(fixture.Source, fixture.Target), fixture.Expected, HistoryRestoreApplyMode.Clean);
+            await fixture.History.DrainRestoreCleanupAsync();
+            return;
+        }
+        var config = new HistoryConfigId(File.Exists(Path.Combine(root, "probe-config.txt"))
+            ? File.ReadAllText(Path.Combine(root, "probe-config.txt")) : "protocol-probe");
         await using var history = new HistoryRuntime(new FileHistoryRepository(config, new(Path.Combine(root, "history"))));
         await history.InitializeAsync();
         var journals = new HistoryRestoreTransactionJournalStore(history, new FileSystemHistoryRestoreMutationBackend());
@@ -77,8 +96,20 @@ public static class RestoreProtocolProbeHost
                 ContainerIdentity = owned.Identity, KnownObjects = [new(location.Container, owned.Identity, FileAttributes.Directory)] }] };
             journals.Save(journal);
         }
-        HistoryRestoreFileSystemPlanStore.Reach("after-container-register");
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
+        using (var identity = WindowsIdentity.GetCurrent())
+        {
+            var security = new DirectorySecurity(); security.SetAccessRuleProtection(true, false);
+            foreach (var owner in new[] { identity.User!, new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null) })
+                security.AddAccessRule(new(owner, FileSystemRights.FullControl, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                    PropagationFlags.None, AccessControlType.Allow));
+            new DirectoryInfo(location.Container).SetAccessControl(security);
+        }
+        File.WriteAllText(Path.Combine(location.Container, "owner.json"), journal.Workspaces[0].OwnerNonce);
         var staging = Path.Combine(location.Container, "staging"); Directory.CreateDirectory(staging);
+        journal = journal with { Workspaces = [journal.Workspaces[0] with { KnownObjects = [.. HistoryRestoreFileSystemPlanStore.CaptureTree(location.Container)] }] };
+        journals.Save(journal);
+        HistoryRestoreFileSystemPlanStore.Reach("after-container-register");
         File.WriteAllText(Path.Combine(staging, "file.txt"), "restored");
         if (args[3] == "preparation-drift")
         {

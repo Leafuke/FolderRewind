@@ -147,7 +147,7 @@ public sealed partial class HistoryRestoreService
         catch (Exception ex)
         {
             HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Select(item => item.StagingDirectory));
-            return Blocked(ex.Message);
+            return BlockedAfterPreparation(ex, session);
         }
 
         try
@@ -171,7 +171,7 @@ public sealed partial class HistoryRestoreService
         catch (Exception ex)
         {
             HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Select(item => item.StagingDirectory));
-            return Blocked(ex.Message);
+            return BlockedAfterPreparation(ex, session);
         }
     }
 
@@ -223,7 +223,7 @@ public sealed partial class HistoryRestoreService
         }
         catch (Exception ex)
         {
-            return Blocked(ex.Message);
+            return BlockedAfterPreparation(ex, session);
         }
 
         try
@@ -247,7 +247,7 @@ public sealed partial class HistoryRestoreService
         catch (Exception ex)
         {
             HistoryRestoreTransactionJournalStore.CleanupStaging([prepared.StagingDirectory]);
-            return Blocked(ex.Message);
+            return BlockedAfterPreparation(ex, session);
         }
     }
 

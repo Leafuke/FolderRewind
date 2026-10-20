@@ -11,6 +11,45 @@ namespace FolderRewind.Tests;
 public sealed class HistoryRestoreMaintenanceTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ExecutionCleanupPreservesUnknownOrReplacedRollbackMemberAfterLaterMutation(bool replace)
+    {
+        await using var f = new HistoryMergeArchiveFixture(); await f.SeedAsync();
+        try
+        {
+            HistoryRestoreFileSystemPlanStore.TestFault = point =>
+            {
+                if (point != "before-cleanup") return;
+                var rollback = Directory.GetDirectories(f.Root, "rollback", SearchOption.AllDirectories).Single();
+                var path = Path.Combine(rollback, replace ? "a.txt" : "external.txt");
+                if (replace) File.Move(path, Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(rollback)!)!, "saved-original"));
+                File.WriteAllText(path, "foreign rollback content");
+                HistoryRestoreFileSystemPlanStore.TestFault = null;
+            };
+            var result = await f.Restore(targetVolume: true).RestoreVersionAsync(f.Ours.NewVersions.Single().VersionId,
+                new(f.Source, f.Target), f.Before, HistoryRestoreApplyMode.Clean);
+            Assert.IsTrue(result.TargetCommitted, result.Diagnostic);
+            await f.History.DrainRestoreCleanupAsync();
+            var reason = replace ? "IdentityMismatch" : "UnregisteredObject";
+            StringAssert.Contains(f.History.MaintenanceDiagnostic!, "Reason=" + reason);
+            StringAssert.Contains(f.History.MaintenanceDiagnostic!, "RelativePath=rollback");
+            var state = (await f.History.WorkspaceStore.LoadAsync()).Value!;
+            await f.History.WorkspaceStore.SaveAsync(state.WithSourceStates([state.GetSourceState(f.Source) with { RequiresFullCapture = true }]), state.StateRevision);
+            File.WriteAllText(Path.Combine(f.Target, "a.txt"), "later world content");
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                await f.Restore().RecoverIncompleteAsync();
+                HistoryRestoreTransactionJournalStore.RequireRecovered(f.History.Repository.Paths.TransactionsRoot);
+                Assert.AreEqual("later world content", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+                Assert.AreEqual("foreign rollback content", File.ReadAllText(Directory.GetFiles(f.Root, replace ? "a.txt" : "external.txt", SearchOption.AllDirectories)
+                    .Single(path => path.Contains(Path.DirectorySeparatorChar + "rollback" + Path.DirectorySeparatorChar))));
+            }
+        }
+        finally { HistoryRestoreFileSystemPlanStore.TestFault = null; }
+    }
+
+    [TestMethod]
     public async Task InaccessibleOwnedPreparationBecomesMaintenanceAndCanBeRetried()
     {
         if (!OperatingSystem.IsWindows()) { Assert.Inconclusive("NTFS ACL requires Windows."); return; }

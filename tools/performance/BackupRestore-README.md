@@ -10,6 +10,14 @@ $env:FOLDERREWIND_RESTORE_PROTOCOL_PROBE = (Resolve-Path './tools/RestoreProtoco
 dotnet test ./FolderRewind.Tests/FolderRewind.Tests.csproj -c Release --filter 'TestCategory!=PerformanceBenchmark'
 ```
 
+还原准备失败与 1.9.7 遗留事务的生产接线验收使用同一个无窗口 Host。构建时保持 `FolderRewindDistributionChannel=Msi`，设置上面的真实 7-Zip 路径，然后对尚不存在的隔离目录运行：
+
+```powershell
+& $hostExe "$PWD/artifacts/restore-cleanup-fix/host-acceptance" 8 Strict restore-cleanup
+```
+
+该模式验证真实归档物化后失败、旧版 KnownObjects 登记不完整及归属失效残留三种情况，随后均调用实际 BackupService 完成捕获和提交，核对当前世界未变化。结果写入隔离目录的 `host-restore-cleanup.json`；归属不明的模拟容器按维护事项保留，不访问现有用户数据。
+
 候选服务基准（Balanced/Strict 分别运行，输出目录不得混用）：
 
 ```powershell

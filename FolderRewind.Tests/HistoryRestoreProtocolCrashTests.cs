@@ -8,6 +8,32 @@ namespace FolderRewind.Tests;
 public sealed class HistoryRestoreProtocolCrashTests
 {
     [TestMethod]
+    [DataRow("new", "after-partial-materialization")]
+    [DataRow("new", "after-preparation-cleanup-record")]
+    [DataRow("new", "after-preparation-handoff")]
+    [DataRow("new", "after-preparation-marker-cleanup")]
+    [DataRow("legacy", "after-partial-materialization")]
+    [DataRow("legacy", "after-preparation-cleanup-record")]
+    [DataRow("legacy", "after-preparation-handoff")]
+    [DataRow("legacy", "after-preparation-marker-cleanup")]
+    public async Task PartialMaterializationAndLegacyPreparationSurviveTermination(string strategy, string point)
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-partial-crash-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            await StopAtAsync(probe, "partial", root, point, strategy);
+            for (int repeat = 0; repeat < 2; repeat++) await RunRecoveryProbeAsync(probe, root, point, strategy, repeat);
+            Assert.AreEqual("original world", File.ReadAllText(Path.Combine(root, "world", "original.txt")));
+            Assert.IsEmpty(Directory.GetDirectories(root, ".folderrewind-restore-*"));
+            Assert.IsEmpty(Directory.GetFiles(Path.Combine(root, "history"), "restore-cleanup.json", SearchOption.AllDirectories));
+            Assert.IsEmpty(Directory.GetFiles(Path.Combine(root, "history"), "restore-preparation.json", SearchOption.AllDirectories));
+        }
+        finally { CleanupRoot(root); }
+    }
+
+    [TestMethod]
     [DataRow("preparation-drift", "after-snapshot-before-rebind")]
     [DataRow("repair", "repair-after-preservation")]
     [DataRow("repair", "repair-before-publication")]

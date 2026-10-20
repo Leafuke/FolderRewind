@@ -21,6 +21,12 @@ public sealed partial class HistoryRestoreService
         catch (Exception error) { diagnostic = error.Message; return null; }
     }
 
+    private static HistoryRestoreResult BlockedAfterPreparation(Exception error, HistoryRestorePreparationSession? session)
+    {
+        session?.Abort();
+        return Blocked(session?.Diagnostic is { } cleanup ? error.Message + "; " + cleanup : error.Message);
+    }
+
     private async Task<HistoryRestoreResult> ExecuteTargetVolumeMutationAsync(HistoryRestorePreparationSession session,
         IReadOnlyList<PreparedRestoreSource> prepared, HistoryWorkspace expected, HistoryWorkspace desired, CancellationToken token)
     {

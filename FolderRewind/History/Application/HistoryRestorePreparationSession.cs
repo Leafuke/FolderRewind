@@ -139,7 +139,11 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
             Journal = Journal with { Phase = HistoryRestoreTransactionPhase.Complete };
             _finished = true;
         }
-        catch (Exception error) { Diagnostic = "Restore preparation requires recovery: " + error.Message; }
+        catch (Exception error)
+        {
+            Diagnostic = "Restore preparation requires recovery: " + HistoryRestoreRecoveryDiagnostics.Describe(error);
+            HistoryRestoreRecoveryDiagnostics.Report(_config, Journal.TransactionId, "Preparing", false, null, error, "RecoveryBlocked");
+        }
     }
     public void Dispose()
     {
