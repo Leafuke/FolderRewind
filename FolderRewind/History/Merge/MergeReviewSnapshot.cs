@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace FolderRewind.History.Merge;
 
 public enum MergeChangeKind { Added, Modified, Deleted, Structure }
-public sealed record MergeReviewChange(string Path, MergeChangeKind Kind);
+public sealed record MergeReviewChange(string Path, MergeChangeKind Kind, bool IsDirectory = false);
 public sealed record MergeReviewTarget(SourceId SourceId, string Directory, bool Existed, string Digest);
 public sealed record MergeReviewSnapshot(PreparedMerge Prepared, ImmutableArray<MergeReviewTarget> Targets,
     ImmutableArray<MergeReviewChange> BranchChanges, ImmutableArray<MergeReviewChange> WorkingChanges, bool NeedsProtection)
@@ -45,13 +45,21 @@ public sealed record MergeReviewSnapshot(PreparedMerge Prepared, ImmutableArray<
     }
     public static ImmutableArray<MergeReviewChange> Compare(MergeTreeManifest before, MergeTreeManifest after)
     {
-        var paths = before.Files.Keys.Concat(after.Files.Keys).Distinct(StringComparer.Ordinal).ToArray();
-        var structural = GenericFileMergeProvider.StructuralGroups(paths).SelectMany(g => g).ToHashSet(StringComparer.Ordinal);
-        return paths.Order(StringComparer.Ordinal).Where(path =>
+        var beforePaths = before.Paths.ToHashSet(StringComparer.Ordinal);
+        var afterPaths = after.Paths.ToHashSet(StringComparer.Ordinal);
+        var beforeDirectories = before.Directories.ToHashSet(StringComparer.Ordinal);
+        var afterDirectories = after.Directories.ToHashSet(StringComparer.Ordinal);
+        var structural = GenericFileMergeProvider.StructuralGroups(before, after).SelectMany(g => g).ToHashSet(StringComparer.Ordinal);
+        var changes = ImmutableArray.CreateBuilder<MergeReviewChange>();
+        foreach (var path in beforePaths.Concat(afterPaths).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             var b = before.Files.GetValueOrDefault(path); var a = after.Files.GetValueOrDefault(path);
-            return b?.Digest != a?.Digest || b?.Length != a?.Length;
-        }).Select(path => new MergeReviewChange(path, structural.Contains(path) ? MergeChangeKind.Structure
-            : !before.Files.ContainsKey(path) ? MergeChangeKind.Added : !after.Files.ContainsKey(path) ? MergeChangeKind.Deleted : MergeChangeKind.Modified)).ToImmutableArray();
+            if (b?.Digest == a?.Digest && b?.Length == a?.Length
+                && beforeDirectories.Contains(path) == afterDirectories.Contains(path)) continue;
+            changes.Add(new(path, structural.Contains(path) ? MergeChangeKind.Structure
+                : !beforePaths.Contains(path) ? MergeChangeKind.Added : !afterPaths.Contains(path) ? MergeChangeKind.Deleted : MergeChangeKind.Modified,
+                afterDirectories.Contains(path) || !afterPaths.Contains(path) && beforeDirectories.Contains(path)));
+        }
+        return changes.ToImmutable();
     }
 }

@@ -10,6 +10,18 @@ namespace FolderRewind.Tests;
 public sealed class BackupInvocationOptionsTests
 {
     [TestMethod]
+    public void SemanticCheckpointIsExplicitAndSurvivesOptionCopies()
+    {
+        Assert.IsFalse(BackupInvocationOptions.ForManual().RequestSemanticCheckpoint);
+        Assert.IsFalse(BackupInvocationOptions.ForAutomatic().RequestSemanticCheckpoint);
+        var options = BackupInvocationOptions.ForManual().WithSemanticCheckpoint()
+            .WithComment("checkpoint").WithProtection(true).WithApplicationConsistentSnapshot();
+        Assert.IsTrue(options.RequestSemanticCheckpoint);
+        Assert.IsTrue(options.Protect);
+        Assert.AreEqual(BackupInvocationSource.Manual, options.Source);
+        Assert.IsFalse(BackupInvocationOptions.ForManual().RequestSemanticCheckpoint, "One invocation must not affect the next.");
+    }
+    [TestMethod]
     public void ConfigurationBackupCommentSurvivesInvocationOptionCopies()
     {
         var options = BackupInvocationOptions.ForManual("before update")

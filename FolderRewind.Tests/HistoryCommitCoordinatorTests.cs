@@ -28,6 +28,62 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task CloudStatusReadersCanPollWhileWorkerAtomicallyReplacesJournal()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        runtime.CloudJobs.ConfigureAdmission(new("profile", "revision", "binding", "remote:backup", _configId.Value));
+        var source = SourceId.New();
+        await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, CreateCapture(source, "first", -1, null)));
+        var initial = runtime.CloudJobs.Read().Jobs.Single();
+        using var cancellation = new CancellationTokenSource();
+        var readers = Enumerable.Range(0, 2).Select(_ => Task.Run(async () =>
+        {
+            long revision = 0;
+            do
+            {
+                var observed = runtime.CloudJobs.Read();
+                Assert.IsGreaterThanOrEqualTo(revision, observed.Revision);
+                revision = observed.Revision;
+                Assert.AreEqual(initial.JobId, observed.Jobs.Single().JobId);
+                await Task.Yield();
+            } while (!cancellation.IsCancellationRequested);
+        })).ToArray();
+        try
+        {
+            for (var attempt = 1; attempt <= 100; attempt++)
+            {
+                await using var gate = await runtime.MutationGate.EnterAsync(default);
+                runtime.CloudJobs.Update(initial with { Attempt = attempt, Diagnostic = "polling regression" });
+            }
+        }
+        finally { cancellation.Cancel(); await Task.WhenAll(readers); }
+        Assert.AreEqual(100, runtime.CloudJobs.Read().Jobs.Single().Attempt);
+        Assert.IsFalse(File.Exists(runtime.CloudJobs.JournalPath + ".attention"));
+    }
+
+    [TestMethod]
+    public async Task DurableParticipantFailureReleasesOperationOwnershipBeforeRepeatedRecovery()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var participant = new FailingParticipant();
+        var capture = CreateCapture(source, "first", -1, null) with { CommitParticipant = participant };
+        await Assert.ThrowsExactlyAsync<HistoryCommitRecoveryRequiredException>(() => runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "source")), null, capture)));
+        Assert.IsTrue(participant.Ended);
+        Assert.IsFalse(participant.Aborted);
+        Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+    }
+    private sealed class FailingParticipant : ICaptureCommitParticipant
+    {
+        public bool Ended { get; private set; }
+        public bool Aborted { get; private set; }
+        public Task PrepareCommitAsync(PackId pack, HistoryTransactionId transaction, CancellationToken token) => Task.CompletedTask;
+        public Task HistoryCommittedAsync(CancellationToken token) => throw new IOException("injected participant failure");
+        public Task CompleteCommitAsync(CancellationToken token) => Task.CompletedTask;
+        public Task AbortCommitAsync(CancellationToken token) { Aborted = true; return Task.CompletedTask; }
+        public void EndOperation() => Ended = true;
+    }
+
+    [TestMethod]
     [DataRow("before-prepared")]
     [DataRow("prepared")]
     [DataRow("before-activate")]
@@ -204,6 +260,32 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.IsNull(batch.NewVersions.Single().StateFingerprint);
         Assert.IsNull(batch.NewRepresentations.Single().StateFingerprint);
         Assert.IsTrue(File.Exists(payloadPath), "A durable Commit Pack owns the archive; cleanup must not run.");
+    }
+
+    [TestMethod]
+    public async Task NativeCaptureCommitsOneVersionAndSurvivesRepositoryRestart()
+    {
+        var source = SourceId.New(); var version = VersionId.New(); var artifactRoot = Guid.NewGuid();
+        await using (var runtime = await CreateRuntimeAsync())
+        {
+            var payload = CreateCapture(source, "native", -1, null);
+            var native = new SourceCaptureResult(source, SourceCaptureOutcome.Captured, CaptureScope.FullSource, payload.StateFingerprint,
+                null, new(payload.RepresentationCandidate!.RepresentationId, RepresentationKind.PluginArtifact, "test/native-v2", [],
+                    MaterializationFidelity.Exact, null, payload.StateFingerprint,
+                    new Dictionary<string, string> { ["artifactRootId"] = artifactRoot.ToString("D"), ["nativeArtifactContractVersion"] = "2", ["incrementalEvidence"] = "2" }),
+                payload.LocalReplicaCandidate, payload.PayloadCandidate, -1, null, null, [], effectiveSourceBoundary: payload.EffectiveSourceBoundary)
+                { ReservedVersionId = version };
+            var batch = await runtime.Commit.CommitAsync(Request(Snapshot(Source(source, "world")), null, native));
+            Assert.HasCount(1, batch.NewVersions); Assert.AreEqual(version, batch.NewVersions[0].VersionId);
+            Assert.HasCount(1, batch.NewRepresentations); Assert.AreEqual(RepresentationKind.PluginArtifact, batch.NewRepresentations[0].Kind);
+            Assert.IsEmpty(batch.NewRepresentations[0].DependencyRepresentationIds);
+            Assert.HasCount(1, batch.NewCheckpoints); Assert.HasCount(1, batch.NewBranchUpdates);
+            Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+        }
+        await using var reopened = await CreateRuntimeAsync();
+        Assert.HasCount(1, await reopened.Query.GetAllVersionsAsync());
+        Assert.HasCount(1, await reopened.Query.GetAllRepresentationsAsync());
+        Assert.HasCount(1, (await reopened.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries);
     }
 
     [TestMethod]
@@ -918,17 +1000,21 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
-    public async Task ProtectedCaptureRejectsFilteredBoundaryBeforeCommit()
+    public async Task ProtectedCapturePinsVersionWithinFilteredBoundary()
     {
         await using var runtime = await CreateRuntimeAsync();
         var id = SourceId.New();
         var boundary = new EffectiveSourceBoundarySnapshot(EffectiveBoundaryScopeMode.All, [],
             EffectiveBoundaryFilterMode.Blacklist, ["playerdata"], false);
         var capture = CreateCapture(id, "filtered", -1, null, boundary: boundary);
-        var snapshot = Snapshot(Source(id, "source")); var request = Request(snapshot, null, capture);
-        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(
-            new HistoryCommitRequest(snapshot, request.Invocation, null, [capture], protect: true)));
-        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+        var snapshot = Snapshot(Source(id, "source", boundary)); var request = Request(snapshot, null, capture);
+        var committed = await runtime.Commit.CommitAsync(
+            new HistoryCommitRequest(snapshot, request.Invocation, null, [capture], protect: true));
+        var version = committed.NewVersions.Single();
+        Assert.AreEqual(boundary.Fingerprint, version.EffectiveSourceBoundaryFingerprint);
+        Assert.IsTrue(committed.Pack.Objects.Any(o => o.Kind == HistoryObjectKinds.HistoryAnnotationUpdate));
+        var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.VersionId.Value);
+        Assert.IsTrue(HistoryAnnotationProjection.Project(target, await runtime.Query.GetAnnotationUpdatesAsync(target)).IsPinned);
     }
 
     [TestMethod]
@@ -996,6 +1082,29 @@ public sealed class HistoryCommitCoordinatorTests
             intent: HistoryCommitIntent.IndependentRecoveryPoint,
             affectedSourceIds: captures.Select(item => item.SourceId),
             safetySnapshotIntent: new HistorySafetySnapshotIntent(reason));
+    }
+
+    [TestMethod]
+    public async Task RepairedWorkspaceRequiresFullCaptureAndCreatesDistinctBranchIdentity()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        var first = await runtime.Commit.CommitAsync(Request(snapshot, null, CreateCapture(source, "original", -1, null)));
+        var oldBranch = first.NewBranchUpdates.Single().BranchId;
+        var oldVersion = first.NewVersions.Single().VersionId;
+        var workspaceFile = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json");
+        File.WriteAllText(workspaceFile, "damaged");
+        var repair = new HistoryWorkspaceRepairService(runtime);
+        var preview = await repair.PreviewAsync([source], "config");
+        var workspace = (await repair.RepairAsync(preview, [source], "config")).Workspace;
+        var reused = SourceCaptureResult.NoChanges(source, CaptureScope.FullSource, workspace.StateRevision, oldVersion, "state-original");
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(Request(snapshot, workspace, reused)));
+        var second = await runtime.Commit.CommitAsync(Request(snapshot, workspace, CreateCapture(source, "current", workspace.StateRevision, null)));
+        Assert.AreNotEqual(oldBranch, second.NewBranchUpdates.Single().BranchId);
+        Assert.IsEmpty(second.NewVersions.Single().ParentVersionIds);
+        Assert.IsFalse(second.UpdatedWorkspace!.GetSourceState(source).RequiresFullCapture);
+        Assert.IsNotNull(await runtime.Query.GetVersionAsync(oldVersion));
+        Assert.HasCount(1, await runtime.Query.GetBranchTipsAsync(oldBranch));
     }
 
     [TestMethod]

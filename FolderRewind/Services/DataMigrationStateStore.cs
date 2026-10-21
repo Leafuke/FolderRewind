@@ -8,7 +8,8 @@ using System.Text.Json;
 namespace FolderRewind.Services;
 
 internal sealed record DataMigrationProjectState(int FormatVersion, HistoryTransferProject Project,
-    string SourceFileSha256, string ConfigImportId, bool RecoveryCompleted = false, string CompletedConfigSignature = "", string BundlePath = "");
+    string SourceFileSha256, string ConfigImportId, bool RecoveryCompleted = false, string CompletedConfigSignature = "", string BundlePath = "",
+    string NativeEvidence = "");
 
 internal static class DataMigrationStateStore
 {

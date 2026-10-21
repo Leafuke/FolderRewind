@@ -18,6 +18,7 @@ namespace FolderRewind.Tests;
 [DoNotParallelize]
 public sealed class BackupRestorePerformanceBenchmarkTests
 {
+    private static int BenchmarkRepeats => int.TryParse(Environment.GetEnvironmentVariable("FOLDERREWIND_BENCHMARK_REPEATS"), out var count) && count is > 0 and <= 20 ? count : 5;
     private static bool Candidate => Environment.GetEnvironmentVariable("FOLDERREWIND_BENCHMARK_CANDIDATE") == "1";
     private static RestoreArchivePreflightMode Policy => Environment.GetEnvironmentVariable("FOLDERREWIND_BENCHMARK_POLICY") == "Strict"
         ? RestoreArchivePreflightMode.Strict : RestoreArchivePreflightMode.Balanced;
@@ -32,7 +33,7 @@ public sealed class BackupRestorePerformanceBenchmarkTests
         {
             await using var f = new HistoryMergeArchiveFixture(); await f.SeedAsync();
             var settings = new ArchiveSettings { BackupBeforeRestore = ordinary, QuickRestoreSafetySnapshotEnabled = quick };
-            foreach (var changed in new[] { false, true }) for (int repeat = 0; repeat < 3; repeat++)
+            foreach (var changed in new[] { false, true }) for (int repeat = 0; repeat < BenchmarkRepeats; repeat++)
             {
                 File.WriteAllText(Path.Combine(f.Target, "a.txt"), changed ? "local changed" : "ours-a");
                 using var verification = new ArchiveRestoreVerificationContext(Policy);
@@ -43,7 +44,7 @@ public sealed class BackupRestorePerformanceBenchmarkTests
                     result = await HistoryQuickRestoreExecution.ExecuteAsync(f.History, restore, new(f.Source, f.Target),
                         f.Ours.NewVersions.Single().VersionId, (await f.History.WorkspaceStore.LoadAsync()).Value!, HistoryRestoreApplyMode.Clean,
                         settings.ShouldCreateSafetySnapshot(true), false,
-                        async token => { snapshots++; await f.CaptureAsync(f.Source); return ((await f.History.WorkspaceStore.LoadAsync(token)).Value, null); },
+                        async (_, _, token) => { snapshots++; await f.CaptureAsync(f.Source); return ((await f.History.WorkspaceStore.LoadAsync(token)).Value, null); },
                         _ => Task.CompletedTask, default);
                 Assert.AreEqual(changed ? HistoryRestoreStatus.Committed : HistoryRestoreStatus.NoChanges, result.Status, result.Diagnostic);
                 Assert.AreEqual(changed && quick ? 1 : 0, snapshots);
@@ -81,7 +82,7 @@ public sealed class BackupRestorePerformanceBenchmarkTests
             }
             var graph = await f.History.Query.GetAllRepresentationsAsync();
             var env = new RepresentationEnvironment((await f.History.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries, [], []);
-            for (int repeat = 0; repeat < 3; repeat++)
+            for (int repeat = 0; repeat < BenchmarkRepeats; repeat++)
             {
                 var staging = Path.Combine(f.Root, "bench-smart");
                 var scope = HistoryOperationDiagnostics.Begin("B2-smart-components");
@@ -97,7 +98,7 @@ public sealed class BackupRestorePerformanceBenchmarkTests
         {
             await f.SeedAsync();
             foreach (var changed in new[] { false, true })
-            for (int repeat = 0; repeat < 3; repeat++)
+            for (int repeat = 0; repeat < BenchmarkRepeats; repeat++)
             {
                 File.WriteAllText(Path.Combine(f.Target, "a.txt"), changed ? "local changed" : "ours-a");
                 var baseline = f.Before.GetSourceState(f.Source);
@@ -110,7 +111,7 @@ public sealed class BackupRestorePerformanceBenchmarkTests
                 results.Add(new { scenario = "B4-probe", changed, repeat, cache = "uncontrolled", diagnostic = scope.Summary, correct = true });
             }
             foreach (var mode in new[] { HistoryRestoreApplyMode.Clean, HistoryRestoreApplyMode.Overwrite })
-            for (int repeat = 0; repeat < 3; repeat++)
+            for (int repeat = 0; repeat < BenchmarkRepeats; repeat++)
             {
                 var root = Path.Combine(f.Root, "bench-filtered");
                 var target = Path.Combine(root, "target"); var staging = Path.Combine(root, "staging");
@@ -184,7 +185,7 @@ public sealed class BackupRestorePerformanceBenchmarkTests
         var results = new List<object>();
         foreach (var targetVolume in new[] { "C", "D" })
         foreach (var mode in new[] { HistoryRestoreApplyMode.Clean, HistoryRestoreApplyMode.Overwrite })
-        for (int repeat = 0; repeat < 3; repeat++)
+        for (int repeat = 0; repeat < BenchmarkRepeats; repeat++)
         {
             var root = targetVolume == "C" ? Path.Combine(f.Root, "benchmark")
                 : Path.Combine(Path.GetFullPath(output), "isolated-targets", Guid.NewGuid().ToString("N"));
@@ -196,8 +197,13 @@ public sealed class BackupRestorePerformanceBenchmarkTests
             using var verification = Candidate ? new ArchiveRestoreVerificationContext(Policy) : null;
             var diagnosticScope = HistoryOperationDiagnostics.Begin("B1-B5-full-restore");
             HistoryRestoreResult result;
+            double fileReadyMs;
             using (diagnosticScope)
+            {
                 result = await f.Restore(verification: verification, targetVolume: Candidate).RestoreVersionAsync(version, new(f.Source, target), workspace, mode);
+                fileReadyMs = clock.Elapsed.TotalMilliseconds;
+                await DrainDeferredCleanupAsync(f.History);
+            }
             clock.Stop();
             Assert.IsTrue(result.Succeeded, result.Diagnostic);
             var actual = (await MergeTreeManifest.ReadAsync(target,
@@ -205,7 +211,8 @@ public sealed class BackupRestorePerformanceBenchmarkTests
             Assert.AreEqual(expected, actual);
             var diagnostic = diagnosticScope.Summary;
             results.Add(new { scenario = targetVolume == "D" ? "B5" : "B1", mode = mode.ToString(), repeat,
-                mib, files = mib + 1002, elapsedMs = clock.Elapsed.TotalMilliseconds,
+                mib, files = mib + 1002, elapsedMs = clock.Elapsed.TotalMilliseconds, fileReadyMs,
+                totalMs = clock.Elapsed.TotalMilliseconds, cleanupDrainMs = clock.Elapsed.TotalMilliseconds - fileReadyMs,
                 cache = "uncontrolled", installation = "linked-service-test", candidate = Candidate, policy = Policy.ToString(), diagnostic, correct = true });
             Directory.Delete(root, true);
         }
@@ -215,5 +222,13 @@ public sealed class BackupRestorePerformanceBenchmarkTests
             dataset = "synthetic-mixed-seed-719", sourceMiB = mib,
             sevenZipSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(exe))), results
         }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    // Measurement only: older hosts perform cleanup inside the API instead of exposing a drain.
+    private static async Task DrainDeferredCleanupAsync(HistoryRuntime history)
+    {
+        var drain = history.GetType().GetMethod("DrainRestoreCleanupAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        if (drain is not null) await (Task)drain.Invoke(history, [CancellationToken.None])!;
     }
 }

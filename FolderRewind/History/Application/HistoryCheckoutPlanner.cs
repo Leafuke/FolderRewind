@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Application;
 
+public enum HistoryWorkingStateCheckMode { MetadataOnly, CompareContent }
+
 public enum HistoryCheckoutReadiness
 {
     Ready = 0,
@@ -85,7 +87,8 @@ public sealed class HistoryCheckoutPlanner
         IReadOnlyList<HistoryRestoreSourceBinding> currentConfigSources,
         HistoryWorkspace expectedWorkspace,
         AssessmentDepth assessmentDepth,
-        CancellationToken cancellationToken = default, SourceId? sourceId = null)
+        CancellationToken cancellationToken = default, SourceId? sourceId = null,
+        HistoryWorkingStateCheckMode workingStateCheck = HistoryWorkingStateCheckMode.MetadataOnly)
     {
         ArgumentNullException.ThrowIfNull(currentConfigSources);
         ArgumentNullException.ThrowIfNull(expectedWorkspace);
@@ -185,8 +188,8 @@ public sealed class HistoryCheckoutPlanner
                 HistoryCheckoutSourceAction.PreserveCurrent,
                 null,
                 binding));
-        var requiresProtection = false;
-        foreach (var binding in currentConfigSources)
+        var requiresProtection = workingStateCheck == HistoryWorkingStateCheckMode.MetadataOnly;
+        foreach (var binding in currentConfigSources.Where(_ => workingStateCheck == HistoryWorkingStateCheckMode.CompareContent))
         {
             var baseline = expectedWorkspace.SourceBaselines.FirstOrDefault(item => item.SourceId == binding.SourceId);
             if (baseline is null

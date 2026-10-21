@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>FolderRewind</RootNamespace>
-    <Version>1.9.7.0</Version>
+    <Version>1.9.8.0</Version>
     <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
@@ -36,6 +36,9 @@
     MSI 是独立的未打包发行通道。自包含发布避免要求最终用户另行安装
     .NET 或 Windows App SDK Runtime；EnableMsixTooling 保留以免影响既有 MSIX 流程。
   -->
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);NATIVE_ARTIFACT_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
     <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI</DefineConstants>
     <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>

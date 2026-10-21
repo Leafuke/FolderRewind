@@ -13,7 +13,7 @@ public sealed class KnotLinkFuncListTests
     {
         var manifest = KnotLinkFuncListService.BuildCore();
         Assert.AreEqual("1.0", manifest.SpecVersion);
-        Assert.AreEqual("3.0.0", manifest.ManifestVersion);
+        Assert.AreEqual("3.1.0", manifest.ManifestVersion);
         Assert.AreEqual(KnotLinkFuncListService.DefaultAppId, manifest.OpenSocket["backup"].AppId);
         Assert.AreEqual("static", manifest.OpenSocket["backup"].Args["cmd"].Type);
         Assert.AreEqual("BACKUP", manifest.OpenSocket["backup"].Args["cmd"].Value);

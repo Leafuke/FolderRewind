@@ -8,11 +8,16 @@ namespace FolderRewind.Plugin.Runtime.Artifacts;
 public sealed class HostArtifactReadService : IArtifactReadService
 {
     private readonly IReadOnlyDictionary<ArtifactContentHandle, string> _roots;
+    private readonly IReadOnlySet<string>? _allowedPaths;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ArtifactContentHandle, IReadOnlyList<ArtifactFileEntry>> _inventories = new();
 
-    public HostArtifactReadService(IReadOnlyDictionary<ArtifactContentHandle, string> roots)
+    public HostArtifactReadService(IReadOnlyDictionary<ArtifactContentHandle, string> roots, IReadOnlySet<string>? allowedPaths = null)
     {
         ArgumentNullException.ThrowIfNull(roots);
         _roots = roots.ToDictionary(pair => pair.Key, pair => Path.GetFullPath(pair.Value));
+        _allowedPaths = allowedPaths?.Select(ArtifactPathRules.NormalizeRelativePath).ToHashSet(StringComparer.Ordinal);
+        if (_allowedPaths is not null && (_roots.Count != 1 || File.Exists(_roots.Values.Single())))
+            throw new ArgumentException("A changes-only view requires one directory root.");
     }
 
     public ValueTask<IReadOnlyList<ArtifactFileEntry>> ListFilesAsync(
@@ -21,14 +26,24 @@ public sealed class HostArtifactReadService : IArtifactReadService
     {
         cancellationToken.ThrowIfCancellationRequested();
         var root = RequireRoot(content);
+        if (_inventories.TryGetValue(content, out var cached)) return ValueTask.FromResult(cached);
+        using var stage = ArtifactDiagnostics.Source.StartActivity("inventory.hash");
         if (File.Exists(root))
         {
             using var stream = new FileStream(root, FileMode.Open, FileAccess.Read, FileShare.Read);
             IReadOnlyList<ArtifactFileEntry> single =
             [new("payload", stream.Length, Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant())];
+            _inventories.TryAdd(content, single);
             return ValueTask.FromResult(single);
         }
-        IReadOnlyList<ArtifactFileEntry> entries = EnumerateSafeFiles(root)
+        var files = _allowedPaths is null ? EnumerateSafeFiles(root)
+            : _allowedPaths.Order(StringComparer.Ordinal).Select(path =>
+            {
+                var full = ArtifactPathRules.ResolveUnderRoot(root, path);
+                EnsureNoReparsePoints(root, full);
+                return (RelativePath: path, FullPath: full);
+            }).ToArray();
+        IReadOnlyList<ArtifactFileEntry> entries = files
             .Select(file =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -36,6 +51,8 @@ public sealed class HostArtifactReadService : IArtifactReadService
                 return new ArtifactFileEntry(file.RelativePath, stream.Length, Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant());
             })
             .ToArray();
+        entries = Array.AsReadOnly(entries.ToArray());
+        _inventories.TryAdd(content, entries);
         return ValueTask.FromResult(entries);
     }
 
@@ -46,6 +63,8 @@ public sealed class HostArtifactReadService : IArtifactReadService
     {
         cancellationToken.ThrowIfCancellationRequested();
         var root = RequireRoot(content);
+        if (_allowedPaths is not null && !_allowedPaths.Contains(ArtifactPathRules.NormalizeRelativePath(relativePath)))
+            throw new FileNotFoundException("Path is outside the declared capture input.", relativePath);
         if (File.Exists(root))
         {
             if (!StringComparer.Ordinal.Equals(
@@ -59,8 +78,8 @@ public sealed class HostArtifactReadService : IArtifactReadService
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.Read,
-                64 * 1024,
-                FileOptions.Asynchronous | FileOptions.SequentialScan));
+                1,
+                FileOptions.RandomAccess));
         }
         var path = ArtifactPathRules.ResolveUnderRoot(root, relativePath);
         EnsureNoReparsePoints(root, path);
@@ -70,8 +89,8 @@ public sealed class HostArtifactReadService : IArtifactReadService
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
-            64 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan));
+            1,
+            FileOptions.RandomAccess));
     }
 
     internal static IReadOnlyList<(string RelativePath, string FullPath)> EnumerateSafeFiles(string root)
@@ -105,6 +124,7 @@ public sealed class HostArtifactReadService : IArtifactReadService
         string root,
         CancellationToken cancellationToken)
     {
+        using var stage = ArtifactDiagnostics.Source.StartActivity("logical.hash");
         if (File.Exists(root))
         {
             await using var stream = new FileStream(root, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
@@ -131,8 +151,25 @@ public sealed class HostArtifactReadService : IArtifactReadService
         return (Convert.ToHexString(aggregate.GetHashAndReset()).ToLowerInvariant(), total);
     }
 
+    internal static (string Sha256, long Size) ComputeInventoryFacts(IReadOnlyList<ArtifactFileEntry> files)
+    {
+        if (files.Count == 0) return (Convert.ToHexString(SHA256.HashData([])).ToLowerInvariant(), 0);
+        using var aggregate = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        long total = 0;
+        Span<byte> length = stackalloc byte[sizeof(long)];
+        foreach (var file in files.OrderBy(f => f.RelativePath, StringComparer.Ordinal))
+        {
+            aggregate.AppendData(Encoding.UTF8.GetBytes(file.RelativePath)); aggregate.AppendData([0]);
+            BinaryPrimitives.WriteInt64LittleEndian(length, file.Length); aggregate.AppendData(length);
+            aggregate.AppendData(Convert.FromHexString(file.Sha256)); total = checked(total + file.Length);
+        }
+        return (Convert.ToHexString(aggregate.GetHashAndReset()).ToLowerInvariant(), total);
+    }
+
     internal static void EnsureNoReparsePoints(string root, string path)
     {
+        if (File.Exists(path) && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+            throw new InvalidDataException("Artifact file cannot be a reparse point.");
         var fullRoot = Path.GetFullPath(root);
         var current = Path.GetDirectoryName(path);
         while (current is not null && current.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
@@ -173,25 +210,20 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
         _root = Path.GetFullPath(root ?? throw new ArgumentNullException(nameof(root)));
         _maximumFiles = maximumFiles;
         _maximumBytes = maximumBytes;
-        Directory.CreateDirectory(_root);
-        if (File.GetAttributes(_root).HasFlag(FileAttributes.ReparsePoint))
-        {
-            throw new InvalidDataException("Artifact staging root cannot be a reparse point.");
-        }
-        var drive = new DriveInfo(Path.GetPathRoot(_root)!);
-        if (drive.AvailableFreeSpace < maximumBytes)
-        {
-            throw new IOException("Artifact staging cannot reserve its configured byte quota.");
-        }
+        HostArtifactWorkspace.CreatePrivateDirectory(_root);
     }
 
     public ValueTask<ArtifactStagingAllocation> CreateArtifactAsync(CancellationToken cancellationToken)
+        => CreateArtifactAsync(new ArtifactId(Guid.NewGuid()), cancellationToken);
+
+    internal ValueTask<ArtifactStagingAllocation> CreateArtifactAsync(ArtifactId artifactId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_allocations)
         {
             ThrowIfSealed();
-            var artifactId = new ArtifactId(Guid.NewGuid());
+            if (artifactId.Value == Guid.Empty || _allocations.Values.Any(a => a.ArtifactId == artifactId))
+                throw new InvalidDataException("Duplicate or empty Artifact identity.");
             var handle = new ArtifactStagingHandle(Guid.NewGuid().ToString("N"));
             var path = Path.Combine(_root, artifactId.Value.ToString("N"));
             Directory.CreateDirectory(path);
@@ -236,13 +268,14 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
                 64 * 1024,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
             _openStreams++;
-            return ValueTask.FromResult<Stream>(new QuotaWriteStream(stream, ReserveBytes, StreamClosed));
+            return ValueTask.FromResult<Stream>(new QuotaWriteStream(stream, ReserveBytes, StreamClosed, count => ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(_root, count))));
         }
     }
 
     public async ValueTask<IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts>> SealAsync(
         string contentPathPrefix,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlySet<ArtifactStagingHandle>? includedHandles = null)
     {
         lock (_allocations)
         {
@@ -254,6 +287,7 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
         var facts = new Dictionary<ArtifactStagingHandle, StagedArtifactFacts>();
         foreach (var (handle, allocation) in _allocations)
         {
+            if (includedHandles is not null && !includedHandles.Contains(handle)) continue;
             cancellationToken.ThrowIfCancellationRequested();
             var (logicalHash, total) = await HostArtifactReadService.ComputeLogicalFactsAsync(
                 allocation.Path,
@@ -267,14 +301,14 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
                 logicalHash,
                 total,
                 logicalHash,
-                total));
+                total) { FileCount = allocation.Paths.Count, LogicalEntryCount = ArtifactExtractionBudget.CountEntries(allocation.Paths) });
         }
         return facts;
     }
 
     public ValueTask DisposeAsync()
     {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        HostArtifactWorkspace.DeleteOwnedDirectory(_root);
         return ValueTask.CompletedTask;
     }
 
@@ -347,7 +381,7 @@ public sealed class RestoreMaterializationWorkspace : IRestoreMaterializationWor
     public ValueTask DisposeAsync() => _storage.DisposeAsync();
 }
 
-internal sealed class QuotaWriteStream(Stream inner, Action<int> reserve, Action closed) : Stream
+internal sealed class QuotaWriteStream(Stream inner, Action<int> reserve, Action closed, Func<int, IDisposable>? reserveSpace = null) : Stream
 {
     private bool _closed;
     public override bool CanRead => false;
@@ -363,22 +397,26 @@ internal sealed class QuotaWriteStream(Stream inner, Action<int> reserve, Action
     public override void Write(byte[] buffer, int offset, int count)
     {
         reserve(count);
+        using var space = reserveSpace?.Invoke(count);
         inner.Write(buffer, offset, count);
     }
     public override void Write(ReadOnlySpan<byte> buffer)
     {
         reserve(buffer.Length);
+        using var space = reserveSpace?.Invoke(buffer.Length);
         inner.Write(buffer);
     }
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
         reserve(buffer.Length);
+        using var space = reserveSpace?.Invoke(buffer.Length);
         await inner.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
     }
-    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
         reserve(count);
-        return inner.WriteAsync(buffer, offset, count, cancellationToken);
+        using var space = reserveSpace?.Invoke(count);
+        await inner.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
     }
     protected override void Dispose(bool disposing)
     {

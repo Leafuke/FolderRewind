@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "baseline": {
+    "cohort": "baseline",
+    "head": "3bfc76108b73828b1b4811f9be3dad46cd0795e2",
+    "toolHead": "4794e85e32cc1c5607828fea95b0cd3bb39f2228",
+    "adapter": "baseline-diagnostics.patch",
+    "adapterSha256": "6153785C2253B7205FB4BA4D63DB9EAA2F30D17C8BA1AA50FAE143595AB2BEB2",
+    "files": [
+      {
+        "sha256": "C16307CB3F29DD8D77E5DBBA6212052BFA3C42C09B9E848A7E66DC270D72671B",
+        "name": "BackupPerformanceHost.exe"
+      },
+      {
+        "sha256": "93FC9C7BB4D1A1465CD305929FA9277CFCE772902B0912298CC64872D4F1F3F1",
+        "name": "BackupPerformanceHost.dll"
+      },
+      {
+        "sha256": "3252FF8A40F25309BF45F1977FFC8AA6C3A7F939D0A6B55FAFC376E6AC9BC05A",
+        "name": "FolderRewind.dll"
+      },
+      {
+        "sha256": "258D387D4A8D32A3F61CF7283235ECA9326C8B3D349FD853BEB9931140C33F2A",
+        "name": "FolderRewind.Plugin.Abstractions.dll"
+      },
+      {
+        "sha256": "C2CF4445A02CDB6BA9FBD2E6EE676BE2A7A04BDE194101D95E1157ADAC52C5C3",
+        "name": "FolderRewind.Plugin.Runtime.dll"
+      }
+    ],
+    "sevenZip": "051AFC5DCE51D2C8802D81A44ED5433A8D31FB158D9E9EB0A37E75B3B81FD867"
+  },
+  "candidate": {
+    "cohort": "candidate",
+    "head": "4794e85e32cc1c5607828fea95b0cd3bb39f2228",
+    "hostHead": "6782132",
+    "toolHead": "4794e85e32cc1c5607828fea95b0cd3bb39f2228",
+    "files": [
+      {
+        "sha256": "201176619277F2750452857D3030CED79F38EB7410780528A01546284128884C",
+        "name": "BackupPerformanceHost.exe"
+      },
+      {
+        "sha256": "0EDDD4C3213F0BCF9AC44F5008D0D059D7C1B20A5A86BAC087D0C47B0C4800A2",
+        "name": "BackupPerformanceHost.dll"
+      },
+      {
+        "sha256": "8F998AB86C49268176B5312C5D23528E96FF99475FB608EFBE148D7DF549E3AE",
+        "name": "FolderRewind.dll"
+      },
+      {
+        "sha256": "374ED8D12104915E92411D8CE2C160C33B3DA08D85913722ABDBF203B10F8F8C",
+        "name": "FolderRewind.Plugin.Abstractions.dll"
+      },
+      {
+        "sha256": "D66ABDE762E054B9340EA23283495279B3D0B1AEF7E7A1F3D76F56006C498CCB",
+        "name": "FolderRewind.Plugin.Runtime.dll"
+      }
+    ],
+    "sevenZip": "051AFC5DCE51D2C8802D81A44ED5433A8D31FB158D9E9EB0A37E75B3B81FD867"
+  },
+  "environment": {
+    "date": "2026-10-19T16:54:34.918514+08:00",
+    "dotnet": "10.0.402",
+    "os": "Microsoft Windows NT 10.0.26300.0",
+    "processor": {
+      "Name": "Intel(R) Core(TM) Ultra 5 338H",
+      "NumberOfLogicalProcessors": 12
+    },
+    "ramGiB": 31.55,
+    "volumes": [
+      {
+        "DriveLetter": "C",
+        "FileSystem": "NTFS",
+        "SizeRemaining": 49939922944,
+        "Size": 322122543104
+      },
+      {
+        "DriveLetter": "D",
+        "FileSystem": "NTFS",
+        "SizeRemaining": 295077330944,
+        "Size": 670615728128
+      }
+    ],
+    "power": [
+      "电源方案 GUID: b8a2c9f4-7d3e-4a1b-9c2f-5e8d6a3b1c4f  (Honor Performance)"
+    ],
+    "repeats": 5,
+    "mib": 64,
+    "sevenZip": "051AFC5DCE51D2C8802D81A44ED5433A8D31FB158D9E9EB0A37E75B3B81FD867",
+    "baselineHead": "3bfc76108b73828b1b4811f9be3dad46cd0795e2",
+    "baselineAdapter": "6153785C2253B7205FB4BA4D63DB9EAA2F30D17C8BA1AA50FAE143595AB2BEB2",
+    "input": "synthetic half random(seed719)/half zero 64 MiB + 1000 text files; six-layer Smart",
+    "cache": "uncontrolled; same synthetic generation and spacing for both cohorts",
+    "spacing": "next UTC second after prior completion, outside operation timer"
+  },
+  "runs": [
+    {
+      "cohort": "baseline-balanced-r1",
+      "startedAt": "2026-10-19T20:00:21.6403627+08:00",
+      "completedAt": "2026-10-19T20:02:54.3452312+08:00",
+      "exitCode": 0
+    },
+    {
+      "cohort": "candidate-balanced-r1",
+      "startedAt": "2026-10-19T20:02:54.3526404+08:00",
+      "completedAt": "2026-10-19T20:05:10.3559853+08:00",
+      "exitCode": 0
+    },
+    {
+      "cohort": "baseline-strict-r1",
+      "startedAt": "2026-10-19T20:05:10.358172+08:00",
+      "completedAt": "2026-10-19T20:07:53.3658456+08:00",
+      "exitCode": 0
+    },
+    {
+      "cohort": "candidate-strict-r1",
+      "startedAt": "2026-10-19T20:07:53.3682724+08:00",
+      "completedAt": "2026-10-19T20:10:11.363573+08:00",
+      "exitCode": 0
+    },
+    {
+      "cohort": "candidate-balanced-r2",
+      "startedAt": "2026-10-19T20:10:11.3661683+08:00",
+      "completedAt": "2026-10-19T20:12:27.3659676+08:00",
+      "exitCode": 0
+    },
+    {
+      "cohort": "baseline-balanced-r2",
+      "startedAt": "2026-10-19T20:12:27.3678371+08:00",
+      "completedAt": "2026-10-19T20:15:04.3487742+08:00",
+      "exitCode": 0
+    },
+    {
+      "cohort": "candidate-strict-r2",
+      "startedAt": "2026-10-19T20:15:04.3508401+08:00",
+      "completedAt": "2026-10-19T20:17:32.3763538+08:00",
+      "exitCode": 0
+    },
+    {
+      "cohort": "baseline-strict-r2",
+      "startedAt": "2026-10-19T20:17:32.3784243+08:00",
+      "completedAt": "2026-10-19T20:20:18.351244+08:00",
+      "exitCode": 0
+    }
+  ],
+  "groups": 120,
+  "samples": 600.0,
+  "candidateInvalidGroups": 0,
+  "baselineInvalidGroups": 0,
+  "singleRoundRegressions": 0,
+  "persistentRegressions": 0,
+  "rawSummarySha256": "479AC51681E227434AFAA8907CF1A683DC2F2266B77FF69DA4CF9DC736AF92E8",
+  "comparisonCsvSha256": "B1EC3CC36D811531C7C7EF600CDACC1BED5E3F6C6DDBDF4073D7696F0FEDB2D8",
+  "rawRoot": "artifacts/1.9.8/stage-2/performance",
+  "timing": "fileReady=API completion; total=API + cleanup drain + log drain",
+  "io": "logical process bytes including cache, not physical disk bytes",
+  "archiveNameSpacing": "both cohorts wait until next UTC second after prior completion, outside timing",
+  "cache": "uncontrolled"
+}

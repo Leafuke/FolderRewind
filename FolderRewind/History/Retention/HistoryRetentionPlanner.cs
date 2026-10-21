@@ -389,6 +389,11 @@ public sealed class HistoryRetentionPlanner
                          .Where(item => !hypotheticalProtected.Contains(item.RepresentationId))
                          .OrderBy(item => item.LocalReplicaId.ToString(), StringComparer.Ordinal))
             {
+                if (representationMap.TryGetValue(entry.RepresentationId, out var experimental)
+                    && experimental.Kind == RepresentationKind.PluginArtifact
+                    && experimental.RepresentationSpecificMetadata.ContainsKey("nativeArtifactEnvelope")
+                    && !NativePluginArtifactBackend.IsSupported(experimental))
+                    continue; // Unsupported experiments are preserved for explicit disposition.
                 if (representationMap.TryGetValue(entry.RepresentationId, out var legacyRepresentation)
                     && versionMap.TryGetValue(legacyRepresentation.VersionId, out var legacyVersion)
                     && legacyVersion.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)

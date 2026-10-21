@@ -164,6 +164,14 @@ internal sealed class PathRuleMatcher
     public static void ValidateRestoreRules(IEnumerable<string>? rules)
         => _ = CreateForRestore(rules, string.Empty);
 
+    // 字面规则匹配路径段且覆盖其后代；任意正则/通配符命中本目录不代表覆盖子树。
+    internal bool ExcludesWholeSubtree(string directory)
+    {
+        var full = NormalizeFullPath(directory);
+        var relative = TryGetRelativePath(_backupSourceRoot, full);
+        return MatchesLiteralPath(full) || (!string.IsNullOrWhiteSpace(relative) && MatchesLiteralPath(relative));
+    }
+
         /// <summary>
         /// 判断候选路径是否命中任一规则，按字面量 → 通配符 → 正则的顺序匹配。
         /// 候选先换算为相对源根的路径再参与匹配；正则规则的执行带 250ms 超时

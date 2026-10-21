@@ -31,11 +31,11 @@ internal static class PluginV3RestoreStagingPreparation
         var proposed = new Dictionary<string, RestoreStagedFileProposal>(StringComparer.OrdinalIgnoreCase);
         IReadOnlyList<RestoreStagedFileProposal> proposals;
         IReadOnlyList<string> deletes = [];
-        using (var current = new LockedView(binding.TargetDirectory, include))
-        using (var target = new LockedView(staging, include))
+        using (var current = new LockedView(binding.TargetDirectory, binding))
+        using (var target = new LockedView(staging, binding))
         {
             foreach (var proposal in await RestoreWhitelistPreparation.PrepareAsync(current, target,
-                config.Filters.RestoreWhitelist.Concat(additionalRestoreWhitelist ?? []), binding.TargetDirectory, token).ConfigureAwait(false))
+                config.Filters.RestoreWhitelist.Concat(additionalRestoreWhitelist ?? []), binding.ComparisonRoot, token).ConfigureAwait(false))
                 proposed.Add(proposal.RelativePath, proposal);
             if (lease is not null)
             {
@@ -61,6 +61,8 @@ internal static class PluginV3RestoreStagingPreparation
             proposals = RestoreStagingProposalValidator.ValidateAndFreeze(new(proposed.Values.ToArray(), []), include);
         }
         bool changed = false;
+        using var space = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(staging,
+            checked(proposals.Sum(p => (long)p.Content.Length + 4096))));
         foreach (var relative in deletes)
         {
             token.ThrowIfCancellationRequested();
@@ -84,27 +86,19 @@ internal static class PluginV3RestoreStagingPreparation
     {
         private readonly Dictionary<string, FileStream> _files = new(StringComparer.Ordinal);
         private readonly List<string> _allRelativePaths = [];
+        private readonly History.Storage.HistoryWorkingTreeReadLease? _read;
         public IReadOnlyList<string> AllRelativePaths => _allRelativePaths.AsReadOnly();
-        public LockedView(string root, Func<string, bool> include)
+        public LockedView(string root, HistoryRestoreSourceBinding binding)
         {
             try
             {
+                _read = new History.Storage.HistoryWorkingTreeReadLease(binding with { TargetDirectory = root, LogicalDirectory = binding.ComparisonRoot });
                 if (!Directory.Exists(root)) return;
-                var pending = new Stack<string>(); pending.Push(root);
-                while (pending.TryPop(out var directory))
+                foreach (var entry in new History.Storage.HistoryRestoreTreeScope(binding).Enumerate(_read.PhysicalRoot, includeExcluded: true))
                 {
-                    if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
-                        throw new IOException("Restore preparation cannot follow links.");
-                    foreach (var path in Directory.EnumerateFileSystemEntries(directory))
-                    {
-                        var attributes = File.GetAttributes(path);
-                        if ((attributes & FileAttributes.ReparsePoint) != 0)
-                            throw new IOException("Restore preparation cannot follow links.");
-                        if ((attributes & FileAttributes.Directory) != 0) { pending.Push(path); continue; }
-                        var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
-                        _allRelativePaths.Add(relative);
-                        if (include(relative)) _files.Add(relative, new(path, FileMode.Open, FileAccess.Read, FileShare.Read));
-                    }
+                    if (entry.Directory) continue;
+                    _allRelativePaths.Add(entry.RelativePath);
+                    if (entry.Managed) _files.Add(entry.RelativePath, _read.GetStream(entry.RelativePath));
                 }
             }
             catch { Dispose(); throw; }
@@ -123,6 +117,6 @@ internal static class PluginV3RestoreStagingPreparation
                 return ValueTask.FromResult<Stream>(new MemoryStream(buffer.ToArray(), writable: false));
             }
         }
-        public void Dispose() { foreach (var stream in _files.Values) stream.Dispose(); _files.Clear(); }
+        public void Dispose() { _files.Clear(); _read?.Dispose(); }
     }
 }

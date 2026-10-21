@@ -59,9 +59,9 @@ namespace FolderRewind.Services
                     return false;
                 }
 
-                if (!SevenZipArchiveListingParser.TryParse(output, out var entries))
+                if (!SevenZipArchiveListingParser.TryParse(output, out var entries, out _, out var failure))
                 {
-                    Log("[History] 7z listing output was ambiguous or malformed.", LogLevel.Warning);
+                    Log($"[History] 7z listing output was ambiguous or malformed. {failure}", LogLevel.Warning);
                     return false;
                 }
                 var expectedSizes = expectedStates.ToDictionary(

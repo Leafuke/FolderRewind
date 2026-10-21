@@ -62,6 +62,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         if (_presentationMode == mode) return;
         _presentationMode = mode;
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         if (!IsAdvancedHistory) SelectedBranch = Branches.FirstOrDefault(branch => branch.IsActive);
         OnPropertyChanged(nameof(IsAdvancedHistory));
         OnPropertyChanged(nameof(ShowBranchTools));
@@ -179,6 +180,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         set
         {
             if (!SetProperty(ref _selectedBranch, value)) return;
+            CancelWorkingComparison();
             NotifyBranchSelectionChanged();
             if (!_refreshingBranches)
             {
@@ -260,13 +262,18 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         MigrationWorkflowCoordinator.Changed += OnMigrationWorkflowChanged;
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
         ErrorMessage = string.Empty;
         var shouldRefresh = config is not null
             && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null));
         IsLoading = shouldRefresh;
-        if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id) SelectedBranch = null;
+        if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase) || _currentFolder?.Id != folder?.Id)
+        {
+            SelectedBranch = null;
+            ApplyRecoveryState(null);
+        }
         _currentConfig = config;
         _currentFolder = folder;
         var migrationStatus = config is null ? MigrationHistoryStatus.None : await MigrationWorkflowCoordinator.HistoryStatusAsync(config, request.Token);
@@ -279,7 +286,11 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
         if (config is not null)
         {
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
+            // New configurations/legacy takeover retain their explicit bootstrap path.
+            // Bound history selection must only initialize readable metadata.
+            var runtime = config.HistoryRepositoryBinding is null
+                ? await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token)
+                : await NativeHistoryCoreGateway.EnsureReadableAsync(config, request.Token);
             if (!request.IsCurrent) return;
             _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
             var pending = false;
@@ -329,6 +340,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _selectionRequests.CancelCurrent();
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
         IsLoading = false;
@@ -397,6 +409,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IsLoading = true;
         ErrorMessage = string.Empty;
         _branchAssessmentRequests.CancelCurrent();
+        CancelWorkingComparison();
         try
         {
             if (config is null)
@@ -409,7 +422,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             if (!request.IsCurrent || !_isActive) return;
             ApplyMigrationStatus(migrationStatus);
             if (migrationStatus == MigrationHistoryStatus.AwaitingHistory) { ClearPresentation(); return; }
-            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadableAsync(config, token);
+            var workspaceState = await Task.Run(() => runtime.WorkspaceStore.LoadAsync(token), token);
             SourceId? sourceId = !IsGroupedRunView && folder is not null
                 && Guid.TryParse(folder.Id, out var id)
                 && id != Guid.Empty
@@ -428,6 +442,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasMoreHistory));
             OnPropertyChanged(nameof(CanLoadMore));
             OnPropertyChanged(nameof(HasMissing));
+            ApplyRecoveryState(runtime, workspaceState);
             _presentationRuntime = runtime;
             _presentationSequence = page.Revision;
             _presentationSource = sourceId;
@@ -678,7 +693,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             mode).ConfigureAwait(false);
     }
     public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode,
-        Func<FolderRewind.History.Retention.PreparedHistoryChainRewrite, CancellationToken, Task<bool>>? confirm = null,
+        Func<FolderRewind.History.Retention.PreparedHistoryDeletion, CancellationToken, Task<bool>>? confirm = null,
         IProgress<FolderRewind.History.Retention.HistoryChainRewriteProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -713,7 +728,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 await using var prepared = await NativeHistoryApplicationService.PrepareVersionDeletionAsync(
                     config, item.VersionId, representationId, item.LocalPath,
                     hideRecord: mode == BackupDeleteMode.LocalArchiveAndRecord,
-                    releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord, progress, cancellationToken);
+                    releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord, operationLease, progress, cancellationToken);
                 if (confirm is not null && !await confirm(prepared, cancellationToken))
                     return new() { Success = true };
                 deletion = await NativeHistoryApplicationService.CommitVersionDeletionAsync(config, prepared, cancellationToken);
@@ -1007,7 +1022,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         catch (OperationCanceledException) when (request.Token.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            if (request.IsCurrent) { branch.SetAssessment(null); ReportOperationFailure("branch assessment", ex); }
+            if (request.IsCurrent) { branch.SetAssessment(null); WorkingComparisonMessage = I18n.GetString("History_Compare_Unknown"); WorkingComparisonDetails = CloudCommandSecurity.Redact(ex.Message); }
         }
         finally
         {
@@ -1020,6 +1035,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _nextCursor = null;
         OnPropertyChanged(nameof(HasMoreHistory));
         OnPropertyChanged(nameof(CanLoadMore));
+        ApplyRecoveryState(null);
         _presentationRuntime = null;
         _presentationSequence = -1;
         _allVersions.Clear();

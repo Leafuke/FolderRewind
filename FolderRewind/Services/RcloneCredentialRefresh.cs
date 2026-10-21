@@ -123,6 +123,31 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
     private Task SaveAsync(CancellationToken token) => AtomicFileService.WriteAsync(_attemptPath,
         (s, ct) => JsonSerializer.SerializeAsync(s, _attempt, CredentialRefreshJsonContext.Default.CredentialRefreshAttempt, ct), token);
 
+    internal static void RegisterSnapshot(string directory, string source, string revision)
+        => AtomicFileService.Write(Path.Combine(directory, "snapshot.json"), stream => JsonSerializer.Serialize(stream,
+            new CredentialSnapshotRegistration(1, source, revision), CredentialRefreshJsonContext.Default.CredentialSnapshotRegistration));
+
+    private static void RecoverIdleSnapshot(string directory, string source)
+    {
+        var registration = Path.Combine(directory, "snapshot.json");
+        if (!File.Exists(registration) || new FileInfo(registration).Length > 65536) throw Conflict();
+        RejectReparsePoints(registration);
+        var recorded = JsonSerializer.Deserialize(File.ReadAllBytes(registration), CredentialRefreshJsonContext.Default.CredentialSnapshotRegistration);
+        if (recorded is null || recorded.Version != 1) throw Conflict();
+        if (!StringComparer.OrdinalIgnoreCase.Equals(recorded.SourcePath, source)) return;
+        var snapshot = Path.Combine(directory, "rclone.conf");
+        RejectReparsePoints(snapshot);
+        var bytes = RcloneExecutionContext.ReadConfigurationBytes(snapshot);
+        var current = RcloneExecutionContext.ReadConfigurationBytes(source);
+        // No Attempt means no command can be running: Begin persists it before starting a child.
+        // Only discard bytes already present in the source or a proven ancestor of its token ledger.
+        if (!bytes.AsSpan().SequenceEqual(current) && (Hash(bytes) != recorded.SourceRevision
+            || !AcceptsFrozenRevision(source, recorded.SourceRevision, current))) throw Conflict();
+        File.Delete(snapshot);
+        File.Delete(Path.Combine(directory, "source.conf"));
+        File.Delete(registration);
+    }
+
     internal static async Task RecoverAsync(string root, string sourcePath, string currentDirectory, CancellationToken token, bool allowWriteback = true)
     {
         var directories = Directory.EnumerateDirectories(root, "task-*").Take(1001).ToArray();
@@ -138,12 +163,13 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
                 // 不可识别的遗留凭据快照可能是唯一的新 Token，不能用过期清理抹掉它。
                 if (File.Exists(Path.Combine(directory, "rclone.conf")) && File.Exists(Path.Combine(directory, "ownership.lock")))
                 {
+                    FileStream ownership;
                     try
                     {
-                        using var ownership = new FileStream(Path.Combine(directory, "ownership.lock"), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                        ownership = new FileStream(Path.Combine(directory, "ownership.lock"), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                     }
                     catch (IOException) { continue; } // 同进程的待执行上下文仍持有独占归属句柄。
-                    throw Conflict();
+                    using (ownership) RecoverIdleSnapshot(directory, sourcePath);
                 }
                 continue;
             }
@@ -167,6 +193,7 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
             AcceptedRevisions[sourcePath] = Hash(recovered);
             File.Delete(attemptPath); File.Delete(Path.Combine(directory, "source.conf"));
             File.Delete(Path.Combine(directory, "rclone.conf"));
+            File.Delete(Path.Combine(directory, "snapshot.json"));
             UnsettledSources.TryRemove(sourcePath, out _);
             // 保留快照目录给正常清理；这里只处理明确的刷新证据。
         }
@@ -367,6 +394,8 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
 internal sealed record CredentialRefreshAttempt(int Version, string SourcePath, string SourceRevision, string ExecutablePath,
     string[] TokenSections, string Phase, int? ProcessId, long? StartedUtcTicks);
 internal sealed record CredentialRevisionLedger(int Version, string CurrentRevision, string TargetRevision, string[] Revisions);
+internal sealed record CredentialSnapshotRegistration(int Version, string SourcePath, string SourceRevision);
 [JsonSerializable(typeof(CredentialRefreshAttempt))]
 [JsonSerializable(typeof(CredentialRevisionLedger))]
+[JsonSerializable(typeof(CredentialSnapshotRegistration))]
 internal partial class CredentialRefreshJsonContext : JsonSerializerContext;

@@ -24,7 +24,7 @@ namespace FolderRewind.Services
         /// SkipIfUnchanged 短路需同时满足两个前提：确无变更，且缓存引用的上个归档文件仍然存在
         /// （防止基于已被手动删除的 payload 判定"无变化"）。FileTypeRules 追加压缩失败只记警告。
         /// </remarks>
-        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null, string? originalSourcePath = null)
         {
             if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
             {
@@ -33,7 +33,7 @@ namespace FolderRewind.Services
                     captureScope,
                     "Partial capture requires an Exact parent patch and cannot be represented by CoreFull.");
             }
-            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            var currentStates = ScanDirectory(source, config.Filters, originalSourcePath, selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
                 return SourceCaptureResult.Unavailable(sourceId, captureScope);
@@ -51,7 +51,7 @@ namespace FolderRewind.Services
                 }
             }
 
-            string fileName = GenerateFileName(baseName, config.Archive.Format, "Full", comment);
+            string fileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Full", comment);
             string destFile = Path.Combine(destDir, fileName);
 
             // 获取加密密码
@@ -61,13 +61,16 @@ namespace FolderRewind.Services
             }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
+            var inputBytes = currentStates.Values.Sum(file => file.Size);
+            using var outputSpace = Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(destDir,
+                checked(inputBytes + currentStates.Count * 4096L + Math.Max(8L * 1024 * 1024, inputBytes / 20))));
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection, originalSourcePath: originalSourcePath);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate, selection);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate, selection, originalSourcePath);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -143,7 +146,8 @@ namespace FolderRewind.Services
             // 2. 智能备份链长度检查（参考 MineBackup maxSmartBackupsPerFull 逻辑）
             // 当连续的增量备份数量达到上限时，强制执行全量备份以截断链条
             int maxChain = config.Archive.MaxSmartBackupsPerFull;
-            if (maxChain > 0 && baseline.ConsecutiveSmartCaptures >= maxChain)
+            if (maxChain > 0 && baseline.ConsecutiveSmartCaptures >= maxChain
+                && !Plugins.V3.NativeArtifactHostService.IsIncrementalPolicy(config))
             {
                 if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
                 {
@@ -221,7 +225,7 @@ namespace FolderRewind.Services
                 File.WriteAllLines(listFile, mainFiles);
             }
 
-            string fileName = GenerateFileName(baseName, config.Archive.Format, "Smart", comment);
+            string fileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Smart", comment);
             string destFile = Path.Combine(destDir, fileName);
 
             // 4. 执行压缩 (使用 @listfile)
@@ -364,7 +368,7 @@ namespace FolderRewind.Services
                 return await FallbackToFullAsync();
             }
 
-            string finalFileName = CreateUniqueRollingFileName(destDir, baseName, config.Archive.Format, comment);
+            string finalFileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Rolling", comment);
             string finalPath = Path.Combine(destDir, finalFileName);
             string? changedListFile = null;
             string? deletedListFile = null;
@@ -553,10 +557,10 @@ namespace FolderRewind.Services
 
 
 
-        private static string CreateUniqueRollingFileName(string destinationDirectory, string baseName, string format, string comment)
+        private static string CreateUniqueArchiveFileName(string destinationDirectory, string baseName, string format, string prefix, string comment)
         {
-            string candidate = GenerateFileName(baseName, format, "Rolling", comment);
-            if (!File.Exists(Path.Combine(destinationDirectory, candidate)))
+            string candidate = GenerateFileName(baseName, format, prefix, comment);
+            if (!Path.Exists(Path.Combine(destinationDirectory, candidate)))
             {
                 return candidate;
             }

@@ -11,21 +11,22 @@ public sealed partial class ConfigSettingsDialogViewModel
     public string CleanNowLabel => I18n.GetString(HasUnsavedChanges ? "Retention_SaveClean" : "Retention_CleanNow");
     internal void RefreshCleanupActions()
     {
+        RefreshSemanticAvailability();
         OnPropertyChanged(nameof(CanCleanNow));
         OnPropertyChanged(nameof(CleanNowLabel));
     }
     internal async Task SaveForCleanupAsync(CancellationToken token)
     {
         string? error = null;
-        _savingDraft = true; RefreshDraftState();
+        _savingDraft = true; RefreshDraftState(); RefreshCleanupActions();
         try
         {
             LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave,
                 (_editingDraft is not null ? () => _editingDraft.CommitAsync(token) : SaveDraft ?? (() => ConfigService.SaveAsync())), message => error = message, token);
-            _draftSaveResult = LastSaveSucceeded;
+            _draftSaveResult = !LastSaveSucceeded && token.IsCancellationRequested ? null : LastSaveSucceeded;
             RefreshCleanupActions();
         }
-        finally { _savingDraft = false; RefreshDraftState(); }
+        finally { _savingDraft = false; RefreshDraftState(); RefreshCleanupActions(); }
         token.ThrowIfCancellationRequested();
         if (!LastSaveSucceeded) throw new InvalidOperationException(error ?? I18n.GetString("Common_Failed"));
     }

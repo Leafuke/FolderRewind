@@ -46,7 +46,7 @@ internal sealed record HistoryRestoreTransactionJournal(
     bool? CleanupCommitted = null,
     string? ConfigurationSignature = null);
 
-internal sealed class HistoryRestoreTransactionJournalStore
+internal sealed partial class HistoryRestoreTransactionJournalStore
 {
     private const string FileName = "restore-journal.json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -67,6 +67,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
     internal static void RequireRecovered(string root)
     {
         if (!Directory.Exists(root)) return;
+        RequireSafePreparationRecords(root);
         foreach (var path in Directory.EnumerateFiles(root, FileName, SearchOption.AllDirectories))
         {
             var journal = JsonSerializer.Deserialize<HistoryRestoreTransactionJournal>(File.ReadAllBytes(path), JsonOptions);
@@ -76,8 +77,18 @@ internal sealed class HistoryRestoreTransactionJournalStore
                 throw new InvalidDataException("Invalid legacy restore journal phase.");
             if (journal is not null && HistoryRestorePreparationSession.OwnsPreparing(journal, root)) continue;
             if (journal is null || journal.Phase != HistoryRestoreTransactionPhase.Complete)
-                throw new InvalidOperationException("An incomplete workspace transaction requires recovery before further mutations or GC.");
+                throw new InvalidOperationException($"Transaction {journal?.TransactionId} phase {journal?.Phase} ({path}) requires recovery before further mutations or GC.");
+            ValidateJournalEnvelope(journal, path);
         }
+    }
+
+    private static void ValidateJournalEnvelope(HistoryRestoreTransactionJournal? journal, string path)
+    {
+        if (journal is null || journal.ExpectedWorkspace is null || journal.DesiredWorkspace is null
+            || string.IsNullOrWhiteSpace(journal.ExpectedWorkspace.ConfigId.Value)
+            || journal.ExpectedWorkspace.ConfigId != journal.DesiredWorkspace.ConfigId
+            || !Path.GetFileName(Path.GetDirectoryName(path)!).Equals(journal.TransactionId.ToString(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Restore journal identity or state evidence is invalid; preserve transaction data.");
     }
 
     public void Save(HistoryRestoreTransactionJournal journal)
@@ -98,6 +109,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
     {
         var root = _runtime.Repository.Paths.TransactionsRoot;
         if (!Directory.Exists(root)) return false;
+        RecoverPreparationRecords();
         bool recovered = false;
         foreach (var path in Directory.GetFiles(root, FileName, SearchOption.AllDirectories))
         {
@@ -105,6 +117,8 @@ internal sealed class HistoryRestoreTransactionJournalStore
             var journal = JsonSerializer.Deserialize<HistoryRestoreTransactionJournal>(
                 await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false),
                 JsonOptions) ?? throw new InvalidDataException($"Restore journal '{path}' is empty.");
+            ValidateJournalEnvelope(journal, path);
+            if (journal.ExpectedWorkspace.ConfigId != _runtime.ConfigId) throw new InvalidDataException("Restore journal belongs to another configuration.");
             if (journal.ProtocolVersion is not (1 or 2)) throw new InvalidDataException("Unsupported restore journal protocol; preserve transaction data.");
             if (!Enum.IsDefined(journal.Phase)) throw new InvalidDataException("Unknown restore journal phase; preserve transaction data.");
             if (journal.ProtocolVersion == 1 && journal.Phase > HistoryRestoreTransactionPhase.Complete) throw new InvalidDataException("Invalid legacy restore journal phase.");
@@ -112,7 +126,13 @@ internal sealed class HistoryRestoreTransactionJournalStore
             if (journal.Phase == HistoryRestoreTransactionPhase.Complete) continue;
             if (journal.ProtocolVersion == 2)
             {
-                await RecoverV2Async(journal, cancellationToken).ConfigureAwait(false);
+                try { await RecoverV2Async(journal, cancellationToken).ConfigureAwait(false); }
+                catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException)
+                {
+                    HistoryRestoreRecoveryDiagnostics.Report(_runtime.ConfigId, journal.TransactionId, journal.Phase.ToString(),
+                        journal.FileSystemPlan is not null, journal.CleanupCommitted, error, "RecoveryBlocked");
+                    throw;
+                }
                 recovered = true;
                 continue;
             }
@@ -163,6 +183,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
                     _runtime.MergeSessions.Update(session, MergeSessionState.Ready);
                 }
             }
+        if (Directory.EnumerateFiles(root, "restore-cleanup.json", SearchOption.AllDirectories).Any()) _runtime.ScheduleRestoreCleanup();
         return recovered;
     }
 
@@ -181,33 +202,14 @@ internal sealed class HistoryRestoreTransactionJournalStore
 
     private async Task RecoverV2Async(HistoryRestoreTransactionJournal journal, CancellationToken token)
     {
+        if (journal.FileSystemPlan is null)
+        {
+            AbandonPreparation(journal);
+            return;
+        }
         var actual = (await _runtime.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value
             ?? throw new InvalidDataException("Restore v2 requires a readable Workspace.");
         if (journal.Workspaces.IsDefaultOrEmpty) throw new InvalidDataException("Restore v2 workspace ownership is absent.");
-        if (journal.FileSystemPlan is null)
-        {
-            if (journal.Phase != HistoryRestoreTransactionPhase.Preparing || !WorkspaceEquals(actual, journal.ExpectedWorkspace))
-                throw new InvalidDataException("Restore preparation has an uncertain commit state.");
-            foreach (var workspace in journal.Workspaces.ToArray())
-            {
-                if (workspace.ContainerIdentity is null)
-                {
-                    if (Path.Exists(workspace.Location.Container)) throw new IOException("Unregistered preparation container requires manual recovery; preserving it.");
-                    continue;
-                }
-                if (WindowsRestoreFileSystem.TryIdentity(workspace.Location.Container) != workspace.ContainerIdentity)
-                {
-                    if (workspace.CleanupStarted && !Path.Exists(workspace.Location.Container)) continue;
-                    throw new IOException("Preparation container ownership changed.");
-                }
-                var index = journal.Workspaces.IndexOf(workspace);
-                journal = journal with { Workspaces = journal.Workspaces.SetItem(index, workspace with { CleanupStarted = true }) };
-                Save(journal);
-                HistoryRestoreFileSystemPlanStore.Cleanup(new(journal.TransactionId, [workspace.Location.Container], workspace.KnownObjects, []), false, true);
-            }
-            Save(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
-            return;
-        }
         if (!StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(journal.FileSystemPlan.Path),
                 Path.Combine(TransactionDirectory(journal.TransactionId), "restore-plan.json")))
             throw new InvalidDataException("Restore immutable plan location is invalid.");
@@ -237,9 +239,53 @@ internal sealed class HistoryRestoreTransactionJournalStore
             HistoryRestoreFileSystemPlanStore.ValidateFinal(plan, false);
         }
         else HistoryRestoreFileSystemPlanStore.ValidateOutsideContainers(plan, false);
-        Save(journal with { Phase = HistoryRestoreTransactionPhase.Cleaning, CleanupCommitted = committed });
-        HistoryRestoreFileSystemPlanStore.Cleanup(plan, committed, allowMissing: true);
+        CompleteWithDeferredCleanup(journal, committed);
+    }
+
+    // This record covers only abandoned preparation containers, never original rollback objects.
+    private sealed record PreparationCleanup(int FormatVersion, HistoryTransactionId TransactionId,
+        ImmutableArray<RestoreWorkspaceRegistration> Workspaces);
+
+    internal void AbandonPreparation(HistoryRestoreTransactionJournal journal)
+    {
+        if (journal.ProtocolVersion != 2 || journal.Phase != HistoryRestoreTransactionPhase.Preparing
+            || journal.FileSystemPlan is not null || journal.Workspaces.IsDefaultOrEmpty
+            || journal.ExpectedWorkspace.ConfigId != _runtime.ConfigId
+            || journal.DesiredWorkspace.ConfigId != _runtime.ConfigId
+            || !journal.RollbackSnapshots.IsDefaultOrEmpty || !journal.AppliedSources.IsDefaultOrEmpty
+            || !journal.StartedSources.IsDefaultOrEmpty || journal.IntendedPackBytes is not null || journal.CleanupCommitted is not null)
+            throw HistoryRestoreRecoveryDiagnostics.Mark(new InvalidDataException("Preparation has conflicting execution evidence; preserve transaction data."),
+                RestoreRecoveryFailureKind.ConflictingExecutionEvidence);
+        ValidateAbandonedPreparation(journal.TransactionId, journal.Workspaces);
+        foreach (var registration in journal.Workspaces)
+        {
+            if (WindowsRestoreFileSystem.TryIdentity(registration.Location.Target) != registration.Location.TargetIdentity)
+                throw HistoryRestoreRecoveryDiagnostics.Mark(new InvalidDataException("Preparing target identity changed; preserve transaction data."),
+                    RestoreRecoveryFailureKind.IdentityMismatch, registration.Location.Container);
+        }
+        // Persist the handoff before completing the blocking transaction. A crash retries either side.
+        WriteCleanup(new(2, RestoreCleanupKind.AbandonedPreparation, _runtime.ConfigId, journal.TransactionId, journal.Workspaces));
+        HistoryRestoreFileSystemPlanStore.Reach("after-preparation-cleanup-record");
         Save(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
+        HistoryRestoreFileSystemPlanStore.Reach("after-preparation-handoff");
+        _runtime.ScheduleRestoreCleanup();
+    }
+
+    private void ValidatePreparationLocation(HistoryTransactionId transaction, RestoreWorkspaceRegistration registration)
+    {
+        var location = registration.Location;
+        if (location.ParentIdentity is null || !location.ParentIdentity.Directory
+            || registration.ContainerIdentity is { Directory: false })
+            throw new InvalidDataException("Preparation directory identity is invalid.");
+        var target = Path.GetFullPath(location.Target);
+        var container = Path.GetFullPath(location.Container);
+        var repository = HistoryRestoreWorkspacePlanner.ResolvePath(_runtime.Repository.Paths.RepositoryRoot);
+        var expected = Path.Combine(Path.GetDirectoryName(target)!, $".folderrewind-restore-{transaction}-{location.SourceId}");
+        if (!Path.IsPathFullyQualified(location.Target) || !Path.IsPathFullyQualified(location.Container)
+            || !StringComparer.OrdinalIgnoreCase.Equals(container, expected)
+            || HistoryRestoreWorkspacePlanner.Overlaps(container, repository)
+            || HistoryRestoreWorkspacePlanner.Overlaps(target, repository))
+            throw new InvalidDataException("Preparation container binding is invalid.");
     }
 
     private static bool IsWithin(string path, HistoryRestoreWorkspaceLocation location)

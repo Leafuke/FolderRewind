@@ -16,24 +16,27 @@ namespace FolderRewind.History.Retention;
 
 /// <summary>The caller owns the configuration operation lease for the complete run.</summary>
 public sealed class HistoryCleanupCoordinator(HistoryRuntime history, RepresentationRuntime engine,
-    IHistoryChainRewriteArchiveBackend archive, HistoryRetentionPlanner planner, string backupRoot)
+    IHistoryChainRewriteArchiveBackend archive, HistoryRetentionPlanner planner, string backupRoot,
+    Func<CancellationToken, Task<IReadOnlyList<NativeArtifactCollectionResult>>>? collectArtifacts = null)
 {
     public async Task<HistoryCleanupReport?> ExecuteAsync(int keepCount, int maximumDepth,
         HistoryRetentionBenefitPolicy policy, bool automatic, string compressionSignature,
         IProgress<HistoryChainRewriteProgress>? progress = null, CancellationToken token = default)
     {
-        if (keepCount <= 0) return null;
+        if (keepCount <= 0) return await CollectOrphansOnlyAsync(policy, automatic, token).ConfigureAwait(false);
         var store = new HistoryCleanupReportStore(history.Repository.Paths.LocalStateRoot);
         using var activeRun = store.BeginRun();
+        var previousCollections = store.Read()?.NativeCollectionIds?.ToHashSet(StringComparer.Ordinal) ?? [];
         var cache = store.ReadCache();
         var report = new HistoryCleanupReport { KeepCount = keepCount, Policy = policy, Trigger = automatic ? "Automatic" : "Manual" };
         bool evaluated = false;
-        void Persist()
+        bool Persist()
         {
-            try { store.Save(report); }
+            try { store.Save(report); return true; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 if (!report.Issues.Any(i => i.Code == "ReportWriteFailed")) report.Issues.Add(new("ReportWriteFailed", ex.Message));
+                return false;
             }
         }
         try
@@ -131,7 +134,8 @@ public sealed class HistoryCleanupCoordinator(HistoryRuntime history, Representa
                         if (local.Entries.Any(e => currentGraph.TryGetValue(e.RepresentationId, out var r) && versions.TryGetValue(r.VersionId, out var v)
                             && v.SourceId == source && !protectedVersions.Contains(v.VersionId)
                             && (v.BoundaryConfidence != HistoricalBoundaryConfidence.Known || r.Fidelity != MaterializationFidelity.Exact
-                                || r.Kind is not (RepresentationKind.CoreFull or RepresentationKind.CoreRolling or RepresentationKind.CoreSmartDelta)
+                                || (r.Kind is not (RepresentationKind.CoreFull or RepresentationKind.CoreRolling or RepresentationKind.CoreSmartDelta)
+                                    && !NativePluginArtifactBackend.IsSupported(r))
                                 || e.Locator.Kind != LocalReplicaLocatorKind.ControlledAbsolutePath)))
                         {
                             row.Issues.Add(new("UnsupportedArchive"));
@@ -160,6 +164,32 @@ public sealed class HistoryCleanupCoordinator(HistoryRuntime history, Representa
                 if ((await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Status != DeviceLocalStateStatus.Valid)
                     throw new InvalidDataException("Local catalog requires recovery before another group can run.");
             }
+            // Native planning and DAG collection run once for the entire configuration, including cached Core groups.
+            if (collectArtifacts is not null)
+            {
+                var collections = await collectArtifacts(token).ConfigureAwait(false);
+                report.NativeCollectionIds = collections.Select(c => c.CollectionId).Distinct().ToList();
+                foreach (var collection in collections)
+                {
+                    evaluated = true;
+                    if (previousCollections.Contains(collection.CollectionId)) continue;
+                    var row = report.Sources.FirstOrDefault(r => r.SourceId == collection.SourceId.ToString());
+                    if (row is null)
+                    {
+                        row = new HistoryCleanupSourceReport { SourceId = collection.SourceId.ToString(), GroupId = collection.SourceId.ToString() };
+                        report.Sources.Add(row);
+                    }
+                    row.NativeDeletedObjects += collection.DeletedObjects;
+                    row.ReclaimedBytes += collection.ReclaimedBytes;
+                    if (row.Status is "Pending" or "NoWork" or "NoSpaceBenefit") row.Status = "Completed";
+                }
+                if (collections.Count > 0 && Persist())
+                    foreach (var acknowledge in collections.Select(c => c.Acknowledge).OfType<Func<CancellationToken, Task>>())
+                        try { await acknowledge(CancellationToken.None).ConfigureAwait(false); }
+                        catch (Exception ex) { report.Issues.Add(new("CollectionAckPending", ex.Message)); }
+                foreach (var row in report.Sources)
+                    if (Guid.TryParse(row.SourceId, out var source)) row.After = await CountReadyAsync(new(source), token).ConfigureAwait(false);
+            }
             if (automatic && !evaluated && groups.Count > 0) return null;
             report.Status = report.Sources.Any(r => r.Status is "Blocked" or "Incomplete" or "NoSpaceBenefit" or "CleanupPending")
                 ? report.Sources.Any(r => r.Status == "Completed") ? "Partial" : "Incomplete"
@@ -172,6 +202,32 @@ public sealed class HistoryCleanupCoordinator(HistoryRuntime history, Representa
         foreach (var row in report.Sources.Where(r => r.Status == "Pending")) row.Status = report.Status == "Canceled" ? "Canceled" : "Interrupted";
         report.FinishedAtUtc = DateTimeOffset.UtcNow;
         Persist();
+        return report;
+    }
+
+    private async Task<HistoryCleanupReport?> CollectOrphansOnlyAsync(HistoryRetentionBenefitPolicy policy, bool automatic, CancellationToken token)
+    {
+        if (collectArtifacts is null) return null;
+        var reports = new HistoryCleanupReportStore(history.Repository.Paths.LocalStateRoot);
+        var previous = reports.Read()?.NativeCollectionIds?.ToHashSet(StringComparer.Ordinal) ?? [];
+        var collections = await collectArtifacts(token).ConfigureAwait(false);
+        if (collections.Count == 0) return null;
+        var report = new HistoryCleanupReport { KeepCount = 0, Policy = policy, Trigger = automatic ? "Automatic" : "Manual",
+            Status = "Completed", FinishedAtUtc = DateTimeOffset.UtcNow,
+            NativeCollectionIds = collections.Select(c => c.CollectionId).Distinct().ToList() };
+        var versions = await history.Query.GetAllVersionsAsync(token).ConfigureAwait(false);
+        foreach (var group in collections.Where(c => !previous.Contains(c.CollectionId)).GroupBy(c => c.SourceId))
+            report.Sources.Add(new HistoryCleanupSourceReport { SourceId = group.Key.ToString(), GroupId = group.Key.ToString(),
+                Name = versions.LastOrDefault(v => v.SourceId == group.Key)?.SourceDescriptorSnapshot.DisplayName ?? group.Key.ToString(),
+                Status = "Completed", NativeDeletedObjects = group.Sum(c => c.DeletedObjects), ReclaimedBytes = group.Sum(c => c.ReclaimedBytes) });
+        reports.Save(report); // Keep durable collection receipts until accounting has been saved.
+        foreach (var acknowledge in collections.Select(c => c.Acknowledge).OfType<Func<CancellationToken, Task>>())
+            try { await acknowledge(CancellationToken.None).ConfigureAwait(false); }
+            catch (Exception ex) { report.Issues.Add(new("CollectionAckPending", ex.Message)); }
+        if (report.Issues.Count > 0)
+            try { reports.Save(report); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { report.Issues.Add(new("ReportWriteFailed", ex.Message)); }
         return report;
     }
 

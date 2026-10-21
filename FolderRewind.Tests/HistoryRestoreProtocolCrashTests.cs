@@ -7,8 +7,108 @@ namespace FolderRewind.Tests;
 [DoNotParallelize]
 public sealed class HistoryRestoreProtocolCrashTests
 {
+    [TestMethod]
+    [DataRow("new", "after-partial-materialization")]
+    [DataRow("new", "after-preparation-cleanup-record")]
+    [DataRow("new", "after-preparation-handoff")]
+    [DataRow("new", "after-preparation-marker-cleanup")]
+    [DataRow("legacy", "after-partial-materialization")]
+    [DataRow("legacy", "after-preparation-cleanup-record")]
+    [DataRow("legacy", "after-preparation-handoff")]
+    [DataRow("legacy", "after-preparation-marker-cleanup")]
+    public async Task PartialMaterializationAndLegacyPreparationSurviveTermination(string strategy, string point)
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-partial-crash-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            await StopAtAsync(probe, "partial", root, point, strategy);
+            for (int repeat = 0; repeat < 2; repeat++) await RunRecoveryProbeAsync(probe, root, point, strategy, repeat);
+            Assert.AreEqual("original world", File.ReadAllText(Path.Combine(root, "world", "original.txt")));
+            Assert.IsEmpty(Directory.GetDirectories(root, ".folderrewind-restore-*"));
+            Assert.IsEmpty(Directory.GetFiles(Path.Combine(root, "history"), "restore-cleanup.json", SearchOption.AllDirectories));
+            Assert.IsEmpty(Directory.GetFiles(Path.Combine(root, "history"), "restore-preparation.json", SearchOption.AllDirectories));
+        }
+        finally { CleanupRoot(root); }
+    }
+
+    [TestMethod]
+    [DataRow("preparation-drift", "after-snapshot-before-rebind")]
+    [DataRow("repair", "repair-after-preservation")]
+    [DataRow("repair", "repair-before-publication")]
+    [DataRow("repair", "repair-after-publication")]
+    public async Task StageOneTerminationPreservesCommittedStateAndRepairMaterials(string scenario, string point)
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-stage-one-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            var command = scenario == "repair" ? "repair" : "apply";
+            await StopAtAsync(probe, command, root, point, scenario);
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                var result = await RunProbeAsync(probe, scenario == "repair" ? "repair" : "recover", root,
+                    "none", scenario, "stage-one-recovery=" + repeat, false, TimeSpan.FromSeconds(30));
+                Assert.AreEqual(0, result.ExitCode, result.Diagnostic);
+            }
+            var statePath = Path.Combine(root, "history", "local-state", "workspace.json");
+            if (scenario == "repair")
+            {
+                var copies = Directory.GetFiles(Path.GetDirectoryName(statePath)!, "*.original");
+                Assert.IsNotEmpty(copies);
+                Assert.IsTrue(copies.All(p => File.ReadAllText(p) == "damaged original"));
+                using var workspace = new FolderRewind.History.LocalState.HistoryWorkspaceStore(new("protocol-probe"), statePath);
+                var state = (await workspace.LoadAsync()).Value!;
+                Assert.IsTrue(state.SourceBaselines.All(s => s.RequiresFullCapture && s.BaseVersionId is null && s.ActiveBranchId is null));
+            }
+            else
+            {
+                CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "committed-workspace.json")), File.ReadAllBytes(statePath));
+                Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
+                await using var history = new FolderRewind.History.Application.HistoryRuntime(new(new("protocol-probe"), new(Path.Combine(root, "history"))));
+                await history.InitializeReadableAsync();
+                Assert.HasCount(1, await history.Query.GetSafetySnapshotsAsync());
+            }
+        }
+        finally { CleanupRoot(root); }
+    }
+
     public TestContext TestContext { get; set; } = null!;
     private readonly HashSet<string> _rootsWithLiveProbes = [];
+
+    [TestMethod]
+    [DataRow("execute", "before-container")]
+    [DataRow("execute", "after-container-before-register")]
+    [DataRow("execute", "after-container-register")]
+    [DataRow("execute", "after-plan-before-prepared")]
+    [DataRow("execute", "after-prepared")]
+    [DataRow("execute", "after-move-0")]
+    [DataRow("execute", "after-workspace")]
+    [DataRow("execute", "after-cleanup-record-before-complete")]
+    [DataRow("execute", "after-cleanup-handoff")]
+    [DataRow("execute", "before-cleanup")]
+    [DataRow("execute", "after-cleanup-object")]
+    [DataRow("abandon", "after-snapshot-before-rebind")]
+    [DataRow("abandon", "after-preparation-cleanup-record")]
+    public async Task NewPreparationAndCleanupHandoffSurviveRealTermination(string strategy, string point)
+    {
+        var probe = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_PROTOCOL_PROBE");
+        if (string.IsNullOrEmpty(probe)) Assert.Inconclusive("Restore protocol probe is required.");
+        var root = Path.Combine(Path.GetTempPath(), "fr-new-protocol-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            await StopAtAsync(probe, "new", root, point, strategy);
+            for (int repeat = 0; repeat < 2; repeat++) await RunRecoveryProbeAsync(probe, root, point, strategy, repeat);
+            bool committed = point is "after-workspace" or "after-cleanup-record-before-complete" or "after-cleanup-handoff" or "before-cleanup" or "after-cleanup-object";
+            Assert.AreEqual(committed ? "restored" : "original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
+            Assert.HasCount(point == "after-container-before-register" ? 1 : 0, Directory.GetDirectories(root, ".folderrewind-restore-*"));
+            if (strategy == "abandon") CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "committed-workspace.json")),
+                File.ReadAllBytes(Path.Combine(root, "history", "local-state", "workspace.json")));
+        }
+        finally { CleanupRoot(root); }
+    }
 
     [TestMethod]
     [DataRow("after-move-62")]
@@ -81,7 +181,7 @@ public sealed class HistoryRestoreProtocolCrashTests
             }
             for (int repeat = 0; repeat < 2; repeat++)
             {
-                await RunRecoveryProbeAsync(probe, root, point + "/" + scenario, "swap", repeat, scenario == "half-progress");
+                await RunRecoveryProbeAsync(probe, root, point + "/" + scenario, "swap", repeat, scenario is "half-progress" or "unregistered" or "external-rollback");
             }
             if (scenario == "half-progress") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));
             else if (scenario == "unregistered") Assert.AreEqual("original", File.ReadAllText(Path.Combine(root, "world", "file.txt")));

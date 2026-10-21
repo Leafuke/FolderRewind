@@ -13,7 +13,7 @@ internal static class NativeHistoryConfigLease
     internal static string Signature(BackupConfig config) => JsonSerializer.Serialize(new
     {
         config.Id, config.ConfigRevision, config.DestinationPath, config.IsEncrypted, config.Kind,
-        config.Filters, config.BackupScope, config.Archive,
+        config.Filters, config.BackupScope, config.Archive, config.ArtifactTransformPolicy,
         Sources = config.SourceFolders.Select(f => new { f.Id, f.Path, f.SourceScope, f.ProviderStates }).OrderBy(f => f.Id)
     });
     internal static async ValueTask<IAsyncDisposable> EnterAsync(BackupConfig expected, string signature, CancellationToken token)
@@ -43,6 +43,12 @@ internal static class NativeHistoryConfigLease
                     config.Archive, config.Archive.FileTypeRules,
                     config.BackupScope, config.BackupScope.Parameters };
                 objects.AddRange(config.Archive.FileTypeRules);
+                if (config.ArtifactTransformPolicy is { } policy)
+                {
+                    objects.Add(policy);
+                    if (policy.Transformer is not null) objects.Add(policy.Transformer);
+                    if (policy.Parameters is not null) objects.Add(policy.Parameters);
+                }
                 foreach (var folder in config.SourceFolders)
                 {
                     objects.AddRange([folder, folder.SourceScope, folder.SourceScope.IncludePatterns, folder.ProviderStates]);

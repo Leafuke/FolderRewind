@@ -171,6 +171,12 @@ internal static class PluginV3BackupSourceResolver
             return Block(config, folder, NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode, diagnosticOwner, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
         }
 
+        if (NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(config.ArtifactTransformPolicy)
+            && ExperimentalArtifactPolicyService.UnavailableReason(config) is { } reason)
+            return Block(config, folder, ExperimentalArtifactPolicyService.UnavailableDiagnostic, owner.Value,
+                diagnostics, activePluginId, configSnapshot, folderSnapshot, intent, "ArtifactTransform",
+                new Dictionary<string, string> { ["resourceKey"] = reason });
+
         var effectiveBoundary = boundaryResolution.Boundary;
         return new PluginV3BackupSourceResolution(
             config,

@@ -22,7 +22,7 @@ public sealed class HistoryQuickRestoreExecutionTests
             prepare: (_, stage, _) => { patches++; File.WriteAllText(Path.Combine(stage, "b.txt"), "preserved current"); return Task.FromResult(true); });
         var result = await HistoryQuickRestoreExecution.ExecuteAsync(f.History, restore, new(f.Source, f.Target),
             f.Ours.NewVersions.Single().VersionId, f.Before, HistoryRestoreApplyMode.Clean, false, true,
-            _ => throw new AssertFailedException("Snapshot disabled"), _ => Task.CompletedTask, default);
+            (_, _, _) => throw new AssertFailedException("Snapshot disabled"), _ => Task.CompletedTask, default);
         Assert.IsTrue(result.Succeeded, result.Diagnostic);
         Assert.AreEqual(1, patches);
         Assert.AreEqual("preserved current", File.ReadAllText(Path.Combine(f.Target, "b.txt")));
@@ -51,13 +51,14 @@ public sealed class HistoryQuickRestoreExecutionTests
                 result = await HistoryQuickRestoreExecution.ExecuteAsync(f.History, restore, new(f.Source, f.Target),
                     f.Ours.NewVersions.Single().VersionId, (await f.History.WorkspaceStore.LoadAsync()).Value!,
                     HistoryRestoreApplyMode.Clean, settings.ShouldCreateSafetySnapshot(true), false,
-                    async token => { snapshots++; await f.CaptureAsync(f.Source); return ((await f.History.WorkspaceStore.LoadAsync(token)).Value, null); },
+                    async (_, _, token) => { snapshots++; await f.CaptureAsync(f.Source); return ((await f.History.WorkspaceStore.LoadAsync(token)).Value, null); },
                     _ => Task.CompletedTask, default);
             Assert.AreEqual(changed ? HistoryRestoreStatus.Committed : HistoryRestoreStatus.NoChanges, result.Status, result.Diagnostic);
             Assert.AreEqual(changed && quick ? 1 : 0, snapshots);
             Assert.AreEqual(1, preparations);
             Assert.AreEqual(1L, diagnostic.Summary!.Counters["7z-x"]);
             Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+            await f.History.DrainRestoreCleanupAsync();
             Assert.IsFalse(Directory.EnumerateDirectories(f.Root, ".folderrewind-restore-*").Any());
         }
     }
@@ -74,13 +75,14 @@ public sealed class HistoryQuickRestoreExecutionTests
         var restore = f.Restore(verification: verification, targetVolume: true);
         var result = await HistoryQuickRestoreExecution.ExecuteAsync(f.History, restore, new(f.Source, f.Target),
             f.Ours.NewVersions.Single().VersionId, f.Before, HistoryRestoreApplyMode.Clean, true, false,
-            _ => {
+            (_, _, _) => {
                 if (cancel) cancellation.Cancel();
                 return Task.FromResult<(FolderRewind.History.LocalState.HistoryWorkspace?, HistoryRestoreResult?)>(
                     (f.Before, cancel ? null : new(HistoryRestoreStatus.BlockedBeforeMutation, "snapshot failed", false, [])));
             }, _ => Task.CompletedTask, cancellation.Token);
         Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, result.Status, result.Diagnostic);
         Assert.AreEqual("local original", File.ReadAllText(Path.Combine(f.Target, "a.txt")));
+        await f.History.DrainRestoreCleanupAsync();
         Assert.IsFalse(Directory.EnumerateDirectories(f.Root, ".folderrewind-restore-*").Any());
     }
 }

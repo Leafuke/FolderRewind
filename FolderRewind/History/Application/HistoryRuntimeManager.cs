@@ -109,7 +109,7 @@ public sealed class HistoryRuntimeManager : IAsyncDisposable
         var runtime = new HistoryRuntime(repository);
         try
         {
-            await runtime.InitializeAsync(cancellationToken).ConfigureAwait(false);
+            await runtime.InitializeReadableAsync(cancellationToken).ConfigureAwait(false);
             return runtime;
         }
         catch

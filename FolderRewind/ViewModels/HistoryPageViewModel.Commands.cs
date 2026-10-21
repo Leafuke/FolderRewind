@@ -28,6 +28,7 @@ public sealed partial class HistoryPageViewModel
     {
         _interactions = interactions ?? throw new ArgumentNullException(nameof(interactions));
         _interactionController = new HistoryInteractionController(interactions);
+        InitializeWorkspaceRepairCommands();
 
         ChangeSelectionCommand = new AsyncRelayCommand<HistorySelectionRequest>(
             ChangeSelectionCommandAsync,
@@ -58,6 +59,7 @@ public sealed partial class HistoryPageViewModel
         DeleteRunCommand = new AsyncRelayCommand<BackupRunViewItem>(DeleteRunCommandAsync, CanExecuteItemOperation);
 
         MergeBranchCommand = new AsyncRelayCommand(MergeBranchCommandAsync, () => CanExecuteOperation() && CanUsePerSourceActions);
+        CompareWorkingStateCommand = new AsyncRelayCommand(CompareWorkingStateAsync, () => CanExecuteOperation() && CanUsePerSourceActions);
         CheckoutBranchCommand = new AsyncRelayCommand(CheckoutBranchCommandAsync, () => CanExecuteOperation() && CanStartCheckoutSelectedBranch);
         ReconcileBranchCommand = new AsyncRelayCommand(ReconcileBranchCommandAsync, () => CanExecuteOperation() && CanReconcileSelectedBranch);
         RenameBranchCommand = new AsyncRelayCommand(RenameBranchCommandAsync, () => CanExecuteOperation() && CanRenameSelectedBranch);
@@ -96,6 +98,7 @@ public sealed partial class HistoryPageViewModel
     public IAsyncRelayCommand<BackupRunViewItem> DeleteRunCommand { get; }
     public IAsyncRelayCommand MergeBranchCommand { get; }
     public IAsyncRelayCommand CheckoutBranchCommand { get; }
+    public IAsyncRelayCommand CompareWorkingStateCommand { get; }
     public IAsyncRelayCommand ReconcileBranchCommand { get; }
     public IAsyncRelayCommand RenameBranchCommand { get; }
     public IAsyncRelayCommand DeleteBranchCommand { get; }
@@ -809,7 +812,7 @@ public sealed partial class HistoryPageViewModel
         var result = await DeleteVersionAsync(item, (BackupDeleteMode)rawMode,
             async (prepared, token) => await _interactions.ConfirmAsync(
                 I18n.GetString("History_DeleteConfirm_Title"),
-                I18n.Format("History_Rewrite_Confirm", item.FileName, prepared.Mappings.Length,
+                prepared.IsNative ? I18n.Format("History_NativeDelete_Confirm", item.FileName) : I18n.Format("History_Rewrite_Confirm", item.FileName, prepared.RewrittenVersions,
                     (prepared.CreatedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture),
                     (prepared.ReclaimedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture),
                     (prepared.NetReleasedBytes / 1048576d).ToString("N2", CultureInfo.CurrentCulture)),
@@ -1039,6 +1042,8 @@ public sealed partial class HistoryPageViewModel
     {
         CancelOperationCommand.NotifyCanExecuteChanged();
         RetryCommand.NotifyCanExecuteChanged();
+        RepairWorkspaceCommand.NotifyCanExecuteChanged();
+        RetryRecoveryCommand.NotifyCanExecuteChanged();
         EditVersionCommentCommand.NotifyCanExecuteChanged();
         ToggleVersionImportantCommand.NotifyCanExecuteChanged();
         CreateBranchFromVersionCommand.NotifyCanExecuteChanged();
@@ -1056,6 +1061,7 @@ public sealed partial class HistoryPageViewModel
         DeleteRunCommand.NotifyCanExecuteChanged();
         MergeBranchCommand.NotifyCanExecuteChanged();
         CheckoutBranchCommand.NotifyCanExecuteChanged();
+        CompareWorkingStateCommand.NotifyCanExecuteChanged();
         ReconcileBranchCommand.NotifyCanExecuteChanged();
         RenameBranchCommand.NotifyCanExecuteChanged();
         DeleteBranchCommand.NotifyCanExecuteChanged();
@@ -1075,6 +1081,8 @@ public sealed partial class HistoryPageViewModel
     private void CancelCurrentOperationCommands()
     {
         RetryCommand.Cancel();
+        RepairWorkspaceCommand.Cancel();
+        RetryRecoveryCommand.Cancel();
         EditVersionCommentCommand.Cancel();
         ToggleVersionImportantCommand.Cancel();
         CreateBranchFromVersionCommand.Cancel();
@@ -1092,6 +1100,8 @@ public sealed partial class HistoryPageViewModel
         DeleteRunCommand.Cancel();
         MergeBranchCommand.Cancel();
         CheckoutBranchCommand.Cancel();
+        CompareWorkingStateCommand.Cancel();
+        CancelWorkingComparison();
         ReconcileBranchCommand.Cancel();
         RenameBranchCommand.Cancel();
         DeleteBranchCommand.Cancel();

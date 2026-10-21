@@ -52,7 +52,8 @@ public static class PluginPackageManifestReader
                 value.ParameterSchema.ValueKind == JsonValueKind.Undefined
                     ? JsonDocument.Parse("{}").RootElement.Clone()
                     : value.ParameterSchema.Clone(),
-                (value.SupportedFailureBehaviors ?? []).Select(ParseEnum<ArtifactTransformFailureBehavior>).ToArray())).ToArray(),
+                (value.SupportedFailureBehaviors ?? []).Select(ParseEnum<ArtifactTransformFailureBehavior>).ToArray())
+                { SupportsIncrementalInput = value.SupportsIncrementalInput }).ToArray(),
             (dto.RestoreStrategies ?? []).Select(value => new RestoreStrategyDeclaration(
                 new RestoreStrategyId(pluginId, value.StrategyId),
                 (value.SupportedFormats ?? []).Select(format => new ArtifactFormatVersionRange(
@@ -149,6 +150,7 @@ public static class PluginPackageManifestReader
     private sealed class KindRefDto { public string OwnerId { get; set; } = string.Empty; public string KindId { get; set; } = string.Empty; }
     private sealed class TransformerDto
     {
+        public bool SupportsIncrementalInput { get; set; }
         public string TransformerId { get; set; } = string.Empty;
         public List<KindRefDto>? CompatibleConfigKinds { get; set; }
         public List<string>? CompatibleCoreModes { get; set; }

@@ -21,7 +21,15 @@ public sealed class MergeChangeItem(MergeConflict conflict, MergeResolution? res
     public MergeConflict Conflict { get; } = conflict;
     public MergeResolution? Resolution { get; } = resolution;
     public string Id => Conflict.Id;
-    public string Path => Conflict.Subject.Paths.IsEmpty ? I18n.GetString("Merge_WholeSource") : string.Join("\n", Conflict.Subject.Paths);
+    public string Path
+    {
+        get
+        {
+            if (Conflict.Subject.Paths.IsEmpty) return I18n.GetString("Merge_WholeSource");
+            var directories = Conflict.BaseDirectories.Concat(Conflict.OursDirectories).Concat(Conflict.TheirsDirectories).ToHashSet(StringComparer.Ordinal);
+            return string.Join("\n", Conflict.Subject.Paths.Select(path => directories.Contains(path) ? path + "/" : path));
+        }
+    }
     public string Description => IsAutomatic ? I18n.GetString("MergeWorkspace_Automatic") : I18n.GetString("Merge_Conflict_" + Conflict.Kind) + " · "
         + (Resolution is null ? I18n.GetString("MergeWorkspace_Unresolved") : I18n.GetString("Merge_" + Resolution.Choice));
     private bool _isChecked;
@@ -86,7 +94,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public string SelectedPath => SelectedChange?.Path ?? "";
     public string SelectedDescription => SelectedChange?.Description ?? "";
     public bool CanImport => CanResolve && CheckedCount == 0 && SelectedChange is { IsAutomatic: false, Conflict: var c }
-        && c.Subject.Paths.Length == 1 && c.Kind is not (MergeConflictKind.PathStructure or MergeConflictKind.SourceRoster or MergeConflictKind.SourceBoundary);
+        && c.CanImportFile;
     public event Action? ContentChanged;
 
     public async Task InitializeAsync(MergeNavigationParameter parameter)

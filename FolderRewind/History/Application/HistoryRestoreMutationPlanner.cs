@@ -12,9 +12,11 @@ namespace FolderRewind.History.Application;
 internal static class HistoryRestoreMutationPlanner
 {
     internal static HistoryRestoreFileSystemPlan Build(HistoryRestorePreparationSession session,
-        IReadOnlyList<HistoryRestoreService.PreparedRestoreSource> sources, bool allowDirectorySwap)
+        IReadOnlyList<HistoryRestoreService.PreparedRestoreSource> sources, bool allowDirectorySwap, bool protectCurrentFiles = false,
+        IReadOnlySet<SourceId>? unchangedTargets = null)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Restore mutation planning requires Windows NTFS.");
+        session.ValidateBindings();
         var objects = new Dictionary<string, RestorePlanObject>(StringComparer.OrdinalIgnoreCase);
         var actions = new List<RestoreMoveAction>();
         var evidence = new List<RestoreSourcePlanEvidence>();
@@ -27,6 +29,20 @@ internal static class HistoryRestoreMutationPlanner
                 || WindowsRestoreFileSystem.TryIdentity(target) != location.TargetIdentity)
                 throw new IOException("Restore target binding changed during preparation.");
             var boundary = source.Binding.Boundary;
+            if (unchangedTargets?.Contains(source.Binding.SourceId) == true)
+            {
+                // 一致证据仍被持有时，同一版本只需提交分支状态，无需替换相同文件。
+                var entries = new HistoryRestoreTreeScope(source.Binding).Enumerate(target, includeExcluded: true).ToArray();
+                foreach (var entry in entries.Where(e => e.Managed)) AddPath(entry.FullPath);
+                AddPath(target);
+                foreach (var item in HistoryRestoreFileSystemPlanStore.CaptureTree(location.Container)) Add(item);
+                evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
+                    entries.Where(e => e.Managed && !e.Directory).Select(e => e.RelativePath).ToArray(),
+                    entries.Where(e => e.Managed && e.Directory && !entries.Any(c => Under(c.RelativePath, e.RelativePath)))
+                        .Select(e => e.RelativePath).ToArray(), source.Binding.ComparisonRoot));
+                Services.HistoryOperationDiagnostics.Current?.Count("unchanged-target-sources");
+                continue;
+            }
             bool physicalAll = boundary.ScopeMode == EffectiveBoundaryScopeMode.All
                 && boundary.FilterMode == EffectiveBoundaryFilterMode.Blacklist && boundary.FilterRules.IsEmpty;
             bool swap = allowDirectorySwap && source.ApplyMode == HistoryRestoreApplyMode.Clean && physicalAll
@@ -78,7 +94,7 @@ internal static class HistoryRestoreMutationPlanner
                 evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
                     stageTree.Where(item => !item.Identity.Directory).Select(item => Path.GetRelativePath(staging, item.Path).Replace('\\', '/')).ToArray(),
                     stageTree.Where(item => item.Identity.Directory && !stageTree.Any(child => child.Path.StartsWith(item.Path + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
-                        .Select(item => Path.GetRelativePath(staging, item.Path).Replace('\\', '/')).ToArray()));
+                        .Select(item => Path.GetRelativePath(staging, item.Path).Replace('\\', '/')).ToArray(), source.Binding.ComparisonRoot));
             }
             session.RecordPrepared(source.Binding.SourceId);
         }
@@ -97,16 +113,18 @@ internal static class HistoryRestoreMutationPlanner
         {
             var target = workspace.Location.Target; var container = workspace.Location.Container;
             var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(source.Binding);
+            var stage = Scan(source.StagingDirectory, source.Binding);
+            var current = Directory.Exists(target) ? Scan(target, source.Binding) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             if (Directory.Exists(target))
             {
                 new DirectoryInfo(source.StagingDirectory).SetAccessControl(new DirectoryInfo(target).GetAccessControl(AccessControlSections.Access));
-                foreach (var stageDir in Directory.EnumerateDirectories(source.StagingDirectory, "*", SearchOption.AllDirectories).OrderBy(path => path.Length))
+                foreach (var stageDir in new HistoryRestoreTreeScope(source.Binding).Enumerate(source.StagingDirectory)
+                    .Where(e => e.Directory).Select(e => e.FullPath).OrderBy(path => path.Length))
                 {
                     var counterpart = Path.Combine(target, Path.GetRelativePath(source.StagingDirectory, stageDir));
                     if (Directory.Exists(counterpart)) new DirectoryInfo(stageDir).SetAccessControl(new DirectoryInfo(counterpart).GetAccessControl(AccessControlSections.Access));
                 }
             }
-            var stage = Scan(source.StagingDirectory); var current = Directory.Exists(target) ? Scan(target) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             var stagedFiles = stage.Where(pair => !pair.Value && include(pair.Key)).Select(pair => pair.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var neededDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
             foreach (var path in stagedFiles.Concat(stage.Where(pair => pair.Value && include(pair.Key)).Select(pair => pair.Key)))
@@ -162,7 +180,7 @@ internal static class HistoryRestoreMutationPlanner
                 foreach (var path in current.Where(pair => pair.Value && include(pair.Key) && !neededDirs.Contains(pair.Key))
                     .Select(pair => pair.Key).OrderByDescending(path => path.Length))
                     if (!retired.Any(old => path == old || Under(path, old))
-                        && !current.Any(pair => !pair.Value && Under(pair.Key, path) && !include(pair.Key)))
+                        && !current.Any(pair => Under(pair.Key, path) && !include(pair.Key)))
                         Retire(path, directory: true, empty: true);
 
             var finalEntries = new Dictionary<string, bool>(current, StringComparer.OrdinalIgnoreCase);
@@ -172,10 +190,16 @@ internal static class HistoryRestoreMutationPlanner
             evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
                 finalEntries.Where(pair => !pair.Value && include(pair.Key)).Select(pair => pair.Key).ToArray(),
                 finalEntries.Where(pair => pair.Value && include(pair.Key) && !finalEntries.Keys.Any(child => Under(child, pair.Key)))
-                    .Select(pair => pair.Key).ToArray()));
+                    .Select(pair => pair.Key).ToArray(), source.Binding.ComparisonRoot));
 
             void Retire(string relative, bool directory, bool empty = false)
             {
+                if (directory && !empty && protectCurrentFiles)
+                {
+                    foreach (var child in current.Where(p => Under(p.Key, relative)).OrderByDescending(p => p.Key.Length))
+                        Retire(child.Key, child.Value, empty: child.Value);
+                    empty = true;
+                }
                 var from = Path.Combine(target, relative.Replace('/', Path.DirectorySeparatorChar));
                 var parent = Path.GetDirectoryName(from)!;
                 var identity = WindowsRestoreFileSystem.Identity(from);
@@ -188,20 +212,11 @@ internal static class HistoryRestoreMutationPlanner
             }
         }
     }
-    private static Dictionary<string, bool> Scan(string root)
+    private static Dictionary<string, bool> Scan(string root, HistoryRestoreSourceBinding binding)
     {
         var entries = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        var pending = new Stack<string>(); pending.Push(root);
-        while (pending.TryPop(out var directory))
-            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
-            {
-                var attributes = File.GetAttributes(entry);
-                if ((attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("Restore tree contains a reparse point.");
-                var relative = Path.GetRelativePath(root, entry).Replace('\\', '/');
-                var isDirectory = (attributes & FileAttributes.Directory) != 0;
-                if (!entries.TryAdd(relative, isDirectory)) throw new IOException("Restore tree contains a case collision.");
-                if (isDirectory) pending.Push(entry);
-            }
+        foreach (var entry in new HistoryRestoreTreeScope(binding).Enumerate(root, includeExcluded: true))
+            if (!entries.TryAdd(entry.RelativePath, entry.Directory)) throw new IOException("Restore tree contains a case collision.");
         Services.HistoryOperationDiagnostics.Current?.Count("target-or-staging-scans");
         return entries;
     }

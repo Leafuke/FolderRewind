@@ -119,15 +119,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 config,
                 folder,
                 cancellationToken, options).ConfigureAwait(false);
-            return result.Status switch
-            {
-                HistoryRestoreStatus.CommittedRecoveryRequired => OperationOutcome.CommittedRecoveryRequired,
-                HistoryRestoreStatus.MutationFailedRecoveryRequired => OperationOutcome.RecoveryRequired,
-                HistoryRestoreStatus.NoChanges => OperationOutcome.NoChanges,
-                _ when result.Succeeded => OperationOutcome.Success,
-                HistoryRestoreStatus.BlockedBeforeMutation => OperationOutcome.Blocked,
-                _ => OperationOutcome.Failed
-            };
+            return HistoryRestoreOutcomePolicy.ForRequest(result);
         }
 
         public async ValueTask<OperationOutcome> RequestAsync(
@@ -154,12 +146,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 parsed,
                 options.Mode == "overwrite" ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean,
                 cancellationToken, options).ConfigureAwait(false);
-            return result.Status switch
-            {
-                HistoryRestoreStatus.CommittedRecoveryRequired => OperationOutcome.CommittedRecoveryRequired,
-                HistoryRestoreStatus.MutationFailedRecoveryRequired => OperationOutcome.RecoveryRequired,
-                _ => result.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed
-            };
+            return HistoryRestoreOutcomePolicy.ForRequest(result);
         }
     }
 
@@ -259,16 +246,37 @@ internal sealed class PluginV3HostServices : IPluginHostServices
 
     private sealed class TemporaryStorageService : IPluginTemporaryStorage
     {
+        // One ownership handle per plugin/root for the Host process. A new process reclaims abandoned owners.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string,
+            Lazy<Task<Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage>>> Owners = new(StringComparer.OrdinalIgnoreCase);
         private readonly string _root;
-        public TemporaryStorageService(string root) => _root = Path.GetFullPath(root);
-        public ValueTask<string> CreateDirectoryAsync(CancellationToken cancellationToken)
+        public TemporaryStorageService(string root)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            Directory.CreateDirectory(_root);
-            var path = Path.Combine(_root, Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(path);
-            return ValueTask.FromResult(path);
+            _root = Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage.ForLogicalRoot(root);
+            _ = Owner().Value; // Startup recovery runs off the UI thread before the next snapshot request.
         }
+        private Lazy<Task<Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage>> Owner()
+        {
+            var owner = Owners.GetOrAdd(_root, path => new(() => Task.Run(() =>
+                Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage.CreateAsync(path))));
+            _ = owner.Value.ContinueWith(failed =>
+            {
+                _ = failed.Exception;
+                Owners.TryRemove(new KeyValuePair<string, Lazy<Task<Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage>>>(_root, owner));
+            }, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return owner;
+        }
+        public async ValueTask<string> CreateDirectoryAsync(CancellationToken cancellationToken)
+        {
+            var owner = await Owner().Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await owner.CreateDirectoryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        public async ValueTask<IDisposable> ReserveAsync(string directory, long bytes, CancellationToken cancellationToken)
+        {
+            var owner = await Owner().Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await owner.ReserveAsync(directory, bytes, cancellationToken).ConfigureAwait(false);
+        }
+
     }
 
     private sealed class LoggerService(PluginId pluginId) : IPluginLogger

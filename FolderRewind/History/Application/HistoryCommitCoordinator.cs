@@ -304,6 +304,9 @@ public sealed class HistoryCommitCoordinator
                 currentCatalog,
                 cancellationToken).ConfigureAwait(false);
             preparedPack = batch.Pack;
+            foreach (var capture in request.SourceCaptureResults)
+                if (capture.CommitParticipant is { } participant)
+                    await participant.PrepareCommitAsync(batch.Pack.PackId, batch.Pack.TransactionId, cancellationToken).ConfigureAwait(false);
             try
             {
                 var graph = (await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false))
@@ -339,8 +342,14 @@ public sealed class HistoryCommitCoordinator
                 _runtime.LocalReplicaCatalogStore);
             try
             {
+                foreach (var capture in request.SourceCaptureResults)
+                    if (capture.CommitParticipant is { } participant)
+                        await participant.HistoryCommittedAsync(CancellationToken.None).ConfigureAwait(false);
                 await recovery.ApplyCommittedStateAsync(journal, cancellationToken).ConfigureAwait(false);
                 _runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.LocalStateApplied });
+                foreach (var capture in request.SourceCaptureResults)
+                    if (capture.CommitParticipant is { } participant)
+                        await participant.CompleteCommitAsync(CancellationToken.None).ConfigureAwait(false);
                 _runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.Complete });
             }
             catch (Exception ex)
@@ -387,6 +396,11 @@ public sealed class HistoryCommitCoordinator
             }
             throw;
         }
+        finally
+        {
+            foreach (var participant in request.SourceCaptureResults.Select(c => c.CommitParticipant).OfType<ICaptureCommitParticipant>().Distinct())
+                participant.EndOperation();
+        }
     }
 
     private async Task<HistoryCommitBatch> BuildBatchAsync(
@@ -412,11 +426,8 @@ public sealed class HistoryCommitCoordinator
             }
         }
         if (request.Protect && (request.AffectedSourceIds.Length != 1
-            || request.SourceCaptureResults.Any(c => c.CaptureScope != CaptureScope.FullSource
-                || c.EffectiveSourceBoundary.ScopeMode != EffectiveBoundaryScopeMode.All
-                || c.EffectiveSourceBoundary.FilterMode != EffectiveBoundaryFilterMode.Blacklist
-                || !c.EffectiveSourceBoundary.FilterRules.IsEmpty)))
-            throw new HistoryCommitConflictException("Protected backup requires one complete, unfiltered source; partial scope is not supported.");
+            || request.SourceCaptureResults.Any(c => c.CaptureScope != CaptureScope.FullSource)))
+            throw new HistoryCommitConflictException("Protected backup requires one FullSource result covering its complete effective boundary; PartialSource is not supported.");
         var protectionAnnotations = new List<HistoryAnnotationUpdate>();
         var versions = ImmutableArray.CreateBuilder<SourceVersion>();
         var representations = ImmutableArray.CreateBuilder<VersionRepresentation>();
@@ -483,7 +494,10 @@ public sealed class HistoryCommitCoordinator
                             throw new HistoryCommitConflictException(
                                 "A boundary-changing capture must use a self-contained Representation.");
                         }
-                        var versionId = VersionId.New();
+                        var versionId = capture.ReservedVersionId ?? VersionId.New();
+                        if (await _runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false) is not null
+                            || versions.Any(v => v.VersionId == versionId))
+                            throw new HistoryCommitConflictException("Reserved Version identity already exists.");
                         var continuationParent = state.RequiresFullCapture ? currentCheckpoint?.VersionId : null;
                         var parents = (reliableBaseline ?? continuationParent) is { } parent ? new[] { parent } : Array.Empty<VersionId>();
                         var version = new SourceVersion(
@@ -1062,6 +1076,12 @@ public sealed class HistoryCommitCoordinator
     private static async Task CleanupUncommittedCaptureAsync(
         IEnumerable<SourceCaptureResult> captures)
     {
+        foreach (var participant in captures.Select(c => c.CommitParticipant).OfType<ICaptureCommitParticipant>().Distinct())
+        {
+            try { await participant.AbortCommitAsync(CancellationToken.None).ConfigureAwait(false); }
+            catch { /* Keep the pending root for recovery. */ }
+            finally { participant.EndOperation(); }
+        }
         foreach (var handle in captures
                      .Select(capture => capture.CleanupHandle)
                      .Where(handle => handle is not null)

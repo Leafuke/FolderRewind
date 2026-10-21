@@ -1,4 +1,7 @@
 using System.Text.Json.Serialization;
+using System.Collections.Generic;
+using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Services;
 
 namespace FolderRewind.Models
 {
@@ -14,6 +17,24 @@ namespace FolderRewind.Models
         private bool _isIndeterminate = true;
         private bool _isSuccess;
         private string _iconGlyph = "\uE8B7";
+        private IReadOnlyList<PluginDiagnostic> _warningDiagnostics = [];
+
+        [JsonIgnore]
+        public IReadOnlyList<PluginDiagnostic> WarningDiagnostics
+        {
+            get => _warningDiagnostics;
+            set
+            {
+                _warningDiagnostics = OperationDiagnosticFormatter.Snapshot(value);
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasWarnings));
+                OnPropertyChanged(nameof(HasDetails));
+                OnPropertyChanged(nameof(StatusSemantic));
+                OnPropertyChanged(nameof(StatusGlyph));
+            }
+        }
+        [JsonIgnore] public bool HasWarnings => _warningDiagnostics.Count > 0;
+        [JsonIgnore] public bool HasDetails => HasWarnings || !string.IsNullOrWhiteSpace(ErrorMessage);
 
         public string FolderName { get => _folderName; set => SetProperty(ref _folderName, value ?? string.Empty); }
         public double Progress
@@ -34,6 +55,7 @@ namespace FolderRewind.Models
                 SetProperty(ref _isCompleted, value);
                 OnPropertyChanged(nameof(StatusSemantic));
                 OnPropertyChanged(nameof(StatusGlyph));
+                OnPropertyChanged(nameof(HasDetails));
             }
         }
         public string Log { get => _log; set => SetProperty(ref _log, value ?? string.Empty); }
@@ -45,6 +67,7 @@ namespace FolderRewind.Models
                 SetProperty(ref _errorMessage, value ?? string.Empty);
                 OnPropertyChanged(nameof(StatusSemantic));
                 OnPropertyChanged(nameof(StatusGlyph));
+                OnPropertyChanged(nameof(HasDetails));
             }
         }
         public bool IsIndeterminate
@@ -73,8 +96,9 @@ namespace FolderRewind.Models
         [JsonIgnore]
         public SemanticStatus StatusSemantic => IsCompleted switch
         {
+            true when !IsSuccess => SemanticStatus.Error,
+            true when HasWarnings => SemanticStatus.Warning,
             true when IsSuccess => SemanticStatus.Success,
-            true when !string.IsNullOrEmpty(ErrorMessage) => SemanticStatus.Error,
             _ => SemanticStatus.Info
         };
 

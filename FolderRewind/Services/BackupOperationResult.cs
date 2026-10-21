@@ -1,4 +1,5 @@
 using FolderRewind.Plugin.Abstractions;
+using System.Collections.Generic;
 
 namespace FolderRewind.Services;
 
@@ -8,6 +9,8 @@ public sealed record BackupOperationResult(
     bool CreatedNewArchive,
     bool HistoryRecoveryRequired = false)
 {
+    public bool HasWarnings => HistoryRecoveryRequired || Outcome == OperationOutcome.SuccessWithWarnings;
+
     public bool IsSuccessful => !HistoryRecoveryRequired
         && Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings or OperationOutcome.NoChanges;
 
@@ -23,4 +26,13 @@ public sealed record BackupOperationResult(
     public string ProtocolResult => IsSuccessful
         ? CreatedNewArchive ? "created" : "no_changes"
         : HistoryRecoveryRequired ? "recovery_required" : Outcome.ToString().ToLowerInvariant();
+
+    // Preserve the legacy result field while exposing the committed warning outcome.
+    public Dictionary<string, string?> ToProtocolFields() => new()
+    {
+        ["result"] = ProtocolResult,
+        ["outcome"] = Outcome == OperationOutcome.SuccessWithWarnings ? "success_with_warnings" : Outcome.ToString().ToLowerInvariant(),
+        ["has_warnings"] = HasWarnings ? "true" : "false",
+        ["created"] = CreatedNewArchive ? "true" : "false"
+    };
 }

@@ -38,29 +38,36 @@ internal sealed partial class MergeOperationService
 
     public IReadOnlyList<MergeConflict> AutomaticChanges(MergeSession session)
     {
+        if (session.Plan.ProviderVersion != MergeProviderDescriptor.GenericIdentity
+            || session.Plan.PolicyVersion != MergeProviderDescriptor.GenericPolicyIdentity) return [];
         if (_automaticPlan == session.Plan.Revision) return _automatic;
         var rows = new List<MergeConflict>();
         foreach (var stored in Runtime!.MergeSessions.Sources(session))
         {
             var source = stored;
-            // Older reuse sessions did not persist their target comparison tree.
-            if (source.Plan.Action == HistoryMergeSourceAction.Reuse && source.Ours.Files.IsEmpty && source.Plan.Ours is not null)
-                source = source with { Ours = NativeHistoryApplicationService.MaterializeMergeComparisonAsync(Runtime, _restore!, session,
-                    source.Plan.Ours, System.Threading.CancellationToken.None).GetAwaiter().GetResult() };
             var conflicts = Core.AllConflicts(session, source.Plan.SourceId).Select(c => c.Conflict).ToArray();
             if (conflicts.Any(c => c.Subject.Paths.IsEmpty)) continue;
             var claimed = conflicts.SelectMany(c => c.Subject.Paths).ToHashSet(StringComparer.Ordinal);
-            foreach (var path in source.Automatic.Files.Keys.Concat(source.Ours.Files.Keys).Distinct(StringComparer.Ordinal))
+            var baseDirectories = source.Base.Directories.ToHashSet(StringComparer.Ordinal);
+            var oursDirectories = source.Ours.Directories.ToHashSet(StringComparer.Ordinal);
+            var resultDirectories = source.Automatic.Directories.ToHashSet(StringComparer.Ordinal);
+            foreach (var path in source.Automatic.Paths.Concat(source.Ours.Paths).Distinct(StringComparer.Ordinal))
             {
                 if (claimed.Contains(path)) continue;
                 var before = source.Ours.Files.GetValueOrDefault(path); var after = source.Automatic.Files.GetValueOrDefault(path);
-                if (before?.Digest == after?.Digest && before?.Length == after?.Length) continue;
+                if (before?.Digest == after?.Digest && before?.Length == after?.Length
+                    && oursDirectories.Contains(path) == resultDirectories.Contains(path)) continue;
                 ImmutableSortedDictionary<string, MergeFileValue> Side(MergeTreeManifest tree)
                     => tree.Files.TryGetValue(path, out var file) ? ImmutableSortedDictionary<string, MergeFileValue>.Empty.Add(path, file)
                         : ImmutableSortedDictionary<string, MergeFileValue>.Empty;
                 var id = "auto:" + source.Plan.SourceId + ":" + path;
-                rows.Add(new(id, new(source.Plan.SourceId, [path]), MergeConflictKind.ModifyModify, id,
-                    Side(source.Base), Side(source.Ours), Side(source.Automatic)));
+                rows.Add(new(id, new(source.Plan.SourceId, [path]),
+                    baseDirectories.Contains(path) || oursDirectories.Contains(path) || resultDirectories.Contains(path)
+                        ? MergeConflictKind.PathStructure : MergeConflictKind.ModifyModify, id,
+                    Side(source.Base), Side(source.Ours), Side(source.Automatic))
+                    { BaseDirectories = baseDirectories.Contains(path) ? [path] : [],
+                        OursDirectories = oursDirectories.Contains(path) ? [path] : [],
+                        TheirsDirectories = resultDirectories.Contains(path) ? [path] : [] });
             }
         }
         _automatic = rows.OrderBy(c => c.Subject.Paths[0], StringComparer.Ordinal).ToArray(); _automaticPlan = session.Plan.Revision;

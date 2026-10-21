@@ -81,6 +81,8 @@ public sealed class HistoryCleanupDialogViewModel : ViewModelBase
             if (report.Sources.Count(s => s.GroupId == source.GroupId) > 1)
                 text.AppendLine(I18n.Format("Retention_SharedGroup", string.Join(", ", report.Sources.Where(s => s.GroupId == source.GroupId).Select(s => s.Name))));
             text.AppendLine(I18n.Format("Retention_Bytes", source.DeletedArchives, Bytes(source.CreatedBytes), Bytes(source.ReclaimedBytes), Bytes(source.ReclaimedBytes - source.CreatedBytes)));
+            if (source.NativeDeletedObjects > 0)
+                text.AppendLine(I18n.Format("Retention_NativeObjects", source.NativeDeletedObjects));
             foreach (var issue in source.Issues) AppendIssue(issue);
         }
         foreach (var issue in report.Issues) AppendIssue(issue);

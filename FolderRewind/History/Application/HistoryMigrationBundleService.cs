@@ -84,8 +84,12 @@ public sealed partial class HistoryMigrationBundleService
                             if (includePayloads) files[relative] = candidate.Path;
                         }
                     }
+                    var native = await ExportNativeAsync(project, representations, versions, zip, temporary, includePayloads, token).ConfigureAwait(false);
+                    metadataBytes = checked(metadataBytes + native.Payloads.Sum(p => p.Size));
+                    if (metadataBytes > MaximumMetadataBytes) throw new InvalidDataException("Migration metadata exceeds its aggregate budget.");
                     ArtifactLedgerDocument? closure = null;
-                    var artifactRoots = representations.Where(r => r.Kind == RepresentationKind.PluginArtifact)
+                    var artifactRoots = representations.Where(r => r.Kind == RepresentationKind.PluginArtifact
+                        && !NativePluginArtifactBackend.IsSupported(r) && !r.RepresentationSpecificMetadata.ContainsKey("nativeArtifactEnvelope"))
                         .Select(r => r.RepresentationSpecificMetadata.GetValueOrDefault(PluginArtifactRepresentationHandler.ArtifactRootIdMetadataKey))
                         .Where(s => !string.IsNullOrEmpty(s)).Select(s => new ArtifactId(Guid.Parse(s!))).ToArray();
                     if (artifactRoots.Length > 0)
@@ -113,8 +117,13 @@ public sealed partial class HistoryMigrationBundleService
                         foreach (var version in versions)
                             if (!representations.Where(r => r.VersionId == version.VersionId && r.Fidelity == MaterializationFidelity.Exact).Any(r =>
                                 HistoryChainRewritePlanner.Closure(r.RepresentationId, graph).All(dependency =>
-                                    hints.Any(h => h.RepresentationId == dependency) || graph[dependency].Kind == RepresentationKind.PluginArtifact && closure is not null)))
-                                throw new IOException($"Complete migration requires the Exact payload closure of Version {version.VersionId}.");
+                                    hints.Any(h => h.RepresentationId == dependency) || native.Payloads.Any(p => p.RepresentationId == dependency)
+                                    || graph[dependency].Kind == RepresentationKind.PluginArtifact && closure is not null
+                                        && !graph[dependency].RepresentationSpecificMetadata.ContainsKey("nativeArtifactEnvelope"))))
+                                throw new IOException((representations.Any(r => r.VersionId == version.VersionId && r.Kind == RepresentationKind.PluginArtifact
+                                    && !NativePluginArtifactBackend.IsSupported(r) && r.RepresentationSpecificMetadata.ContainsKey("nativeArtifactEnvelope"))
+                                    ? "[history.unsupported-experimental-format] " : "")
+                                    + $"Complete migration requires the Exact payload closure of Version {version.VersionId}.");
                         if (hints.Count > 0 && project.Archive is null) throw new InvalidOperationException("Archive verification is required for an embedded migration.");
                         foreach (var hint in hints)
                         {
@@ -148,9 +157,9 @@ public sealed partial class HistoryMigrationBundleService
                         facts.OfType<BranchUpdate>().Select(b => b.BranchId).Distinct().Count(),
                         packs.ToImmutableSortedDictionary(p => p.Pack.PackId.ToString(), p => HistoryPackCodec.ComputeSha256(p.OriginalBytes), StringComparer.Ordinal))
                     { Migration = new(root, hints.ToImmutable(), [.. (workspace?.SourceBaselines ?? []).Where(s => project.History.Sources.Any(h => h.SourceId == s.SourceId))],
-                        payloads.ToImmutable(), closure, [.. directories.Order(StringComparer.Ordinal)]) });
+                        payloads.ToImmutable(), closure, [.. directories.Order(StringComparer.Ordinal)], native.Payloads, native.Objects) });
                 }
-                var manifest = new HistoryTransferV3Manifest(HistoryTransferManifest.CurrentMagic, 3, applicationVersion, includePayloads,
+                var manifest = new HistoryTransferV3Manifest(HistoryTransferManifest.CurrentMagic, descriptions.Any(p => !p.Migration!.NativePayloads.IsDefaultOrEmpty) ? 4 : 3, applicationVersion, includePayloads,
                     descriptions.ToImmutable(), portableConfiguration is null ? null : Hash(portableConfiguration), Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow);
                 var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
                 if (metadataBytes + manifestBytes.Length > MaximumMetadataBytes) throw new InvalidDataException("Migration metadata exceeds its memory budget.");
@@ -182,6 +191,18 @@ public sealed partial class HistoryMigrationBundleService
     internal static async Task ValidateAdditionalEntriesAsync(ZipArchive zip, HistoryTransferV3Manifest manifest,
         HashSet<string> declared, CancellationToken token)
     {
+        long nativeMetadataBytes = 0;
+        foreach (var project in manifest.Projects)
+            foreach (var payload in NativePayloads(project.Migration ?? throw new InvalidDataException("Missing migration project.")))
+            {
+                if (payload is null || payload.Size < 0 || payload.Size > MaximumMetadataBytes - nativeMetadataBytes)
+                    throw new InvalidDataException("Native migration descriptors exceed their aggregate metadata budget.");
+                nativeMetadataBytes += payload.Size;
+            }
+        var declaredMetadataBytes = (zip.GetEntry("manifest.json")?.Length ?? 0)
+            + (manifest.ConfigurationSha256 is null ? 0 : zip.GetEntry("configuration.json")?.Length ?? 0);
+        if (nativeMetadataBytes > MaximumMetadataBytes - declaredMetadataBytes)
+            throw new InvalidDataException("Migration metadata exceeds its aggregate budget.");
         if (manifest.ConfigurationSha256 is not null)
         {
             var config = await ReadMetadataAsync(zip, "configuration.json", token).ConfigureAwait(false);
@@ -215,6 +236,7 @@ public sealed partial class HistoryMigrationBundleService
                 if (Convert.ToHexString(await SHA256.HashDataAsync(input, token).ConfigureAwait(false)).ToLowerInvariant() != file.StorageSha256)
                     throw new InvalidDataException("Migration payload hash differs from its manifest.");
             }
+            await ValidateNativeEntriesAsync(zip, manifest, project, declared, token).ConfigureAwait(false);
             if (migration.ArtifactClosure is not null) ArtifactLedgerValidator.Validate(migration.ArtifactClosure);
             if (manifest.IncludesPayloads && migration.ArtifactClosure is not null) ValidateEmbeddedArtifactClosure(migration);
         }
@@ -231,6 +253,15 @@ public sealed partial class HistoryMigrationBundleService
         foreach (var hint in migration.Replicas)
             if (!representations.ContainsKey(hint.RepresentationId) || embedded && !migration.PayloadFiles.Any(f => f.RelativePath == hint.RelativePath && f.Size == hint.Size && f.StorageSha256 == hint.StorageSha256))
                 throw new InvalidDataException("Migration replica does not match its declared history or payload.");
+        foreach (var payload in NativePayloads(migration))
+        {
+            if (!representations.TryGetValue(payload.RepresentationId, out var representation) || !NativePluginArtifactBackend.IsSupported(representation)
+                || !representation.RepresentationSpecificMetadata.TryGetValue("artifactRootId", out var root) || !Guid.TryParse(root, out var parsed) || parsed != payload.ArtifactRootId
+                || !StringComparer.OrdinalIgnoreCase.Equals(representation.RepresentationSpecificMetadata.GetValueOrDefault("storageSha256"), payload.RootStorageSha256)
+                || !packs.SelectMany(p => p.Pack.Objects).Where(o => o.Kind == HistoryObjectKinds.SourceVersion && o.SchemaVersion == 1)
+                    .Select(o => (SourceVersion)codec.DeserializeKnown(o)).Any(v => v.VersionId == representation.VersionId && v.SourceId.Value == payload.SourceId))
+                throw new InvalidDataException("Native migration descriptor does not match immutable History.");
+        }
         foreach (var state in migration.Continuation)
             if (project.Sources.All(s => s.SourceId != state.SourceId)) throw new InvalidDataException("Migration continuation crosses a Source identity.");
         if (migration.ArtifactClosure is not null && migration.ArtifactClosure.Artifacts.Any(a => !new HistoryConfigId(a.ConfigId).Equals(project.ConfigId)
@@ -242,7 +273,9 @@ public sealed partial class HistoryMigrationBundleService
             foreach (var version in versions)
                 if (!representations.Values.Where(r => r.VersionId == version.VersionId && r.Fidelity == MaterializationFidelity.Exact).Any(r =>
                     HistoryChainRewritePlanner.Closure(r.RepresentationId, representations).All(id => migration.Replicas.Any(h => h.RepresentationId == id)
-                        || representations[id].Kind == RepresentationKind.PluginArtifact && migration.ArtifactClosure is not null)))
+                        || NativePayloads(migration).Any(p => p.RepresentationId == id)
+                        || representations[id].Kind == RepresentationKind.PluginArtifact && migration.ArtifactClosure is not null
+                            && !representations[id].RepresentationSpecificMetadata.ContainsKey("nativeArtifactEnvelope"))))
                     throw new InvalidDataException("Embedded migration lacks an Exact payload closure.");
         }
     }

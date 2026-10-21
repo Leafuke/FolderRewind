@@ -5011,7 +5011,6 @@ Pull request: {1}</value>
   <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>This exactly replaces every source directory in the current backup project with the selected branch checkpoint. Confirm that current uncommitted changes may be discarded.</value></data>
   <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>Discard changes and check out</value></data>
   <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>Archive verification failed, so Native History was not committed.</value></data>
-  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>This version does not yet integrate plugin artifact transforms with Native History. Disable the artifact transform policy for this configuration.</value></data>
   <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>History initialization failed</value></data>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>Native History could not be initialized for “{0}”: {1}</value></data>
   <data name="HistoryPage_BranchFilter.Header" xml:space="preserve"><value>View branch</value></data>
@@ -6123,12 +6122,12 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>Resume preparation</value></data>
   <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>This folder has no valid active branch. Back up or check out a branch first.</value></data>
   <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>There is no other eligible branch. A source needs a unique, valid history tip.</value></data>
-  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} files</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} files, {1} folders</value></data>
   <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>The selected branch is invalid, is the current branch, or has multiple tips.</value></data>
   <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>These branches have no common base for a three-way merge.</value></data>
   <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>There are multiple best common bases; this merge engine cannot safely select one.</value></data>
   <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>Start a new merge from the sessions menu and choose another source. Resolve branch divergence first if needed.</value></data>
-  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>This file is handled automatically by file-level rules. Review its actual writes before applying.</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>This file or folder is handled automatically by three-way merge rules. Review its actual writes before applying.</value></data>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>File-level base previews are unavailable for scope or source conflicts.</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>Return to backup history and keep this merge</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Back to history · Your merge is kept</value></data>
@@ -7035,4 +7034,175 @@ Task log
   <data name="MigrationWizard_ReconnectCloud.Content" xml:space="preserve"><value>Reconnect cloud storage…</value></data>
   <data name="MigrationWizard_RecheckCloud.Content" xml:space="preserve"><value>Check again</value></data>
   <data name="MigrationWizard_CloudPermissionNoticeTitle" xml:space="preserve"><value>Cloud permission pending</value></data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>Download and prepare install</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>Update package preparation</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>The update package is ready (source: {0}). Please right-click and run the following script to continue installation:
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>Open install folder</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>Failed to open install folder: {0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>Failed to prepare update package: {0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>Invalid update context. Please try again later.</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>This release does not provide matching .7z or .sha256 assets for your platform.</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>No update download source is available. Please check mirror settings.</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>Unable to parse .sha256 file content.</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>Checksum failed for source "{0}" (SHA256 mismatch).</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>Failed to start 7z extraction process.</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>Extraction failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>Package extracted, but Install.ps1 was not found. Please install manually from the release page.</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>Download failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>Failed to prepare update package. Please try again later.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
+    <value>Sync scope</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
+    <value>Only sync this configuration's history</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
+    <value>Sync history and download all backups</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
+    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and downloaded {2} backup package(s).</value>
+  </data>
+  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
+    <value>Download installer</value>
+  </data>
+  <data name="SettingsCard_SemanticBackup.Header" xml:space="preserve"><value>Semantic backup (experimental)</value></data>
+  <data name="SemanticBackup_Description.Text" xml:space="preserve"><value>Use a compatible plugin to store domain-level changes with byte-exact restoration. Off by default. Sparse changes save space; dense changes and self-contained checkpoints may be slower.</value></data>
+  <data name="SemanticBackup_EnableLabel.Text" xml:space="preserve"><value>Enable experimental semantic incremental backup</value></data>
+  <data name="SemanticBackup_Enable.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SemanticBackup_Enable.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SemanticBackup_Refresh.Content" xml:space="preserve"><value>Refresh plugin availability</value></data>
+  <data name="SemanticBackup_ExperimentalWarning.Text" xml:space="preserve"><value>Restoring these versions requires a compatible plugin. Turning this off preserves semantic history; the next ordinary backup establishes a full file baseline. Retiring a cloud replica does not reclaim shared data, which may continue to occupy space.</value></data>
+  <data name="SemanticBackup_FallbackLabel.Text" xml:space="preserve"><value>Allow a full file backup if transformation fails</value></data>
+  <data name="SemanticBackup_Fallback.OnContent" xml:space="preserve"><value>Fall back with a warning</value></data>
+  <data name="SemanticBackup_Fallback.OffContent" xml:space="preserve"><value>Stop without a new version</value></data>
+  <data name="SemanticBackup_FallbackHint.Text" xml:space="preserve"><value>Fallback requires a source that can still be captured safely. A missing plugin may block backup. A failed manual checkpoint is never replaced with an ordinary backup.</value></data>
+  <data name="SemanticBackup_CheckpointHeader.Text" xml:space="preserve"><value>Self-contained checkpoint</value></data>
+  <data name="SemanticBackup_CheckpointDescription.Text" xml:space="preserve"><value>Create a self-contained checkpoint for every source in this configuration, even with no file changes. Settings are saved first. This takes extra time and space and does not guarantee reclamation of old data. Restoring still requires a compatible plugin.</value></data>
+  <data name="SemanticBackup_CancelCheckpoint.Content" xml:space="preserve"><value>Cancel checkpoint</value></data>
+  <data name="SemanticBackup_UnsupportedConfiguration" xml:space="preserve"><value>Requires complete sources in Smart or Full mode. Add a source and turn off region/subset selection. Rolling mode is not supported.</value></data>
+  <data name="SemanticBackup_ProviderUnavailable" xml:space="preserve"><value>No compatible capture and restore plugin is available, or the existing policy does not match. Install and enable a supporting plugin, then refresh. MineRewind currently supports Java worlds.</value></data>
+  <data name="SemanticBackup_EnabledHint" xml:space="preserve"><value>Enabled in these settings; save to apply. Smart mode processes content in changed files only. The first backup establishes a full baseline.</value></data>
+  <data name="SemanticBackup_DisabledHint" xml:space="preserve"><value>Currently off. Existing configurations are not migrated automatically.</value></data>
+  <data name="SemanticBackup_SaveCheckpoint" xml:space="preserve"><value>Save and create checkpoint</value></data>
+  <data name="SemanticBackup_CreateCheckpoint" xml:space="preserve"><value>Create checkpoint</value></data>
+  <data name="SemanticBackup_CheckpointRunning" xml:space="preserve"><value>Saving settings and creating a self-contained checkpoint…</value></data>
+  <data name="SemanticBackup_CheckpointSucceeded" xml:space="preserve"><value>Checkpoint committed. View it in History.</value></data>
+  <data name="SemanticBackup_CheckpointWarnings" xml:space="preserve"><value>Checkpoint committed with follow-up warnings. Check the log.</value></data>
+  <data name="SemanticBackup_CheckpointCanceled" xml:space="preserve"><value>Operation canceled. Check History to see whether a commit completed before cancellation.</value></data>
+  <data name="SemanticBackup_CheckpointFailed" xml:space="preserve"><value>Checkpoint did not complete. Check the log; no ordinary backup was committed as a checkpoint.</value></data>
+  <data name="SemanticBackup_CheckpointRecoveryRequired" xml:space="preserve"><value>History commit requires recovery. Resolve the recovery prompt before creating another checkpoint.</value></data>
+  <data name="SemanticBackup_CheckpointStableRequired" xml:space="preserve"><value>A semantic checkpoint requires a stable source view from a compatible plugin.</value></data>
+  <data name="SemanticBackup_CheckpointUnavailable" xml:space="preserve"><value>Explicitly enable experimental semantic backup with complete sources in Smart or Full mode first.</value></data>
+  <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>Manual semantic checkpoint</value></data>
+  <data name="History_NativeDelete_Confirm" xml:space="preserve"><value>Delete the local representation for “{0}” and collect Native objects that no version or job still references. Shared objects remain; released space depends on the complete closure.</value></data>
+  <data name="Retention_NativeObjects" xml:space="preserve"><value>Collected {0} Native objects. Shared objects remain protected by their closures; released bytes are included in the totals.</value></data>
+  <data name="Retention_Reason_CollectionAckPending" xml:space="preserve"><value>Objects were collected, but their accounting acknowledgement is pending. The next cleanup will retry.</value></data>
+  <data name="Migration_NativePackageRequired" xml:space="preserve"><value>This version uses semantic backup storage. Recover it from a migration package or rebind its complete backup directory.</value></data>
+  <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>The saved configuration changed before the checkpoint started. Save again and retry.</value></data>
+  <data name="BackupService_Task_CompletedWithWarnings" xml:space="preserve"><value>Completed with warnings</value></data>
+  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>Backup for "{0}" completed with warnings. Review task details or logs.</value></data>
+  <data name="SemanticBackup_BoundedProviderUnavailable" xml:space="preserve"><value>The consistency plugin cannot create a stable snapshot within resource limits. Update the plugin and try again.</value></data>
+  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>Experimental artifact transforms are disabled or the configuration does not support semantic capture. Check the experimental setting, plugin, and backup policy.</value></data>
+  <data name="HistoryPage_CompareWorkingState.Text" xml:space="preserve"><value>Compare current files with baseline</value></data>
+  <data name="History_Compare_Running" xml:space="preserve"><value>Comparing current files with the baseline…</value></data>
+  <data name="History_Compare_Equal" xml:space="preserve"><value>Current managed content matches the baseline.</value></data>
+  <data name="History_Compare_Different" xml:space="preserve"><value>Current managed content differs from the baseline.</value></data>
+  <data name="History_Compare_Unknown" xml:space="preserve"><value>Unable to determine whether current content matches the baseline. History remains available.</value></data>
+  <data name="History_Compare_Cancelled" xml:space="preserve"><value>Comparison cancelled.</value></data>
+  <data name="HistoryPage_RepairWorkspace.Content" xml:space="preserve"><value>Repair local state</value></data>
+  <data name="HistoryPage_RetryRecovery.Content" xml:space="preserve"><value>Retry recovery</value></data>
+  <data name="HistoryPage_OpenPreservation.Content" xml:space="preserve"><value>Open preservation folder</value></data>
+  <data name="History_Recovery_Readable" xml:space="preserve"><value>History remains available. These issues may restrict writes or require maintenance:</value></data>
+  <data name="History_Recovery_Workspace" xml:space="preserve"><value>Local working state needs attention.</value></data>
+  <data name="History_Recovery_Transaction" xml:space="preserve"><value>A target or history transaction requires recovery.</value></data>
+  <data name="History_Recovery_ReplicaCatalog" xml:space="preserve"><value>Archive associations need recovery; repairing working state does not rebuild them.</value></data>
+  <data name="History_Recovery_Migration" xml:space="preserve"><value>Migration is incomplete or its records need attention.</value></data>
+  <data name="History_Recovery_Maintenance" xml:space="preserve"><value>Preparation files or other maintenance cleanup remain pending.</value></data>
+  <data name="History_Recovery_Failed" xml:space="preserve"><value>Recovery did not finish. Materials were preserved. Review the details before retrying.</value></data>
+  <data name="History_Repair_Title" xml:space="preserve"><value>Repair local working state</value></data>
+  <data name="History_Repair_Primary" xml:space="preserve"><value>Preserve and rebuild</value></data>
+  <data name="History_Repair_Confirm" xml:space="preserve"><value>Configuration: {0}
+Preservation folder: {1}
+
+Damaged files will be preserved first. Existing backups and branches remain available. The original baseline will not be guessed. The next backup must capture everything and create a new branch identity. Continue?</value></data>
+  <data name="History_Repair_Completed" xml:space="preserve"><value>Local working state was rebuilt. The next backup requires a full capture. Other issues still need separate attention.</value></data>
+  <data name="History_Repair_AlreadyHealthy" xml:space="preserve"><value>Working state is already valid. It was checked without rebuilding.</value></data>
+  <data name="History_Recovery_UnsupportedFormat" xml:space="preserve"><value>The local state format is incompatible. Use a version that supports it; repair cannot downgrade this state.</value></data>
+  <data name="Restore_CoordinatorPostActionFailed" xml:space="preserve">
+    <value>File result retained. Follow-up action failed: {0}</value>
+  </data>
+  <data name="Restore_CoordinatorPostActionWarning" xml:space="preserve">
+    <value>The game coordinator reported a warning.</value>
+  </data>
+  <data name="Restore_MaintenanceIncomplete" xml:space="preserve">
+    <value>File result retained. Maintenance is incomplete: {0}</value>
+  </data>
+  <data name="Restore_ConfigurationChanged" xml:space="preserve"><value>The configuration changed during this operation.</value></data>
+  <data name="BackupTasks_WarningSummary.Text" xml:space="preserve"><value>This task has warnings. Review details or logs.</value></data>
+  <data name="BackupTasks_DetailsErrors" xml:space="preserve"><value>Errors</value></data>
+  <data name="BackupTasks_DetailsWarnings" xml:space="preserve"><value>Warnings</value></data>
+  <data name="BackupTasks_DetailsLog" xml:space="preserve"><value>Log</value></data>
+  <data name="Restore_CoordinatorUnavailable" xml:space="preserve"><value>The plugin coordination capability required for restore is unavailable. Enable or update the plugin and try again.</value></data>
+  <data name="Restore_CoordinatorContinuationMissing" xml:space="preserve"><value>The plugin reported completion without asking the app to perform the restore. Update the plugin and review the logs.</value></data>
+  <data name="Restore_CoordinatorContinuationFailed" xml:space="preserve"><value>The plugin requested a restore, but the app did not return a valid result. Review the execution error in the logs.</value></data>
+  <data name="Restore_CoordinatorCanceled" xml:space="preserve"><value>Restore was canceled before target files were changed.</value></data>
+  <data name="Restore_CoordinatorFailed" xml:space="preserve"><value>Plugin coordination failed before restore. Target files have not been changed. Review the logs.</value></data>
+  <data name="Restore_CoordinatorBlocked" xml:space="preserve"><value>The plugin blocked this restore before target files were changed. Review the reason in the logs.</value></data>
+  <data name="OperationDiagnostic_Unknown" xml:space="preserve"><value>A plugin or component reported a diagnostic. Review the logs for details.</value></data>
+  <data name="OperationDiagnostic_WorldLockProbeFailed" xml:space="preserve"><value>Could not confirm that the world is released: {0}. Check file permissions and drive availability, then try again.</value></data>
+  <data name="OperationDiagnostic_RestoreKnotLinkUnavailable" xml:space="preserve"><value>World files are still in use and the integration service is unavailable. Exit the world and wait for its files to be released, or enable integration for a hot restore.</value></data>
+  <data name="OperationDiagnostic_RestoreHandshakeUnavailable" xml:space="preserve"><value>World files are still in use, and a compatible MineBackup mod did not answer the handshake. Exit the world, or check the mod version and integration connection.</value></data>
+  <data name="OperationDiagnostic_RestoreExitTimeout" xml:space="preserve"><value>Timed out waiting for the game to save and exit the world. Exit manually and confirm its files are released before trying again.</value></data>
+  <data name="OperationDiagnostic_RestoreWorldOccupied" xml:space="preserve"><value>World files are still in use by another process. Restore has not started. Wait for the game and other programs to release the save, then try again.</value></data>
+  <data name="OperationDiagnostic_RestoreMultipleWorlds" xml:space="preserve"><value>Several affected worlds are in use, so restore cannot be coordinated safely. Exit those worlds and try again.</value></data>
+  <data name="OperationDiagnostic_RestoreCoordinationFailed" xml:space="preserve"><value>World restore coordination failed. Review the original error in the logs and check the game state and integration connection.</value></data>
+  <data name="OperationDiagnostic_RestoreRejoinFailed" xml:space="preserve"><value>The game could not rejoin the world automatically. Check the restore result before joining manually.</value></data>
+  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>World files are in use and a game save could not be coordinated. A best-effort copy was captured, but it may span multiple saves. Exit the world and back up again, or check integration.</value></data>
+  <data name="OperationDiagnostic_ConsistencyHandshakeUnavailable" xml:space="preserve"><value>A compatible mod did not answer the backup handshake, so a game save could not be confirmed. Check integration or exit the world and back up again.</value></data>
+  <data name="OperationDiagnostic_ConsistencySaveTimeout" xml:space="preserve"><value>Timed out waiting for the game to confirm saving. Backup consistency is unconfirmed. Exit the world and back up again.</value></data>
+  <data name="OperationDiagnostic_ConsistencyCoordinationFailed" xml:space="preserve"><value>Game-save coordination failed before backup. Backup continued on a best-effort basis. Review the logs and back up again after exiting the world.</value></data>
+  <data name="OperationDiagnostic_SnapshotFallback" xml:space="preserve"><value>A stable copy could not be created; the original directory was read instead. Check the logs, file permissions, and available space before trying again.</value></data>
+  <data name="OperationDiagnostic_SnapshotLinksSkipped" xml:space="preserve"><value>Filesystem links inside the source were skipped when creating the backup copy. Review the skipped paths in details.</value></data>
+  <data name="OperationDiagnostic_ConsistencyFallback" xml:space="preserve"><value>Plugin consistency support was unavailable. Backup continued on a best-effort basis. Check the plugin and back up again after exiting the game.</value></data>
+  <data name="OperationDiagnostic_ConsistencyCleanupFailed" xml:space="preserve"><value>Backup reading finished, but plugin temporary-copy cleanup failed. Review the logs and temporary-folder permissions.</value></data>
+  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>The archive is smaller than the configured warning threshold. Check the backup scope and archive contents; details include its actual size.</value></data>
+  <data name="OperationDiagnostic_BackupHistoryRecovery" xml:space="preserve"><value>The backup was committed, but local history state needs recovery. Review the logs and complete recovery before other history operations.</value></data>
+  <data name="OperationDiagnostic_BackupFinalizationFailed" xml:space="preserve"><value>The backup was committed, but a completion action failed. Review the original error in task details.</value></data>
+  <data name="OperationDiagnostic_BackupConfigSaveFailed" xml:space="preserve"><value>The backup was committed, but settings such as the last backup time could not be saved. Check configuration-folder permissions.</value></data>
+  <data name="OperationDiagnostic_BackupCloudFailed" xml:space="preserve"><value>The local backup was committed, but cloud synchronization registration needs attention. Review the logs and cloud status.</value></data>
+  <data name="OperationDiagnostic_BackupRetentionFailed" xml:space="preserve"><value>The backup was committed, but automatic cleanup did not fully complete. Review the cleanup report and logs.</value></data>
+  <data name="OperationDiagnostic_BackupWarningUnspecified" xml:space="preserve"><value>Backup completed, but the component did not provide a specific warning reason. Keep the logs for diagnosis.</value></data>
 </root>

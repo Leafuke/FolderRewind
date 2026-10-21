@@ -24,7 +24,10 @@ public sealed record ArtifactLedgerEntry(
     IReadOnlyList<ArtifactId> Dependencies,
     string TransactionId,
     ArtifactAvailability LocalAvailability,
-    ArtifactAvailability CloudAvailability);
+    ArtifactAvailability CloudAvailability)
+{
+    public int? LogicalEntryCount { get; init; }
+}
 
 public sealed record ArtifactClosurePlan(
     IReadOnlyList<ArtifactId> Roots,
@@ -46,7 +49,11 @@ public sealed record StagedArtifactFacts(
     string LogicalSha256,
     long LogicalSize,
     string StorageSha256,
-    long StorageSize);
+    long StorageSize)
+{
+    public int FileCount { get; init; }
+    public int? LogicalEntryCount { get; init; }
+}
 
 public sealed record CloudArtifactPayload(string Path, bool IsFile);
 

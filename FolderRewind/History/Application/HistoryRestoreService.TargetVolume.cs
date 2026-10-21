@@ -21,6 +21,12 @@ public sealed partial class HistoryRestoreService
         catch (Exception error) { diagnostic = error.Message; return null; }
     }
 
+    private static HistoryRestoreResult BlockedAfterPreparation(Exception error, HistoryRestorePreparationSession? session)
+    {
+        session?.Abort();
+        return Blocked(session?.Diagnostic is { } cleanup ? error.Message + "; " + cleanup : error.Message);
+    }
+
     private async Task<HistoryRestoreResult> ExecuteTargetVolumeMutationAsync(HistoryRestorePreparationSession session,
         IReadOnlyList<PreparedRestoreSource> prepared, HistoryWorkspace expected, HistoryWorkspace desired, CancellationToken token)
     {
@@ -29,7 +35,9 @@ public sealed partial class HistoryRestoreService
         try
         {
             token.ThrowIfCancellationRequested();
-            var plan = HistoryRestoreMutationPlanner.Build(session, prepared, AllowDirectorySwap);
+            var plan = HistoryRestoreMutationPlanner.Build(session, prepared, AllowDirectorySwap && !HoldCurrentReadProtection,
+                HoldCurrentReadProtection, UnchangedTargetSources);
+            ValidateCurrentInputs?.Invoke();
             journal = session.Freeze(plan, expected, desired);
             using (HistoryRestoreFileSystemPlanStore.Execute(plan,
                 Path.Combine(_journals.TransactionDirectory(journal.TransactionId), "restore-progress.bin"), token))
@@ -40,17 +48,7 @@ public sealed partial class HistoryRestoreService
                 await _journals.CompleteLocalStateAsync(journal, token).ConfigureAwait(false);
                 HistoryRestoreFileSystemPlanStore.Reach("after-workspace");
                 HistoryRestoreFileSystemPlanStore.ValidatePublished(plan);
-            }
-            journal = journal with { Phase = HistoryRestoreTransactionPhase.Cleaning, CleanupCommitted = true }; session.SetJournal(journal);
-            try
-            {
-                HistoryRestoreFileSystemPlanStore.Cleanup(plan, true, true);
-                session.SetJournal(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
-            }
-            catch (Exception cleanup)
-            {
-                session.Finish();
-                return new(HistoryRestoreStatus.CommittedWithPostActionWarning, "Restore committed; owned cleanup deferred: " + cleanup.Message, true, applied);
+                _journals.CompleteWithDeferredCleanup(journal, committed: true);
             }
             session.Finish();
             await _history.EnsureIndexCurrentAsync(CancellationToken.None).ConfigureAwait(false);

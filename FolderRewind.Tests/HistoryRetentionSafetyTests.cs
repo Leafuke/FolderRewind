@@ -295,6 +295,33 @@ public sealed class HistoryRetentionSafetyTests
         Assert.HasCount(1, releasedPlan.LocalPayloadDeletions);
     }
 
+    [TestMethod]
+    public async Task UnsupportedExperimentalPayloadIsExcludedFromAutomaticDeletionWithoutRetainingPairState()
+    {
+        var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var history = new HistoryRuntime(new FileHistoryRepository(config, new HistoryRepositoryPaths(Path.Combine(_root, "unsupported"))));
+        await history.InitializeAsync();
+        var version = Version(config, SourceId.New(), [], "old-experiment");
+        var old = new VersionRepresentation(RepresentationId.New(), version.VersionId, RepresentationKind.PluginArtifact, "old", [],
+            MaterializationFidelity.Exact, null, null, new Dictionary<string, string> { ["nativeArtifactEnvelope"] = "1" });
+        var core = new VersionRepresentation(RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "test", [],
+            MaterializationFidelity.Exact, null, null, null);
+        var codec = new HistoryPackCodec();
+        await history.Repository.CommitAsync(new HistoryCommitPack(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, old, core }.Select(item => codec.CreateObject(item))));
+        var oldEntry = Entry(old.RepresentationId, CreatePayload("old-native.bin", "unsupported"));
+        var coreEntry = Entry(core.RepresentationId, CreatePayload("core.bin", "official"));
+        await history.LocalReplicaCatalogStore.SaveAsync(new LocalReplicaCatalog(config, 0, [oldEntry, coreEntry]), LocalReplicaCatalogStore.MissingRevision);
+        await history.WorkspaceStore.SaveAsync(new HistoryWorkspace(config, 0, HistoryFixture.SourceStates([], null, null, null)), HistoryWorkspaceStore.MissingRevision);
+        var planner = new HistoryRetentionPlanner(history, new RepresentationRuntime([new ReadyTestHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), new TrackingPayloadStore());
+        var plan = await planner.PlanAsync(new HistoryRetentionRequest(0, HistoryRetentionOperationRoots.Empty));
+        Assert.IsTrue(plan.CanExecute, string.Join(";", plan.Blockers));
+        Assert.HasCount(1, plan.LocalPayloadDeletions);
+        Assert.AreEqual(core.RepresentationId, plan.LocalPayloadDeletions.Single().RepresentationId);
+        Assert.IsTrue(File.Exists(oldEntry.Locator.Resolve()));
+    }
+
     private string CreatePayload(string name, string content)
     {
         var path = Path.Combine(_root, name);

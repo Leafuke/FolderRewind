@@ -27,12 +27,13 @@ public static partial class BackupService
         public SafetySnapshot? SafetySnapshot => CommittedBatch?.NewSafetySnapshot;
         public bool HistoryRecoveryRequired { get; init; }
         public string? RecoveryMessage { get; init; }
+        public string? Diagnostic { get; init; }
 
         public static BackupTransactionExecutionResult Blocked(string message) => new()
         {
             Outcome = OperationOutcome.Blocked,
             CreatedNewArchive = false,
-            SourceOutcomes = Array.Empty<BackupSourceExecutionOutcome>()
+            SourceOutcomes = Array.Empty<BackupSourceExecutionOutcome>(), Diagnostic = message
         };
 
         public static BackupTransactionExecutionResult Canceled(IReadOnlyList<BackupSourceExecutionOutcome> outcomes) => new()
@@ -46,7 +47,7 @@ public static partial class BackupService
         {
             Outcome = OperationOutcome.Failed,
             CreatedNewArchive = false,
-            SourceOutcomes = outcomes
+            SourceOutcomes = outcomes, Diagnostic = message
         };
     }
 
@@ -119,6 +120,31 @@ public static partial class BackupService
         await using var ownedOperation = existingOperation is null ? await NativeHistoryConfigurationOperationGate
             .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false) : null;
         var operationLease = existingOperation ?? ownedOperation!;
+        using var captureOwnership = Plugin.Runtime.Artifacts.NativeArtifactStore.TrackConfigurationCapture(config.Id);
+        if (invocationOptions.ConfigurationHandoff is { } handoff)
+        {
+            var valid = false;
+            await RunOnUIAsync(() =>
+            {
+                var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => c.Id == config.Id);
+                valid = current is not null && handoff.Matches(current, current.Id, current.ConfigRevision, current.SourceFolders.Select(f => f.Id))
+                    && handoff.Matches(current, config.Id, config.ConfigRevision, config.SourceFolders.Select(f => f.Id))
+                    && handoff.Matches(current, config.Id, config.ConfigRevision, requestedFolders.Select(f => f.Id))
+                    && NativeHistoryConfigLease.Signature(current) == NativeHistoryConfigLease.Signature(config);
+                if (valid)
+                {
+                    // Use the validated registration for runtime facts such as LastBackupTime.
+                    config = current!; requestedFolders = current!.SourceFolders.ToArray();
+                }
+            }).ConfigureAwait(false);
+            if (!valid) throw new InvalidOperationException(I18n.GetString("SemanticBackup_CheckpointStale"));
+        }
+        if (invocationOptions.RequestSemanticCheckpoint
+            && (invocationOptions.Source != BackupInvocationSource.Manual
+                || !NativeHistoryArtifactTransformPolicy.IsIncremental(config.ArtifactTransformPolicy)
+                || NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy)
+                || !ExperimentalArtifactPolicyService.SupportsConfiguration(config)))
+            return BackupTransactionExecutionResult.Blocked(I18n.GetString("SemanticBackup_CheckpointUnavailable"));
         timing.MarkPhase("preflight");
         var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
         await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
@@ -145,7 +171,7 @@ public static partial class BackupService
                     ? $"The v3 plugin policy could not resolve effective boundary for folder '{folder.DisplayName}'."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
-                        : $"{diagnostic.Code} ({diagnostic.Owner})";
+                        : ExperimentalArtifactPolicyService.Describe(diagnostic);
                 Log($"[PluginV3] {message}", LogLevel.Error);
 
                 await RunOnUIAsync(() =>
@@ -191,7 +217,7 @@ public static partial class BackupService
                     ? $"The v3 plugin policy blocked backup capture for '{folder.DisplayName}'."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
-                        : $"{diagnostic.Code} ({diagnostic.Owner})";
+                        : ExperimentalArtifactPolicyService.Describe(diagnostic);
                 Log($"[PluginV3] {message}", LogLevel.Error);
 
                 await RunOnUIAsync(() =>
@@ -302,7 +328,7 @@ public static partial class BackupService
             {
                 terminalLifecycle.Set(CreateCanceledTerminal());
                 await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
-                await FinalizeCanceledBackupAsync(requestedFolders, sourceOutcomes).ConfigureAwait(false);
+                await FinalizeCanceledBackupAsync(config, requestedFolders, sourceOutcomes).ConfigureAwait(false);
                 return BackupTransactionExecutionResult.Canceled(sourceOutcomes);
             }
 
@@ -371,7 +397,7 @@ public static partial class BackupService
         {
             terminalLifecycle.Set(CreateCanceledTerminal());
             await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
-            await FinalizeCanceledBackupAsync(requestedFolders, sourceOutcomes).ConfigureAwait(false);
+            await FinalizeCanceledBackupAsync(config, requestedFolders, sourceOutcomes).ConfigureAwait(false);
             return BackupTransactionExecutionResult.Canceled(sourceOutcomes);
         }
         catch (Exception ex)
@@ -399,7 +425,7 @@ public static partial class BackupService
         catch (Exception ex)
         {
             hasPostCommitWarnings = true;
-            Log($"Post-commit backup finalization failed: {ex.Message}", LogLevel.Warning);
+            await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_finalization_failed", ex.Message).ConfigureAwait(false);
         }
 
         try
@@ -411,13 +437,15 @@ public static partial class BackupService
             if (cloudRuntime.CloudJobs.Diagnostic is not null)
             {
                 hasPostCommitWarnings = true;
+                await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_cloud_failed",
+                    cloudRuntime.CloudJobs.Diagnostic.ToString() ?? string.Empty).ConfigureAwait(false);
                 NotificationService.ShowWarning(I18n.GetString("CloudJob_RegistrationNeedsAttention"));
             }
         }
         catch (Exception ex)
         {
             hasPostCommitWarnings = true;
-            Log($"Post-commit cloud sync queueing failed: {ex.Message}", LogLevel.Warning);
+            await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_cloud_failed", ex.Message).ConfigureAwait(false);
         }
 
         if (committedBatch.Run.Outcome is BackupRunOutcome.Completed or BackupRunOutcome.Partial)
@@ -426,11 +454,13 @@ public static partial class BackupService
             {
                 var cleanup = await NativeHistoryApplicationService.ApplyAutomaticRetentionAsync(config, operationLease).ConfigureAwait(false);
                 hasPostCommitWarnings |= cleanup?.HasWarnings == true;
+                if (cleanup?.HasWarnings == true)
+                    await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_retention_failed", cleanup.Status).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 hasPostCommitWarnings = true;
-                Log($"Post-commit retention failed: {ex.Message}", LogLevel.Warning);
+                await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_retention_failed", ex.Message).ConfigureAwait(false);
             }
         }
 
@@ -503,32 +533,17 @@ public static partial class BackupService
                 : CreateFailedTerminal("source_unavailable", firstUnavailable?.ErrorMessage ?? "Backup source is unavailable.");
         }
 
+        var fields = new BackupOperationResult(outcome, sourceOutcomes.Any(item => item.CreatedNewArchive)).ToProtocolFields();
         if (hasPostCommitWarnings)
         {
-            return new BackupTerminalLifecycle(
-                "command_completed",
-                new Dictionary<string, string?>
-                {
-                    ["result"] = "warning",
-                    ["reason"] = "post_commit_warning"
-                });
+            fields["result"] = "warning";
+            fields["reason"] = "post_commit_warning";
         }
-
-        var latestCreated = sourceOutcomes.LastOrDefault(item => item.CreatedNewArchive)?.GeneratedFileName;
-        if (sourceOutcomes.Any(item => item.CreatedNewArchive))
-        {
-            return new BackupTerminalLifecycle(
-                "command_completed",
-                new Dictionary<string, string?>
-                {
-                    ["result"] = "created",
-                    ["file"] = latestCreated
-                });
-        }
-
-        return new BackupTerminalLifecycle(
-            "command_completed",
-            new Dictionary<string, string?> { ["result"] = "no_changes" });
+        else if (outcome == OperationOutcome.SuccessWithWarnings) fields["reason"] = "source_warning";
+        var codes = sourceOutcomes.SelectMany(item => item.WarningCodes).Distinct(StringComparer.Ordinal).ToArray();
+        if (codes.Length > 0) fields["warning_codes"] = string.Join(",", codes);
+        if (sourceOutcomes.LastOrDefault(item => item.CreatedNewArchive)?.GeneratedFileName is { } file) fields["file"] = file;
+        return new BackupTerminalLifecycle("command_completed", fields);
     }
 
     private static BackupTerminalLifecycle CreateRecoveryRequiredTerminal(
@@ -595,6 +610,10 @@ public static partial class BackupService
             var folder = requestedFolders[i];
             var outcome = sourceOutcomes[i];
             var task = outcome.Task;
+            if (recoveryWarning is not null && outcome.Status is BackupSourceExecutionStatus.NewArchive or BackupSourceExecutionStatus.Reused)
+                AddSourceWarning(outcome, "backup.history_recovery_required", recoveryWarning);
+            var sourceHasWarnings = outcome.OperationOutcome == OperationOutcome.SuccessWithWarnings;
+            var warningStatus = sourceHasWarnings ? I18n.GetString("BackupService_Task_CompletedWithWarnings") : null;
 
             try
             {
@@ -638,9 +657,8 @@ public static partial class BackupService
                                     var thresholdKB = ConfigService.CurrentConfig?.GlobalSettings?.FileSizeWarningThresholdKB ?? 5;
                                     if (thresholdKB > 0 && fileSizeKB < thresholdKB)
                                     {
-                                        Log(I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()), LogLevel.Warning);
-                                        NotificationService.ShowWarning(
-                                            I18n.Format("BackupService_Warning_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
+                                        AddSourceWarning(outcome, "backup.file_too_small", I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
+                                        hasPostCommitWarnings = true;
                                         BroadcastBackupEvent(configIndex, config, folder, "backup_warning", new Dictionary<string, string?>
                                         {
                                             ["type"] = "file_too_small",
@@ -655,16 +673,18 @@ public static partial class BackupService
                         }
                     }
 
+                    sourceHasWarnings = outcome.WarningDiagnostics.Count > 0 || outcome.OperationOutcome == OperationOutcome.SuccessWithWarnings;
+                    warningStatus = sourceHasWarnings ? I18n.GetString("BackupService_Task_CompletedWithWarnings") : null;
                     if (task is not null)
                     {
                         await RunOnUIAsync(() =>
                         {
-                            task.Status = recoveryWarning ?? I18n.Format("BackupService_Task_Completed");
+                            task.Status = recoveryWarning ?? warningStatus ?? I18n.Format("BackupService_Task_Completed");
                             task.Progress = 100;
                             task.IsCompleted = true;
                             task.IsIndeterminate = false;
                             task.IsSuccess = true;
-                            folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
+                            folder.StatusText = warningStatus ?? I18n.Format("BackupService_Folder_BackupCompleted");
                             folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
                     }
@@ -672,7 +692,7 @@ public static partial class BackupService
                     {
                         await RunOnUIAsync(() =>
                         {
-                            folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
+                            folder.StatusText = warningStatus ?? I18n.Format("BackupService_Folder_BackupCompleted");
                             folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
                     }
@@ -681,9 +701,10 @@ public static partial class BackupService
                     {
                         BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
                         {
-                            ["file"] = completedFileName
+                            ["file"] = completedFileName,
+                            ["has_warnings"] = sourceHasWarnings ? "true" : "false"
                         });
-                        NotificationService.NotifyBackupCompleted(folder.DisplayName, true);
+                        if (!sourceHasWarnings) NotificationService.NotifyBackupCompleted(folder.DisplayName, true);
                     }
                     else
                     {
@@ -702,19 +723,19 @@ public static partial class BackupService
                     {
                         await RunOnUIAsync(() =>
                         {
-                            task.Status = I18n.Format("BackupService_Task_NoChanges");
+                            task.Status = warningStatus ?? I18n.Format("BackupService_Task_NoChanges");
                             task.Progress = 100;
                             task.IsCompleted = true;
                             task.IsIndeterminate = false;
                             task.IsSuccess = true;
-                            folder.StatusText = I18n.Format("BackupService_Task_NoChanges");
+                            folder.StatusText = warningStatus ?? I18n.Format("BackupService_Task_NoChanges");
                         });
                     }
                     else
                     {
                         await RunOnUIAsync(() =>
                         {
-                            folder.StatusText = I18n.Format("BackupService_Task_NoChanges");
+                            folder.StatusText = warningStatus ?? I18n.Format("BackupService_Task_NoChanges");
                         });
                     }
                     Log(I18n.Format("BackupService_Log_BackupSkippedNoChanges", folder.DisplayName), LogLevel.Info);
@@ -752,11 +773,13 @@ public static partial class BackupService
                     BroadcastBackupEvent(configIndex, config, folder, "backup_failed", failureFields);
                     NotificationService.NotifyBackupCompleted(folder.DisplayName, false, outcome.ErrorMessage);
                 }
+                await PublishSourceWarningsAsync(config, folder, outcome).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 hasPostCommitWarnings = true;
-                Log($"Post-commit finalization failed for folder '{folder.DisplayName}': {ex.Message}", LogLevel.Warning);
+                AddSourceWarning(outcome, "backup.post_commit_finalization_failed", ex.Message);
+                await PublishSourceWarningsAsync(config, folder, outcome).ConfigureAwait(false);
             }
         }
 
@@ -767,7 +790,7 @@ public static partial class BackupService
             if (!saveResult.Success)
             {
                 hasPostCommitWarnings = true;
-                Log($"Post-commit LastBackupTime persistence failed: {saveResult.ErrorMessage}", LogLevel.Warning);
+                await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_config_save_failed", saveResult.ErrorMessage).ConfigureAwait(false);
             }
         }
 
@@ -775,6 +798,7 @@ public static partial class BackupService
     }
 
     private static async Task FinalizeCanceledBackupAsync(
+        BackupConfig config,
         IReadOnlyList<ManagedFolder> requestedFolders,
         IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes)
     {
@@ -799,6 +823,7 @@ public static partial class BackupService
                     task.ErrorMessage = canceledMessage;
                     folder.StatusText = canceledMessage;
                 });
+                await PublishSourceWarningsAsync(config, folder, sourceOutcomes[i]).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -821,6 +846,8 @@ public static partial class BackupService
             try
             {
                 await FinalizeFailedSourceAsync(configIndex, config, folder, outcome?.Task, errorMessage).ConfigureAwait(false);
+                if (outcome is not null)
+                    await PublishSourceWarningsAsync(config, folder, outcome).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

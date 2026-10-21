@@ -90,6 +90,7 @@ public sealed class HistoryTargetVolumeRestoreTests
         Assert.IsFalse(Directory.Exists(Path.Combine(target, "obsolete")));
         if (scenario is "file-to-dir" or "empty-dir") Assert.IsTrue(Directory.Exists(Path.Combine(target, "shape")));
         else Assert.AreEqual("new", File.ReadAllText(Path.Combine(target, "shape")));
+        await f.History.DrainRestoreCleanupAsync();
         Assert.IsFalse(Directory.EnumerateDirectories(f.Root, ".folderrewind-restore-*").Any());
     }
     [TestMethod]
@@ -115,7 +116,8 @@ public sealed class HistoryTargetVolumeRestoreTests
         }
         Assert.AreEqual(mode == HistoryRestoreApplyMode.Overwrite, File.Exists(untouched));
         if (mode == HistoryRestoreApplyMode.Overwrite) Assert.AreEqual(id, WindowsRestoreFileSystem.Identity(untouched));
-        Assert.IsFalse(Directory.EnumerateDirectories(f.Root, ".folderrewind-restore-*").Any());
+                await f.History.DrainRestoreCleanupAsync();
+                Assert.IsFalse(Directory.EnumerateDirectories(f.Root, ".folderrewind-restore-*").Any());
         var diagnostic = HistoryOperationDiagnostics.GetRecent().Last();
         Assert.AreEqual(0L, diagnostic.Counters.GetValueOrDefault("copy-tree-bytes"));
         Assert.AreEqual(0L, diagnostic.Counters.GetValueOrDefault("7z-t"));

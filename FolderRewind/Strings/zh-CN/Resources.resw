@@ -5011,7 +5011,6 @@ Pull Request：{1}</value>
   <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>这会用所选分支检查点精确替换当前备份项目中的所有源目录内容。请确认当前未提交的更改可以丢弃。</value></data>
   <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>丢弃当前更改并切换</value></data>
   <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>归档验证失败，未写入原生历史记录。</value></data>
-  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>当前版本尚未完成插件产物转换与原生历史记录的集成。请先关闭此配置的产物转换策略。</value></data>
   <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>历史记录初始化失败</value></data>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>无法为“{0}”初始化原生历史：{1}</value></data>
   <data name="HistoryPage_BranchFilter.Header" xml:space="preserve"><value>查看分支</value></data>
@@ -6123,12 +6122,12 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_ResumePreparation" xml:space="preserve"><value>继续准备</value></data>
   <data name="MergeWorkspace_NoTarget" xml:space="preserve"><value>当前文件夹尚无有效的活动分支，请先备份或检出一个分支。</value></data>
   <data name="MergeWorkspace_NoSource" xml:space="preserve"><value>没有其他可合并分支。来源分支须有唯一、有效的历史节点。</value></data>
-  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} 个文件</value></data>
+  <data name="MergeWorkspace_GroupCount" xml:space="preserve"><value>{0} 个文件，{1} 个文件夹</value></data>
   <data name="Merge_Diagnostic_InvalidBranches" xml:space="preserve"><value>所选分支无效、与当前分支相同或存在多个分支头。</value></data>
   <data name="Merge_Diagnostic_NoCommonBase" xml:space="preserve"><value>这两个分支没有共同基点，无法进行三方合并。</value></data>
   <data name="Merge_Diagnostic_MultipleMergeBases" xml:space="preserve"><value>存在多个最佳共同基点，当前合并器无法安全选择。</value></data>
   <data name="MergeWorkspace_Action_SelectSource" xml:space="preserve"><value>请通过右上角任务菜单新建合并并选择其他来源；必要时先解决分支分歧。</value></data>
-  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>此文件由文件级规则自动处理，可在最终审阅中核对实际写入。</value></data>
+  <data name="MergeWorkspace_AutomaticNotice" xml:space="preserve"><value>此文件或文件夹由三方合并规则自动处理，可在最终审阅中核对实际写入。</value></data>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>此类范围或来源冲突不提供文件级共同基点预览。</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>返回备份历史，保留合并任务</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>返回历史 · 任务将保留</value></data>
@@ -7035,4 +7034,175 @@ Pull Request：{1}</value>
   <data name="MigrationWizard_ReconnectCloud.Content" xml:space="preserve"><value>重新连接云存储…</value></data>
   <data name="MigrationWizard_RecheckCloud.Content" xml:space="preserve"><value>重新检查</value></data>
   <data name="MigrationWizard_CloudPermissionNoticeTitle" xml:space="preserve"><value>云操作待确认</value></data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>下载并准备安装</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>更新包准备结果</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>更新包已准备完成（来源：{0}）。请右键运行以下脚本继续安装：
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>打开安装目录</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>无法打开安装目录：{0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>更新包准备失败：{0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>更新上下文无效，请稍后重试。</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>当前版本未提供适配你设备的 .7z 或 .sha256 资产，无法自动准备更新。</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>没有可用的更新下载源，请检查镜像配置。</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>无法解析 .sha256 文件内容。</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>源“{0}”校验失败（SHA256 不匹配）。</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>无法启动 7z 解压进程。</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>源“{0}”解压失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>更新包已解压，但未找到 Install.ps1，请改为手动下载并安装。</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>源“{0}”下载失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>准备更新包失败，请稍后重试。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
+    <value>同步范围</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
+    <value>仅同步此配置历史记录</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
+    <value>同步历史记录和所有备份到本地</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
+    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并下载了 {2} 个备份包。</value>
+  </data>
+  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
+    <value>下载安装程序</value>
+  </data>
+  <data name="SettingsCard_SemanticBackup.Header" xml:space="preserve"><value>语义备份（实验性）</value></data>
+  <data name="SemanticBackup_Description.Text" xml:space="preserve"><value>使用兼容插件按领域内容保存增量，并保持字节一致恢复。默认关闭；稀疏变化节省空间，密集变化和自包含检查点可能更慢。</value></data>
+  <data name="SemanticBackup_EnableLabel.Text" xml:space="preserve"><value>启用实验性语义增量备份</value></data>
+  <data name="SemanticBackup_Enable.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="SemanticBackup_Enable.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SemanticBackup_Refresh.Content" xml:space="preserve"><value>刷新插件可用性</value></data>
+  <data name="SemanticBackup_ExperimentalWarning.Text" xml:space="preserve"><value>恢复这些历史版本需要兼容插件。关闭本功能不会删除已有语义版本；下一次普通备份将建立完整文件基线。云端副本退役不等于共享数据已回收，旧数据仍可能占用空间。</value></data>
+  <data name="SemanticBackup_FallbackLabel.Text" xml:space="preserve"><value>转换失败时允许回退完整文件备份</value></data>
+  <data name="SemanticBackup_Fallback.OnContent" xml:space="preserve"><value>回退并记录警告</value></data>
+  <data name="SemanticBackup_Fallback.OffContent" xml:space="preserve"><value>停止，不创建新版本</value></data>
+  <data name="SemanticBackup_FallbackHint.Text" xml:space="preserve"><value>仅在来源仍可安全捕获时回退。插件缺失可能阻断备份；手动 checkpoint 失败不会由普通备份替代。</value></data>
+  <data name="SemanticBackup_CheckpointHeader.Text" xml:space="preserve"><value>自包含检查点</value></data>
+  <data name="SemanticBackup_CheckpointDescription.Text" xml:space="preserve"><value>为本配置的全部来源创建自包含检查点（checkpoint），即使文件没有变化。操作会先保存设置，需要额外时间和空间，且不保证回收旧数据。恢复检查点仍需要兼容插件。</value></data>
+  <data name="SemanticBackup_CancelCheckpoint.Content" xml:space="preserve"><value>取消 checkpoint</value></data>
+  <data name="SemanticBackup_UnsupportedConfiguration" xml:space="preserve"><value>仅支持完整来源的智能或完整备份。请先添加来源，并关闭选区/子集备份；滚动备份不支持。</value></data>
+  <data name="SemanticBackup_ProviderUnavailable" xml:space="preserve"><value>没有可用的兼容转换与恢复插件，或现有策略不匹配。请安装并启用支持此功能的插件后刷新。MineRewind 当前支持 Java 存档。</value></data>
+  <data name="SemanticBackup_EnabledHint" xml:space="preserve"><value>已在当前设置中启用；保存后生效。智能模式只处理变化文件中的内容，首次备份建立完整基线。</value></data>
+  <data name="SemanticBackup_DisabledHint" xml:space="preserve"><value>当前未启用。已有配置不会自动迁移。</value></data>
+  <data name="SemanticBackup_SaveCheckpoint" xml:space="preserve"><value>保存并创建 checkpoint</value></data>
+  <data name="SemanticBackup_CreateCheckpoint" xml:space="preserve"><value>创建 checkpoint</value></data>
+  <data name="SemanticBackup_CheckpointRunning" xml:space="preserve"><value>正在保存设置并创建自包含检查点……</value></data>
+  <data name="SemanticBackup_CheckpointSucceeded" xml:space="preserve"><value>检查点已提交，可在历史中查看。</value></data>
+  <data name="SemanticBackup_CheckpointWarnings" xml:space="preserve"><value>检查点已提交，但后续处理有警告，请查看日志。</value></data>
+  <data name="SemanticBackup_CheckpointCanceled" xml:space="preserve"><value>操作已取消。请在历史中确认是否已在取消前完成提交。</value></data>
+  <data name="SemanticBackup_CheckpointFailed" xml:space="preserve"><value>检查点未完成，请查看日志；没有将普通备份作为检查点提交。</value></data>
+  <data name="SemanticBackup_CheckpointRecoveryRequired" xml:space="preserve"><value>历史提交需要恢复处理。请先处理历史恢复提示，勿重复创建检查点。</value></data>
+  <data name="SemanticBackup_CheckpointStableRequired" xml:space="preserve"><value>创建语义检查点需要兼容插件提供稳定来源视图。</value></data>
+  <data name="SemanticBackup_CheckpointUnavailable" xml:space="preserve"><value>请先显式启用实验性语义备份，并使用完整来源的智能或完整备份配置。</value></data>
+  <data name="SemanticBackup_CheckpointHistoryComment" xml:space="preserve"><value>手动语义 checkpoint</value></data>
+  <data name="History_NativeDelete_Confirm" xml:space="preserve"><value>删除“{0}”的本地表示后，将回收不再被其他版本或任务引用的 Native 对象。共享对象会保留，实际释放空间取决于完整闭包。</value></data>
+  <data name="Retention_NativeObjects" xml:space="preserve"><value>已回收 {0} 个 Native 对象；共享对象按闭包保留，释放字节已计入总量。</value></data>
+  <data name="Retention_Reason_CollectionAckPending" xml:space="preserve"><value>对象已回收，回收记录的确认尚未完成；下次清理会重试。</value></data>
+  <data name="Migration_NativePackageRequired" xml:space="preserve"><value>此版本使用语义备份存储。请通过迁移包恢复，或重新绑定包含完整数据的备份目录。</value></data>
+  <data name="SemanticBackup_CheckpointStale" xml:space="preserve"><value>检查点开始前，已保存的配置已发生变化。请重新保存后重试。</value></data>
+  <data name="BackupService_Task_CompletedWithWarnings" xml:space="preserve"><value>已完成，有警告</value></data>
+  <data name="BackupService_Warning_CompletedWithWarnings" xml:space="preserve"><value>“{0}”备份已完成，但存在警告。请查看任务详情或日志。</value></data>
+  <data name="SemanticBackup_BoundedProviderUnavailable" xml:space="preserve"><value>当前一致性插件不支持有资源上限的稳定副本，请更新插件后重试。</value></data>
+  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>此配置的实验性产物转换策略尚未启用，或不符合语义捕获条件。请检查实验开关、插件与备份策略。</value></data>
+  <data name="HistoryPage_CompareWorkingState.Text" xml:space="preserve"><value>比对当前文件与基线</value></data>
+  <data name="History_Compare_Running" xml:space="preserve"><value>正在比对当前文件与基线…</value></data>
+  <data name="History_Compare_Equal" xml:space="preserve"><value>当前管理内容与基线一致。</value></data>
+  <data name="History_Compare_Different" xml:space="preserve"><value>当前管理内容与基线不同。</value></data>
+  <data name="History_Compare_Unknown" xml:space="preserve"><value>无法确定当前内容与基线是否一致；历史仍可浏览。</value></data>
+  <data name="History_Compare_Cancelled" xml:space="preserve"><value>比对已取消。</value></data>
+  <data name="HistoryPage_RepairWorkspace.Content" xml:space="preserve"><value>修复本机状态</value></data>
+  <data name="HistoryPage_RetryRecovery.Content" xml:space="preserve"><value>重试恢复</value></data>
+  <data name="HistoryPage_OpenPreservation.Content" xml:space="preserve"><value>打开保全位置</value></data>
+  <data name="History_Recovery_Readable" xml:space="preserve"><value>历史仍可浏览。以下问题可能限制写入或需要维护：</value></data>
+  <data name="History_Recovery_Workspace" xml:space="preserve"><value>本机工作状态需要处理。</value></data>
+  <data name="History_Recovery_Transaction" xml:space="preserve"><value>目标或历史事务尚待恢复。</value></data>
+  <data name="History_Recovery_ReplicaCatalog" xml:space="preserve"><value>归档关联需要恢复；修复工作状态不会重建归档关联。</value></data>
+  <data name="History_Recovery_Migration" xml:space="preserve"><value>迁移尚未完成或迁移记录需要处理。</value></data>
+  <data name="History_Recovery_Maintenance" xml:space="preserve"><value>准备材料或其他维护清理尚未完成。</value></data>
+  <data name="History_Recovery_Failed" xml:space="preserve"><value>本次恢复未完成，材料已保留。请查看详细原因后重试。</value></data>
+  <data name="History_Repair_Title" xml:space="preserve"><value>修复本机工作状态</value></data>
+  <data name="History_Repair_Primary" xml:space="preserve"><value>保全并重建</value></data>
+  <data name="History_Repair_Confirm" xml:space="preserve"><value>配置：{0}
+保全位置：{1}
+
+损坏文件会先保全。旧备份和分支保留；不猜测原基线。下一次备份必须完整捕获，并建立新的分支身份。是否继续？</value></data>
+  <data name="History_Repair_Completed" xml:space="preserve"><value>本机工作状态已重建。下一次备份需要完整捕获；其他故障仍需分别处理。</value></data>
+  <data name="History_Repair_AlreadyHealthy" xml:space="preserve"><value>工作状态已经有效，已重新检查，没有重建。</value></data>
+  <data name="History_Recovery_UnsupportedFormat" xml:space="preserve"><value>本机状态格式不兼容，请使用支持该格式的版本；不能通过修复降级。</value></data>
+  <data name="Restore_CoordinatorPostActionFailed" xml:space="preserve">
+    <value>文件处理结果已保留，后续联动未完成：{0}</value>
+  </data>
+  <data name="Restore_CoordinatorPostActionWarning" xml:space="preserve">
+    <value>游戏协调器报告了警告。</value>
+  </data>
+  <data name="Restore_MaintenanceIncomplete" xml:space="preserve">
+    <value>文件处理结果已保留，维护尚未完成：{0}</value>
+  </data>
+  <data name="Restore_ConfigurationChanged" xml:space="preserve"><value>配置在本次操作期间发生变化。</value></data>
+  <data name="BackupTasks_WarningSummary.Text" xml:space="preserve"><value>任务包含警告，请查看详情或日志。</value></data>
+  <data name="BackupTasks_DetailsErrors" xml:space="preserve"><value>错误</value></data>
+  <data name="BackupTasks_DetailsWarnings" xml:space="preserve"><value>警告</value></data>
+  <data name="BackupTasks_DetailsLog" xml:space="preserve"><value>日志</value></data>
+  <data name="Restore_CoordinatorUnavailable" xml:space="preserve"><value>还原所需的插件协调能力不可用。请启用或更新对应插件后重试。</value></data>
+  <data name="Restore_CoordinatorContinuationMissing" xml:space="preserve"><value>插件报告操作已完成，但没有交由应用执行还原。请更新插件并查看日志。</value></data>
+  <data name="Restore_CoordinatorContinuationFailed" xml:space="preserve"><value>插件已请求还原，但应用没有返回有效结果。请查看日志中的执行异常。</value></data>
+  <data name="Restore_CoordinatorCanceled" xml:space="preserve"><value>还原在修改目标文件前已取消。</value></data>
+  <data name="Restore_CoordinatorFailed" xml:space="preserve"><value>插件在还原前的协调步骤失败，目标文件尚未修改。请查看日志。</value></data>
+  <data name="Restore_CoordinatorBlocked" xml:space="preserve"><value>插件阻止了此次还原，目标文件尚未修改。请查看日志中的阻止原因。</value></data>
+  <data name="OperationDiagnostic_Unknown" xml:space="preserve"><value>插件或组件报告了诊断，请查看日志中的详细信息。</value></data>
+  <data name="OperationDiagnostic_WorldLockProbeFailed" xml:space="preserve"><value>无法确认世界已释放：{0}。请检查文件访问权限和磁盘状态后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreKnotLinkUnavailable" xml:space="preserve"><value>世界文件仍被占用，且互联服务不可用。请退出世界并等待文件释放后重试；热还原需要启用互联服务。</value></data>
+  <data name="OperationDiagnostic_RestoreHandshakeUnavailable" xml:space="preserve"><value>世界文件仍被占用，兼容的 MineBackup 模组未响应握手。请退出世界后重试，或检查模组版本及互联连接。</value></data>
+  <data name="OperationDiagnostic_RestoreExitTimeout" xml:space="preserve"><value>等待游戏保存并退出世界超时。请手动退出世界，确认存档已释放后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreWorldOccupied" xml:space="preserve"><value>世界文件仍被其他进程占用，还原尚未执行。请确认游戏及其他占用程序已释放存档后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreMultipleWorlds" xml:space="preserve"><value>多个受影响世界仍被占用，无法安全协调还原。请退出这些世界后重试。</value></data>
+  <data name="OperationDiagnostic_RestoreCoordinationFailed" xml:space="preserve"><value>世界还原协调失败。请查看日志中的原始异常，并检查游戏状态及互联连接。</value></data>
+  <data name="OperationDiagnostic_RestoreRejoinFailed" xml:space="preserve"><value>游戏未能自动重新进入世界。请先查看还原结果，再手动进入世界。</value></data>
+  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>世界文件仍被占用，未能协调游戏保存；已尽力创建备份副本，但无法保证来自同一次完整保存。请退出世界后再备份，或检查互联连接。</value></data>
+  <data name="OperationDiagnostic_ConsistencyHandshakeUnavailable" xml:space="preserve"><value>备份时兼容模组未响应握手，无法确认游戏已保存。请检查模组和互联连接，或退出世界后重新备份。</value></data>
+  <data name="OperationDiagnostic_ConsistencySaveTimeout" xml:space="preserve"><value>等待游戏确认保存超时，备份一致性未得到确认。请退出世界后重新备份。</value></data>
+  <data name="OperationDiagnostic_ConsistencyCoordinationFailed" xml:space="preserve"><value>备份前的游戏保存协调失败，已尽力继续备份。请查看日志，退出世界后重新备份。</value></data>
+  <data name="OperationDiagnostic_SnapshotFallback" xml:space="preserve"><value>稳定副本创建失败，已回退到读取原目录。请查看日志，确认文件权限和可用空间后重试。</value></data>
+  <data name="OperationDiagnostic_SnapshotLinksSkipped" xml:space="preserve"><value>创建备份副本时跳过了目录内的文件系统链接。请在详情中检查跳过的路径。</value></data>
+  <data name="OperationDiagnostic_ConsistencyFallback" xml:space="preserve"><value>插件一致性能力不可用，已按尽力备份策略继续。请检查插件状态，并在退出游戏后重新备份。</value></data>
+  <data name="OperationDiagnostic_ConsistencyCleanupFailed" xml:space="preserve"><value>备份读取已结束，但插件临时副本清理失败。请查看日志并检查临时目录权限。</value></data>
+  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>归档大小低于设置的警告阈值。请检查备份范围及归档内容，详情中包含实际大小。</value></data>
+  <data name="OperationDiagnostic_BackupHistoryRecovery" xml:space="preserve"><value>备份已经提交，但本地历史状态需要恢复。请查看日志并完成恢复后再进行其他历史操作。</value></data>
+  <data name="OperationDiagnostic_BackupFinalizationFailed" xml:space="preserve"><value>备份已提交，但完成后的辅助处理失败。请查看详情中的原始错误。</value></data>
+  <data name="OperationDiagnostic_BackupConfigSaveFailed" xml:space="preserve"><value>备份已提交，但最近备份时间等配置保存失败。请检查配置目录的访问权限。</value></data>
+  <data name="OperationDiagnostic_BackupCloudFailed" xml:space="preserve"><value>本地备份已提交，但云同步任务未能正常登记。请查看日志及云同步状态。</value></data>
+  <data name="OperationDiagnostic_BackupRetentionFailed" xml:space="preserve"><value>备份已提交，但自动清理未完全完成。请查看清理报告和日志。</value></data>
+  <data name="OperationDiagnostic_BackupWarningUnspecified" xml:space="preserve"><value>备份已完成，但组件没有提供具体警告原因。请保留日志用于排查。</value></data>
 </root>

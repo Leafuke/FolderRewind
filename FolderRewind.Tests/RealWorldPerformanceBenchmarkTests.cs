@@ -14,6 +14,7 @@ namespace FolderRewind.Tests;
 [DoNotParallelize]
 public sealed class RealWorldPerformanceBenchmarkTests
 {
+    private static int BenchmarkRepeats => int.TryParse(Environment.GetEnvironmentVariable("FOLDERREWIND_BENCHMARK_REPEATS"), out var count) && count is > 0 and <= 20 ? count : 5;
     [TestMethod]
     [TestCategory("PerformanceBenchmark")]
     public async Task CreateReadProtectedWorldSnapshot()
@@ -70,7 +71,7 @@ public sealed class RealWorldPerformanceBenchmarkTests
         var policy = Environment.GetEnvironmentVariable("FOLDERREWIND_BENCHMARK_POLICY") == "Strict" ? RestoreArchivePreflightMode.Strict : RestoreArchivePreflightMode.Balanced;
         var results = new List<object>();
         foreach (var mode in new[] { HistoryRestoreApplyMode.Clean, HistoryRestoreApplyMode.Overwrite })
-        for (int repeat = 0; repeat < 3; repeat++)
+        for (int repeat = 0; repeat < BenchmarkRepeats; repeat++)
         {
             var target = Path.Combine(f.Root, "world"); Directory.CreateDirectory(target);
             File.WriteAllText(Path.Combine(target, "session.lock"), "excluded original");

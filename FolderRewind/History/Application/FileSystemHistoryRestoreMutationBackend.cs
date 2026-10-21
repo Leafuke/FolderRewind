@@ -1,9 +1,12 @@
+using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.Models;
+using FolderRewind.Plugin.Runtime.Artifacts;
 using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,7 +29,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         HistoryRestoreSourceBinding source,
         HistoryTransactionId transactionId)
     {
-        var target = Path.GetFullPath(source.TargetDirectory);
+        var target = HistoryRestoreWorkspacePlanner.ResolvePath(source.TargetDirectory);
         var parent = Path.GetDirectoryName(target)
             ?? throw new InvalidOperationException("Restore target has no parent directory.");
         if (File.Exists(target))
@@ -149,14 +152,22 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         var source = Path.GetFullPath(sourceDirectory);
         if (!Directory.Exists(source)) throw new DirectoryNotFoundException($"Materialized directory '{source}' is missing.");
         Directory.CreateDirectory(targetDirectory);
-        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        var files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
+            .Select(file => (FullPath: file, RelativePath: Path.GetRelativePath(source, file).Replace('\\', '/')))
+            .Where(file => include is null || include(file.RelativePath)).ToArray();
+        var directories = SourceDirectorySnapshot.Read(source, include ?? (_ => true), files.Select(file => file.RelativePath), cancellationToken);
+        SourceDirectorySnapshot.Validate(directories, files.Select(file => file.RelativePath));
+        foreach (var directory in directories)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var relative = Path.GetRelativePath(source, file).Replace('\\', '/');
-            if (include is not null && !include(relative)) continue;
-            var destination = Path.Combine(targetDirectory, relative);
+            Directory.CreateDirectory(ArtifactPathRules.ResolveUnderRoot(targetDirectory, directory));
+        }
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var destination = ArtifactPathRules.ResolveUnderRoot(targetDirectory, file.RelativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            await using var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
+            await using var input = new FileStream(file.FullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
             await using var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true);
             await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
             HistoryOperationDiagnostics.Current?.Count("copy-tree-bytes", input.Length);
@@ -166,24 +177,8 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
 
     internal static Func<string, bool> CreateBoundaryMatcher(HistoryRestoreSourceBinding source)
     {
-        var boundary = source.Boundary;
-        var scope = boundary.ScopeMode == EffectiveBoundaryScopeMode.Include
-            ? BackupSourceScopePatternSet.Compile(boundary.ScopeRules)
-            : null;
-        var filter = PathRuleMatcher.CreateForBackup(
-            boundary.FilterRules,
-            source.TargetDirectory,
-            source.TargetDirectory,
-            boundary.UseRegex);
-        return relativePath =>
-        {
-            var normalized = relativePath.Replace('\\', '/');
-            if (scope is not null && !scope.IsMatch(normalized)) return false;
-            var matched = filter.IsMatch(Path.Combine(source.TargetDirectory, normalized));
-            return boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist
-                ? matched
-                : !matched;
-        };
+        var scope = new Storage.HistoryRestoreTreeScope(source);
+        return relativePath => scope.Includes(relativePath.Replace('\\', '/'));
     }
 
     private static Task MoveDirectoryWithRetryAsync(
@@ -195,14 +190,23 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             cancellationToken);
 
     private static Task DeleteDirectoryWithRetryAsync(string path, CancellationToken cancellationToken)
-        => ExecuteWithRetryAsync(
-            () =>
+    {
+        if (!Directory.Exists(path)) return Task.CompletedTask;
+        if (!OperatingSystem.IsWindows()) return ExecuteWithRetryAsync(() => Directory.Delete(path, recursive: true), cancellationToken);
+        // 旧执行协议也不能通过清除只读位修改范围外的同一硬链接对象。
+        // 固定一次归属集合；重试不接管后来出现的条目，也不跟随链接。
+        var owned = HistoryRestoreFileSystemPlanStore.CaptureTree(path);
+        return ExecuteWithRetryAsync(() =>
+        {
+            foreach (var item in owned.OrderBy(item => item.Identity.Directory).ThenByDescending(item => item.Path.Length))
             {
-                if (!Directory.Exists(path)) return;
-                NormalizeDeletionAttributes(path);
-                Directory.Delete(path, recursive: true);
-            },
-            cancellationToken);
+                var current = Storage.WindowsRestoreFileSystem.TryIdentity(item.Path);
+                if (current is null) continue;
+                if (current != item.Identity) throw new IOException("Legacy restore cleanup object changed; preserve data.");
+                Storage.WindowsRestoreFileSystem.DeleteOwned(item.Path, item.Identity);
+            }
+        }, cancellationToken);
+    }
 
     private static async Task ExecuteWithRetryAsync(Action operation, CancellationToken cancellationToken)
     {
@@ -224,54 +228,4 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
     private static bool IsRetryable(Exception exception)
         => exception is IOException or UnauthorizedAccessException;
 
-    private static void NormalizeDeletionAttributes(string root)
-    {
-        var pending = new Stack<string>();
-        var directories = new List<string>();
-        pending.Push(root);
-        while (pending.Count > 0)
-        {
-            var current = pending.Pop();
-            directories.Add(current);
-            foreach (var entry in Directory.EnumerateFileSystemEntries(
-                         current,
-                         "*",
-                         SearchOption.TopDirectoryOnly))
-            {
-                FileAttributes attributes;
-                try { attributes = File.GetAttributes(entry); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
-
-                if ((attributes & FileAttributes.ReparsePoint) != 0)
-                {
-                    TryClearReadOnly(entry, attributes);
-                    continue;
-                }
-                if ((attributes & FileAttributes.Directory) != 0)
-                {
-                    pending.Push(entry);
-                    continue;
-                }
-                try { File.SetAttributes(entry, FileAttributes.Normal); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-            }
-        }
-
-        for (int index = directories.Count - 1; index >= 0; index--)
-        {
-            try
-            {
-                var attributes = File.GetAttributes(directories[index]);
-                TryClearReadOnly(directories[index], attributes);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
-    }
-
-    private static void TryClearReadOnly(string path, FileAttributes attributes)
-    {
-        if ((attributes & FileAttributes.ReadOnly) == 0) return;
-        try { File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-    }
 }

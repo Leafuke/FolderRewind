@@ -74,9 +74,10 @@ public sealed class ArchiveRestoreVerificationContextTests
             var first = await f.Engine.AssessVersionAsync(node.Version.VersionId, graph, env,
                 AssessmentDepth.Deep, MaterializationFidelity.Exact, default, operation);
             Assert.AreEqual(HistoryReadiness.Ready, first.Readiness);
+            using var inputs = await f.Engine.LockExactVersionAsync(node.Version.VersionId, graph, env, default, operation);
             if (mode == RestoreArchivePreflightMode.Balanced)
                 Assert.IsFalse(first.Selected!.Evidence.Any(e => e.Kind == RepresentationEvidenceKind.DeepVerification));
-            await f.Engine.MaterializeAsync(node.Representation.RepresentationId, graph, env, MaterializationFidelity.Exact,
+            await f.Engine.MaterializeAsync(inputs.RepresentationId, graph, env, MaterializationFidelity.Exact,
                 Path.Combine(f.Root, "output"), default, operation);
             Assert.Throws<IOException>(() => File.WriteAllText(node.Entry.Locator.AbsolutePath!, "changed"));
             Assert.Throws<IOException>(() => File.Move(node.Entry.Locator.AbsolutePath!, node.Entry.Locator.AbsolutePath + ".replaced"));

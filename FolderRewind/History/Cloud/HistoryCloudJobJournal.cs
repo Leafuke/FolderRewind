@@ -10,6 +10,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FolderRewind.History.Cloud;
 
@@ -32,9 +34,14 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
 {
     public string JournalPath => Path.Combine(history.Repository.Paths.LocalStateRoot, "cloud-jobs.json");
     private bool _uncertain;
+    private readonly object _fileGate = new();
     public string? Diagnostic { get; private set; }
     public Action<string>? Checkpoint { get; set; }
     public HistoryCloudJournalDocument Read()
+    {
+        lock (_fileGate) return ReadSnapshot();
+    }
+    private HistoryCloudJournalDocument ReadSnapshot()
     {
         if (_uncertain) throw new InvalidDataException("[cloud.intent-reconciliation-required] " + Diagnostic);
         try
@@ -44,8 +51,17 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
                 if (history.Repository.CloudAdmissionExpected || File.Exists(JournalPath + ".required")) throw new InvalidDataException("[cloud.intent-reconciliation-required] Expected cloud admission evidence is missing.");
                 return new(1, 0, [], []);
             }
-            if (new FileInfo(JournalPath).Length > 16 * 1024 * 1024) throw new InvalidDataException("Cloud journal exceeds its bound.");
-            var document = JsonSerializer.Deserialize(File.ReadAllBytes(JournalPath), CloudJobJsonContext.Default.HistoryCloudJournalDocument)
+            byte[] bytes;
+            // Readers observe one immutable file generation while the worker atomically replaces the path.
+            // UI polling must not deny that replacement or permanently poison protection on a sharing race.
+            using (var snapshot = new FileStream(JournalPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            {
+                if (snapshot.Length > 16 * 1024 * 1024) throw new InvalidDataException("Cloud journal exceeds its bound.");
+                bytes = new byte[checked((int)snapshot.Length)];
+                snapshot.ReadExactly(bytes);
+                if (snapshot.ReadByte() != -1) throw new InvalidDataException("Cloud journal changed during inspection.");
+            }
+            var document = JsonSerializer.Deserialize(bytes, CloudJobJsonContext.Default.HistoryCloudJournalDocument)
                 ?? throw new InvalidDataException("Cloud journal is empty.");
             if (document.Jobs.IsDefault || document.Admissions.IsDefault || document.Jobs.Any(j => j is null || j.Target is null)
                 || document.Admissions.Any(a => a is null || a.Target is null)) throw new InvalidDataException("Cloud journal contains null evidence.");
@@ -62,7 +78,14 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
                 || document.Jobs.Any(j => j is null || j.Target is null || !Guid.TryParseExact(j.JobId, "N", out _)
                     || j.ProjectId != history.ConfigId.Value || j.Target.ConfigId != history.ConfigId.Value
                     || !Enum.IsDefined(j.Phase) || !Enum.IsDefined(j.Protection) || j.Representations.IsDefault || j.UploadIntents.IsDefault
-                    || j.UploadIntents.Any(i => i is null) || j.Attempt < 0)
+                    || j.Representations.Length > 1000 || j.UploadIntents.Length > 1000
+                    || j.Representations.Any(r => r.Value == Guid.Empty) || j.Representations.Distinct().Count() != j.Representations.Length
+                    || j.UploadIntents.Any(i => i is null || i.RepresentationId.Value == Guid.Empty || i.ReplicaId.Value == Guid.Empty
+                        || i.Manifest is { } m && (m.RepresentationId != i.RepresentationId || m.ReplicaId != i.ReplicaId
+                            || m.ObjectKey != HistoryRepositoryPaths.CreateReplicaObjectKey(i.ReplicaId) || m.Size < 0
+                            || m.StorageSha256 is not { Length: 64 } hash || !hash.All(Uri.IsHexDigit)))
+                    || j.UploadIntents.Select(i => i.RepresentationId).Distinct().Count() != j.UploadIntents.Length
+                    || j.UploadIntents.Select(i => i.ReplicaId).Distinct().Count() != j.UploadIntents.Length || j.Attempt < 0)
                 || document.Jobs.Select(j => j.JobId).Distinct().Count() != document.Jobs.Length
                 || document.Admissions.Any(a => a is null || a.Target is null || a.BaselineTransactions.IsDefault || a.Target.ConfigId != history.ConfigId.Value))
                 throw new InvalidDataException("Cloud journal evidence is invalid.");
@@ -73,13 +96,19 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
     }
     private void Save(HistoryCloudJournalDocument document)
     {
+        lock (_fileGate) SaveSnapshot(document);
+    }
+    private void SaveSnapshot(HistoryCloudJournalDocument document)
+    {
         try
         {
             if (document.Jobs.Length > 10000 || document.Admissions.Length > 1000) throw new InvalidDataException("Cloud journal capacity requires attention.");
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(document with { Revision = checked(document.Revision + 1) }, CloudJobJsonContext.Default.HistoryCloudJournalDocument);
+            if (bytes.Length > 16 * 1024 * 1024) throw new InvalidDataException("Cloud journal exceeds its metadata budget.");
             // 独立存在标记先于首次登记；Journal 丢失绝不能被误读成空队列，包括手动任务。
             if (!File.Exists(JournalPath + ".required")) AtomicFileService.Write(JournalPath + ".required", s => s.WriteByte(1));
             Checkpoint?.Invoke("before-journal-write");
-            AtomicFileService.Write(JournalPath, s => JsonSerializer.Serialize(s, document with { Revision = checked(document.Revision + 1) }, CloudJobJsonContext.Default.HistoryCloudJournalDocument));
+            AtomicFileService.Write(JournalPath, s => s.Write(bytes));
             history.ChangeFeed.Publish(history.ConfigId, HistoryChangeKind.CloudJobChanged);
         }
         catch (Exception ex)
@@ -158,6 +187,20 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         Checkpoint?.Invoke("before-activate");
         Save(document with { Jobs = [.. document.Jobs.Select(j => j.PackId == pack && j.Phase == CloudJobPhase.Prepared ? j with { Phase = CloudJobPhase.Pending } : j)] });
     }
+    internal async Task ReplayAsync(Func<CancellationToken, Task<IReadOnlyList<HistoryPackReadResult>>> loadPacks,
+        CancellationToken token)
+    {
+        // Preserve the same missing/uncertain/attention checks before the no-journal return.
+        // Packs are unnecessary when this device has no cloud journal to reconcile.
+        token.ThrowIfCancellationRequested();
+        _uncertain = false;
+        var document = Read();
+        if (File.Exists(JournalPath + ".attention") && document.Admissions.IsEmpty)
+            throw new InvalidDataException("[cloud.intent-reconciliation-required] Admission evidence is missing.");
+        if (!File.Exists(JournalPath)) return;
+        Replay(await loadPacks(token).ConfigureAwait(false));
+    }
+
     public void Replay(IReadOnlyList<HistoryPackReadResult> packs)
     {
         // 本地 History 与 Local State 已恢复之后，补账必须先于链重写收尾/GC。
@@ -203,8 +246,23 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
     public void Update(HistoryCloudJob job)
     {
         var document = Read(); var previous = document.Jobs.Single(j => j.JobId == job.JobId);
-        if (previous.Target != job.Target || previous.PackId != job.PackId || !previous.Representations.SequenceEqual(job.Representations))
+        if (previous.Target != job.Target || previous.PackId != job.PackId || previous.TransactionId != job.TransactionId
+            || previous.ProjectId != job.ProjectId || previous.AdmissionId != job.AdmissionId || previous.Automatic != job.Automatic
+            || previous.CreatedUtc != job.CreatedUtc || !previous.Representations.SequenceEqual(job.Representations))
             throw new InvalidOperationException("Cloud intent target cannot be changed.");
+        if (job.Attempt < previous.Attempt || previous.Protection != CloudProtectionDisposition.Held
+            && (job.Protection != previous.Protection || job.Phase != previous.Phase))
+            throw new InvalidOperationException("Cloud intent cannot restore released protection or move attempts backwards.");
+        if (job.UploadIntents.IsDefault || job.UploadIntents.Length > 1000
+            || job.UploadIntents.Any(i => i is null || i.RepresentationId.Value == Guid.Empty || i.ReplicaId.Value == Guid.Empty
+                || i.Manifest is { } m && (m.RepresentationId != i.RepresentationId || m.ReplicaId != i.ReplicaId
+                    || m.ObjectKey != HistoryRepositoryPaths.CreateReplicaObjectKey(i.ReplicaId) || m.Size < 0
+                    || m.StorageSha256 is not { Length: 64 } hash || !hash.All(Uri.IsHexDigit)))
+            || job.UploadIntents.Select(i => i.RepresentationId).Distinct().Count() != job.UploadIntents.Length
+            || job.UploadIntents.Select(i => i.ReplicaId).Distinct().Count() != job.UploadIntents.Length
+            || previous.UploadIntents.Any(old => !job.UploadIntents.Any(i => i.RepresentationId == old.RepresentationId && i.ReplicaId == old.ReplicaId
+                && (old.Manifest is null || i.Manifest is not null && HistoryCloudReplicaValidity.Matches(i.Manifest, old.Manifest)))))
+            throw new InvalidOperationException("Cloud upload identity and published payload evidence cannot be replaced.");
         Save(document with { Jobs = document.Jobs.Replace(previous, job) });
     }
     public ImmutableArray<RepresentationId> ProtectedRoots()
@@ -215,6 +273,12 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
         var document = Read();
         if (File.Exists(JournalPath + ".attention") || document.Jobs.Any(j => j.Protection == CloudProtectionDisposition.Held))
             throw new InvalidOperationException("[cloud.intent-reconciliation-required] Pending cloud backups retain local payload protection.");
+    }
+    public void RequireKnownProtection()
+    {
+        _ = Read();
+        if (File.Exists(JournalPath + ".attention"))
+            throw new InvalidOperationException("[cloud.intent-reconciliation-required] Cloud protection evidence needs reconciliation.");
     }
     public void ObserveFailure(Exception error) { _uncertain = true; Diagnostic = error.Message; }
 }

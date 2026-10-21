@@ -6,7 +6,7 @@ package instead of the FolderRewind application or UI projects.
 ## Compatibility
 
 - Target framework: `net10.0`.
-- Package version: `3.9.0`; Plugin API requirement: `3.9`.
+- Package version: `3.10.0`; Plugin API requirement: `3.10`.
 - Assembly version remains `3.0.0.0` throughout API 3.x.
 - A Host accepts a manifest only when its API major matches and its minor is at
   least the plugin's requested minor.
@@ -15,6 +15,18 @@ API 3 exchanges immutable snapshots, drafts, patches, requests, results, and
 descriptors. Plugins register capabilities during `ActivateAsync`; the Host
 validates and commits the activation before those capabilities become visible.
 Activation may read settings and snapshots but cannot use the plugin DataStore.
+
+API 3.10 adds an optional, Host-selected incremental Artifact input context and
+an optional `IArtifactFileViewProvider` extension on a registered materializer.
+Changes-only physical input does not imply a partial logical Source. The Host
+fixes baseline identities, boundary, added/modified/deleted paths and readable
+Artifact handles. Providers must declare `SupportsIncrementalInput`; old
+providers are never sent this input. The file view reconstructs exclusively
+from the fixed Artifact closure using the Restore decoder, exposing immutable
+recipe references so the Host can verify inheritance and changed bytes.
+No Minecraft, UI, Capture takeover or Merge contract is introduced. Existing
+constructors and numeric enum contracts remain unchanged. 3.10 is a local P3
+candidate until separately published; use an isolated package feed/cache.
 
 API 3.1 adds the optional `IDiscoveryDefinitionCatalog` metadata extension.
 An existing discovery capability may implement it to expose stable game
@@ -77,3 +89,7 @@ never add a reference from a plugin to the Host application project.
 API 3.9 adds `SpatialPreviewTile.IsFinal` (defaults to true) for bounded, pull-based refinement and optional `SpatialPreviewLayer.CoordinateBounds` for legal navigation coordinates. Hosts retain partial pixels, request visible unfinished tiles no more often than every 100ms, and freeze both properties. `Bounds` continues to describe generated data.
 
 For coordinated local preview builds, run `scripts/Build-WorldPreview.ps1` from the host checkout. It creates an immutable content-addressed API prerelease in an isolated feed and package cache, builds MineRewind, and verifies the bundled package. Nothing is published.
+
+API 3.10 adds incremental Artifact input and recipe file views, stable KnotLink Version selectors, and an optional `BackupConsistencyRequest.SourceViewLimits`. Native capture supplies the existing byte/entry limits before the provider creates a stable view. `IPluginTemporaryStorage.ReserveAsync` reserves pending writes on a Host-owned temporary volume; older providers remain compatible through the default method. A provider must count directories, enforce the reserved space while copying, and dispose its reservation. Ordinary captures omit SourceViewLimits and keep their existing policy. Directory evidence remains Host-private; assembly identity is still 3.0.0.0.
+
+A consistency provider must advertise `SupportsBoundedSourceView` before receiving Native source-view work. The default is false, so older providers cannot allocate an unbounded snapshot for an experimental Native operation. The operation pins transformer/materializer capabilities before consistency acquisition and retains that session until the stable view and its streams are released.

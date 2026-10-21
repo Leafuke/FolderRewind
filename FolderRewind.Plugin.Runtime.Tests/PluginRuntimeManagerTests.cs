@@ -15,6 +15,32 @@ public sealed class PluginRuntimeManagerTests
     private static readonly DiscoveryProviderId SharedDiscoveryId = new("com.folderrewind.shared-discovery");
 
     [TestMethod]
+    public async Task ArtifactCommitGuardRunsAfterDrainAndRejectionPreservesPriorProvider()
+    {
+        var manager = new PluginRuntimeManager();
+        await manager.ActivateAsync(Candidate(PluginOneId, PluginWithDiscovery("old"), new FakeStore()));
+        var lease = manager.TryAcquire<IDiscoveryCapability>(PluginOneId)!;
+        var checkedArtifacts = false;
+        var store = new FakeStore();
+        var candidate = Candidate(PluginOneId, PluginWithDiscovery("new"), store) with
+        {
+            CommitGuard = _ =>
+            {
+                checkedArtifacts = true;
+                throw new InvalidDataException("Candidate cannot read the newly committed protected format.");
+            }
+        };
+        var transition = manager.ReplaceAsync(candidate).AsTask();
+        Assert.IsFalse(checkedArtifacts); Assert.IsFalse(transition.IsCompleted);
+        lease.Dispose();
+        Assert.IsFalse((await transition).Success);
+        Assert.IsTrue(checkedArtifacts); Assert.IsEmpty(store.Commits);
+        using var surviving = manager.TryAcquire<IDiscoveryCapability>(PluginOneId);
+        Assert.IsNotNull(surviving);
+        Assert.AreEqual("old", ((FakeDiscovery)surviving.Capability).Marker);
+    }
+
+    [TestMethod]
     public async Task ActivationCommitsBeforeCapabilitiesBecomeAvailable()
     {
         var store = new FakeStore();
@@ -264,6 +290,25 @@ public sealed class PluginRuntimeManagerTests
         var result = await deactivation;
         Assert.IsTrue(result.Success);
         Assert.AreEqual(PluginRuntimeState.Inactive, manager.GetSnapshot(PluginOneId).State);
+    }
+
+    [TestMethod]
+    public async Task PinnedOperationKeepsOneSessionCapabilitiesAvailableDuringReplacementDrain()
+    {
+        var manager = new PluginRuntimeManager();
+        await manager.ActivateAsync(Candidate(PluginOneId, PluginWithDiscovery("old"), new FakeStore()));
+        var operation = manager.TryAcquireOperation(PluginOneId)!;
+        var replacement = manager.ReplaceAsync(Candidate(PluginOneId, PluginWithDiscovery("new"), new FakeStore())).AsTask();
+        await WaitForStateAsync(manager, PluginOneId, PluginRuntimeState.Draining);
+        Assert.IsNull(manager.TryAcquireOperation(PluginOneId));
+        Assert.IsFalse(replacement.IsCompleted);
+        Assert.AreEqual("old", ((FakeDiscovery)operation.Find<IDiscoveryCapability>(_ => true)!).Marker);
+        Assert.AreEqual(1, manager.GetSnapshot(PluginOneId).ActiveLeases);
+        operation.Dispose();
+        Assert.IsTrue((await replacement).Success);
+        Assert.ThrowsExactly<ObjectDisposedException>(() => operation.Find<IDiscoveryCapability>(_ => true));
+        using var current = manager.TryAcquireOperation(PluginOneId)!;
+        Assert.AreEqual("new", ((FakeDiscovery)current.Find<IDiscoveryCapability>(_ => true)!).Marker);
     }
 
     [TestMethod]

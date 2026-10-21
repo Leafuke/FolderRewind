@@ -24,8 +24,10 @@ public sealed class HistoryCloudBackupService(HistoryRuntime history, IHistoryRe
     public async Task<HistoryCloudBackupResult> UploadClosureAsync(IReadOnlyList<RepresentationId> selected,
         Func<RepresentationId, CancellationToken, Task<string?>> localPath, CancellationToken token = default,
         Func<RepresentationId, ReplicaId>? replicaIntent = null,
-        Func<HistoryReplicaManifest, CancellationToken, Task>? persistIntent = null)
+        Func<HistoryReplicaManifest, CancellationToken, Task>? persistIntent = null,
+        HistoryReplicaPayloadProtocol? payloads = null)
     {
+        payloads ??= new(localPath);
         var graph = (await history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).ToDictionary(r => r.RepresentationId);
         var visited = new HashSet<RepresentationId>(); var visiting = new HashSet<RepresentationId>();
         var closure = new List<RepresentationId>(); var missing = new List<RepresentationId>();
@@ -55,15 +57,17 @@ public sealed class HistoryCloudBackupService(HistoryRuntime history, IHistoryRe
                     var expected = new HistoryReplicaManifest(id, replica.ReplicaId, HistoryCloudReplicaValidity.ArtifactRoot(graph[id]),
                         replica.ObjectKey, replica.ExpectedSize ?? -1, replica.ExpectedStorageSha256 ?? "");
                     if (manifest is null || !HistoryCloudReplicaValidity.Matches(manifest, expected)) continue;
-                    var verified = await transport.VerifyRemoteAsync(replica.ReplicaId, token).ConfigureAwait(false);
-                    if (verified.Success && verified.Size == replica.ExpectedSize && StringComparer.OrdinalIgnoreCase.Equals(verified.StorageSha256, replica.ExpectedStorageSha256))
+                    if (await payloads.CanReuseAsync(graph[id], manifest, transport, token).ConfigureAwait(false))
                     { reused = true; break; }
                 }
                 if (reused) { results.Add(new(id, HistoryCloudItemState.Reused, "")); continue; }
-                var path = await localPath(id, token).ConfigureAwait(false);
-                if (path is null || !File.Exists(path)) { missing.Add(id); results.Add(new(id, HistoryCloudItemState.Failed, "Local payload is missing.")); break; }
-                var uploaded = await service.UploadAsync(id, path, artifactRootId: HistoryCloudReplicaValidity.ArtifactRoot(graph[id]),
-                    cancellationToken: token, stableReplicaId: replicaIntent?.Invoke(id), persistIntent: persistIntent).ConfigureAwait(false);
+                var replicaId = replicaIntent?.Invoke(id) ?? ReplicaId.New();
+                using var payload = await payloads.PrepareAsync(graph[id], replicaId, token).ConfigureAwait(false);
+                if (payload is null) { missing.Add(id); results.Add(new(id, HistoryCloudItemState.Failed, "Local payload is missing.")); break; }
+                var uploaded = await service.UploadAsync(id, payload.Path, artifactRootId: HistoryCloudReplicaValidity.ArtifactRoot(graph[id]),
+                    cancellationToken: token, stableReplicaId: replicaId, persistIntent: persistIntent,
+                    publishPayloadDependencies: payload.PublishAsync).ConfigureAwait(false);
+                if (uploaded.Status == HistoryReplicaOperationStatus.Succeeded) await payload.CompleteAsync(token).ConfigureAwait(false);
                 results.Add(new(id, uploaded.Status == HistoryReplicaOperationStatus.Succeeded ? HistoryCloudItemState.Uploaded : HistoryCloudItemState.Failed, uploaded.Diagnostic));
                 if (uploaded.Status != HistoryReplicaOperationStatus.Succeeded) { missing.Add(id); break; }
             }

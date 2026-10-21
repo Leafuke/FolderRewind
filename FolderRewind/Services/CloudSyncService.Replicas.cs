@@ -87,58 +87,38 @@ namespace FolderRewind.Services
                 config = await PrepareConnectionAsync(config, cancellationToken).ConfigureAwait(false);
                 using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-                var replicas = await runtime.Query.GetStorageReplicasAsync(representationId, cancellationToken)
-                    .ConfigureAwait(false);
-                StorageReplica? replica = null;
-                foreach (var candidate in replicas
-                             .Where(item => item.ProviderKind == ReplicaProviderKind.Cloud
-                                 && item.ExpectedSize is not null
-                                 && !string.IsNullOrWhiteSpace(item.ExpectedStorageSha256))
-                             .OrderBy(item => item.ReplicaId.ToString(), StringComparer.Ordinal))
+                var representation = await runtime.Query.GetRepresentationAsync(representationId, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidDataException("Representation is missing.");
+                var version = await runtime.Query.GetVersionAsync(representation.VersionId, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidDataException("Version is missing.");
+                if (!Guid.TryParse(folder.Id, out var folderId) || version.SourceId.Value != folderId)
+                    throw new InvalidDataException("Cloud representation is bound to a different source.");
+                string? localPath = null;
+                if (representation.Kind != RepresentationKind.PluginArtifact)
                 {
-                    var lifecycle = await runtime.Query.GetReplicaLifecycleUpdatesAsync(
-                        candidate.ReplicaId,
-                        cancellationToken).ConfigureAwait(false);
-                    var parentIds = lifecycle.SelectMany(item => item.ParentUpdateIds).ToHashSet();
-                    if (lifecycle.Where(item => !parentIds.Contains(item.UpdateId))
-                        .Any(item => item.State == ReplicaLifecycleState.Active))
-                    {
-                        replica = candidate;
-                        break;
-                    }
+                    if (!BackupStoragePathService.TryResolveBackupStoragePaths(config.DestinationPath, folder.DisplayName,
+                        folder.Path, out _, out var directory, out _)) return false;
+                    var safeName = Path.GetFileName(fileName);
+                    if (string.IsNullOrWhiteSpace(safeName) || !StringComparer.Ordinal.Equals(safeName, fileName)) return false;
+                    Directory.CreateDirectory(directory); localPath = Path.Combine(directory, safeName);
                 }
-                if (replica is null) return false;
-                var expectedSize = replica.ExpectedSize
-                    ?? throw new InvalidDataException("Cloud replica metadata does not include an expected size.");
-                var expectedStorageSha256 = replica.ExpectedStorageSha256
-                    ?? throw new InvalidDataException("Cloud replica metadata does not include an expected storage hash.");
-                if (!BackupStoragePathService.TryResolveBackupStoragePaths(
-                        config.DestinationPath,
-                        folder.DisplayName,
-                        folder.Path,
-                        out _,
-                        out var backupDirectory,
-                        out _)) return false;
-                Directory.CreateDirectory(backupDirectory);
-                var safeName = Path.GetFileName(fileName);
-                if (string.IsNullOrWhiteSpace(safeName) || !StringComparer.Ordinal.Equals(safeName, fileName)) return false;
-                var manifest = new HistoryReplicaManifest(
-                    representationId,
-                    replica.ReplicaId,
-                    null,
-                    replica.ObjectKey,
-                    expectedSize,
-                    expectedStorageSha256);
-                var service = new HistoryReplicaSyncService(
-                    runtime,
-                    CreateReplicaTransport(config),
-                    token => new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).SyncAsync(token),
-                    new UploadOnlyRetirementGuard());
-                var result = await service.DownloadAsync(
-                    manifest,
-                    Path.Combine(backupDirectory, safeName),
-                    cancellationToken).ConfigureAwait(false);
-                return result.Status == HistoryReplicaOperationStatus.Succeeded;
+                var service = new HistoryReplicaSyncService(runtime, CreateReplicaTransport(config),
+                    token => new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).SyncAsync(token), new UploadOnlyRetirementGuard());
+                var replicas = await runtime.Query.GetStorageReplicasAsync(representationId, cancellationToken).ConfigureAwait(false);
+                foreach (var replica in replicas.Where(r => r.ProviderKind == ReplicaProviderKind.Cloud && r.ExpectedSize is not null
+                    && !string.IsNullOrWhiteSpace(r.ExpectedStorageSha256)).OrderBy(r => r.ReplicaId.ToString(), StringComparer.Ordinal))
+                {
+                    var lifecycle = await runtime.Query.GetReplicaLifecycleUpdatesAsync(replica.ReplicaId, cancellationToken).ConfigureAwait(false);
+                    if (!HistoryCloudReplicaValidity.IsActive(lifecycle)) continue;
+                    var manifest = new HistoryReplicaManifest(representationId, replica.ReplicaId,
+                        HistoryCloudReplicaValidity.ArtifactRoot(representation), replica.ObjectKey, replica.ExpectedSize!.Value, replica.ExpectedStorageSha256!);
+                    var result = representation.Kind == RepresentationKind.PluginArtifact
+                        ? await new NativeArtifactReplicaService(Plugins.V3.NativeArtifactHostService.Store(config), service)
+                            .DownloadAsync(representation, manifest, config.Id, folderId, cancellationToken).ConfigureAwait(false)
+                        : await service.DownloadAsync(manifest, localPath!, cancellationToken).ConfigureAwait(false);
+                    if (result.Status == HistoryReplicaOperationStatus.Succeeded) return true;
+                }
+                return false;
             }
             catch (Exception ex)
             {

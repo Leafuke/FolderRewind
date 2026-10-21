@@ -25,7 +25,8 @@ namespace FolderRewind.Services
             IReadOnlyList<FileTypeRule>? fileTypeExclusions = null,
             BackupTask? taskToUpdate = null,
             bool applyAdditionalArguments = false,
-            BackupSourceScope? selection = null)
+            BackupSourceScope? selection = null,
+            string? originalSourcePath = null)
         {
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
@@ -42,6 +43,7 @@ namespace FolderRewind.Services
                     var includedFiles = EnumerateBackupRelativeFiles(
                         sourceDir,
                         filters,
+                        originalSourcePath,
                         selection: selection);
                     if (includedFiles.Count == 0)
                     {
@@ -127,7 +129,7 @@ namespace FolderRewind.Services
                         // 绝对路径规则 - 转换为相对路径
                         try
                         {
-                            var relative = Path.GetRelativePath(sourceDir, trimmedRule);
+                            var relative = Path.GetRelativePath(originalSourcePath ?? sourceDir, trimmedRule);
                             if (!relative.StartsWith(".."))
                             {
                                 sb.Append($" -xr!\"{relative}\"");

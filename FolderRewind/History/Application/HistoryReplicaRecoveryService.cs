@@ -75,7 +75,8 @@ public sealed class HistoryReplicaRecoveryService(HistoryRuntime runtime)
 
     public async Task<HistoryReplicaRecoveryResult> ApplyAsync(HistoryReplicaRecoveryPreview preview,
         IReadOnlyCollection<HistoryReplicaRecoveryCandidate> selected, IArchiveRepresentationBackend archive,
-        bool confirmUnverified, bool credentialReady = true, CancellationToken token = default)
+        bool confirmUnverified, bool credentialReady = true, CancellationToken token = default,
+        RepresentationRuntime? consumers = null)
     {
         if (preview.ConfigId != runtime.ConfigId || selected.GroupBy(c => c.RepresentationId).Any(g => g.Count() > 1)
             || selected.Any(c => !preview.Candidates.Contains(c) || (!c.IdentityVerified && !confirmUnverified)))
@@ -125,7 +126,7 @@ public sealed class HistoryReplicaRecoveryService(HistoryRuntime runtime)
             await runtime.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
             runtime.ChangeFeed.Publish(runtime.ConfigId, HistoryChangeKind.LocalStateChanged);
         }
-        var engine = new RepresentationRuntime([new CoreArchiveRepresentationHandler(archive), new SmartDeltaRepresentationHandler(archive)]);
+        var engine = consumers ?? new RepresentationRuntime([new CoreArchiveRepresentationHandler(archive), new SmartDeltaRepresentationHandler(archive)]);
         var environment = new RepresentationEnvironment(entries, [], []);
         var versions = ImmutableArray.CreateBuilder<VersionAssessment>();
         foreach (var version in await runtime.Query.GetAllVersionsAsync(CancellationToken.None).ConfigureAwait(false))

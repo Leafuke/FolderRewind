@@ -59,6 +59,7 @@ public sealed class RepresentationRuntime
         var selected = candidateAssessments
             .Where(item => Satisfies(item.Fidelity, requiredFidelity))
             .OrderBy(SelectionScore)
+            .ThenBy(item => graph[item.RepresentationId].Kind == RepresentationKind.CoreFull ? 0 : 1)
             .ThenBy(item => item.RepresentationId.ToString(), StringComparer.Ordinal)
             .FirstOrDefault();
         if (selected is null)
@@ -101,12 +102,15 @@ public sealed class RepresentationRuntime
             throw new KeyNotFoundException($"Representation '{representationId}' does not exist.");
         }
 
+        var handler = ResolveHandler(representation)
+            ?? throw new InvalidOperationException($"No handler understands {representation.Kind}/{representation.Format}.");
+        var inlineVerification = handler is IInlineVerifiedMaterializer verifier && verifier.CanVerifyDuringMaterialization(representation);
         var assessments = new Dictionary<RepresentationId, RepresentationAssessment>();
         await AssessRepresentationAsync(
             representation,
             graph,
             environment,
-            AssessmentDepth.Deep,
+            inlineVerification ? AssessmentDepth.Fast : AssessmentDepth.Deep,
             assessments,
             new HashSet<RepresentationId>(),
             cancellationToken, restoreVerification).ConfigureAwait(false);
@@ -119,9 +123,7 @@ public sealed class RepresentationRuntime
         }
 
         var closure = BuildDependencyFirstClosure(representation, graph);
-        var handler = ResolveHandler(representation)
-            ?? throw new InvalidOperationException(
-                $"No handler understands {representation.Kind}/{representation.Format}.");
+        Services.HistoryOperationDiagnostics.Current?.Count("logical-materializations");
         Directory.CreateDirectory(stagingDirectory);
         await handler.MaterializeAsync(
             new RepresentationMaterializationContext(
@@ -133,34 +135,39 @@ public sealed class RepresentationRuntime
     }
 
     internal Task<RepresentationReadLease> LockExactVersionAsync(VersionId versionId,
-        IReadOnlyList<VersionRepresentation> representations, IRepresentationEnvironment environment, CancellationToken token)
-        => LockVersionAsync(versionId, representations, environment, MaterializationFidelity.Exact, token);
+        IReadOnlyList<VersionRepresentation> representations, IRepresentationEnvironment environment, CancellationToken token,
+        ArchiveRestoreVerificationContext? verification = null)
+        => LockVersionAsync(versionId, representations, environment, MaterializationFidelity.Exact, token, verification);
 
     internal async Task<RepresentationReadLease> LockVersionAsync(VersionId versionId,
         IReadOnlyList<VersionRepresentation> representations, IRepresentationEnvironment environment,
-        MaterializationFidelity requiredFidelity, CancellationToken token)
+        MaterializationFidelity requiredFidelity, CancellationToken token, ArchiveRestoreVerificationContext? verification = null)
     {
         if (requiredFidelity == MaterializationFidelity.Unknown) throw new ArgumentOutOfRangeException(nameof(requiredFidelity));
-        var assessment = await AssessVersionAsync(versionId, representations, environment, AssessmentDepth.Deep, requiredFidelity, token).ConfigureAwait(false);
-        if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
-        {
-            var diagnostics = string.Join("; ", assessment.Candidates.SelectMany(c => c.Diagnostics).Distinct());
-            throw new Merge.HistoryMergeBlockedException(new(assessment.Readiness == HistoryReadiness.PreparationRequired
-                ? Merge.MergeDiagnosticCode.PreparationRequired : Merge.MergeDiagnosticCode.ExactUnavailable,
-                VersionId: versionId, Detail: diagnostics));
-        }
-        var graph = representations.ToDictionary(r => r.RepresentationId);
-        var root = graph[assessment.Selected.RepresentationId];
-        var assessments = new Dictionary<RepresentationId, RepresentationAssessment>();
-        await AssessRepresentationAsync(root, graph, environment, AssessmentDepth.Deep, assessments, [], token).ConfigureAwait(false);
-        var held = new RepresentationReadLease(root.RepresentationId);
+        var ownedVerification = verification is null ? new ArchiveRestoreVerificationContext(Models.RestoreArchivePreflightMode.Strict) : null;
+        verification ??= ownedVerification!;
+        var held = new RepresentationReadLease(verification, ownedVerification);
         try
         {
+            var assessment = await AssessVersionAsync(versionId, representations, environment, AssessmentDepth.Deep, requiredFidelity, token, verification).ConfigureAwait(false);
+            if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
+            {
+                var diagnostics = string.Join("; ", assessment.Candidates.SelectMany(c => c.Diagnostics).Distinct());
+                throw new Merge.HistoryMergeBlockedException(new(assessment.Readiness == HistoryReadiness.PreparationRequired
+                    ? Merge.MergeDiagnosticCode.PreparationRequired : Merge.MergeDiagnosticCode.ExactUnavailable,
+                    VersionId: versionId, Detail: diagnostics));
+            }
+            var graph = representations.ToDictionary(r => r.RepresentationId);
+            var root = graph[assessment.Selected.RepresentationId];
+            var assessments = new Dictionary<RepresentationId, RepresentationAssessment>();
+            await AssessRepresentationAsync(root, graph, environment, AssessmentDepth.Deep, assessments, [], token, verification).ConfigureAwait(false);
+            held.RepresentationId = root.RepresentationId;
             foreach (var representation in BuildDependencyFirstClosure(root, graph))
             {
                 var selected = assessments[representation.RepresentationId];
                 if (selected.Readiness != HistoryReadiness.Ready) throw new IOException("Exact dependency became unavailable.");
                 if (selected.SelectedLocalPath is not { } path) continue;
+                if (verification.Protects(representation, path)) continue;
                 var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                 held.Streams.Add(file);
                 if (representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expected))
@@ -251,7 +258,7 @@ public sealed class RepresentationRuntime
         };
     }
 
-    private static IReadOnlyList<VersionRepresentation> BuildDependencyFirstClosure(
+    internal static IReadOnlyList<VersionRepresentation> BuildDependencyFirstClosure(
         VersionRepresentation root,
         IReadOnlyDictionary<RepresentationId, VersionRepresentation> graph)
     {
@@ -298,9 +305,10 @@ public sealed class RepresentationRuntime
         };
 }
 
-internal sealed class RepresentationReadLease(RepresentationId representationId) : IDisposable
+internal sealed class RepresentationReadLease(ArchiveRestoreVerificationContext verification, IDisposable? ownedVerification) : IDisposable
 {
-    internal RepresentationId RepresentationId { get; } = representationId;
+    internal RepresentationId RepresentationId { get; set; }
+    internal ArchiveRestoreVerificationContext VerificationContext { get; } = verification;
     internal List<FileStream> Streams { get; } = [];
-    public void Dispose() { foreach (var stream in Streams) stream.Dispose(); Streams.Clear(); }
+    public void Dispose() { foreach (var stream in Streams) stream.Dispose(); Streams.Clear(); ownedVerification?.Dispose(); }
 }

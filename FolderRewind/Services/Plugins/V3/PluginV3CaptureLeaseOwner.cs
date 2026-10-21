@@ -28,18 +28,21 @@ internal sealed class PluginV3CaptureLeaseOwner
         FolderSnapshot folder,
         ConsistencyIntent intent,
         List<PluginDiagnostic> diagnostics,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        BackupSourceViewLimits? sourceViewLimits = null,
+        PluginOperationLease? operation = null)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(folder);
         ArgumentNullException.ThrowIfNull(diagnostics);
 
-        var capabilityLease = runtime.TryAcquire<IBackupConsistencyCapability>(
-            pluginId,
-            capability => capability.Kind == config.Kind,
-            cancellationToken);
-        if (capabilityLease is null)
+        var capabilityLease = operation is null ? runtime.TryAcquire<IBackupConsistencyCapability>(
+            pluginId, capability => capability.Kind == config.Kind, cancellationToken) : null;
+        var capability = operation?.Find<IBackupConsistencyCapability>(c => c.Kind == config.Kind) ?? capabilityLease?.Capability;
+        var context = operation?.Context ?? capabilityLease?.Context;
+        IDisposable ownershipLease = capabilityLease is not null ? capabilityLease : new NoopLease();
+        if (capability is null)
         {
             if (intent == ConsistencyIntent.Require)
                 throw new InvalidOperationException("The required consistency capability became unavailable.");
@@ -56,17 +59,19 @@ internal sealed class PluginV3CaptureLeaseOwner
         IConsistencyLease? acquiredConsistency = null;
         try
         {
+            if (sourceViewLimits is not null && !capability.SupportsBoundedSourceView)
+                throw new InvalidOperationException(I18n.GetString("SemanticBackup_BoundedProviderUnavailable"));
             using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
-            acquiredConsistency = await capabilityLease.Capability.AcquireAsync(
-                new BackupConsistencyRequest(config, folder, intent),
-                capabilityLease.Context).ConfigureAwait(false);
+            acquiredConsistency = await capability.AcquireAsync(
+                new BackupConsistencyRequest(config, folder, intent) { SourceViewLimits = sourceViewLimits },
+                context!).ConfigureAwait(false);
             ArgumentNullException.ThrowIfNull(acquiredConsistency);
             ArgumentNullException.ThrowIfNull(acquiredConsistency.Diagnostics);
             var consistencyDiagnostics = acquiredConsistency.Diagnostics.ToArray();
             // 发布成对 holder 前先验证并复制插件拥有的数据，避免暴露半初始化所有权。
             diagnostics.AddRange(consistencyDiagnostics);
 
-            var ownership = new CaptureLeaseOwnership(acquiredConsistency, capabilityLease);
+            var ownership = new CaptureLeaseOwnership(acquiredConsistency, ownershipLease);
             if (Interlocked.CompareExchange(ref _ownership, ownership, null) is not null)
             {
                 try
@@ -75,7 +80,7 @@ internal sealed class PluginV3CaptureLeaseOwner
                 }
                 finally
                 {
-                    capabilityLease.Dispose();
+                    ownershipLease.Dispose();
                     acquiredConsistency = null;
                 }
                 throw new InvalidOperationException("Backup consistency ownership was already established.");
@@ -87,7 +92,7 @@ internal sealed class PluginV3CaptureLeaseOwner
             intent == ConsistencyIntent.Prefer
             && !cancellationToken.IsCancellationRequested)
         {
-            await ReleaseUnpublishedAsync(acquiredConsistency, capabilityLease).ConfigureAwait(false);
+            await ReleaseUnpublishedAsync(acquiredConsistency, ownershipLease).ConfigureAwait(false);
             diagnostics.Add(new PluginDiagnostic(
                 "plugin.backup_consistency_fallback",
                 DiagnosticSeverity.Warning,
@@ -97,7 +102,7 @@ internal sealed class PluginV3CaptureLeaseOwner
         }
         catch (Exception) when (intent == ConsistencyIntent.Prefer && !cancellationToken.IsCancellationRequested)
         {
-            await ReleaseUnpublishedAsync(acquiredConsistency, capabilityLease).ConfigureAwait(false);
+            await ReleaseUnpublishedAsync(acquiredConsistency, ownershipLease).ConfigureAwait(false);
             diagnostics.Add(new PluginDiagnostic(
                 "plugin.backup_consistency_fallback",
                 DiagnosticSeverity.Warning,
@@ -107,7 +112,7 @@ internal sealed class PluginV3CaptureLeaseOwner
         }
         catch
         {
-            await ReleaseUnpublishedAsync(acquiredConsistency, capabilityLease).ConfigureAwait(false);
+            await ReleaseUnpublishedAsync(acquiredConsistency, ownershipLease).ConfigureAwait(false);
             throw;
         }
     }
@@ -130,7 +135,7 @@ internal sealed class PluginV3CaptureLeaseOwner
 
     private static async ValueTask ReleaseUnpublishedAsync(
         IConsistencyLease? consistency,
-        PluginCapabilityLease<IBackupConsistencyCapability> capability)
+        IDisposable capability)
     {
         try
         {
@@ -150,5 +155,7 @@ internal sealed class PluginV3CaptureLeaseOwner
 
     private sealed record CaptureLeaseOwnership(
         IConsistencyLease Consistency,
-        PluginCapabilityLease<IBackupConsistencyCapability> Capability);
+        IDisposable Capability);
+
+    private sealed class NoopLease : IDisposable { public void Dispose() { } }
 }

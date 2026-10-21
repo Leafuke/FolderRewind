@@ -2,15 +2,69 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 
 namespace FolderRewind.Services;
 
 internal sealed record ArchiveFileListingEntry(string RelativePath, long Size);
 internal sealed record ArchiveSafeListing(IReadOnlyDictionary<string, ArchiveFileListingEntry> Files, IReadOnlyList<string> Directories);
 
+internal enum ArchiveListingParseFailureReason
+{
+    EmptyOutput,
+    MissingEntrySection,
+    MissingClassification,
+    UnsupportedAttributes,
+    InvalidFolderValue,
+    ClassificationConflict,
+    InvalidSize,
+    UnsafePath,
+    DuplicatePath,
+    ParentFileConflict,
+    UnsupportedEntryType
+}
+
+internal sealed record ArchiveListingParseFailure(
+    ArchiveListingParseFailureReason Reason, int EntryIndex, string Field, string ValuePreview)
+{
+    internal static ArchiveListingParseFailure Create(ArchiveListingParseFailureReason reason,
+        int entryIndex, string field, string? value)
+    {
+        // Only classification/size values are diagnostic data. Paths and link targets stay private.
+        if (field is not ("Attributes" or "Folder" or "Size"))
+            return new(reason, entryIndex, field, $"[redacted; length={value?.Length ?? 0}]");
+
+        var preview = new StringBuilder();
+        foreach (char character in value ?? string.Empty)
+        {
+            string escaped = character switch
+            {
+                '\r' => "\\r",
+                '\n' => "\\n",
+                '\t' => "\\t",
+                '\\' => "\\\\",
+                '"' => "\\\"",
+                _ when char.IsControl(character) || char.IsSurrogate(character)
+                    || char.GetUnicodeCategory(character) == UnicodeCategory.Format => $"\\u{(int)character:X4}",
+                _ => character.ToString()
+            };
+            if (preview.Length + escaped.Length > 79)
+            {
+                preview.Append('…');
+                break;
+            }
+            preview.Append(escaped);
+        }
+        return new(reason, entryIndex, field, preview.ToString());
+    }
+
+    public override string ToString()
+        => $"Reason={Reason}; EntryIndex={EntryIndex}; Field={Field}; Value=\"{ValuePreview}\"";
+}
+
 /// <summary>
-/// Parses the machine-oriented output of <c>7z l -slt</c>. Only file entries are retained;
-/// directory entries and the archive header are ignored. Current 7-Zip builds classify entries through
+/// Parses the machine-oriented output of <c>7z l -slt</c> into files and directories;
+/// the archive header is ignored. Current 7-Zip builds classify entries through
 /// <c>Attributes</c>; some compatible builds also emit the older <c>Folder</c> field. Unsafe, ambiguous,
 /// contradictory, or duplicate paths invalidate the listing.
 /// </summary>
@@ -21,18 +75,25 @@ internal static class SevenZipArchiveListingParser
 
     public static bool TryParse(string? output, out IReadOnlyDictionary<string, ArchiveFileListingEntry> entries,
         out IReadOnlyList<string> directories)
+        => TryParse(output, out entries, out directories, out _);
+
+    public static bool TryParse(string? output, out IReadOnlyDictionary<string, ArchiveFileListingEntry> entries,
+        out IReadOnlyList<string> directories, out ArchiveListingParseFailure? failure)
     {
         var parsed = new Dictionary<string, ArchiveFileListingEntry>(StringComparer.OrdinalIgnoreCase);
         var folders = new List<string>();
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        entries = parsed;
-        directories = folders;
-        if (string.IsNullOrWhiteSpace(output)) return false;
-
+        var paths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        ArchiveListingParseFailure? firstFailure = null;
         string? path = null;
         long? size = null;
         bool? isFolder = null;
-        bool inEntries = false;
+        int entryIndex = 0;
+
+        bool Fail(ArchiveListingParseFailureReason reason, string field, string? value, int? index = null)
+        {
+            firstFailure ??= ArchiveListingParseFailure.Create(reason, index ?? entryIndex, field, value);
+            return false;
+        }
 
         bool Flush()
         {
@@ -43,14 +104,14 @@ internal static class SevenZipArchiveListingParser
                 return true;
             }
 
-            if (!isFolder.HasValue) return false;
+            if (!isFolder.HasValue) return Fail(ArchiveListingParseFailureReason.MissingClassification, "Folder", null);
             // 目录项也会被解压，不能因为不参与文件集合比较就忽略越界路径。
-            if (!TryNormalizeRelativePath(path, out var normalized)) return false;
-            if (!paths.Add(normalized)) return false;
+            if (!TryNormalizeRelativePath(path, out var normalized)) return Fail(ArchiveListingParseFailureReason.UnsafePath, "Path", path);
+            if (!paths.TryAdd(normalized, entryIndex)) return Fail(ArchiveListingParseFailureReason.DuplicatePath, "Path", path);
             if (isFolder == false)
             {
-                if (!size.HasValue) return false;
-                if (!parsed.TryAdd(normalized, new ArchiveFileListingEntry(normalized, size.Value))) return false;
+                if (!size.HasValue) return Fail(ArchiveListingParseFailureReason.InvalidSize, "Size", null);
+                parsed.Add(normalized, new ArchiveFileListingEntry(normalized, size.Value));
             }
             else folders.Add(normalized);
 
@@ -67,95 +128,172 @@ internal static class SevenZipArchiveListingParser
             return true;
         }
 
-        using var reader = new StringReader(output);
-        while (reader.ReadLine() is { } line)
+        bool Parse()
         {
-            if (!inEntries)
+            if (string.IsNullOrWhiteSpace(output)) return Fail(ArchiveListingParseFailureReason.EmptyOutput, "Output", null, 0);
+            bool inEntries = false;
+            using var reader = new StringReader(output);
+            while (reader.ReadLine() is { } line)
             {
-                if (line.StartsWith("----------", StringComparison.Ordinal)) inEntries = true;
-                continue;
-            }
+                if (!inEntries)
+                {
+                    if (line.StartsWith("----------", StringComparison.Ordinal)
+                        && line.AsSpan().IndexOfAnyExcept('-') < 0) inEntries = true;
+                    continue;
+                }
 
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                if (!Flush()) return false;
-                continue;
-            }
-
-            int separator = line.IndexOf(" = ", StringComparison.Ordinal);
-            if (separator <= 0) continue;
-            string key = line[..separator];
-            string value = line[(separator + 3)..];
-            switch (key)
-            {
-                case "Symbolic Link":
-                case "Hard Link":
-                    return false;
-                case "Alternate Stream" when value == "+":
-                    return false;
-                case "Path":
+                if (string.IsNullOrWhiteSpace(line))
+                {
                     if (!Flush()) return false;
-                    path = value;
-                    break;
-                case "Size":
-                    if (!long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedSize)
-                        || parsedSize < 0)
-                    {
-                        return false;
-                    }
-                    size = parsedSize;
-                    break;
-                case "Folder":
-                    var folderClassification = value switch
-                    {
-                        "+" => (bool?)true,
-                        "-" => false,
-                        _ => null
-                    };
-                    if (!folderClassification.HasValue
-                        || !SetFolderClassification(folderClassification.Value)) return false;
-                    break;
-                case "Attributes":
-                    if (!TryClassifyAttributes(value, out var attributesAreFolder)
-                        || !SetFolderClassification(attributesAreFolder)) return false;
-                    break;
+                    continue;
+                }
+
+                int separator = line.IndexOf(" =", StringComparison.Ordinal);
+                if (separator <= 0) continue;
+                int valueStart = separator + 2;
+                if (valueStart < line.Length)
+                {
+                    if (line[valueStart] != ' ') continue;
+                    valueStart++; // Remove exactly one separator space, preserving leading path spaces.
+                }
+                string key = line[..separator];
+                string value = line[valueStart..];
+                if (path is null && key is ("Size" or "Folder" or "Attributes" or "Symbolic Link" or "Hard Link" or "Alternate Stream"))
+                    return Fail(ArchiveListingParseFailureReason.UnsafePath, "Path", null, entryIndex + 1);
+                switch (key)
+                {
+                    case "Symbolic Link":
+                    case "Hard Link":
+                        return Fail(ArchiveListingParseFailureReason.UnsupportedEntryType, key, value);
+                    case "Alternate Stream" when value == "+":
+                        return Fail(ArchiveListingParseFailureReason.UnsupportedEntryType, key, value);
+                    case "Path":
+                        if (!Flush()) return false;
+                        entryIndex++;
+                        path = value;
+                        break;
+                    case "Size":
+                        if (!long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedSize)
+                            || parsedSize < 0 || (size.HasValue && size.Value != parsedSize))
+                        {
+                            return Fail(ArchiveListingParseFailureReason.InvalidSize, key, value);
+                        }
+                        size = parsedSize;
+                        break;
+                    case "Folder":
+                        var folderClassification = value switch
+                        {
+                            "+" => (bool?)true,
+                            "-" => false,
+                            _ => null
+                        };
+                        if (!folderClassification.HasValue) return Fail(ArchiveListingParseFailureReason.InvalidFolderValue, key, value);
+                        if (!SetFolderClassification(folderClassification.Value)) return Fail(ArchiveListingParseFailureReason.ClassificationConflict, key, value);
+                        break;
+                    case "Attributes":
+                        if (!TryClassifyAttributes(value, out var attributesAreFolder, out var reason)) return Fail(reason, key, value);
+                        if (attributesAreFolder.HasValue && !SetFolderClassification(attributesAreFolder.Value))
+                            return Fail(ArchiveListingParseFailureReason.ClassificationConflict, key, value);
+                        break;
+                }
             }
+
+            if (!inEntries) return Fail(ArchiveListingParseFailureReason.MissingEntrySection, "Output", null, 0);
+            if (!Flush()) return false;
+            foreach (var (entry, ordinal) in paths)
+            {
+                var parent = entry;
+                while (parent.LastIndexOf('/') is var index && index >= 0)
+                {
+                    parent = parent[..index];
+                    if (parsed.ContainsKey(parent)) return Fail(ArchiveListingParseFailureReason.ParentFileConflict, "Path", entry, ordinal);
+                }
+            }
+            return true;
         }
 
-        if (!Flush()) return false;
-        foreach (var entry in paths)
+        bool success = Parse();
+        entries = success ? parsed : new Dictionary<string, ArchiveFileListingEntry>(StringComparer.OrdinalIgnoreCase);
+        directories = success ? folders : Array.Empty<string>();
+        failure = firstFailure;
+        return success;
+    }
+
+    private static bool TryClassifyAttributes(string value, out bool? isFolder, out ArchiveListingParseFailureReason reason)
+    {
+        isFolder = null;
+        reason = ArchiveListingParseFailureReason.UnsupportedAttributes;
+        var attributes = value.Trim();
+        if (attributes.Length == 0) return true; // No evidence; an explicit Folder field may classify it.
+        var tokens = attributes.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 1 && tokens[0].Length == 10)
         {
-            var parent = entry;
-            while (parent.LastIndexOf('/') is var index && index >= 0)
+            if (TryClassifyPosix(tokens[0], out isFolder, out reason)) return true;
+            if (reason == ArchiveListingParseFailureReason.UnsupportedEntryType) return false;
+        }
+        if (tokens.Length is < 1 or > 2) return false;
+
+        string windowsFlags = tokens[0];
+        if (windowsFlags.EndsWith('_'))
+        {
+            if (tokens.Length != 2) return false;
+            windowsFlags = windowsFlags[..^1]; // Older 7-Zip UNIX-extension marker.
+        }
+        if (windowsFlags.Length == 0) return false;
+        if (windowsFlags.Contains('.'))
+        {
+            const string positions = "DRHSA";
+            if (windowsFlags.Length != positions.Length) return false;
+            for (int index = 0; index < positions.Length; index++)
+                if (windowsFlags[index] != '.' && windowsFlags[index] != positions[index]) return false;
+        }
+        else
+        {
+            // ConvertWinAttribToString (7-Zip PropIDUtils.cpp). Case matters: 'd' is a device,
+            // 'D' a directory, 's' sparse and 'S' system. Unknown extension tokens stay rejected.
+            const string knownFlags = "RHS8DAdNTsLCOIEVvXPUMB";
+            foreach (char flag in windowsFlags)
+                if (!knownFlags.Contains(flag)) return false;
+            if (windowsFlags.IndexOfAny(['8', 'd', 'L']) >= 0)
             {
-                parent = parent[..index];
-                if (parsed.ContainsKey(parent)) return false;
+                reason = ArchiveListingParseFailureReason.UnsupportedEntryType;
+                return false;
             }
+        }
+        isFolder = windowsFlags.Contains('D');
+        if (tokens.Length == 1) return true;
+        if (!TryClassifyPosix(tokens[1], out var posixIsFolder, out reason)) return false;
+        if (isFolder != posixIsFolder)
+        {
+            reason = ArchiveListingParseFailureReason.ClassificationConflict;
+            return false;
         }
         return true;
     }
 
-    private static bool TryClassifyAttributes(string value, out bool isFolder)
+    private static bool TryClassifyPosix(string permissions, out bool? isFolder, out ArchiveListingParseFailureReason reason)
     {
-        isFolder = false;
-        var attributes = value.Trim();
-        if (attributes.Length == 0) return false;
-
-        // Windows attributes are combined flags: hidden directories can be "HD",
-        // so the directory flag need not come first. POSIX attributes instead use
-        // the leading '-' or 'd' to identify files and directories.
-        var first = attributes[0];
-        if (first is '-' or 'd')
+        isFolder = null;
+        reason = ArchiveListingParseFailureReason.UnsupportedAttributes;
+        if (permissions.Length != 10) return false;
+        for (int index = 1; index < 10; index++)
         {
-            isFolder = first == 'd';
-            return true;
+            char flag = permissions[index];
+            bool valid = (index % 3) switch
+            {
+                1 => flag is 'r' or '-',
+                2 => flag is 'w' or '-',
+                _ => flag is 'x' or '-' || (index == 9 ? flag is 't' or 'T' : flag is 's' or 'S')
+            };
+            if (!valid) return false;
         }
-
-        // Some listings append POSIX permissions after the Windows flag token.
-        var separator = attributes.IndexOf(' ');
-        var windowsFlags = separator < 0 ? attributes : attributes[..separator];
-        isFolder = windowsFlags.Contains("D", StringComparison.OrdinalIgnoreCase);
-        return first is 'D' or 'A' or 'a' or 'R' or 'r' or 'H' or 'h' or 'S' or 's';
+        if (permissions[0] is not ('-' or 'd'))
+        {
+            reason = ArchiveListingParseFailureReason.UnsupportedEntryType;
+            return false;
+        }
+        isFolder = permissions[0] == 'd';
+        return true;
     }
 
     private static bool TryNormalizeRelativePath(string value, out string normalized)

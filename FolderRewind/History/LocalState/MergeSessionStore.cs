@@ -135,6 +135,16 @@ public sealed partial class MergeSessionStore
         return cmd.ExecuteScalar() is string data ? Decode<PreparedMergeDescriptor>(data) : null;
     }
 
+    public void RequireCurrentContract(MergeSession session, MergeProviderDescriptor? provider = null)
+    {
+        provider ??= MergeProviderDescriptor.Generic;
+        if (session.Plan.ProviderVersion == provider.Identity && session.Plan.PolicyVersion == provider.PolicyIdentity) return;
+        var current = Load(session.Id);
+        if (current.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready)
+            Update(current, MergeSessionState.Stale);
+        throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
+    }
+
     public void RegisterArtifact(MergeSession expected, string path)
     {
         using var db = Open(); using var tx = db.BeginTransaction();
@@ -272,7 +282,8 @@ public sealed partial class MergeSessionStore
                 {
                     var value = Decode<MergeResolution>(data);
                     if (value.InputSignature == conflict.InputSignature && Enum.IsDefined(value.Choice)
-                        && (value.Choice != MergeResolutionChoice.Manual || value.Manual is { } manual && ManualIsOwnedAndValid(session, manual)))
+                        && (value.Choice != MergeResolutionChoice.Manual
+                            || conflict.CanImportFile && value.Manual is { } manual && ManualIsOwnedAndValid(session, manual)))
                         migrated = value with { PlanRevision = session.Plan.Revision, ConflictId = conflict.Id };
                 }
             }
@@ -346,8 +357,7 @@ public sealed partial class MergeSessionStore
         using var read = Command(db, "SELECT data FROM conflicts WHERE session=$s AND revision=$r AND id=$id",
             ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", resolution.ConflictId));
         var conflict = Decode<MergeConflict>(read.ExecuteScalar() as string ?? throw new InvalidDataException("Conflict is missing."));
-        if (resolution.Choice == MergeResolutionChoice.Manual && (resolution.Manual is null || conflict.Subject.Paths.Length != 1
-            || conflict.Kind is MergeConflictKind.PathStructure or MergeConflictKind.SourceRoster or MergeConflictKind.SourceBoundary))
+        if (resolution.Choice == MergeResolutionChoice.Manual && (resolution.Manual is null || !conflict.CanImportFile))
             throw new InvalidOperationException("Manual resolution requires a single file artifact.");
         if (resolution.Choice != MergeResolutionChoice.Manual && resolution.Manual is not null)
             throw new InvalidOperationException("Whole-side resolution cannot attach manual content.");

@@ -147,6 +147,8 @@ public sealed class HistoryRetentionExecutor
             }
             foreach (var deletion in finalPlan.LocalPayloadDeletions)
             {
+                var representation = await _history.Query.GetRepresentationAsync(deletion.RepresentationId, CancellationToken.None).ConfigureAwait(false);
+                if (representation?.Kind == RepresentationKind.PluginArtifact) continue; // closure GC owns the bytes and read leases
                 try
                 {
                     _history.CloudJobs.RequireCleanupSafe();

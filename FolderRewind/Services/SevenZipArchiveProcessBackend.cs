@@ -16,7 +16,8 @@ namespace FolderRewind.Services;
 
 // Shared by the application and real-process integration tests.
 internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<string?> credential,
-    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend
+    bool encrypted, string restoreMarkerDirectory) : IArchiveRepresentationBackend, IHistoryChainRewriteArchiveBackend, IArchiveRestorePreflightBackend,
+    FolderRewind.Plugin.Runtime.Artifacts.IConcurrentArtifactEnvelopeCodec, FolderRewind.Plugin.Runtime.Artifacts.IBoundedArtifactEnvelopeCodec
 {
     private readonly Dictionary<string, ArchiveSafeListing> _safeListings = new(StringComparer.OrdinalIgnoreCase);
     public bool TryGetListing(string path, out ArchiveSafeListing? listing) => _safeListings.TryGetValue(Path.GetFullPath(path), out listing);
@@ -26,14 +27,67 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         bool fullContentTest, CancellationToken token)
     {
         if (fullContentTest) return await VerifyAsync(representation, path, token).ConfigureAwait(false);
-        if (representation.RepresentationSpecificMetadata.ContainsKey("legacyFileName"))
-            return await VerifyAsync(representation, path, token).ConfigureAwait(false);
+        if (representation.RepresentationSpecificMetadata.ContainsKey("legacyFileName")
+            && (!representation.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.ContractKey, out var contract) || contract != "1"))
+            return new(false, string.Empty, "Unsupported development-era legacy representation.");
         var listing = await RunAsync("l", path, null, null, token).ConfigureAwait(false);
         if (!listing.Success) return new(false, string.Empty, listing.Diagnostic);
-        if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var files, out var directories))
-            return new(false, string.Empty, "Archive entries are unsafe or could not be validated.");
+        if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var files, out var directories, out var failure))
+            return new(false, string.Empty, $"Archive entries are unsafe or could not be validated. {failure}");
+        if (!representation.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.OwnersKey)
+            && representation.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.FilesKey, out var manifest)
+            && !LegacySmartPlan.Paths(JsonSerializer.Deserialize<string[]>(manifest)).SetEquals(files.Keys))
+            return new(false, string.Empty, "Legacy archive disagrees with its historical manifest.");
         _safeListings[Path.GetFullPath(path)] = new(files, directories);
         return new(true, "safe-listing; full content not tested", string.Empty);
+    }
+    // Bound independently of world size. Envelope jobs operate on disjoint immutable packs.
+    public int MaximumConcurrency => Math.Min(4, Math.Max(1, Environment.ProcessorCount / 2));
+    public Task PackAsync(string source, string payload, bool requiresEncryption, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) throw new InvalidOperationException("Artifact encryption policy mismatch.");
+        return PackLogicalTreeAsync(source, payload, token);
+    }
+
+    public Task UnpackAsync(string payload, string target, bool requiresEncryption, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) return new SevenZipArchiveProcessBackend(executablePath, credential, requiresEncryption,
+            restoreMarkerDirectory).UnpackLogicalTreeAsync(payload, target, token);
+        return UnpackLogicalTreeAsync(payload, target, token);
+    }
+    public async Task PackLogicalTreeAsync(string source, string payload, CancellationToken token)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(payload))!);
+        if (File.Exists(payload)) throw new IOException("Envelope output already exists.");
+        var result = await RunAsync("a", payload, null, source, token, protectHeaders: true).ConfigureAwait(false);
+        if (!result.Success) throw new InvalidDataException(result.Diagnostic);
+    }
+    public Task UnpackAsync(string payload, string target, bool requiresEncryption, long maximumBytes,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget budget, CancellationToken token)
+    {
+        if (requiresEncryption != encrypted) return new SevenZipArchiveProcessBackend(executablePath, credential, requiresEncryption,
+            restoreMarkerDirectory).UnpackLogicalTreeAsync(payload, target, token, maximumBytes, budget);
+        return UnpackLogicalTreeAsync(payload, target, token, maximumBytes, budget);
+    }
+    public async Task UnpackLogicalTreeAsync(string payload, string target, CancellationToken token,
+        long maximumBytes = 16L * 1024 * 1024 * 1024,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactExtractionBudget? budget = null)
+    {
+        if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()) throw new IOException("Envelope workspace must be empty.");
+        var list = await RunAsync("l", payload, null, null, token).ConfigureAwait(false);
+        // Extraction validates CRC/decryption too; avoid a redundant complete test pass.
+        if (!list.Success) throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");
+        if (!SevenZipArchiveListingParser.TryParse(list.Output, out var entries, out var directories, out var failure))
+            throw new InvalidDataException($"Invalid or inaccessible Artifact envelope. {failure}");
+        if (entries.Count + directories.Count > FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles
+            || entries.Values.Sum(e => e.Size) > Math.Min(maximumBytes, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes))
+            throw new InvalidDataException("Invalid or inaccessible Artifact envelope.");
+        var bytes = entries.Values.Sum(e => e.Size);
+        (budget ?? new()).Reserve(bytes, entries.Count + directories.Count);
+        using var space = FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceRequest(target, checked(bytes + directories.Count * 4096L)));
+        FolderRewind.Plugin.Runtime.Artifacts.HostArtifactWorkspace.CreatePrivateDirectory(target);
+        var result = await RunAsync("x", payload, target, null, token).ConfigureAwait(false);
+        if (!result.Success) throw new InvalidDataException(result.Diagnostic);
     }
     public async ValueTask<PayloadVerificationResult> VerifyAsync(
         VersionRepresentation representation,
@@ -50,8 +104,10 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         if (result.Success)
         {
             var listing = await RunAsync("l", localPath, outputDirectory: null, workingDirectory: null, cancellationToken).ConfigureAwait(false);
-            if (!listing.Success || !SevenZipArchiveListingParser.TryParse(listing.Output, out var entries, out var directories))
+            if (!listing.Success)
                 return new(false, string.Empty, "Archive entries are unsafe or could not be validated.");
+            if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var entries, out var directories, out var failure))
+                return new(false, string.Empty, $"Archive entries are unsafe or could not be validated. {failure}");
             if (!representation.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.OwnersKey)
                 && representation.RepresentationSpecificMetadata.TryGetValue(LegacySmartPlan.FilesKey, out var manifest)
                 && !LegacySmartPlan.Paths(JsonSerializer.Deserialize<string[]>(manifest)).SetEquals(entries.Keys))
@@ -98,13 +154,18 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         var plan = NativeSmartOwnerPlanner.TryPlan(inputs, listings, restoreMarkerDirectory, out var fallback);
         long estimated = plan is null ? listings.Sum(listing => listing.Files.Values.Sum(file => file.Size)) : plan.Files.Values.Sum(file => file.File.Size);
         var volume = FolderRewind.History.Storage.WindowsRestoreFileSystem.RequireLocalNtfs(Path.GetDirectoryName(Path.GetFullPath(staging))!);
-        if ((ulong)estimated > volume.FreeBytes || volume.FreeBytes - (ulong)estimated < (ulong)Math.Max(8 * 1024 * 1024, estimated / 20))
-            throw new IOException("Insufficient free space on the restore staging volume.");
+        using var space = context.HasMaterializationSpace(staging) ? null
+            : Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(staging, EstimateMaterializationBytes(inputs, context)));
         HistoryOperationDiagnostics.Current?.Observe("workspace-volume", volume.Identity.Volume.ToString(System.Globalization.CultureInfo.InvariantCulture));
         if (plan is null)
         {
             HistoryOperationDiagnostics.Current?.Observe("smart-fallback", fallback);
-            await MaterializeAsync(inputs, staging, token).ConfigureAwait(false);
+            if (inputs.Count > 0 && inputs[^1].Representation.RepresentationSpecificMetadata.ContainsKey(LegacySmartPlan.ContractKey))
+            {
+                Directory.CreateDirectory(staging);
+                await MaterializeLegacyAsync(inputs, staging, token, context).ConfigureAwait(false);
+            }
+            else await MaterializeAsync(inputs, staging, token).ConfigureAwait(false);
             HistoryOperationDiagnostics.Current?.Count("uncompressed-bytes-written-estimate", estimated);
             return;
         }
@@ -144,7 +205,18 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         HistoryOperationDiagnostics.Current?.Count("smart-owner-archives", inputs.Count);
     }
 
-    private async Task MaterializeLegacyAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging, CancellationToken token)
+    public long EstimateMaterializationBytes(IReadOnlyList<ArchiveMaterializationInput> inputs, ArchiveRestoreVerificationContext context)
+    {
+        var listings = inputs.Select(context.RequireListing).ToArray();
+        var plan = NativeSmartOwnerPlanner.TryPlan(inputs, listings, restoreMarkerDirectory, out _);
+        // 顺序/旧格式回退按所有中间输出的上界预算；可选择提取时只计最终所有者。
+        long bytes = plan is null ? listings.Sum(l => l.Files.Values.Sum(f => f.Size)) : plan.Files.Values.Sum(f => f.File.Size);
+        long entries = plan is null ? listings.Sum(l => (long)l.Files.Count + l.Directories.Count) : plan.Files.Count * 2L;
+        return checked(bytes + entries * 4096 + Math.Max(8L * 1024 * 1024, bytes / 20));
+    }
+
+    private async Task MaterializeLegacyAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging, CancellationToken token,
+        ArchiveRestoreVerificationContext? context = null)
     {
         if (Directory.EnumerateFileSystemEntries(staging).Any())
             throw new InvalidDataException("Legacy materialization requires an empty staging directory.");
@@ -167,8 +239,12 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         foreach (var input in inputs)
         {
             token.ThrowIfCancellationRequested();
-            var verification = await VerifyAsync(input.Representation, input.LocalPath, token).ConfigureAwait(false);
-            if (!verification.Success) throw new InvalidDataException(verification.Diagnostic);
+            var protectedListing = context?.RequireListing(input);
+            if (protectedListing is null)
+            {
+                var verification = await VerifyAsync(input.Representation, input.LocalPath, token).ConfigureAwait(false);
+                if (!verification.Success) throw new InvalidDataException(verification.Diagnostic);
+            }
             string? list = null;
             try
             {
@@ -177,9 +253,17 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
                     var name = input.Representation.RepresentationSpecificMetadata["legacyFileName"];
                     var selected = owners.Where(p => p.Value.Equals(name, StringComparison.OrdinalIgnoreCase)).Select(p => p.Key).ToArray();
                     if (selected.Length == 0) continue;
-                    var listing = await RunAsync("l", input.LocalPath, null, null, token).ConfigureAwait(false);
-                    if (!listing.Success || !SevenZipArchiveListingParser.TryParse(listing.Output, out var actual)
-                        || selected.Any(file => !actual.ContainsKey(file)))
+                    IReadOnlyDictionary<string, ArchiveFileListingEntry>? actual = protectedListing?.Files;
+                    if (actual is null)
+                    {
+                        var listing = await RunAsync("l", input.LocalPath, null, null, token).ConfigureAwait(false);
+                        if (!listing.Success)
+                            throw new InvalidDataException("Legacy archive cannot be listed.");
+                        if (!SevenZipArchiveListingParser.TryParse(listing.Output, out var entries, out _, out var failure))
+                            throw new InvalidDataException($"Legacy archive cannot be listed. {failure}");
+                        actual = entries;
+                    }
+                    if (selected.Any(file => !actual.ContainsKey(file)))
                         throw new InvalidDataException("Legacy owner archive is missing a required file.");
                     list = Path.Combine(Path.GetDirectoryName(staging)!, "legacy-files-" + Guid.NewGuid().ToString("N") + ".txt");
                     await File.WriteAllLinesAsync(list, selected, new System.Text.UTF8Encoding(false), token).ConfigureAwait(false);
@@ -268,7 +352,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         string archivePath,
         string? outputDirectory,
         string? workingDirectory,
-        CancellationToken cancellationToken, string? includeList = null)
+        CancellationToken cancellationToken, string? includeList = null, bool protectHeaders = false)
     {
         var executable = executablePath();
         if (string.IsNullOrWhiteSpace(executable))
@@ -302,6 +386,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             start.ArgumentList.Add("-r-");
         }
         if (operation == "a") start.ArgumentList.Add(Path.Combine(Path.GetFullPath(workingDirectory!), "*"));
+        if (operation == "a" && encrypted && protectHeaders) start.ArgumentList.Add("-mhe=on");
         start.ArgumentList.Add("-y");
         if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);
         using var process = new Process { StartInfo = start };
@@ -310,30 +395,44 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         var processHandle = process.Handle; // 保持内核进程对象至统计完成，短命子进程退出后不再查询 Process 属性。
         HistoryOperationDiagnostics.Current?.Count("7z-" + operation);
         if (operation == "t") HistoryOperationDiagnostics.Current?.Count("archive-bytes-tested", new FileInfo(archivePath).Length);
+        using var observation = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.ObserveProcess(process, operation);
         process.StandardInput.Close(); // 缺少密码时失败关闭，不等待不可见的交互输入。
-        var outputTask = process.StandardOutput.ReadToEndAsync();
-        var errorTask = process.StandardError.ReadToEndAsync();
+        var outputTask = ReadBoundedOutputAsync(process.StandardOutput, process, 64 * 1024 * 1024, cancellationToken);
+        var errorTask = ReadBoundedOutputAsync(process.StandardError, process, 1024 * 1024, cancellationToken);
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            var output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+            HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
+            return process.ExitCode == 0
+                ? (true, string.Empty, output)
+                : (false, $"7-Zip {operation} exited with code {process.ExitCode}: " + Redact(output + "\n" + error, password), "");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        finally
         {
             if (!process.HasExited)
             {
-                try { process.Kill(entireProcessTree: true); }
-                catch (InvalidOperationException) { }
+                try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-            throw;
+            try { await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false); } catch { }
         }
-        var output = await outputTask.ConfigureAwait(false);
-        var error = await errorTask.ConfigureAwait(false);
-        HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
-        return process.ExitCode == 0
-            ? (true, string.Empty, output)
-            : (false, $"7-Zip {operation} exited with code {process.ExitCode}: " +
-                Redact(output + "\n" + error, password), "");
+    }
+
+    private static async Task<string> ReadBoundedOutputAsync(StreamReader reader, Process process, int maximumCharacters, CancellationToken token)
+    {
+        var text = new System.Text.StringBuilder(); var buffer = new char[8192]; int count;
+        while ((count = await reader.ReadAsync(buffer.AsMemory(), token).ConfigureAwait(false)) != 0)
+        {
+            if (text.Length + count > maximumCharacters)
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                throw new InvalidDataException("Archive process output quota exceeded.");
+            }
+            text.Append(buffer, 0, count);
+        }
+        return text.ToString();
     }
 
 

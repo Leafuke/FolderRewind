@@ -26,8 +26,8 @@ public sealed partial class MergePageViewModel
     public string ProtectionText => I18n.GetString(Operations?.Review?.NeedsProtection == true ? "MergeWorkspace_ProtectionRequired" : "MergeWorkspace_ProtectionNotRequired");
     public string ReviewSummary => Operations?.Review is { } r
         ? string.Format(I18n.GetString("MergeWorkspace_ReviewSummary"), r.BranchChanges.Length, r.WorkingChanges.Length) : "";
-    public IEnumerable<MergeReviewLine> BranchChanges => Operations?.Review?.BranchChanges.Select(c => new MergeReviewLine(c.Path, I18n.GetString("MergeWorkspace_Change_" + c.Kind))) ?? [];
-    public IEnumerable<MergeReviewLine> WorkingChanges => Operations?.Review?.WorkingChanges.Select(c => new MergeReviewLine(c.Path, I18n.GetString("MergeWorkspace_Change_" + c.Kind))) ?? [];
+    public IEnumerable<MergeReviewLine> BranchChanges => Operations?.Review?.BranchChanges.Select(c => new MergeReviewLine(c.Path + (c.IsDirectory ? "/" : ""), I18n.GetString("MergeWorkspace_Change_" + c.Kind))) ?? [];
+    public IEnumerable<MergeReviewLine> WorkingChanges => Operations?.Review?.WorkingChanges.Select(c => new MergeReviewLine(c.Path + (c.IsDirectory ? "/" : ""), I18n.GetString("MergeWorkspace_Change_" + c.Kind))) ?? [];
     public Task GenerateAsync() => Operations is null ? Task.CompletedTask : ExecuteAsync(Operations.GenerateReviewAsync);
     public Task ApplyReviewAsync() => Operations is null ? Task.CompletedTask : ExecuteAsync(Operations.ApplyReviewedAsync);
     public void EditDecisions() { Operations?.DismissReview(); Notify(); }
