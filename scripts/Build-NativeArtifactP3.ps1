@@ -9,7 +9,7 @@ $output = [IO.Path]::GetFullPath($OutputDirectory)
 # Kept as a command-name compatibility entry point. Integration uses the committed
 # exact contract and source mapping; it never generates an ad-hoc experimental feed.
 & (Join-Path $pluginRoot 'tools/Verify-Contract.ps1')
-if ($LASTEXITCODE -ne 0) { throw 'Committed contract verification failed.' }
+if (-not $?) { throw 'Committed contract verification failed.' }
 $dirty = & git -C $pluginRoot status --porcelain
 if ($LASTEXITCODE -ne 0 -or $dirty) { throw 'Plugin source must be a clean committed checkout.' }
 $provenance = Get-Content (Join-Path $pluginRoot 'contracts/source-manifest.json') -Raw | ConvertFrom-Json
@@ -45,7 +45,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Plugin restore failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Plugin build or clean-staging packaging failed.' }
 $archive = [IO.Compression.ZipFile]::OpenRead($package)
 try {
-    $expected = @('MineRewind.dll','MineRewind.World.dll','fNbt.dll','manifest.json','settings.schema.json','contract-source.json')
+    $expected = @('MineRewind.dll','MineRewind.World.dll','fNbt.dll','K4os.Compression.LZ4.dll','System.IO.Hashing.dll','preview-dependencies.NOTICE.txt','manifest.json','settings.schema.json','contract-source.json')
     $actual = @($archive.Entries.FullName)
     if ($actual.Count -ne $expected.Count -or (Compare-Object $expected $actual)) { throw 'Unexpected plugin payload inventory.' }
 } finally { $archive.Dispose() }
