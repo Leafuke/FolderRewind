@@ -1767,6 +1767,24 @@ Keys use letters, digits, and underscores only. Values must be percent-encoded. 
   <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
     <value>Missing file field. Example: file=backup.7z</value>
   </data>
+  <data name="KnotLink_Error_InvalidVersionReference" xml:space="preserve">
+    <value>Invalid virtual backup file name. Select a valid entry from the backup list.</value>
+  </data>
+  <data name="KnotLink_Error_AmbiguousVersionReference" xml:space="preserve">
+    <value>The backup reference matches multiple versions. Refresh the backup list and use a full identifier.</value>
+  </data>
+  <data name="KnotLink_Error_AmbiguousBackupFileName" xml:space="preserve">
+    <value>The backup file name matches multiple versions. Use a virtual name from the backup list or version_id.</value>
+  </data>
+  <data name="KnotLink_Error_VersionNotFound" xml:space="preserve">
+    <value>No backup version was found for this configuration and folder.</value>
+  </data>
+  <data name="KnotLink_BackupMarkedImportant_Message" xml:space="preserve">
+    <value>Backup '{0}' marked as important.</value>
+  </data>
+  <data name="KnotLink_BackupUnmarkedImportant_Message" xml:space="preserve">
+    <value>Backup '{0}' unmarked.</value>
+  </data>
   <data name="KnotLink_Error_InvalidBool" xml:space="preserve">
     <value>Invalid boolean value for {0}: {1}</value>
   </data>

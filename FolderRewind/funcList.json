@@ -401,7 +401,7 @@
         },
         "file": {
           "type": "input",
-          "description": "Legacy file name; must identify one Version."
+          "description": "Backup file selector: an unambiguous legacy name or readable frv_ virtual name."
         },
         "folder": {
           "type": "input",
@@ -417,7 +417,7 @@
         },
         "version_id": {
           "type": "input",
-          "description": "Stable Version ID; use either version_id or an unambiguous legacy file name."
+          "description": "Stable Version ID; use either version_id or file."
         }
       },
       "returns": [
@@ -464,7 +464,7 @@
     "list_backups": {
       "appID": "0x00000020",
       "openSocketID": "0x00000010",
-      "description": "List backup archives for a managed folder.",
+      "description": "List backup file selectors for a managed folder, including readable frv_ virtual names.",
       "args": {
         "cmd": {
           "type": "static",
@@ -572,7 +572,7 @@
     "mark_important": {
       "appID": "0x00000020",
       "openSocketID": "0x00000010",
-      "description": "Mark or unmark a backup archive as important.",
+      "description": "Mark or unmark a backup version as important.",
       "args": {
         "cmd": {
           "type": "static",
@@ -585,7 +585,7 @@
         },
         "file": {
           "type": "input",
-          "description": "Legacy file name; must identify one Version."
+          "description": "Backup file selector: an unambiguous legacy name or readable frv_ virtual name."
         },
         "folder": {
           "type": "input",
@@ -616,7 +616,7 @@
         },
         "version_id": {
           "type": "input",
-          "description": "Stable Version ID; use either version_id or an unambiguous legacy file name."
+          "description": "Stable Version ID; use either version_id or file."
         }
       },
       "returns": [
@@ -680,7 +680,7 @@
         },
         "file": {
           "type": "input",
-          "description": "Optional unambiguous legacy archive name; omit both selectors for the active Workspace's unique local branch tip."
+          "description": "Optional backup file selector: an unambiguous legacy name or readable frv_ virtual name; omit both selectors for the active Workspace's unique local branch tip."
         },
         "folder": {
           "type": "input",
@@ -1299,7 +1299,7 @@
     "list_backups": {
       "appID": "0x00000020",
       "signalID": "0x00000020",
-      "description": "Backup archive list was queried.",
+      "description": "Backup file selector list was queried.",
       "returns": {
         "config": {
           "description": "Configuration ID."

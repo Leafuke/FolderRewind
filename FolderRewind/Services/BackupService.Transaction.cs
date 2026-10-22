@@ -411,16 +411,36 @@ public static partial class BackupService
 
         // 6. Durable boundary。到达这里后 History 已经确定事实；所有辅助失败只能降级为 warning。
         var committedOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
+        var fileReferences = new Dictionary<SourceId, string>();
         if (!invocationOptions.Protect)
-            terminalLifecycle.Set(CreateCommittedTerminal(committedOutcome, sourceOutcomes, hasPostCommitWarnings: false));
+            terminalLifecycle.Set(CreateCommittedTerminal(committedOutcome, sourceOutcomes, fileReferences, hasPostCommitWarnings: false));
         bool hasPostCommitWarnings = false;
         timing.MarkPhase("post-commit");
+        // Internal safety checkpoints are intentionally absent from the public backup timeline.
+        foreach (var result in committedBatch.Run.SourceResults.Where(item => item.VersionId is not null && safetySnapshotIntent is null))
+        {
+            try
+            {
+                var references = await NativeHistoryCoreGateway.GetBackupFileReferencesAsync(config.Id, result.SourceId).ConfigureAwait(false);
+                if (!references.TryGetValue(result.VersionId!.Value, out var reference))
+                    throw new InvalidOperationException(I18n.GetString("KnotLink_Error_VersionNotFound"));
+                fileReferences[result.SourceId] = reference;
+            }
+            catch (Exception ex)
+            {
+                // A protocol label failure cannot roll back the committed backup or leak its payload name.
+                hasPostCommitWarnings = true;
+                await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes,
+                    "backup.post_commit_reference_failed", ex.Message).ConfigureAwait(false);
+            }
+        }
         try
         {
-            hasPostCommitWarnings = await FinalizeCommittedBackupAsync(
+            hasPostCommitWarnings |= await FinalizeCommittedBackupAsync(
                 config,
                 requestedFolders,
-                sourceOutcomes).ConfigureAwait(false);
+                sourceOutcomes,
+                fileReferences: fileReferences).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -469,21 +489,22 @@ public static partial class BackupService
         {
             try
             {
-                var version = committedBatch.Run.SourceResults.Single().VersionId
+                var sourceResult = committedBatch.Run.SourceResults.Single();
+                var version = sourceResult.VersionId
                     ?? throw new InvalidOperationException("Protected backup has no version.");
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
                 var assessment = await restore.AssessVersionAsync(version, MaterializationFidelity.Exact,
                     FolderRewind.History.Representation.AssessmentDepth.Deep, cancellationToken).ConfigureAwait(false);
                 var entry = (await new HistoryPresentationQueryService(runtime).QueryAsync(
-                    committedBatch.Run.SourceResults.Single().SourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
-                    .Timeline.SingleOrDefault(e => e.VersionId == version);
+                    sourceResult.SourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
+                    .Timeline.FirstOrDefault(e => e.VersionId == version);
                 if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null
-                    || entry is null || !entry.IsPinned || string.IsNullOrWhiteSpace(entry.FileName))
+                    || entry is null || !entry.IsPinned || !fileReferences.TryGetValue(sourceResult.SourceId, out var file))
                     throw new InvalidOperationException("Protected backup is committed but readiness/protection cannot be confirmed.");
                 terminalLifecycle.Set(new BackupTerminalLifecycle("command_completed", new Dictionary<string, string?>
                 {
-                    ["file"] = entry.FileName, ["important"] = "true",
+                    ["file"] = file, ["important"] = "true",
                     ["result"] = sourceOutcomes.Any(o => o.CreatedNewArchive) ? "created" : "reused"
                 }));
             }
@@ -495,7 +516,7 @@ public static partial class BackupService
                     HistoryRecoveryRequired = true, RecoveryMessage = ex.Message };
             }
         }
-        else terminalLifecycle.Set(CreateCommittedTerminal(durableOutcome, sourceOutcomes, hasPostCommitWarnings));
+        else terminalLifecycle.Set(CreateCommittedTerminal(durableOutcome, sourceOutcomes, fileReferences, hasPostCommitWarnings));
         return new BackupTransactionExecutionResult
         {
             Outcome = durableOutcome,
@@ -522,6 +543,7 @@ public static partial class BackupService
     private static BackupTerminalLifecycle CreateCommittedTerminal(
         OperationOutcome outcome,
         IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes,
+        IReadOnlyDictionary<SourceId, string> fileReferences,
         bool hasPostCommitWarnings)
     {
         if (outcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.Canceled)
@@ -542,7 +564,8 @@ public static partial class BackupService
         else if (outcome == OperationOutcome.SuccessWithWarnings) fields["reason"] = "source_warning";
         var codes = sourceOutcomes.SelectMany(item => item.WarningCodes).Distinct(StringComparer.Ordinal).ToArray();
         if (codes.Length > 0) fields["warning_codes"] = string.Join(",", codes);
-        if (sourceOutcomes.LastOrDefault(item => item.CreatedNewArchive)?.GeneratedFileName is { } file) fields["file"] = file;
+        if (sourceOutcomes.LastOrDefault(item => item.CreatedNewArchive)?.FolderId is { } folderId
+            && fileReferences.TryGetValue(new SourceId(folderId), out var file)) fields["file"] = file;
         return new BackupTerminalLifecycle("command_completed", fields);
     }
 
@@ -596,7 +619,8 @@ public static partial class BackupService
         BackupConfig config,
         IReadOnlyList<ManagedFolder> requestedFolders,
         IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes,
-        HistoryCommitRecoveryRequiredException? recoveryRequired = null)
+        HistoryCommitRecoveryRequiredException? recoveryRequired = null,
+        IReadOnlyDictionary<SourceId, string>? fileReferences = null)
     {
         int configIndex = GetConfigIndex(config);
         bool anyNewFile = sourceOutcomes.Any(item => item.CreatedNewArchive);
@@ -642,6 +666,8 @@ public static partial class BackupService
                 else if (outcome.CreatedNewArchive)
                 {
                     var completedFileName = outcome.GeneratedFileName;
+                    var completedReference = outcome.FolderId is { } folderId
+                        ? fileReferences?.GetValueOrDefault(new SourceId(folderId)) : null;
 
                     // 备份完成后检查文件大小，过小时发出警告
                     if (!string.IsNullOrEmpty(completedFileName) && !string.IsNullOrEmpty(config.DestinationPath))
@@ -701,7 +727,7 @@ public static partial class BackupService
                     {
                         BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
                         {
-                            ["file"] = completedFileName,
+                            ["file"] = completedReference,
                             ["has_warnings"] = sourceHasWarnings ? "true" : "false"
                         });
                         if (!sourceHasWarnings) NotificationService.NotifyBackupCompleted(folder.DisplayName, true);

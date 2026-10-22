@@ -91,6 +91,10 @@ namespace FolderRewind.Services
                     ? FormatCommandHandlerResponse(context, response)
                     : KnotLinkProtocolFormatter.FormatError(context, $"Unknown command '{command}'.");
             }
+            catch (InvalidOperationException ex) when (TryFormatVersionSelectionError(ex.Message, out var message))
+            {
+                return FormatCommandHandlerResponse(context, "ERROR:" + message);
+            }
             catch (Exception ex)
             {
                 LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", command, ex.Message), "KnotLink", ex);
@@ -123,6 +127,23 @@ namespace FolderRewind.Services
             KnotLinkCommandParser.HasV2CommandField(payload)
                 ? null
                 : "ERROR:KnotLink v1 is no longer supported. Please upgrade the caller to protocol v2 (cmd=...).";
+
+        private static bool TryFormatVersionSelectionError(string code, out string message)
+        {
+            var resource = code switch
+            {
+                HistoryVersionFileSelector.InvalidReferenceError => "KnotLink_Error_InvalidVersionReference",
+                HistoryVersionFileSelector.AmbiguousReferenceError => "KnotLink_Error_AmbiguousVersionReference",
+                HistoryVersionFileSelector.AmbiguousFileNameError => "KnotLink_Error_AmbiguousBackupFileName",
+                "history_version_not_found" => "KnotLink_Error_VersionNotFound",
+                _ => null
+            };
+            message = resource is null ? string.Empty : $"{code} {I18n.GetString(resource)}";
+            return resource is not null;
+        }
+
+        private static string VersionNotFoundResponse()
+            => "ERROR:history_version_not_found: " + I18n.GetString("KnotLink_Error_VersionNotFound");
 
         private static async Task<string?> HandleV2CommandAsync(KnotLinkCommandContext context)
         {
@@ -406,7 +427,7 @@ namespace FolderRewind.Services
             if (!string.IsNullOrWhiteSpace(backupFile) || request.HasOption("version_id"))
             {
                 var version = await ResolveVersionSelectorAsync(config!, new(sourceGuid), request).ConfigureAwait(false);
-                if (version is null) return "ERROR:history_version_not_found";
+                if (version is null) return VersionNotFoundResponse();
                 versionId = version.VersionId;
             }
 
@@ -654,6 +675,15 @@ namespace FolderRewind.Services
             return NativeHistoryCoreGateway.FindVersionByFileAsync(config.Id, source, request.GetString("file") ?? "");
         }
 
+        private static async Task<string> GetVersionResponseFileAsync(BackupConfig config, SourceId source,
+            KnotLinkCommandRequest request, TimelineEntrySummary entry)
+        {
+            if (request.GetString("file") is { Length: > 0 } selector) return selector;
+            var references = await NativeHistoryCoreGateway.GetBackupFileReferencesAsync(config.Id, source).ConfigureAwait(false);
+            return references.TryGetValue(entry.VersionId, out var reference)
+                ? reference : throw new InvalidOperationException("history_version_not_found");
+        }
+
         private static async Task<string> HandleGetImportance(KnotLinkCommandContext context)
         {
             var request = context.Request;
@@ -662,9 +692,10 @@ namespace FolderRewind.Services
             if (!request.HasOption("version_id") && string.IsNullOrWhiteSpace(request.GetString("file"))) return "ERROR:missing_version_selector";
             if (!Guid.TryParse(folder!.Id, out var source) || source == Guid.Empty) return "ERROR:invalid_source_identity";
             var entry = await ResolveVersionSelectorAsync(config!, new(source), request).ConfigureAwait(false);
-            if (entry is null) return "ERROR:history_version_not_found";
+            if (entry is null) return VersionNotFoundResponse();
+            var file = await GetVersionResponseFileAsync(config!, new(source), request, entry).ConfigureAwait(false);
             return KnotLinkProtocolFormatter.FormatOk(context, new Dictionary<string, string?>
-            { ["version_id"] = entry.VersionId.ToString(), ["file"] = entry.FileName, ["important"] = entry.IsPinned ? "true" : "false" });
+            { ["version_id"] = entry.VersionId.ToString(), ["file"] = file, ["important"] = entry.IsPinned ? "true" : "false" });
         }
 
         private static async Task<string> HandleMarkImportant(KnotLinkCommandContext context)
@@ -676,11 +707,13 @@ namespace FolderRewind.Services
             if (!request.HasOption("version_id") && string.IsNullOrWhiteSpace(request.GetString("file"))) return "ERROR:missing_version_selector";
             if (!Guid.TryParse(folder!.Id, out var source) || source == Guid.Empty) return "ERROR:invalid_source_identity";
             var entry = await ResolveVersionSelectorAsync(config!, new(source), request).ConfigureAwait(false);
-            if (entry is null || !await NativeHistoryCoreGateway.SetVersionPinAsync(config!.Id, new(source), entry.VersionId, important).ConfigureAwait(false))
-                return "ERROR:history_version_not_found";
+            if (entry is null) return VersionNotFoundResponse();
+            var file = await GetVersionResponseFileAsync(config!, new(source), request, entry).ConfigureAwait(false);
+            if (!await NativeHistoryCoreGateway.SetVersionPinAsync(config!.Id, new(source), entry.VersionId, important).ConfigureAwait(false))
+                return VersionNotFoundResponse();
             var fields = new Dictionary<string, string?> { ["config"] = config!.Id, ["folder"] = folder.DisplayName,
-                ["version_id"] = entry.VersionId.ToString(), ["file"] = entry.FileName, ["important"] = important ? "true" : "false",
-                ["message"] = $"Backup '{entry.FileName}' {(important ? "marked as important" : "unmarked")}" };
+                ["version_id"] = entry.VersionId.ToString(), ["file"] = file, ["important"] = important ? "true" : "false",
+                ["message"] = I18n.Format(important ? "KnotLink_BackupMarkedImportant_Message" : "KnotLink_BackupUnmarkedImportant_Message", file) };
             BroadcastEvent(context, "mark_important", fields); BroadcastCommandLifecycle(context, "command_completed");
             return KnotLinkProtocolFormatter.FormatOk(context, fields);
         }

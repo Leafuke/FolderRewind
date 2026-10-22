@@ -1767,6 +1767,24 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
     <value>缺少 file 参数。示例：file=backup.7z</value>
   </data>
+  <data name="KnotLink_Error_InvalidVersionReference" xml:space="preserve">
+    <value>备份虚拟文件名格式无效，请从备份列表选择有效条目。</value>
+  </data>
+  <data name="KnotLink_Error_AmbiguousVersionReference" xml:space="preserve">
+    <value>备份标识对应多个版本，请刷新备份列表并使用完整标识。</value>
+  </data>
+  <data name="KnotLink_Error_AmbiguousBackupFileName" xml:space="preserve">
+    <value>备份文件名对应多个版本，请使用备份列表中的虚拟文件名或 version_id。</value>
+  </data>
+  <data name="KnotLink_Error_VersionNotFound" xml:space="preserve">
+    <value>未找到属于此配置和目录的备份版本。</value>
+  </data>
+  <data name="KnotLink_BackupMarkedImportant_Message" xml:space="preserve">
+    <value>已将备份“{0}”标记为重要。</value>
+  </data>
+  <data name="KnotLink_BackupUnmarkedImportant_Message" xml:space="preserve">
+    <value>已取消备份“{0}”的重要标记。</value>
+  </data>
   <data name="KnotLink_Error_InvalidBool" xml:space="preserve">
     <value>布尔参数 {0} 的值无效：{1}</value>
   </data>

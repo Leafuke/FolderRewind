@@ -166,7 +166,7 @@ namespace FolderRewind.Services.KnotLink
             AddSignal(manifest, appId, signalId, "app_startup", "FolderRewind KnotLink endpoint started.", ("version", "Application version."));
             AddSignal(manifest, appId, signalId, "list_configs", "Backup configuration list was queried.", ("data", "Encoded result data."));
             AddSignal(manifest, appId, signalId, "list_folders", "Managed folder list was queried.", ("config", "Configuration ID."), ("data", "Encoded result data."));
-            AddSignal(manifest, appId, signalId, "list_backups", "Backup archive list was queried.", ("config", "Configuration ID."), ("folder", "Folder name."), ("data", "Encoded result data."));
+            AddSignal(manifest, appId, signalId, "list_backups", "Backup file selector list was queried.", ("config", "Configuration ID."), ("folder", "Folder name."), ("data", "Encoded result data."));
             AddSignal(manifest, appId, signalId, "list_versions", "Logical version list was queried.", ("config", "Configuration ID."), ("folder", "Folder name."), ("data", "Encoded result data."));
             AddSignal(manifest, appId, signalId, "get_config", "Backup configuration details were queried.", ("config", "Configuration ID."));
             AddSignal(manifest, appId, signalId, "status", "Runtime status was queried.");

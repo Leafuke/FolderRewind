@@ -140,11 +140,29 @@ public static class NativeHistoryCoreGateway
         SourceId sourceId,
         CancellationToken cancellationToken = default)
     {
+        var (entries, references) = await QueryBackupFileReferencesAsync(configId, sourceId, cancellationToken).ConfigureAwait(false);
+        return entries.Where(item => !item.IsSuppressed).Select(item => references[item.VersionId]).ToArray();
+    }
+
+    public static async Task<IReadOnlyDictionary<VersionId, string>> GetBackupFileReferencesAsync(
+        string configId, SourceId sourceId, CancellationToken cancellationToken = default)
+        => (await QueryBackupFileReferencesAsync(configId, sourceId, cancellationToken).ConfigureAwait(false)).References;
+
+    private static async Task<(IReadOnlyList<TimelineEntrySummary> Entries, IReadOnlyDictionary<VersionId, string> References)>
+        QueryBackupFileReferencesAsync(string configId, SourceId sourceId, CancellationToken cancellationToken)
+    {
         var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
-        return (await new HistoryPresentationQueryService(runtime)
-                    .QueryAsync(sourceId, cancellationToken: cancellationToken).ConfigureAwait(false))
-                .Timeline.Select(item => item.FileName).Where(item => !string.IsNullOrWhiteSpace(item))
-                .Select(item => item!).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var snapshot = await new HistoryPresentationQueryService(runtime)
+            .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false);
+        var versions = (await runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false))
+            .Where(version => version.SourceId == sourceId && version.ConfigId.Matches(configId))
+            .ToDictionary(version => version.VersionId);
+        var representations = (await runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false))
+            .ToDictionary(representation => representation.RepresentationId);
+        // Checkpoints may share a Version; suppression and reference collisions are Version-level.
+        var entries = snapshot.Timeline.Where(item => versions.ContainsKey(item.VersionId))
+            .GroupBy(item => item.VersionId).Select(group => group.First()).ToArray();
+        return (entries, HistoryVersionFileSelector.CreateReferences(entries, versions, representations));
     }
 
     public static async Task<bool> SetVersionPinByFileAsync(
@@ -154,19 +172,16 @@ public static class NativeHistoryCoreGateway
         bool pinned,
         CancellationToken cancellationToken = default)
     {
-        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
-        var snapshot = await new HistoryPresentationQueryService(runtime)
-            .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false);
-        var versionId = HistoryVersionFileSelector.FindUnique(snapshot.Timeline.Select(item => (item.VersionId, item.FileName)), fileName);
-        if (versionId is null) return false;
-        return await SetVersionPinAsync(configId, sourceId, versionId.Value, pinned, cancellationToken).ConfigureAwait(false);
+        var entry = await FindVersionByFileAsync(configId, sourceId, fileName, cancellationToken).ConfigureAwait(false);
+        return entry is not null && await SetVersionPinAsync(configId, sourceId, entry.VersionId, pinned, cancellationToken).ConfigureAwait(false);
     }
 
     public static async Task<bool> SetVersionPinAsync(string configId, SourceId sourceId, VersionId versionId,
         bool pinned, CancellationToken cancellationToken = default)
     {
         var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
-        if (await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false) is not { } version || version.SourceId != sourceId) return false;
+        if (await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false) is not { } version
+            || version.SourceId != sourceId || !version.ConfigId.Matches(configId)) return false;
         await runtime.Annotations.SetPinAsync(new(HistoryAnnotationTargetKind.Version, versionId.Value), pinned, cancellationToken).ConfigureAwait(false);
         return true;
     }
@@ -183,12 +198,22 @@ public static class NativeHistoryCoreGateway
     {
         var entries = await ListVersionsAsync(configId, sourceId, true, cancellationToken).ConfigureAwait(false);
         var id = HistoryVersionFileSelector.FindUnique(entries.Select(item => (item.VersionId, item.FileName)), fileName);
-        return id is null ? null : entries.Single(item => item.VersionId == id);
+        if (id is null) return null;
+        var version = await GetRequiredRuntime(configId).Query.GetVersionAsync(id.Value, cancellationToken).ConfigureAwait(false);
+        return version is not null && version.SourceId == sourceId && version.ConfigId.Matches(configId)
+            ? entries.First(item => item.VersionId == id) : null;
     }
 
     public static async Task<TimelineEntrySummary?> FindVersionByIdAsync(string configId, SourceId sourceId, VersionId versionId,
         CancellationToken cancellationToken = default)
-        => (await ListVersionsAsync(configId, sourceId, true, cancellationToken).ConfigureAwait(false)).SingleOrDefault(item => item.VersionId == versionId);
+    {
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
+        var version = await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
+        if (version is null || version.SourceId != sourceId || !version.ConfigId.Matches(configId)) return null;
+        return (await new HistoryPresentationQueryService(runtime)
+            .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
+            .Timeline.FirstOrDefault(item => item.VersionId == versionId);
+    }
 
     public static async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
         HistoryConfigSnapshot snapshot,

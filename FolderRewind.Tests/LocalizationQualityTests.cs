@@ -31,7 +31,7 @@ public sealed class LocalizationQualityTests
                 .Select(key => key.Replace('.', '/')).ToHashSet(StringComparer.Ordinal);
             foreach (var key in keys)
                 for (var separator = key.IndexOf('/'); separator >= 0; separator = key.IndexOf('/', separator + 1))
-                    Assert.IsFalse(keys.Contains(key[..separator]),
+                    Assert.DoesNotContain(key[..separator], keys,
                         $"PRI resource/scope collision in {directory}: {key[..separator]} and {key}");
         }
     }
