@@ -19,7 +19,7 @@ public sealed record PreviewLayerChoice(SpatialPreviewLayer Layer)
 public sealed record PreviewTargetChoice(SpatialPreviewTarget Target, string LayerName)
 {
     public string Name => PluginV3SpatialPreview.Localize(Target.Name);
-    public string Description => $"{PluginV3SpatialPreview.Localize(Target.Group)} · {LayerName} · {Target.X:0}, {Target.Y:0}";
+    public string Description => $"{PluginV3SpatialPreview.Localize(Target.Group)} · {LayerName} · {Target.X:0}, {Target.Y:0}" + (Target.SuggestedHeight is { } height ? " · " + I18n.Format("Preview_TargetHeight", height) : "");
 }
 
 
@@ -62,6 +62,10 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
             CellLabel = description.CellLabel is { } cell ? PluginV3SpatialPreview.Localize(cell) : I18n.GetString("Preview_CellLabel");
             HorizontalAxis = PluginV3SpatialPreview.Localize(description.HorizontalAxis);
             VerticalAxis = PluginV3SpatialPreview.Localize(description.VerticalAxis);
+            DistanceUnit = description.DistanceUnit is { } unit ? PluginV3SpatialPreview.Localize(unit) : I18n.GetString("Preview_DefaultUnit");
+            SupportsStatusOverlay = description.SupportsStatusOverlay;
+            LegendText = string.Join(" · ", description.Legend.Select(l => PluginV3SpatialPreview.Localize(l.Label)));
+            StatisticsText = "";
             foreach (var layer in description.Layers) Layers.Add(new(layer));
             Status = I18n.GetString(Layers.Count == 0 ? "Preview_Empty" : "Preview_ReadOnly");
         }
@@ -95,12 +99,12 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
     {
         if (Session is not { } session) return;
         Cameras.Save(new(session.Source.Config.ConfigId, session.Source.Folder.FolderId, session.Source.Folder.Path),
-            new(layer, x, y, scale, height));
+            new(layer, x, y, scale, height) { ViewModeId = CurrentMode?.Mode.Id, ShowStatusOverlay = ShowStatusOverlay });
     }
-    public PreviewCameraState? SavedCamera(string? layer = null)
+    public PreviewCameraState? SavedCamera(string? layer = null, string? mode = null)
     {
         if (Session is not { } session) return null;
-        return Cameras.Get(new(session.Source.Config.ConfigId, session.Source.Folder.FolderId, session.Source.Folder.Path), layer);
+        return Cameras.Get(new(session.Source.Config.ConfigId, session.Source.Folder.FolderId, session.Source.Folder.Path), layer, mode);
     }
     public void UpdateCursor(double x, double y, SpatialPreviewLayer layer)
         => CursorText = $"{HorizontalAxis}: {Math.Floor(x):N0}  {VerticalAxis}: {Math.Floor(y):N0} · {CellLabel}: {Math.Floor(x / layer.MinorGridSize):N0}, {Math.Floor(y / layer.MinorGridSize):N0}";

@@ -62,6 +62,6 @@ public sealed partial class SpatialPreviewViewModel
         DraftHeight = AppliedHeight ?? 0;
         HeightText = AppliedHeight?.ToString(CultureInfo.CurrentCulture) ?? "";
         HeightError = "";
-        HeightSummary = AppliedHeight is { } height ? I18n.Format("Preview_AppliedHeight", height) : "";
+        HeightSummary = AppliedHeight is { } height ? I18n.Format("Preview_ViewSummary", CurrentMode?.Name ?? I18n.GetString("Preview_DefaultViewMode"), height) : "";
     }
 }

@@ -22,6 +22,7 @@ public sealed partial class SpatialPreviewPage : Page
     private SpatialPreviewNavigationParameter? _navigation;
     private PreviewLayerChoice? _currentLayer;
     private bool _heightDragging;
+    private bool _settingOptions;
     private bool _active;
     private long _loadRevision;
     private long _interactionRevision;
@@ -30,9 +31,10 @@ public sealed partial class SpatialPreviewPage : Page
         InitializeComponent();
         Map.StatusChanged += text => ViewModel.Status = text;
         Map.DetailsChanged += text => { ViewModel.Details = text; DetailLayout.IsPaneOpen = true; };
+        Map.StatisticsChanged += ViewModel.SetStatistics;
         Map.Interacted += () => _interactionRevision++;
         Map.PositionChanged += (x, y) => { if (_currentLayer is { } layer) ViewModel.UpdateCursor(x, y, layer.Layer); };
-        Map.ScaleChanged += (units, pixels) => { ScaleBar.Width = pixels; ScaleLabel.Text = I18n.Format("Preview_Scale", units); };
+        Map.ScaleChanged += (units, pixels) => { ScaleBar.Width = pixels; ScaleLabel.Text = I18n.Format("Preview_ScaleWithUnit", units, ViewModel.DistanceUnit); };
         Map.CursorChanged += (x, y) => { if (_currentLayer is { } layer) ViewModel.UpdateCursor(x, y, layer.Layer); };
         SizeChanged += (_, e) => UpdateLayout(e.NewSize.Width);
         HeightSlider.AddHandler(PointerPressedEvent, new PointerEventHandler((_, _) => _heightDragging = true), true);
@@ -78,7 +80,7 @@ public sealed partial class SpatialPreviewPage : Page
         await ViewModel.LoadNavigationAsync();
         if (!_active || revision != _loadRevision || saved is not null || interaction != _interactionRevision) return;
         if (ViewModel.Navigation?.DefaultTargetId is { } id && ViewModel.Targets.FirstOrDefault(t => t.Target.Id == id) is { } target)
-            Navigate(target.Target);
+            Navigate(target.Target, false);
     }
     private void OnConfigSaved() => DispatcherQueue.TryEnqueue(() =>
     {
@@ -91,16 +93,45 @@ public sealed partial class SpatialPreviewPage : Page
         if (Layers.SelectedItem is not PreviewLayerChoice choice) { _currentLayer = null; Map.Clear(); return; }
         _currentLayer = choice;
         var saved = ViewModel.SavedCamera(choice.Layer.Id);
-        ViewModel.ConfigureHeight(choice.Layer.Height, saved?.Height);
-        ViewModel.Details = ""; DetailLayout.IsPaneOpen = false;
-        Map.SetSource(ViewModel.Session, choice.Layer, ViewModel.AppliedHeight, true);
+        _settingOptions = true;
+        try
+        {
+            var mode = ViewModel.ConfigureModes(choice.Layer);
+            ModeSelector.SelectedItem = mode;
+            ViewModel.SelectMode(choice.Layer, mode);
+            ViewModel.ShowStatusOverlay = ViewModel.SupportsStatusOverlay && saved?.ShowStatusOverlay == true;
+            ModeControls.Visibility = ViewModel.Modes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            OverlayToggle.Visibility = ViewModel.SupportsStatusOverlay ? Visibility.Visible : Visibility.Collapsed;
+        }
+        finally { _settingOptions = false; }
+        ApplyView(true);
         if (saved is not null) Map.RestoreCamera(saved.X, saved.Y, saved.Scale);
+    }
+    private void ApplyView(bool reset)
+    {
+        if (_currentLayer is not { } choice) return;
+        ViewModel.Details = ""; DetailLayout.IsPaneOpen = false;
+        Map.SetSource(ViewModel.Session, choice.Layer, ViewModel.AppliedHeight, reset,
+            ViewModel.CurrentMode?.Mode.Id, ViewModel.ShowStatusOverlay);
+    }
+    private void OnModeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_settingOptions || _currentLayer is not { } choice) return;
+        SaveView(); _interactionRevision++;
+        ViewModel.SelectMode(choice.Layer, ModeSelector.SelectedItem as PreviewModeChoice);
+        ApplyView(false);
+    }
+    private void OnOverlayToggled(object sender, RoutedEventArgs e)
+    {
+        if (_settingOptions || _currentLayer is null) return;
+        ViewModel.ShowStatusOverlay = OverlayToggle.IsOn; _interactionRevision++;
+        ApplyView(false);
     }
     private void CommitHeight()
     {
         if (_currentLayer is not { } choice || !ViewModel.CommitHeight()) return;
         ViewModel.Details = ""; DetailLayout.IsPaneOpen = false; _interactionRevision++;
-        Map.SetSource(ViewModel.Session, choice.Layer, ViewModel.AppliedHeight, false);
+        ApplyView(false);
     }
     private void OnHeightLostFocus(object sender, RoutedEventArgs e) { if (!_heightDragging) CommitHeight(); }
     private void OnHeightSliderKeyUp(object sender, KeyRoutedEventArgs e)
@@ -120,8 +151,11 @@ public sealed partial class SpatialPreviewPage : Page
         Grid.SetRow(ActionControls, compact ? 1 : 0); Grid.SetColumn(ActionControls, compact ? 0 : 1);
         Grid.SetColumnSpan(ActionControls, compact ? 2 : 1);
         ActionControls.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        ActionControls.Orientation = width < 420 ? Orientation.Vertical : Orientation.Horizontal;
+        LayerControls.Orientation = width < 560 ? Orientation.Vertical : Orientation.Horizontal;
         var narrow = width < 600;
-        Grid.SetColumnSpan(HeightCaption, narrow ? 3 : 1);
+        Grid.SetColumnSpan(HeightCaption, narrow ? 4 : 1);
+        Grid.SetRow(OverlayToggle, narrow ? 2 : 0); Grid.SetColumn(OverlayToggle, narrow ? 0 : 3); Grid.SetColumnSpan(OverlayToggle, narrow ? 4 : 1);
         Grid.SetRow(HeightSlider, narrow ? 1 : 0); Grid.SetColumn(HeightSlider, narrow ? 0 : 1); Grid.SetColumnSpan(HeightSlider, narrow ? 2 : 1);
         Grid.SetRow(MaximumHeight, narrow ? 1 : 0);
     }
@@ -154,11 +188,15 @@ public sealed partial class SpatialPreviewPage : Page
     }
     private void OnTargetClicked(object sender, ItemClickEventArgs e)
     { if (e.ClickedItem is PreviewTargetChoice target) Navigate(target.Target); }
-    private void Navigate(SpatialPreviewTarget target)
+    private void Navigate(SpatialPreviewTarget target, bool preserveMode = true)
     {
         var layer = ViewModel.Layers.FirstOrDefault(l => l.Layer.Id == target.LayerId);
         if (layer is null) { ViewModel.NavigationStatus = I18n.GetString("Preview_TargetUnavailable"); return; }
+        var oldMode = preserveMode ? ViewModel.CurrentMode?.Mode.Id : null;
         Layers.SelectedItem = layer;
+        if (oldMode is not null && ViewModel.Modes.FirstOrDefault(m => m.Mode.Id == oldMode) is { } mode) ModeSelector.SelectedItem = mode;
+        if (target.SuggestedHeight is { } height && ViewModel.CurrentMode?.Mode.UseNavigationHeight == true)
+        { ViewModel.ApplySuggestedHeight(height); CommitHeight(); }
         if (Map.Locate(target.X, target.Y)) NavigationFlyout.Hide();
         else ViewModel.NavigationStatus = I18n.GetString("Preview_InvalidCoordinate");
     }

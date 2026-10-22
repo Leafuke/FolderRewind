@@ -51,6 +51,10 @@ public sealed class SpatialPreviewCanvas : Grid
     private PluginV3SpatialPreview? _session;
     private SpatialPreviewLayer? _layer;
     private int? _height;
+    private string? _viewModeId;
+    private bool _showStatusOverlay;
+    private readonly HashSet<PreviewTileKey> _noSurface = [];
+    private readonly Dictionary<PreviewTileKey, SpatialPreviewStatistics> _statistics = [];
     private Point? _pressed;
     private Point _last;
     private bool _dragged;
@@ -60,6 +64,7 @@ public sealed class SpatialPreviewCanvas : Grid
     private long _inspection;
     private double _anchorX, _anchorY;
     private Point? _marker;
+    public event Action<SpatialPreviewStatistics>? StatisticsChanged;
     public event Action? Interacted;
     public event Action<string>? StatusChanged;
     public event Action<string>? DetailsChanged;
@@ -91,7 +96,7 @@ public sealed class SpatialPreviewCanvas : Grid
         Unloaded += (_, _) => Clear();
         ActualThemeChanged += (_, _) => { DrawGrid(); DrawMarker(); };
     }
-    internal void SetSource(PluginV3SpatialPreview? session, SpatialPreviewLayer? layer, int? maximumHeight, bool reset)
+    internal void SetSource(PluginV3SpatialPreview? session, SpatialPreviewLayer? layer, int? maximumHeight, bool reset, string? viewModeId = null, bool showStatusOverlay = false)
     {
         var preserve = !reset && session is not null && ReferenceEquals(_session, session) && _layer?.Id == layer?.Id;
         if (!preserve) _fallback.Children.Clear();
@@ -104,6 +109,7 @@ public sealed class SpatialPreviewCanvas : Grid
         foreach (var cancellation in _pending.Values.ToArray()) cancellation.Cancel();
         _pending.Clear(); _wanted.Clear(); _failed.Clear(); _diagnostics.Clear();
         _refinements.Clear(); _requestOrder.Clear(); _completed.Clear(); _empty.Clear(); _lod = 0;
+        _statistics.Clear(); _noSurface.Clear(); _viewModeId = viewModeId; _showStatusOverlay = showStatusOverlay;
         _session = session; _layer = layer; _height = maximumHeight; _active = session is not null && layer is not null;
         _bitmaps.Clear(); _lru.Clear(); _images.Clear(); _tiles.Children.Clear(); _grid.Children.Clear(); _markers.Children.Clear(); _markerShape = null;
         _pressed = null; ReleasePointerCaptures(); _marker = null;
@@ -229,7 +235,7 @@ public sealed class SpatialPreviewCanvas : Grid
     {
         try
         {
-            var result = await session.RenderAsync(new(session.Source, layer, key.OriginX, key.OriginY, key.UnitsPerPixel, height), cancellation.Token);
+            var result = await session.RenderAsync(new(session.Source, layer, key.OriginX, key.OriginY, key.UnitsPerPixel, height) { ViewModeId = _viewModeId, ShowStatusOverlay = _showStatusOverlay }, cancellation.Token);
             if (cancellation.IsCancellationRequested || !_epoch.IsCurrent(revision) || !session.IsCurrent()) return;
             var bitmap = new WriteableBitmap(256, 256);
             using (var stream = bitmap.PixelBuffer.AsStream()) stream.Write(result.BgraPremultiplied.Span);
@@ -247,7 +253,11 @@ public sealed class SpatialPreviewCanvas : Grid
             var hasPixels = false;
             for (var i = 3; i < result.BgraPremultiplied.Length; i += 4)
                 if (result.BgraPremultiplied.Span[i] != 0) { hasPixels = true; break; }
-            if (!hasPixels && result.IsFinal && result.Diagnostics.Count == 0) _empty.Add(key); else _empty.Remove(key);
+            if (result.ContentState == SpatialPreviewContentState.NoData) _empty.Add(key); else _empty.Remove(key);
+            if (result.ContentState == SpatialPreviewContentState.NoVisibleSurface
+                || result.ContentState == SpatialPreviewContentState.Unknown && !hasPixels && result.IsFinal && result.Diagnostics.Count == 0) _noSurface.Add(key);
+            else _noSurface.Remove(key);
+            if (result.Statistics is { } statistics) _statistics[key] = statistics; else _statistics.Remove(key);
             if (result.Diagnostics.Count > 0) _diagnostics[key] = (result.Diagnostics.Max(d => d.Severity), string.Join(" · ", result.Diagnostics.OrderByDescending(d => d.Severity).Select(d => I18n.PickBest(d.Arguments, d.Code) ?? d.Code).Distinct()));
             if (_wanted.Contains(key)) Show(key);
             PruneImages(); Trim();
@@ -273,7 +283,13 @@ public sealed class SpatialPreviewCanvas : Grid
             : _wanted.Any(k => _refinements.ContainsKey(k)) ? "Preview_Partial"
             : _wanted.Any(k => !_bitmaps.ContainsKey(k) && !_failed.Contains(k)) ? "Preview_Loading"
             : _wanted.All(_empty.Contains) ? "Preview_Ungenerated"
+            : _wanted.All(k => _empty.Contains(k) || _noSurface.Contains(k)) ? "Preview_NoVisibleSurface"
             : _wanted.Any(k => k.UnitsPerPixel >= 16) ? "Preview_Overview" : "Preview_ReadOnly";
+        if (state == "Preview_Ungenerated" && _session?.Source.IsPartial == true) state = "Preview_NotIncludedOrUngenerated";
+        var summaries = _wanted.Where(_statistics.ContainsKey).Select(k => _statistics[k]).ToArray();
+        int Sum(Func<SpatialPreviewStatistics, int> get) => (int)Math.Min(int.MaxValue, summaries.Sum(v => (long)get(v)));
+        StatisticsChanged?.Invoke(new(Sum(v => v.Readable), Sum(v => v.Pending), Sum(v => v.NoData), Sum(v => v.NoVisibleSurface),
+            Sum(v => v.Unsupported), Sum(v => v.Failed), Sum(v => v.MissingColor)));
         StatusChanged?.Invoke(I18n.GetString(state) + (diagnostics.Length == 0 ? "" : " · " + string.Join(" · ", diagnostics)));
     }
     private void Touch(PreviewTileKey key) { _lru.Remove(key); _lru.AddFirst(key); }
@@ -286,7 +302,7 @@ public sealed class SpatialPreviewCanvas : Grid
             var candidate = last;
             while (candidate is not null && _wanted.Contains(candidate.Value)) candidate = candidate.Previous;
             if (candidate is null) break;
-            RemoveImage(candidate.Value); _bitmaps.Remove(candidate.Value); _diagnostics.Remove(candidate.Value); _refinements.Remove(candidate.Value); _requestOrder.Remove(candidate.Value); _completed.Remove(candidate.Value); _empty.Remove(candidate.Value); _lru.Remove(candidate);
+            RemoveImage(candidate.Value); _bitmaps.Remove(candidate.Value); _diagnostics.Remove(candidate.Value); _refinements.Remove(candidate.Value); _requestOrder.Remove(candidate.Value); _completed.Remove(candidate.Value); _empty.Remove(candidate.Value); _noSurface.Remove(candidate.Value); _statistics.Remove(candidate.Value); _lru.Remove(candidate);
         }
         foreach (var key in _diagnostics.Keys.Where(k => !_wanted.Contains(k) && !_bitmaps.ContainsKey(k)).ToArray()) _diagnostics.Remove(key);
         foreach (var key in _requestOrder.Keys.Where(k => !_wanted.Contains(k) && !_bitmaps.ContainsKey(k) && !_pending.ContainsKey(k)).ToArray()) _requestOrder.Remove(key);
@@ -356,7 +372,7 @@ public sealed class SpatialPreviewCanvas : Grid
         { StatusChanged?.Invoke(I18n.GetString("Preview_InvalidCoordinate")); return; }
         try
         {
-            var result = await session.InspectAsync(new(session.Source, layer.Id, point.X, point.Y, _height), token);
+            var result = await session.InspectAsync(new(session.Source, layer.Id, point.X, point.Y, _height) { ViewModeId = _viewModeId }, token);
             if (_epoch.IsCurrent(revision) && inspection == _inspection && session.IsCurrent())
                 DetailsChanged?.Invoke(string.Join(Environment.NewLine, result.Fields.Select(f => PluginV3SpatialPreview.Localize(f.DisplayName) + ": " + PluginV3SpatialPreview.Localize(f.Value))));
         }
