@@ -24,12 +24,23 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
             if (l.CoordinateBounds is { } b && (!Finite(b.MinX, b.MinY, b.MaxX, b.MaxY)
                 || b.MinX >= b.MaxX || b.MinY >= b.MaxY))
                 throw new InvalidDataException("Invalid preview coordinate bounds.");
-            return l with { Name = Freeze(l.Name), Height = l.Height is { } height ? height with { Label = Freeze(height.Label) } : null };
+            if (l.ViewModes.Count > 16 || l.ViewModes.Select(m => m.Id).Distinct(StringComparer.Ordinal).Count() != l.ViewModes.Count
+                || l.DefaultViewModeId is { } defaultMode && !l.ViewModes.Any(m => m.Id == defaultMode))
+                throw new InvalidDataException("Invalid preview modes.");
+            var modes = l.ViewModes.Select(m =>
+            {
+                if (string.IsNullOrWhiteSpace(m.Id) || m.Id.Length > 128) throw new InvalidDataException("Invalid preview mode.");
+                return m with { Name = Freeze(m.Name), Height = FreezeHeight(m.Height) };
+            }).ToArray();
+            return l with { Name = Freeze(l.Name), Height = FreezeHeight(l.Height), ViewModes = Array.AsReadOnly(modes) };
         }).ToArray();
         return new(Array.AsReadOnly(layers), Freeze(value.HorizontalAxis), Freeze(value.VerticalAxis), Freeze(value.Diagnostics))
         { LayerLabel = value.LayerLabel is { } label ? Freeze(label) : null,
           NavigationLabel = value.NavigationLabel is { } navigation ? Freeze(navigation) : null,
-          CellLabel = value.CellLabel is { } cell ? Freeze(cell) : null };
+          CellLabel = value.CellLabel is { } cell ? Freeze(cell) : null,
+          DistanceUnit = value.DistanceUnit is { } unit ? Freeze(unit) : null,
+          SupportsStatusOverlay = value.SupportsStatusOverlay,
+          Legend = FreezeLegend(value.Legend) };
     }
 
     public async ValueTask<SpatialPreviewNavigation> GetNavigationTargetsAsync(SpatialPreviewSource source, CancellationToken token)
@@ -81,7 +92,11 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
     {
         if (value.Width != TileSize || value.Height != TileSize || value.BgraPremultiplied.Length != TileSize * TileSize * 4)
             throw new InvalidDataException("Invalid preview raster dimensions or buffer length.");
-        return new(TileSize, TileSize, value.BgraPremultiplied.ToArray(), Freeze(value.Diagnostics)) { IsFinal = value.IsFinal };
+        if (!Enum.IsDefined(value.ContentState) || value.Statistics is { } stats && new[] { stats.Readable, stats.Pending,
+            stats.NoData, stats.NoVisibleSurface, stats.Unsupported, stats.Failed, stats.MissingColor }.Any(v => v < 0))
+            throw new InvalidDataException("Invalid preview content state or statistics.");
+        return new(TileSize, TileSize, value.BgraPremultiplied.ToArray(), Freeze(value.Diagnostics))
+            { IsFinal = value.IsFinal, ContentState = value.ContentState, Statistics = value.Statistics };
     }
 
     private PluginCapabilityLease<ISpatialPreviewCapability> Acquire(SpatialPreviewSource source, CancellationToken token)
@@ -93,6 +108,18 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
             ?? throw new InvalidOperationException("SpatialPreviewUnavailable");
     }
 
+    private static SpatialPreviewHeight? FreezeHeight(SpatialPreviewHeight? value)
+    {
+        if (value is null) return null;
+        if (value.Minimum > value.DefaultValue || value.DefaultValue > value.Maximum) throw new InvalidDataException("Invalid preview height.");
+        return value with { Label = Freeze(value.Label) };
+    }
+    private static IReadOnlyList<SpatialPreviewLegendItem> FreezeLegend(IReadOnlyList<SpatialPreviewLegendItem> values)
+    {
+        if (values.Count > 32 || values.Select(v => v.Id).Distinct(StringComparer.Ordinal).Count() != values.Count
+            || values.Any(v => string.IsNullOrWhiteSpace(v.Id) || v.Id.Length > 128)) throw new InvalidDataException("Invalid preview legend.");
+        return Array.AsReadOnly(values.Select(v => v with { Label = Freeze(v.Label) }).ToArray());
+    }
     private static bool Finite(params double[] values) => values.All(v => double.IsFinite(v) && Math.Abs(v) <= 1e12);
     private static LocalizedText Freeze(LocalizedText value)
     {
