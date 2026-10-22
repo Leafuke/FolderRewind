@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -263,7 +263,7 @@ namespace FolderRewind.Services
         {
             return templateKind switch
             {
-                CloudTemplateKind.UploadBackupDirectory => "copy \"{BackupSubDir}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}\"",
+                CloudTemplateKind.UploadBackupDirectory => "copy \"{BackupSubDir}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}\" --exclude \".folderrewind-preview/**\"",
                 CloudTemplateKind.Custom => string.Empty,
                 _ => "copyto \"{ArchiveFilePath}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}/{ArchiveFileName}\""
             };

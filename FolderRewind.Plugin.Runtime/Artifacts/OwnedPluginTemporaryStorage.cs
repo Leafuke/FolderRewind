@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
@@ -74,6 +74,17 @@ public sealed class OwnedPluginTemporaryStorage : IPluginTemporaryStorage, IAsyn
             throw new InvalidDataException("Temporary reservation does not belong to this plugin session.");
         HostArtifactReadService.EnsureNoReparsePoints(_directory, path);
         return ValueTask.FromResult(ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(path, bytes)));
+    }
+
+    /// <summary>Delete this proven private container after the caller has drained every reader/writer.</summary>
+    public async ValueTask DeleteAsync()
+    {
+        var ownership = Interlocked.Exchange(ref _ownership, null);
+        if (ownership is null) return;
+        ownership.Dispose();
+        // A fresh random session is never adopted; another sweep may have removed it after lock release.
+        try { await Task.Run(() => HostArtifactWorkspace.DeleteOwnedDirectory(_directory)).ConfigureAwait(false); }
+        catch (IOException) when (!Directory.Exists(_directory)) { }
     }
 
     public ValueTask DisposeAsync()

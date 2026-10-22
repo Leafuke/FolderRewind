@@ -17,7 +17,9 @@
 1. UI 可用性：代码完成；WinUI x64 Debug 构建通过，0 警告、0 错误。已检查绑定、输入提交、主题和旧帧生命周期；实际视觉与输入验收待用户执行。
 2. 26.2/26.3、配色与 LZ4：插件1.9.11独立Release构建、打包通过（0警告、0错误），包清单与SHA256检查通过，已同步Host内置包。集成检查发现既有KnotLink契约与冻结3.10包失配，阶段三已统一升级精确3.11契约并复核通过；未放宽源码校验。
 3. API 3.11、洞穴/切片与状态：完成。插件1.9.12独立Release构建/打包、冻结契约与Host源码逐文件核验、9项包清单及SHA256检查通过；Host x64 Debug构建0警告、0错误。API元数据差异审阅确认仅新增37项，维护版本断言和API基线但未执行测试。实际世界渲染与UI验收待人工完成。
-4. 本地历史浏览与临时空间：待实现。
+4. 本地历史浏览与临时空间：代码完成。Host 复用表示选择、固定输入校验与凭据处理，将普通/增量/语义表示物化到拥有进程锁的私有目录；刷新复用，取消/退出排空读取后清理整个会话，下一次创建回收失效目录。插件1.9.13独立Release build/pack及Host集成核验通过（0警告、0错误）；Host x64 Debug构建通过（0警告、0错误）。实际各类历史备份的运行验收仍未执行。
+
+阶段四同时完成审查修正：数字输入与滑块双向同步待提交值；窄窗口按操作组换行；状态开关采用单行标签；API可选新增 `UseNavigationHeightAsDefault`（默认false），将下界首次洞穴Y=120与主动玩家导航区分。审阅后的API差异总计38项新增，无移除项。
 
 ## 验证约定
 
@@ -33,3 +35,48 @@
 - 普通、增量、语义、加密及部分历史；取消、空间不足、刷新、退出重开与失效临时目录回收。
 
 本轮未操控正在运行的用户应用，未将静态分析当成人工复现或视觉验收。
+
+
+## 最终集成身份与实现边界
+
+- 内置插件：`FolderRewind/Assets/Plugins/MineRewind-1.9.13.frplugin`。
+- SHA256：`2fdaff450f28a98effe698b541982547de0cb4dfc937a160568150d1b8313550`。
+- 插件来源：`00bc86655957f54f5ce9f30e64e01c5fb156ad4c`；独立冻结契约：`3.11.0-preview.925a4800b63fac73`，来源Host提交 `16303d4cd4088a9ac69965e40005371731fb7844`。集成脚本核对所有契约源码Git blob、包/DLL摘要和9项载荷，包内不含Host Abstractions DLL。
+- 历史准备入口是Host内部的 `NativeHistoryApplicationService.PrepareWorldPreviewAsync`，没有修改公开导出的目录保护规则；不调用当前世界恢复协调、提交历史或修改Workspace/分支。
+- 目录形态为 `<DestinationPath>/.folderrewind-preview/<ConfigId>/session-<GUID>/<GUID>/`。配置与文件夹快照只在会话中映射到此目录；Host以未映射的真实身份判断配置是否有效，历史视角键使用版本身份，不使用随机临时路径。
+- 目录排除在源文件/目录枚举、备份候选恢复扫描和rclone目录载荷之外。Retention与History云端同步按表示/副本清单工作；预览目录不会注册为表示、Artifact或副本。删除使用所有权及无重解析点校验，兼容压缩包提取的只读属性；失败留下的所有权标记供下次回收。
+- 普通/增量压缩备份沿用已有受控物化与文件系统要求；Native沿用受验证file view、解压及磁盘预算。云端缺失依赖不自动下载。未知/不受支持的表示、无法提供安全私有临时空间的路径会显示原因，不回退读取当前世界。
+- 自定义维度未知高度范围仍使用安全范围；未扫描全世界推断范围。没有实现历史版本对比或持久化地图缓存。
+
+## 可直接执行的人工验收
+
+以下项目全部 **未执行**，构建通过不代表这些项目已通过。请使用新构建；本轮没有启动或替换用户正在运行的Release进程。损坏样本仅用于独立副本。
+
+| 项目 | 操作 | 预期 |
+| --- | --- | --- |
+| 数字高度 | 主世界中清空，输入负号，再输入-32；分别用回车和失焦提交；输入小数/越界数；按Escape | 输入途中不重绘；合法整数同步滑块，提交生效；非法提交提示且保留生效高度，Escape恢复 |
+| 滑块与竞态 | 连续拖动、松手；快速提交319、64、-32并平移/缩放；等待加载后点击详情 | 松手提交一次；相机不跳回范围；旧画面保留至新画面就绪；最终只显示最后高度，详情参数一致 |
+| 布局与可访问性 | 中英文；宽窗口逐步收窄至允许最窄；100/150/200%显示缩放；明暗及高对比；键盘Tab/方向键/回车 | 工具组换行且不相互遮挡，高度始终可访问；控件有名称，状态不用颜色单独传达 |
+| 模式 | 地下基地选择洞穴；主世界负Y；下界首次进入，再切地表查看顶层建筑；切片选择确切Y | 地表向下找表面；实体内的洞穴向下找空腔地面；精确切片不找更低层；下界默认洞穴120，各模式记忆高度 |
+| 玩家导航 | 在玩家列表查看Y，在三种模式下定位；跨维度定位；没有level.dat/playerdata的部分备份 | 保留模式；地表保留扫描上限，洞穴/切片使用保存Y；缺少目标时按已有范围定位 |
+| 版本和LZ4 | 使用已有旧版、26.2、26.3、混合DataVersion，以及内嵌/外置LZ4世界副本 | 旧版不回退；新方块/群系配色可见；未知版本不支持，LZ4长度/校验失败仅影响对应区块 |
+| 状态 | 开关叠加、缩放到远景；查看无记录、无表面、不支持、损坏和缺色样本 | 状态、图例、点击详情相互一致；缺色独立于损坏；远景占用列为未解码；统计仅覆盖已加载区域 |
+| 完整/增量/语义/加密历史 | 历史页选择源的版本，“更多→预览世界”；切维度/模式；页面刷新；返回再进入 | 标题显示备份时间；不会混入当前文件或修改Workspace/分支；刷新不重复物化，重新进入会物化；加密使用现有凭据路径 |
+| 部分与歧义 | region-only、明确server.properties目标、无玩家/出生点、未指定目标的多个世界目录、无法识别的部分备份 | 可识别内容显示，持续标明覆盖不完整；空白为未包含或未生成；歧义/不可识别明确说明原因 |
+| 云端依赖 | 选择仅云端可读或本地缺少基线的版本 | 提供返回历史下载入口，不自动联网下载或读取当前目录补齐 |
+| 取消/空间/清理 | 准备时取消或离开；刷新后离开；空间不足场景；在隔离环境中中断新进程，再次预览 | 不出现迟到地图；读取排空后清理会话；失败说明原因；仅回收有证明且锁已失效的目录，不删除其他活跃会话 |
+
+## 本轮实际检查命令
+
+- `dotnet build FolderRewind/FolderRewind.csproj -c Debug -p:Platform=x64 -p:GenerateAppxPackageOnBuild=false`：通过，0警告、0错误；包含现有WinUIAnalyzer。
+- `dotnet build FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj -c Release`、Runtime相关构建：通过，0警告、0错误。
+- 插件独立 `dotnet build MineRewind/MineRewind.csproj -c Release -t:PackFrPlugin`：通过，0警告、0错误。
+- `dotnet build FolderRewind.Tests/FolderRewind.Tests.csproj -c Release`：只编译既有链接源与验证工程，0警告、0错误；未执行任何测试。
+- `scripts/Build-NativeArtifactP3.ps1`：精确契约、来源、restore/build/pack、包清单检查通过；同步包与SHA256相符。
+- XAML和resw的XML静态解析、中英文预览资源键集合/重复键检查、API签名元数据差异审阅、`git diff --check`：通过。未执行测试代码。
+
+## 参考
+
+- [Minecraft Java Edition 26.3 官方说明](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3)，[正式DataVersion目录](https://github.com/misode/mcmeta/tree/summary/versions)。
+- MCA Selector的资源身份、阈值、原文件摘要及MIT许可记录在插件 `MineRewind.World/Colors/README.md`。
+- [Java LZ4Block读取实现](https://github.com/lz4/lz4-java/blob/master/src/java/net/jpountz/lz4/LZ4BlockInputStream.java)，[rclone过滤规则](https://rclone.org/filtering/)。

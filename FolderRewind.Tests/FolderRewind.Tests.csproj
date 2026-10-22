@@ -146,6 +146,7 @@
     <Compile Include="..\FolderRewind\Services\Discovery\PluginDiscoveryCandidateMapper.cs" Link="Source\PluginDiscoveryCandidateMapper.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\PluginDiscoveryDefinitionPolicy.cs" Link="Source\PluginDiscoveryDefinitionPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceFileEnumerator.cs" Link="Source\BackupSourceFileEnumerator.cs" />
+    <Compile Include="..\FolderRewind\Services\PreviewStoragePaths.cs" Link="Source\PreviewStoragePaths.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceScopePatternSet.cs" Link="Source\BackupSourceScopePatternSet.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceAvailabilityPolicy.cs" Link="Source\BackupSourceAvailabilityPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceRootSafetyPolicy.cs" Link="Source\BackupSourceRootSafetyPolicy.cs" />

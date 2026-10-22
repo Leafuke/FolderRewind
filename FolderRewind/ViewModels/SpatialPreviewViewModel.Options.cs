@@ -38,7 +38,7 @@ public sealed partial class SpatialPreviewViewModel
         var saved = SavedCamera(layer.Id, choice?.Mode.Id);
         var height = choice?.Mode.Height ?? layer.Height;
         int? value = saved?.Height;
-        if (value is null && choice?.Mode.UseNavigationHeight == true && Navigation?.QuickTargetId is { } id)
+        if (value is null && choice?.Mode.UseNavigationHeightAsDefault == true && Navigation?.QuickTargetId is { } id)
             value = Targets.FirstOrDefault(t => t.Target.Id == id && t.Target.LayerId == layer.Id)?.Target.SuggestedHeight;
         ConfigureHeight(height, value);
     }

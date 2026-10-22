@@ -36,7 +36,8 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel x:Name="ActionControls" Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <SplitButton x:Name="NavigateButton" Margin="4,0" Content="{x:Bind ViewModel.NavigationLabel, Mode=OneWay}"
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <SplitButton x:Name="NavigateButton" Content="{x:Bind ViewModel.NavigationLabel, Mode=OneWay}"
                              AutomationProperties.AutomationId="PreviewNavigate" AutomationProperties.Name="{x:Bind ViewModel.NavigationLabel, Mode=OneWay}" Click="OnQuickNavigate">
                     <SplitButton.Flyout>
                         <Flyout x:Name="NavigationFlyout">
@@ -68,6 +69,8 @@
                     </Flyout>
                 </Button.Flyout>
             </Button>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Button x:Uid="Preview_RefreshButton" AutomationProperties.AutomationId="PreviewRefresh" Click="OnRefresh"/>
                 <Button x:Uid="Preview_OptionsButton" AutomationProperties.AutomationId="PreviewDisplay">
                     <Button.Flyout><Flyout><StackPanel Width="272" Spacing="12">
@@ -75,9 +78,17 @@
                         <TextBlock x:Uid="Preview_Help" TextWrapping="Wrap"/>
                     </StackPanel></Flyout></Button.Flyout>
                 </Button>
+                </StackPanel>
             </StackPanel>
         </Grid>
         <StackPanel Grid.Row="2" Spacing="4">
+            <Button x:Name="CancelPreparationButton" x:Load="{x:Bind ViewModel.IsPreparing, Mode=OneWay}" x:Uid="Preview_HistoryCancel"
+                    AutomationProperties.AutomationId="PreviewCancelPreparation" Click="OnCancelPreparation"/>
+            <Button x:Name="DownloadHistoryButton" x:Load="{x:Bind ViewModel.NeedsHistoryDownload, Mode=OneWay}" x:Uid="Preview_HistoryDownloadLink"
+                    AutomationProperties.AutomationId="PreviewHistoryDownload" Click="OnOpenHistory"/>
+            <Expander x:Name="LoadErrorDetails" x:Load="{x:Bind ViewModel.HasLoadError, Mode=OneWay}" x:Uid="Preview_ErrorDetails" AutomationProperties.AutomationId="PreviewErrorDetails" HorizontalAlignment="Stretch">
+                <ScrollViewer MaxHeight="128" HorizontalScrollBarVisibility="Disabled"><TextBlock Text="{x:Bind ViewModel.ErrorDetails, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/></ScrollViewer>
+            </Expander>
             <Grid x:Name="HeightControls" ColumnSpacing="12" RowSpacing="4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

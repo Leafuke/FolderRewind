@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
@@ -38,6 +38,8 @@ public sealed partial class HistoryPageViewModel
             AsyncRelayCommandOptions.AllowConcurrentExecutions);
         RetryCommand = new AsyncRelayCommand(RetryCommandAsync, CanExecuteOperation);
         ViewVersionCommand = new RelayCommand<NativeHistoryVersionViewItem>(ViewVersion);
+        PreviewWorldCommand = new RelayCommand<NativeHistoryVersionViewItem>(PreviewWorld,
+            item => item?.CanPreviewWorld == true && CanExecuteItemOperation(item));
         EditVersionCommentCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(EditVersionCommentCommandAsync, CanExecuteItemOperation);
         ToggleVersionImportantCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(ToggleVersionImportantCommandAsync, CanExecuteItemOperation);
         CreateBranchFromVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(CreateBranchFromVersionCommandAsync, CanExecuteItemOperation);
@@ -80,6 +82,7 @@ public sealed partial class HistoryPageViewModel
     internal IAsyncRelayCommand<HistoryViewMode> ChangeViewModeCommand { get; }
     public IAsyncRelayCommand RetryCommand { get; }
     public IRelayCommand<NativeHistoryVersionViewItem> ViewVersionCommand { get; }
+    public IRelayCommand<NativeHistoryVersionViewItem> PreviewWorldCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> EditVersionCommentCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> ToggleVersionImportantCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> CreateBranchFromVersionCommand { get; }
@@ -163,6 +166,15 @@ public sealed partial class HistoryPageViewModel
             "retry",
             RefreshCurrentHistoryAsync,
             cancellationToken);
+
+    private void PreviewWorld(NativeHistoryVersionViewItem? item)
+    {
+        if (item is null || _currentConfig is not { } config || !item.CanPreviewWorld) return;
+        var folder = config.SourceFolders.FirstOrDefault(f => Guid.TryParse(f.Id, out var id) && id == item.SourceId.Value);
+        if (folder is null || !Services.Plugins.V3.PluginV3SpatialPreview.CanPreview(config)) return;
+        NavigationService.NavigateTo("SpatialPreview", new SpatialPreviewNavigationParameter(config.Id, item.SourceId.Value)
+            { VersionId = item.VersionId.Value });
+    }
 
     private void ViewVersion(NativeHistoryVersionViewItem? item)
     {
@@ -1051,6 +1063,7 @@ public sealed partial class HistoryPageViewModel
         DownloadVersionCommand.NotifyCanExecuteChanged();
         RestoreVersionCommand.NotifyCanExecuteChanged();
         ExportVersionCommand.NotifyCanExecuteChanged();
+        PreviewWorldCommand.NotifyCanExecuteChanged();
         DeleteVersionCommand.NotifyCanExecuteChanged();
         EditRunCommentCommand.NotifyCanExecuteChanged();
         ToggleRunImportantCommand.NotifyCanExecuteChanged();

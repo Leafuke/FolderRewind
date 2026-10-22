@@ -1,4 +1,4 @@
-using FolderRewind.History.Application;
+﻿using FolderRewind.History.Application;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
@@ -397,6 +397,9 @@ public sealed partial class HistoryPage : Page
 
     private void OnRestoreClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.RestoreVersionCommand);
+    private void OnPreviewWorldClick(object sender, RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.PreviewWorldCommand);
+
     private void OnExportClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.ExportVersionCommand);
 

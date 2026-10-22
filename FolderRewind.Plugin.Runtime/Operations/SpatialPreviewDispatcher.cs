@@ -1,4 +1,4 @@
-using FolderRewind.Plugin.Abstractions;
+﻿using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
 
 namespace FolderRewind.Plugin.Runtime.Operations;
@@ -72,6 +72,7 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
     {
         if (!Finite(request.OriginX, request.OriginY, request.UnitsPerPixel) || request.UnitsPerPixel is < 1 or > 4096)
             throw new ArgumentException("Invalid preview tile coordinates.");
+        ValidateMode(request.ViewModeId);
         using var lease = Acquire(request.Source, token);
         var value = await lease.Capability.RenderAsync(request, lease.Context).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
@@ -81,6 +82,7 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
     public async ValueTask<SpatialPreviewPoint> InspectAsync(SpatialPreviewPointRequest request, CancellationToken token)
     {
         if (!Finite(request.X, request.Y)) throw new ArgumentException("Invalid preview point.");
+        ValidateMode(request.ViewModeId);
         using var lease = Acquire(request.Source, token);
         var value = await lease.Capability.InspectAsync(request, lease.Context).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
@@ -108,6 +110,11 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
             ?? throw new InvalidOperationException("SpatialPreviewUnavailable");
     }
 
+    private static void ValidateMode(string? value)
+    {
+        if (value is not null && (string.IsNullOrWhiteSpace(value) || value.Length > 128))
+            throw new ArgumentException("Invalid preview view mode.");
+    }
     private static SpatialPreviewHeight? FreezeHeight(SpatialPreviewHeight? value)
     {
         if (value is null) return null;

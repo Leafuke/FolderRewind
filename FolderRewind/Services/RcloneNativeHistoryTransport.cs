@@ -1,4 +1,4 @@
-using FolderRewind.History.Cloud;
+﻿using FolderRewind.History.Cloud;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Storage;
 using FolderRewind.Plugin.Runtime.Artifacts;
@@ -126,7 +126,14 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     private Task<string> RunAsync(IReadOnlyList<string> arguments, CancellationToken token)
         => RcloneConnectionService.RunAsync(context.CreateStartInfo(arguments), _timeout, token);
     private async Task CopyAsync(string source, string destination, bool immutable, CancellationToken token)
-        => _ = await RunAsync(immutable ? ["copyto", source, destination, "--immutable"] : ["copyto", source, destination], token).ConfigureAwait(false);
+    {
+        if (Path.IsPathFullyQualified(source) && PreviewStoragePaths.IsReserved(source))
+            throw new IOException(I18n.GetString("Preview_CloudWorkspaceRejected"));
+        // Defense in depth for directory payloads; preview trees never enter the replica catalog.
+        var arguments = new List<string> { "copyto", source, destination, "--exclude", PreviewStoragePaths.DirectoryName + "/**" };
+        if (immutable) arguments.Add("--immutable");
+        _ = await RunAsync(arguments, token).ConfigureAwait(false);
+    }
     private async Task<byte[]> ReadBytesAsync(string remote, CancellationToken token, int maximumBytes = 64 * 1024 * 1024)
         => await RcloneConnectionService.RunBytesAsync(context.CreateStartInfo(["cat", remote]), _timeout, token, maximumBytes).ConfigureAwait(false);
     private Task DownloadBoundedAsync(string remote, string path, long expectedLength,

@@ -7242,4 +7242,22 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="Preview_NoVisibleSurface" xml:space="preserve"><value>No visible surface at this height</value></data>
   <data name="Preview_NotIncludedOrUngenerated" xml:space="preserve"><value>Not included or not generated · partial content</value></data>
   <data name="Preview_LoadedStatistics" xml:space="preserve"><value>Loaded area: read {0} · not decoded {1} · no record {2} · no surface {3} · unsupported {4} · failed {5} · missing color {6}</value></data>
+  <data name="Preview_ProviderUnavailable" xml:space="preserve"><value>The map preview provider for this project is unavailable.</value></data>
+  <data name="Preview_HistoryPreparing" xml:space="preserve"><value>Historical version · preparing a temporary world</value></data>
+  <data name="Preview_HistoryAssessing" xml:space="preserve"><value>Selecting a locally readable backup representation…</value></data>
+  <data name="Preview_HistoryVerifying" xml:space="preserve"><value>Verifying the backup and its dependencies…</value></data>
+  <data name="Preview_HistoryMaterializing" xml:space="preserve"><value>Materializing a temporary world for preview…</value></data>
+  <data name="Preview_HistoryDownloadRequired" xml:space="preserve"><value>The backup or its dependencies are available only in the cloud. Return to History, use Download from cloud, then reopen the preview.</value></data>
+  <data name="Preview_HistoryUnavailable" xml:space="preserve"><value>This version cannot currently be read locally. Check backup availability, the required plugin, and encryption credentials in History.</value></data>
+  <data name="Preview_HistoryStorageInvalid" xml:space="preserve"><value>A safe preview workspace cannot be created in the backup directory: its path is invalid or overlaps a source or configuration storage.</value></data>
+  <data name="Preview_HistorySource" xml:space="preserve"><value>Historical backup {0} {1} · version {2}</value></data>
+  <data name="Preview_HistoryPartial" xml:space="preserve"><value>Incomplete coverage · blank areas may be omitted or ungenerated</value></data>
+  <data name="Preview_HistoryReadOnly" xml:space="preserve"><value>Historical preview · read-only temporary copy</value></data>
+  <data name="Preview_CurrentPath" xml:space="preserve"><value>Current directory · {0}</value></data>
+  <data name="Preview_HistoryCancelled" xml:space="preserve"><value>Preparation cancelled. Refresh to retry or return to History.</value></data>
+  <data name="Preview_HistoryCancel.Content" xml:space="preserve"><value>Cancel preparation</value></data>
+  <data name="Preview_HistoryDownloadLink.Content" xml:space="preserve"><value>Return to History to download dependencies</value></data>
+  <data name="Preview_ErrorDetails.Header" xml:space="preserve"><value>View details</value></data>
+  <data name="History_MenuPreviewWorld.Text" xml:space="preserve"><value>Preview world</value></data>
+  <data name="Preview_CloudWorkspaceRejected" xml:space="preserve"><value>Temporary preview directories cannot be uploaded as cloud backup payloads.</value></data>
 </root>

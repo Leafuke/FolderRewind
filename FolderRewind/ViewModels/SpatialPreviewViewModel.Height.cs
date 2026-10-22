@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins.V3;
@@ -40,6 +40,17 @@ public sealed partial class SpatialPreviewViewModel
         if (_configuringHeight || !double.IsFinite(value)) return;
         HeightText = Math.Clamp((int)Math.Round(value), (int)HeightMinimum, (int)HeightMaximum).ToString(CultureInfo.CurrentCulture);
         HeightError = "";
+    }
+
+    partial void OnHeightTextChanged(string value)
+    {
+        if (_configuringHeight) return;
+        HeightError = "";
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.CurrentCulture, out var height)
+            || height < HeightMinimum || height > HeightMaximum) return;
+        _configuringHeight = true;
+        try { DraftHeight = height; }
+        finally { _configuringHeight = false; }
     }
 
     public bool CommitHeight()

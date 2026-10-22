@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -21,6 +21,7 @@ public static class SourceDirectorySnapshot
             token.ThrowIfCancellationRequested();
             foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
             {
+                if (Services.PreviewStoragePaths.IsReserved(entry)) continue;
                 var attributes = File.GetAttributes(entry);
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
                     throw new IOException("A stable Native source cannot contain filesystem links.");

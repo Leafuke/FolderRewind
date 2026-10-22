@@ -1,4 +1,4 @@
-using System.Security.AccessControl;
+﻿using System.Security.AccessControl;
 using System.Security.Principal;
 
 namespace FolderRewind.Plugin.Runtime.Artifacts;
@@ -29,6 +29,22 @@ public static class HostArtifactWorkspace
     public static void DeleteOwnedDirectory(string path)
     {
         if (!Directory.Exists(path)) return;
+        ValidateOwnedDirectory(path);
+        // Archive attributes can be read-only. Normalize only this validated private tree before deletion.
+        var entries = new DirectoryInfo(path).EnumerateFileSystemInfos("*", new EnumerationOptions
+            { RecurseSubdirectories = true, AttributesToSkip = 0, IgnoreInaccessible = false });
+        foreach (var entry in entries)
+        {
+            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Artifact workspace contains a filesystem alias.");
+            if ((entry.Attributes & FileAttributes.ReadOnly) != 0) entry.Attributes &= ~FileAttributes.ReadOnly;
+        }
+        var root = new DirectoryInfo(path);
+        if ((root.Attributes & FileAttributes.ReadOnly) != 0) root.Attributes &= ~FileAttributes.ReadOnly;
+        Directory.Delete(path, true);
+    }
+
+    public static void ValidateOwnedDirectory(string path, CancellationToken token = default)
+    {
         RequireUnlinkedAncestors(path);
         if (OperatingSystem.IsWindows())
         {
@@ -39,11 +55,11 @@ public static class HostArtifactWorkspace
         while (pending.TryPop(out var directory))
             foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
             {
+                token.ThrowIfCancellationRequested();
                 var attributes = File.GetAttributes(entry);
                 if ((attributes & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Artifact workspace contains a filesystem alias.");
                 if ((attributes & FileAttributes.Directory) != 0) pending.Push(entry);
             }
-        Directory.Delete(path, true);
     }
 
     private static void RequireUnlinkedAncestors(string path)

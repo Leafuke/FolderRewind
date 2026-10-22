@@ -7242,4 +7242,22 @@ Pull Request：{1}</value>
   <data name="Preview_NoVisibleSurface" xml:space="preserve"><value>此高度没有可见表面</value></data>
   <data name="Preview_NotIncludedOrUngenerated" xml:space="preserve"><value>未包含或未生成 · 部分内容预览</value></data>
   <data name="Preview_LoadedStatistics" xml:space="preserve"><value>加载区域：已读 {0} · 未解码 {1} · 无记录 {2} · 无表面 {3} · 不支持 {4} · 失败 {5} · 缺色 {6}</value></data>
+  <data name="Preview_ProviderUnavailable" xml:space="preserve"><value>当前项目的地图预览插件不可用。</value></data>
+  <data name="Preview_HistoryPreparing" xml:space="preserve"><value>历史版本 · 正在准备临时世界</value></data>
+  <data name="Preview_HistoryAssessing" xml:space="preserve"><value>正在选择本地可读的备份表示…</value></data>
+  <data name="Preview_HistoryVerifying" xml:space="preserve"><value>正在校验备份与依赖…</value></data>
+  <data name="Preview_HistoryMaterializing" xml:space="preserve"><value>正在生成预览用临时世界…</value></data>
+  <data name="Preview_HistoryDownloadRequired" xml:space="preserve"><value>所需备份或依赖仅在云端可用。请返回历史页面，使用“从云端下载”后重新预览。</value></data>
+  <data name="Preview_HistoryUnavailable" xml:space="preserve"><value>该版本目前无法在本地读取。请在历史页面检查备份完整性、插件和加密凭据。</value></data>
+  <data name="Preview_HistoryStorageInvalid" xml:space="preserve"><value>无法在备份目录创建安全的预览空间：路径无效、与源目录重叠或与配置存储重叠。</value></data>
+  <data name="Preview_HistorySource" xml:space="preserve"><value>历史备份 {0} {1} · 版本 {2}</value></data>
+  <data name="Preview_HistoryPartial" xml:space="preserve"><value>覆盖不完整 · 空白可能未包含或未生成</value></data>
+  <data name="Preview_HistoryReadOnly" xml:space="preserve"><value>历史预览 · 只读临时副本</value></data>
+  <data name="Preview_CurrentPath" xml:space="preserve"><value>当前目录 · {0}</value></data>
+  <data name="Preview_HistoryCancelled" xml:space="preserve"><value>已取消准备。可刷新重试或返回历史页面。</value></data>
+  <data name="Preview_HistoryCancel.Content" xml:space="preserve"><value>取消准备</value></data>
+  <data name="Preview_HistoryDownloadLink.Content" xml:space="preserve"><value>返回历史，下载备份依赖</value></data>
+  <data name="Preview_ErrorDetails.Header" xml:space="preserve"><value>查看原因</value></data>
+  <data name="History_MenuPreviewWorld.Text" xml:space="preserve"><value>预览世界</value></data>
+  <data name="Preview_CloudWorkspaceRejected" xml:space="preserve"><value>临时预览目录不能作为云端备份载荷。</value></data>
 </root>

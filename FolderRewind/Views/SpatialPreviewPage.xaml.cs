@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins.V3;
@@ -39,7 +39,12 @@ public sealed partial class SpatialPreviewPage : Page
         SizeChanged += (_, e) => UpdateLayout(e.NewSize.Width);
         HeightSlider.AddHandler(PointerPressedEvent, new PointerEventHandler((_, _) => _heightDragging = true), true);
         HeightSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler((_, _) => { _heightDragging = false; CommitHeight(); }), true);
-        HeightSlider.PointerCanceled += (_, _) => { _heightDragging = false; ViewModel.ResetHeightDraft(); };
+        HeightSlider.AddHandler(PointerCanceledEvent, new PointerEventHandler((_, _) => { _heightDragging = false; ViewModel.ResetHeightDraft(); }), true);
+        HeightSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler((_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_heightDragging || !_active) return;
+            _heightDragging = false; CommitHeight();
+        })), true);
         MaximumHeight.AddHandler(KeyDownEvent, new KeyEventHandler(OnHeightKeyDown), true);
         AutomationProperties.SetName(ZoomInButton, I18n.GetString("Preview_ZoomInName"));
         AutomationProperties.SetName(ZoomOutButton, I18n.GetString("Preview_ZoomOutName"));
@@ -147,11 +152,11 @@ public sealed partial class SpatialPreviewPage : Page
     private void UpdateLayout(double width)
     {
         DetailLayout.DisplayMode = width < 900 ? SplitViewDisplayMode.Overlay : SplitViewDisplayMode.Inline;
-        var compact = width < 760;
+        var compact = width < 1000;
         Grid.SetRow(ActionControls, compact ? 1 : 0); Grid.SetColumn(ActionControls, compact ? 0 : 1);
         Grid.SetColumnSpan(ActionControls, compact ? 2 : 1);
         ActionControls.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        ActionControls.Orientation = width < 420 ? Orientation.Vertical : Orientation.Horizontal;
+        ActionControls.Orientation = width < 600 ? Orientation.Vertical : Orientation.Horizontal;
         LayerControls.Orientation = width < 560 ? Orientation.Vertical : Orientation.Horizontal;
         var narrow = width < 600;
         Grid.SetColumnSpan(HeightCaption, narrow ? 4 : 1);
@@ -195,10 +200,20 @@ public sealed partial class SpatialPreviewPage : Page
         var oldMode = preserveMode ? ViewModel.CurrentMode?.Mode.Id : null;
         Layers.SelectedItem = layer;
         if (oldMode is not null && ViewModel.Modes.FirstOrDefault(m => m.Mode.Id == oldMode) is { } mode) ModeSelector.SelectedItem = mode;
-        if (target.SuggestedHeight is { } height && ViewModel.CurrentMode?.Mode.UseNavigationHeight == true)
+        if (target.SuggestedHeight is { } height && ViewModel.CurrentMode?.Mode.UseNavigationHeight == true
+            && (preserveMode || ViewModel.CurrentMode.Mode.UseNavigationHeightAsDefault))
         { ViewModel.ApplySuggestedHeight(height); CommitHeight(); }
         if (Map.Locate(target.X, target.Y)) NavigationFlyout.Hide();
         else ViewModel.NavigationStatus = I18n.GetString("Preview_InvalidCoordinate");
+    }
+    private void OnCancelPreparation(object sender, RoutedEventArgs e) => ViewModel.CancelPreparation();
+    private void OnOpenHistory(object sender, RoutedEventArgs e)
+    {
+        if (_navigation is not { } navigation) return;
+        var folder = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == navigation.ConfigId)?.SourceFolders
+            .FirstOrDefault(f => Guid.TryParse(f.Id, out var id) && id == navigation.FolderId);
+        NavigationService.NavigateTo("History", folder is null ? ManagerNavigationParameter.ForConfig(navigation.ConfigId)
+            : ManagerNavigationParameter.ForFolder(navigation.ConfigId, folder.Path));
     }
     private void OnRefresh(object sender, RoutedEventArgs e) => TaskObserver.Observe(LoadAsync(), nameof(SpatialPreviewPage));
 }

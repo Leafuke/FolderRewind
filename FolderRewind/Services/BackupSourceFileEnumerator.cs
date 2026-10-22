@@ -1,7 +1,8 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Enumeration;
 using System.Linq;
 using System.Threading;
 
@@ -35,7 +36,7 @@ public static class BackupSourceFileEnumerator
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceRoot);
         cancellationToken.ThrowIfCancellationRequested();
         var root = Path.GetFullPath(sourceRoot);
-        if (!Directory.Exists(root))
+        if (!Directory.Exists(root) || PreviewStoragePaths.IsReserved(root))
         {
             return Array.Empty<BackupSourceFile>();
         }
@@ -52,11 +53,16 @@ public static class BackupSourceFileEnumerator
             AttributesToSkip = FileAttributes.System | FileAttributes.ReparsePoint,
             ReturnSpecialDirectories = false
         };
-        foreach (var path in Directory.EnumerateFiles(root, "*", options))
+        var paths = new FileSystemEnumerable<string>(root, (ref FileSystemEntry entry) => entry.ToFullPath(), options)
+        {
+            ShouldIncludePredicate = (ref FileSystemEntry entry) => !entry.IsDirectory,
+            ShouldRecursePredicate = (ref FileSystemEntry entry) => !entry.FileName.Equals(PreviewStoragePaths.DirectoryName.AsSpan(), StringComparison.OrdinalIgnoreCase)
+        };
+        foreach (var path in paths)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
-            if (!IsSafeRelativeFilePath(relativePath))
+            if (!IsSafeRelativeFilePath(relativePath) || PreviewStoragePaths.IsReserved(relativePath))
             {
                 continue;
             }

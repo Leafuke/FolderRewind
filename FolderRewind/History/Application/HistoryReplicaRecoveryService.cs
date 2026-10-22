@@ -1,4 +1,4 @@
-using FolderRewind.History.Domain;
+﻿using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using FolderRewind.Services;
@@ -54,7 +54,7 @@ public sealed class HistoryReplicaRecoveryService(HistoryRuntime runtime)
                 && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath && File.Exists(e.Locator.AbsolutePath)
                 && IsUnderRoot(root, e.Locator.AbsolutePath)).Select(e => e.Locator.AbsolutePath));
             var found = false;
-            foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var path in paths.Where(p => !PreviewStoragePaths.IsReserved(p)).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 RequireRegularPath(root, path);
                 var facts = await ReadFileFactsAsync(path, token).ConfigureAwait(false);
@@ -172,6 +172,7 @@ public sealed class HistoryReplicaRecoveryService(HistoryRuntime runtime)
             foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
             {
                 token.ThrowIfCancellationRequested();
+                if (PreviewStoragePaths.IsReserved(entry)) continue;
                 if (++count > 200000) throw new IOException("Backup candidate scan exceeds its entry limit.");
                 var attributes = File.GetAttributes(entry);
                 if ((attributes & FileAttributes.ReparsePoint) != 0) continue;

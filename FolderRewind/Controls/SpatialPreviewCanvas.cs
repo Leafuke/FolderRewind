@@ -1,4 +1,4 @@
-using FolderRewind.Plugin.Abstractions;
+﻿using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins.V3;
 using Microsoft.UI.Xaml;
@@ -285,6 +285,7 @@ public sealed class SpatialPreviewCanvas : Grid
             : _wanted.All(_empty.Contains) ? "Preview_Ungenerated"
             : _wanted.All(k => _empty.Contains(k) || _noSurface.Contains(k)) ? "Preview_NoVisibleSurface"
             : _wanted.Any(k => k.UnitsPerPixel >= 16) ? "Preview_Overview" : "Preview_ReadOnly";
+        if (state == "Preview_ReadOnly" && _session?.IsHistorical == true) state = "Preview_HistoryReadOnly";
         if (state == "Preview_Ungenerated" && _session?.Source.IsPartial == true) state = "Preview_NotIncludedOrUngenerated";
         var summaries = _wanted.Where(_statistics.ContainsKey).Select(k => _statistics[k]).ToArray();
         int Sum(Func<SpatialPreviewStatistics, int> get) => (int)Math.Min(int.MaxValue, summaries.Sum(v => (long)get(v)));
