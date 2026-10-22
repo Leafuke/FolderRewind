@@ -23,6 +23,7 @@ namespace FolderRewind.Controls;
 /// <summary>Immediate camera transforms with independently throttled, bounded tile loading.</summary>
 public sealed class SpatialPreviewCanvas : Grid
 {
+    private readonly Canvas _fallback = new() { IsHitTestVisible = false };
     private readonly Canvas _tiles = new() { IsHitTestVisible = false };
     private readonly Canvas _grid = new() { IsHitTestVisible = false };
     private readonly Canvas _markers = new() { IsHitTestVisible = false };
@@ -71,8 +72,8 @@ public sealed class SpatialPreviewCanvas : Grid
     public SpatialPreviewCanvas()
     {
         IsTabStop = true;
-        _tiles.RenderTransform = _transform; _grid.RenderTransform = _gridTransform;
-        Children.Add(_tiles); Children.Add(_grid); Children.Add(_markers);
+        _fallback.RenderTransform = _transform; _tiles.RenderTransform = _transform; _grid.RenderTransform = _gridTransform;
+        Children.Add(_fallback); Children.Add(_tiles); Children.Add(_grid); Children.Add(_markers);
         AutomationProperties.SetAutomationId(this, "SpatialPreviewMap");
         AutomationProperties.SetName(this, I18n.GetString("Preview_MapName"));
         SizeChanged += (_, _) => { Clip = new RectangleGeometry { Rect = new Rect(0, 0, ActualWidth, ActualHeight) }; QueueRender(); };
@@ -92,6 +93,13 @@ public sealed class SpatialPreviewCanvas : Grid
     }
     internal void SetSource(PluginV3SpatialPreview? session, SpatialPreviewLayer? layer, int? maximumHeight, bool reset)
     {
+        var preserve = !reset && session is not null && ReferenceEquals(_session, session) && _layer?.Id == layer?.Id;
+        if (!preserve) _fallback.Children.Clear();
+        else if (_tiles.Children.Count > 0)
+        {
+            _fallback.Children.Clear();
+            foreach (var child in _tiles.Children.ToArray()) { _tiles.Children.Remove(child); _fallback.Children.Add(child); }
+        }
         _epoch.Advance(); _inspection++; _schedule.Stop();
         foreach (var cancellation in _pending.Values.ToArray()) cancellation.Cancel();
         _pending.Clear(); _wanted.Clear(); _failed.Clear(); _diagnostics.Clear();
@@ -100,7 +108,7 @@ public sealed class SpatialPreviewCanvas : Grid
         _bitmaps.Clear(); _lru.Clear(); _images.Clear(); _tiles.Children.Clear(); _grid.Children.Clear(); _markers.Children.Clear(); _markerShape = null;
         _pressed = null; ReleasePointerCaptures(); _marker = null;
         if (reset && layer is not null) FitCamera(layer);
-        _anchorX = _camera.CenterX; _anchorY = _camera.CenterY;
+        if (!preserve) { _anchorX = _camera.CenterX; _anchorY = _camera.CenterY; }
         QueueRender();
     }
     public void Clear() => SetSource(null, null, null, false);
@@ -190,6 +198,7 @@ public sealed class SpatialPreviewCanvas : Grid
     private void PruneImages()
     {
         var complete = _wanted.All(k => (_bitmaps.ContainsKey(k) && !_refinements.ContainsKey(k)) || _failed.Contains(k));
+        if (complete) _fallback.Children.Clear();
         foreach (var pair in _images.ToArray())
         {
             if (!Intersects(pair.Key) || (complete && !_wanted.Contains(pair.Key))) RemoveImage(pair.Key);
@@ -271,6 +280,7 @@ public sealed class SpatialPreviewCanvas : Grid
     private void Trim()
     {
         // Every cached 256px bitmap (including fallback LODs) is counted in the 64 MiB budget.
+        while (_bitmaps.Count + _fallback.Children.Count > 256 && _fallback.Children.Count > 0) _fallback.Children.RemoveAt(0);
         while (_bitmaps.Count > 256 && _lru.Last is { } last)
         {
             var candidate = last;
@@ -339,7 +349,7 @@ public sealed class SpatialPreviewCanvas : Grid
     }
     private async Task InspectAsync(double x, double y)
     {
-        if (_session is not { } session || _layer is not { } layer) return;
+        if (_fallback.Children.Count > 0 || _session is not { } session || _layer is not { } layer) return;
         var revision = _epoch.Revision; var inspection = ++_inspection; var token = _epoch.Token;
         var point = _camera.ToWorld(x, y, ActualWidth, ActualHeight);
         if (!SpatialPreviewCoordinates.Contains(layer.CoordinateBounds, point.X, point.Y))

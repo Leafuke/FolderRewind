@@ -7223,4 +7223,9 @@ Pull Request：{1}</value>
   <data name="OperationDiagnostic_BackupCloudFailed" xml:space="preserve"><value>本地备份已提交，但云同步任务未能正常登记。请查看日志及云同步状态。</value></data>
   <data name="OperationDiagnostic_BackupRetentionFailed" xml:space="preserve"><value>备份已提交，但自动清理未完全完成。请查看清理报告和日志。</value></data>
   <data name="OperationDiagnostic_BackupWarningUnspecified" xml:space="preserve"><value>备份已完成，但组件没有提供具体警告原因。请保留日志用于排查。</value></data>
+  <data name="Preview_CoordinatesButton.Content" xml:space="preserve"><value>坐标…</value></data>
+  <data name="Preview_RefreshButton.Content" xml:space="preserve"><value>刷新</value></data>
+  <data name="Preview_OptionsButton.Content" xml:space="preserve"><value>选项</value></data>
+  <data name="Preview_InvalidHeight" xml:space="preserve"><value>请输入 {0} 到 {1} 之间的整数 Y。</value></data>
+  <data name="Preview_AppliedHeight" xml:space="preserve"><value>当前高度 Y = {0}</value></data>
 </root>

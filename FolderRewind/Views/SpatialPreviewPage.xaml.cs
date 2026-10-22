@@ -6,6 +6,8 @@ using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Globalization;
@@ -19,7 +21,7 @@ public sealed partial class SpatialPreviewPage : Page
     public SpatialPreviewViewModel ViewModel { get; } = new();
     private SpatialPreviewNavigationParameter? _navigation;
     private PreviewLayerChoice? _currentLayer;
-    private bool _settingHeight;
+    private bool _heightDragging;
     private bool _active;
     private long _loadRevision;
     private long _interactionRevision;
@@ -32,7 +34,11 @@ public sealed partial class SpatialPreviewPage : Page
         Map.PositionChanged += (x, y) => { if (_currentLayer is { } layer) ViewModel.UpdateCursor(x, y, layer.Layer); };
         Map.ScaleChanged += (units, pixels) => { ScaleBar.Width = pixels; ScaleLabel.Text = I18n.Format("Preview_Scale", units); };
         Map.CursorChanged += (x, y) => { if (_currentLayer is { } layer) ViewModel.UpdateCursor(x, y, layer.Layer); };
-        SizeChanged += (_, e) => DetailLayout.DisplayMode = e.NewSize.Width < 900 ? SplitViewDisplayMode.Overlay : SplitViewDisplayMode.Inline;
+        SizeChanged += (_, e) => UpdateLayout(e.NewSize.Width);
+        HeightSlider.AddHandler(PointerPressedEvent, new PointerEventHandler((_, _) => _heightDragging = true), true);
+        HeightSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler((_, _) => { _heightDragging = false; CommitHeight(); }), true);
+        HeightSlider.PointerCanceled += (_, _) => { _heightDragging = false; ViewModel.ResetHeightDraft(); };
+        MaximumHeight.AddHandler(KeyDownEvent, new KeyEventHandler(OnHeightKeyDown), true);
         AutomationProperties.SetName(ZoomInButton, I18n.GetString("Preview_ZoomInName"));
         AutomationProperties.SetName(ZoomOutButton, I18n.GetString("Preview_ZoomOutName"));
         ToolTipService.SetToolTip(ZoomInButton, I18n.GetString("Preview_ZoomInName"));
@@ -57,7 +63,7 @@ public sealed partial class SpatialPreviewPage : Page
         if (_currentLayer is not { } layer) return;
         var camera = Map.Camera;
         ViewModel.SaveCamera(layer.Layer.Id, camera.X, camera.Y, camera.Scale,
-            layer.Layer.Height is not null && double.IsFinite(MaximumHeight.Value) ? (int)MaximumHeight.Value : null);
+            ViewModel.AppliedHeight);
     }
     private async Task LoadAsync()
     {
@@ -83,21 +89,41 @@ public sealed partial class SpatialPreviewPage : Page
     {
         SaveView(); _interactionRevision++;
         if (Layers.SelectedItem is not PreviewLayerChoice choice) { _currentLayer = null; Map.Clear(); return; }
-        _currentLayer = choice; _settingHeight = true;
-        var height = choice.Layer.Height; var saved = ViewModel.SavedCamera(choice.Layer.Id);
-        MaximumHeight.IsEnabled = height is not null;
-        MaximumHeight.Header = height is null ? I18n.GetString("Preview_ViewHeight.Header") : PluginV3SpatialPreview.Localize(height.Label);
-        MaximumHeight.Minimum = height?.Minimum ?? 0; MaximumHeight.Maximum = height?.Maximum ?? 1;
-        MaximumHeight.Value = height is null ? 0 : Math.Clamp(saved?.Height ?? height.DefaultValue, height.Minimum, height.Maximum);
-        _settingHeight = false; ViewModel.Details = ""; DetailLayout.IsPaneOpen = false;
-        Map.SetSource(ViewModel.Session, choice.Layer, height is null ? null : (int)MaximumHeight.Value, true);
+        _currentLayer = choice;
+        var saved = ViewModel.SavedCamera(choice.Layer.Id);
+        ViewModel.ConfigureHeight(choice.Layer.Height, saved?.Height);
+        ViewModel.Details = ""; DetailLayout.IsPaneOpen = false;
+        Map.SetSource(ViewModel.Session, choice.Layer, ViewModel.AppliedHeight, true);
         if (saved is not null) Map.RestoreCamera(saved.X, saved.Y, saved.Scale);
     }
-    private void OnHeightChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    private void CommitHeight()
     {
-        if (_settingHeight || !double.IsFinite(args.NewValue) || _currentLayer is not { } choice) return;
+        if (_currentLayer is not { } choice || !ViewModel.CommitHeight()) return;
         ViewModel.Details = ""; DetailLayout.IsPaneOpen = false; _interactionRevision++;
-        Map.SetSource(ViewModel.Session, choice.Layer, (int)args.NewValue, false);
+        Map.SetSource(ViewModel.Session, choice.Layer, ViewModel.AppliedHeight, false);
+    }
+    private void OnHeightLostFocus(object sender, RoutedEventArgs e) { if (!_heightDragging) CommitHeight(); }
+    private void OnHeightSliderKeyUp(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape) ViewModel.ResetHeightDraft();
+        else if (e.Key is VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down or VirtualKey.Home or VirtualKey.End or VirtualKey.PageUp or VirtualKey.PageDown) CommitHeight();
+    }
+    private void OnHeightKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter) { CommitHeight(); e.Handled = true; }
+        else if (e.Key == VirtualKey.Escape) { ViewModel.ResetHeightDraft(); e.Handled = true; }
+    }
+    private void UpdateLayout(double width)
+    {
+        DetailLayout.DisplayMode = width < 900 ? SplitViewDisplayMode.Overlay : SplitViewDisplayMode.Inline;
+        var compact = width < 760;
+        Grid.SetRow(ActionControls, compact ? 1 : 0); Grid.SetColumn(ActionControls, compact ? 0 : 1);
+        Grid.SetColumnSpan(ActionControls, compact ? 2 : 1);
+        ActionControls.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        var narrow = width < 600;
+        Grid.SetColumnSpan(HeightCaption, narrow ? 3 : 1);
+        Grid.SetRow(HeightSlider, narrow ? 1 : 0); Grid.SetColumn(HeightSlider, narrow ? 0 : 1); Grid.SetColumnSpan(HeightSlider, narrow ? 2 : 1);
+        Grid.SetRow(MaximumHeight, narrow ? 1 : 0);
     }
     private void OnZoomIn(object sender, RoutedEventArgs e) => Map.Zoom(2);
     private void OnZoomOut(object sender, RoutedEventArgs e) => Map.Zoom(.5);

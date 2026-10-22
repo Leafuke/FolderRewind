@@ -7223,4 +7223,9 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="OperationDiagnostic_BackupCloudFailed" xml:space="preserve"><value>The local backup was committed, but cloud synchronization registration needs attention. Review the logs and cloud status.</value></data>
   <data name="OperationDiagnostic_BackupRetentionFailed" xml:space="preserve"><value>The backup was committed, but automatic cleanup did not fully complete. Review the cleanup report and logs.</value></data>
   <data name="OperationDiagnostic_BackupWarningUnspecified" xml:space="preserve"><value>Backup completed, but the component did not provide a specific warning reason. Keep the logs for diagnosis.</value></data>
+  <data name="Preview_CoordinatesButton.Content" xml:space="preserve"><value>Coordinates…</value></data>
+  <data name="Preview_RefreshButton.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Preview_OptionsButton.Content" xml:space="preserve"><value>Options</value></data>
+  <data name="Preview_InvalidHeight" xml:space="preserve"><value>Enter an integer Y between {0} and {1}.</value></data>
+  <data name="Preview_AppliedHeight" xml:space="preserve"><value>Current height Y = {0}</value></data>
 </root>
