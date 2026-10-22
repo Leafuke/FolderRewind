@@ -30,7 +30,10 @@ public sealed record SpatialPreviewLayer(string Id, LocalizedText Name, SpatialP
 public sealed record SpatialPreviewHeight(int Minimum, int Maximum, int DefaultValue, LocalizedText Label);
 public sealed record SpatialPreviewMode(string Id, LocalizedText Name, SpatialPreviewHeight? Height)
 {
+    /// <summary>Apply the saved target height when the user explicitly navigates.</summary>
     public bool UseNavigationHeight { get; init; }
+    /// <summary>Also prefer the available saved target height for a mode's first/default view.</summary>
+    public bool UseNavigationHeightAsDefault { get; init; }
 }
 public sealed record SpatialPreviewLegendItem(string Id, LocalizedText Label, uint Argb);
 public enum SpatialPreviewContentState { Unknown, NoData, NoVisibleSurface, HasData }

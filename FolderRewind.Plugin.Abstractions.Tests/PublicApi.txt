@@ -646,6 +646,7 @@ P FolderRewind.Plugin.Abstractions.SpatialPreviewMode.Height:FolderRewind.Plugin
 P FolderRewind.Plugin.Abstractions.SpatialPreviewMode.Id:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewMode.Name:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewMode.UseNavigationHeight:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.SpatialPreviewMode.UseNavigationHeightAsDefault:System.Boolean { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.DefaultTargetId:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.QuickTargetId:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.SpatialPreviewNavigation.Targets:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.SpatialPreviewTarget> { public get; public init; }
