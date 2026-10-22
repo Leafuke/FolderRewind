@@ -65,6 +65,7 @@ public sealed class SpatialPreviewCanvas : Grid
     private double _anchorX, _anchorY;
     private Point? _marker;
     public event Action<SpatialPreviewStatistics>? StatisticsChanged;
+    public event Action<bool, bool>? ActivityChanged;
     public event Action? Interacted;
     public event Action<string>? StatusChanged;
     public event Action<string>? DetailsChanged;
@@ -113,6 +114,7 @@ public sealed class SpatialPreviewCanvas : Grid
         _session = session; _layer = layer; _height = maximumHeight; _active = session is not null && layer is not null;
         _bitmaps.Clear(); _lru.Clear(); _images.Clear(); _tiles.Children.Clear(); _grid.Children.Clear(); _markers.Children.Clear(); _markerShape = null;
         _pressed = null; ReleasePointerCaptures(); _marker = null;
+        ActivityChanged?.Invoke(_active, false);
         if (reset && layer is not null) FitCamera(layer);
         if (!preserve) { _anchorX = _camera.CenterX; _anchorY = _camera.CenterY; }
         QueueRender();
@@ -291,6 +293,8 @@ public sealed class SpatialPreviewCanvas : Grid
         int Sum(Func<SpatialPreviewStatistics, int> get) => (int)Math.Min(int.MaxValue, summaries.Sum(v => (long)get(v)));
         StatisticsChanged?.Invoke(new(Sum(v => v.Readable), Sum(v => v.Pending), Sum(v => v.NoData), Sum(v => v.NoVisibleSurface),
             Sum(v => v.Unsupported), Sum(v => v.Failed), Sum(v => v.MissingColor)));
+        ActivityChanged?.Invoke(_wanted.Any(k => !_failed.Contains(k) && (!_bitmaps.ContainsKey(k) || _refinements.ContainsKey(k))),
+            _wanted.Any(k => _failed.Contains(k) || _diagnostics.TryGetValue(k, out var diagnostic) && diagnostic.Severity >= DiagnosticSeverity.Warning));
         StatusChanged?.Invoke(I18n.GetString(state) + (diagnostics.Length == 0 ? "" : " · " + string.Join(" · ", diagnostics)));
     }
     private void Touch(PreviewTileKey key) { _lru.Remove(key); _lru.AddFirst(key); }
@@ -392,6 +396,9 @@ public sealed class SpatialPreviewCanvas : Grid
             case VirtualKey.Down: _camera.Pan(0, 1); break;
             case VirtualKey.Add: Zoom(2); e.Handled = true; return;
             case VirtualKey.Subtract: Zoom(.5); e.Handled = true; return;
+            // VK_OEM_PLUS / VK_OEM_MINUS also cover the main keyboard's +/- keys.
+            case (VirtualKey)187: Zoom(2); e.Handled = true; return;
+            case (VirtualKey)189: Zoom(.5); e.Handled = true; return;
             case VirtualKey.Enter: Observe(InspectAsync(ActualWidth / 2, ActualHeight / 2)); e.Handled = true; return;
             default: return;
         }

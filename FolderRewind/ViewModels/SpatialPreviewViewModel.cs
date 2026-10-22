@@ -39,19 +39,30 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private HistoricalPreviewWorkspace? _history;
     private bool _disposed;
-    [ObservableProperty] public partial bool IsPreparing { get; set; }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowMapMessage))]
+    public partial bool IsPreparing { get; set; }
     [ObservableProperty] public partial bool NeedsHistoryDownload { get; set; }
-    [ObservableProperty] public partial bool HasLoadError { get; set; }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreviewWarning)), NotifyPropertyChangedFor(nameof(InformationName))]
+    public partial bool HasLoadError { get; set; }
     [ObservableProperty] public partial string ErrorDetails { get; set; } = "";
     internal PluginV3SpatialPreview? Session { get; private set; }
     public ObservableCollection<PreviewLayerChoice> Layers { get; } = [];
     [ObservableProperty] public partial string Title { get; set; }
     [ObservableProperty] public partial string Status { get; set; }
     [ObservableProperty] public partial string Details { get; set; }
-    [ObservableProperty] public partial bool IsLoading { get; set; }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsBusy)), NotifyPropertyChangedFor(nameof(ShowMapMessage))]
+    public partial bool IsLoading { get; set; }
     [ObservableProperty] public partial string HorizontalAxis { get; set; }
     [ObservableProperty] public partial string VerticalAxis { get; set; }
-    public SpatialPreviewViewModel() { Title = Status = Details = ""; HorizontalAxis = "X"; VerticalAxis = "Y"; }
+    public SpatialPreviewViewModel()
+    {
+        Title = Status = Details = ""; HorizontalAxis = "X"; VerticalAxis = "Y";
+        Layers.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasLayers));
+            OnPropertyChanged(nameof(ShowMapMessage));
+        };
+    }
 
     public async Task LoadAsync(SpatialPreviewNavigationParameter navigation)
     {
@@ -60,6 +71,8 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
         var token = _epoch.Token;
         var entered = false;
         IsLoading = true; IsPreparing = false; NeedsHistoryDownload = HasLoadError = false;
+        IsHistoricalSource = navigation.VersionId is not null; IsPartialSource = false;
+        SetMapActivity(false, false); CursorText = "";
         Status = I18n.GetString("Preview_Loading"); Details = ErrorDetails = ""; Layers.Clear();
         ConfigureHeight(null, null); StatisticsText = LegendText = "";
         try
@@ -92,6 +105,7 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
             var session = _opening = _history is { } history ? PluginV3SpatialPreview.Open(history)
                 : PluginV3SpatialPreview.Open(navigation.ConfigId, navigation.FolderId);
             Title = session.Source.Folder.DisplayName;
+            IsPartialSource = session.Source.IsPartial;
             SourceLabel = _history is { } historical
                 ? I18n.Format("Preview_HistorySource", UserDisplayFormatter.Date(historical.Version.CreatedAtUtc.ToLocalTime()),
                     UserDisplayFormatter.LongTime(historical.Version.CreatedAtUtc.ToLocalTime()), historical.Version.VersionId.ToString()[..8])

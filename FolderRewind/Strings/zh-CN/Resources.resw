@@ -6271,7 +6271,11 @@ Pull Request：{1}</value>
   <data name="Preview_ZoomOut.Content" xml:space="preserve"><value>缩小</value></data>
   <data name="Preview_ZoomIn.Content" xml:space="preserve"><value>放大</value></data>
   <data name="Preview_Locate.Content" xml:space="preserve"><value>定位</value></data>
-  <data name="Preview_Help.Text" xml:space="preserve"><value>拖动平移，滚轮围绕鼠标缩放；方向键平移，回车查看中心详情。地表从指定 Y 向下寻找表面；洞穴向下寻找空腔地面；切片只显示指定 Y。定位玩家保留视图，洞穴和切片采用保存高度。状态统计仅覆盖已加载区域，远景索引不代表区块已验证。灰色斜纹表示缺色，黄色网纹表示暂不支持，红色网纹表示读取异常。当前目录在游戏写入后请刷新。</value></data>
+  <data name="Preview_Help.Text" xml:space="preserve"><value>拖动平移，滚轮围绕鼠标缩放；方向键平移，+ / − 缩放，回车查看中心详情。Ctrl+G 跳转坐标，Escape 关闭详情或退出专注预览。
+
+点击“视图 · Y高度”调整模式和高度。定位玩家使用上次保存的位置，保留视图模式；洞穴和切片采用保存的 Y。
+
+地图为只读，游戏写入后请刷新。状态统计仅覆盖已加载区域，远景索引不代表区块已验证。灰色斜纹表示缺色，黄色网纹表示暂不支持，红色网纹表示读取异常。</value></data>
   <data name="Preview_MapName" xml:space="preserve"><value>只读二维地图，使用方向键移动，回车查看详情</value></data>
   <data name="Preview_Loading" xml:space="preserve"><value>正在按需读取地图…</value></data>
   <data name="Preview_ReadOnly" xml:space="preserve"><value>只读 · 游戏写入后请刷新</value></data>
@@ -6300,7 +6304,7 @@ Pull Request：{1}</value>
   <data name="Preview_InvalidCoordinate" xml:space="preserve"><value>请输入合法范围内的有效坐标。</value></data>
   <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}：{1:N0} 至 {2:N0}；{3}：{4:N0} 至 {5:N0}</value></data>
   <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} 单位</value></data>
-  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>地表向下寻找表面；洞穴向下寻找空腔地面；切片只显示精确 Y。洞穴和切片定位玩家时使用保存高度。</value></data>
+  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>滑块松手后应用；数字按回车或离开输入框应用，Escape 恢复。地表向下寻找表面，洞穴寻找空腔地面，切片只显示精确 Y。</value></data>
   <data name="CloudSetup_CredentialMigrating" xml:space="preserve"><value>正在后台迁移连接凭据，请稍候。其他项目和主窗口仍可使用。</value></data>
   <data name="CloudSetup_SourceConfigUnavailable" xml:space="preserve"><value>无法读取源 rclone 配置：文件不存在、无读取权限或超过 1 MiB。请重新选择配置文件。</value></data>
   <data name="CloudSetup_RemoteMismatch" xml:space="preserve"><value>源 rclone 配置中没有所选远端。请读取远端列表并选择配置文件中的实际名称。</value></data>
@@ -7235,7 +7239,7 @@ Pull Request：{1}</value>
   <data name="Preview_StatusOverlay.OnContent" xml:space="preserve"><value>状态叠加</value></data>
   <data name="Preview_StatusOverlay.OffContent" xml:space="preserve"><value>状态叠加</value></data>
   <data name="Preview_StatusOverlay.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>显示区块状态叠加</value></data>
-  <data name="Preview_ViewSummary" xml:space="preserve"><value>{0} · Y = {1}</value></data>
+  <data name="Preview_ViewSummary" xml:space="preserve"><value>{0} · Y{1}</value></data>
   <data name="Preview_DefaultViewMode" xml:space="preserve"><value>地表</value></data>
   <data name="Preview_TargetHeight" xml:space="preserve"><value>保存的 Y = {0}</value></data>
   <data name="Preview_ScaleWithUnit" xml:space="preserve"><value>{0:N0} {1}</value></data>
@@ -7260,4 +7264,32 @@ Pull Request：{1}</value>
   <data name="Preview_ErrorDetails.Header" xml:space="preserve"><value>查看原因</value></data>
   <data name="History_MenuPreviewWorld.Text" xml:space="preserve"><value>预览世界</value></data>
   <data name="Preview_CloudWorkspaceRejected" xml:space="preserve"><value>临时预览目录不能作为云端备份载荷。</value></data>
+  <data name="Preview_InformationButton.ToolTipService.ToolTip" xml:space="preserve"><value>世界信息、地图状态与操作说明</value></data>
+  <data name="Preview_InformationName" xml:space="preserve"><value>世界信息、地图状态与操作说明</value></data>
+  <data name="Preview_InformationWarning" xml:space="preserve"><value>地图存在读取提示，查看地图状态</value></data>
+  <data name="Preview_WorldInformation.Text" xml:space="preserve"><value>世界信息</value></data>
+  <data name="Preview_MapStatus.Header" xml:space="preserve"><value>地图状态</value></data>
+  <data name="Preview_OperationHelp.Header" xml:space="preserve"><value>操作说明</value></data>
+  <data name="Preview_HistoryBadge.Text" xml:space="preserve"><value>历史</value></data>
+  <data name="Preview_PartialBadge.Text" xml:space="preserve"><value>部分</value></data>
+  <data name="Preview_PartialBadge.ToolTipService.ToolTip" xml:space="preserve"><value>覆盖不完整，空白可能未包含或未生成</value></data>
+  <data name="Preview_ViewOptionsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>视图与高度</value></data>
+  <data name="Preview_ViewOptionsButton.ToolTipService.ToolTip" xml:space="preserve"><value>调整视图模式和高度</value></data>
+  <data name="Preview_LoadingIndicator.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>正在读取预览</value></data>
+  <data name="Preview_RefreshIcon.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>刷新地图</value></data>
+  <data name="Preview_RefreshIcon.ToolTipService.ToolTip" xml:space="preserve"><value>刷新地图</value></data>
+  <data name="Preview_FitIcon.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>适应世界范围</value></data>
+  <data name="Preview_FitIcon.ToolTipService.ToolTip" xml:space="preserve"><value>适应世界范围</value></data>
+  <data name="Preview_MoreButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>更多地图操作</value></data>
+  <data name="Preview_MoreButton.ToolTipService.ToolTip" xml:space="preserve"><value>更多地图操作</value></data>
+  <data name="Preview_CoordinatesMenu.Text" xml:space="preserve"><value>坐标…</value></data>
+  <data name="Preview_RefreshMenu.Text" xml:space="preserve"><value>刷新</value></data>
+  <data name="Preview_FitMenu.Text" xml:space="preserve"><value>适应世界范围</value></data>
+  <data name="Preview_DisplayMenu.Text" xml:space="preserve"><value>显示设置</value></data>
+  <data name="Preview_GridMenu.Text" xml:space="preserve"><value>显示网格边界</value></data>
+  <data name="Preview_StatusOverlayMenu.Text" xml:space="preserve"><value>显示区块状态叠加</value></data>
+  <data name="Preview_ZoomInMenu.Text" xml:space="preserve"><value>放大</value></data>
+  <data name="Preview_ZoomOutMenu.Text" xml:space="preserve"><value>缩小</value></data>
+  <data name="Preview_FocusMode.Text" xml:space="preserve"><value>专注预览</value></data>
+  <data name="Preview_ViewStatusButton.Content" xml:space="preserve"><value>查看地图状态</value></data>
 </root>

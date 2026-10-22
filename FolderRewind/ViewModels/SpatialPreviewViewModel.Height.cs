@@ -17,7 +17,8 @@ public sealed partial class SpatialPreviewViewModel
     [ObservableProperty] public partial string HeightText { get; set; } = "";
     [ObservableProperty] public partial string HeightLabel { get; set; } = I18n.GetString("Preview_ViewHeight.Header");
     [ObservableProperty] public partial string HeightError { get; set; } = "";
-    [ObservableProperty] public partial string HeightSummary { get; set; } = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ViewButtonText))]
+    public partial string HeightSummary { get; set; } = "";
     public int? AppliedHeight { get; private set; }
 
     public void ConfigureHeight(SpatialPreviewHeight? height, int? saved)
@@ -73,6 +74,7 @@ public sealed partial class SpatialPreviewViewModel
         DraftHeight = AppliedHeight ?? 0;
         HeightText = AppliedHeight?.ToString(CultureInfo.CurrentCulture) ?? "";
         HeightError = "";
-        HeightSummary = AppliedHeight is { } height ? I18n.Format("Preview_ViewSummary", CurrentMode?.Name ?? I18n.GetString("Preview_DefaultViewMode"), height) : "";
+        HeightSummary = AppliedHeight is { } height ? I18n.Format("Preview_ViewSummary", CurrentMode?.Name ?? I18n.GetString("Preview_DefaultViewMode"), height)
+            : CurrentMode?.Name ?? I18n.GetString("Preview_DefaultViewMode");
     }
 }

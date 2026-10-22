@@ -6271,7 +6271,11 @@ Retention count: {2} · {3}</value></data>
   <data name="Preview_ZoomOut.Content" xml:space="preserve"><value>Zoom out</value></data>
   <data name="Preview_ZoomIn.Content" xml:space="preserve"><value>Zoom in</value></data>
   <data name="Preview_Locate.Content" xml:space="preserve"><value>Go to</value></data>
-  <data name="Preview_Help.Text" xml:space="preserve"><value>Drag to pan; scroll to zoom around the pointer. Arrow keys pan; Enter inspects the center. Surface scans down from Y, Cave finds a cavity floor, and Slice shows only Y. Player navigation keeps the view and uses saved height for Cave and Slice. Statistics cover loaded areas only; distant index entries are not verified chunks. Gray stripes indicate missing colors, yellow patterns unsupported data, and red patterns read errors. Refresh after the game writes to the current directory.</value></data>
+  <data name="Preview_Help.Text" xml:space="preserve"><value>Drag to pan and use the wheel to zoom around the pointer. Arrow keys pan, + / − zoom, and Enter inspects the center. Ctrl+G jumps to coordinates. Escape closes details or exits focus preview.
+
+Open the view and Y button to change mode and height. Player navigation uses the last saved position and preserves the mode; cave and slice modes use the saved Y.
+
+The map is read-only. Refresh after the game writes changes. Statistics cover loaded areas only; distant region indexes do not verify chunk health. Gray stripes indicate missing colors, yellow hatching unsupported data, and red hatching read failures.</value></data>
   <data name="Preview_MapName" xml:space="preserve"><value>Read-only map. Use arrow keys to pan and Enter to inspect.</value></data>
   <data name="Preview_Loading" xml:space="preserve"><value>Loading visible map data…</value></data>
   <data name="Preview_ReadOnly" xml:space="preserve"><value>Read-only · refresh after game changes</value></data>
@@ -6300,7 +6304,7 @@ Retention count: {2} · {3}</value></data>
   <data name="Preview_InvalidCoordinate" xml:space="preserve"><value>Enter finite coordinates within the allowed range.</value></data>
   <data name="Preview_CoordinateRange" xml:space="preserve"><value>{0}: {1:N0}–{2:N0}; {3}: {4:N0}–{5:N0}</value></data>
   <data name="Preview_Scale" xml:space="preserve"><value>{0:N0} units</value></data>
-  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>Surface scans downward; Cave finds a cavity floor; Slice shows the exact Y. Player navigation uses saved height in Cave and Slice.</value></data>
+  <data name="Preview_HeightHelp.Text" xml:space="preserve"><value>Release the slider to apply. Press Enter or leave the number field to apply; Escape restores the applied height. Surface scans downward, caves find cavity floors, and slices show the exact Y.</value></data>
   <data name="CloudSetup_CredentialMigrating" xml:space="preserve"><value>Connection credentials are being migrated in the background. Please wait; other projects and the main window remain available.</value></data>
   <data name="CloudSetup_SourceConfigUnavailable" xml:space="preserve"><value>The source rclone config cannot be read: it is missing, inaccessible, or exceeds 1 MiB. Select the config file again.</value></data>
   <data name="CloudSetup_RemoteMismatch" xml:space="preserve"><value>The selected remote is absent from the source rclone config. Load the remote list and select its actual name.</value></data>
@@ -7235,7 +7239,7 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="Preview_StatusOverlay.OnContent" xml:space="preserve"><value>Status overlay</value></data>
   <data name="Preview_StatusOverlay.OffContent" xml:space="preserve"><value>Status overlay</value></data>
   <data name="Preview_StatusOverlay.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Show cell status overlay</value></data>
-  <data name="Preview_ViewSummary" xml:space="preserve"><value>{0} · Y = {1}</value></data>
+  <data name="Preview_ViewSummary" xml:space="preserve"><value>{0} · Y{1}</value></data>
   <data name="Preview_DefaultViewMode" xml:space="preserve"><value>Surface</value></data>
   <data name="Preview_TargetHeight" xml:space="preserve"><value>Saved Y = {0}</value></data>
   <data name="Preview_ScaleWithUnit" xml:space="preserve"><value>{0:N0} {1}</value></data>
@@ -7260,4 +7264,32 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="Preview_ErrorDetails.Header" xml:space="preserve"><value>View details</value></data>
   <data name="History_MenuPreviewWorld.Text" xml:space="preserve"><value>Preview world</value></data>
   <data name="Preview_CloudWorkspaceRejected" xml:space="preserve"><value>Temporary preview directories cannot be uploaded as cloud backup payloads.</value></data>
+  <data name="Preview_InformationButton.ToolTipService.ToolTip" xml:space="preserve"><value>World information, map status and controls</value></data>
+  <data name="Preview_InformationName" xml:space="preserve"><value>World information, map status and controls</value></data>
+  <data name="Preview_InformationWarning" xml:space="preserve"><value>Map has reading warnings. View map status</value></data>
+  <data name="Preview_WorldInformation.Text" xml:space="preserve"><value>World information</value></data>
+  <data name="Preview_MapStatus.Header" xml:space="preserve"><value>Map status</value></data>
+  <data name="Preview_OperationHelp.Header" xml:space="preserve"><value>Controls and help</value></data>
+  <data name="Preview_HistoryBadge.Text" xml:space="preserve"><value>History</value></data>
+  <data name="Preview_PartialBadge.Text" xml:space="preserve"><value>Partial</value></data>
+  <data name="Preview_PartialBadge.ToolTipService.ToolTip" xml:space="preserve"><value>Incomplete coverage. Blank areas may be omitted or ungenerated</value></data>
+  <data name="Preview_ViewOptionsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>View mode and height</value></data>
+  <data name="Preview_ViewOptionsButton.ToolTipService.ToolTip" xml:space="preserve"><value>Change view mode and height</value></data>
+  <data name="Preview_LoadingIndicator.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Loading preview</value></data>
+  <data name="Preview_RefreshIcon.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Refresh map</value></data>
+  <data name="Preview_RefreshIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Refresh map</value></data>
+  <data name="Preview_FitIcon.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Fit world bounds</value></data>
+  <data name="Preview_FitIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Fit world bounds</value></data>
+  <data name="Preview_MoreButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>More map actions</value></data>
+  <data name="Preview_MoreButton.ToolTipService.ToolTip" xml:space="preserve"><value>More map actions</value></data>
+  <data name="Preview_CoordinatesMenu.Text" xml:space="preserve"><value>Coordinates…</value></data>
+  <data name="Preview_RefreshMenu.Text" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Preview_FitMenu.Text" xml:space="preserve"><value>Fit world bounds</value></data>
+  <data name="Preview_DisplayMenu.Text" xml:space="preserve"><value>Display settings</value></data>
+  <data name="Preview_GridMenu.Text" xml:space="preserve"><value>Show grid boundaries</value></data>
+  <data name="Preview_StatusOverlayMenu.Text" xml:space="preserve"><value>Show chunk status overlay</value></data>
+  <data name="Preview_ZoomInMenu.Text" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Preview_ZoomOutMenu.Text" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Preview_FocusMode.Text" xml:space="preserve"><value>Focus preview</value></data>
+  <data name="Preview_ViewStatusButton.Content" xml:space="preserve"><value>View map status</value></data>
 </root>

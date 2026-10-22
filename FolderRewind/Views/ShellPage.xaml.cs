@@ -16,6 +16,7 @@ namespace FolderRewind.Views
         private bool _isSyncingSelection;
         private bool _isSyncingPaneState;
         private bool _navViewInitialized;
+        private (bool Visible, bool Open, NavigationViewDisplayMode Mode)? _previewPaneState;
 
         private readonly ShellStartupService _startup;
         private readonly ShellNotificationPresenter _notifications;
@@ -225,6 +226,7 @@ namespace FolderRewind.Views
 
         private void PersistPaneState(bool isOpen, NavigationViewDisplayMode displayMode)
         {
+            if (_previewPaneState is not null || NavView.IsPaneOpen != isOpen) return;
             if (displayMode == NavigationViewDisplayMode.Expanded)
                 ViewModel.PersistPaneState(isOpen);
         }
@@ -244,6 +246,7 @@ namespace FolderRewind.Views
 
         private void SyncPaneStateWithDisplayMode(GlobalSettings? settings)
         {
+            if (_previewPaneState is not null) return;
             var targetIsPaneOpen = NavView.DisplayMode == NavigationViewDisplayMode.Expanded
                 ? (settings?.IsNavPaneOpen ?? true)
                 : false;
@@ -271,6 +274,29 @@ namespace FolderRewind.Views
             {
                 ContentFrame.GoBack(new SuppressNavigationTransitionInfo());
             }
+        }
+
+        /// <summary>Temporary canvas focus; never writes the user's navigation preferences.</summary>
+        internal void SetPreviewFocus(bool enabled)
+        {
+            if (enabled == (_previewPaneState is not null)) return;
+            _isSyncingPaneState = true;
+            try
+            {
+                if (enabled)
+                {
+                    _previewPaneState = (NavView.IsPaneVisible, NavView.IsPaneOpen, NavView.DisplayMode);
+                    NavView.IsPaneVisible = false;
+                }
+                else if (_previewPaneState is { } prior)
+                {
+                    NavView.IsPaneVisible = prior.Visible;
+                    NavView.IsPaneOpen = NavView.DisplayMode == prior.Mode ? prior.Open
+                        : NavView.DisplayMode == NavigationViewDisplayMode.Expanded && (Settings?.IsNavPaneOpen ?? prior.Open);
+                    _previewPaneState = null;
+                }
+            }
+            finally { _isSyncingPaneState = false; }
         }
 
         private void ContentFrame_Navigated(object sender, NavigationEventArgs e)

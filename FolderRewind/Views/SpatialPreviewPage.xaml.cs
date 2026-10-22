@@ -4,7 +4,6 @@ using FolderRewind.Services;
 using FolderRewind.Services.Plugins.V3;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
@@ -30,6 +29,7 @@ public sealed partial class SpatialPreviewPage : Page
     {
         InitializeComponent();
         Map.StatusChanged += text => ViewModel.Status = text;
+        Map.ActivityChanged += ViewModel.SetMapActivity;
         Map.DetailsChanged += text => { ViewModel.Details = text; DetailLayout.IsPaneOpen = true; };
         Map.StatisticsChanged += ViewModel.SetStatistics;
         Map.Interacted += () => _interactionRevision++;
@@ -46,11 +46,11 @@ public sealed partial class SpatialPreviewPage : Page
             _heightDragging = false; CommitHeight();
         })), true);
         MaximumHeight.AddHandler(KeyDownEvent, new KeyEventHandler(OnHeightKeyDown), true);
-        AutomationProperties.SetName(ZoomInButton, I18n.GetString("Preview_ZoomInName"));
-        AutomationProperties.SetName(ZoomOutButton, I18n.GetString("Preview_ZoomOutName"));
-        ToolTipService.SetToolTip(ZoomInButton, I18n.GetString("Preview_ZoomInName"));
-        ToolTipService.SetToolTip(ZoomOutButton, I18n.GetString("Preview_ZoomOutName"));
         ToolTipService.SetToolTip(NavigateButton, I18n.GetString("Preview_SavedPosition"));
+        ViewModel.PropertyChanged += OnPresentationChanged;
+        TrackFlyouts();
+        Loaded += (_, _) => UpdateLayout(ActualWidth);
+        Unloaded += (_, _) => RestoreNavigationPane();
     }
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -62,6 +62,8 @@ public sealed partial class SpatialPreviewPage : Page
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         SaveView(); _active = false; _loadRevision++;
+        ViewFlyout.Hide(); NavigationFlyout.Hide(); CoordinateFlyout.Hide(); InformationFlyout.Hide(); MoreFlyout.Hide();
+        RestoreNavigationPane(); ViewModel.PropertyChanged -= OnPresentationChanged;
         ConfigService.Saved -= OnConfigSaved;
         Map.Clear(); _currentLayer = null; ViewModel.Dispose(); base.OnNavigatedFrom(e);
     }
@@ -106,7 +108,6 @@ public sealed partial class SpatialPreviewPage : Page
             ViewModel.SelectMode(choice.Layer, mode);
             ViewModel.ShowStatusOverlay = ViewModel.SupportsStatusOverlay && saved?.ShowStatusOverlay == true;
             ModeControls.Visibility = ViewModel.Modes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            OverlayToggle.Visibility = ViewModel.SupportsStatusOverlay ? Visibility.Visible : Visibility.Collapsed;
         }
         finally { _settingOptions = false; }
         ApplyView(true);
@@ -129,45 +130,39 @@ public sealed partial class SpatialPreviewPage : Page
     private void OnOverlayToggled(object sender, RoutedEventArgs e)
     {
         if (_settingOptions || _currentLayer is null) return;
-        ViewModel.ShowStatusOverlay = OverlayToggle.IsOn; _interactionRevision++;
+        ViewModel.ShowStatusOverlay = OverlayToggle.IsChecked; _interactionRevision++;
         ApplyView(false);
     }
     private void CommitHeight()
     {
-        if (_currentLayer is not { } choice || !ViewModel.CommitHeight()) return;
+        if (!_active || _settingOptions || _currentLayer is null || !ViewModel.CommitHeight()) return;
         ViewModel.Details = ""; DetailLayout.IsPaneOpen = false; _interactionRevision++;
         ApplyView(false);
     }
     private void OnHeightLostFocus(object sender, RoutedEventArgs e) { if (!_heightDragging) CommitHeight(); }
     private void OnHeightSliderKeyUp(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Escape) ViewModel.ResetHeightDraft();
+        if (e.Key == VirtualKey.Escape) { ViewModel.ResetHeightDraft(); ViewFlyout.Hide(); e.Handled = true; }
         else if (e.Key is VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down or VirtualKey.Home or VirtualKey.End or VirtualKey.PageUp or VirtualKey.PageDown) CommitHeight();
     }
     private void OnHeightKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Enter) { CommitHeight(); e.Handled = true; }
-        else if (e.Key == VirtualKey.Escape) { ViewModel.ResetHeightDraft(); e.Handled = true; }
+        else if (e.Key == VirtualKey.Escape) { ViewModel.ResetHeightDraft(); ViewFlyout.Hide(); e.Handled = true; }
     }
     private void UpdateLayout(double width)
     {
         DetailLayout.DisplayMode = width < 900 ? SplitViewDisplayMode.Overlay : SplitViewDisplayMode.Inline;
-        var compact = width < 1000;
-        Grid.SetRow(ActionControls, compact ? 1 : 0); Grid.SetColumn(ActionControls, compact ? 0 : 1);
-        Grid.SetColumnSpan(ActionControls, compact ? 2 : 1);
-        ActionControls.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        ActionControls.Orientation = width < 600 ? Orientation.Vertical : Orientation.Horizontal;
-        LayerControls.Orientation = width < 560 ? Orientation.Vertical : Orientation.Horizontal;
-        var narrow = width < 600;
-        Grid.SetColumnSpan(HeightCaption, narrow ? 4 : 1);
-        Grid.SetRow(OverlayToggle, narrow ? 2 : 0); Grid.SetColumn(OverlayToggle, narrow ? 0 : 3); Grid.SetColumnSpan(OverlayToggle, narrow ? 4 : 1);
-        Grid.SetRow(HeightSlider, narrow ? 1 : 0); Grid.SetColumn(HeightSlider, narrow ? 0 : 1); Grid.SetColumnSpan(HeightSlider, narrow ? 2 : 1);
-        Grid.SetRow(MaximumHeight, narrow ? 1 : 0);
+        Layers.Width = width < 560 ? 104 : 124;
+        ViewButton.Width = width < 560 ? 128 : 152;
+        SetToolbarAction(NavigateButton, OverflowNavigate, width >= 660);
+        SetToolbarAction(RefreshButton, OverflowRefresh, width >= 760);
+        SetToolbarAction(FitButton, OverflowFit, width >= 840);
     }
     private void OnZoomIn(object sender, RoutedEventArgs e) => Map.Zoom(2);
     private void OnZoomOut(object sender, RoutedEventArgs e) => Map.Zoom(.5);
     private void OnFit(object sender, RoutedEventArgs e) => Map.Fit();
-    private void OnGridToggled(object sender, RoutedEventArgs e) { if (Map is not null) Map.ShowGrid = GridToggle.IsOn; }
+    private void OnGridToggled(object sender, RoutedEventArgs e) => Map.ShowGrid = GridToggle.IsChecked;
     private void OnCloseDetails(object sender, RoutedEventArgs e) { DetailLayout.IsPaneOpen = false; Map.Focus(FocusState.Programmatic); }
     private void OnCoordinateOpening(object sender, object e)
     {
