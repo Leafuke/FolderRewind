@@ -317,6 +317,7 @@ public sealed partial class NativeArtifactStore
         var closure = NativeArtifactClosureLimits.Validate(ledger, root);
         var rows = ledger.Artifacts.ToDictionary(a => a.ArtifactId);
         var roots = new ConcurrentDictionary<ArtifactContentHandle, string>();
+        var verified = new ConcurrentDictionary<ArtifactContentHandle, VerifiedArtifactContent>();
         var snapshots = new ConcurrentDictionary<ArtifactId, BackupArtifactSnapshot>();
         var temporary = CreateWorkspace("read");
         decoded ??= new ArtifactExtractionBudget();
@@ -348,24 +349,45 @@ public sealed partial class NativeArtifactStore
                         await UnpackBoundedAsync(PayloadPath(node), logicalDirectory, envelope.Encrypted, node.LogicalSize, decoded, token);
                 }
                 else throw new InvalidDataException("Native envelope metadata is missing.");
-                var paths = HostArtifactReadService.EnumerateSafeFiles(logicalDirectory);
-                if (ArtifactExtractionBudget.CountEntries(paths.Select(p => p.RelativePath)) != node.LogicalEntryCount)
-                    throw new InvalidDataException("Decoded entry count differs from committed Native evidence.");
-                var logical = await HostArtifactReadService.ComputeLogicalFactsAsync(logicalDirectory, token);
-                if (logical.Size != node.LogicalSize || !StringComparer.OrdinalIgnoreCase.Equals(logical.Sha256, node.LogicalSha256))
+                VerifiedArtifactContent? proof = null;
+                try
                 {
-                    await RecordCorruptionAsync(node, token);
-                    throw new InvalidDataException("Artifact logical tree mismatch.");
+                    (string Sha256, long Size) logical;
+                    IEnumerable<string> paths;
+                    if (OperatingSystem.IsWindows())
+                    {
+                        proof = await VerifiedArtifactContent.CreateAsync(logicalDirectory, token);
+                        logical = (proof.Sha256, proof.Size); paths = proof.Files.Select(f => f.RelativePath);
+                    }
+                    else
+                    {
+                        // Other platforms retain the existing verification path; no unprotected inventory is seeded.
+                        paths = HostArtifactReadService.EnumerateSafeFiles(logicalDirectory).Select(p => p.RelativePath);
+                        logical = await HostArtifactReadService.ComputeLogicalFactsAsync(logicalDirectory, token);
+                    }
+                    if (ArtifactExtractionBudget.CountEntries(paths) != node.LogicalEntryCount)
+                        throw new InvalidDataException("Decoded entry count differs from committed Native evidence.");
+                    if (logical.Size != node.LogicalSize || !StringComparer.OrdinalIgnoreCase.Equals(logical.Sha256, node.LogicalSha256))
+                    {
+                        await RecordCorruptionAsync(node, token);
+                        throw new InvalidDataException("Artifact logical tree mismatch.");
+                    }
+                    // Only fresh full verification clears an observed failure.
+                    if (File.Exists(CorruptionPath(node))) File.Delete(CorruptionPath(node));
+                    var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N")); roots.TryAdd(handle, logicalDirectory);
+                    if (proof is not null)
+                    {
+                        if (!verified.TryAdd(handle, proof)) throw new InvalidOperationException("Duplicate verified Artifact content handle.");
+                        proof = null;
+                    }
+                    snapshots.TryAdd(id, new(node.ArtifactId, node.Format, node.FormatVersion, node.RestoreStrategyId, handle,
+                        node.LogicalSha256, node.LogicalSize, node.Completeness, node.CoreCaptureMode, node.ConfigId, node.FolderId, node.Dependencies));
                 }
-                // Only a fresh full verification clears an observed failure (for example after replica repair).
-                if (File.Exists(CorruptionPath(node))) File.Delete(CorruptionPath(node));
-                var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N")); roots.TryAdd(handle, logicalDirectory);
-                snapshots.TryAdd(id, new(node.ArtifactId, node.Format, node.FormatVersion, node.RestoreStrategyId, handle,
-                    node.LogicalSha256, node.LogicalSize, node.Completeness, node.CoreCaptureMode, node.ConfigId, node.FolderId, node.Dependencies));
+                finally { proof?.Dispose(); }
             });
-            return new(closure.TopologicallySorted.Select(id => snapshots[id]).ToArray(), new HostArtifactReadService(roots), held, temporary, closure.TopologicallySorted.Select(id => rows[id]).ToArray());
+            return new(closure.TopologicallySorted.Select(id => snapshots[id]).ToArray(), HostArtifactReadService.FromVerified(roots, verified), held, temporary, closure.TopologicallySorted.Select(id => rows[id]).ToArray());
         }
-        catch { DeleteDirectory(temporary); throw; }
+        catch { foreach (var proof in verified.Values) proof.Dispose(); DeleteDirectory(temporary); throw; }
     }
 
     public static async Task WriteAsync<T>(string path, T value, CancellationToken token)

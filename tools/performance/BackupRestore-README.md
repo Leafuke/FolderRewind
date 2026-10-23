@@ -1,5 +1,7 @@
 # 1.9.x 备份与还原服务基准
 
+2026-10-23 的 Core/Native 还原优化复现、真实世界受保护语料和两轮门禁见 [Restore-README](Restore-README.md)。
+
 ## Core Smart 元数据/扫描对比（2026-10-23）
 
 `Run-CoreSmartBenchmark.ps1` 复用既有 64 MiB Full/Smart 五次矩阵（Balanced、Strict），以及

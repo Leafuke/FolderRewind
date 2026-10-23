@@ -29,6 +29,7 @@ internal static class HistoryQuickRestoreExecution
         {
             restore.ExistingOperation = operation;
             await restore.RecoverInsideConfigurationAsync(operation, token).ConfigureAwait(false);
+            using var preparationInputs = restore.EnterPreparationInputs(operation);
             _ = await restore.RequireExpectedWorkspaceAsync(workspace, token).ConfigureAwait(false);
             using var current = requiresCurrentInput ? new HistoryWorkingTreeReadLease(binding) : null;
             using var preparation = restore.CreatePreparationSession([binding], workspace);
@@ -40,6 +41,7 @@ internal static class HistoryQuickRestoreExecution
                 mode == HistoryRestoreApplyMode.Clean ? MaterializationFidelity.Exact : MaterializationFidelity.Partial,
                 mode, token, preparation).ConfigureAwait(false);
             prepared = await restore.PrepareOrdinaryRestoreAsync(prepared, token).ConfigureAwait(false);
+            restore.InvalidatePreparationInputs();
             preparation?.RecordPrepared(binding.SourceId);
             var baseline = workspace.GetSourceState(binding.SourceId);
             bool canCompare = mode == HistoryRestoreApplyMode.Clean && prepared.Fidelity == MaterializationFidelity.Exact

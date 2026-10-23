@@ -15,6 +15,7 @@ internal static class HistoryRestoreMutationPlanner
         IReadOnlyList<HistoryRestoreService.PreparedRestoreSource> sources, bool allowDirectorySwap, bool protectCurrentFiles = false,
         IReadOnlySet<SourceId>? unchangedTargets = null)
     {
+        using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("mutation-plan-build");
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Restore mutation planning requires Windows NTFS.");
         session.ValidateBindings();
         var objects = new Dictionary<string, RestorePlanObject>(StringComparer.OrdinalIgnoreCase);
@@ -33,12 +34,13 @@ internal static class HistoryRestoreMutationPlanner
             {
                 // 一致证据仍被持有时，同一版本只需提交分支状态，无需替换相同文件。
                 var entries = new HistoryRestoreTreeScope(source.Binding).Enumerate(target, includeExcluded: true).ToArray();
+                var entryIndex = Index(entries.Select(e => e.RelativePath));
                 foreach (var entry in entries.Where(e => e.Managed)) AddPath(entry.FullPath);
                 AddPath(target);
                 foreach (var item in HistoryRestoreFileSystemPlanStore.CaptureTree(location.Container)) Add(item);
                 evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
                     entries.Where(e => e.Managed && !e.Directory).Select(e => e.RelativePath).ToArray(),
-                    entries.Where(e => e.Managed && e.Directory && !entries.Any(c => Under(c.RelativePath, e.RelativePath)))
+                    entries.Where(e => e.Managed && e.Directory && !entryIndex.HasDescendants(e.RelativePath))
                         .Select(e => e.RelativePath).ToArray(), source.Binding.ComparisonRoot));
                 Services.HistoryOperationDiagnostics.Current?.Count("unchanged-target-sources");
                 continue;
@@ -91,9 +93,10 @@ internal static class HistoryRestoreMutationPlanner
             if (swap)
             {
                 var stageTree = containerTree.Where(item => item.Path.StartsWith(staging + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)).ToArray();
+                var stageIndex = Index(stageTree.Select(item => Path.GetRelativePath(staging, item.Path).Replace('\\', '/')));
                 evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
                     stageTree.Where(item => !item.Identity.Directory).Select(item => Path.GetRelativePath(staging, item.Path).Replace('\\', '/')).ToArray(),
-                    stageTree.Where(item => item.Identity.Directory && !stageTree.Any(child => child.Path.StartsWith(item.Path + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+                    stageTree.Where(item => item.Identity.Directory && !stageIndex.HasDescendants(Path.GetRelativePath(staging, item.Path).Replace('\\', '/')))
                         .Select(item => Path.GetRelativePath(staging, item.Path).Replace('\\', '/')).ToArray(), source.Binding.ComparisonRoot));
             }
             session.RecordPrepared(source.Binding.SourceId);
@@ -115,6 +118,10 @@ internal static class HistoryRestoreMutationPlanner
             var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(source.Binding);
             var stage = Scan(source.StagingDirectory, source.Binding);
             var current = Directory.Exists(target) ? Scan(target, source.Binding) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            var currentIndex = new RestorePathIndex<bool>();
+            var excluded = new RestorePathIndex<bool>();
+            foreach (var pair in current)
+            { currentIndex.Set(pair.Key, pair.Value); if (!include(pair.Key)) excluded.Set(pair.Key, pair.Value); }
             if (Directory.Exists(target))
             {
                 new DirectoryInfo(source.StagingDirectory).SetAccessControl(new DirectoryInfo(target).GetAccessControl(AccessControlSections.Access));
@@ -134,6 +141,7 @@ internal static class HistoryRestoreMutationPlanner
             }
             var parentIds = new Dictionary<string, RestoreObjectIdentity>(StringComparer.OrdinalIgnoreCase);
             var retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var retiredDirectories = new RestorePathIndex<bool>();
             var rollback = Path.Combine(container, "rollback-items");
             var rollbackRoot = WindowsRestoreFileSystem.CreateDirectoryNew(rollback, workspace.ContainerIdentity!); rollbackRoot.Handle.Dispose();
             var newDirs = Path.Combine(container, "new-directories");
@@ -148,14 +156,14 @@ internal static class HistoryRestoreMutationPlanner
             }
             foreach (var path in stagedFiles.Where(path => current.TryGetValue(path, out var dir) && dir).OrderBy(path => path.Count(c => c == '/')))
             {
-                if (current.Any(pair => Under(pair.Key, path) && !include(pair.Key)))
+                if (excluded.HasDescendants(path))
                     throw new IOException("Restore file conflicts with a directory containing boundary-excluded data.");
                 Retire(path, directory: true);
             }
             foreach (var path in neededDirs.OrderBy(path => path.Count(c => c == '/')).ThenBy(path => path.Length))
             {
                 if (parentIds.ContainsKey(path)) continue;
-                if (current.TryGetValue(path, out var directory) && directory && !retired.Any(old => path == old || Under(path, old)))
+                if (current.TryGetValue(path, out var directory) && directory && !IsRetired(path))
                 { var actual = Path.Combine(target, path.Replace('/', Path.DirectorySeparatorChar)); parentIds[path] = WindowsRestoreFileSystem.Identity(actual); AddPath(actual); continue; }
                 var temporary = Path.Combine(newDirs, "d-" + parentIds.Count);
                 var created = WindowsRestoreFileSystem.CreateDirectoryNew(temporary, newDirsRoot.Identity); created.Handle.Dispose();
@@ -169,7 +177,7 @@ internal static class HistoryRestoreMutationPlanner
             foreach (var pair in current.Where(pair => !pair.Value && (stagedFiles.Contains(pair.Key)
                     || source.ApplyMode == HistoryRestoreApplyMode.Clean && include(pair.Key) && !stagedFiles.Contains(pair.Key)))
                 .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
-                if (!retired.Any(old => pair.Key == old || Under(pair.Key, old))) Retire(pair.Key, directory: false);
+                if (!IsRetired(pair.Key)) Retire(pair.Key, directory: false);
             foreach (var path in stagedFiles.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
             {
                 var from = Path.Combine(source.StagingDirectory, path.Replace('/', Path.DirectorySeparatorChar));
@@ -179,24 +187,24 @@ internal static class HistoryRestoreMutationPlanner
             if (source.ApplyMode == HistoryRestoreApplyMode.Clean)
                 foreach (var path in current.Where(pair => pair.Value && include(pair.Key) && !neededDirs.Contains(pair.Key))
                     .Select(pair => pair.Key).OrderByDescending(path => path.Length))
-                    if (!retired.Any(old => path == old || Under(path, old))
-                        && !current.Any(pair => Under(pair.Key, path) && !include(pair.Key)))
+                    if (!IsRetired(path) && !excluded.HasDescendants(path))
                         Retire(path, directory: true, empty: true);
 
             var finalEntries = new Dictionary<string, bool>(current, StringComparer.OrdinalIgnoreCase);
-            foreach (var path in current.Keys.Where(path => retired.Any(old => path == old || Under(path, old)))) finalEntries.Remove(path);
+            foreach (var path in current.Keys.Where(IsRetired)) finalEntries.Remove(path);
             foreach (var directory in neededDirs.Where(path => path.Length > 0)) finalEntries[directory] = true;
             foreach (var file in stagedFiles) finalEntries[file] = false;
+            var finalIndex = Index(finalEntries.Keys);
             evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
                 finalEntries.Where(pair => !pair.Value && include(pair.Key)).Select(pair => pair.Key).ToArray(),
-                finalEntries.Where(pair => pair.Value && include(pair.Key) && !finalEntries.Keys.Any(child => Under(child, pair.Key)))
+                finalEntries.Where(pair => pair.Value && include(pair.Key) && !finalIndex.HasDescendants(pair.Key))
                     .Select(pair => pair.Key).ToArray(), source.Binding.ComparisonRoot));
 
             void Retire(string relative, bool directory, bool empty = false)
             {
                 if (directory && !empty && protectCurrentFiles)
                 {
-                    foreach (var child in current.Where(p => Under(p.Key, relative)).OrderByDescending(p => p.Key.Length))
+                    foreach (var child in currentIndex.EntriesUnder(relative).OrderByDescending(p => p.Key.Length))
                         Retire(child.Key, child.Value, empty: child.Value);
                     empty = true;
                 }
@@ -209,7 +217,9 @@ internal static class HistoryRestoreMutationPlanner
                 var to = Path.Combine(rollback, "old-" + actions.Count);
                 Move(source.Binding.SourceId, from, to, identity, WindowsRestoreFileSystem.Identity(parent), rollbackRoot.Identity, empty);
                 retired.Add(relative);
+                if (directory) retiredDirectories.Set(relative, true);
             }
+            bool IsRetired(string path) => retired.Contains(path) || retiredDirectories.HasAncestor(path);
         }
     }
     private static Dictionary<string, bool> Scan(string root, HistoryRestoreSourceBinding binding)
@@ -221,5 +231,10 @@ internal static class HistoryRestoreMutationPlanner
         return entries;
     }
     private static string Parent(string path) => path.LastIndexOf('/') is var index && index >= 0 ? path[..index] : "";
-    private static bool Under(string path, string parent) => path.StartsWith(parent + "/", StringComparison.OrdinalIgnoreCase);
+    private static RestorePathIndex<bool> Index(IEnumerable<string> paths)
+    {
+        var index = new RestorePathIndex<bool>();
+        foreach (var path in paths) index.Set(path, true);
+        return index;
+    }
 }

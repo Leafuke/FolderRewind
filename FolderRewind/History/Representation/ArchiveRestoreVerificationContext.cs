@@ -30,6 +30,9 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
         Services.ArchiveSafeListing? Listing, IArchiveRestorePreflightBackend Backend);
     private readonly Dictionary<RepresentationId, Input> _inputs = [];
     private readonly Dictionary<string, IDisposable> _space = new(StringComparer.OrdinalIgnoreCase);
+    private sealed record OwnerPlanInput(RepresentationId Id, string Path, Services.ArchiveSafeListing Listing, object Policy);
+    private sealed record OwnerPlanEntry(string Marker, OwnerPlanInput[] Inputs, Services.NativeSmartOwnerPlan? Plan, string Fallback);
+    private readonly List<OwnerPlanEntry> _ownerPlans = [];
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
     public RestoreArchivePreflightMode Mode { get; } = Enum.IsDefined(mode) ? mode : throw new ArgumentOutOfRangeException(nameof(mode));
@@ -107,6 +110,26 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
         _space.Add(path, budget.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(path, bytes)));
         Services.HistoryOperationDiagnostics.Current?.Count("restore-space-reserved", bytes);
     }
+    internal Services.NativeSmartOwnerPlan? GetOwnerPlan(IReadOnlyList<ArchiveMaterializationInput> inputs,
+        string marker, out string fallback)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        // RequireListing checks the full immutable representation and protected path on every reuse.
+        var identities = inputs.Select(input => new OwnerPlanInput(input.Representation.RepresentationId,
+            Path.GetFullPath(input.LocalPath), RequireListing(input), _inputs[input.Representation.RepresentationId].PolicyIdentity)).ToArray();
+        foreach (var cached in _ownerPlans)
+        {
+            if (cached.Marker != marker || cached.Inputs.Length != identities.Length) continue;
+            if (!cached.Inputs.Zip(identities).All(pair => pair.First.Id == pair.Second.Id
+                && StringComparer.OrdinalIgnoreCase.Equals(pair.First.Path, pair.Second.Path)
+                && ReferenceEquals(pair.First.Listing, pair.Second.Listing) && Equals(pair.First.Policy, pair.Second.Policy))) continue;
+            Services.HistoryOperationDiagnostics.Current?.Count("smart-owner-plan-reuses");
+            fallback = cached.Fallback; return cached.Plan;
+        }
+        var plan = Services.NativeSmartOwnerPlanner.TryPlan(inputs, identities.Select(i => i.Listing).ToArray(), marker, out fallback);
+        _ownerPlans.Add(new(marker, identities, plan, fallback));
+        return plan;
+    }
     internal bool HasMaterializationSpace(string staging) => _space.ContainsKey(Path.GetFullPath(staging));
     internal void ReleaseMaterializationSpace(string staging)
     {
@@ -118,6 +141,6 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
         foreach (var reservation in _space.Values) reservation.Dispose();
         _space.Clear();
         foreach (var input in _inputs.Values) { input.Stream.Dispose(); input.Parents.Dispose(); }
-        _inputs.Clear(); _gate.Dispose();
+        _inputs.Clear(); _ownerPlans.Clear(); _gate.Dispose();
     }
 }

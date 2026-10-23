@@ -13,6 +13,41 @@ namespace FolderRewind.History.Application;
 
 public sealed partial class HistoryRestoreService
 {
+    private PreparationInputs? _preparationInputs;
+    internal Func<IReadOnlyList<VersionRepresentation>, CancellationToken, Task<IRepresentationEnvironment>>? PreparationEnvironmentFactory { get; init; }
+    private sealed class PreparationInputs(Services.NativeHistoryConfigurationOperationGate.Lease operation)
+    {
+        internal Services.NativeHistoryConfigurationOperationGate.Lease Operation { get; } = operation;
+        internal (IReadOnlyList<VersionRepresentation> Graph, IRepresentationEnvironment Environment)? Value;
+    }
+    internal IDisposable? EnterPreparationInputs(Services.NativeHistoryConfigurationOperationGate.Lease operation)
+    {
+        operation.Require(_history.ConfigId);
+        if (ReferenceEquals(_preparationInputs?.Operation, operation)) return null;
+        var previous = _preparationInputs;
+        var current = _preparationInputs = new(operation);
+        return new PreparationInputScope(this, current, previous);
+    }
+    private sealed class PreparationInputScope(HistoryRestoreService restore, PreparationInputs current, PreparationInputs? previous) : IDisposable
+    {
+        public void Dispose()
+        { current.Value = null; if (ReferenceEquals(restore._preparationInputs, current)) restore._preparationInputs = previous; }
+    }
+    internal void InvalidatePreparationInputs() { if (_preparationInputs is { } inputs) inputs.Value = null; }
+    private async Task<(IReadOnlyList<VersionRepresentation> Graph, IRepresentationEnvironment Environment)> GetPreparationInputsAsync(CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var inputs = _preparationInputs;
+        inputs?.Operation.Require(_history.ConfigId);
+        if (inputs?.Value is { } cached)
+        { Services.HistoryOperationDiagnostics.Current?.Count("restore-input-snapshot-reuses"); return cached; }
+        using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("restore-input-snapshot-load");
+        var graph = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
+        var environment = await (PreparationEnvironmentFactory is { } factory ? factory(graph, token) : _environmentFactory(token)).ConfigureAwait(false);
+        Services.HistoryOperationDiagnostics.Current?.Count("restore-input-snapshot-loads");
+        if (inputs is not null) inputs.Value = (graph, environment);
+        return (graph, environment);
+    }
     internal ArtifactSpaceBudget SpaceBudget { get; init; } = ArtifactSpaceBudget.Shared;
     private IDisposable EnterCurrentInputScope(IEnumerable<HistoryRestoreSourceBinding> bindings) => new CurrentInputScope(this, bindings);
     private sealed class CurrentInputScope : IDisposable
@@ -58,12 +93,12 @@ public sealed partial class HistoryRestoreService
         HistoryRestorePreparationSession? session, CancellationToken token)
     {
         if (session is null || VerificationContext is not { } context) return;
-        var graph = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
-        var environment = await _environmentFactory(token).ConfigureAwait(false);
+        var (graph, environment) = await GetPreparationInputsAsync(token).ConfigureAwait(false);
         foreach (var selection in selections)
         {
             var assessment = await _representations.AssessVersionAsync(selection.Version.VersionId, graph, environment,
-                AssessmentDepth.Deep, selection.Fidelity, token, context).ConfigureAwait(false);
+                _representations.CanPrepareNativeInline(selection.Version, graph) ? AssessmentDepth.Fast : AssessmentDepth.Deep,
+                selection.Fidelity, token, context).ConfigureAwait(false);
             if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
                 throw new IOException(HistoryQuickRestoreResolver.AssessmentDiagnostic(assessment, "Restore input is unavailable."));
             var staging = Path.Combine(session.Journal.Workspaces.Single(w => w.Location.SourceId == selection.Binding.SourceId).Location.Container, "staging");

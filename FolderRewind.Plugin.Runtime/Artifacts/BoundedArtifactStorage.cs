@@ -5,11 +5,13 @@ using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Plugin.Runtime.Artifacts;
 
-public sealed class HostArtifactReadService : IArtifactReadService
+public sealed class HostArtifactReadService : IArtifactReadService, IAsyncDisposable
 {
     private readonly IReadOnlyDictionary<ArtifactContentHandle, string> _roots;
     private readonly IReadOnlySet<string>? _allowedPaths;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<ArtifactContentHandle, IReadOnlyList<ArtifactFileEntry>> _inventories = new();
+    private readonly IReadOnlyDictionary<ArtifactContentHandle, VerifiedArtifactContent> _verified = new Dictionary<ArtifactContentHandle, VerifiedArtifactContent>();
+    private bool _disposed;
 
     public HostArtifactReadService(IReadOnlyDictionary<ArtifactContentHandle, string> roots, IReadOnlySet<string>? allowedPaths = null)
     {
@@ -20,12 +22,36 @@ public sealed class HostArtifactReadService : IArtifactReadService
             throw new ArgumentException("A changes-only view requires one directory root.");
     }
 
+    private HostArtifactReadService(IReadOnlyDictionary<ArtifactContentHandle, string> roots,
+        IReadOnlyDictionary<ArtifactContentHandle, VerifiedArtifactContent> verified) : this(roots)
+    {
+        _verified = verified.ToDictionary(p => p.Key, p => p.Value);
+        foreach (var pair in _verified)
+        {
+            pair.Value.RequireRoot(RequireRoot(pair.Key));
+            _inventories.TryAdd(pair.Key, pair.Value.Files);
+        }
+    }
+    internal static HostArtifactReadService FromVerified(IReadOnlyDictionary<ArtifactContentHandle, string> roots,
+        IReadOnlyDictionary<ArtifactContentHandle, VerifiedArtifactContent> verified) => new(roots, verified);
+
+    public ValueTask DisposeAsync()
+    {
+        if (_disposed) return ValueTask.CompletedTask;
+        _disposed = true;
+        foreach (var proof in _verified.Values) proof.Dispose();
+        _inventories.Clear();
+        return ValueTask.CompletedTask;
+    }
+
     public ValueTask<IReadOnlyList<ArtifactFileEntry>> ListFilesAsync(
         ArtifactContentHandle content,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var root = RequireRoot(content);
+        if (_verified.TryGetValue(content, out var proof)) proof.RequireRoot(root);
         if (_inventories.TryGetValue(content, out var cached)) return ValueTask.FromResult(cached);
         using var stage = ArtifactDiagnostics.Source.StartActivity("inventory.hash");
         if (File.Exists(root))
@@ -62,7 +88,9 @@ public sealed class HostArtifactReadService : IArtifactReadService
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var root = RequireRoot(content);
+        if (_verified.TryGetValue(content, out var proof)) { proof.RequireRoot(root); proof.RequireFile(relativePath); }
         if (_allowedPaths is not null && !_allowedPaths.Contains(ArtifactPathRules.NormalizeRelativePath(relativePath)))
             throw new FileNotFoundException("Path is outside the declared capture input.", relativePath);
         if (File.Exists(root))

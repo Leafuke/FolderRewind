@@ -134,6 +134,17 @@ public sealed class RepresentationRuntime
             cancellationToken).ConfigureAwait(false);
     }
 
+    // Restore-only eligibility. Explicit Deep assessment and multi-candidate selection retain their contracts.
+    internal bool CanPrepareNativeInline(SourceVersion version, IReadOnlyList<VersionRepresentation> representations)
+    {
+        if (version.BoundaryConfidence != HistoricalBoundaryConfidence.Known) return false;
+        VersionRepresentation? only = null;
+        foreach (var representation in representations.Where(r => r.VersionId == version.VersionId))
+        { if (only is not null) return false; only = representation; }
+        return only is not null && only.DependencyRepresentationIds.IsEmpty && NativePluginArtifactBackend.IsSupported(only)
+            && ResolveHandler(only) is IInlineVerifiedMaterializer verifier && verifier.CanVerifyDuringMaterialization(only);
+    }
+
     internal Task<RepresentationReadLease> LockExactVersionAsync(VersionId versionId,
         IReadOnlyList<VersionRepresentation> representations, IRepresentationEnvironment environment, CancellationToken token,
         ArchiveRestoreVerificationContext? verification = null)

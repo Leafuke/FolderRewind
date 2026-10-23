@@ -25,6 +25,18 @@ internal sealed record RestoreSourcePlanEvidence(SourceId Source, VersionId Vers
     string? LogicalTarget = null);
 internal sealed record RestorePlanProof(string Path, long Length, string Sha256);
 
+/// <summary>仅复用不可变计划的计算结果；每次验证仍重新读取磁盘身份。</summary>
+internal sealed class RestorePlanLocations(HistoryRestoreFileSystemPlan plan)
+{
+    private IReadOnlyDictionary<string, RestorePlanObject>? _initial, _final;
+    internal IReadOnlyDictionary<string, RestorePlanObject> Get(HistoryRestoreFileSystemPlan value, bool applied)
+    {
+        if (!ReferenceEquals(plan, value)) throw new InvalidOperationException("Restore location cache belongs to another plan.");
+        if (applied) return _final ??= new System.Collections.ObjectModel.ReadOnlyDictionary<string, RestorePlanObject>(HistoryRestoreFileSystemPlanStore.FinalLocations(plan, true));
+        return _initial ??= new System.Collections.ObjectModel.ReadOnlyDictionary<string, RestorePlanObject>(HistoryRestoreFileSystemPlanStore.FinalLocations(plan, false));
+    }
+}
+
 /// <summary>不可变意图与线性进度。恢复方向由 Workspace/Pack 判定，进度只作经过校验的提示。</summary>
 internal static class HistoryRestoreFileSystemPlanStore
 {
@@ -89,8 +101,10 @@ internal static class HistoryRestoreFileSystemPlanStore
             if (!locations.TryAdd(path, item with { Path = path })) throw new InvalidDataException("Restore plan has a location collision.");
         }
     }
-    internal static IDisposable Execute(HistoryRestoreFileSystemPlan plan, string progressPath, CancellationToken token)
+    internal static IDisposable Execute(HistoryRestoreFileSystemPlan plan, string progressPath, CancellationToken token,
+        RestorePlanLocations? locations = null)
     {
+        locations ??= new(plan);
         using var stableParents = ProtectExternalParents(plan);
         var parents = ProtectStableMoveParents(plan);
         bool transferred = false;
@@ -99,7 +113,7 @@ internal static class HistoryRestoreFileSystemPlanStore
         // Windows 禁止移动有已打开子项的非空目录。目录动作由原语持有根/父目录句柄，
         // 成员身份在移动前后复核；移动后再为成员建立写入保护，不关闭已取得的文件保护去强行交换。
         var directoryMoves = plan.Actions.Where(action => action.Identity.Directory).ToArray();
-        using var inputReads = ReadLease.Acquire(FinalLocations(plan, false).Values.Where(item =>
+        using var inputReads = ReadLease.Acquire(locations.Get(plan, false).Values.Where(item =>
             !directoryMoves.Any(action => item.Path.StartsWith(action.From + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))), allowRename: true);
         using var movedReads = new CompositeLease();
         using var progress = new RestoreActionProgress(progressPath, plan);
@@ -126,9 +140,9 @@ internal static class HistoryRestoreFileSystemPlanStore
             progress.Append(action.ActionId);
         }
         progress.Flush();
-        ValidateFinal(plan, true);
+        ValidateFinal(plan, true, locations);
         var committedReads = new CompositeLease();
-        committedReads.Add(ReadLease.Acquire(FinalLocations(plan, true).Values, allowRename: false));
+        committedReads.Add(ReadLease.Acquire(locations.Get(plan, true).Values, allowRename: false));
         committedReads.Add(parents); transferred = true;
         return committedReads;
         }
@@ -142,6 +156,7 @@ internal static class HistoryRestoreFileSystemPlanStore
     }
     private static void ApplyPublishedSecurity(RestoreMoveAction action, bool ancestorsProtected)
     {
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("restore-published-security");
         if (!action.ResetPublishedInheritance && action.PublishedRootSecurity is null) return;
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Restore security requires Windows.");
         using var parents = !ancestorsProtected || action.Identity.Directory
@@ -263,15 +278,20 @@ internal static class HistoryRestoreFileSystemPlanStore
             Reach("after-cleanup-object");
         }
     }
-    internal static void ValidateFinal(HistoryRestoreFileSystemPlan plan, bool applied)
+    internal static void ValidateFinal(HistoryRestoreFileSystemPlan plan, bool applied, RestorePlanLocations? locations = null)
     {
-        foreach (var item in FinalLocations(plan, applied).Values)
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("restore-identity-validation");
+        foreach (var item in (locations?.Get(plan, applied) ?? FinalLocations(plan, applied)).Values)
+        {
+            HistoryOperationDiagnostics.Current?.Count("restore-identity-checks");
             if (WindowsRestoreFileSystem.TryIdentity(item.Path) != item.Identity) throw new IOException("Restore final object identities disagree with the plan.");
+        }
     }
-    internal static void ValidatePublished(HistoryRestoreFileSystemPlan plan)
+    internal static void ValidatePublished(HistoryRestoreFileSystemPlan plan, RestorePlanLocations? locations = null)
     {
         using var timing = HistoryOperationDiagnostics.Current?.Measure("published-state-check");
-        ValidateOutsideContainers(plan, true);
+        locations ??= new(plan);
+        ValidateOutsideContainers(plan, true, locations);
         foreach (var source in plan.Sources ?? [])
         {
             HistoryOperationDiagnostics.Current?.Count("published-tree-scans");
@@ -279,16 +299,18 @@ internal static class HistoryRestoreFileSystemPlanStore
             var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var empty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var entries = scope.Enumerate(source.Target, includeExcluded: true).ToArray();
+            var entryIndex = new RestorePathIndex<bool>();
+            foreach (var entry in entries) entryIndex.Set(entry.RelativePath, entry.Directory);
             foreach (var entry in entries.Where(e => e.Managed))
             {
                 if (!entry.Directory) files.Add(entry.RelativePath);
-                else if (!entries.Any(child => child.RelativePath.StartsWith(entry.RelativePath + "/", StringComparison.OrdinalIgnoreCase)))
+                else if (!entryIndex.HasDescendants(entry.RelativePath))
                     empty.Add(entry.RelativePath);
             }
             if (!files.SetEquals(source.Files) || !empty.SetEquals(source.EmptyDirectories))
                 throw new IOException("Published managed paths changed outside the restore plan.");
         }
-        var expected = FinalLocations(plan, true);
+        var expected = locations.Get(plan, true);
         bool InContainer(string path) => plan.Containers.Any(root => path.Equals(root, StringComparison.OrdinalIgnoreCase)
             || path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
         foreach (var action in plan.Actions.Where(action => action.Identity.Directory && InContainer(action.From) && !InContainer(action.To)))
@@ -301,18 +323,23 @@ internal static class HistoryRestoreFileSystemPlanStore
                     throw new IOException("Published restore tree contains an external member.");
         }
     }
-    internal static void ValidateOutsideContainers(HistoryRestoreFileSystemPlan plan, bool applied)
+    internal static void ValidateOutsideContainers(HistoryRestoreFileSystemPlan plan, bool applied, RestorePlanLocations? locations = null)
     {
-        foreach (var item in FinalLocations(plan, applied).Values.Where(item => !plan.Containers.Any(root =>
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("restore-identity-validation");
+        foreach (var item in (locations?.Get(plan, applied) ?? FinalLocations(plan, applied)).Values.Where(item => !plan.Containers.Any(root =>
             item.Path.Equals(root, StringComparison.OrdinalIgnoreCase) || item.Path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))))
+        {
+            HistoryOperationDiagnostics.Current?.Count("restore-identity-checks");
             if (WindowsRestoreFileSystem.TryIdentity(item.Path) != item.Identity)
                 throw new IOException("Restore target identities changed; preserving rollback data.");
+        }
     }
     private sealed class ReadLease : IDisposable
     {
         private readonly List<FileStream> _files = [];
         internal static ReadLease Acquire(IEnumerable<RestorePlanObject> objects, bool allowRename)
         {
+            using var timing = HistoryOperationDiagnostics.Current?.Measure("restore-read-leases");
             var lease = new ReadLease();
             try
             {
@@ -321,6 +348,7 @@ internal static class HistoryRestoreFileSystemPlanStore
                     var file = new FileStream(item.Path, FileMode.Open, FileAccess.Read,
                         allowRename ? FileShare.Read | FileShare.Delete : FileShare.Read);
                     lease._files.Add(file);
+                    HistoryOperationDiagnostics.Current?.Count("restore-file-leases");
                     if (WindowsRestoreFileSystem.Identity(file.SafeFileHandle) != item.Identity)
                         throw new IOException("Restore prepared file identity changed.");
                 }

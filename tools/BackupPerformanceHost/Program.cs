@@ -26,7 +26,9 @@ internal static class Program
     private static void Main(string[] args)
     {
         Root = Path.GetFullPath(args[0]);
-        if (Directory.Exists(Root)) throw new InvalidOperationException("Benchmark requires a new isolated state directory.");
+        bool restoreExisting = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_SERVICE_PROBE") == "native-restore"
+            && File.Exists(Path.Combine(Root, "restore-benchmark-owner.json"));
+        if (Directory.Exists(Root) && !restoreExisting) throw new InvalidOperationException("Benchmark requires a new isolated state directory.");
         MiB = args.Length > 1 ? int.Parse(args[1]) : 8;
         Policy = args.Length > 2 ? args[2] : "Balanced";
         Quick = args.Length > 3 && args[3] == "quick";
@@ -75,6 +77,12 @@ internal static class Program
                     Environment.Exit(0);
                     return;
 #endif
+                }
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_SERVICE_PROBE") is { } restoreProbe)
+                {
+                    await RunRestoreServiceProbeAsync(restoreProbe);
+                    Environment.Exit(0);
+                    return;
                 }
                 if (Environment.GetEnvironmentVariable("FOLDERREWIND_ANALYSIS_PROBE") is { } probe)
                 {

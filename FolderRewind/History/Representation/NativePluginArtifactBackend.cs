@@ -95,10 +95,14 @@ public sealed class NativePluginArtifactBackend(PluginRuntimeManager plugins, Fu
             throw new InvalidDataException("Capture evidence binding mismatch.");
         // History normalizes GUID spelling; the immutable node retains the original plugin snapshot identity.
         var snapshot = binding.Config with { ConfigId = node.ConfigId };
-        await using var view = await provider.OpenFileViewAsync(new(snapshot, binding.Folder, evidence.VersionId,
+        ValueTask<IArtifactFileView> OpenView() => provider.OpenFileViewAsync(new(snapshot, binding.Folder, evidence.VersionId,
             new(root), read.Artifacts, read.Read), operation.Context);
-        if (destination is null) await evidence.VerifyViewAsync(view, token);
-        else await evidence.CopyViewToAsync(view, destination, token);
+        if (destination is null)
+        {
+            await using var view = await OpenView();
+            await evidence.VerifyViewAsync(view, token);
+        }
+        else await evidence.MaterializeViewToAsync(OpenView, destination, token);
         operation.Context.OperationCancellation.ThrowIfCancellationRequested();
     }
 

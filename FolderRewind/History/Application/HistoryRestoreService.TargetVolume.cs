@@ -39,15 +39,16 @@ public sealed partial class HistoryRestoreService
                 HoldCurrentReadProtection, UnchangedTargetSources);
             ValidateCurrentInputs?.Invoke();
             journal = session.Freeze(plan, expected, desired);
+            var locations = new RestorePlanLocations(plan);
             using (HistoryRestoreFileSystemPlanStore.Execute(plan,
-                Path.Combine(_journals.TransactionDirectory(journal.TransactionId), "restore-progress.bin"), token))
+                Path.Combine(_journals.TransactionDirectory(journal.TransactionId), "restore-progress.bin"), token, locations))
             {
-                HistoryRestoreFileSystemPlanStore.ValidatePublished(plan);
+                HistoryRestoreFileSystemPlanStore.ValidatePublished(plan, locations);
                 journal = journal with { Phase = HistoryRestoreTransactionPhase.WorkspaceApplying }; session.SetJournal(journal);
                 HistoryRestoreFileSystemPlanStore.Reach("before-workspace");
                 await _journals.CompleteLocalStateAsync(journal, token).ConfigureAwait(false);
                 HistoryRestoreFileSystemPlanStore.Reach("after-workspace");
-                HistoryRestoreFileSystemPlanStore.ValidatePublished(plan);
+                HistoryRestoreFileSystemPlanStore.ValidatePublished(plan, locations);
                 _journals.CompleteWithDeferredCleanup(journal, committed: true);
             }
             session.Finish();

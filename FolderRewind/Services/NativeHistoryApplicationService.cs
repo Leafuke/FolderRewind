@@ -453,6 +453,7 @@ internal static partial class NativeHistoryApplicationService
             FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token),
             ValidateVersionTarget = validateVersionTarget,
             VerificationContext = verificationContext,
+            PreparationEnvironmentFactory = (graph, token) => BuildPreparationEnvironmentAsync(runtime, graph, token),
             RestoreConfigurationSignature = string.Join("/", config.Id, config.ConfigRevision,
                 config.Archive.RestorePreflightMode, config.Archive.QuickRestoreSafetySnapshotEnabled, config.Archive.BackupBeforeRestore),
             UseTargetVolumeWorkspaces = ordinaryRestore || targetVolumeRestore,
@@ -469,20 +470,27 @@ internal static partial class NativeHistoryApplicationService
         HistoryRuntime runtime,
         CancellationToken cancellationToken)
     {
-        var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var representations = await runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
+        return await BuildPreparationEnvironmentAsync(runtime, representations, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<IRepresentationEnvironment> BuildPreparationEnvironmentAsync(HistoryRuntime runtime,
+        IReadOnlyList<VersionRepresentation> representations, CancellationToken cancellationToken)
+    {
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("restore-environment-load");
+        var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        var byRepresentation = (await runtime.Query.GetAllStorageReplicasAsync(cancellationToken).ConfigureAwait(false))
+            .ToLookup(replica => replica.RepresentationId);
+        var byReplica = (await runtime.Query.GetAllReplicaLifecycleUpdatesAsync(cancellationToken).ConfigureAwait(false))
+            .ToLookup(update => update.ReplicaId);
         var replicas = new List<StorageReplica>();
         var active = new List<ReplicaId>();
         foreach (var representation in representations)
         {
-            foreach (var replica in await runtime.Query.GetStorageReplicasAsync(
-                         representation.RepresentationId,
-                         cancellationToken).ConfigureAwait(false))
+            foreach (var replica in byRepresentation[representation.RepresentationId])
             {
                 replicas.Add(replica);
-                var updates = await runtime.Query.GetReplicaLifecycleUpdatesAsync(replica.ReplicaId, cancellationToken)
-                    .ConfigureAwait(false);
-                if (History.Cloud.HistoryCloudReplicaValidity.IsActive(updates))
+                if (History.Cloud.HistoryCloudReplicaValidity.IsActive(byReplica[replica.ReplicaId]))
                 {
                     active.Add(replica.ReplicaId);
                 }
@@ -548,6 +556,7 @@ internal static partial class NativeHistoryApplicationService
         HistoryRestoreResult result, NativeHistoryConfigurationOperationGate.Lease operation, string signature, CancellationToken token)
     {
         if (!result.Succeeded || result.AppliedSources.Count == 0) return result;
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("restore-baseline-sync");
         try
         {
             await using var guard = await NativeHistoryConfigLease.EnterInsideOperationAsync(config, signature, operation, token).ConfigureAwait(false);

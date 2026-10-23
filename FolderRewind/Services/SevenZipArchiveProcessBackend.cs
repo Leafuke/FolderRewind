@@ -151,7 +151,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
         ArchiveRestoreVerificationContext context, CancellationToken token)
     {
         var listings = inputs.Select(context.RequireListing).ToArray();
-        var plan = NativeSmartOwnerPlanner.TryPlan(inputs, listings, restoreMarkerDirectory, out var fallback);
+        var plan = context.GetOwnerPlan(inputs, restoreMarkerDirectory, out var fallback);
         long estimated = plan is null ? listings.Sum(listing => listing.Files.Values.Sum(file => file.Size)) : plan.Files.Values.Sum(file => file.File.Size);
         var volume = FolderRewind.History.Storage.WindowsRestoreFileSystem.RequireLocalNtfs(Path.GetDirectoryName(Path.GetFullPath(staging))!);
         using var space = context.HasMaterializationSpace(staging) ? null
@@ -208,7 +208,7 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
     public long EstimateMaterializationBytes(IReadOnlyList<ArchiveMaterializationInput> inputs, ArchiveRestoreVerificationContext context)
     {
         var listings = inputs.Select(context.RequireListing).ToArray();
-        var plan = NativeSmartOwnerPlanner.TryPlan(inputs, listings, restoreMarkerDirectory, out _);
+        var plan = context.GetOwnerPlan(inputs, restoreMarkerDirectory, out _);
         // 顺序/旧格式回退按所有中间输出的上界预算；可选择提取时只计最终所有者。
         long bytes = plan is null ? listings.Sum(l => l.Files.Values.Sum(f => f.Size)) : plan.Files.Values.Sum(f => f.File.Size);
         long entries = plan is null ? listings.Sum(l => (long)l.Files.Count + l.Directories.Count) : plan.Files.Count * 2L;

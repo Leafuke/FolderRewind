@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Representation;
 using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Runtime.Artifacts;
 
 namespace FolderRewind.Tests;
 
@@ -17,6 +18,40 @@ public sealed class IncrementalCaptureEvidenceTests
         files.ToImmutableSortedDictionary(f => f.RelativePath, f => new SourceCaptureFileState(f.Length, DateTime.UnixEpoch)), 1);
     private static ArtifactIncrementalInput Input(bool checkpoint = false, params string[] changed) => new(Guid.NewGuid(),
         ArtifactCaptureInputKind.ChangesOnly, "boundary", "size-mtime-v1", "base", "base-rep", new(Guid.NewGuid()), [], changed, [], checkpoint);
+
+    [TestMethod]
+    [DataRow("space")]
+    [DataRow("provider")]
+    [DataRow("bytes")]
+    [DataRow("cancel")]
+    public async Task PreparedViewReservesBeforeProviderAndReleasesResourcesOnFailure(string failure)
+    {
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "NativePreparedView", Guid.NewGuid().ToString("N"));
+        var evidence = Evidence(File("file", [1]));
+        long available = failure == "space" ? 0 : 1;
+        var budget = new ArtifactSpaceBudget(_ => new("test-volume", available));
+        using var cancellation = new CancellationTokenSource();
+        var view = new View([File("file", [1])], new() { ["file"] = failure == "bytes" ? [2] : [1] });
+        int opens = 0;
+        ValueTask<IArtifactFileView> Open()
+        {
+            opens++;
+            Assert.ThrowsExactly<IOException>(() => budget.Reserve(new ArtifactSpaceRequest(root, 1)));
+            if (failure == "provider") throw new InvalidOperationException("provider failure");
+            if (failure == "cancel") cancellation.Cancel();
+            return ValueTask.FromResult<IArtifactFileView>(view);
+        }
+        try
+        {
+            await Assert.ThrowsAsync<Exception>(() => evidence.MaterializeViewToAsync(Open, root, cancellation.Token, budget));
+            Assert.AreEqual(failure == "space" ? 0 : 1, opens);
+            Assert.AreEqual(failure is "bytes" or "cancel", view.Disposed);
+            if (failure is "space" or "provider" or "cancel") Assert.IsFalse(Directory.Exists(root));
+            available = 1;
+            using var afterFailure = budget.Reserve(new ArtifactSpaceRequest(root, 1));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
 
     [TestMethod]
     public async Task InheritedRecipeIsNotOpenedButChangedBytesAreIndependentlyChecked()
@@ -105,9 +140,10 @@ public sealed class IncrementalCaptureEvidenceTests
     {
         public Dictionary<string, byte[]> Bytes => bytes;
         public List<string> Opened { get; } = [];
+        public bool Disposed { get; private set; }
         public IReadOnlyList<ArtifactMaterializedFile> Files => files;
         public ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken token)
         { token.ThrowIfCancellationRequested(); Opened.Add(relativePath); return ValueTask.FromResult<Stream>(new MemoryStream(bytes[relativePath], false)); }
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
     }
 }

@@ -102,6 +102,7 @@ public sealed partial class HistoryRestoreService
             ? await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false) : null;
         var operation = ExistingOperation ?? ownedOperation!;
         await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
+        using var preparationInputs = EnterPreparationInputs(operation);
         if (selections.Count == 0 || mappedSources.Count != selections.Count
             || mappedSources.Select(b => b.SourceId).Distinct().Count() != mappedSources.Count
             || !mappedSources.Select(b => b.SourceId).ToHashSet().SetEquals(selections.Keys)
@@ -137,6 +138,7 @@ public sealed partial class HistoryRestoreService
             }
             for (int i = 0; i < prepared.Count; i++)
                 prepared[i] = await PrepareOrdinaryRestoreAsync(prepared[i], cancellationToken).ConfigureAwait(false);
+            InvalidatePreparationInputs();
             if (ProtectCurrentWorkInsideOperation is { } protect)
             {
                 session?.ValidateBindings();
@@ -188,6 +190,7 @@ public sealed partial class HistoryRestoreService
             ? await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false) : null;
         var operation = ExistingOperation ?? ownedOperation!;
         await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
+        using var preparationInputs = EnterPreparationInputs(operation);
         var version = await _history.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
         if (version is null || version.SourceId != source.SourceId)
             return Blocked("Version does not exist or belongs to another Source.");
@@ -214,6 +217,7 @@ public sealed partial class HistoryRestoreService
                 effectiveMode,
                 cancellationToken, session).ConfigureAwait(false);
             prepared = await PrepareOrdinaryRestoreAsync(prepared, cancellationToken).ConfigureAwait(false);
+            InvalidatePreparationInputs();
             if (ProtectCurrentWorkInsideOperation is { } protect && ReusablePreparation is null)
             {
                 session?.ValidateBindings();
@@ -291,13 +295,13 @@ public sealed partial class HistoryRestoreService
         source = session?.BindSource(source) ?? source;
         if (applyMode == HistoryRestoreApplyMode.Clean)
             LegacyRecoveryPolicy.RequireKnownBoundary(version);
-        var allRepresentations = await _history.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
-        var environment = await _environmentFactory(cancellationToken).ConfigureAwait(false);
+        var (allRepresentations, environment) = await GetPreparationInputsAsync(cancellationToken).ConfigureAwait(false);
+        bool inlineNative = session is not null && _representations.CanPrepareNativeInline(version, allRepresentations);
         var assessment = await _representations.AssessVersionAsync(
             version.VersionId,
             allRepresentations,
             environment,
-            AssessmentDepth.Deep,
+            inlineNative ? AssessmentDepth.Fast : AssessmentDepth.Deep,
             requiredFidelity,
             cancellationToken, VerificationContext).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
@@ -321,6 +325,7 @@ public sealed partial class HistoryRestoreService
                 requiredFidelity,
                 staging,
                 cancellationToken, legacyRead?.VerificationContext ?? VerificationContext).ConfigureAwait(false);
+            if (inlineNative) Services.HistoryOperationDiagnostics.Current?.Count("native-inline-prepared-sources");
             session?.RecordPrepared(source.SourceId);
             return new PreparedRestoreSource(
                 source with { EffectiveSourceBoundary = version.EffectiveSourceBoundary },

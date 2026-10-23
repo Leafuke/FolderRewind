@@ -87,9 +87,30 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
 
     public async Task CopyViewToAsync(IArtifactFileView view, string directory, CancellationToken token)
     {
+        using var space = ReserveMaterializationSpace(directory, ArtifactSpaceBudget.Shared);
+        await CopyViewWithReservedSpaceAsync(view, directory, token);
+    }
+
+    // Reserve before invoking the provider; failure must not allocate a decoded file view.
+    internal async Task MaterializeViewToAsync(Func<ValueTask<IArtifactFileView>> openView, string directory,
+        CancellationToken token, ArtifactSpaceBudget? budget = null)
+    {
+        token.ThrowIfCancellationRequested();
+        using var space = ReserveMaterializationSpace(directory, budget ?? ArtifactSpaceBudget.Shared);
+        await using var view = await openView();
+        await CopyViewWithReservedSpaceAsync(view, directory, token);
+    }
+
+    private IDisposable ReserveMaterializationSpace(string directory, ArtifactSpaceBudget budget)
+    {
         SourceDirectorySnapshot.Validate(Directories, Files.Select(f => f.RelativePath));
-        using var space = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(directory,
+        return budget.Reserve(new ArtifactSpaceRequest(directory,
             checked(Files.Sum(f => f.Length) + Directories.Count * 4096L)));
+    }
+
+    private async Task CopyViewWithReservedSpaceAsync(IArtifactFileView view, string directory, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
         Directory.CreateDirectory(directory);
         foreach (var relative in Directories)
         {

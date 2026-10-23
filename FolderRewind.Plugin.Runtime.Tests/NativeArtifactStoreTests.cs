@@ -15,6 +15,80 @@ public sealed class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task LogicalMismatchOrCancellationReleasesDecodedProtectionAndAllowsRetry(bool cancel)
+    {
+        using var fixture = new Fixture();
+        var codec = new ZipCodec(2);
+        var (store, root) = await fixture.CaptureAsync(diamond: true, suppliedCodec: codec);
+        using var cancellation = new CancellationTokenSource();
+        codec.AfterUnpack = directory =>
+        {
+            if (cancel) cancellation.Cancel();
+            else
+            {
+                var file = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).First();
+                var bytes = File.ReadAllBytes(file); bytes[0] ^= 1; File.WriteAllBytes(file, bytes);
+            }
+        };
+        if (cancel) await Assert.ThrowsAsync<OperationCanceledException>(() => store.OpenAsync(root, cancellation.Token));
+        else await Assert.ThrowsExactlyAsync<InvalidDataException>(() => store.OpenAsync(root, default));
+        Assert.AreEqual(0, codec.Workers);
+        Assert.IsEmpty(Directory.GetDirectories(Path.Combine(store.Root, ".read")));
+        codec.AfterUnpack = null;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using var retry = await store.OpenAsync(root, timeout.Token);
+        Assert.HasCount(4, retry.Artifacts);
+        foreach (var artifact in retry.Artifacts) Assert.IsNotEmpty(await retry.Read.ListFilesAsync(artifact.Content, timeout.Token));
+    }
+
+    [TestMethod]
+    public async Task OpenedClosureReusesProtectedInventoryAndDisposalReleasesTheStore()
+    {
+        if (!OperatingSystem.IsWindows()) { Assert.Inconclusive("Windows file-sharing proof."); return; }
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        int inventoryHashes = 0, logicalHashes = 0;
+        using var listener = new System.Diagnostics.ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "FolderRewind.Artifacts",
+            Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) => System.Diagnostics.ActivitySamplingResult.AllData,
+            ActivityStopped = activity => {
+                if (activity.OperationName == "inventory.hash") Interlocked.Increment(ref inventoryHashes);
+                if (activity.OperationName == "logical.hash") Interlocked.Increment(ref logicalHashes);
+            }
+        };
+        System.Diagnostics.ActivitySource.AddActivityListener(listener);
+        await using (var read = await store.OpenAsync(root, default))
+        {
+            foreach (var artifact in read.Artifacts)
+            {
+                var files = await read.Read.ListFilesAsync(artifact.Content, default);
+                Assert.HasCount(1, files);
+                await using var content = await read.Read.OpenReadAsync(artifact.Content, files[0].RelativePath, default);
+                Assert.AreEqual(files[0].Sha256, Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(content)).ToLowerInvariant());
+            }
+            Assert.AreEqual(0, inventoryHashes); Assert.AreEqual(read.Artifacts.Count, logicalHashes);
+            var decoded = Directory.GetFiles(Path.Combine(store.Root, ".read"), "*", SearchOption.AllDirectories).First();
+            Assert.Throws<IOException>(() => File.WriteAllText(decoded, "changed"));
+            Assert.Throws<IOException>(() => File.Move(decoded, decoded + ".moved"));
+            var directory = Path.GetDirectoryName(decoded)!;
+            Assert.Throws<IOException>(() => Directory.Move(directory, directory + ".moved"));
+            var first = read.Artifacts[0];
+            var artifactDirectory = Path.Combine(Directory.GetDirectories(Path.Combine(store.Root, ".read")).Single(), first.ArtifactId.Value.ToString("N"));
+            var unverified = Path.Combine(artifactDirectory, "unverified.txt");
+            try { File.WriteAllText(unverified, "not part of the verified snapshot"); }
+            catch (IOException) { /* A filesystem may also reject adding children while directory protection is held. */ }
+            await Assert.ThrowsExactlyAsync<FileNotFoundException>(() => read.Read.OpenReadAsync(first.Content, "unverified.txt", default).AsTask());
+        }
+        Assert.IsEmpty(Directory.GetDirectories(Path.Combine(store.Root, ".read")));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using var again = await store.OpenAsync(root, timeout.Token);
+        Assert.HasCount(2, again.Artifacts);
+    }
+
+    [TestMethod]
     public async Task TinyMetadataClosureAcceptsTheNodeLimitAndRejectsTheNextNodeWithoutPayloadAllocation()
     {
         using var fixture = new Fixture();
@@ -446,6 +520,7 @@ public sealed class NativeArtifactStoreTests
         public int MaximumConcurrency => concurrency;
         public int Workers, PeakWorkers;
         public bool FailUnpack;
+        public Action<string>? AfterUnpack;
         private async Task Work(Action action, CancellationToken token)
         {
             var count = Interlocked.Increment(ref Workers);
@@ -466,6 +541,6 @@ public sealed class NativeArtifactStoreTests
         }
         public Task UnpackAsync(string payload, string target, bool encrypted, CancellationToken token)
             => Work(() => { if (FailUnpack) throw new InvalidDataException("Injected decoder failure.");
-                Interlocked.Increment(ref _unpacks); ZipFile.ExtractToDirectory(payload, target); }, token);
+                Interlocked.Increment(ref _unpacks); ZipFile.ExtractToDirectory(payload, target); AfterUnpack?.Invoke(target); }, token);
     }
 }
