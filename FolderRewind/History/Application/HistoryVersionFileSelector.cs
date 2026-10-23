@@ -13,7 +13,8 @@ public static class HistoryVersionFileSelector
     public const string InvalidReferenceError = "[history.invalid-version-reference]";
     public const string AmbiguousReferenceError = "[history.ambiguous-version-reference]";
     public const string AmbiguousFileNameError = "[history.ambiguous-backup-name]";
-    private const string VirtualPrefix = "frv_";
+    private const string VirtualPrefix = "[frv_]";
+    private const string LegacyVirtualPrefix = "frv_";
     private const string TimestampFormat = "yyyy-MM-dd_HH-mm-ss";
     private const string InvalidNameCharacters = "<>:\"/\\|?*;";
     private const int ShortIdLength = 12;
@@ -71,7 +72,8 @@ public static class HistoryVersionFileSelector
         if (literalMatches.Length > 1) throw new InvalidOperationException(AmbiguousFileNameError);
         if (!TryParseReference(fileName, out var idPrefix))
         {
-            if (literalMatches.Length == 0 && fileName.StartsWith(VirtualPrefix, StringComparison.OrdinalIgnoreCase))
+            if (literalMatches.Length == 0 && (fileName.StartsWith(VirtualPrefix, StringComparison.OrdinalIgnoreCase)
+                || fileName.StartsWith(LegacyVirtualPrefix, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException(InvalidReferenceError);
             return literalMatches.Length == 1 ? literalMatches[0] : null;
         }
@@ -90,6 +92,34 @@ public static class HistoryVersionFileSelector
     private static bool TryParseReference(string value, out string idPrefix)
     {
         idPrefix = string.Empty;
+        if (!IsSafeFileName(value)) return false;
+        if (!value.StartsWith(VirtualPrefix, StringComparison.OrdinalIgnoreCase))
+            return TryParseLegacyReference(value, out idPrefix);
+
+        // Match the existing mod's [type][timestamp]body [comment].7z/zip metadata grammar.
+        const int timestampStart = 7;
+        const int bodyStart = 27;
+        var extensionLength = value.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) ? 3
+            : value.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? 4 : 0;
+        if (extensionLength == 0 || value.Length < bodyStart + ShortIdLength + extensionLength
+            || value[6] != '[' || value[26] != ']'
+            || !DateTime.TryParseExact(value.AsSpan(timestampStart, 19), TimestampFormat, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out _)) return false;
+
+        var body = value.AsSpan(bodyStart, value.Length - bodyStart - extensionLength);
+        var commentStart = body.IndexOf(" [", StringComparison.Ordinal);
+        if (commentStart >= 0)
+        {
+            if (body[^1] != ']' || body.Slice(commentStart + 2, body.Length - commentStart - 3).IndexOfAny('[', ']') >= 0)
+                return false;
+            body = body[..commentStart];
+        }
+        return TryReadVersionId(body, out idPrefix);
+    }
+
+    private static bool TryParseLegacyReference(string value, out string idPrefix)
+    {
+        idPrefix = string.Empty;
         // frv_[timestamp]comment_[id]; only the final ID determines identity.
         if (value.Length < 40 || !value.StartsWith("frv_[", StringComparison.OrdinalIgnoreCase)
             || value[24] != ']' || !value.EndsWith(']') || !IsSafeFileName(value)
@@ -98,6 +128,12 @@ public static class HistoryVersionFileSelector
         var separator = value.LastIndexOf("_[", StringComparison.Ordinal);
         if (separator < 25 || value.AsSpan(25, separator - 25).IndexOfAny('[', ']') >= 0) return false;
         var id = value.AsSpan(separator + 2, value.Length - separator - 3);
+        return TryReadVersionId(id, out idPrefix);
+    }
+
+    private static bool TryReadVersionId(ReadOnlySpan<char> id, out string idPrefix)
+    {
+        idPrefix = string.Empty;
         if (id.Length is not ShortIdLength and not 32) return false;
         foreach (var character in id)
             if (!char.IsAsciiHexDigit(character)) return false;
@@ -106,7 +142,11 @@ public static class HistoryVersionFileSelector
     }
 
     private static string FormatReference(SourceVersion version, string comment, string id)
-        => $"{VirtualPrefix}[{version.CreatedAtUtc.ToLocalTime().ToString(TimestampFormat, CultureInfo.InvariantCulture)}]{SanitizeComment(comment)}_[{id}]";
+    {
+        var sanitizedComment = SanitizeComment(comment);
+        var commentPart = sanitizedComment.Length == 0 ? string.Empty : $" [{sanitizedComment}]";
+        return $"{VirtualPrefix}[{version.CreatedAtUtc.ToLocalTime().ToString(TimestampFormat, CultureInfo.InvariantCulture)}]{id}{commentPart}.7z";
+    }
 
     private static bool IsSafeFileName(string? value)
         => !string.IsNullOrWhiteSpace(value) && value is not "." and not ".."
