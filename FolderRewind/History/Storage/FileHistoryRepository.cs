@@ -194,6 +194,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
             {
                 // 所有跨 Pack 引用都在 existing ∪ staged 的候选视图中一次验证，
                 // 绝不按文件枚举顺序把合法 forward reference 判为损坏。
+                using var timing = FolderRewind.Services.HistoryOperationDiagnostics.Current?.Measure("history-pack-validate");
                 _validator.Validate(ConfigId, existing.Concat(newPacks));
             }
             catch (HistoryRepositoryException)
@@ -243,6 +244,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
     internal async Task<IReadOnlyList<HistoryPackReadResult>> ReadAllPacksInsideGateAsync(
         CancellationToken cancellationToken)
     {
+        using var timing = FolderRewind.Services.HistoryOperationDiagnostics.Current?.Measure("history-pack-read-decode");
         var results = new List<HistoryPackReadResult>();
         if (!Directory.Exists(Paths.PacksRoot))
         {

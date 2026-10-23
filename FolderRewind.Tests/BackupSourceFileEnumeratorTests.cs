@@ -123,4 +123,34 @@ public sealed class BackupSourceFileEnumeratorTests
             new BackupSourceScope(),
             cancellationToken: cancellation.Token));
     }
+
+    [TestMethod]
+    public void StreamingScanPreservesMetadataSelectionAndPublicOrdering()
+    {
+        var path = Path.Combine(_root, "Saves", "slot1.sav");
+        var stamp = new DateTime(2025, 4, 3, 2, 1, 0, DateTimeKind.Utc).AddTicks(1234567);
+        File.SetLastWriteTimeUtc(path, stamp);
+        var selected = new BackupSourceScope { Mode = BackupSourceScopeMode.Include, IncludePatterns = new() { "Saves/**" } };
+        var streamed = BackupSourceFileEnumerator.EnumerateUnordered(_root, selected).ToArray();
+        var sorted = BackupSourceFileEnumerator.Enumerate(_root, selected);
+        CollectionAssert.AreEqual(streamed.Select(f => f.RelativePath).Order(StringComparer.OrdinalIgnoreCase).ToArray(),
+            sorted.Select(f => f.RelativePath).ToArray());
+        foreach (var file in streamed)
+        {
+            var stat = new FileInfo(file.FullPath);
+            Assert.AreEqual(stat.Length, file.Size);
+            Assert.AreEqual(stat.LastWriteTimeUtc, file.LastWriteTimeUtc);
+        }
+        var observed = streamed.Single(f => f.RelativePath == "Saves/slot1.sav");
+        Assert.AreEqual(File.GetLastWriteTimeUtc(path), observed.LastWriteTimeUtc);
+    }
+
+    [TestMethod]
+    public void StreamingScanHonorsCancellationDuringEnumeration()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var iterator = BackupSourceFileEnumerator.EnumerateUnordered(_root, null, cancellationToken: cancellation.Token).GetEnumerator();
+        Assert.IsTrue(iterator.MoveNext()); cancellation.Cancel();
+        Assert.ThrowsExactly<OperationCanceledException>(() => iterator.MoveNext());
+    }
 }

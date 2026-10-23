@@ -74,7 +74,7 @@ public sealed class SourceCaptureBaselineCache : IDisposable
     public const long MissingRevision = -1;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
-        WriteIndented = true
+        WriteIndented = false
     };
     private readonly string _root;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -116,6 +116,7 @@ public sealed class SourceCaptureBaselineCache : IDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var timing = HistoryOperationDiagnostics.Current?.Measure("capture-baseline-save");
             var current = LoadInsideGate(sourceId);
             var currentRevision = current?.Revision ?? MissingRevision;
             if (currentRevision != candidate.ExpectedRevision)
@@ -181,16 +182,15 @@ public sealed class SourceCaptureBaselineCache : IDisposable
 
     private SourceCaptureBaseline? LoadInsideGate(SourceId sourceId)
     {
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("capture-baseline-load");
         var path = PathFor(sourceId);
         if (!File.Exists(path)) return null;
         try
         {
             if (new FileInfo(path).Length > 64L * 1024 * 1024) return null;
             var bytes = FolderRewind.Plugin.Runtime.Artifacts.ArtifactMetadataFile.ReadBytes(path, 64 * 1024 * 1024);
-            using var document = JsonDocument.Parse(bytes);
-            if (!document.RootElement.TryGetProperty("formatVersion", out var formatVersion)
-                || !formatVersion.TryGetInt32(out var parsedFormatVersion)
-                || parsedFormatVersion is not (2 or SourceCaptureBaseline.CurrentFormatVersion))
+            HistoryOperationDiagnostics.Current?.Count("capture-baseline-read-bytes", bytes.Length);
+            if (ReadFormatVersion(bytes) is not (2 or SourceCaptureBaseline.CurrentFormatVersion))
                 return null;
             var value = JsonSerializer.Deserialize<SourceCaptureBaseline>(bytes, JsonOptions);
             if (value is null
@@ -207,6 +207,25 @@ public sealed class SourceCaptureBaselineCache : IDisposable
             // This cache is only an optimization. Any unreadable state forces the next capture to Full.
             return null;
         }
+    }
+
+    // Check the envelope without retaining a second DOM for the full file-state table.
+    // JsonDocument.TryGetProperty used the last duplicate property; retain that behavior.
+    private static int? ReadFormatVersion(ReadOnlySpan<byte> bytes)
+    {
+        var reader = new Utf8JsonReader(bytes);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) return null;
+        int? version = null;
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+        {
+            if (reader.TokenType != JsonTokenType.PropertyName) return null;
+            bool isVersion = reader.ValueTextEquals("formatVersion"u8);
+            if (!reader.Read()) return null;
+            if (isVersion)
+                version = reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out var number) ? number : null;
+            reader.Skip();
+        }
+        return version;
     }
 
     private string PathFor(SourceId sourceId) => Path.Combine(_root, sourceId + ".json");

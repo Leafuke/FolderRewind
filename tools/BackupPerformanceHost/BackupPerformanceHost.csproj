@@ -23,6 +23,7 @@
     <DefineConstants>$(DefineConstants);FOLDERREWIND_BENCHMARK_ONLY</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../performance/CoreSmartAnalysisProbe.cs" Link="AnalysisProbe.cs" />
     <Compile Remove="StageTwoAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
     <Compile Remove="RestoreCoordinationAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
     <Page Remove="BenchApplication.xaml" />

@@ -76,6 +76,12 @@ internal static class Program
                     return;
 #endif
                 }
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_ANALYSIS_PROBE") is { } probe)
+                {
+                    await RunAnalysisProbeAsync(probe);
+                    Environment.Exit(0);
+                    return;
+                }
                 var source = Path.Combine(Root, "source"); Directory.CreateDirectory(source);
                 var block = new byte[1024 * 1024]; var random = new Random(719);
                 for (int i = 0; i < MiB; i++) { if (i % 2 == 0) random.NextBytes(block); else Array.Clear(block); await File.WriteAllBytesAsync(Path.Combine(source, $"data-{i:D5}.bin"), block); }

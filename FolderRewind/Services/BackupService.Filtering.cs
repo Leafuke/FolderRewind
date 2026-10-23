@@ -234,12 +234,13 @@ namespace FolderRewind.Services
             BackupSourceScope? selection = null)
         {
             using var stage = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.Source.StartActivity("source.scan");
+            using var timing = HistoryOperationDiagnostics.Current?.Measure("source-scan");
             // 预估容量以减少字典扩容开销
             var result = new Dictionary<string, SourceCaptureFileState>(1024, StringComparer.OrdinalIgnoreCase);
             var originalRoot = originalSourcePath ?? path;
             var matcher = CreateBackupMatcher(path, originalRoot, filters);
 
-            foreach (var file in BackupSourceFileEnumerator.Enumerate(
+            foreach (var file in BackupSourceFileEnumerator.EnumerateUnordered(
                          path,
                          selection,
                          candidate => ShouldIncludeInBackup(candidate, filters, matcher)))
@@ -253,7 +254,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    bool hasAnyFile = BackupSourceFileEnumerator.Enumerate(path, selection).Count > 0;
+                    bool hasAnyFile = BackupSourceFileEnumerator.EnumerateUnordered(path, selection).Any();
                     if (hasAnyFile)
                     {
                         Log($"[Filter][Warning] File state scan returned 0 items while source has files. Source={path}. Check blacklist rules for over-broad matches.", LogLevel.Warning);
@@ -265,6 +266,7 @@ namespace FolderRewind.Services
                 }
             }
 
+            HistoryOperationDiagnostics.Current?.Count("source-scan-files", result.Count);
             return result;
         }
 

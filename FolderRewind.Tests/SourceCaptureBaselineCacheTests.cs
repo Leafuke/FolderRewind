@@ -9,6 +9,46 @@ namespace FolderRewind.Tests;
 public sealed class SourceCaptureBaselineCacheTests
 {
     [TestMethod]
+    public async Task CompactCacheRetainsLegacyFormatChecksAndSaveRevisionFence()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "BaselineFormat", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var source = SourceId.New(); var version = VersionId.New();
+            var representation = new VersionRepresentation(RepresentationId.New(), version, RepresentationKind.CoreFull,
+                "7z", [], MaterializationFidelity.Exact, null, null, null);
+            var state = new SourceCaptureFileState(37, DateTime.UtcNow);
+            var files = ImmutableSortedDictionary<string, SourceCaptureFileState>.Empty.Add("nested/SAVE.dat", state);
+            var candidate = new SourceCaptureBaselineCandidate(-1, Path.Combine(root, "payload.7z"), 2, files, "boundary");
+            using var cache = new SourceCaptureBaselineCache(root);
+            await cache.SaveAsync(source, candidate, version, representation);
+            var path = Path.Combine(root, "capture-baselines", source + ".json");
+            var json = await File.ReadAllTextAsync(path);
+            var loaded = (await cache.LoadAsync(source))!;
+            Assert.AreEqual(state, loaded.FileStates["nested/SAVE.dat"]);
+            Assert.AreEqual("boundary", loaded.BoundaryFingerprint);
+            Assert.AreEqual(2, loaded.ConsecutiveSmartCaptures);
+
+            // Old indented format 2 is still accepted with identical state and revision.
+            var node = System.Text.Json.Nodes.JsonNode.Parse(json)!;
+            node["formatVersion"] = 2;
+            await File.WriteAllTextAsync(path, node.ToJsonString(new() { WriteIndented = true }));
+            Assert.AreEqual(state, (await cache.LoadAsync(source))!.FileStates["nested/SAVE.dat"]);
+            node["revision"] = 7;
+            await File.WriteAllTextAsync(path, node.ToJsonString());
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => cache.SaveAsync(source,
+                candidate with { ExpectedRevision = loaded.Revision }, version, representation));
+
+            // Last duplicate property wins, as with the former DOM envelope check.
+            await File.WriteAllTextAsync(path, json[..^1] + ",\"formatVersion\":99}");
+            Assert.IsNull(await cache.LoadAsync(source));
+            await File.WriteAllTextAsync(path, "{\"formatVersion\":99," + json[1..]);
+            Assert.IsNotNull(await cache.LoadAsync(source));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
     public async Task CorruptCacheIsDiscardedSoCaptureCanFallBackToFull()
     {
         var root = Path.Combine(

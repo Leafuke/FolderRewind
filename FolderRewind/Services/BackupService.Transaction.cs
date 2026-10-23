@@ -120,6 +120,9 @@ public static partial class BackupService
         await using var ownedOperation = existingOperation is null ? await NativeHistoryConfigurationOperationGate
             .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false) : null;
         var operationLease = existingOperation ?? ownedOperation!;
+        var operationRuntime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        operationLease.Require(operationRuntime.ConfigId);
+        using var journalReads = operationRuntime.Repository.Journals.BeginReadScope();
         using var captureOwnership = Plugin.Runtime.Artifacts.NativeArtifactStore.TrackConfigurationCapture(config.Id);
         if (invocationOptions.ConfigurationHandoff is { } handoff)
         {
@@ -148,8 +151,7 @@ public static partial class BackupService
         timing.MarkPhase("preflight");
         var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
         await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
-        await CloudSyncService.PrepareCloudAdmissionAsync(config,
-            await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        await CloudSyncService.PrepareCloudAdmissionAsync(config, operationRuntime, cancellationToken).ConfigureAwait(false);
 
         var startedAtUtc = DateTimeOffset.UtcNow;
         int configIndex = GetConfigIndex(config);
@@ -271,7 +273,7 @@ public static partial class BackupService
             .Select(f => new SourceId(Guid.Parse(f.Id)))
             .ToArray();
 
-        var requiredRecaptures = await NativeHistoryCoreGateway.FindRequiredBoundaryRecapturesAsync(
+        var requiredRecaptures = await operationRuntime.Commit.FindRequiredBoundaryRecapturesAsync(
             historySnapshot,
             plannedSourceIds,
             cancellationToken).ConfigureAwait(false);
@@ -319,6 +321,8 @@ public static partial class BackupService
                     resolution,
                     invocationOptions.Comment,
                     invocationOptions,
+                    operationRuntime,
+                    operationLease,
                     cancellationToken).ConfigureAwait(false);
                 sourceOutcomes.Add(outcome);
             }
@@ -339,7 +343,9 @@ public static partial class BackupService
             try
             {
                 timing.MarkPhase("history-commit");
-                committedBatch = await NativeHistoryCoreGateway.CommitBackupAsync(
+                committedBatch = await NativeHistoryCoreGateway.CommitBackupInsideOperationAsync(
+                    operationRuntime,
+                    operationLease,
                     historySnapshot,
                     results,
                     MapInvocationKind(invocationOptions.Source),
@@ -421,7 +427,8 @@ public static partial class BackupService
         {
             try
             {
-                var references = await NativeHistoryCoreGateway.GetBackupFileReferencesAsync(config.Id, result.SourceId).ConfigureAwait(false);
+                var references = (await new HistoryPresentationQueryService(operationRuntime)
+                    .QueryFileReferencesAsync(result.SourceId).ConfigureAwait(false)).References;
                 if (!references.TryGetValue(result.VersionId!.Value, out var reference))
                     throw new InvalidOperationException(I18n.GetString("KnotLink_Error_VersionNotFound"));
                 fileReferences[result.SourceId] = reference;
@@ -453,12 +460,11 @@ public static partial class BackupService
             CloudSyncService.QueueNativeHistorySync(
                 config,
                 committedBatch);
-            var cloudRuntime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
-            if (cloudRuntime.CloudJobs.Diagnostic is not null)
+            if (operationRuntime.CloudJobs.Diagnostic is not null)
             {
                 hasPostCommitWarnings = true;
                 await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_cloud_failed",
-                    cloudRuntime.CloudJobs.Diagnostic.ToString() ?? string.Empty).ConfigureAwait(false);
+                    operationRuntime.CloudJobs.Diagnostic.ToString() ?? string.Empty).ConfigureAwait(false);
                 NotificationService.ShowWarning(I18n.GetString("CloudJob_RegistrationNeedsAttention"));
             }
         }

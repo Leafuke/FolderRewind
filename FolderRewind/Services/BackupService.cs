@@ -314,6 +314,8 @@ namespace FolderRewind.Services
             PluginV3BackupSourceResolution resolution,
             string? comment,
             BackupInvocationOptions? invocationOptions,
+            HistoryRuntime operationRuntime,
+            NativeHistoryConfigurationOperationGate.Lease operationLease,
             CancellationToken cancellationToken = default)
         {
             if (config == null || folder == null)
@@ -557,8 +559,9 @@ namespace FolderRewind.Services
                     var tips = baseVersion is { } id ? await history.Query.GetMaterializationPolicyTipsAsync(id, cancellationToken).ConfigureAwait(false) : [];
                     captureFence = new(workspace?.StateRevision ?? -1, baseVersion, tips.Select(t => t.UpdateId).ToImmutableArray());
                 }
-                captureBaseline = forceCoreFull ? null : await NativeHistoryCoreGateway.LoadCaptureBaselineAsync(
-                    config.Id,
+                captureBaseline = forceCoreFull ? null : await NativeHistoryCoreGateway.LoadCaptureBaselineInsideOperationAsync(
+                    operationRuntime,
+                    operationLease,
                     sourceId,
                     cancellationToken).ConfigureAwait(false);
                 if (captureBaseline?.ArtifactRootId is not null && NativeArtifactHostService.IsIncrementalPolicy(runtimeConfig)

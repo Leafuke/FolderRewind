@@ -101,7 +101,25 @@ public sealed class HistoryPresentationQueryService
 
     public Task<HistoryPresentationSnapshot> QueryAsync(SourceId? sourceId = null, bool includeSuppressed = false,
         CancellationToken cancellationToken = default)
-        => Task.Run(() => QueryCoreAsync(sourceId, includeSuppressed, cancellationToken), cancellationToken);
+        => Task.Run(async () => (await QueryCoreAsync(sourceId, includeSuppressed, cancellationToken).ConfigureAwait(false)).Snapshot, cancellationToken);
+
+    // Use the same timeline/selection rules, without building unrelated Run/branch/safety views.
+    internal Task<(IReadOnlyList<TimelineEntrySummary> Entries, IReadOnlyDictionary<VersionId, string> References)>
+        QueryFileReferencesAsync(SourceId sourceId, CancellationToken token = default)
+        => Task.Run(async () =>
+        {
+            var projection = await QueryCoreAsync(sourceId, true, token, byRun: false, scoped: true, referencesOnly: true).ConfigureAwait(false);
+            var versions = projection.Versions.Values.Where(v => v.SourceId == sourceId && v.ConfigId == _runtime.ConfigId)
+                .ToDictionary(v => v.VersionId);
+            var entries = projection.Snapshot.Timeline.Where(e => versions.ContainsKey(e.VersionId))
+                .GroupBy(e => e.VersionId).Select(g => g.First()).ToArray();
+            return ((IReadOnlyList<TimelineEntrySummary>)entries,
+                HistoryVersionFileSelector.CreateReferences(entries, versions, projection.Representations));
+        }, token);
+
+    private sealed record Projection(HistoryPresentationSnapshot Snapshot,
+        IReadOnlyDictionary<VersionId, SourceVersion> Versions,
+        IReadOnlyDictionary<RepresentationId, VersionRepresentation> Representations);
 
     public Task<HistoryPresentationPage> QueryPageAsync(HistoryPageRequest request, CancellationToken token = default)
         => Task.Run(async () =>
@@ -110,16 +128,16 @@ public sealed class HistoryPresentationQueryService
             {
                 token.ThrowIfCancellationRequested();
                 var revision = _runtime.ChangeFeed.CurrentSequence;
-                var snapshot = await QueryCoreAsync(request.SourceId, false, token, request.ByRun, scoped: true).ConfigureAwait(false);
+                var snapshot = (await QueryCoreAsync(request.SourceId, false, token, request.ByRun, scoped: true).ConfigureAwait(false)).Snapshot;
                 if (revision != _runtime.ChangeFeed.CurrentSequence) continue;
                 return HistoryPresentationPager.Page(snapshot, request, revision);
             }
         }, token);
 
-    private async Task<HistoryPresentationSnapshot> QueryCoreAsync(
+    private async Task<Projection> QueryCoreAsync(
         SourceId? sourceId = null,
         bool includeSuppressed = false,
-        CancellationToken cancellationToken = default, bool? byRun = null, bool scoped = false)
+        CancellationToken cancellationToken = default, bool? byRun = null, bool scoped = false, bool referencesOnly = false)
     {
         // Only standalone profiling callers request timing; normal UI queries do not.
         var timer = _measure is null ? null : Stopwatch.StartNew();
@@ -153,8 +171,8 @@ public sealed class HistoryPresentationQueryService
             ? await _runtime.Index.ReadSourceFactsAsync<ReplicaLifecycleUpdate>(sourceForlifecycle, cancellationToken).ConfigureAwait(false)
             : await _runtime.Query.GetAllReplicaLifecycleUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var catalog = (await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
-        var workspace = (await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
-        var safetySnapshots = await _runtime.Query.GetSafetySnapshotProjectionsAsync(
+        var workspace = referencesOnly ? null : (await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        var safetySnapshots = referencesOnly ? [] : await _runtime.Query.GetSafetySnapshotProjectionsAsync(
             activeOnly: true,
             cancellationToken).ConfigureAwait(false);
         _measure?.Invoke("index-query", timer!.Elapsed);
@@ -235,6 +253,13 @@ public sealed class HistoryPresentationQueryService
                 && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists), version.BoundaryConfidence));
         }
 
+        if (referencesOnly)
+        {
+            var entries = timeline.OrderByDescending(item => item.CreatedAtUtc)
+                .ThenByDescending(item => item.VersionId.ToString(), StringComparer.Ordinal).ToImmutableArray();
+            return new(new(entries, [], [], [], [], null, null), versionMap, representationMap);
+        }
+
         var checkpointSummaries = new List<CheckpointSummary>();
         foreach (var checkpoint in checkpoints)
         {
@@ -290,7 +315,7 @@ public sealed class HistoryPresentationQueryService
             sourceId is { } activeSource ? workspace?.GetSourceState(activeSource).ActiveBranchId : null,
             sourceId is { } updateSource ? workspace?.GetSourceState(updateSource).ActiveBranchUpdateId : null);
         _measure?.Invoke("metadata-projection", timer!.Elapsed);
-        return snapshot;
+        return new(snapshot, versionMap, representationMap);
     }
 
     private static (

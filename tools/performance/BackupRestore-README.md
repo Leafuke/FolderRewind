@@ -1,5 +1,34 @@
 # 1.9.x 备份与还原服务基准
 
+## Core Smart 元数据/扫描对比（2026-10-23）
+
+`Run-CoreSmartBenchmark.ps1` 复用既有 64 MiB Full/Smart 五次矩阵（Balanced、Strict），以及
+`CoreSmartAnalysisProbe.cs` 中原分析使用的四组固定合成输入：1001/20001 文件、两文件连续
+300 次无变化、64 MiB 单文件每次只修改一个字节（LZMA2 5/zstd 1）。每个 cohort 共 405 次
+实际 BackupService 调用。源码在 tools/performance，通过 Compile Link 纳入 BackupPerformanceHost。
+
+先在未优化版本构建并复制**完整**输出目录，再构建和冻结候选；不要让后续 build 覆盖已冻结目录。
+双方使用同一测量代码、7-Zip、输入、参数和测量边界，按以下顺序串行执行两轮（每个 OutputRoot
+必须不存在），第二轮交换先后顺序：
+
+```powershell
+./tools/performance/Run-CoreSmartBenchmark.ps1 -HostExe <冻结的基线EXE> -OutputRoot <对比根目录>/r1-before
+./tools/performance/Run-CoreSmartBenchmark.ps1 -HostExe <冻结的候选EXE> -OutputRoot <对比根目录>/r1-after
+./tools/performance/Run-CoreSmartBenchmark.ps1 -HostExe <冻结的候选EXE> -OutputRoot <对比根目录>/r2-after
+./tools/performance/Run-CoreSmartBenchmark.ps1 -HostExe <冻结的基线EXE> -OutputRoot <对比根目录>/r2-before
+python ./tools/performance/Summarize-CoreSmartComparison.py <对比根目录>
+```
+
+runner 保存退出码、时间和二进制摘要；汇总拒绝样本不完整或内容/结果检查失败的 cohort。
+历史增长窗口是同一仓库的连续五次调用，不是五个独立仓库；`all-deltas` 是不同层的合并描述。
+保留首轮/中位数/最小最大值，缓存未控制，不报告可靠 P95。新增 inclusive 阶段与粗粒度阶段
+可能嵌套，不能相加；基线缺失的细分计数保留缺失。两轮同场景中位数均同时退化超过 10% 和
+20 ms 才记为持续回归。单次 initial-full 和合并 all-deltas 项仅用于描述，不参与门禁；
+门禁使用对应的五次 Full/逐层 Smart 场景。无变化组还核对归档仍为一个、每次仍提交一个历史 pack。
+
+测量中的验证是预期创建/不创建结果、生产接纳校验及归档不可变摘要。真实恢复内容验证另用
+`stage2` 和 `restore-cleanup` 服务验收入口；不能把测量通过称为每个版本都已还原验证。
+
 在仓库根目录串行执行。所有目标和应用状态使用隔离目录；不要将用户唯一世界作为还原目标。基准目录、归档、TRX 均保存在忽略的 Reference/TestResults，汇总脚本只读诊断 JSON，不读取用户配置或凭据。
 
 ```powershell

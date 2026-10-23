@@ -56,6 +56,7 @@ public sealed class HistoryPresentationQueryTests
         var changed = await service.QueryPageAsync(request with { Cursor = first.Next });
         Assert.IsTrue(changed.CursorInvalidated);
         Assert.HasCount(100, changed.Snapshot.Timeline);
+        await AssertFileReferencesMatchFullProjection(runtime, source);
     }
 
     [TestMethod]
@@ -271,6 +272,49 @@ public sealed class HistoryPresentationQueryTests
         var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync(sourceId);
         Assert.AreEqual(HistoryPresentationReadiness.PreparationRequired, snapshot.Timeline.Single(item => item.VersionId == available.VersionId).Readiness);
         Assert.AreEqual(HistoryPresentationReadiness.PayloadReleased, snapshot.Timeline.Single(item => item.VersionId == released.VersionId).Readiness);
+        await AssertFileReferencesMatchFullProjection(runtime, sourceId);
+    }
+
+    [TestMethod]
+    public async Task FileReferenceQueryPreservesSuppressionCommentsDuplicateCheckpointsAndNameCollisions()
+    {
+        var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(config, new HistoryRepositoryPaths(Path.Combine(_root, "references"))));
+        await runtime.InitializeAsync();
+        var source = SourceId.New(); var other = SourceId.New();
+        var first = Version(config, source, "first"); var second = Version(config, source, "second");
+        var foreign = Version(config, other, "foreign");
+        var metadata = new Dictionary<string, string> { ["fileName"] = "same.7z" };
+        var firstRep = new VersionRepresentation(RepresentationId.New(), first.VersionId, RepresentationKind.CoreFull,
+            "7z", [], MaterializationFidelity.Exact, null, null, metadata);
+        var secondRep = new VersionRepresentation(RepresentationId.New(), second.VersionId, RepresentationKind.CoreFull,
+            "7z", [], MaterializationFidelity.Exact, null, null, metadata);
+        var codec = new HistoryPackCodec();
+        var facts = new object[] { first, second, foreign, firstRep, secondRep, ExactRepresentation(foreign),
+            Checkpoint(config, source, first), Checkpoint(config, source, first), Checkpoint(config, source, second), Checkpoint(config, other, foreign) };
+        await runtime.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow, facts.Select(f => codec.CreateObject(f))));
+        await runtime.Annotations.SetCommentAsync(new(HistoryAnnotationTargetKind.Version, first.VersionId.Value), "中文备注");
+        await runtime.Annotations.SetSuppressionAsync(new(HistoryAnnotationTargetKind.Version, second.VersionId.Value), true);
+        var projected = await new HistoryPresentationQueryService(runtime).QueryFileReferencesAsync(source);
+        Assert.HasCount(2, projected.Entries);
+        Assert.HasCount(2, projected.References);
+        Assert.IsTrue(projected.Entries.Single(e => e.VersionId == second.VersionId).IsSuppressed);
+        Assert.IsTrue(projected.References.Values.All(name => name != "same.7z"));
+        await AssertFileReferencesMatchFullProjection(runtime, source);
+    }
+
+    private static async Task AssertFileReferencesMatchFullProjection(HistoryRuntime runtime, SourceId source)
+    {
+        var service = new HistoryPresentationQueryService(runtime);
+        var full = await service.QueryAsync(source, includeSuppressed: true);
+        var entries = full.Timeline.GroupBy(e => e.VersionId).Select(g => g.First()).ToArray();
+        var versions = (await runtime.Query.GetAllVersionsAsync()).Where(v => v.SourceId == source).ToDictionary(v => v.VersionId);
+        var representations = (await runtime.Query.GetAllRepresentationsAsync()).ToDictionary(r => r.RepresentationId);
+        var expected = HistoryVersionFileSelector.CreateReferences(entries, versions, representations);
+        var actual = await service.QueryFileReferencesAsync(source);
+        CollectionAssert.AreEqual(expected.OrderBy(p => p.Key.ToString()).ToArray(), actual.References.OrderBy(p => p.Key.ToString()).ToArray());
+        Assert.IsTrue(entries.Select(e => (e.VersionId, e.RepresentationId, e.FileName, e.Comment, e.IsSuppressed, e.Readiness))
+            .SequenceEqual(actual.Entries.Select(e => (e.VersionId, e.RepresentationId, e.FileName, e.Comment, e.IsSuppressed, e.Readiness))));
     }
 
     private static VersionRepresentation ExactRepresentation(SourceVersion version)

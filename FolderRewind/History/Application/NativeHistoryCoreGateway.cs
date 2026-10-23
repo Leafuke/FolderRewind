@@ -152,17 +152,8 @@ public static class NativeHistoryCoreGateway
         QueryBackupFileReferencesAsync(string configId, SourceId sourceId, CancellationToken cancellationToken)
     {
         var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
-        var snapshot = await new HistoryPresentationQueryService(runtime)
-            .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false);
-        var versions = (await runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false))
-            .Where(version => version.SourceId == sourceId && version.ConfigId.Matches(configId))
-            .ToDictionary(version => version.VersionId);
-        var representations = (await runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false))
-            .ToDictionary(representation => representation.RepresentationId);
-        // Checkpoints may share a Version; suppression and reference collisions are Version-level.
-        var entries = snapshot.Timeline.Where(item => versions.ContainsKey(item.VersionId))
-            .GroupBy(item => item.VersionId).Select(group => group.First()).ToArray();
-        return (entries, HistoryVersionFileSelector.CreateReferences(entries, versions, representations));
+        return await new HistoryPresentationQueryService(runtime)
+            .QueryFileReferencesAsync(sourceId, cancellationToken).ConfigureAwait(false);
     }
 
     public static async Task<bool> SetVersionPinByFileAsync(
@@ -243,6 +234,33 @@ public static class NativeHistoryCoreGateway
         ArgumentNullException.ThrowIfNull(configSnapshot);
         ArgumentNullException.ThrowIfNull(results);
         var runtime = await EnsureReadyAsync(configSnapshot.ConfigId.Value, cancellationToken).ConfigureAwait(false);
+        return await CommitBackupCoreAsync(runtime, configSnapshot, results, kind, startedAtUtc, comment,
+            cancellationToken, intent, safetySnapshotIntent, protect).ConfigureAwait(false);
+    }
+
+    // The orchestrator has already recovered this runtime under the configuration gate.
+    // Keep the health refresh BEFORE CommitAsync enters its mutation gate: capture may have
+    // exposed a new pending journal since preflight. Commit also checks health/local state itself.
+    internal static async Task<HistoryCommitBatch> CommitBackupInsideOperationAsync(
+        HistoryRuntime runtime, NativeHistoryConfigurationOperationGate.Lease operation,
+        HistoryConfigSnapshot configSnapshot, IEnumerable<SourceCaptureResult> results,
+        BackupInvocationKind kind, DateTimeOffset startedAtUtc, string? comment = null,
+        CancellationToken cancellationToken = default, HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
+        HistorySafetySnapshotIntent? safetySnapshotIntent = null, bool protect = false)
+    {
+        operation.Require(runtime.ConfigId);
+        if (runtime.ConfigId != configSnapshot.ConfigId) throw new InvalidOperationException("Backup runtime belongs to another configuration.");
+        cancellationToken.ThrowIfCancellationRequested();
+        await runtime.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
+        return await CommitBackupCoreAsync(runtime, configSnapshot, results, kind, startedAtUtc, comment,
+            cancellationToken, intent, safetySnapshotIntent, protect).ConfigureAwait(false);
+    }
+
+    private static async Task<HistoryCommitBatch> CommitBackupCoreAsync(
+        HistoryRuntime runtime, HistoryConfigSnapshot configSnapshot, IEnumerable<SourceCaptureResult> results,
+        BackupInvocationKind kind, DateTimeOffset startedAtUtc, string? comment, CancellationToken cancellationToken,
+        HistoryCommitIntent intent, HistorySafetySnapshotIntent? safetySnapshotIntent, bool protect)
+    {
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         long revision = workspace?.StateRevision ?? -1;
         var baselines = workspace?.SourceBaselines.ToDictionary(item => item.SourceId) ?? [];
@@ -313,6 +331,21 @@ public static class NativeHistoryCoreGateway
         CancellationToken cancellationToken = default)
     {
         var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
+        return await LoadCaptureBaselineCoreAsync(runtime, sourceId, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static Task<SourceCaptureBaseline?> LoadCaptureBaselineInsideOperationAsync(
+        HistoryRuntime runtime, NativeHistoryConfigurationOperationGate.Lease operation, SourceId sourceId,
+        CancellationToken cancellationToken = default)
+    {
+        operation.Require(runtime.ConfigId);
+        cancellationToken.ThrowIfCancellationRequested();
+        return LoadCaptureBaselineCoreAsync(runtime, sourceId, cancellationToken);
+    }
+
+    private static async Task<SourceCaptureBaseline?> LoadCaptureBaselineCoreAsync(
+        HistoryRuntime runtime, SourceId sourceId, CancellationToken cancellationToken)
+    {
         for (var attempt = 0; attempt < 2; attempt++)
         {
             var baseline = await runtime.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false);

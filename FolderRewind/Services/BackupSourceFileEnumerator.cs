@@ -25,27 +25,33 @@ public static class BackupSourceFileEnumerator
         /// <summary>
         /// 枚举源目录内全部受保护文件（权威枚举路径）：跳过 System 属性与重解析点，
         /// Include 源范围先于任何配置过滤器判定（下游规则只能收窄边界），再应用附加过滤器。
-        /// 结果按相对路径排序；单个文件的信息读取失败（IO/权限）静默跳过。
+        /// 结果按相对路径排序；元数据直接来自同次目录枚举。
         /// </summary>
         public static IReadOnlyList<BackupSourceFile> Enumerate(
         string sourceRoot,
         BackupSourceScope? sourceScope,
         Func<string, bool>? additionalFilter = null,
         CancellationToken cancellationToken = default)
+        => EnumerateUnordered(sourceRoot, sourceScope, additionalFilter, cancellationToken)
+            .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase).ToList();
+
+    // Capture builds a dictionary and does not need an intermediate sorted list.
+    internal static IEnumerable<BackupSourceFile> EnumerateUnordered(
+        string sourceRoot, BackupSourceScope? sourceScope,
+        Func<string, bool>? additionalFilter = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceRoot);
         cancellationToken.ThrowIfCancellationRequested();
         var root = Path.GetFullPath(sourceRoot);
         if (!Directory.Exists(root) || PreviewStoragePaths.IsReserved(root))
         {
-            return Array.Empty<BackupSourceFile>();
+            yield break;
         }
 
         sourceScope ??= new BackupSourceScope();
         var includePatterns = sourceScope.Mode == BackupSourceScopeMode.Include
             ? BackupSourceScopePatternSet.Compile(sourceScope.IncludePatterns)
             : null;
-        var result = new List<BackupSourceFile>();
         var options = new EnumerationOptions
         {
             RecurseSubdirectories = true,
@@ -53,15 +59,31 @@ public static class BackupSourceFileEnumerator
             AttributesToSkip = FileAttributes.System | FileAttributes.ReparsePoint,
             ReturnSpecialDirectories = false
         };
-        var paths = new FileSystemEnumerable<string>(root, (ref FileSystemEntry entry) => entry.ToFullPath(), options)
+        var files = new FileSystemEnumerable<BackupSourceFile?>(root, (ref FileSystemEntry entry) =>
+        {
+            try
+            {
+                var path = entry.ToFullPath();
+                return new BackupSourceFile
+                {
+                    FullPath = path,
+                    RelativePath = Path.GetRelativePath(root, path).Replace('\\', '/'),
+                    Size = entry.Length,
+                    LastWriteTimeUtc = entry.LastWriteTimeUtc.UtcDateTime
+                };
+            }
+            catch (IOException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
+        }, options)
         {
             ShouldIncludePredicate = (ref FileSystemEntry entry) => !entry.IsDirectory,
             ShouldRecursePredicate = (ref FileSystemEntry entry) => !entry.FileName.Equals(PreviewStoragePaths.DirectoryName.AsSpan(), StringComparison.OrdinalIgnoreCase)
         };
-        foreach (var path in paths)
+        foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
+            if (file is null) continue;
+            var relativePath = file.RelativePath;
             if (!IsSafeRelativeFilePath(relativePath) || PreviewStoragePaths.IsReserved(relativePath))
             {
                 continue;
@@ -71,33 +93,13 @@ public static class BackupSourceFileEnumerator
             {
                 continue;
             }
-            if (additionalFilter != null && !additionalFilter(path))
+            if (additionalFilter != null && !additionalFilter(file.FullPath))
             {
                 continue;
             }
 
-            try
-            {
-                var info = new FileInfo(path);
-                result.Add(new BackupSourceFile
-                {
-                    FullPath = info.FullName,
-                    RelativePath = relativePath,
-                    Size = info.Length,
-                    LastWriteTimeUtc = info.LastWriteTimeUtc
-                });
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            yield return file;
         }
-
-        return result
-            .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
-            .ToList();
     }
 
         /// <summary>

@@ -118,8 +118,55 @@ internal static class StageTwoAcceptance
         await VerifyBoundSnapshotFiltersAsync();
         await VerifySmartChainTargetAsync();
         await VerifyBatchAsync();
+        await VerifyMetadataOperationFenceAsync();
         await File.WriteAllTextAsync(Path.Combine(Root, "host-stage2.json"), JsonSerializer.Serialize(new
         { source = "real BackupService / Restore / Checkout", ui = "not executed", results = Results }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static async Task VerifyMetadataOperationFenceAsync()
+    {
+        var (config, folder) = await CreateAsync("metadata-operation-fence", BackupMode.Smart, BackupArchiveVerificationLevel.Strict);
+        var history = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var initialPackCount = (await history.Repository.ReadAllPacksAsync()).Count;
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var gate = typeof(BackupService).Assembly.GetType("FolderRewind.Services.NativeHistoryConfigurationOperationGate")!;
+        var acquire = gate.GetMethod("EnterAsync", flags)!.Invoke(null, [config.Id, CancellationToken.None])!;
+        var acquireTask = (Task)acquire.GetType().GetMethod("AsTask")!.Invoke(acquire, null)!;
+        await acquireTask;
+        var lease = (IAsyncDisposable)acquireTask.GetType().GetProperty("Result")!.GetValue(acquireTask)!;
+        var pending = FolderRewind.History.Storage.HistoryTransactionJournal.Prepared(HistoryTransactionId.New(), PackId.New());
+        var commit = typeof(NativeHistoryCoreGateway).GetMethod("CommitBackupInsideOperationAsync", flags)!;
+        var arguments = commit.GetParameters().Select(p => p.HasDefaultValue ? p.DefaultValue : null).ToArray();
+        arguments[0] = history; arguments[1] = lease;
+        var source = new SourceId(Guid.Parse(folder.Id));
+        arguments[2] = new HistoryConfigSnapshot(history.ConfigId,
+            [new HistoryConfigSourceSnapshot(source, new(folder.DisplayName, folder.Path))]);
+        arguments[3] = new[] { FolderRewind.History.Capture.SourceCaptureResult.NoChanges(source, CaptureScope.FullSource) };
+        arguments[4] = BackupInvocationKind.Internal; arguments[5] = DateTimeOffset.UtcNow;
+        try
+        {
+            history.Repository.Journals.Save(pending);
+            bool blocked = false;
+            try { await (Task)commit.Invoke(null, arguments)!; }
+            catch (InvalidOperationException error) when (error.Message.Contains("incomplete history commit", StringComparison.Ordinal)) { blocked = true; }
+            Require(blocked && (await history.Repository.ReadAllPacksAsync()).Count == initialPackCount,
+                "Operation runtime reuse bypassed a newly pending journal before commit.");
+            await history.Repository.Journals.RecoverAsync((_, _) => throw new InvalidOperationException("Absent pack must not commit."),
+                (_, _) => Task.CompletedTask);
+        }
+        finally { await lease.DisposeAsync(); }
+        bool releasedBlocked = false;
+        try { await (Task)commit.Invoke(null, arguments)!; }
+        catch (InvalidOperationException error) when (error.Message.Contains("active operation lease", StringComparison.Ordinal)) { releasedBlocked = true; }
+        Require(releasedBlocked, "Released configuration operation lease was accepted.");
+        var noChanges = await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal());
+        Require(noChanges.IsSuccessful && !noChanges.CreatedNewArchive, "Unchanged source was not reused after recovery.");
+        File.Move(Path.Combine(folder.Path, "keep.txt"), Path.Combine(folder.Path, "KEEP.txt"));
+        Require((await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal())).CreatedNewArchive,
+            "Case-only rename lost the existing Ordinal-baseline capture behavior.");
+        await RecordAsync(new { scenario = "metadata-operation-fence", pendingJournalBlocked = true,
+            releasedLeaseBlocked = true, noChangesPreserved = true, caseRenameCaptured = true });
+        await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
     }
 
     private static async Task VerifyArchiveListingAttributesAsync(BackupMode mode, BackupArchiveVerificationLevel grade, string format)
