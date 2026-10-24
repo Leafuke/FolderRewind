@@ -176,6 +176,12 @@ public sealed partial class HistoryPageViewModel
             { VersionId = item.VersionId.Value });
     }
 
+    public void CompareWorld(NativeHistoryVersionViewItem? item)
+    {
+        if (item is null || _currentConfig is not { } config || !item.CanPreviewWorld || !CanExecuteItemOperation(item)) return;
+        NavigationService.NavigateTo("SpatialWorkspace", new SpatialWorkspaceNavigationParameter(config.Id, item.SourceId.Value, SpatialWorkspaceMode.Compare) { VersionId = item.VersionId.Value });
+    }
+
     private void ViewVersion(NativeHistoryVersionViewItem? item)
     {
         if (item is null || TryRevealBackupFile(item, out var errorMessage))

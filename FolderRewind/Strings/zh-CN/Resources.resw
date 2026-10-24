@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -7306,4 +7306,173 @@ Pull Request：{1}</value>
   <data name="Merge_BlockedSubject" xml:space="preserve">
     <value>此项目暂不能语义合并，请查看覆盖范围说明。</value>
   </data>
+  <data name="SpatialWorkspace_Title_Compare" xml:space="preserve"><value>历史地图比较</value></data>
+  <data name="SpatialWorkspace_Title_Merge" xml:space="preserve"><value>地图合并</value></data>
+  <data name="SpatialWorkspace_Title_Scope" xml:space="preserve"><value>地图备份范围</value></data>
+  <data name="SpatialWorkspace_Live" xml:space="preserve"><value>当前来源</value></data>
+  <data name="SpatialWorkspace_Base" xml:space="preserve"><value>共同基线</value></data>
+  <data name="SpatialWorkspace_Result" xml:space="preserve"><value>已验证的合并结果</value></data>
+  <data name="SpatialWorkspace_Preparing" xml:space="preserve"><value>正在准备固定输入…</value></data>
+  <data name="SpatialWorkspace_Ready" xml:space="preserve"><value>就绪。Ctrl 追加选择，Alt 移除选区，空格临时平移。</value></data>
+  <data name="SpatialWorkspace_Canceled" xml:space="preserve"><value>已取消</value></data>
+  <data name="SpatialWorkspace_Failed" xml:space="preserve"><value>操作未完成</value></data>
+  <data name="SpatialWorkspace_Complete" xml:space="preserve"><value>比较完成</value></data>
+  <data name="SpatialWorkspace_PartialScan" xml:space="preserve"><value>比较已停止；当前结果仅覆盖已扫描部分。</value></data>
+  <data name="SpatialWorkspace_Scanning" xml:space="preserve"><value>已扫描 {0} 个文件，发现 {1} 个变化项</value></data>
+  <data name="SpatialWorkspace_Counts" xml:space="preserve"><value>共 {0} 项，已选 {1} 项，非空间项 {2} 项 · 第 {3} 页</value></data>
+  <data name="SpatialWorkspace_ScopeCount" xml:space="preserve"><value>当前有 {0} 个选区；保存前请预览实际文件范围。</value></data>
+  <data name="SpatialWorkspace_NoSession" xml:space="preserve"><value>当前没有可打开的合并会话。</value></data>
+  <data name="SpatialWorkspace_EmptyInput" xml:space="preserve"><value>此输入没有可预览的文件。</value></data>
+  <data name="SpatialWorkspace_ResultExpired" xml:space="preserve"><value>合并决定或输入已变化，请重新生成结果。</value></data>
+  <data name="SpatialWorkspace_ComparisonUnavailable" xml:space="preserve"><value>插件未提供历史空间比较能力。</value></data>
+  <data name="SpatialWorkspace_ChoiceUnavailable" xml:space="preserve"><value>所选项目不允许此操作；未修改任何决定。</value></data>
+  <data name="SpatialWorkspace_ScopeUnavailable" xml:space="preserve"><value>插件未提供地图范围解析能力。</value></data>
+  <data name="SpatialWorkspace_EmptySelection" xml:space="preserve"><value>请先选择范围；空选区不会解释为完整来源。</value></data>
+  <data name="SpatialWorkspace_SelectionLimit" xml:space="preserve"><value>选区数量已达上限，请减少选区。</value></data>
+  <data name="SpatialWorkspace_LegacyScope" xml:space="preserve"><value>现有手工规则无法无损还原为地图选框。保存新的地图选区将替换当前来源的插件范围覆盖；来源过滤规则继续生效。</value></data>
+  <data name="SpatialWorkspace_ScopeIncludes" xml:space="preserve"><value>实际包含以下路径规则（含必要世界文件及所选维度的外置 mcc）：</value></data>
+  <data name="SpatialWorkspace_P3Conflict" xml:space="preserve"><value>当前语义备份要求完整来源。请保持完整范围，或在配置设置中明确修改语义备份策略；地图不会自动切换策略。</value></data>
+  <data name="SpatialWorkspace_ScopeSaved" xml:space="preserve"><value>已保存当前来源的范围覆盖，其他来源未改变。</value></data>
+  <data name="SpatialWorkspace_ConfirmTitle" xml:space="preserve"><value>确认地图操作</value></data>
+  <data name="SpatialWorkspace_Confirm" xml:space="preserve"><value>确认</value></data>
+  <data name="SpatialWorkspace_CancelText" xml:space="preserve"><value>取消</value></data>
+  <data name="SpatialWorkspace_ConfirmDelete" xml:space="preserve"><value>将为所选合并项保存删除决定；实际世界仅在审阅并应用后修改。</value></data>
+  <data name="SpatialWorkspace_ConfirmWorld" xml:space="preserve"><value>所选项目包含整世界统一决定，会影响该世界的所有相关维度，并非只影响框内区块。</value></data>
+  <data name="SpatialWorkspace_ConfirmScope" xml:space="preserve"><value>将保存当前来源的备份范围。请先查看实际包含路径；其他来源继续沿用各自策略。</value></data>
+  <data name="SpatialWorkspace_Back.Content" xml:space="preserve"><value>返回</value></data>
+  <data name="SpatialWorkspace_List.Label" xml:space="preserve"><value>变化列表</value></data>
+  <data name="SpatialWorkspace_Select.Label" xml:space="preserve"><value>选择 / 平移</value></data>
+  <data name="SpatialWorkspace_Fit.Label" xml:space="preserve"><value>适应范围</value></data>
+  <data name="SpatialWorkspace_SwitchSide.Label" xml:space="preserve"><value>切换左右图</value></data>
+  <data name="SpatialWorkspace_Cancel.Label" xml:space="preserve"><value>停止比较</value></data>
+  <data name="SpatialWorkspace_World.Header" xml:space="preserve"><value>世界</value></data>
+  <data name="SpatialWorkspace_Layer.Header" xml:space="preserve"><value>维度 / 图层</value></data>
+  <data name="SpatialWorkspace_Mode.Header" xml:space="preserve"><value>视图</value></data>
+  <data name="SpatialWorkspace_Height.Header" xml:space="preserve"><value>高度 Y</value></data>
+  <data name="SpatialWorkspace_Search.Header" xml:space="preserve"><value>查找变化</value></data>
+  <data name="SpatialWorkspace_Filter.Header" xml:space="preserve"><value>显示项目</value></data>
+  <data name="SpatialWorkspace_FilterAll.Content" xml:space="preserve"><value>所有变化</value></data>
+  <data name="SpatialWorkspace_FilterUnresolved.Content" xml:space="preserve"><value>未解决</value></data>
+  <data name="SpatialWorkspace_FilterAutomatic.Content" xml:space="preserve"><value>自动建议</value></data>
+  <data name="SpatialWorkspace_FilterResolved.Content" xml:space="preserve"><value>用户决定</value></data>
+  <data name="SpatialWorkspace_FilterLocked.Content" xml:space="preserve"><value>策略锁定</value></data>
+  <data name="SpatialWorkspace_FilterUnavailable.Content" xml:space="preserve"><value>不可比较</value></data>
+  <data name="SpatialWorkspace_PreviousPage.Content" xml:space="preserve"><value>上一页</value></data>
+  <data name="SpatialWorkspace_NextPage.Content" xml:space="preserve"><value>下一页</value></data>
+  <data name="SpatialWorkspace_Left.Header" xml:space="preserve"><value>左侧输入</value></data>
+  <data name="SpatialWorkspace_Right.Header" xml:space="preserve"><value>右侧输入</value></data>
+  <data name="SpatialWorkspace_NoLayer.Text" xml:space="preserve"><value>此输入没有该图层或不支持当前视图</value></data>
+  <data name="SpatialWorkspace_Details.Header" xml:space="preserve"><value>选择详情与实际范围</value></data>
+  <data name="SpatialWorkspace_UseOurs.Label" xml:space="preserve"><value>使用目标</value></data>
+  <data name="SpatialWorkspace_UseTheirs.Label" xml:space="preserve"><value>使用来源</value></data>
+  <data name="SpatialWorkspace_UseBase.Label" xml:space="preserve"><value>使用基线</value></data>
+  <data name="SpatialWorkspace_Delete.Label" xml:space="preserve"><value>删除</value></data>
+  <data name="SpatialWorkspace_ResetDecision.Label" xml:space="preserve"><value>恢复自动 / 清除决定</value></data>
+  <data name="SpatialWorkspace_Undo.Label" xml:space="preserve"><value>撤销上次决定</value></data>
+  <data name="SpatialWorkspace_NextConflict.Label" xml:space="preserve"><value>下一未解决项</value></data>
+  <data name="SpatialWorkspace_Generate.Label" xml:space="preserve"><value>生成并预览结果</value></data>
+  <data name="SpatialWorkspace_ReturnReview.Label" xml:space="preserve"><value>返回合并审阅</value></data>
+  <data name="SpatialWorkspace_PreviewScope.Label" xml:space="preserve"><value>预览实际范围</value></data>
+  <data name="SpatialWorkspace_SaveScope.Label" xml:space="preserve"><value>保存当前来源范围</value></data>
+  <data name="SpatialWorkspace_InheritScope.Label" xml:space="preserve"><value>恢复继承配置</value></data>
+  <data name="SpatialWorkspace_FullScope.Label" xml:space="preserve"><value>不使用插件范围</value></data>
+  <data name="SpatialWorkspace_OpenMerge.Content" xml:space="preserve"><value>在地图中处理</value></data>
+  <data name="SpatialWorkspace_OpenCompare.Text" xml:space="preserve"><value>地图比较…</value></data>
+  <data name="SpatialWorkspace_OpenScope.Text" xml:space="preserve"><value>地图选择备份范围…</value></data>
+  <data name="SpatialWorkspace_State_Added" xml:space="preserve"><value>新增</value></data>
+  <data name="SpatialWorkspace_State_Deleted" xml:space="preserve"><value>删除</value></data>
+  <data name="SpatialWorkspace_State_Modified" xml:space="preserve"><value>修改</value></data>
+  <data name="SpatialWorkspace_State_ContainerOnly" xml:space="preserve"><value>仅存储格式变化</value></data>
+  <data name="SpatialWorkspace_State_Unavailable" xml:space="preserve"><value>不可比较</value></data>
+  <data name="SpatialWorkspace_State_Blocked" xml:space="preserve"><value>受阻</value></data>
+  <data name="SpatialWorkspace_State_Locked" xml:space="preserve"><value>策略锁定</value></data>
+  <data name="SpatialWorkspace_State_Automatic" xml:space="preserve"><value>自动建议</value></data>
+  <data name="SpatialWorkspace_State_Resolved" xml:space="preserve"><value>用户决定</value></data>
+  <data name="SpatialWorkspace_State_Unresolved" xml:space="preserve"><value>未解决</value></data>
+  <data name="SpatialWorkspace_EmptyIntersection" xml:space="preserve"><value>地图选区与该来源的允许范围没有交集。</value></data>
+  <data name="SpatialWorkspace_ComplexIntersection" xml:space="preserve"><value>当前复杂范围规则无法证明精确交集；请简化来源范围，系统不会扩大它。</value></data>
+  <data name="SpatialWorkspace_ScopeFilters" xml:space="preserve"><value>同时应用以下配置过滤规则：</value></data>
+  <data name="SpatialWorkspace_Changes.Header" xml:space="preserve"><value>变化列表</value></data>
+  <data name="SpatialWorkspace_Legend.Text" xml:space="preserve"><value>? 未解决 · A 自动建议 · ✓ 选中 · ⊘ 策略锁定 · ! 受阻/不可比较；数字表示聚合数量。画面相同不等于数据相同。</value></data>
+  <data name="SpatialWorkspace_ReturnHistory.Content" xml:space="preserve"><value>返回历史页下载依赖</value></data>
+  <data name="SpatialWorkspace_X1.Header" xml:space="preserve"><value>水平起点</value></data>
+  <data name="SpatialWorkspace_Y1.Header" xml:space="preserve"><value>垂直起点</value></data>
+  <data name="SpatialWorkspace_X2.Header" xml:space="preserve"><value>水平终点</value></data>
+  <data name="SpatialWorkspace_Y2.Header" xml:space="preserve"><value>垂直终点</value></data>
+  <data name="SpatialWorkspace_SelectCoordinates.Content" xml:space="preserve"><value>追加坐标选区</value></data>
+  <data name="SpatialWorkspace_RemoveCoordinates.Content" xml:space="preserve"><value>移除坐标选区</value></data>
+  <data name="SpatialWorkspace_InvalidCoordinates" xml:space="preserve"><value>请输入有限数值和具有面积的矩形。</value></data>
+  <data name="SpatialWorkspace_PlanExpired" xml:space="preserve"><value>合并计划已变化，请返回合并页并重新打开地图。</value></data>
+  <data name="SpatialWorkspace_SelectionChanged" xml:space="preserve"><value>选择或合并计划已变化，请重新确认操作。</value></data>
+  <data name="SpatialWorkspace_SelectedCount" xml:space="preserve"><value>所选合并项：{0}</value></data>
+  <data name="SpatialWorkspace2_Back.Content" xml:space="preserve"><value>返回</value></data>
+  <data name="SpatialWorkspace2_World.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>世界</value></data>
+  <data name="SpatialWorkspace2_WorldOptions.Header" xml:space="preserve"><value>世界</value></data>
+  <data name="SpatialWorkspace2_Layer.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>维度</value></data>
+  <data name="SpatialWorkspace2_View.Content" xml:space="preserve"><value>视图与说明</value></data>
+  <data name="SpatialWorkspace2_List.Content" xml:space="preserve"><value>列表与详情</value></data>
+  <data name="SpatialWorkspace2_Help.Text" xml:space="preserve"><value>拖动平移 · 滚轮缩放
+单击查看，双击定位或展开聚合。虚线表示该侧缺少此类数据或无法比较。底图相同不代表数据相同。</value></data>
+  <data name="SpatialWorkspace2_Search.PlaceholderText" xml:space="preserve"><value>搜索名称、路径或说明</value></data>
+  <data name="SpatialWorkspace2_Category.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>变化内容</value></data>
+  <data name="SpatialWorkspace2_Filter.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>变化状态</value></data>
+  <data name="SpatialWorkspace2_Changes.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>变化列表</value></data>
+  <data name="SpatialWorkspace2_AllHeights.Text" xml:space="preserve"><value>全高度区块变化 · 视图只影响底图</value></data>
+  <data name="SpatialWorkspace2_Details.Header" xml:space="preserve"><value>对象详情</value></data>
+  <data name="SpatialWorkspace2_Locate.Content" xml:space="preserve"><value>定位</value></data>
+  <data name="SpatialWorkspace2_ZoomHere.Content" xml:space="preserve"><value>放大到此处</value></data>
+  <data name="SpatialWorkspace2_BoxSelect.Content" xml:space="preserve"><value>框选合并项</value></data>
+  <data name="SpatialWorkspace2_AddArea.Content" xml:space="preserve"><value>添加区域</value></data>
+  <data name="SpatialWorkspace2_RemoveArea.Content" xml:space="preserve"><value>移除区域</value></data>
+  <data name="SpatialWorkspace2_Pan.Content" xml:space="preserve"><value>平移</value></data>
+  <data name="SpatialWorkspace2_Coordinates.Content" xml:space="preserve"><value>输入选区坐标…</value></data>
+  <data name="SpatialWorkspace2_Swap.Content" xml:space="preserve"><value>交换 A/B</value></data>
+  <data name="SpatialWorkspace2_SwitchSide.Content" xml:space="preserve"><value>显示 B</value></data>
+  <data name="SpatialWorkspace2_BackCamera.Content" xml:space="preserve"><value>返回视角</value></data>
+  <data name="SpatialWorkspace2_ZoomOut.Content" xml:space="preserve"><value>−</value></data>
+  <data name="SpatialWorkspace2_ZoomOut.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>缩小</value></data>
+  <data name="SpatialWorkspace2_ZoomIn.Content" xml:space="preserve"><value>＋</value></data>
+  <data name="SpatialWorkspace2_ZoomIn.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>放大</value></data>
+  <data name="SpatialWorkspace2_Fit.Content" xml:space="preserve"><value>适应范围</value></data>
+  <data name="SpatialWorkspace2_Stop.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="SpatialWorkspace_DefaultCategories" xml:space="preserve"><value>内容变化（默认）</value></data>
+  <data name="SpatialWorkspace_AllCategories" xml:space="preserve"><value>全部变化</value></data>
+  <data name="SpatialWorkspace_Files" xml:space="preserve"><value>非空间文件（跨维度）</value></data>
+  <data name="SpatialWorkspace_CurrentSource" xml:space="preserve"><value>当前来源</value></data>
+  <data name="SpatialWorkspace_LeftInput" xml:space="preserve"><value>A · 左侧输入</value></data>
+  <data name="SpatialWorkspace_RightInput" xml:space="preserve"><value>B · 右侧输入</value></data>
+  <data name="SpatialWorkspace_From" xml:space="preserve"><value>A · 从</value></data>
+  <data name="SpatialWorkspace_To" xml:space="preserve"><value>→ B · 到</value></data>
+  <data name="SpatialWorkspace_ShowA" xml:space="preserve"><value>显示 A</value></data>
+  <data name="SpatialWorkspace_ShowB" xml:space="preserve"><value>显示 B</value></data>
+  <data name="SpatialWorkspace_Aggregate" xml:space="preserve"><value>此区域有 {0} 个变化位置；双击放大。</value></data>
+  <data name="SpatialWorkspace_CompareCounts" xml:space="preserve"><value>当前筛选 {0} 项 · 第 {1} 页</value></data>
+  <data name="SpatialWorkspace_MergeCounts" xml:space="preserve"><value>当前筛选 {0} 项 · 已勾选 {1} 项 · 第 {2} 页</value></data>
+  <data name="SpatialWorkspace_State_Mixed" xml:space="preserve"><value>多种变化</value></data>
+  <data name="SpatialWorkspace_CompareLegend" xml:space="preserve"><value>+ 新增 · − 删除 · ~ 修改 · ≋ 存储格式 · ! 不可比较
+存储格式变化表示内容相同，仅压缩、布局或等价编码不同；不是箱子内容变化。
+描边高亮表示正在查看的对象；聚合数字表示不同空间位置数。</value></data>
+  <data name="SpatialWorkspace_ScopeLegend" xml:space="preserve"><value>选区扩大到完整 region。添加或移除后，预览实际范围及附带文件，再保存到当前来源。</value></data>
+  <data name="SpatialWorkspace_MergeLegend" xml:space="preserve"><value>? 未解决 · A 自动 · ✓ 已决定 · ⊘ 锁定 · ! 受阻
+查看高亮与批量勾选分别操作；决定按完整合并项生效。</value></data>
+  <data name="SpatialWorkspace_WholeDomainCount" xml:space="preserve"><value>整域项目 {0} 项（见列表）</value></data>
+  <data name="SpatialWorkspace_WholeWorld" xml:space="preserve"><value>整个世界</value></data>
+  <data name="SpatialWorkspace_AreaTitle" xml:space="preserve"><value>区域 {0} · ({1}, {2}) → ({3}, {4})</value></data>
+  <data name="SpatialWorkspace_State_Selected" xml:space="preserve"><value>已纳入范围</value></data>
+  <data name="SpatialWorkspace_BatchOnlyUnresolved.Content" xml:space="preserve"><value>框选只处理未解决项</value></data>
+  <data name="SpatialWorkspace_BatchModeChanged" xml:space="preserve"><value>已清除勾选，请按新的范围重新选择。</value></data>
+  <data name="SpatialWorkspace_HiddenRuntimeChanges" xml:space="preserve"><value>已折叠 {0} 项其他类别变化，可切换“全部变化”查看。</value></data>
+  <data name="SpatialWorkspace_AreaSummary" xml:space="preserve"><value>选区内：未解决 {0} 项 · 已决定 {1} 项 · 锁定/受阻 {2} 项</value></data>
+  <data name="SpatialWorkspace_OnlyUnresolvedHint" xml:space="preserve"><value>仅勾选当前筛选中的未解决项。</value></data>
+  <data name="SpatialWorkspace_IncludeDecidedHint" xml:space="preserve"><value>包含当前筛选中的已有决定；应用时会确认覆盖范围。</value></data>
+  <data name="SpatialWorkspace_AreaRemoved" xml:space="preserve"><value>已从勾选中移除当前筛选范围内的项目。</value></data>
+  <data name="SpatialWorkspace_ConfirmOverwrite" xml:space="preserve"><value>将覆盖所选项目的已有自动或手动决定。是否继续？</value></data>
+  <data name="SpatialWorkspace_OverwriteCount" xml:space="preserve"><value>将覆盖 {0} 项已有决定。</value></data>
+  <data name="SpatialWorkspace_OldMergePolicy" xml:space="preserve"><value>此任务使用的插件或合并策略已变更。可继续查看；请返回合并页，重新分析或创建任务后再处理。</value></data>
+  <data name="SpatialWorkspace_DecisionsApplied" xml:space="preserve"><value>已处理 {0} 项，勾选已清除。</value></data>
+  <data name="SpatialWorkspace_MergeSummary" xml:space="preserve"><value>自动 {0} · 已决定 {1} · 未解决 {2}</value></data>
+  <data name="SpatialWorkspace_LockedSummary" xml:space="preserve"><value>锁定或受阻 {0} 项</value></data>
+  <data name="SpatialWorkspace_Ready_Compare" xml:space="preserve"><value>只读比较 · 拖动平移，滚轮缩放。</value></data>
+  <data name="SpatialWorkspace_Ready_Merge" xml:space="preserve"><value>查看待处理项，或框选区域批量决定。</value></data>
+  <data name="SpatialWorkspace_Ready_Scope" xml:space="preserve"><value>添加或移除区域，然后预览实际备份范围。</value></data>
 </root>

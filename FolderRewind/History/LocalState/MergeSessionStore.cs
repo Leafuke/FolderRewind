@@ -59,7 +59,7 @@ public sealed partial class MergeSessionStore
             db.Open();
             using var version = db.CreateCommand(); version.CommandText = "PRAGMA user_version";
             var schema = Convert.ToInt32(version.ExecuteScalar());
-            if (schema is < 0 or > 3) throw new InvalidDataException("Unsupported Merge Session schema; preserve artifacts.");
+            if (schema is < 0 or > 4) throw new InvalidDataException("Unsupported Merge Session schema; preserve artifacts.");
             if (existed)
             {
                 using var check = db.CreateCommand();
@@ -76,7 +76,8 @@ public sealed partial class MergeSessionStore
                 using var indexes = db.CreateCommand(); indexes.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN ('conflicts_source','conflicts_signature')";
                 if (Convert.ToInt64(indexes.ExecuteScalar()) != 2) throw new InvalidDataException("Merge conflict indexes are missing.");
                 using var settings = db.CreateCommand(); settings.CommandText = "PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000"; settings.ExecuteNonQuery();
-                if (schema == 3) { RequireSemanticSchema(db); return db; }
+                if (schema >= 3) RequireSemanticSchema(db);
+                if (schema == 4) { RequireSpatialSchema(db); return db; }
             }
             using var command = db.CreateCommand(); command.CommandText = """
                 PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000;
@@ -96,7 +97,9 @@ public sealed partial class MergeSessionStore
                 CREATE INDEX IF NOT EXISTS semantic_paths_group ON semantic_paths(session,plan,source,groupid);
                 CREATE INDEX IF NOT EXISTS conflicts_semantic_group ON conflicts(session,revision,json_extract(data,'$.subject.sourceId'),json_extract(data,'$.semanticSubject.groupId'),id);
                 CREATE UNIQUE INDEX IF NOT EXISTS semantic_subject_identity ON conflicts(session,revision,json_extract(data,'$.subject.sourceId'),json_extract(data,'$.semanticSubject.groupId'),json_extract(data,'$.semanticSubject.subjectId')) WHERE json_extract(data,'$.semanticSubject') IS NOT NULL;
-                PRAGMA user_version=3;
+                CREATE TABLE IF NOT EXISTS spatial_subjects(session TEXT NOT NULL, plan TEXT NOT NULL, id TEXT NOT NULL, ordinal INTEGER NOT NULL, world TEXT NOT NULL, layer TEXT, minx REAL, miny REAL, maxx REAL, maxy REAL, PRIMARY KEY(session,plan,id,ordinal));
+                CREATE INDEX IF NOT EXISTS spatial_subjects_window ON spatial_subjects(session,plan,world,layer,minx,maxx,miny,maxy);
+                PRAGMA user_version=4;
                 COMMIT;
                 """; command.ExecuteNonQuery(); return db;
         }
@@ -168,6 +171,22 @@ public sealed partial class MergeSessionStore
         using var db = Open(); using var tx = db.BeginTransaction(); RequireReadyRevision(db, expected);
         using (var cmd = Command(db, "INSERT OR IGNORE INTO prepared VALUES($s,$r,$d)", ("$s", expected.Id.ToString()), ("$r", expected.Revision), ("$d", Encode(descriptor)))) cmd.ExecuteNonQuery();
         tx.Commit(); return LoadPrepared(expected)!;
+    }
+
+    internal void DiscardPrepared(MergeSession expected, PreparedMergeDescriptor prepared)
+    {
+        _ = prepared.Restore(expected);
+        using var db = Open(); using var tx = db.BeginTransaction(); RequireReadyRevision(db, expected);
+        using var read = Command(db, "SELECT data FROM prepared WHERE session=$s AND revision=$r",
+            ("$s", expected.Id.ToString()), ("$r", expected.Revision));
+        if (read.ExecuteScalar() is not string data
+            || !Decode<PreparedMergeDescriptor>(data).PackBytes.AsSpan().SequenceEqual(prepared.PackBytes))
+            throw new InvalidOperationException("Prepared Merge changed before invalidation.");
+        using var remove = Command(db, "DELETE FROM prepared WHERE session=$s AND revision=$r",
+            ("$s", expected.Id.ToString()), ("$r", expected.Revision));
+        remove.ExecuteNonQuery(); tx.Commit();
+        // Decisions, protection and registered artifacts remain owned by the Session.
+        // Old review readers may still hold the files; normal Session cleanup releases them.
     }
 
     private static void RequireReadyRevision(SqliteConnection db, MergeSession expected)
@@ -353,7 +372,9 @@ public sealed partial class MergeSessionStore
         using var read = Command(db, "SELECT data FROM conflicts WHERE session=$s AND revision=$r AND id=$id",
             ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", pair.Key));
         var conflict = Decode<MergeConflict>(read.ExecuteScalar() as string ?? throw new InvalidDataException("Conflict is missing."));
-        if (conflict.AutomaticDisplayOnly || conflict.SemanticSubject is { IsAutomatic: true }) throw new InvalidOperationException("Automatic Merge subjects are not user resolutions.");
+        if (conflict.AutomaticDisplayOnly || conflict.SemanticSubject is { IsAutomatic: true, CanOverrideAutomatic: false }) throw new InvalidOperationException("Automatic Merge subjects are not user resolutions.");
+        if (resolution is null && conflict.SemanticSubject is { IsAutomatic: true, CanOverrideAutomatic: true })
+            resolution = new(session.Plan.Revision, conflict.Id, conflict.InputSignature, MergeResolutionChoice.Automatic);
         if (resolution is null)
         {
             using var clear = Command(db, "UPDATE conflicts SET resolution=NULL WHERE session=$s AND revision=$r AND id=$id",

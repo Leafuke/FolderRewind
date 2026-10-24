@@ -18,7 +18,7 @@ public sealed partial class MergePageViewModel
     public bool ShowEmptyDetails => !ShowDetails;
     public bool ShowEmptyList => Changes.Count == 0;
     public bool ShowBatchActions => CheckedCount > 0;
-    public bool ShowFileActions => CheckedCount == 0 && SelectedChange is { IsAutomatic: false };
+    public bool ShowFileActions => CheckedCount == 0 && SelectedChange is { CanCheck: true };
     public bool ShowSaveStatus => HasSession && !ShowSetup && !ShowCompletion;
     public bool HasSourceWarning => !string.IsNullOrEmpty(SourceAvailability);
     public bool HasPreviewNotice => !string.IsNullOrEmpty(PreviewNotice);

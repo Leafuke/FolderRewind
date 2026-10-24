@@ -13,7 +13,7 @@ internal static class ExperimentalArtifactPolicyService
     internal static bool SupportsConfiguration(BackupConfig config)
         => NativeHistoryArtifactTransformPolicy.SupportsCapture(config.Archive.Mode switch
             { BackupMode.Full => CoreCaptureMode.Full, BackupMode.Smart => CoreCaptureMode.Smart, _ => CoreCaptureMode.Rolling },
-            config.SourceFolders.Count, config.BackupScope?.IsPluginScopeEnabled == true, config.SourceFolders.Any(f => f.SourceScope.IsPartial));
+            config.SourceFolders.Count, config.SourceFolders.Any(f => (f.BackupScopeOverride ?? config.BackupScope)?.IsPluginScopeEnabled == true), config.SourceFolders.Any(f => f.SourceScope.IsPartial));
 
     internal static ArtifactTransformerId? FindProvider(BackupConfig config)
     {

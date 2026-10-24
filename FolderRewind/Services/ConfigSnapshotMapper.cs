@@ -247,6 +247,7 @@ internal static class ConfigSnapshotMapper
         LastBackupTime = value.LastBackupTime,
         CoverImagePath = value.CoverImagePath,
         SourceScope = Copy(value.SourceScope),
+        BackupScopeOverride = value.BackupScopeOverride is null ? null : Copy(value.BackupScopeOverride),
         ProviderStates = value.ProviderStates is null ? null! : value.ProviderStates.ToDictionary(pair0 => pair0.Key, pair0 => Copy(pair0.Value), StringComparer.OrdinalIgnoreCase),
         SchemaExtensions = value.SchemaExtensions is null ? null! : value.SchemaExtensions.ToDictionary(pair0 => pair0.Key, pair0 => pair0.Value.Clone(), value.SchemaExtensions.Comparer),
     };
@@ -306,6 +307,7 @@ internal static class ConfigSnapshotMapper
 
     public static BackupScopeSettings Copy(BackupScopeSettings? value) => value is null ? null! : new BackupScopeSettings
     {
+        SpatialSelection = value.SpatialSelection,
         OwnerId = value.OwnerId,
         ScopeId = value.ScopeId,
         Parameters = value.Parameters is null ? null! : value.Parameters.ToDictionary(pair0 => pair0.Key, pair0 => pair0.Value, StringComparer.OrdinalIgnoreCase),

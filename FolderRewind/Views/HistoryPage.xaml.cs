@@ -399,6 +399,8 @@ public sealed partial class HistoryPage : Page
         => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.RestoreVersionCommand);
     private void OnPreviewWorldClick(object sender, RoutedEventArgs e)
         => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.PreviewWorldCommand);
+    private void OnCompareWorldClick(object sender, RoutedEventArgs e)
+        => ViewModel.CompareWorld((sender as FrameworkElement)?.Tag as NativeHistoryVersionViewItem);
 
     private void OnExportClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.ExportVersionCommand);

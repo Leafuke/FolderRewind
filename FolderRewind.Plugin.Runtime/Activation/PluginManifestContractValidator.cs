@@ -22,6 +22,9 @@ public static class PluginManifestContractValidator
         RequireUnique(manifest.ArtifactTransformers.Select(value => value.TransformerId), "Artifact Transformer");
         RequireUnique(manifest.RestoreStrategies.Select(value => value.RestoreStrategyId), "Restore Strategy");
         RequireUnique(manifest.MergeProviders.Select(value => value.ProviderId), "Merge Provider");
+        if (manifest.Capabilities.Any(c => c is PluginCapabilityKind.SpatialComparison or PluginCapabilityKind.SpatialScopeSelection)
+            && !new PluginApiVersion(3, 14).IsSatisfiedBy(manifest.RequiredApi))
+            throw new InvalidDataException("Spatial workspace capabilities require API 3.14.");
         if ((manifest.MergeProviders.Count != 0) != manifest.Capabilities.Contains(PluginCapabilityKind.MergeProvider))
             throw new InvalidDataException("Merge provider declarations require the MergeProvider capability.");
         foreach (var provider in manifest.MergeProviders)
@@ -147,6 +150,10 @@ public static class PluginManifestContractValidator
         if (registrations.Capabilities.OfType<ISpatialPreviewCapability>()
             .Any(preview => !manifest.ConfigKinds.Any(kind => kind.Kind == preview.Kind)))
             throw new InvalidDataException("Spatial preview Kind is not declared by the Manifest.");
+        if (registrations.Capabilities.OfType<ISpatialComparisonCapability>().Select(c => c.Kind)
+            .Concat(registrations.Capabilities.OfType<ISpatialScopeSelectionCapability>().Select(c => c.Kind))
+            .Any(kind => !manifest.ConfigKinds.Any(k => k.Kind == kind)))
+            throw new InvalidDataException("Spatial workspace Kind is not declared by the Manifest.");
         var transformerIds = registrations.Capabilities
             .OfType<IBackupArtifactTransformerCapability>()
             .Select(value => value.TransformerId)
@@ -176,6 +183,8 @@ public static class PluginManifestContractValidator
 
     private static IEnumerable<PluginCapabilityKind> GetKinds(IPluginCapability capability)
     {
+        if (capability is ISpatialComparisonCapability) yield return PluginCapabilityKind.SpatialComparison;
+        if (capability is ISpatialScopeSelectionCapability) yield return PluginCapabilityKind.SpatialScopeSelection;
         if (capability is IMergeProviderCapability) yield return PluginCapabilityKind.MergeProvider;
         if (capability is ISpatialPreviewCapability) yield return PluginCapabilityKind.SpatialPreview;
         if (capability is IDiscoveryCapability) yield return PluginCapabilityKind.Discovery;

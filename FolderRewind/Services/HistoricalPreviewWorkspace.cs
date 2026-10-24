@@ -17,6 +17,7 @@ internal sealed class HistoricalPreviewWorkspace(OwnedPluginTemporaryStorage sto
     internal ConfigSnapshot Origin { get; } = origin;
     internal Guid FolderId { get; } = folderId;
     internal SourceVersion Version { get; } = version;
+    internal RepresentationId? RepresentationId { get; init; }
     internal bool IsPartial { get; } = isPartial;
 
     public async ValueTask DisposeAsync()

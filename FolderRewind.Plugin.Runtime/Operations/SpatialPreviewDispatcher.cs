@@ -40,7 +40,7 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
           CellLabel = value.CellLabel is { } cell ? Freeze(cell) : null,
           DistanceUnit = value.DistanceUnit is { } unit ? Freeze(unit) : null,
           SupportsStatusOverlay = value.SupportsStatusOverlay,
-          Legend = FreezeLegend(value.Legend) };
+          Legend = FreezeLegend(value.Legend), Worlds = FreezeWorlds(value.Worlds) };
     }
 
     public async ValueTask<SpatialPreviewNavigation> GetNavigationTargetsAsync(SpatialPreviewSource source, CancellationToken token)
@@ -106,8 +106,26 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
         token.ThrowIfCancellationRequested();
         if (source.Generation == Guid.Empty || !source.Config.Folders.Any(f => f.FolderId == source.Folder.FolderId && f.Path == source.Folder.Path))
             throw new ArgumentException("Preview source does not belong to the configuration snapshot.");
-        return runtime.TryAcquire<ISpatialPreviewCapability>(new(source.Config.Kind.OwnerId.Value), c => c.Kind == source.Config.Kind, token)
+        if (source.WorldId?.Length > 4096 || source.CacheBudgetBytes is < 1048576 or > 134217728)
+            throw new ArgumentException("Invalid spatial input bounds or cache budget.");
+        var lease = runtime.TryAcquire<ISpatialPreviewCapability>(new(source.Config.Kind.OwnerId.Value), c => c.Kind == source.Config.Kind, token)
             ?? throw new InvalidOperationException("SpatialPreviewUnavailable");
+        if (source.FixedInput is { } input && (lease.Capability is not IFixedSpatialPreviewCapability
+            || string.IsNullOrWhiteSpace(input.Identity) || string.IsNullOrWhiteSpace(input.ContentDigest)
+            || !Path.IsPathFullyQualified(input.RootPath)))
+        {
+            lease.Dispose();
+            throw new InvalidOperationException("FixedSpatialPreviewUnavailable");
+        }
+        return lease;
+    }
+
+    private static IReadOnlyList<SpatialWorld> FreezeWorlds(IReadOnlyList<SpatialWorld> worlds)
+    {
+        if (worlds.Count > 4096 || worlds.Any(w => string.IsNullOrWhiteSpace(w.Id) || w.Id.Length > 4096)
+            || worlds.Select(w => w.Id).Distinct(StringComparer.Ordinal).Count() != worlds.Count)
+            throw new InvalidDataException("Invalid spatial world inventory.");
+        return Array.AsReadOnly(worlds.Select(w => w with { Name = Freeze(w.Name) }).ToArray());
     }
 
     private static void ValidateMode(string? value)

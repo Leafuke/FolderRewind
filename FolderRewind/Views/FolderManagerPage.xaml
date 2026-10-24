@@ -314,6 +314,7 @@
                                 <MenuFlyout Opening="OnFolderActionsOpening">
                                     <MenuFlyoutItem x:Uid="Preview_Open" Tag="SpatialPreview" Click="OnSpatialPreviewClick"
                                                     AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerPreview}"/>
+                                    <MenuFlyoutItem x:Uid="SpatialWorkspace_OpenScope" AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerSpatialScope}" Tag="SpatialScope" Click="OnSpatialScopeClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder"
                                                     AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerOpenFolder}"
                                                     Click="OnOpenFolderClick"/>

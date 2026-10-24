@@ -106,7 +106,25 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
             history.MergeSessions.RequireCurrentContract(session, Descriptor);
             using var providerLease = semantic is null ? null : await semantic.AcquireAsync(token).ConfigureAwait(false);
             if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
-            if (history.MergeSessions.LoadPrepared(session) is { } stored) return stored.Restore(session);
+            if (history.MergeSessions.LoadPrepared(session) is { } stored)
+            {
+                var cached = stored.Restore(session);
+                if (HasMismatchedMetadataCaptureTime(cached))
+                {
+                    // Older Hosts timestamped metadata after archive creation. Rebuild only unpublished
+                    // preparation; never rewrite history, decisions or an already reviewed result in place.
+                    if (File.Exists(history.Repository.Paths.GetPackPath(cached.PackId)))
+                        throw new InvalidDataException("Published Merge metadata cannot be regenerated.");
+                    token.ThrowIfCancellationRequested();
+                    history.MergeSessions.DiscardPrepared(session, stored);
+                }
+                else
+                {
+                    stage = "validate-facts";
+                    await ValidateFactsAsync(cached, token).ConfigureAwait(false);
+                    return cached;
+                }
+            }
             var service = new HistoryMergeService(history, restore, semantic: semantic);
             stage = "assemble-result";
             var sources = history.MergeSessions.Sources(session);
@@ -275,6 +293,8 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 false, DateTimeOffset.UtcNow, BranchUpdateReason.Merged, session.Plan.Ours.SourceId, provenance);
             facts.Add(update);
             var result = new PreparedMerge(session, prepared.ToImmutableArray(), facts.ToImmutableArray(), checkpoint, update, replicas.ToImmutableArray(), PackId.New(), HistoryTransactionId.New());
+            stage = "validate-facts";
+            await ValidateFactsAsync(result, token).ConfigureAwait(false);
             stage = "persist-prepared";
             return history.MergeSessions.SavePrepared(session, result).Restore(session);
         }
@@ -283,5 +303,21 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
             ex.Data["MergeStage"] = stage;
             throw;
         }
+    }
+
+    internal static bool HasMismatchedMetadataCaptureTime(PreparedMerge prepared)
+    {
+        var versions = prepared.Facts.OfType<SourceVersion>().ToDictionary(v => v.VersionId);
+        return prepared.Facts.OfType<VersionMetadataSnapshot>().Any(m =>
+            versions.TryGetValue(m.VersionId, out var owner) && m.CapturedAtUtc != owner.CreatedAtUtc);
+    }
+
+    private async Task ValidateFactsAsync(PreparedMerge prepared, CancellationToken token)
+    {
+        var codec = new HistoryPackCodec();
+        var pack = new HistoryCommitPack(prepared.PackId, prepared.TransactionId, prepared.Update.CreatedAtUtc,
+            prepared.Facts.Select(f => codec.CreateObject(f)));
+        var packs = await history.Repository.ReadAllPacksAsync(token).ConfigureAwait(false);
+        new HistoryRepositoryValidator(codec).Validate(history.ConfigId, packs.Append(codec.Decode(codec.Encode(pack))));
     }
 }

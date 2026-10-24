@@ -30,6 +30,7 @@ public sealed class AccessibilityMarkupTests
     [
         "Views/HistoryPage.xaml",
         "Views/MergePage.xaml",
+        "Views/SpatialWorkspacePage.xaml",
         "Views/HomePage.xaml",
         "Views/FolderManagerPage.xaml",
         "Views/MiniWindow.xaml",

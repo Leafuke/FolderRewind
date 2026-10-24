@@ -37,10 +37,15 @@ internal sealed class PluginV3SpatialPreview
     public static PluginV3SpatialPreview Open(HistoricalPreviewWorkspace workspace)
     {
         var origin = workspace.Origin;
-        var folder = origin.Folders.Single(f => f.FolderId == workspace.FolderId) with { Path = workspace.DirectoryPath };
-        var mapped = origin with { Folders = Array.AsReadOnly(origin.Folders.Select(f => f.FolderId == folder.FolderId ? folder : f).ToArray()) };
-        return new(new(mapped, folder, Guid.NewGuid()) { IsPartial = workspace.IsPartial }, origin, workspace.Version.VersionId.ToString());
+        var folder = origin.Folders.Single(f => f.FolderId == workspace.FolderId);
+        return new(new(origin, folder, Guid.NewGuid()) { IsPartial = workspace.IsPartial,
+            FixedInput = new(workspace.Version.VersionId + "/" + workspace.RepresentationId, workspace.DirectoryPath, workspace.Version.VersionId + "/" + workspace.RepresentationId) }, origin, workspace.Version.VersionId.ToString());
     }
+    internal static PluginV3SpatialPreview OpenFixed(ConfigSnapshot origin, Guid folderId, SpatialFixedInput input, bool partial, string? worldId = null)
+        => new(new(origin, origin.Folders.Single(f => f.FolderId == folderId), Guid.NewGuid())
+            { FixedInput = input, IsPartial = partial, WorldId = worldId, CacheBudgetBytes = 64L * 1024 * 1024 }, origin, input.Identity);
+    internal static PluginV3SpatialPreview OpenWorld(ConfigSnapshot origin, Guid folderId, string? worldId)
+        => new(new(origin, origin.Folders.Single(f => f.FolderId == folderId), Guid.NewGuid()) { WorldId = worldId, CacheBudgetBytes = 64L * 1024 * 1024 }, origin);
     public static bool IsCurrent(ConfigSnapshot origin, Guid folderId)
     {
         var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == origin.ConfigId);
@@ -57,6 +62,17 @@ internal sealed class PluginV3SpatialPreview
         return lease is not null;
     }
     public bool IsCurrent() => IsCurrent(_origin, _originFolder.FolderId);
+    internal static bool CanUseWorkspace(BackupConfig config, SpatialWorkspaceMode mode)
+    {
+        var kind = PluginV3ModelMapper.ToKind(config); var owner = new PluginId(kind.OwnerId.Value);
+        using var preview = PluginV3RuntimeService.Runtime.TryAcquire<ISpatialPreviewCapability>(owner, c => c.Kind == kind);
+        if (preview is null || mode != SpatialWorkspaceMode.Scope && preview.Capability is not IFixedSpatialPreviewCapability) return false;
+        if (mode == SpatialWorkspaceMode.Compare)
+        { using var compare = PluginV3RuntimeService.Runtime.TryAcquire<ISpatialComparisonCapability>(owner, c => c.Kind == kind); return compare is not null; }
+        if (mode == SpatialWorkspaceMode.Scope)
+        { using var scope = PluginV3RuntimeService.Runtime.TryAcquire<ISpatialScopeSelectionCapability>(owner, c => c.Kind == kind); return scope is not null; }
+        return true;
+    }
     public Task<SpatialPreviewDescription> DescribeAsync(CancellationToken token)
         => RunAsync((d, ct) => d.DescribeAsync(Source, ct), token);
     public Task<SpatialPreviewTile> RenderAsync(SpatialPreviewTileRequest request, CancellationToken token)

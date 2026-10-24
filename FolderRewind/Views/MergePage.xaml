@@ -97,6 +97,7 @@
                 <TextBlock Grid.Column="1" Text="{Binding SaveStatus}" Style="{StaticResource MergeCaptionStyle}" Visibility="{Binding ShowSaveStatus, Converter={StaticResource BoolToVisConverter}}"/>
             </Grid>
             <InfoBar x:Uid="MergeWorkspace_Attention" IsOpen="{Binding HasError}" Severity="Warning" IsClosable="False" Message="{Binding Error}"/>
+            <Button x:Uid="SpatialWorkspace_OpenMerge" Click="OnSpatialMerge" Visibility="{Binding HasSpatialWorkspace, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{Binding CanResolve}" HorizontalAlignment="Left" AutomationProperties.AutomationId="SpatialWorkspace_OpenMerge"/>
             <InfoBar IsOpen="{Binding HasSemanticSession}" Severity="Informational" IsClosable="False" Message="{Binding SessionMethodDescription}"/>
             <InfoBar x:Uid="Merge_ProviderDiagnostics" IsOpen="{Binding HasProviderDiagnostics}" Severity="Warning" IsClosable="False" Message="{Binding ProviderDiagnostics}"/>
             <InfoBar IsOpen="{Binding ShowOperationNotice}" Severity="Informational" IsClosable="False" Message="{Binding Status}"/>

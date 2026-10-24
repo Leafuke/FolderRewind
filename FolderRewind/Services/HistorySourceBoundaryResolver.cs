@@ -35,6 +35,8 @@ internal static class HistorySourceBoundaryResolver
         ArgumentNullException.ThrowIfNull(originalConfig);
         ArgumentNullException.ThrowIfNull(originalFolder);
         var (config, folder) = PluginV3ModelMapper.CloneForOperation(originalConfig, originalFolder);
+        if (folder.BackupScopeOverride is { } scopeOverride)
+            config.BackupScope = ConfigSnapshotMapper.Copy(scopeOverride);
         var configSnapshot = PluginV3ModelMapper.ToSnapshot(config);
         var folderId = Guid.Parse(folder.Id);
         var folderSnapshot = configSnapshot.Folders.Single(value => value.FolderId == folderId);
@@ -113,11 +115,14 @@ internal static class HistorySourceBoundaryResolver
                 if (scope.Readiness == OperationReadiness.Blocked)
                     return Blocked(config, folder, configSnapshot, folderSnapshot, activePluginId,
                         diagnostics, "plugin.backup_scope_blocked", "BackupScope", owner.Value);
+                var effectivePatterns = folder.SourceScope.IsPartial && originalFolder.BackupScopeOverride is not null
+                    ? SourceScopeIntersection.Intersect(folder.SourceScope.IncludePatterns, scope.IncludePatterns, cancellationToken)
+                    : BackupSourceScopePatternSet.NormalizeAndValidate(scope.IncludePatterns);
                 folder.SourceScope = new BackupSourceScope
                 {
                     Mode = BackupSourceScopeMode.Include,
                     IncludePatterns = new ObservableCollection<string>(
-                        BackupSourceScopePatternSet.NormalizeAndValidate(scope.IncludePatterns))
+                        effectivePatterns)
                 };
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

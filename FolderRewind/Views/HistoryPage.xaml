@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="FolderRewind.Views.HistoryPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -353,6 +353,7 @@
                                             <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuPreviewWorld" Click="OnPreviewWorldClick"
                                                             Visibility="{x:Bind CanPreviewWorld, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}"
                                                             AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryPreviewWorld}"/>
+                                            <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="SpatialWorkspace_OpenCompare" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryCompareWorld}" Click="OnCompareWorldClick" IsEnabled="{x:Bind CanCompareWorld, Mode=OneTime}"/>
                                             <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuExport" Click="OnExportClick" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryExportVersion}"/>
                                             <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuComment" Click="OnEditCommentClick" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionEditComment}"/>
                                             <MenuFlyoutItem Tag="{x:Bind Mode=OneTime}" x:Uid="History_MenuUpload" Click="OnUploadToCloudClick" AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionUploadCloud}" IsEnabled="{x:Bind CanUploadToCloud, Mode=OneTime}"/>

@@ -69,6 +69,9 @@ public sealed record MergeSubject(string SubjectId, string GroupId, string Input
 {
     /// <summary>A persisted, unresolvable analysis issue. Other groups can still be analyzed; Apply remains blocked.</summary>
     public bool IsBlocked { get; init; }
+    /// <summary>Explicit opt-in. Automatic remains the default; permitted overrides are AllowedDecisions.</summary>
+    public bool CanOverrideAutomatic { get; init; }
+    public IReadOnlyList<SpatialSubjectLocation> SpatialLocations { get; init; } = Array.Empty<SpatialSubjectLocation>();
 }
 
 /// <summary>Host-owned analysis storage. A partial analysis is never an applicable plan.</summary>

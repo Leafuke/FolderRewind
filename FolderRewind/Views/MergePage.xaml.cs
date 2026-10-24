@@ -17,6 +17,11 @@ namespace FolderRewind.Views;
 
 public sealed partial class MergePage : Page
 {
+    private void OnSpatialMerge(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.Navigation is { } navigation && ViewModel.State.Session is { } session)
+            NavigationService.NavigateTo("SpatialWorkspace", new SpatialWorkspaceNavigationParameter(navigation.ConfigId, Guid.Parse(navigation.FolderId), SpatialWorkspaceMode.Merge) { SessionId = session.Id });
+    }
     private bool _narrow, _showDetail, _syncScroll, _refreshingList;
     private string? _announcedStatus;
     private ScrollViewer? _listScroll, _oursScroll, _theirsScroll;

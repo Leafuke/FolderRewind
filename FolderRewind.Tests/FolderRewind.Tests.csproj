@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\BundledMineRewindPackage.cs" Link="Source\BundledMineRewindPackage.cs" />
+    <Compile Include="..\FolderRewind\Services\SourceScopeIntersection.cs" Link="Source\SourceScopeIntersection.cs" />
+    <Compile Include="..\FolderRewind\Services\SpatialWorkspaceIndex*.cs" Link="Source\SpatialWorkspaceIndex.cs" />
+    <Compile Include="..\FolderRewind\Services\SpatialSelectionGeometry.cs" Link="Source\SpatialSelectionGeometry.cs" />
     <Compile Include="..\FolderRewind\Services\NativeRestoreCoordinationPolicy.cs" Link="Source\NativeRestoreCoordinationPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\OperationDiagnosticFormatter.cs" Link="Source\OperationDiagnosticFormatter.cs" />
     <Compile Include="..\FolderRewind\Models\BackupActivityModels.cs" Link="Source\BackupActivityModels.cs" />

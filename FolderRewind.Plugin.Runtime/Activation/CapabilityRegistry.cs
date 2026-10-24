@@ -40,6 +40,18 @@ internal sealed class CapabilityRegistrationSet
         foreach (var capability in capabilities)
         {
             var recognized = false;
+            if (capability is ISpatialComparisonCapability comparison)
+            {
+                if (comparison.Kind.OwnerId.Value != pluginId.Value) throw new InvalidOperationException("Spatial comparison owner mismatch.");
+                Add("spatial-comparison", comparison.Kind.ToString(), capability);
+                recognized = true;
+            }
+            if (capability is ISpatialScopeSelectionCapability selection)
+            {
+                if (selection.Kind.OwnerId.Value != pluginId.Value) throw new InvalidOperationException("Spatial selection owner mismatch.");
+                Add("spatial-scope-selection", selection.Kind.ToString(), capability);
+                recognized = true;
+            }
             if (capability is IMergeProviderCapability merge)
             {
                 if (merge.ProviderId.PluginId != pluginId || merge.ContractVersion < 1)

@@ -97,7 +97,7 @@ public sealed partial class MergeSessionStore
             var subject = conflict.SemanticSubject ?? throw new InvalidDataException("Semantic subject is missing.");
             MergeResolution? resolution = subject.IsAutomatic
                 ? new(session.Plan.Revision, conflict.Id, conflict.InputSignature, MergeResolutionChoice.Automatic) : null;
-            if (!subject.IsAutomatic)
+            if (!subject.IsAutomatic || subject.CanOverrideAutomatic)
             {
                 using var old = Command(db, "SELECT resolution FROM conflicts WHERE session=$s AND revision<>$p AND json_extract(data,'$.inputSignature')=$sig AND resolution IS NOT NULL ORDER BY rowid DESC LIMIT 1",
                     ("$s", session.Id.ToString()), ("$p", session.Plan.Revision.ToString()), ("$sig", conflict.InputSignature));
@@ -109,6 +109,7 @@ public sealed partial class MergeSessionStore
                         resolution = candidate with { PlanRevision = session.Plan.Revision, ConflictId = conflict.Id };
                 }
             }
+            WriteSpatialLocations(db, session, conflict);
             using var write = Command(db, "INSERT INTO conflicts VALUES($s,$p,$id,$d,$r)",
                 ("$s", session.Id.ToString()), ("$p", session.Plan.Revision.ToString()), ("$id", conflict.Id),
                 ("$d", Encode(conflict)), ("$r", resolution is null ? null : Encode(resolution)));
@@ -125,8 +126,9 @@ public sealed partial class MergeSessionStore
         _ => throw new InvalidDataException("Unknown Merge choice.")
     };
     internal static bool SemanticChoiceAllowed(MergeSubject subject, MergeResolutionChoice choice)
-        => !subject.IsBlocked && (subject.IsAutomatic ? choice == MergeResolutionChoice.Automatic
-            : Enum.IsDefined(choice) && choice != MergeResolutionChoice.Automatic && subject.AllowedDecisions.Contains(SemanticChoice(choice)));
+        => !subject.IsBlocked && (subject.IsAutomatic && choice == MergeResolutionChoice.Automatic
+            || (!subject.IsAutomatic || subject.CanOverrideAutomatic) && Enum.IsDefined(choice)
+                && choice != MergeResolutionChoice.Automatic && subject.AllowedDecisions.Contains(SemanticChoice(choice)));
 
     internal IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution)> SemanticDecisionPage(MergeSession session, SourceId source, string group, string? after, int count)
     {

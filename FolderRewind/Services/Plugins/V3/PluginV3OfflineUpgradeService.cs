@@ -336,19 +336,5 @@ internal static class PluginV3OfflineUpgradeService
             .FirstOrDefault() ?? string.Empty;
     }
 
-    internal static string ResolveBundledPackagePath()
-    {
-        foreach (var directory in new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "Assets", "Plugins"),
-            AppContext.BaseDirectory
-        })
-        {
-            if (!Directory.Exists(directory)) continue;
-            var candidates = Directory.GetFiles(directory, "MineRewind-*.frplugin");
-            if (candidates.Length > 1) throw new InvalidDataException("Multiple bundled MineRewind packages were found.");
-            if (candidates.Length == 1) return candidates[0];
-        }
-        throw new FileNotFoundException("Bundled MineRewind package is missing.");
-    }
+    internal static string ResolveBundledPackagePath() => BundledMineRewindPackage.Resolve(AppContext.BaseDirectory);
 }

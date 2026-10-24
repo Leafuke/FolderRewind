@@ -6,7 +6,7 @@ package instead of the FolderRewind application or UI projects.
 ## Compatibility
 
 - Target framework: `net10.0`.
-- Package version: `3.10.0`; Plugin API requirement: `3.10`.
+- Package version: `3.14.0`; Plugin API requirement: `3.14`.
 - Assembly version remains `3.0.0.0` throughout API 3.x.
 - A Host accepts a manifest only when its API major matches and its minor is at
   least the plugin's requested minor.
@@ -15,6 +15,16 @@ API 3 exchanges immutable snapshots, drafts, patches, requests, results, and
 descriptors. Plugins register capabilities during `ActivateAsync`; the Host
 validates and commits the activation before those capabilities become visible.
 Activation may read settings and snapshots but cannot use the plugin DataStore.
+
+API 3.14 adds optional fixed-input spatial preview, read-only spatial comparison,
+and spatial selection mapped to existing BackupScope parameters. Fixed inputs
+are Host-owned trees with explicit identities; a renderer must opt in through
+`IFixedSpatialPreviewCapability` and never fall back to the live source.
+Merge subjects may supply optional spatial locations and explicitly permit
+overrides of ordinary automatic suggestions. Existing providers default to no
+spatial projection and no automatic override. Host decisions, validation,
+configuration persistence and target mutation remain Host-owned; comparison
+and selection do not require an Artifact transformer or Minecraft types.
 
 API 3.10 adds an optional, Host-selected incremental Artifact input context and
 an optional `IArtifactFileViewProvider` extension on a registered materializer.
@@ -95,3 +105,7 @@ API 3.10 adds incremental Artifact input and recipe file views, stable KnotLink 
 A consistency provider must advertise `SupportsBoundedSourceView` before receiving Native source-view work. The default is false, so older providers cannot allocate an unbounded snapshot for an experimental Native operation. The operation pins transformer/materializer capabilities before consistency acquisition and retains that session until the stable view and its streams are released.
 
 API 3.11 adds optional spatial view modes, navigation heights, distance units, legends, status overlays, content states and loaded-area statistics. Existing constructors and single-mode providers remain supported. SpatialPreviewSource.IsPartial describes incomplete content without treating missing files as known ungenerated terrain. No History, UI or Minecraft types are added to the contracts.
+
+## API 3.15: comparison presentation
+
+`ISpatialComparisonCapability.DescribeComparisonAsync` optionally supplies localized category IDs and default visibility. Its default implementation returns an empty catalog. `SpatialChange.SourcePaths` supplies relative source paths for details/search; older providers retain an empty list. The Host preserves Components without interpreting domain names. These presentation hints never alter merge decisions, content integrity or capture coverage.

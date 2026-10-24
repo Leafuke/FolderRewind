@@ -17,6 +17,10 @@ public interface ISpatialPreviewCapability : IPluginCapability
 public sealed record SpatialPreviewSource(ConfigSnapshot Config, FolderSnapshot Folder, Guid Generation)
 {
     public bool IsPartial { get; init; }
+    public SpatialFixedInput? FixedInput { get; init; }
+    public string? WorldId { get; init; }
+    /// <summary>Host ceiling for a generation's decoded/raster cache. Multiple panels divide one workspace budget.</summary>
+    public long CacheBudgetBytes { get; init; } = 128L * 1024 * 1024;
 }
 public sealed record SpatialPreviewBounds(double MinX, double MinY, double MaxX, double MaxY);
 public sealed record SpatialPreviewLayer(string Id, LocalizedText Name, SpatialPreviewBounds Bounds,
@@ -42,6 +46,7 @@ public sealed record SpatialPreviewStatistics(int Readable, int Pending, int NoD
 public sealed record SpatialPreviewDescription(IReadOnlyList<SpatialPreviewLayer> Layers,
     LocalizedText HorizontalAxis, LocalizedText VerticalAxis, IReadOnlyList<PluginDiagnostic> Diagnostics)
 {
+    public IReadOnlyList<SpatialWorld> Worlds { get; init; } = Array.Empty<SpatialWorld>();
     public LocalizedText? LayerLabel { get; init; }
     public LocalizedText? NavigationLabel { get; init; }
     public LocalizedText? CellLabel { get; init; }

@@ -9,6 +9,22 @@ namespace FolderRewind.Plugin.Abstractions.Tests;
 public sealed class ContractTests
 {
     [TestMethod]
+    public async Task ExistingComparisonProvidersNeedNotImplementPresentationMetadata()
+    {
+        ISpatialComparisonCapability old = new OldComparisonProvider();
+        var description = await old.DescribeComparisonAsync(null!, null!);
+        Assert.HasCount(0, description.Categories);
+        var change = new SpatialChange("id", new("name", new Dictionary<string, string>()), SpatialChangeKind.Modified,
+            null, [], new("details", new Dictionary<string, string>()));
+        Assert.HasCount(0, change.SourcePaths);
+    }
+    private sealed class OldComparisonProvider : ISpatialComparisonCapability
+    {
+        public ConfigKindRef Kind => new(new("test"), "test");
+        public ValueTask<SpatialComparisonPage> CompareAsync(SpatialComparisonRequest request, PluginInvocationContext context) => throw new NotSupportedException();
+        public ValueTask CloseComparisonAsync(Guid id, PluginInvocationContext context) => ValueTask.CompletedTask;
+    }
+    [TestMethod]
     public void AssemblyIdentityIsStableForApiThree()
     {
         var assembly = typeof(IFolderRewindPlugin).Assembly.GetName();
@@ -24,7 +40,7 @@ public sealed class ContractTests
         Assert.IsTrue(new PluginApiVersion(3, 0).IsSatisfiedBy(new PluginApiVersion(3, 2)));
         Assert.IsFalse(new PluginApiVersion(3, 2).IsSatisfiedBy(new PluginApiVersion(3, 1)));
         Assert.IsFalse(new PluginApiVersion(2, 9).IsSatisfiedBy(new PluginApiVersion(3, 9)));
-        Assert.AreEqual(new PluginApiVersion(3, 13), PluginApiVersion.HostVersion);
+        Assert.AreEqual(new PluginApiVersion(3, 15), PluginApiVersion.HostVersion);
     }
 
     [TestMethod]

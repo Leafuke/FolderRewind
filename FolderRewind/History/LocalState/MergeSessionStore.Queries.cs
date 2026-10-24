@@ -34,7 +34,7 @@ public sealed partial class MergeSessionStore
         const string index = """
             WITH indexed AS (SELECT id,data,resolution,
                 COALESCE(json_extract(data,'$.semanticSubject.displayName.default'),json_extract(data,'$.subject.paths[0]'),'') AS path,
-                (COALESCE(json_extract(data,'$.semanticSubject.isAutomatic'),0) OR COALESCE(json_extract(data,'$.automaticDisplayOnly'),0)) AS automatic
+                ((COALESCE(json_extract(data,'$.semanticSubject.isAutomatic'),0) AND json_extract(resolution,'$.choice')=5) OR COALESCE(json_extract(data,'$.automaticDisplayOnly'),0)) AS automatic
                 FROM conflicts WHERE session=$s AND revision=$r),
             filtered AS (SELECT * FROM indexed WHERE ($q='' OR instr(lower(path),lower($q))>0
                 OR EXISTS(SELECT 1 FROM json_each(data,'$.semanticSubject.displayName.translations') WHERE instr(lower(value),lower($q))>0)

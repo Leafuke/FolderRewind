@@ -115,10 +115,16 @@ internal sealed class SemanticMergePlanWriter : IMergePlanWriter, IDisposable
                 var subject = Freeze(item); Identity(subject.SubjectId); Identity(subject.InputIdentity);
                 if (!_groups.TryGetValue(subject.GroupId, out var group) || subject.AllowedDecisions.Any(d => !Enum.IsDefined(d) || d == MergeDecisionKind.Automatic)
                     || subject.AllowedDecisions.Count != subject.AllowedDecisions.Distinct().Count()
-                    || subject.IsAutomatic && subject.AllowedDecisions.Count != 0
+                    || subject.IsAutomatic && !subject.CanOverrideAutomatic && subject.AllowedDecisions.Count != 0
+                    || subject.CanOverrideAutomatic && (!subject.IsAutomatic || subject.IsBlocked || subject.AllowedDecisions.Count == 0)
                     || subject.IsBlocked && (subject.IsAutomatic || subject.AllowedDecisions.Count != 0)
                     || !subject.IsAutomatic && !subject.IsBlocked && subject.AllowedDecisions.Count == 0)
                     throw new InvalidDataException("Invalid Merge subject decisions or group.");
+                if (subject.SpatialLocations.Count > 128 || subject.SpatialLocations.Any(p =>
+                    string.IsNullOrWhiteSpace(p.WorldId) || p.WorldId.Length > 4096 || p.LayerId?.Length > 256
+                    || p.Bounds is { } b && (!double.IsFinite(b.MinX) || !double.IsFinite(b.MinY)
+                        || !double.IsFinite(b.MaxX) || !double.IsFinite(b.MaxY) || b.MinX >= b.MaxX || b.MinY >= b.MaxY)))
+                    throw new InvalidDataException("Invalid Merge spatial projection.");
                 var signature = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("folderrewind/semantic-conflict/1\0"
                     + _inputSignature + "\0" + JsonSerializer.Serialize(group) + "\0" + JsonSerializer.Serialize(subject))));
                 conflicts.Add(new(signature, new(_source, [], subject.SubjectId), MergeConflictKind.ModifyModify, signature,

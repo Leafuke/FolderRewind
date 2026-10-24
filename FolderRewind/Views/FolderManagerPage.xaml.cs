@@ -213,12 +213,19 @@ namespace FolderRewind.Views
             foreach (var item in flyout.Items)
                 if (item is MenuFlyoutItem { Tag: "SpatialPreview" } preview)
                     preview.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+                else if (item is MenuFlyoutItem { Tag: "SpatialScope" } scope)
+                    scope.Visibility = ViewModel.CurrentConfig is { } scopeConfig && Services.Plugins.V3.PluginV3SpatialPreview.CanUseWorkspace(scopeConfig, SpatialWorkspaceMode.Scope) ? Visibility.Visible : Visibility.Collapsed;
         }
         private void OnSpatialPreviewClick(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.DataContext is ManagedFolder folder && ViewModel.CurrentConfig is { } config
                 && Guid.TryParse(folder.Id, out var id))
                 NavigationService.NavigateTo("SpatialPreview", new SpatialPreviewNavigationParameter(config.Id, id));
+        }
+        private void OnSpatialScopeClick(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is ManagedFolder folder && ViewModel.CurrentConfig is { } config && Guid.TryParse(folder.Id, out var id))
+                NavigationService.NavigateTo("SpatialWorkspace", new SpatialWorkspaceNavigationParameter(config.Id, id, SpatialWorkspaceMode.Scope));
         }
         private void OnRenameFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RenameFolderCommand, (sender as FrameworkElement)?.DataContext);
         private void OnEditSourceScopeClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.EditSourceScopeCommand, (sender as FrameworkElement)?.DataContext);

@@ -69,7 +69,8 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
             Theirs.NewBranchUpdates.Single().BranchId, "fixture-v1", [new(Source, Target, Boundary)]))!;
         Assert.AreEqual(HistoryMergeMode.ThreeWay, Session.Plan.Mode);
         Assert.AreEqual(expectedState, Session.State);
-        if (semantic is null) Assert.IsEmpty(new HistoryMergeService(History, Restore()).AllConflicts(Session));
+        if (semantic is null && expectedState == MergeSessionState.Ready)
+            Assert.IsEmpty(new HistoryMergeService(History, Restore()).AllConflicts(Session));
         Archives.Reset();
     }
 

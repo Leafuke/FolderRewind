@@ -36,7 +36,9 @@ public enum PluginCapabilityKind
     VersionMetadataProvider = 13,
     RestoreStagingPreparation = 14,
     SpatialPreview = 15,
-    MergeProvider = 16
+    MergeProvider = 16,
+    SpatialComparison = 17,
+    SpatialScopeSelection = 18
 }
 
 public sealed record LocalizedText(

@@ -9,6 +9,39 @@ namespace FolderRewind.Tests;
 public sealed class SemanticMergePlanDataTests
 {
     [TestMethod]
+    public async Task AutomaticOverridesPersistResetToDefaultAndCannotChangeLockedSubjects()
+    {
+        using var fixture = new PlanFixture(); using var writer = fixture.Writer();
+        var text = new FolderRewind.Plugin.Abstractions.LocalizedText("item", new Dictionary<string, string>());
+        var state = System.Text.Json.JsonSerializer.SerializeToElement(new { });
+        await writer.AddGroupAsync(new("group", text, state), default);
+        await writer.AddSubjectsAsync([
+            new("editable", "group", "one", text, text, [FolderRewind.Plugin.Abstractions.MergeDecisionKind.Ours, FolderRewind.Plugin.Abstractions.MergeDecisionKind.Theirs], true, state)
+            { CanOverrideAutomatic = true, SpatialLocations = [new(".", "layer", new(-16, -16, 0, 0))] },
+            new("locked", "group", "two", text, text, [], true, state)
+            { SpatialLocations = [new(".", "layer", new(0, 0, 16, 16))] }
+        ], default);
+        var session = fixture.Store.Update(fixture.LastSession!, MergeSessionState.Ready);
+        var initial = fixture.Store.QuerySemanticChanges(session, "", "Automatic", 0, 100);
+        Assert.HasCount(2, initial.Rows);
+        var editable = initial.Rows.Single(r => r.Conflict.SemanticSubject!.CanOverrideAutomatic).Conflict;
+        var locked = initial.Rows.Single(r => !r.Conflict.SemanticSubject!.CanOverrideAutomatic).Conflict;
+        session = fixture.Store.ResolveBatch(session, [new(session.Plan.Revision, editable.Id, editable.InputSignature, MergeResolutionChoice.Theirs)]);
+        var reopened = fixture.Store.Load(session.Id);
+        Assert.AreEqual(MergeResolutionChoice.Theirs, fixture.Store.GetConflict(reopened, editable.Id).Resolution!.Choice);
+        Assert.HasCount(1, fixture.Store.QuerySemanticChanges(reopened, "", "Resolved", 0, 100).Rows);
+        Assert.HasCount(1, fixture.Store.SpatialChanges(reopened, ".", "layer", new(-16, -16, 0, 0), 0, 100));
+        Assert.ThrowsExactly<InvalidOperationException>(() => fixture.Store.ResolveBatch(reopened, [
+            new(reopened.Plan.Revision, editable.Id, editable.InputSignature, MergeResolutionChoice.Ours),
+            new(reopened.Plan.Revision, locked.Id, locked.InputSignature, MergeResolutionChoice.Theirs)]));
+        Assert.AreEqual(MergeResolutionChoice.Theirs, fixture.Store.GetConflict(reopened, editable.Id).Resolution!.Choice);
+        session = fixture.Store.SetResolutions(reopened, new Dictionary<string, MergeResolution?> { [editable.Id] = null });
+        Assert.AreEqual(MergeSessionState.Ready, session.State);
+        Assert.AreEqual(MergeResolutionChoice.Automatic, fixture.Store.GetConflict(session, editable.Id).Resolution!.Choice);
+        Assert.HasCount(2, fixture.Store.QuerySemanticChanges(session, "", "Automatic", 0, 100).Rows);
+    }
+
+    [TestMethod]
     public async Task AnalysisReadbackRequiresClosedOwnedDataAndExpiresWithInvocation()
     {
         using var fixture = new PlanFixture();

@@ -57,7 +57,7 @@ internal static partial class NativeHistoryApplicationService
             token.ThrowIfCancellationRequested();
             HostArtifactWorkspace.ValidateOwnedDirectory(directory, token);
             partial |= graph.Single(r => r.RepresentationId == read.RepresentationId).Fidelity != MaterializationFidelity.Exact;
-            return new(storage, directory, origin, folderId, version, partial);
+            return new(storage, directory, origin, folderId, version, partial) { RepresentationId = read.RepresentationId };
         }
         catch
         {
@@ -66,7 +66,7 @@ internal static partial class NativeHistoryApplicationService
         }
     }
 
-    private static string RequirePreviewRoot(BackupConfig config, string repositoryRoot)
+    internal static string RequirePreviewRoot(BackupConfig config, string repositoryRoot)
     {
         if (string.IsNullOrWhiteSpace(config.DestinationPath) || !Path.IsPathFullyQualified(config.DestinationPath))
             throw new IOException(I18n.GetString("Preview_HistoryStorageInvalid"));

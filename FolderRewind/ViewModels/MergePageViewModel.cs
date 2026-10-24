@@ -19,7 +19,7 @@ public sealed record MergeMethodChoice(string Name, string Description, Semantic
 public sealed class MergeChangeItem(MergeConflict conflict, MergeResolution? resolution, bool automatic = false) : ViewModelBase
 {
     public bool IsAutomatic { get; } = automatic;
-    public bool CanCheck => !IsAutomatic && Conflict.SemanticSubject?.IsBlocked != true;
+    public bool CanCheck => (!IsAutomatic || Conflict.SemanticSubject?.CanOverrideAutomatic == true) && Conflict.SemanticSubject?.IsBlocked != true;
     public MergeConflict Conflict { get; } = conflict;
     public MergeResolution? Resolution { get; } = resolution;
     public string Id => Conflict.Id;
@@ -59,6 +59,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public MergeMethodChoice? SelectedMethod { get => _selectedMethod; set { if (SetProperty(ref _selectedMethod, value)) Notify(); } }
     public string MethodDescription => SelectedMethod?.Description ?? "";
     public bool HasSemanticSession => State.Session?.Plan.SemanticProvider is not null && !ShowSetup;
+    public bool HasSpatialWorkspace => HasSemanticSession && Operations is { } operations && PluginV3SpatialPreview.CanUseWorkspace(operations.Config, SpatialWorkspaceMode.Merge);
     public string SessionMethodDescription => State.Session?.Plan.SemanticProvider is { } binding
         ? Methods.FirstOrDefault(m => m.Binding == binding) is { } method ? method.Name + "\n" + method.Description + (State.Session!.Plan.Sources.Any(s => s.Action == HistoryMergeSourceAction.MergeFiles) ? "" : "\n" + I18n.GetString("Merge_SemanticCarryForward"))
             : binding.ProviderId + " · " + binding.PolicyId + " / " + binding.PolicyVersion + "\n" + I18n.GetString("Merge_SemanticUnavailable") : "";

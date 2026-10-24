@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -7306,4 +7306,173 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="Merge_BlockedSubject" xml:space="preserve">
     <value>This item cannot be merged semantically. See the coverage details.</value>
   </data>
+  <data name="SpatialWorkspace_Title_Compare" xml:space="preserve"><value>Historical map comparison</value></data>
+  <data name="SpatialWorkspace_Title_Merge" xml:space="preserve"><value>Map merge</value></data>
+  <data name="SpatialWorkspace_Title_Scope" xml:space="preserve"><value>Map backup scope</value></data>
+  <data name="SpatialWorkspace_Live" xml:space="preserve"><value>Current source</value></data>
+  <data name="SpatialWorkspace_Base" xml:space="preserve"><value>Common base</value></data>
+  <data name="SpatialWorkspace_Result" xml:space="preserve"><value>Verified merge result</value></data>
+  <data name="SpatialWorkspace_Preparing" xml:space="preserve"><value>Preparing fixed inputs…</value></data>
+  <data name="SpatialWorkspace_Ready" xml:space="preserve"><value>Ready. Ctrl adds, Alt removes, Space temporarily pans.</value></data>
+  <data name="SpatialWorkspace_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="SpatialWorkspace_Failed" xml:space="preserve"><value>Operation incomplete</value></data>
+  <data name="SpatialWorkspace_Complete" xml:space="preserve"><value>Comparison complete</value></data>
+  <data name="SpatialWorkspace_PartialScan" xml:space="preserve"><value>Comparison stopped; results cover only the scanned portion.</value></data>
+  <data name="SpatialWorkspace_Scanning" xml:space="preserve"><value>Scanned {0} files; found {1} changes</value></data>
+  <data name="SpatialWorkspace_Counts" xml:space="preserve"><value>{0} items, {1} selected, {2} non-spatial · Page {3}</value></data>
+  <data name="SpatialWorkspace_ScopeCount" xml:space="preserve"><value>{0} selections; preview the effective file scope before saving.</value></data>
+  <data name="SpatialWorkspace_NoSession" xml:space="preserve"><value>No merge session is available.</value></data>
+  <data name="SpatialWorkspace_EmptyInput" xml:space="preserve"><value>This input has no previewable files.</value></data>
+  <data name="SpatialWorkspace_ResultExpired" xml:space="preserve"><value>Merge decisions or inputs changed. Generate the result again.</value></data>
+  <data name="SpatialWorkspace_ComparisonUnavailable" xml:space="preserve"><value>The plugin does not provide spatial history comparison.</value></data>
+  <data name="SpatialWorkspace_ChoiceUnavailable" xml:space="preserve"><value>This choice is not supported by the selection; no decisions were changed.</value></data>
+  <data name="SpatialWorkspace_ScopeUnavailable" xml:space="preserve"><value>The plugin does not provide spatial scope selection.</value></data>
+  <data name="SpatialWorkspace_EmptySelection" xml:space="preserve"><value>Select an area first; an empty selection does not mean the complete source.</value></data>
+  <data name="SpatialWorkspace_SelectionLimit" xml:space="preserve"><value>Selection limit reached. Reduce the selection.</value></data>
+  <data name="SpatialWorkspace_LegacyScope" xml:space="preserve"><value>Existing manual rules cannot be reconstructed as map rectangles. Saving replaces this source's plugin scope override; source filters remain in effect.</value></data>
+  <data name="SpatialWorkspace_ScopeIncludes" xml:space="preserve"><value>Effective included path rules (including essential world files and external mcc files in selected dimensions):</value></data>
+  <data name="SpatialWorkspace_P3Conflict" xml:space="preserve"><value>Semantic backup requires a complete source. Keep full scope or explicitly change the semantic backup policy in settings; the map does not switch policies automatically.</value></data>
+  <data name="SpatialWorkspace_ScopeSaved" xml:space="preserve"><value>Saved this source's scope override; other sources were unchanged.</value></data>
+  <data name="SpatialWorkspace_ConfirmTitle" xml:space="preserve"><value>Confirm map action</value></data>
+  <data name="SpatialWorkspace_Confirm" xml:space="preserve"><value>Confirm</value></data>
+  <data name="SpatialWorkspace_CancelText" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SpatialWorkspace_ConfirmDelete" xml:space="preserve"><value>Save deletion decisions for the selection. The actual world changes only after review and Apply.</value></data>
+  <data name="SpatialWorkspace_ConfirmWorld" xml:space="preserve"><value>The selection includes a whole-world decision affecting all related dimensions, not only chunks inside the rectangle.</value></data>
+  <data name="SpatialWorkspace_ConfirmScope" xml:space="preserve"><value>Save this source's backup scope. Review the effective paths first; other sources retain their own policies.</value></data>
+  <data name="SpatialWorkspace_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="SpatialWorkspace_List.Label" xml:space="preserve"><value>Changes</value></data>
+  <data name="SpatialWorkspace_Select.Label" xml:space="preserve"><value>Select / pan</value></data>
+  <data name="SpatialWorkspace_Fit.Label" xml:space="preserve"><value>Fit</value></data>
+  <data name="SpatialWorkspace_SwitchSide.Label" xml:space="preserve"><value>Switch map side</value></data>
+  <data name="SpatialWorkspace_Cancel.Label" xml:space="preserve"><value>Stop comparison</value></data>
+  <data name="SpatialWorkspace_World.Header" xml:space="preserve"><value>World</value></data>
+  <data name="SpatialWorkspace_Layer.Header" xml:space="preserve"><value>Dimension / layer</value></data>
+  <data name="SpatialWorkspace_Mode.Header" xml:space="preserve"><value>View</value></data>
+  <data name="SpatialWorkspace_Height.Header" xml:space="preserve"><value>Height Y</value></data>
+  <data name="SpatialWorkspace_Search.Header" xml:space="preserve"><value>Find changes</value></data>
+  <data name="SpatialWorkspace_Filter.Header" xml:space="preserve"><value>Show items</value></data>
+  <data name="SpatialWorkspace_FilterAll.Content" xml:space="preserve"><value>All changes</value></data>
+  <data name="SpatialWorkspace_FilterUnresolved.Content" xml:space="preserve"><value>Unresolved</value></data>
+  <data name="SpatialWorkspace_FilterAutomatic.Content" xml:space="preserve"><value>Automatic</value></data>
+  <data name="SpatialWorkspace_FilterResolved.Content" xml:space="preserve"><value>User decisions</value></data>
+  <data name="SpatialWorkspace_FilterLocked.Content" xml:space="preserve"><value>Policy locked</value></data>
+  <data name="SpatialWorkspace_FilterUnavailable.Content" xml:space="preserve"><value>Unavailable</value></data>
+  <data name="SpatialWorkspace_PreviousPage.Content" xml:space="preserve"><value>Previous</value></data>
+  <data name="SpatialWorkspace_NextPage.Content" xml:space="preserve"><value>Next</value></data>
+  <data name="SpatialWorkspace_Left.Header" xml:space="preserve"><value>Left input</value></data>
+  <data name="SpatialWorkspace_Right.Header" xml:space="preserve"><value>Right input</value></data>
+  <data name="SpatialWorkspace_NoLayer.Text" xml:space="preserve"><value>This input lacks this layer or does not support the selected view</value></data>
+  <data name="SpatialWorkspace_Details.Header" xml:space="preserve"><value>Selection details and effective scope</value></data>
+  <data name="SpatialWorkspace_UseOurs.Label" xml:space="preserve"><value>Use target</value></data>
+  <data name="SpatialWorkspace_UseTheirs.Label" xml:space="preserve"><value>Use source</value></data>
+  <data name="SpatialWorkspace_UseBase.Label" xml:space="preserve"><value>Use base</value></data>
+  <data name="SpatialWorkspace_Delete.Label" xml:space="preserve"><value>Delete</value></data>
+  <data name="SpatialWorkspace_ResetDecision.Label" xml:space="preserve"><value>Restore automatic / clear decision</value></data>
+  <data name="SpatialWorkspace_Undo.Label" xml:space="preserve"><value>Undo last decision</value></data>
+  <data name="SpatialWorkspace_NextConflict.Label" xml:space="preserve"><value>Next unresolved</value></data>
+  <data name="SpatialWorkspace_Generate.Label" xml:space="preserve"><value>Generate and preview result</value></data>
+  <data name="SpatialWorkspace_ReturnReview.Label" xml:space="preserve"><value>Return to merge review</value></data>
+  <data name="SpatialWorkspace_PreviewScope.Label" xml:space="preserve"><value>Preview effective scope</value></data>
+  <data name="SpatialWorkspace_SaveScope.Label" xml:space="preserve"><value>Save source scope</value></data>
+  <data name="SpatialWorkspace_InheritScope.Label" xml:space="preserve"><value>Inherit configuration scope</value></data>
+  <data name="SpatialWorkspace_FullScope.Label" xml:space="preserve"><value>Disable plugin scope override</value></data>
+  <data name="SpatialWorkspace_OpenMerge.Content" xml:space="preserve"><value>Resolve on map</value></data>
+  <data name="SpatialWorkspace_OpenCompare.Text" xml:space="preserve"><value>Compare on map…</value></data>
+  <data name="SpatialWorkspace_OpenScope.Text" xml:space="preserve"><value>Select backup area on map…</value></data>
+  <data name="SpatialWorkspace_State_Added" xml:space="preserve"><value>Added</value></data>
+  <data name="SpatialWorkspace_State_Deleted" xml:space="preserve"><value>Deleted</value></data>
+  <data name="SpatialWorkspace_State_Modified" xml:space="preserve"><value>Modified</value></data>
+  <data name="SpatialWorkspace_State_ContainerOnly" xml:space="preserve"><value>Storage format only</value></data>
+  <data name="SpatialWorkspace_State_Unavailable" xml:space="preserve"><value>Unavailable</value></data>
+  <data name="SpatialWorkspace_State_Blocked" xml:space="preserve"><value>Blocked</value></data>
+  <data name="SpatialWorkspace_State_Locked" xml:space="preserve"><value>Policy locked</value></data>
+  <data name="SpatialWorkspace_State_Automatic" xml:space="preserve"><value>Automatic suggestion</value></data>
+  <data name="SpatialWorkspace_State_Resolved" xml:space="preserve"><value>User decision</value></data>
+  <data name="SpatialWorkspace_State_Unresolved" xml:space="preserve"><value>Unresolved</value></data>
+  <data name="SpatialWorkspace_EmptyIntersection" xml:space="preserve"><value>The map selection does not intersect this source's allowed scope.</value></data>
+  <data name="SpatialWorkspace_ComplexIntersection" xml:space="preserve"><value>The exact intersection of these complex scope rules cannot be proven. Simplify the source scope; it will not be widened.</value></data>
+  <data name="SpatialWorkspace_ScopeFilters" xml:space="preserve"><value>The following configuration filter rules also apply:</value></data>
+  <data name="SpatialWorkspace_Changes.Header" xml:space="preserve"><value>Changes</value></data>
+  <data name="SpatialWorkspace_Legend.Text" xml:space="preserve"><value>? unresolved · A automatic · ✓ selected · ⊘ policy locked · ! blocked/unavailable; numbers indicate aggregated items. Identical images do not imply identical data.</value></data>
+  <data name="SpatialWorkspace_ReturnHistory.Content" xml:space="preserve"><value>Return to history to download dependencies</value></data>
+  <data name="SpatialWorkspace_X1.Header" xml:space="preserve"><value>Horizontal start</value></data>
+  <data name="SpatialWorkspace_Y1.Header" xml:space="preserve"><value>Vertical start</value></data>
+  <data name="SpatialWorkspace_X2.Header" xml:space="preserve"><value>Horizontal end</value></data>
+  <data name="SpatialWorkspace_Y2.Header" xml:space="preserve"><value>Vertical end</value></data>
+  <data name="SpatialWorkspace_SelectCoordinates.Content" xml:space="preserve"><value>Add coordinate selection</value></data>
+  <data name="SpatialWorkspace_RemoveCoordinates.Content" xml:space="preserve"><value>Remove coordinate selection</value></data>
+  <data name="SpatialWorkspace_InvalidCoordinates" xml:space="preserve"><value>Enter finite coordinates defining a rectangle with nonzero area.</value></data>
+  <data name="SpatialWorkspace_PlanExpired" xml:space="preserve"><value>The merge plan changed. Return to the merge page and reopen the map.</value></data>
+  <data name="SpatialWorkspace_SelectionChanged" xml:space="preserve"><value>The selection or merge plan changed. Confirm the operation again.</value></data>
+  <data name="SpatialWorkspace_SelectedCount" xml:space="preserve"><value>Selected merge items: {0}</value></data>
+  <data name="SpatialWorkspace2_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="SpatialWorkspace2_World.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>World</value></data>
+  <data name="SpatialWorkspace2_WorldOptions.Header" xml:space="preserve"><value>World</value></data>
+  <data name="SpatialWorkspace2_Layer.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dimension</value></data>
+  <data name="SpatialWorkspace2_View.Content" xml:space="preserve"><value>View &amp; help</value></data>
+  <data name="SpatialWorkspace2_List.Content" xml:space="preserve"><value>List &amp; details</value></data>
+  <data name="SpatialWorkspace2_Help.Text" xml:space="preserve"><value>Drag to pan · Wheel to zoom
+Click to inspect; double-click to locate or expand a cluster. Dashed outlines indicate absent or unavailable data on that side. Matching images do not imply matching data.</value></data>
+  <data name="SpatialWorkspace2_Search.PlaceholderText" xml:space="preserve"><value>Search names, paths or details</value></data>
+  <data name="SpatialWorkspace2_Category.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Change categories</value></data>
+  <data name="SpatialWorkspace2_Filter.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Change status</value></data>
+  <data name="SpatialWorkspace2_Changes.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Changes</value></data>
+  <data name="SpatialWorkspace2_AllHeights.Text" xml:space="preserve"><value>All-height changes · View affects the base map only</value></data>
+  <data name="SpatialWorkspace2_Details.Header" xml:space="preserve"><value>Item details</value></data>
+  <data name="SpatialWorkspace2_Locate.Content" xml:space="preserve"><value>Locate</value></data>
+  <data name="SpatialWorkspace2_ZoomHere.Content" xml:space="preserve"><value>Zoom to item</value></data>
+  <data name="SpatialWorkspace2_BoxSelect.Content" xml:space="preserve"><value>Select merge items</value></data>
+  <data name="SpatialWorkspace2_AddArea.Content" xml:space="preserve"><value>Add area</value></data>
+  <data name="SpatialWorkspace2_RemoveArea.Content" xml:space="preserve"><value>Remove area</value></data>
+  <data name="SpatialWorkspace2_Pan.Content" xml:space="preserve"><value>Pan</value></data>
+  <data name="SpatialWorkspace2_Coordinates.Content" xml:space="preserve"><value>Enter selection coordinates…</value></data>
+  <data name="SpatialWorkspace2_Swap.Content" xml:space="preserve"><value>Swap A/B</value></data>
+  <data name="SpatialWorkspace2_SwitchSide.Content" xml:space="preserve"><value>Show B</value></data>
+  <data name="SpatialWorkspace2_BackCamera.Content" xml:space="preserve"><value>Previous view</value></data>
+  <data name="SpatialWorkspace2_ZoomOut.Content" xml:space="preserve"><value>−</value></data>
+  <data name="SpatialWorkspace2_ZoomOut.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="SpatialWorkspace2_ZoomIn.Content" xml:space="preserve"><value>＋</value></data>
+  <data name="SpatialWorkspace2_ZoomIn.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="SpatialWorkspace2_Fit.Content" xml:space="preserve"><value>Fit extent</value></data>
+  <data name="SpatialWorkspace2_Stop.Content" xml:space="preserve"><value>Stop</value></data>
+  <data name="SpatialWorkspace_DefaultCategories" xml:space="preserve"><value>Content changes (default)</value></data>
+  <data name="SpatialWorkspace_AllCategories" xml:space="preserve"><value>All changes</value></data>
+  <data name="SpatialWorkspace_Files" xml:space="preserve"><value>Non-spatial files (all dimensions)</value></data>
+  <data name="SpatialWorkspace_CurrentSource" xml:space="preserve"><value>Current source</value></data>
+  <data name="SpatialWorkspace_LeftInput" xml:space="preserve"><value>A · Left input</value></data>
+  <data name="SpatialWorkspace_RightInput" xml:space="preserve"><value>B · Right input</value></data>
+  <data name="SpatialWorkspace_From" xml:space="preserve"><value>A · From</value></data>
+  <data name="SpatialWorkspace_To" xml:space="preserve"><value>→ B · To</value></data>
+  <data name="SpatialWorkspace_ShowA" xml:space="preserve"><value>Show A</value></data>
+  <data name="SpatialWorkspace_ShowB" xml:space="preserve"><value>Show B</value></data>
+  <data name="SpatialWorkspace_Aggregate" xml:space="preserve"><value>{0} changed locations in this area; double-click to zoom.</value></data>
+  <data name="SpatialWorkspace_CompareCounts" xml:space="preserve"><value>{0} filtered items · Page {1}</value></data>
+  <data name="SpatialWorkspace_MergeCounts" xml:space="preserve"><value>{0} filtered items · {1} checked · Page {2}</value></data>
+  <data name="SpatialWorkspace_State_Mixed" xml:space="preserve"><value>Mixed changes</value></data>
+  <data name="SpatialWorkspace_CompareLegend" xml:space="preserve"><value>+ Added · − Deleted · ~ Modified · ≋ Storage format · ! Unavailable
+Storage format changes have equal content but different compression, layout or equivalent encoding; this is not chest content.
+Highlights identify the inspected item. Cluster counts are distinct spatial locations.</value></data>
+  <data name="SpatialWorkspace_ScopeLegend" xml:space="preserve"><value>Selections expand to complete regions. Preview the effective scope and companion files before saving to the current source.</value></data>
+  <data name="SpatialWorkspace_MergeLegend" xml:space="preserve"><value>? Unresolved · A Automatic · ✓ Decided · ⊘ Locked · ! Blocked
+Inspection and batch checking are separate. Decisions affect complete merge items.</value></data>
+  <data name="SpatialWorkspace_WholeDomainCount" xml:space="preserve"><value>{0} whole-domain items (see list)</value></data>
+  <data name="SpatialWorkspace_WholeWorld" xml:space="preserve"><value>Whole world</value></data>
+  <data name="SpatialWorkspace_AreaTitle" xml:space="preserve"><value>Area {0} · ({1}, {2}) → ({3}, {4})</value></data>
+  <data name="SpatialWorkspace_State_Selected" xml:space="preserve"><value>Included in scope</value></data>
+  <data name="SpatialWorkspace_BatchOnlyUnresolved.Content" xml:space="preserve"><value>Box selection: unresolved only</value></data>
+  <data name="SpatialWorkspace_BatchModeChanged" xml:space="preserve"><value>Selection cleared. Select again with the new scope.</value></data>
+  <data name="SpatialWorkspace_HiddenRuntimeChanges" xml:space="preserve"><value>{0} changes in other categories are folded away. Choose All changes to inspect them.</value></data>
+  <data name="SpatialWorkspace_AreaSummary" xml:space="preserve"><value>Area: {0} unresolved · {1} decided · {2} locked/blocked</value></data>
+  <data name="SpatialWorkspace_OnlyUnresolvedHint" xml:space="preserve"><value>Only unresolved items matching the current filter are checked.</value></data>
+  <data name="SpatialWorkspace_IncludeDecidedHint" xml:space="preserve"><value>Includes existing decisions matching the filter; overwrites are confirmed before applying.</value></data>
+  <data name="SpatialWorkspace_AreaRemoved" xml:space="preserve"><value>Matching items in this area have been unchecked.</value></data>
+  <data name="SpatialWorkspace_ConfirmOverwrite" xml:space="preserve"><value>Replace existing automatic or manual decisions for the checked items?</value></data>
+  <data name="SpatialWorkspace_OverwriteCount" xml:space="preserve"><value>This replaces {0} existing decisions.</value></data>
+  <data name="SpatialWorkspace_OldMergePolicy" xml:space="preserve"><value>This task uses a different plugin or merge policy. Inspection remains available; return to Merge and reanalyze or create a task before editing.</value></data>
+  <data name="SpatialWorkspace_DecisionsApplied" xml:space="preserve"><value>Applied {0} decisions; selection cleared.</value></data>
+  <data name="SpatialWorkspace_MergeSummary" xml:space="preserve"><value>Automatic {0} · Decided {1} · Unresolved {2}</value></data>
+  <data name="SpatialWorkspace_LockedSummary" xml:space="preserve"><value>{0} locked or blocked items</value></data>
+  <data name="SpatialWorkspace_Ready_Compare" xml:space="preserve"><value>Read-only comparison · Drag to pan, wheel to zoom.</value></data>
+  <data name="SpatialWorkspace_Ready_Merge" xml:space="preserve"><value>Inspect unresolved items or select an area for batch decisions.</value></data>
+  <data name="SpatialWorkspace_Ready_Scope" xml:space="preserve"><value>Add or remove areas, then preview the effective backup scope.</value></data>
 </root>

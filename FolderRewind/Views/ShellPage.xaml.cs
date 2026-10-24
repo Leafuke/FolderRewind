@@ -140,6 +140,7 @@ namespace FolderRewind.Views
                 "CloudConnections" => typeof(CloudConnectionsPage),
                 "MinecraftIntegration" => typeof(MinecraftIntegrationPage),
                 "SpatialPreview" => typeof(SpatialPreviewPage),
+                "SpatialWorkspace" => typeof(SpatialWorkspacePage),
                 "Migration" => typeof(MigrationWizardPage),
                 _ => null
             };
@@ -328,6 +329,7 @@ namespace FolderRewind.Views
             if (sourcePageType == typeof(CloudConnectionsPage)) return "CloudConnections";
             if (sourcePageType == typeof(MinecraftIntegrationPage)) return "MinecraftIntegration";
             if (sourcePageType == typeof(SpatialPreviewPage)) return "SpatialPreview";
+            if (sourcePageType == typeof(SpatialWorkspacePage)) return "SpatialWorkspace";
             return null;
         }
 

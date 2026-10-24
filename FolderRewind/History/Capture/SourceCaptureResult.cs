@@ -119,6 +119,10 @@ public sealed record VersionMetadataCandidate
     public string SchemaId { get; }
     public int SchemaVersion { get; }
     public JsonElement Payload { get; }
+
+    public VersionMetadataSnapshot ToSnapshot(SourceVersion version)
+        => VersionMetadataSnapshot.Create(version.VersionId, ProducerPluginId, SchemaId, SchemaVersion,
+            Payload, version.CreatedAtUtc);
 }
 
 public interface ICaptureCleanupHandle

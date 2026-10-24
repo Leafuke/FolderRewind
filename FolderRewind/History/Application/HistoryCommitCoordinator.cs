@@ -520,13 +520,7 @@ public sealed class HistoryCommitCoordinator
                         representations.Add(representation);
                         foreach (var candidate in capture.VersionMetadataCandidates)
                         {
-                            metadataSnapshots.Add(VersionMetadataSnapshot.Create(
-                                versionId,
-                                candidate.ProducerPluginId,
-                                candidate.SchemaId,
-                                candidate.SchemaVersion,
-                                candidate.Payload,
-                                version.CreatedAtUtc));
+                            metadataSnapshots.Add(candidate.ToSnapshot(version));
                         }
                         localEntries.Add(new LocalReplicaCatalogEntry(
                             capture.LocalReplicaCandidate!.RepresentationId,

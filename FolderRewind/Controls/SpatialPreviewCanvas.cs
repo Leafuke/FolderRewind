@@ -1,4 +1,4 @@
-﻿using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins.V3;
 using Microsoft.UI.Xaml;
@@ -21,7 +21,7 @@ using Windows.System;
 namespace FolderRewind.Controls;
 
 /// <summary>Immediate camera transforms with independently throttled, bounded tile loading.</summary>
-public sealed class SpatialPreviewCanvas : Grid
+public sealed partial class SpatialPreviewCanvas : Grid
 {
     private readonly Canvas _fallback = new() { IsHitTestVisible = false };
     private readonly Canvas _tiles = new() { IsHitTestVisible = false };
@@ -74,28 +74,33 @@ public sealed class SpatialPreviewCanvas : Grid
     public event Action<double, double>? ScaleChanged;
     internal (double X, double Y, double Scale) Camera => (_camera.CenterX, _camera.CenterY, _camera.Scale);
     public bool ShowGrid { get => _showGrid; set { _showGrid = value; DrawGrid(); } }
+    internal int MaximumCachedTiles { get; set; } = 256;
+    internal int MaximumConcurrentRequests { get; set; } = 4;
 
     public SpatialPreviewCanvas()
     {
         IsTabStop = true;
+        Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         _fallback.RenderTransform = _transform; _tiles.RenderTransform = _transform; _grid.RenderTransform = _gridTransform;
         Children.Add(_fallback); Children.Add(_tiles); Children.Add(_grid); Children.Add(_markers);
+        Children.Add(_overlays); Children.Add(_selectionVisual);
         AutomationProperties.SetAutomationId(this, "SpatialPreviewMap");
         AutomationProperties.SetName(this, I18n.GetString("Preview_MapName"));
-        SizeChanged += (_, _) => { Clip = new RectangleGeometry { Rect = new Rect(0, 0, ActualWidth, ActualHeight) }; QueueRender(); };
+        SizeChanged += (_, _) => { UpdateClip(); QueueRender(); };
         _schedule.Tick += (_, _) => { _schedule.Stop(); Reconcile(); };
         PointerPressed += Pressed; PointerMoved += Moved; PointerReleased += Released;
-        PointerCanceled += (_, _) => _pressed = null;
-        PointerCaptureLost += (_, _) => _pressed = null;
+        PointerCanceled += (_, _) => CancelPointer();
+        PointerCaptureLost += (_, _) => CancelPointer();
         PointerWheelChanged += (_, e) =>
         {
             var point = e.GetCurrentPoint(this);
-            ZoomAt(point.Properties.MouseWheelDelta > 0 ? 2 : .5, point.Position);
+            if (point.Properties.MouseWheelDelta != 0) ZoomAt(Math.Pow(2, point.Properties.MouseWheelDelta / 240d), point.Position);
             e.Handled = true;
         };
+        DoubleTapped += (_, e) => { if (ActivateOverlay(e.GetPosition(this), true)) e.Handled = true; };
         KeyDown += OnKeyDown;
         Unloaded += (_, _) => Clear();
-        ActualThemeChanged += (_, _) => { DrawGrid(); DrawMarker(); };
+        ActualThemeChanged += (_, _) => { UpdateClip(); DrawGrid(); DrawMarker(); DrawOverlays(); };
     }
     internal void SetSource(PluginV3SpatialPreview? session, SpatialPreviewLayer? layer, int? maximumHeight, bool reset, string? viewModeId = null, bool showStatusOverlay = false)
     {
@@ -122,35 +127,31 @@ public sealed class SpatialPreviewCanvas : Grid
     public void Clear() => SetSource(null, null, null, false);
     private void FitCamera(SpatialPreviewLayer layer)
     {
-        _camera.CenterX = (layer.Bounds.MinX + layer.Bounds.MaxX) / 2;
-        _camera.CenterY = (layer.Bounds.MinY + layer.Bounds.MaxY) / 2;
-        _camera.SetScale(Math.Min(1, Math.Min(Math.Max(ActualWidth, 512) / (layer.Bounds.MaxX - layer.Bounds.MinX),
-            Math.Max(ActualHeight, 512) / (layer.Bounds.MaxY - layer.Bounds.MinY))));
+        _camera.Fit(layer.Bounds, ActualWidth, ActualHeight);
     }
+    internal bool NavigationEnabled { get; set; }
+    internal void FitBounds(SpatialPreviewBounds bounds) { _camera.Fit(bounds, ActualWidth, ActualHeight); QueueRender(); }
     public void Fit() { if (_layer is { } layer) { Interacted?.Invoke(); FitCamera(layer); QueueRender(); } }
     internal void RestoreCamera(double x, double y, double scale)
     { _camera.CenterX = x; _camera.CenterY = y; _camera.SetScale(scale); QueueRender(); }
     public void Zoom(double factor) => ZoomAt(factor, new(ActualWidth / 2, ActualHeight / 2));
     private void ZoomAt(double factor, Point point)
     {
-        if (!_active) return;
+        if (!_active && !NavigationEnabled) return;
         Interacted?.Invoke();
-        var before = _camera.ToWorld(point.X, point.Y, ActualWidth, ActualHeight);
-        _camera.SetScale(_camera.Scale * factor);
-        var after = _camera.ToWorld(point.X, point.Y, ActualWidth, ActualHeight);
-        _camera.CenterX += before.X - after.X; _camera.CenterY += before.Y - after.Y;
+        _camera.ZoomAt(factor, point.X, point.Y, ActualWidth, ActualHeight);
         QueueRender();
     }
-    public bool Locate(double x, double y)
+    public bool Locate(double x, double y, bool preserveScale = false)
     {
         if (!SpatialPreviewCoordinates.Contains(_layer?.CoordinateBounds, x, y)) return false;
         Interacted?.Invoke();
-        _camera.CenterX = x; _camera.CenterY = y; _camera.SetScale(Math.Max(1, _camera.Scale));
+        _camera.CenterX = x; _camera.CenterY = y; if (!preserveScale) _camera.SetScale(Math.Max(1, _camera.Scale));
         _marker = new(x, y); QueueRender(); return true;
     }
     private void QueueRender()
     {
-        if (!_active) return;
+        if (!_active && !NavigationEnabled) return;
         // Move already uploaded pixels synchronously; disk work is never on the input path.
         _transform.ScaleX = _transform.ScaleY = _camera.Scale;
         _transform.TranslateX = (_anchorX - _camera.CenterX) * _camera.Scale + ActualWidth / 2;
@@ -159,6 +160,8 @@ public sealed class SpatialPreviewCanvas : Grid
         _gridTransform.TranslateX = (_gridX - _camera.CenterX) * _camera.Scale + ActualWidth / 2 * (1 - _camera.Scale / _gridScale);
         _gridTransform.TranslateY = (_gridY - _camera.CenterY) * _camera.Scale + ActualHeight / 2 * (1 - _camera.Scale / _gridScale);
         DrawMarker();
+        DrawOverlays();
+        CameraChanged?.Invoke(_camera.CenterX, _camera.CenterY, _camera.Scale);
         PositionChanged?.Invoke(_camera.CenterX, _camera.CenterY);
         var scale = PreviewScaleBar.Calculate(_camera.Scale);
         ScaleChanged?.Invoke(scale.Units, scale.Pixels);
@@ -175,7 +178,7 @@ public sealed class SpatialPreviewCanvas : Grid
     {
         if (!_active || _session is not { } session || _layer is not { } layer || ActualWidth <= 0 || ActualHeight <= 0) return;
         if (!session.IsCurrent()) { Clear(); StatusChanged?.Invoke(I18n.GetString("Preview_SourceChanged")); return; }
-        _wanted = _camera.Tiles(ActualWidth, ActualHeight).Where(k => k.OriginX < layer.Bounds.MaxX && k.OriginY < layer.Bounds.MaxY
+        _wanted = _camera.Tiles(ActualWidth, ActualHeight, MaximumCachedTiles).Where(k => k.OriginX < layer.Bounds.MaxX && k.OriginY < layer.Bounds.MaxY
             && k.OriginX + 256d * k.UnitsPerPixel > layer.Bounds.MinX && k.OriginY + 256d * k.UnitsPerPixel > layer.Bounds.MinY).ToHashSet();
         var lod = _wanted.FirstOrDefault().UnitsPerPixel;
         if (lod != _lod)
@@ -226,7 +229,7 @@ public sealed class SpatialPreviewCanvas : Grid
             .ThenBy(k => _requestOrder.GetValueOrDefault(k))
             .ThenBy(k => Math.Abs(k.OriginX + 128d * k.UnitsPerPixel - _camera.CenterX) + Math.Abs(k.OriginY + 128d * k.UnitsPerPixel - _camera.CenterY)).ToArray())
         {
-            if (_running >= 4) break;
+            if (_running >= MaximumConcurrentRequests) break;
             var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_epoch.Token);
             _pending.Add(key, cancellation); _running++; _requestOrder[key] = ++_requestSequence;
             Observe(LoadAsync(session, layer.Id, _height, key, cancellation, _epoch.Revision));
@@ -301,8 +304,8 @@ public sealed class SpatialPreviewCanvas : Grid
     private void Trim()
     {
         // Every cached 256px bitmap (including fallback LODs) is counted in the 64 MiB budget.
-        while (_bitmaps.Count + _fallback.Children.Count > 256 && _fallback.Children.Count > 0) _fallback.Children.RemoveAt(0);
-        while (_bitmaps.Count > 256 && _lru.Last is { } last)
+        while (_bitmaps.Count + _fallback.Children.Count > MaximumCachedTiles && _fallback.Children.Count > 0) _fallback.Children.RemoveAt(0);
+        while (_bitmaps.Count > MaximumCachedTiles && _lru.Last is { } last)
         {
             var candidate = last;
             while (candidate is not null && _wanted.Contains(candidate.Value)) candidate = candidate.Previous;
@@ -344,18 +347,20 @@ public sealed class SpatialPreviewCanvas : Grid
 
     private void Pressed(object sender, PointerRoutedEventArgs e)
     {
-        if (!_active || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if ((!_active && !NavigationEnabled) || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        _selecting = SelectionTool && !KeyDownNow(VirtualKey.Space);
         Focus(FocusState.Pointer); _pressed = _last = e.GetCurrentPoint(this).Position; _dragged = false; CapturePointer(e.Pointer); e.Handled = true;
     }
     private void Moved(object sender, PointerRoutedEventArgs e)
     {
-        if (!_active) return;
+        if (!_active && !NavigationEnabled) return;
         var point = e.GetCurrentPoint(this).Position;
         if (_pressed is { } pressed)
         {
             Interacted?.Invoke();
             _dragged |= Math.Abs(point.X - pressed.X) + Math.Abs(point.Y - pressed.Y) > 4;
-            _camera.CenterX -= (point.X - _last.X) / _camera.Scale; _camera.CenterY -= (point.Y - _last.Y) / _camera.Scale;
+            if (_selecting) DrawSelection(pressed, point);
+            else { _camera.CenterX -= (point.X - _last.X) / _camera.Scale; _camera.CenterY -= (point.Y - _last.Y) / _camera.Scale; }
             _last = point; QueueRender(); e.Handled = true;
         }
         var world = _camera.ToWorld(point.X, point.Y, ActualWidth, ActualHeight);
@@ -363,9 +368,17 @@ public sealed class SpatialPreviewCanvas : Grid
     }
     private void Released(object sender, PointerRoutedEventArgs e)
     {
+        if (_selecting && _pressed is { } start)
+        {
+            var end = e.GetCurrentPoint(this).Position;
+            var a = _camera.ToWorld(start.X, start.Y, ActualWidth, ActualHeight); var b = _camera.ToWorld(end.X, end.Y, ActualWidth, ActualHeight);
+            _pressed = null; _selecting = false; _selectionVisual.Children.Clear(); ReleasePointerCapture(e.Pointer);
+            if (_dragged) SelectionRequested?.Invoke(new(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y)), KeyDownNow(VirtualKey.Control), KeyDownNow(VirtualKey.Menu));
+            e.Handled = true; return;
+        }
         var inspect = _pressed is not null && !_dragged; var point = e.GetCurrentPoint(this).Position;
         _pressed = null; ReleasePointerCapture(e.Pointer);
-        if (inspect) Observe(InspectAsync(point.X, point.Y));
+        if (inspect && !ActivateOverlay(point)) Observe(InspectAsync(point.X, point.Y));
         e.Handled = true;
     }
     private async Task InspectAsync(double x, double y)
@@ -386,7 +399,7 @@ public sealed class SpatialPreviewCanvas : Grid
     }
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (!_active) return;
+        if (!_active && !NavigationEnabled) return;
         Interacted?.Invoke();
         switch (e.Key)
         {

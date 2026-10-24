@@ -1,4 +1,5 @@
 using FolderRewind.History.Application;
+using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
@@ -45,7 +46,7 @@ public sealed class SemanticMergeIntegrationTests
         await fixture.SeedAsync((root, side) =>
         {
             Directory.CreateDirectory(Path.Combine(root, "region"));
-            File.WriteAllBytes(Path.Combine(root, "level.dat"), [1]);
+            File.WriteAllBytes(Path.Combine(root, "level.dat"), LevelDat());
             var bytes = Region(side == 1 ? 2 : 1, side == 2 ? 3 : 1, smart);
             if (side != 2) bytes = bytes[..(12288 + 4 + BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(12288)))];
             File.WriteAllBytes(Path.Combine(root, "region", "r.0.0.mca"), bytes);
@@ -60,7 +61,21 @@ public sealed class SemanticMergeIntegrationTests
         Assert.AreEqual(smart ? RepresentationKind.CoreSmartDelta : RepresentationKind.CoreFull, fixture.Ours.NewRepresentations.Single().Kind);
         await fixture.ReopenAsync();
         var restore = fixture.Restore(); var engine = Engine(fixture.History);
-        var builder = new HistoryMergeCommitBuilder(fixture.History, restore, fixture.Archives, fixture.Archives, semantic: engine);
+        async Task<IReadOnlyList<VersionMetadataSnapshot>> CaptureMetadata(SourceVersion version, string staging, CancellationToken token)
+        {
+            using var lease = resolver.Runtime.TryAcquire<IVersionMetadataProviderCapability>(manifest.PluginId,
+                c => c.Kind == resolver.Binding.Kind, token);
+            Assert.IsNotNull(lease);
+            var folder = new FolderSnapshot(Guid.NewGuid(), fixture.Target, "World", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
+            var config = new ConfigSnapshot(fixture.Config.ToString(), new("fixture-v1"), resolver.Binding.Kind, "Test",
+                [folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
+            var captured = await lease.Capability.CaptureAsync(new(config, folder, new MetadataSource(staging)), lease.Context);
+            Assert.IsEmpty(captured.Diagnostics);
+            Assert.HasCount(1, captured.Snapshots);
+            return captured.Snapshots.Select(m => new VersionMetadataCandidate(manifest.PluginId.Value,
+                m.SchemaId, m.SchemaVersion, m.Payload).ToSnapshot(version)).ToArray();
+        }
+        var builder = new HistoryMergeCommitBuilder(fixture.History, restore, fixture.Archives, fixture.Archives, CaptureMetadata, engine);
         if (blocked)
         {
             var row = fixture.History.MergeSessions.QuerySemanticChanges(fixture.Session, "", "Unresolved", 0, 100).Rows.Single(r => r.Conflict.SemanticSubject?.IsBlocked == true);
@@ -74,6 +89,9 @@ public sealed class SemanticMergeIntegrationTests
         }
         Assert.AreEqual(2, fixture.History.MergeSessions.QuerySemanticChanges(fixture.Session, "", "Automatic", 0, 100).Rows.Count(r => r.Conflict.SemanticSubject is not null));
         var prepared = await builder.BuildAsync(fixture.Session);
+        var metadata = prepared.Facts.OfType<VersionMetadataSnapshot>().Single();
+        Assert.AreEqual(prepared.Sources.Single().Version.CreatedAtUtc, metadata.CapturedAtUtc);
+        Assert.AreEqual("Metadata World", metadata.Payload.GetProperty("levelName").GetString());
         Assert.IsEmpty(prepared.Sources.Single().RequiredAbsentPaths, "Core file inventories do not establish complete directory absence.");
         File.WriteAllText(Path.Combine(fixture.Target, "debug.log"), "keep excluded live content");
         CollectionAssert.AreEqual(Region(2, 3, smart), File.ReadAllBytes(Path.Combine(prepared.Sources.Single().StagingDirectory, "region", "r.0.0.mca")));
@@ -87,11 +105,40 @@ public sealed class SemanticMergeIntegrationTests
         }
         var result = await new HistoryMergeApplyService(fixture.History, restore, builder, provider: engine.Descriptor).ApplyAsync(fixture.Session, ready: prepared);
         Assert.IsTrue(result.Succeeded, result.Diagnostic);
+        Assert.AreEqual(metadata.MetadataSnapshotId,
+            (await fixture.History.Query.GetVersionMetadataSnapshotsAsync(metadata.VersionId)).Single().MetadataSnapshotId);
         Assert.AreEqual("keep excluded live content", File.ReadAllText(Path.Combine(fixture.Target, "debug.log")));
         CollectionAssert.AreEqual(Region(2, 3, smart), File.ReadAllBytes(Path.Combine(fixture.Target, "region", "r.0.0.mca")));
         if (smart) CollectionAssert.AreEqual(Region(20, 20), File.ReadAllBytes(Path.Combine(fixture.Target, "entities", "r.0.0.mca")));
         Assert.IsTrue((await resolver.Runtime.DeactivateAsync(manifest.PluginId)).Success);
         // Extracted assemblies live under this test build's bin tree, separate from user plugin state.
+    }
+
+    private sealed class MetadataSource(string staging) : IVersionMetadataSourceView
+    {
+        public ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Assert.AreEqual("level.dat", relativePath);
+            return ValueTask.FromResult<Stream>(File.OpenRead(Path.Combine(staging, relativePath)));
+        }
+    }
+
+    private static byte[] LevelDat()
+    {
+        using var nbt = new MemoryStream();
+        nbt.Write([10, 0, 0, 10, 0, 4]); nbt.Write("Data"u8);
+        foreach (var (name, value) in new[] { ("DataVersion", 3700), ("GameType", 1) })
+        {
+            nbt.WriteByte(3); nbt.WriteByte(0); nbt.WriteByte((byte)name.Length); nbt.Write(Encoding.UTF8.GetBytes(name));
+            var number = new byte[4]; BinaryPrimitives.WriteInt32BigEndian(number, value); nbt.Write(number);
+        }
+        nbt.Write([8, 0, 9]); nbt.Write("LevelName"u8);
+        var title = Encoding.UTF8.GetBytes("Metadata World"); nbt.WriteByte(0); nbt.WriteByte((byte)title.Length); nbt.Write(title);
+        nbt.Write([0, 0]);
+        using var compressed = new MemoryStream();
+        using (var gzip = new GZipStream(compressed, CompressionLevel.Fastest, true)) gzip.Write(nbt.ToArray());
+        return compressed.ToArray();
     }
 
     private static byte[] Region(int left, int right, bool embeddedFirst = false)

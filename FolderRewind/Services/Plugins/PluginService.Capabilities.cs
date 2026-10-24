@@ -185,6 +185,8 @@ public static partial class PluginService
         foreach (var property in properties.EnumerateObject())
         {
             var value = property.Value;
+            if (value.TryGetProperty("x-folderrewind-hidden", out var hidden) && hidden.ValueKind == JsonValueKind.True)
+                continue;
             var type = value.TryGetProperty("type", out var typeElement)
                 ? typeElement.GetString()
                 : "string";

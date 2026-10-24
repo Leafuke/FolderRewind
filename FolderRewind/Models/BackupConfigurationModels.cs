@@ -142,6 +142,9 @@ namespace FolderRewind.Models
     /// </summary>
     public class BackupScopeSettings : ObservableObject
     {
+        private SpatialScopeSelectionMetadata? _spatialSelection;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public SpatialScopeSelectionMetadata? SpatialSelection { get => _spatialSelection; set => SetProperty(ref _spatialSelection, value); }
         private string _ownerId = string.Empty;
         private string _scopeId = string.Empty;
         private IDictionary<string, string> _parameters = new GuardedDictionary<string>();
@@ -186,6 +189,15 @@ namespace FolderRewind.Models
         private bool _isFavorite;
         private string _coverImagePath = ""; // 对应封面图片路径
         private BackupSourceScope _sourceScope = new();
+        private BackupScopeSettings? _backupScopeOverride;
+
+        /// <summary>Null inherits configuration scope; an explicit empty setting disables that plugin scope for this Source.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public BackupScopeSettings? BackupScopeOverride
+        {
+            get => _backupScopeOverride;
+            set => SetProperty(ref _backupScopeOverride, value);
+        }
 
         // 核心路径
         public string Id

@@ -32,9 +32,9 @@ public sealed partial class MergePageViewModel
     public string DecisionText => SelectedChange?.Description ?? "";
     public ObservableCollection<MergeDiffLine> OursLines { get; } = [];
     public ObservableCollection<MergeDiffLine> TheirsLines { get; } = [];
-    public int CheckedCount => Changes.Count(c => c.IsChecked && !c.IsAutomatic);
+    public int CheckedCount => Changes.Count(c => c.IsChecked && c.CanCheck);
     public string SelectionLabel => string.Format(I18n.GetString("MergeWorkspace_SelectedCount"), CheckedCount);
-    public bool CanAdopt => CanResolve && (CheckedCount > 0 || SelectedChange is { IsAutomatic: false });
+    public bool CanAdopt => CanResolve && (CheckedCount > 0 || SelectedChange is { CanCheck: true });
     private static bool Allows(MergeChangeItem row, MergeResolutionChoice choice) => row.Conflict.SemanticSubject is { } subject
         ? MergeSessionStore.SemanticChoiceAllowed(subject, choice)
         : choice is MergeResolutionChoice.Ours or MergeResolutionChoice.Theirs || !row.Conflict.Subject.Paths.IsEmpty && choice is MergeResolutionChoice.Base or MergeResolutionChoice.Delete;
@@ -53,8 +53,8 @@ public sealed partial class MergePageViewModel
         ? I18n.GetString("MergeWorkspace_AdoptDeletion") : I18n.GetString("MergeWorkspace_Adopt") + " " + TheirsLabel;
     private MergeChangeItem[] SelectedDecisions()
     {
-        var rows = Changes.Where(c => c.IsChecked && !c.IsAutomatic).ToArray();
-        return rows.Length == 0 && SelectedChange is { IsAutomatic: false } row ? [row] : rows;
+        var rows = Changes.Where(c => c.IsChecked && c.CanCheck).ToArray();
+        return rows.Length == 0 && SelectedChange is { CanCheck: true } row ? [row] : rows;
     }
     private void AddRow(MergeConflict conflict, MergeResolution? resolution, bool automatic, bool isChecked = false)
     {

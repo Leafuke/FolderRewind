@@ -154,8 +154,7 @@ internal static partial class NativeHistoryApplicationService
             await using var session = await PluginV3BackupSession.PrepareAsync(config, folder, token).ConfigureAwait(false);
             var result = await session.CaptureVersionMetadataAsync(token, staging).ConfigureAwait(false);
             foreach (var diagnostic in result.Diagnostics) LogService.LogWarning(diagnostic.Message, "Merge metadata");
-            return result.Candidates.Select(c => VersionMetadataSnapshot.Create(version.VersionId, c.ProducerPluginId,
-                c.SchemaId, c.SchemaVersion, c.Payload, DateTimeOffset.UtcNow)).ToArray();
+            return result.Candidates.Select(c => c.ToSnapshot(version)).ToArray();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (Exception ex)

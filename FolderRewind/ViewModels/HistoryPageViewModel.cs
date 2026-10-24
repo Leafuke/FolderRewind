@@ -950,9 +950,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 .ToDictionary(folder => new SourceId(Guid.Parse(folder.Id)), folder => folder.DisplayName);
             foreach (var entry in snapshot.Timeline) sourceNames.TryAdd(entry.SourceId, entry.DisplayName);
             var canPreview = Services.Plugins.V3.PluginV3SpatialPreview.CanPreview(config);
+            var canCompare = Services.Plugins.V3.PluginV3SpatialPreview.CanUseWorkspace(config, SpatialWorkspaceMode.Compare);
             var versions = snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item, branchNames,
                 MigrationHistoryStatusPolicy.ShowPendingVersion(migrationStatus, item.Readiness))
-                { CanPreviewWorld = canPreview && !MigrationHistoryStatusPolicy.ShowPendingVersion(migrationStatus, item.Readiness)
+                { CanCompareWorld = canCompare && !MigrationHistoryStatusPolicy.ShowPendingVersion(migrationStatus, item.Readiness), CanPreviewWorld = canPreview && !MigrationHistoryStatusPolicy.ShowPendingVersion(migrationStatus, item.Readiness)
                     && config.SourceFolders.Any(f => Guid.TryParse(f.Id, out var id) && id == item.SourceId.Value) }).ToArray();
             var runs = snapshot.Runs.Select(item => new BackupRunViewItem(item, sourceNames)).ToArray();
             var branches = snapshot.Branches.Select(branch => new BranchViewItem(branch, null)).ToArray();
@@ -1253,6 +1254,7 @@ public sealed class NativeHistoryVersionViewItem(
     public string? LocalPath => summary.LocalPath;
     public bool IsImportant => summary.IsPinned;
     public bool CanPreviewWorld { get; init; }
+    public bool CanCompareWorld { get; init; }
     public bool IsPartialBackup => summary.CaptureScope == CaptureScope.PartialSource || summary.Fidelity == MaterializationFidelity.Partial;
     public bool IsMissing => summary.Readiness is HistoryPresentationReadiness.Unavailable or HistoryPresentationReadiness.PayloadReleased or HistoryPresentationReadiness.MetadataOnly;
     public bool HasLocalFile => _hasLocalFile;

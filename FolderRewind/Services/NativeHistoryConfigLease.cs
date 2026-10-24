@@ -52,6 +52,7 @@ internal static class NativeHistoryConfigLease
                 foreach (var folder in config.SourceFolders)
                 {
                     objects.AddRange([folder, folder.SourceScope, folder.SourceScope.IncludePatterns, folder.ProviderStates]);
+                    if (folder.BackupScopeOverride is { } sourceScope) objects.AddRange([sourceScope, sourceScope.Parameters]);
                     objects.AddRange(folder.ProviderStates.Values);
                 }
                 frozen = ConfigMutationProtection.Freeze(objects);
