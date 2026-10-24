@@ -24,7 +24,7 @@ public sealed partial class MergePageViewModel
     public string Search { get => _search; set { if (SetProperty(ref _search, value ?? "")) FilterChanged(); } }
     public string Filter { get => _filter; set { if (SetProperty(ref _filter, value)) FilterChanged(); } }
     public bool ShowBase { get => ViewState.ShowBase; set { ViewState = ViewState with { ShowBase = value }; Notify(); } }
-    public bool CanPreviewBase => SelectedChange is { IsAutomatic: false };
+    public bool CanPreviewBase => SelectedChange is { IsAutomatic: false, Conflict.SemanticSubject: null };
     public string PreviewNotice { get; private set; } = "";
     public string OursInfo { get; private set; } = "";
     public string TheirsInfo { get; private set; } = "";
@@ -35,13 +35,21 @@ public sealed partial class MergePageViewModel
     public int CheckedCount => Changes.Count(c => c.IsChecked && !c.IsAutomatic);
     public string SelectionLabel => string.Format(I18n.GetString("MergeWorkspace_SelectedCount"), CheckedCount);
     public bool CanAdopt => CanResolve && (CheckedCount > 0 || SelectedChange is { IsAutomatic: false });
+    private static bool Allows(MergeChangeItem row, MergeResolutionChoice choice) => row.Conflict.SemanticSubject is { } subject
+        ? MergeSessionStore.SemanticChoiceAllowed(subject, choice)
+        : choice is MergeResolutionChoice.Ours or MergeResolutionChoice.Theirs || !row.Conflict.Subject.Paths.IsEmpty && choice is MergeResolutionChoice.Base or MergeResolutionChoice.Delete;
+    private bool CanChoose(MergeResolutionChoice choice) => CanAdopt && SelectedDecisions().All(c => Allows(c, choice));
+    public bool CanAdoptOurs => CanChoose(MergeResolutionChoice.Ours);
+    public bool CanAdoptTheirs => CanChoose(MergeResolutionChoice.Theirs);
+    public bool CanAdoptBase => CanChoose(MergeResolutionChoice.Base);
+    public bool CanDelete => CanChoose(MergeResolutionChoice.Delete);
     public bool CanClear => CanAdopt && SelectedDecisions().Any(c => c.Resolution is not null);
     public bool CanUndo => CanResolve && Operations?.CanUndo == true;
     public bool CanNext => !IsBusy && _unresolved > 0;
     public string RecomputeSummary => Operations?.RecomputeSummary ?? "";
     public string AdoptOursLabel => I18n.GetString("MergeWorkspace_Adopt") + " " + OursLabel;
     public string AdoptTheirsLabel => CheckedCount == 0 && SelectedChange is { IsAutomatic: false, Conflict: var c }
-        && c.Theirs.IsEmpty && c.TheirsDirectories.IsEmpty
+        && c.SemanticSubject is null && c.Theirs.IsEmpty && c.TheirsDirectories.IsEmpty
         ? I18n.GetString("MergeWorkspace_AdoptDeletion") : I18n.GetString("MergeWorkspace_Adopt") + " " + TheirsLabel;
     private MergeChangeItem[] SelectedDecisions()
     {
@@ -90,6 +98,7 @@ public sealed partial class MergePageViewModel
         var currentPath = SelectedChange?.Path ?? "";
         var next = await Task.Run(() =>
         {
+            if (session.Plan.SemanticProvider is not null) return runtime.MergeSessions.NextSemanticConflict(session, Search, SelectedChange?.Id);
             var candidates = runtime.MergeSessions.ConflictIndex(session, Search).Where(c => !c.Resolved)
                 .OrderBy(c => c.Path, StringComparer.Ordinal).ToArray();
             return candidates.FirstOrDefault(c => StringComparer.Ordinal.Compare(c.Path, currentPath) > 0).Id ?? candidates.FirstOrDefault().Id;
@@ -113,6 +122,12 @@ public sealed partial class MergePageViewModel
         {
             OursLines.Clear(); TheirsLines.Clear(); BaseText = ""; PreviewNotice = I18n.GetString("MergeWorkspace_PreviewLoading"); Notify();
             var conflict = row.Conflict;
+            if (conflict.SemanticSubject is { } subject)
+            {
+                OursInfo = OursLabel; TheirsInfo = TheirsLabel;
+                PreviewNotice = I18n.PickBest(subject.Description.Translations, subject.Description.Default) ?? subject.Description.Default;
+                Notify(); return;
+            }
             if (!conflict.CanImportFile)
             {
                 static IEnumerable<string> Entries(IReadOnlyDictionary<string, MergeFileValue> files, IEnumerable<string> directories)

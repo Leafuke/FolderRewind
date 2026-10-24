@@ -21,6 +21,24 @@ public static class PluginManifestContractValidator
         RequireUnique(manifest.ArtifactFormats.Select(value => value.Format), "Artifact Format");
         RequireUnique(manifest.ArtifactTransformers.Select(value => value.TransformerId), "Artifact Transformer");
         RequireUnique(manifest.RestoreStrategies.Select(value => value.RestoreStrategyId), "Restore Strategy");
+        RequireUnique(manifest.MergeProviders.Select(value => value.ProviderId), "Merge Provider");
+        if ((manifest.MergeProviders.Count != 0) != manifest.Capabilities.Contains(PluginCapabilityKind.MergeProvider))
+            throw new InvalidDataException("Merge provider declarations require the MergeProvider capability.");
+        foreach (var provider in manifest.MergeProviders)
+        {
+            if (manifest.RequiredApi.Minor < 12 || provider.ProviderId.PluginId != expectedPluginId
+                || provider.ContractVersion < 1 || provider.CompatibleConfigKinds.Count == 0 || provider.Policies.Count == 0)
+                throw new InvalidDataException("Merge provider requires API 3.12, an owned identity, compatible Kinds and policies.");
+            RequireUnique(provider.CompatibleConfigKinds, "Merge compatible Config Kind");
+            RequireUnique(provider.Policies.Select(value => value.PolicyId), "Merge policy");
+            foreach (var policy in provider.Policies)
+            {
+                _ = new MergeProviderId(expectedPluginId, policy.PolicyId);
+                if (string.IsNullOrWhiteSpace(policy.Version) || string.IsNullOrWhiteSpace(policy.DisplayName.Default)
+                    || string.IsNullOrWhiteSpace(policy.Description.Default))
+                    throw new InvalidDataException("Merge policy version and localized description are required.");
+            }
+        }
 
         if (manifest.ConfigKinds.Any(value =>
                 !StringComparer.Ordinal.Equals(value.Kind.OwnerId.Value, expectedPluginId.Value)))
@@ -133,6 +151,10 @@ public static class PluginManifestContractValidator
             .OfType<IBackupArtifactTransformerCapability>()
             .Select(value => value.TransformerId)
             .ToHashSet();
+        var mergeProviders = registrations.Capabilities.OfType<IMergeProviderCapability>()
+            .Select(value => (value.ProviderId, value.ContractVersion)).ToHashSet();
+        if (!mergeProviders.SetEquals(manifest.MergeProviders.Select(value => (value.ProviderId, value.ContractVersion))))
+            throw new InvalidDataException("Runtime Merge providers do not match the static Manifest.");
         if (!transformerIds.SetEquals(manifest.ArtifactTransformers.Select(value => value.TransformerId)))
         {
             throw new InvalidDataException("Runtime Artifact Transformers do not match the static Manifest.");
@@ -154,6 +176,7 @@ public static class PluginManifestContractValidator
 
     private static IEnumerable<PluginCapabilityKind> GetKinds(IPluginCapability capability)
     {
+        if (capability is IMergeProviderCapability) yield return PluginCapabilityKind.MergeProvider;
         if (capability is ISpatialPreviewCapability) yield return PluginCapabilityKind.SpatialPreview;
         if (capability is IDiscoveryCapability) yield return PluginCapabilityKind.Discovery;
         if (capability is IConfigReconciliationCapability) yield return PluginCapabilityKind.ConfigReconciliation;

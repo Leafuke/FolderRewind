@@ -15,7 +15,7 @@ using FolderRewind.History.Storage;
 namespace FolderRewind.History.LocalState;
 
 public enum MergeSessionState { Preparing, Resolving, Ready, Stale, Applying, Committed, Abandoned }
-public enum MergeResolutionChoice { Ours, Theirs, Manual }
+public enum MergeResolutionChoice { Ours = 0, Theirs = 1, Manual = 2, Base = 3, Delete = 4, Automatic = 5 }
 public sealed record MergeResolution(Guid PlanRevision, string ConflictId, string InputSignature,
     MergeResolutionChoice Choice, MergeFileValue? Manual = null);
 public sealed record MergeSession(Guid Id, long Revision, MergeSessionState State, HistoryMergePlan Plan,
@@ -59,7 +59,7 @@ public sealed partial class MergeSessionStore
             db.Open();
             using var version = db.CreateCommand(); version.CommandText = "PRAGMA user_version";
             var schema = Convert.ToInt32(version.ExecuteScalar());
-            if (schema is < 0 or > 2) throw new InvalidDataException("Unsupported Merge Session schema; preserve artifacts.");
+            if (schema is < 0 or > 3) throw new InvalidDataException("Unsupported Merge Session schema; preserve artifacts.");
             if (existed)
             {
                 using var check = db.CreateCommand();
@@ -71,12 +71,12 @@ public sealed partial class MergeSessionStore
                     if (Convert.ToInt64(check.ExecuteScalar()) != 2) throw new InvalidDataException("Prepared Merge schema is incomplete.");
                 }
             }
-            if (existed && schema == 2)
+            if (existed && schema >= 2)
             {
                 using var indexes = db.CreateCommand(); indexes.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN ('conflicts_source','conflicts_signature')";
                 if (Convert.ToInt64(indexes.ExecuteScalar()) != 2) throw new InvalidDataException("Merge conflict indexes are missing.");
                 using var settings = db.CreateCommand(); settings.CommandText = "PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000"; settings.ExecuteNonQuery();
-                return db;
+                if (schema == 3) { RequireSemanticSchema(db); return db; }
             }
             using var command = db.CreateCommand(); command.CommandText = """
                 PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000;
@@ -90,7 +90,13 @@ public sealed partial class MergeSessionStore
                 CREATE TABLE IF NOT EXISTS artifacts(session TEXT NOT NULL, path TEXT NOT NULL PRIMARY KEY);
                 CREATE INDEX IF NOT EXISTS conflicts_source ON conflicts(session,revision,json_extract(data,'$.subject.sourceId'),id);
                 CREATE INDEX IF NOT EXISTS conflicts_signature ON conflicts(session,json_extract(data,'$.inputSignature'));
-                PRAGMA user_version=2;
+                CREATE TABLE IF NOT EXISTS semantic_groups(session TEXT NOT NULL, plan TEXT NOT NULL, source TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session,plan,source,id));
+                CREATE TABLE IF NOT EXISTS semantic_paths(session TEXT NOT NULL, plan TEXT NOT NULL, source TEXT NOT NULL, path TEXT NOT NULL, groupid TEXT NOT NULL, input INTEGER NOT NULL, output INTEGER NOT NULL, PRIMARY KEY(session,plan,source,path));
+                CREATE TABLE IF NOT EXISTS semantic_data(session TEXT NOT NULL, plan TEXT NOT NULL, source TEXT NOT NULL, key TEXT NOT NULL, path TEXT NOT NULL, length INTEGER NOT NULL, digest TEXT NOT NULL, PRIMARY KEY(session,plan,source,key));
+                CREATE INDEX IF NOT EXISTS semantic_paths_group ON semantic_paths(session,plan,source,groupid);
+                CREATE INDEX IF NOT EXISTS conflicts_semantic_group ON conflicts(session,revision,json_extract(data,'$.subject.sourceId'),json_extract(data,'$.semanticSubject.groupId'),id);
+                CREATE UNIQUE INDEX IF NOT EXISTS semantic_subject_identity ON conflicts(session,revision,json_extract(data,'$.subject.sourceId'),json_extract(data,'$.semanticSubject.groupId'),json_extract(data,'$.semanticSubject.subjectId')) WHERE json_extract(data,'$.semanticSubject') IS NOT NULL;
+                PRAGMA user_version=3;
                 COMMIT;
                 """; command.ExecuteNonQuery(); return db;
         }
@@ -263,15 +269,15 @@ public sealed partial class MergeSessionStore
             ("$r", next.Revision), ("$st", (int)next.State), ("$d", Encode(next)), ("$id", expected.Id.ToString()), ("$old", expected.Revision));
         if (cmd.ExecuteNonQuery() != 1) throw new InvalidOperationException("Merge Session revision changed.");
     }
-    public void SaveSource(MergeSession session, MergeSessionSource source, IEnumerable<MergeConflict> conflicts)
+    public void SaveSource(MergeSession session, MergeSessionSource source, IEnumerable<MergeConflict> conflicts, bool retainSemantic = false)
     {
         using var db = Open(); using var tx = db.BeginTransaction();
         using (var check = Command(db, "SELECT revision FROM sessions WHERE id=$s AND state=$st", ("$s", session.Id.ToString()), ("$st", (int)MergeSessionState.Preparing)))
             if (Convert.ToInt64(check.ExecuteScalar() ?? -1L) != session.Revision) throw new InvalidOperationException("Session is not preparing this revision.");
         using (var cmd = Command(db, "INSERT OR REPLACE INTO sources VALUES($s,$r,$id,$d)", ("$s", session.Id.ToString()),
             ("$r", session.Plan.Revision.ToString()), ("$id", source.Plan.SourceId.ToString()), ("$d", Encode(source)))) cmd.ExecuteNonQuery();
-        using (var clear = Command(db, "DELETE FROM conflicts WHERE session=$s AND revision=$r AND json_extract(data,'$.subject.sourceId')=$source",
-            ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$source", source.Plan.SourceId.ToString()))) clear.ExecuteNonQuery();
+        using (var clear = Command(db, "DELETE FROM conflicts WHERE session=$s AND revision=$r AND json_extract(data,'$.subject.sourceId')=$source AND ($keep=0 OR json_extract(data,'$.semanticSubject') IS NULL)",
+            ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$source", source.Plan.SourceId.ToString()), ("$keep", retainSemantic ? 1 : 0))) clear.ExecuteNonQuery();
         foreach (var conflict in conflicts)
         {
             MergeResolution? migrated = null;
@@ -287,6 +293,7 @@ public sealed partial class MergeSessionStore
                         migrated = value with { PlanRevision = session.Plan.Revision, ConflictId = conflict.Id };
                 }
             }
+            if (conflict.AutomaticDisplayOnly) migrated = new(session.Plan.Revision, conflict.Id, conflict.InputSignature, MergeResolutionChoice.Automatic);
             using var cmd = Command(db, "INSERT OR REPLACE INTO conflicts VALUES($s,$r,$id,$d,$resolution)", ("$s", session.Id.ToString()),
                 ("$r", session.Plan.Revision.ToString()), ("$id", conflict.Id), ("$d", Encode(conflict)),
                 ("$resolution", migrated is null ? null : Encode(migrated))); cmd.ExecuteNonQuery();
@@ -343,6 +350,10 @@ public sealed partial class MergeSessionStore
         foreach (var pair in resolutions)
         {
         var resolution = pair.Value;
+        using var read = Command(db, "SELECT data FROM conflicts WHERE session=$s AND revision=$r AND id=$id",
+            ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", pair.Key));
+        var conflict = Decode<MergeConflict>(read.ExecuteScalar() as string ?? throw new InvalidDataException("Conflict is missing."));
+        if (conflict.AutomaticDisplayOnly || conflict.SemanticSubject is { IsAutomatic: true }) throw new InvalidOperationException("Automatic Merge subjects are not user resolutions.");
         if (resolution is null)
         {
             using var clear = Command(db, "UPDATE conflicts SET resolution=NULL WHERE session=$s AND revision=$r AND id=$id",
@@ -354,9 +365,13 @@ public sealed partial class MergeSessionStore
         if (!Enum.IsDefined(resolution.Choice)) throw new InvalidOperationException("Unknown resolution choice.");
         if (session.State is not (MergeSessionState.Resolving or MergeSessionState.Ready) || resolution.PlanRevision != session.Plan.Revision)
             throw new InvalidOperationException("Resolution belongs to another plan or Session state.");
-        using var read = Command(db, "SELECT data FROM conflicts WHERE session=$s AND revision=$r AND id=$id",
-            ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", resolution.ConflictId));
-        var conflict = Decode<MergeConflict>(read.ExecuteScalar() as string ?? throw new InvalidDataException("Conflict is missing."));
+        if (conflict.SemanticSubject is { } semanticSubject)
+        {
+            if (!SemanticChoiceAllowed(semanticSubject, resolution.Choice)) throw new InvalidOperationException("Merge choice is not supported by this subject.");
+        }
+        else if (resolution.Choice == MergeResolutionChoice.Automatic
+            || conflict.Subject.Paths.IsEmpty && resolution.Choice is not (MergeResolutionChoice.Ours or MergeResolutionChoice.Theirs))
+            throw new InvalidOperationException("Merge choice is not supported by this file or Source conflict.");
         if (resolution.Choice == MergeResolutionChoice.Manual && (resolution.Manual is null || !conflict.CanImportFile))
             throw new InvalidOperationException("Manual resolution requires a single file artifact.");
         if (resolution.Choice != MergeResolutionChoice.Manual && resolution.Manual is not null)

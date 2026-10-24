@@ -138,6 +138,8 @@ public sealed partial class MergePage : Page
     private async void OnViewProtection(object sender, RoutedEventArgs e) => await ViewModel.ExecuteAsync(() => ViewModel.ShowResultAsync(true));
     private async void OnOurs(object sender, RoutedEventArgs e) => await ViewModel.AdoptAsync(MergeResolutionChoice.Ours);
     private async void OnTheirs(object sender, RoutedEventArgs e) => await ViewModel.AdoptAsync(MergeResolutionChoice.Theirs);
+    private async void OnAdoptBase(object sender, RoutedEventArgs e) => await ViewModel.AdoptAsync(MergeResolutionChoice.Base);
+    private async void OnDeleteChoice(object sender, RoutedEventArgs e) => await ViewModel.AdoptAsync(MergeResolutionChoice.Delete);
     private void OnStop(object sender, RoutedEventArgs e) => ViewModel.Operations?.Tracker.Stop();
     private async void OnDownload(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.PrepareReplicasAsync); }
     private async void OnRecompute(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.RecomputeAsync); }

@@ -40,6 +40,13 @@ internal sealed class CapabilityRegistrationSet
         foreach (var capability in capabilities)
         {
             var recognized = false;
+            if (capability is IMergeProviderCapability merge)
+            {
+                if (merge.ProviderId.PluginId != pluginId || merge.ContractVersion < 1)
+                    throw new InvalidOperationException("Merge provider identity or contract version is invalid.");
+                Add("merge-provider", merge.ProviderId.ToString(), capability);
+                recognized = true;
+            }
             if (capability is ISpatialPreviewCapability spatial)
             {
                 if (spatial.Kind.OwnerId.Value != pluginId.Value)

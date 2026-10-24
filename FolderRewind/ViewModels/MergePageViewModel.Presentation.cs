@@ -35,6 +35,6 @@ public sealed partial class MergePageViewModel
     public string EmptyDetailTitle => I18n.GetString(_total == 0 ? "MergeWorkspace_NoChanges" : "MergeWorkspace_SelectFile");
     public string EmptyDetailHint => State.Session?.State == MergeSessionState.Ready
         ? I18n.GetString("MergeWorkspace_ReadyHint") : I18n.GetString("MergeWorkspace_SelectFileHint");
-    public void BeginNewMerge() { if (CanStartNew) { _choosingSource = true; Notify(); } }
+    public void BeginNewMerge() { if (CanStartNew) { _choosingSource = true; if (Operations is { } operations) LoadMethods(operations.Config); Notify(); } }
     public void CancelNewMerge() { _choosingSource = false; Notify(); }
 }

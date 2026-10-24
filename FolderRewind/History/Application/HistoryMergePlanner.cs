@@ -16,7 +16,10 @@ public sealed record HistoryMergeSourcePlan(SourceId SourceId, CheckpointSource?
 public sealed record HistoryMergePlan(Guid Revision, HistoryMergeMode Mode, BranchUpdate Ours, BranchUpdate Theirs,
     CheckpointId? BaseCheckpointId, HistoryWorkspace ExpectedWorkspace, string ConfigRevision,
     ImmutableArray<HistoryRestoreSourceBinding> Bindings, ImmutableArray<HistoryMergeSourcePlan> Sources,
-    string ProviderVersion = MergeProviderDescriptor.GenericIdentity, string PolicyVersion = MergeProviderDescriptor.GenericPolicyIdentity);
+    string ProviderVersion = MergeProviderDescriptor.GenericIdentity, string PolicyVersion = MergeProviderDescriptor.GenericPolicyIdentity)
+{
+    public SemanticMergeBinding? SemanticProvider { get; init; }
+}
 
 public sealed class HistoryMergePlanner(HistoryRuntime history)
 {

@@ -35,7 +35,8 @@ public enum PluginCapabilityKind
     RestoreMaterializer = 12,
     VersionMetadataProvider = 13,
     RestoreStagingPreparation = 14,
-    SpatialPreview = 15
+    SpatialPreview = 15,
+    MergeProvider = 16
 }
 
 public sealed record LocalizedText(
@@ -57,7 +58,10 @@ public sealed record PluginManifestContract(
     IReadOnlyList<ArtifactFormatDeclaration> ArtifactFormats,
     IReadOnlyList<ArtifactTransformerDeclaration> ArtifactTransformers,
     IReadOnlyList<RestoreStrategyDeclaration> RestoreStrategies,
-    bool HasBackupCompletionObserver);
+    bool HasBackupCompletionObserver)
+{
+    public IReadOnlyList<MergeProviderDeclaration> MergeProviders { get; init; } = Array.Empty<MergeProviderDeclaration>();
+}
 
 public sealed record ArtifactFormatDeclaration(
     ArtifactFormatRef Format,

@@ -27,7 +27,9 @@ namespace FolderRewind.Services
         internal static Func<BackupConfig, MergeSession, CancellationToken, Task<MergeReviewSnapshot>> ReviewFactory { get; set; } = null!;
         public static Task<HistoryRestoreService> CreateRestoreServiceAsync(BackupConfig config, CancellationToken token)
             => Task.FromResult(RestoreFactory(config));
-        internal static Task<MergeSession?> StartMergeAsync(BackupConfig config, BranchId branch, CancellationToken token)
+        internal static HistoryMergeService MergeCore(HistoryRuntime runtime, HistoryRestoreService restore, MergeSession? session) => new(runtime, restore);
+        internal static bool MergeBindingCurrent(MergeSession session) => session.Plan.SemanticProvider is null && session.Plan.ProviderVersion == MergeProviderDescriptor.GenericIdentity;
+        internal static Task<MergeSession?> StartMergeAsync(BackupConfig config, BranchId branch, CancellationToken token, SemanticMergeBinding? binding = null)
             => Start(config, branch, token);
         internal static Task<MergeSession> RecomputeMergeAsync(BackupConfig config, MergeSession session, CancellationToken token)
             => Recompute(config, session, token);

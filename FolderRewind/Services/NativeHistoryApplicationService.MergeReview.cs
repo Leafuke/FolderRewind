@@ -3,6 +3,7 @@ using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
 using FolderRewind.Models;
+using FolderRewind.Services.Plugins.V3;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -21,19 +22,21 @@ internal static partial class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
-        runtime.MergeSessions.RequireCurrentContract(session);
+        var semantic = MergeEngine(runtime, session.Plan.SemanticProvider);
+        using var providerLease = semantic is null ? null : await new PluginV3SemanticMerge().AcquireAsync(semantic.Binding, token).ConfigureAwait(false);
+        runtime.MergeSessions.RequireCurrentContract(session, semantic?.Descriptor);
         var workspace = session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace;
         var liveWorkspace = (await runtime.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value;
         if (liveWorkspace is null || !HistoryRestoreTransactionJournalStore.WorkspaceEquals(liveWorkspace, workspace))
             throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
         var current = await new HistoryMergePlanner(runtime).BuildAsync(session.Plan.Theirs.BranchId, workspace,
-            NativeHistoryConfigLease.Signature(config), session.Plan.Bindings, token).ConfigureAwait(false);
+            NativeHistoryConfigLease.Signature(config), session.Plan.Bindings, token, semantic?.Descriptor).ConfigureAwait(false);
         if (current.Ours.UpdateId != session.Plan.Ours.UpdateId || current.Theirs.UpdateId != session.Plan.Theirs.UpdateId
             || current.ConfigRevision != session.Plan.ConfigRevision)
             throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
         var archives = new SevenZipHistoryArchiveBackend(config);
         var builder = new HistoryMergeCommitBuilder(runtime, restore, archives, archives,
-            (version, staging, ct) => CaptureMergeMetadataAsync(config, version, staging, ct));
+            (version, staging, ct) => CaptureMergeMetadataAsync(config, version, staging, ct), semantic);
         progress(MergeOperationStage.Building);
         var prepared = await builder.BuildAsync(session, token).ConfigureAwait(false);
         progress(MergeOperationStage.Validating);

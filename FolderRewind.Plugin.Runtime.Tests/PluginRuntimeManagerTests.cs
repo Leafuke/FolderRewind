@@ -15,6 +15,70 @@ public sealed class PluginRuntimeManagerTests
     private static readonly DiscoveryProviderId SharedDiscoveryId = new("com.folderrewind.shared-discovery");
 
     [TestMethod]
+    public async Task MergeProvidersRouteByIdentityWithoutArtifactOrOwnedConfigKind()
+    {
+        var first = new FakeMerge(new(PluginOneId, "text"));
+        var second = new FakeMerge(new(PluginOneId, "structured"));
+        var plugin = new FakePlugin(context =>
+        {
+            context.RegisterCapability<IMergeProviderCapability>(first);
+            context.RegisterCapability<IMergeProviderCapability>(second);
+            return PluginActivationResult.Empty;
+        });
+        var manifest = MergeManifest(first, second);
+        var manager = new PluginRuntimeManager();
+        var result = await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()) with { Manifest = manifest });
+        Assert.IsTrue(result.Success, string.Join(";", result.Diagnostics.Select(d => d.Code)));
+        using var lease = manager.TryAcquire<IMergeProviderCapability>(PluginOneId, p => p.ProviderId == second.ProviderId, default);
+        Assert.IsNotNull(lease);
+        Assert.AreSame(second, lease.Capability);
+        Assert.IsEmpty(manifest.ConfigKinds);
+        Assert.IsEmpty(manifest.ArtifactTransformers);
+        Assert.IsEmpty(manifest.RestoreStrategies);
+    }
+
+    [TestMethod]
+    public async Task MergeContractMismatchDoesNotPublishCapabilities()
+    {
+        var merge = new FakeMerge(new(PluginOneId, "text"));
+        var plugin = new FakePlugin(context =>
+        {
+            context.RegisterCapability<IMergeProviderCapability>(merge);
+            return PluginActivationResult.Empty;
+        });
+        var manifest = MergeManifest(merge);
+        Assert.ThrowsExactly<InvalidDataException>(() => PluginManifestContractValidator.ValidateStatic(
+            manifest with { RequiredApi = new(3, 11) }, PluginOneId));
+        manifest = manifest with { MergeProviders = [manifest.MergeProviders[0] with { ContractVersion = 2 }] };
+        var manager = new PluginRuntimeManager();
+        var store = new FakeStore();
+        Assert.IsFalse((await manager.ActivateAsync(Candidate(PluginOneId, plugin, store) with { Manifest = manifest })).Success);
+        Assert.IsEmpty(store.Commits);
+        Assert.IsNull(manager.TryAcquire<IMergeProviderCapability>(PluginOneId));
+    }
+
+    private static PluginManifestContract MergeManifest(params FakeMerge[] providers)
+    {
+        var label = new LocalizedText("Merge", new Dictionary<string, string>());
+        return new(PluginOneId, "1.0.0", new(3, 12), "fixture.dll", "Fixture", label, label, [], "settings.json",
+            [], [PluginCapabilityKind.MergeProvider], [], [], [], false)
+        {
+            MergeProviders = providers.Select(p => new MergeProviderDeclaration(p.ProviderId, p.ContractVersion, label,
+                [new(new("folderrewind.core"), "default")], [new("conservative", "1", label, label)])).ToArray()
+        };
+    }
+
+    private sealed class FakeMerge(MergeProviderId providerId) : IMergeProviderCapability
+    {
+        public MergeProviderId ProviderId => providerId;
+        public int ContractVersion => 1;
+        public ValueTask<MergeProviderResult> AnalyzeAsync(MergeAnalysisRequest request, IMergePlanWriter plan, PluginInvocationContext context)
+            => throw new NotSupportedException();
+        public ValueTask<MergeProviderResult> BuildAsync(MergeBuildRequest request, IMergeOutputWorkspace output, PluginInvocationContext context)
+            => throw new NotSupportedException();
+    }
+
+    [TestMethod]
     public async Task ArtifactCommitGuardRunsAfterDrainAndRejectionPreservesPriorProvider()
     {
         var manager = new PluginRuntimeManager();

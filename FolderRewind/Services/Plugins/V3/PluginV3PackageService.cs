@@ -745,6 +745,15 @@ public static class PluginV3PackageService
         return result;
     }
 
+    internal static string? GetActivePackageSha256(PluginId pluginId, string version)
+    {
+        var snapshot = PluginV3RuntimeService.Runtime.GetSnapshot(pluginId);
+        if (snapshot.State != PluginRuntimeState.Active || snapshot.RequiresRestart
+            || PluginV3RuntimeService.FindManifest(pluginId)?.Version != version) return null;
+        var state = ReadInstallState(Path.Combine(PluginsRoot, pluginId.Value));
+        return state?.CurrentVersion == version ? state.Versions.Single(v => v.Version == version).Sha256.ToUpperInvariant() : null;
+    }
+
     public static IReadOnlyList<(PluginId PluginId, ConfigKindDeclaration Kind)> GetInstalledConfigKinds(
         CancellationToken cancellationToken = default)
     {

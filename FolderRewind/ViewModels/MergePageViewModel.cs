@@ -4,6 +4,7 @@ using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Plugins.V3;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -14,10 +15,11 @@ namespace FolderRewind.ViewModels;
 
 public sealed record MergeBranchChoice(BranchId Id, string Name);
 public sealed record MergeSessionChoice(Guid Id, string Label);
+public sealed record MergeMethodChoice(string Name, string Description, SemanticMergeBinding? Binding);
 public sealed class MergeChangeItem(MergeConflict conflict, MergeResolution? resolution, bool automatic = false) : ViewModelBase
 {
     public bool IsAutomatic { get; } = automatic;
-    public bool CanCheck => !IsAutomatic;
+    public bool CanCheck => !IsAutomatic && Conflict.SemanticSubject?.IsBlocked != true;
     public MergeConflict Conflict { get; } = conflict;
     public MergeResolution? Resolution { get; } = resolution;
     public string Id => Conflict.Id;
@@ -25,12 +27,14 @@ public sealed class MergeChangeItem(MergeConflict conflict, MergeResolution? res
     {
         get
         {
+            if (Conflict.SemanticSubject is { } subject) return I18n.PickBest(subject.DisplayName.Translations, subject.DisplayName.Default) ?? subject.DisplayName.Default;
             if (Conflict.Subject.Paths.IsEmpty) return I18n.GetString("Merge_WholeSource");
             var directories = Conflict.BaseDirectories.Concat(Conflict.OursDirectories).Concat(Conflict.TheirsDirectories).ToHashSet(StringComparer.Ordinal);
             return string.Join("\n", Conflict.Subject.Paths.Select(path => directories.Contains(path) ? path + "/" : path));
         }
     }
-    public string Description => IsAutomatic ? I18n.GetString("MergeWorkspace_Automatic") : I18n.GetString("Merge_Conflict_" + Conflict.Kind) + " · "
+    public string Description => Conflict.SemanticSubject?.IsBlocked == true ? I18n.GetString("Merge_BlockedSubject")
+        : IsAutomatic ? I18n.GetString("MergeWorkspace_Automatic") : I18n.GetString("Merge_Conflict_" + Conflict.Kind) + " · "
         + (Resolution is null ? I18n.GetString("MergeWorkspace_Unresolved") : I18n.GetString("Merge_" + Resolution.Choice));
     private bool _isChecked;
     public bool IsChecked { get => _isChecked; set => SetProperty(ref _isChecked, value); }
@@ -50,6 +54,14 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public ObservableCollection<MergeBranchChoice> Branches { get; } = [];
     public ObservableCollection<MergeSessionChoice> Sessions { get; } = [];
     public ObservableCollection<MergeChangeItem> Changes { get; } = [];
+    public ObservableCollection<MergeMethodChoice> Methods { get; } = [];
+    private MergeMethodChoice? _selectedMethod;
+    public MergeMethodChoice? SelectedMethod { get => _selectedMethod; set { if (SetProperty(ref _selectedMethod, value)) Notify(); } }
+    public string MethodDescription => SelectedMethod?.Description ?? "";
+    public bool HasSemanticSession => State.Session?.Plan.SemanticProvider is not null && !ShowSetup;
+    public string SessionMethodDescription => State.Session?.Plan.SemanticProvider is { } binding
+        ? Methods.FirstOrDefault(m => m.Binding == binding) is { } method ? method.Name + "\n" + method.Description + (State.Session!.Plan.Sources.Any(s => s.Action == HistoryMergeSourceAction.MergeFiles) ? "" : "\n" + I18n.GetString("Merge_SemanticCarryForward"))
+            : binding.ProviderId + " · " + binding.PolicyId + " / " + binding.PolicyVersion + "\n" + I18n.GetString("Merge_SemanticUnavailable") : "";
     public MergeBranchChoice? SelectedBranch { get; set; }
     public MergeSessionChoice? SelectedSession { get; private set; }
     public string FolderName { get; private set; } = "";
@@ -103,6 +115,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
         var config = ConfigService.CurrentConfig.BackupConfigs.Single(c => c.Id == parameter.ConfigId);
         var folder = config.SourceFolders.Single(f => f.Id == parameter.FolderId);
         FolderName = folder.DisplayName; TargetPath = folder.Path;
+        LoadMethods(config);
         Operations = MergeOperationService.Get(config, new SourceId(Guid.Parse(folder.Id)));
         Operations.Tracker.Changed += OnOperationChanged;
         RefreshSessions(); Notify();
@@ -194,7 +207,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
     {
         if (!CanAnalyze || SelectedBranch is not { } branch || Operations is null) return;
         var previous = State.Session?.Id;
-        await ExecuteAsync(() => Operations.StartAsync(branch.Id));
+        await ExecuteAsync(() => Operations.StartAsync(branch.Id, SelectedMethod?.Binding));
         if (State.Session is { } session && session.Id != previous) _choosingSource = false;
         Notify();
     }
@@ -228,8 +241,15 @@ public sealed partial class MergePageViewModel : ViewModelBase
     {
         if (!CanResolve || Operations is null || State.Session is not { } session) return Task.CompletedTask;
         var selected = SelectedDecisions();
+        if (selected.Any(c => !Allows(c, choice))) return Task.CompletedTask;
         return ExecuteAsync(() => Operations.ResolveAsync(selected.Select(c => new MergeResolution(session.Plan.Revision, c.Id, c.Conflict.InputSignature, choice)).ToArray()));
     }
     partial void SelectionChanged();
     partial void CancelPreview();
+    private void LoadMethods(BackupConfig config)
+    {
+        Methods.Clear(); Methods.Add(new(I18n.GetString("Merge_FileMethod"), I18n.GetString("Merge_FileMethodDescription"), null));
+        foreach (var option in PluginV3SemanticMerge.Options(config)) Methods.Add(new(option.Name, option.Description, option.Binding));
+        SelectedMethod = Methods[0];
+    }
 }

@@ -7292,4 +7292,18 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="Preview_ZoomOutMenu.Text" xml:space="preserve"><value>Zoom out</value></data>
   <data name="Preview_FocusMode.Text" xml:space="preserve"><value>Focus preview</value></data>
   <data name="Preview_ViewStatusButton.Content" xml:space="preserve"><value>View map status</value></data>
+  <data name="Merge_Method.Header" xml:space="preserve"><value>Merge method (this session only)</value></data>
+  <data name="Merge_Method.AutomationProperties.Name" xml:space="preserve"><value>Merge method</value></data>
+  <data name="Merge_FileMethod" xml:space="preserve"><value>File merge (default)</value></data>
+  <data name="Merge_FileMethodDescription" xml:space="preserve"><value>Merge three versions by file. You can explicitly select a compatible plugin policy for this session.</value></data>
+  <data name="Merge_SemanticUnavailable" xml:space="preserve"><value>The semantic plugin package or policy bound to this session is unavailable or changed. The session and decisions are retained. Restore a compatible plugin and reanalyze before generating and reviewing the result.</value></data>
+  <data name="Merge_AdoptBase.Content" xml:space="preserve"><value>Use Base</value></data>
+  <data name="Merge_DeleteChoice.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Merge_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Merge_Automatic" xml:space="preserve"><value>Automatic</value></data>
+  <data name="Merge_ProviderDiagnostics.Title" xml:space="preserve"><value>Plugin result notes</value></data>
+  <data name="Merge_SemanticCarryForward" xml:space="preserve"><value>This merge carries forward a historical version without three-way file composition. The selected semantic policy does not generate the result.</value></data>
+  <data name="Merge_BlockedSubject" xml:space="preserve">
+    <value>This item cannot be merged semantically. See the coverage details.</value>
+  </data>
 </root>

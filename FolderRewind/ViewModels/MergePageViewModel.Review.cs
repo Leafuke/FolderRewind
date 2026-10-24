@@ -23,6 +23,12 @@ public sealed partial class MergePageViewModel
     public bool HasBranchChanges => Operations?.Review?.BranchChanges.Length > 0;
     public bool HasWorkingChanges => Operations?.Review?.WorkingChanges.Length > 0;
     public string ResultDiagnostic => State.Result?.Diagnostic ?? "";
+    public string ProviderDiagnostics => string.Join("\n", Operations?.Review?.Prepared.Sources.SelectMany(s => s.SemanticDiagnostics)
+        .Select(d => d.Arguments.TryGetValue("message.default", out var fallback)
+            ? I18n.PickBest(d.Arguments.Where(p => p.Key.StartsWith("message.", StringComparison.Ordinal) && p.Key != "message.default")
+                .ToDictionary(p => p.Key[8..], p => p.Value), fallback) ?? fallback
+            : d.Code + (d.Arguments.Count == 0 ? "" : ": " + string.Join("; ", d.Arguments.Select(p => p.Key + "=" + p.Value)))) ?? []);
+    public bool HasProviderDiagnostics => ShowReview && ProviderDiagnostics.Length != 0;
     public string ProtectionText => I18n.GetString(Operations?.Review?.NeedsProtection == true ? "MergeWorkspace_ProtectionRequired" : "MergeWorkspace_ProtectionNotRequired");
     public string ReviewSummary => Operations?.Review is { } r
         ? string.Format(I18n.GetString("MergeWorkspace_ReviewSummary"), r.BranchChanges.Length, r.WorkingChanges.Length) : "";

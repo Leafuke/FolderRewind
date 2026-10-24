@@ -29,8 +29,11 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
     public HistoryWorkspace Before { get; private set; } = null!;
     public LocalReplicaCatalog CatalogBefore { get; private set; } = null!;
     public string OursDigest { get; private set; } = null!;
+    public bool UseSmartDeltas { get; init; }
+    public EffectiveSourceBoundarySnapshot Boundary { get; init; } = EffectiveSourceBoundarySnapshot.All;
+    private readonly Dictionary<VersionId, (RepresentationId Representation, MergeTreeManifest Tree)> _captured = [];
     public HistoryConfigSnapshot Snapshot => new(Config,
-        [new(Source, new("source", Target)), new(Other, new("other", OtherTarget))]);
+        [new(Source, new("source", Target), Boundary), new(Other, new("other", OtherTarget))]);
 
     public HistoryMergeArchiveFixture()
     {
@@ -39,30 +42,34 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
         Archives = new(new SevenZipArchiveProcessBackend(() => executable, () => null, false, ".restore-marker"));
     }
 
-    public async Task SeedAsync()
+    public async Task SeedAsync(Action<string, int>? populate = null, Func<HistoryRuntime, SemanticMergeEngine>? semantic = null,
+        MergeSessionState expectedState = MergeSessionState.Ready)
     {
         Directory.CreateDirectory(Target); Directory.CreateDirectory(OtherTarget);
         File.WriteAllText(Path.Combine(Target, "a.txt"), "base-a");
         File.WriteAllText(Path.Combine(Target, "b.txt"), "base-b");
         File.WriteAllText(Path.Combine(OtherTarget, "keep.txt"), "untouched");
         await OpenAsync();
+        populate?.Invoke(Target, 0);
         var initial = await CaptureAsync(Source, Other);
         Base = initial.NewCheckpoints.Single(c => c.SourceId == Source);
         var feature = await History.Branches.CreateFromCheckpointAsync(Base.CheckpointId, "feature", sourceId: Source);
         File.WriteAllText(Path.Combine(Target, "a.txt"), "ours-a");
+        populate?.Invoke(Target, 1);
         Ours = await CaptureAsync(Source);
         await CheckoutAsync(feature.BranchUpdate);
         File.WriteAllText(Path.Combine(Target, "b.txt"), "theirs-b");
+        populate?.Invoke(Target, 2);
         Theirs = await CaptureAsync(Source);
         await CheckoutAsync(Ours.NewBranchUpdates.Single());
         Before = (await History.WorkspaceStore.LoadAsync()).Value!;
         CatalogBefore = (await History.LocalReplicaCatalogStore.LoadAsync()).Value!;
         OursDigest = (await MergeTreeManifest.ReadAsync(Target, _ => true, default)).Digest;
-        Session = (await new HistoryMergeService(History, Restore()).StartAsync(
-            Theirs.NewBranchUpdates.Single().BranchId, "fixture-v1", [new(Source, Target)]))!;
+        Session = (await new HistoryMergeService(History, Restore(), semantic: semantic?.Invoke(History)).StartAsync(
+            Theirs.NewBranchUpdates.Single().BranchId, "fixture-v1", [new(Source, Target, Boundary)]))!;
         Assert.AreEqual(HistoryMergeMode.ThreeWay, Session.Plan.Mode);
-        Assert.AreEqual(MergeSessionState.Ready, Session.State);
-        Assert.IsEmpty(new HistoryMergeService(History, Restore()).AllConflicts(Session));
+        Assert.AreEqual(expectedState, Session.State);
+        if (semantic is null) Assert.IsEmpty(new HistoryMergeService(History, Restore()).AllConflicts(Session));
         Archives.Reset();
     }
 
@@ -82,7 +89,7 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
     private async Task CheckoutAsync(BranchUpdate branch)
     {
         var result = await new HistoryCheckoutService(History, Restore()).CheckoutAsync(branch.UpdateId,
-            [new(Source, Target), new(Other, OtherTarget)], (await History.WorkspaceStore.LoadAsync()).Value!,
+            [new(Source, Target, Boundary), new(Other, OtherTarget)], (await History.WorkspaceStore.LoadAsync()).Value!,
             HistoryCheckoutProtectionMode.DiscardCurrentChanges);
         Assert.IsTrue(result.Succeeded, result.Diagnostic);
     }
@@ -91,33 +98,46 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
     {
         var workspace = (await History.WorkspaceStore.LoadAsync()).Value;
         var captures = new List<SourceCaptureResult>();
+        var trees = new Dictionary<SourceId, MergeTreeManifest>();
         foreach (var source in sources)
         {
             var directory = source == Source ? Target : OtherTarget;
             var tree = await MergeTreeManifest.ReadAsync(directory, _ => true, default);
+            trees.Add(source, tree);
+            var boundary = source == Source ? Boundary : EffectiveSourceBoundarySnapshot.All;
+            var parentId = workspace?.GetSourceState(source).BaseVersionId;
+            var smart = UseSmartDeltas && parentId is not null && _captured.ContainsKey(parentId.Value);
+            var parent = smart ? _captured[parentId!.Value] : default;
+            var kind = smart ? RepresentationKind.CoreSmartDelta : RepresentationKind.CoreFull;
             var representationId = RepresentationId.New();
             var version = new SourceVersion(VersionId.New(), Config, source, [], DateTimeOffset.UtcNow,
                 null, CaptureScope.FullSource, CaptureOutcome.Captured, [], new("fixture", directory),
-                tree.Digest, HistoryProvenance.Native("integration"));
-            var payload = await Archives.CreateFullAsync(version, directory, representationId,
-                Path.Combine(Root, "captures", representationId.ToString()), default);
+                tree.Digest, HistoryProvenance.Native("integration"), boundary);
+            var output = Path.Combine(Root, "captures", representationId.ToString());
+            var payload = smart ? await Archives.Inner.CreateDeltaAsync(version, directory,
+                [.. tree.Files.Where(p => parent.Tree.Files.GetValueOrDefault(p.Key)?.Digest != p.Value.Digest).Select(p => p.Key)], representationId, output, default)
+                : await Archives.CreateFullAsync(version, directory, representationId, output, default);
+            var metadata = smart ? payload.Metadata.SetItem("deletedFiles", string.Join('\n', parent.Tree.Files.Keys.Except(tree.Files.Keys))) : payload.Metadata;
             var representation = new VersionRepresentation(representationId, version.VersionId,
-                RepresentationKind.CoreFull, payload.Format, [], MaterializationFidelity.Exact,
-                tree.Digest, tree.Digest, payload.Metadata);
+                kind, payload.Format, smart ? [parent.Representation] : [], MaterializationFidelity.Exact,
+                tree.Digest, tree.Digest, metadata);
             Assert.IsTrue((await Archives.DeepVerifyAsync(representation, payload.PayloadPath, default)).Success);
             var bytes = File.ReadAllBytes(payload.PayloadPath);
             captures.Add(new(source, SourceCaptureOutcome.Captured, CaptureScope.FullSource, tree.Digest, null,
-                new(representationId, RepresentationKind.CoreFull, payload.Format, [], MaterializationFidelity.Exact,
-                    tree.Digest, tree.Digest, payload.Metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath))),
+                new(representationId, kind, payload.Format, smart ? [parent.Representation] : [], MaterializationFidelity.Exact,
+                    tree.Digest, tree.Digest, metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath))),
                 new(LocalReplicaId.New(), representationId, LocalReplicaLocator.ControlledAbsolute(payload.PayloadPath),
                     CapturePayloadState.VerifiedFinal, DateTimeOffset.UtcNow),
                 new(payload.PayloadPath, CapturePayloadState.VerifiedFinal, bytes.LongLength, Convert.ToHexString(SHA256.HashData(bytes))),
-                workspace?.StateRevision ?? -1, workspace?.GetSourceState(source).BaseVersionId, null, []));
+                workspace?.StateRevision ?? -1, workspace?.GetSourceState(source).BaseVersionId, null, [], effectiveSourceBoundary: boundary));
         }
         var now = DateTimeOffset.UtcNow;
-        return await History.Commit.CommitAsync(new(Snapshot,
+        var committed = await History.Commit.CommitAsync(new(Snapshot,
             new(RunId.New(), now, now, BackupInvocationKind.Manual, HistoryProvenance.Native("integration")),
             workspace, captures));
+        foreach (var version in committed.NewVersions)
+            _captured.Add(version.VersionId, (committed.NewRepresentations.Single(r => r.VersionId == version.VersionId).RepresentationId, trees[version.SourceId]));
+        return committed;
     }
 
     public HistoryRestoreService Restore(IHistoryRestoreMutationBackend? mutation = null,
@@ -125,7 +145,7 @@ internal sealed class HistoryMergeArchiveFixture : IAsyncDisposable
         ArchiveRestoreVerificationContext? verification = null, bool targetVolume = false, bool allowSwap = true,
         Func<HistoryRestoreSourceBinding, string, CancellationToken, Task<bool>>? prepare = null,
         IReadOnlyList<string>? protectedRoots = null, FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget? spaceBudget = null)
-        => new(History, new RepresentationRuntime([new CoreArchiveRepresentationHandler(Archives.Inner)]),
+        => new(History, new RepresentationRuntime([new CoreArchiveRepresentationHandler(Archives.Inner), new SmartDeltaRepresentationHandler(Archives.Inner)]),
             async token => new RepresentationEnvironment((await History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []),
             mutation ?? new FileSystemHistoryRestoreMutationBackend(), prepare) { PackPublisher = publisher,
                 VerificationContext = verification, UseTargetVolumeWorkspaces = targetVolume, AllowDirectorySwap = allowSwap,

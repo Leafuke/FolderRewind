@@ -18,6 +18,10 @@ namespace FolderRewind.History.Merge;
 public sealed record MergeFileValue(string Handle, string Digest, long Length);
 public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFileValue> Files, string Digest)
 {
+    public RepresentationId? InputRepresentationId { get; init; }
+    public bool HasCompleteDirectoryInventory { get; init; }
+    public ImmutableArray<Plugin.Abstractions.PluginDiagnostic> SemanticDiagnostics { get; init; } = [];
+    public ImmutableArray<string> RequiredAbsentPaths { get; init; } = [];
     public ImmutableArray<string> Directories { get; init; } = [];
     [JsonIgnore] public IEnumerable<string> Paths => Files.Keys.Concat(Directories);
     [JsonIgnore] public bool IsEmpty => Files.IsEmpty && Directories.IsEmpty;
@@ -85,10 +89,14 @@ public sealed record MergeConflict(string Id, MergeConflictSubject Subject, Merg
     ImmutableSortedDictionary<string, MergeFileValue> Base, ImmutableSortedDictionary<string, MergeFileValue> Ours,
     ImmutableSortedDictionary<string, MergeFileValue> Theirs)
 {
+    public Plugin.Abstractions.MergeSubject? SemanticSubject { get; init; }
+    public bool AutomaticDisplayOnly { get; init; }
     public ImmutableArray<string> BaseDirectories { get; init; } = [];
     public ImmutableArray<string> OursDirectories { get; init; } = [];
     public ImmutableArray<string> TheirsDirectories { get; init; } = [];
-    [JsonIgnore] public bool CanImportFile => Subject.Paths.Length == 1
+    [JsonIgnore] public bool CanImportFile => SemanticSubject is not null
+        ? !SemanticSubject.IsAutomatic && SemanticSubject.AllowedDecisions.Contains(Plugin.Abstractions.MergeDecisionKind.Manual)
+        : Subject.Paths.Length == 1
         && BaseDirectories.IsEmpty && OursDirectories.IsEmpty && TheirsDirectories.IsEmpty
         && Kind is not (MergeConflictKind.PathStructure or MergeConflictKind.SourceRoster or MergeConflictKind.SourceBoundary);
 }

@@ -56,6 +56,25 @@ C public FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor(System.String
 C public FolderRewind.Plugin.Abstractions.KnotLinkTarget(System.String ConfigId,System.Guid FolderId)
 C public FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution(FolderRewind.Plugin.Abstractions.KnotLinkTarget Target,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
 C public FolderRewind.Plugin.Abstractions.LocalizedText(System.String Default,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> Translations)
+C public FolderRewind.Plugin.Abstractions.MergeAnalysisRequest(System.Guid SessionId,System.Guid PlanRevision,System.Guid SourceId,FolderRewind.Plugin.Abstractions.ConfigKindRef Kind,System.String PolicyId,System.String PolicyVersion,FolderRewind.Plugin.Abstractions.MergeVersionInput Base,FolderRewind.Plugin.Abstractions.MergeVersionInput Ours,FolderRewind.Plugin.Abstractions.MergeVersionInput Theirs,FolderRewind.Plugin.Abstractions.MergeLimits Limits)
+C public FolderRewind.Plugin.Abstractions.MergeBuildRequest(FolderRewind.Plugin.Abstractions.MergeAnalysisRequest Analysis,FolderRewind.Plugin.Abstractions.MergeOutputGroup Group,FolderRewind.Plugin.Abstractions.IMergeDecisionReader Decisions)
+C public FolderRewind.Plugin.Abstractions.MergeCoverageEvidence(System.String Code,System.String Rule,System.String ExamplePath)
+C public FolderRewind.Plugin.Abstractions.MergeCoverageQuery(System.String RequirementId,System.String RelativeRoot,System.Collections.Generic.IReadOnlyList<System.String> Patterns)
+C public FolderRewind.Plugin.Abstractions.MergeCoverageResult(System.String RequirementId,System.String BoundaryFingerprint,FolderRewind.Plugin.Abstractions.MergeCoverageState State,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeCoverageEvidence> Evidence)
+C public FolderRewind.Plugin.Abstractions.MergeDecisionPage(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeSubjectDecision> Decisions,System.String NextCursor)
+C public FolderRewind.Plugin.Abstractions.MergeInputBoundary(System.Int32 SchemaVersion,FolderRewind.Plugin.Abstractions.MergeBoundaryScope Scope,System.Collections.Generic.IReadOnlyList<System.String> ScopeRules,FolderRewind.Plugin.Abstractions.MergeBoundaryFilter Filter,System.Collections.Generic.IReadOnlyList<System.String> FilterRules,System.Boolean UseRegex,System.String Fingerprint)
+C public FolderRewind.Plugin.Abstractions.MergeInputEntry(System.String RelativePath,System.Boolean IsDirectory,System.Int64 Length,System.String Digest)
+C public FolderRewind.Plugin.Abstractions.MergeInputPage(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeInputEntry> Entries,System.String NextCursor)
+C public FolderRewind.Plugin.Abstractions.MergeLimits(System.Int32 MaximumBatchSize,System.Int32 MaximumSubjects,System.Int32 MaximumRecordBytes,System.Int64 MaximumPlanBytes)
+C public FolderRewind.Plugin.Abstractions.MergeOutputGroup(System.String GroupId,FolderRewind.Plugin.Abstractions.LocalizedText DisplayName,System.Text.Json.JsonElement State)
+C public FolderRewind.Plugin.Abstractions.MergePathCoverage(System.String RelativePath,FolderRewind.Plugin.Abstractions.MergePathPresence Presence,FolderRewind.Plugin.Abstractions.MergeInputEntry Entry,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeCoverageEvidence> Evidence)
+C public FolderRewind.Plugin.Abstractions.MergePolicyDeclaration(System.String PolicyId,System.String Version,FolderRewind.Plugin.Abstractions.LocalizedText DisplayName,FolderRewind.Plugin.Abstractions.LocalizedText Description)
+C public FolderRewind.Plugin.Abstractions.MergeProviderDeclaration(FolderRewind.Plugin.Abstractions.MergeProviderId ProviderId,System.Int32 ContractVersion,FolderRewind.Plugin.Abstractions.LocalizedText DisplayName,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigKindRef> CompatibleConfigKinds,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergePolicyDeclaration> Policies)
+C public FolderRewind.Plugin.Abstractions.MergeProviderId(FolderRewind.Plugin.Abstractions.PluginId pluginId,System.String providerId)
+C public FolderRewind.Plugin.Abstractions.MergeProviderResult(FolderRewind.Plugin.Abstractions.OperationOutcome Outcome,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
+C public FolderRewind.Plugin.Abstractions.MergeSubject(System.String SubjectId,System.String GroupId,System.String InputIdentity,FolderRewind.Plugin.Abstractions.LocalizedText DisplayName,FolderRewind.Plugin.Abstractions.LocalizedText Description,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeDecisionKind> AllowedDecisions,System.Boolean IsAutomatic,System.Text.Json.JsonElement State)
+C public FolderRewind.Plugin.Abstractions.MergeSubjectDecision(FolderRewind.Plugin.Abstractions.MergeSubject Subject,FolderRewind.Plugin.Abstractions.MergeDecisionKind Choice,System.String ManualContentId)
+C public FolderRewind.Plugin.Abstractions.MergeVersionInput(System.String VersionId,System.String RepresentationId,System.String TreeDigest,FolderRewind.Plugin.Abstractions.MergeInputBoundary Boundary,FolderRewind.Plugin.Abstractions.IMergeSourceView Files)
 C public FolderRewind.Plugin.Abstractions.OperationResolution(FolderRewind.Plugin.Abstractions.OperationReadiness Readiness,System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> Diagnostics)
 C public FolderRewind.Plugin.Abstractions.OwnerId(System.String value)
 C public FolderRewind.Plugin.Abstractions.PluginActivationPatch(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ProviderStatePatch> ProviderStatePatches)
@@ -142,6 +161,26 @@ E FolderRewind.Plugin.Abstractions.HostServiceKind.Notification=4
 E FolderRewind.Plugin.Abstractions.HostServiceKind.RestoreMaterializationWorkspace=11
 E FolderRewind.Plugin.Abstractions.HostServiceKind.RestoreRequest=2
 E FolderRewind.Plugin.Abstractions.HostServiceKind.TemporaryStorage=7
+E FolderRewind.Plugin.Abstractions.MergeBoundaryFilter.Blacklist=0
+E FolderRewind.Plugin.Abstractions.MergeBoundaryFilter.Whitelist=1
+E FolderRewind.Plugin.Abstractions.MergeBoundaryScope.All=0
+E FolderRewind.Plugin.Abstractions.MergeBoundaryScope.Include=1
+E FolderRewind.Plugin.Abstractions.MergeCoverageState.Complete=1
+E FolderRewind.Plugin.Abstractions.MergeCoverageState.Filtered=2
+E FolderRewind.Plugin.Abstractions.MergeCoverageState.Unknown=0
+E FolderRewind.Plugin.Abstractions.MergeDecisionKind.Automatic=0
+E FolderRewind.Plugin.Abstractions.MergeDecisionKind.Base=3
+E FolderRewind.Plugin.Abstractions.MergeDecisionKind.Delete=4
+E FolderRewind.Plugin.Abstractions.MergeDecisionKind.Manual=5
+E FolderRewind.Plugin.Abstractions.MergeDecisionKind.Ours=1
+E FolderRewind.Plugin.Abstractions.MergeDecisionKind.Theirs=2
+E FolderRewind.Plugin.Abstractions.MergeInputSide.Base=0
+E FolderRewind.Plugin.Abstractions.MergeInputSide.Ours=1
+E FolderRewind.Plugin.Abstractions.MergeInputSide.Theirs=2
+E FolderRewind.Plugin.Abstractions.MergePathPresence.Absent=2
+E FolderRewind.Plugin.Abstractions.MergePathPresence.Filtered=3
+E FolderRewind.Plugin.Abstractions.MergePathPresence.Present=1
+E FolderRewind.Plugin.Abstractions.MergePathPresence.Unknown=0
 E FolderRewind.Plugin.Abstractions.OperationOutcome.Blocked=5
 E FolderRewind.Plugin.Abstractions.OperationOutcome.Canceled=3
 E FolderRewind.Plugin.Abstractions.OperationOutcome.CommittedRecoveryRequired=7
@@ -162,6 +201,7 @@ E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.Discovery=0
 E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.FilePolicy=2
 E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.FolderMetadata=5
 E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.KnotLinkIntegration=8
+E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.MergeProvider=16
 E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.PluginCommand=7
 E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.ProviderStateMigration=9
 E FolderRewind.Plugin.Abstractions.PluginCapabilityKind.RestoreCoordinator=6
@@ -209,6 +249,22 @@ M public abstract FolderRewind.Plugin.Abstractions.IHistoryQueryService.QueryAsy
 M public abstract FolderRewind.Plugin.Abstractions.IKnotLinkHostService.SendAsync(System.String eventName,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> arguments,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
 M public abstract FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability.ExecuteAsync(System.String command,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> arguments,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.PluginCommandResult>
 M public abstract FolderRewind.Plugin.Abstractions.IKnotLinkTargetResolver.ResolveTargetAsync(System.String command,System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> arguments,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeDecisionReader.OpenDataReadAsync(System.String key,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeDecisionReader.OpenManualReadAsync(System.String contentId,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeDecisionReader.ReadPageAsync(System.String cursor,System.Int32 count,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.MergeDecisionPage>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeOutputWorkspace.DeleteAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IMergeOutputWorkspace.OpenReadAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeOutputWorkspace.OpenWriteAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeOutputWorkspace.ReuseAsync(System.String relativePath,FolderRewind.Plugin.Abstractions.MergeInputSide side,System.String sourceRelativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IMergePlanWriter.AddGroupAsync(FolderRewind.Plugin.Abstractions.MergeOutputGroup group,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IMergePlanWriter.AddSubjectsAsync(System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeSubject> subjects,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IMergePlanWriter.ClaimPathsAsync(System.String groupId,System.Collections.Generic.IReadOnlyList<System.String> inputPaths,System.Collections.Generic.IReadOnlyList<System.String> outputPaths,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask
+M public abstract FolderRewind.Plugin.Abstractions.IMergePlanWriter.OpenDataReadAsync(System.String key,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IMergePlanWriter.OpenDataWriteAsync(System.String key,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeProviderCapability.AnalyzeAsync(FolderRewind.Plugin.Abstractions.MergeAnalysisRequest request,FolderRewind.Plugin.Abstractions.IMergePlanWriter plan,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.MergeProviderResult>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeProviderCapability.BuildAsync(FolderRewind.Plugin.Abstractions.MergeBuildRequest request,FolderRewind.Plugin.Abstractions.IMergeOutputWorkspace output,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.MergeProviderResult>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeSourceView.OpenReadAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
+M public abstract FolderRewind.Plugin.Abstractions.IMergeSourceView.ReadPageAsync(System.String cursor,System.Int32 count,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.MergeInputPage>
 M public abstract FolderRewind.Plugin.Abstractions.IPluginActivationContext.RegisterCapability<TCapability>(TCapability capability):System.Void
 M public abstract FolderRewind.Plugin.Abstractions.IPluginCommandCapability.ExecuteAsync(FolderRewind.Plugin.Abstractions.PluginCommandRequest request,FolderRewind.Plugin.Abstractions.PluginInvocationContext context):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.PluginCommandResult>
 M public abstract FolderRewind.Plugin.Abstractions.IPluginDataStore.OpenReadAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
@@ -232,6 +288,8 @@ M public abstract FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapab
 M public abstract FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView.OpenReadAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IO.Stream>
 M public static FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands.Find(System.String command):FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor
 M public virtual FolderRewind.Plugin.Abstractions.IBackupRequestService.RequestAsync(System.String configId,System.Nullable<System.Guid> folderId,FolderRewind.Plugin.Abstractions.BackupRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
+M public virtual FolderRewind.Plugin.Abstractions.IMergeSourceView.CheckCoverageAsync(FolderRewind.Plugin.Abstractions.MergeCoverageQuery query,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.MergeCoverageResult>
+M public virtual FolderRewind.Plugin.Abstractions.IMergeSourceView.InspectPathAsync(System.String relativePath,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.MergePathCoverage>
 M public virtual FolderRewind.Plugin.Abstractions.IPluginTemporaryStorage.ReserveAsync(System.String directory,System.Int64 bytes,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.IDisposable>
 M public virtual FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService.QueryAsync(System.Nullable<FolderRewind.Plugin.Abstractions.ConfigKindRef> kind,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigSnapshot>>
 M public virtual FolderRewind.Plugin.Abstractions.IRestoreRequestService.RequestAsync(System.String configId,System.Guid folderId,System.String versionId,FolderRewind.Plugin.Abstractions.RestoreRequestOptions options,System.Threading.CancellationToken cancellationToken):System.Threading.Tasks.ValueTask<FolderRewind.Plugin.Abstractions.OperationOutcome>
@@ -448,6 +506,8 @@ P FolderRewind.Plugin.Abstractions.IFolderMetadataCapability.Kind:FolderRewind.P
 P FolderRewind.Plugin.Abstractions.IKnotLinkHostService.IsAvailable:System.Boolean { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability.Commands:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor> { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability.Signals:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor> { public virtual get; }
+P FolderRewind.Plugin.Abstractions.IMergeProviderCapability.ContractVersion:System.Int32 { public abstract get; }
+P FolderRewind.Plugin.Abstractions.IMergeProviderCapability.ProviderId:FolderRewind.Plugin.Abstractions.MergeProviderId { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IPluginActivationContext.Configs:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigSnapshot> { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IPluginActivationContext.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public abstract get; }
 P FolderRewind.Plugin.Abstractions.IPluginActivationContext.Settings:FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot { public abstract get; }
@@ -497,6 +557,86 @@ P FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution.Diagnostics:System.C
 P FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution.Target:FolderRewind.Plugin.Abstractions.KnotLinkTarget { public get; public init; }
 P FolderRewind.Plugin.Abstractions.LocalizedText.Default:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.LocalizedText.Translations:System.Collections.Generic.IReadOnlyDictionary<System.String,System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.Base:FolderRewind.Plugin.Abstractions.MergeVersionInput { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.Kind:FolderRewind.Plugin.Abstractions.ConfigKindRef { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.Limits:FolderRewind.Plugin.Abstractions.MergeLimits { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.Ours:FolderRewind.Plugin.Abstractions.MergeVersionInput { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.PlanRevision:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.PolicyId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.PolicyVersion:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.SessionId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.SourceId:System.Guid { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeAnalysisRequest.Theirs:FolderRewind.Plugin.Abstractions.MergeVersionInput { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeBuildRequest.Analysis:FolderRewind.Plugin.Abstractions.MergeAnalysisRequest { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeBuildRequest.Decisions:FolderRewind.Plugin.Abstractions.IMergeDecisionReader { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeBuildRequest.Group:FolderRewind.Plugin.Abstractions.MergeOutputGroup { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageEvidence.Code:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageEvidence.ExamplePath:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageEvidence.Rule:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageQuery.Patterns:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageQuery.RelativeRoot:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageQuery.RequirementId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageResult.BoundaryFingerprint:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageResult.Evidence:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeCoverageEvidence> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageResult.RequirementId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeCoverageResult.State:FolderRewind.Plugin.Abstractions.MergeCoverageState { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeDecisionPage.Decisions:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeSubjectDecision> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeDecisionPage.NextCursor:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputBoundary.Filter:FolderRewind.Plugin.Abstractions.MergeBoundaryFilter { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputBoundary.FilterRules:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputBoundary.Fingerprint:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputBoundary.SchemaVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputBoundary.Scope:FolderRewind.Plugin.Abstractions.MergeBoundaryScope { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputBoundary.ScopeRules:System.Collections.Generic.IReadOnlyList<System.String> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputBoundary.UseRegex:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputEntry.Digest:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputEntry.IsDirectory:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputEntry.Length:System.Int64 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputEntry.RelativePath:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputPage.Entries:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeInputEntry> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeInputPage.NextCursor:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeLimits.Default:FolderRewind.Plugin.Abstractions.MergeLimits { public static get; }
+P FolderRewind.Plugin.Abstractions.MergeLimits.MaximumBatchSize:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeLimits.MaximumPlanBytes:System.Int64 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeLimits.MaximumRecordBytes:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeLimits.MaximumSubjects:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeOutputGroup.DisplayName:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeOutputGroup.GroupId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeOutputGroup.State:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePathCoverage.Entry:FolderRewind.Plugin.Abstractions.MergeInputEntry { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePathCoverage.Evidence:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeCoverageEvidence> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePathCoverage.Presence:FolderRewind.Plugin.Abstractions.MergePathPresence { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePathCoverage.RelativePath:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePolicyDeclaration.Description:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePolicyDeclaration.DisplayName:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePolicyDeclaration.PolicyId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergePolicyDeclaration.Version:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeProviderDeclaration.CompatibleConfigKinds:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.ConfigKindRef> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeProviderDeclaration.ContractVersion:System.Int32 { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeProviderDeclaration.DisplayName:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeProviderDeclaration.Policies:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergePolicyDeclaration> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeProviderDeclaration.ProviderId:FolderRewind.Plugin.Abstractions.MergeProviderId { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeProviderId.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; }
+P FolderRewind.Plugin.Abstractions.MergeProviderId.ProviderId:System.String { public get; }
+P FolderRewind.Plugin.Abstractions.MergeProviderResult.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeProviderResult.Outcome:FolderRewind.Plugin.Abstractions.OperationOutcome { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.AllowedDecisions:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeDecisionKind> { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.Description:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.DisplayName:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.GroupId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.InputIdentity:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.IsAutomatic:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.IsBlocked:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.State:System.Text.Json.JsonElement { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubject.SubjectId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubjectDecision.Choice:FolderRewind.Plugin.Abstractions.MergeDecisionKind { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubjectDecision.ManualContentId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeSubjectDecision.Subject:FolderRewind.Plugin.Abstractions.MergeSubject { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeVersionInput.Boundary:FolderRewind.Plugin.Abstractions.MergeInputBoundary { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeVersionInput.Files:FolderRewind.Plugin.Abstractions.IMergeSourceView { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeVersionInput.RepresentationId:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeVersionInput.TreeDigest:System.String { public get; public init; }
+P FolderRewind.Plugin.Abstractions.MergeVersionInput.VersionId:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.OperationResolution.Diagnostics:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.PluginDiagnostic> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.OperationResolution.Readiness:FolderRewind.Plugin.Abstractions.OperationReadiness { public get; public init; }
 P FolderRewind.Plugin.Abstractions.OwnerId.Value:System.String { public get; }
@@ -537,6 +677,7 @@ P FolderRewind.Plugin.Abstractions.PluginManifestContract.Description:FolderRewi
 P FolderRewind.Plugin.Abstractions.PluginManifestContract.EntryAssembly:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.PluginManifestContract.EntryType:System.String { public get; public init; }
 P FolderRewind.Plugin.Abstractions.PluginManifestContract.HasBackupCompletionObserver:System.Boolean { public get; public init; }
+P FolderRewind.Plugin.Abstractions.PluginManifestContract.MergeProviders:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.MergeProviderDeclaration> { public get; public init; }
 P FolderRewind.Plugin.Abstractions.PluginManifestContract.Name:FolderRewind.Plugin.Abstractions.LocalizedText { public get; public init; }
 P FolderRewind.Plugin.Abstractions.PluginManifestContract.PluginId:FolderRewind.Plugin.Abstractions.PluginId { public get; public init; }
 P FolderRewind.Plugin.Abstractions.PluginManifestContract.RequestedHostServices:System.Collections.Generic.IReadOnlyList<FolderRewind.Plugin.Abstractions.HostServiceKind> { public get; public init; }
@@ -719,6 +860,12 @@ T public enum FolderRewind.Plugin.Abstractions.ConsistencyIntent : System.Int32,
 T public enum FolderRewind.Plugin.Abstractions.CoreCaptureMode : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
 T public enum FolderRewind.Plugin.Abstractions.DiagnosticSeverity : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
 T public enum FolderRewind.Plugin.Abstractions.HostServiceKind : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.MergeBoundaryFilter : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.MergeBoundaryScope : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.MergeCoverageState : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.MergeDecisionKind : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.MergeInputSide : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
+T public enum FolderRewind.Plugin.Abstractions.MergePathPresence : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
 T public enum FolderRewind.Plugin.Abstractions.OperationOutcome : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
 T public enum FolderRewind.Plugin.Abstractions.OperationReadiness : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
 T public enum FolderRewind.Plugin.Abstractions.PluginCapabilityKind : System.Int32,System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable
@@ -747,6 +894,11 @@ T public interface FolderRewind.Plugin.Abstractions.IHistoryQueryService
 T public interface FolderRewind.Plugin.Abstractions.IKnotLinkHostService
 T public interface FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
 T public interface FolderRewind.Plugin.Abstractions.IKnotLinkTargetResolver
+T public interface FolderRewind.Plugin.Abstractions.IMergeDecisionReader
+T public interface FolderRewind.Plugin.Abstractions.IMergeOutputWorkspace
+T public interface FolderRewind.Plugin.Abstractions.IMergePlanWriter
+T public interface FolderRewind.Plugin.Abstractions.IMergeProviderCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
+T public interface FolderRewind.Plugin.Abstractions.IMergeSourceView
 T public interface FolderRewind.Plugin.Abstractions.IPluginActivationContext
 T public interface FolderRewind.Plugin.Abstractions.IPluginCapability
 T public interface FolderRewind.Plugin.Abstractions.IPluginCommandCapability : FolderRewind.Plugin.Abstractions.IPluginCapability
@@ -815,6 +967,24 @@ T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor 
 T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkTarget : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkTarget>
 T public sealed class FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution : System.IEquatable<FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution>
 T public sealed class FolderRewind.Plugin.Abstractions.LocalizedText : System.IEquatable<FolderRewind.Plugin.Abstractions.LocalizedText>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeAnalysisRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeAnalysisRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeBuildRequest : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeBuildRequest>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeCoverageEvidence : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeCoverageEvidence>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeCoverageQuery : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeCoverageQuery>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeCoverageResult : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeCoverageResult>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeDecisionPage : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeDecisionPage>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeInputBoundary : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeInputBoundary>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeInputEntry : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeInputEntry>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeInputPage : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeInputPage>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeLimits : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeLimits>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeOutputGroup : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeOutputGroup>
+T public sealed class FolderRewind.Plugin.Abstractions.MergePathCoverage : System.IEquatable<FolderRewind.Plugin.Abstractions.MergePathCoverage>
+T public sealed class FolderRewind.Plugin.Abstractions.MergePolicyDeclaration : System.IEquatable<FolderRewind.Plugin.Abstractions.MergePolicyDeclaration>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeProviderDeclaration : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeProviderDeclaration>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeProviderResult : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeProviderResult>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeSubject : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeSubject>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeSubjectDecision : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeSubjectDecision>
+T public sealed class FolderRewind.Plugin.Abstractions.MergeVersionInput : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeVersionInput>
 T public sealed class FolderRewind.Plugin.Abstractions.OperationResolution : System.IEquatable<FolderRewind.Plugin.Abstractions.OperationResolution>
 T public sealed class FolderRewind.Plugin.Abstractions.PluginActivationPatch : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginActivationPatch>
 T public sealed class FolderRewind.Plugin.Abstractions.PluginActivationResult : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginActivationResult>
@@ -873,6 +1043,7 @@ T public struct FolderRewind.Plugin.Abstractions.BackupScopeId : System.IEquatab
 T public struct FolderRewind.Plugin.Abstractions.ConfigKindRef : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigKindRef>
 T public struct FolderRewind.Plugin.Abstractions.ConfigRevision : System.IEquatable<FolderRewind.Plugin.Abstractions.ConfigRevision>
 T public struct FolderRewind.Plugin.Abstractions.DiscoveryProviderId : System.IEquatable<FolderRewind.Plugin.Abstractions.DiscoveryProviderId>
+T public struct FolderRewind.Plugin.Abstractions.MergeProviderId : System.IEquatable<FolderRewind.Plugin.Abstractions.MergeProviderId>
 T public struct FolderRewind.Plugin.Abstractions.OwnerId : System.IEquatable<FolderRewind.Plugin.Abstractions.OwnerId>
 T public struct FolderRewind.Plugin.Abstractions.PluginApiVersion : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginApiVersion>
 T public struct FolderRewind.Plugin.Abstractions.PluginCommandId : System.IEquatable<FolderRewind.Plugin.Abstractions.PluginCommandId>

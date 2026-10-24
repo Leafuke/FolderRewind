@@ -97,6 +97,8 @@
                 <TextBlock Grid.Column="1" Text="{Binding SaveStatus}" Style="{StaticResource MergeCaptionStyle}" Visibility="{Binding ShowSaveStatus, Converter={StaticResource BoolToVisConverter}}"/>
             </Grid>
             <InfoBar x:Uid="MergeWorkspace_Attention" IsOpen="{Binding HasError}" Severity="Warning" IsClosable="False" Message="{Binding Error}"/>
+            <InfoBar IsOpen="{Binding HasSemanticSession}" Severity="Informational" IsClosable="False" Message="{Binding SessionMethodDescription}"/>
+            <InfoBar x:Uid="Merge_ProviderDiagnostics" IsOpen="{Binding HasProviderDiagnostics}" Severity="Warning" IsClosable="False" Message="{Binding ProviderDiagnostics}"/>
             <InfoBar IsOpen="{Binding ShowOperationNotice}" Severity="Informational" IsClosable="False" Message="{Binding Status}"/>
             <Button x:Uid="MergeWorkspace_RetrySave" Click="OnRetrySave" Visibility="{Binding CanRetrySave, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.AutomationId="MergeWorkspace_RetrySave"/>
             <StackPanel Spacing="8" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
@@ -127,6 +129,8 @@
                                 </Border>
                             </StackPanel>
                         </Grid>
+                        <ComboBox AutomationProperties.AutomationId="Merge_Method" x:Uid="Merge_Method" ItemsSource="{Binding Methods}" SelectedItem="{Binding SelectedMethod, Mode=TwoWay}" DisplayMemberPath="Name" HorizontalAlignment="Stretch" IsEnabled="{Binding IsIdle}"/>
+                        <TextBlock Text="{Binding MethodDescription}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <TextBlock x:Uid="MergeWorkspace_Impact" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <InfoBar IsOpen="{Binding HasSourceWarning}" Message="{Binding SourceAvailability}" Severity="Informational" IsClosable="False"/>
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -170,8 +174,10 @@
                         <TextBlock Text="{Binding SelectionLabel}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                         <TextBlock x:Uid="MergeWorkspace_BatchHint" Style="{StaticResource MergeCaptionStyle}"/>
                         <StackPanel x:Name="BatchButtons" Orientation="Horizontal" Spacing="8">
-                            <Button Content="{Binding AdoptOursLabel}" Click="OnOurs" IsEnabled="{Binding CanAdopt}" AutomationProperties.AutomationId="MergeWorkspace_BatchOurs"/>
-                            <Button Content="{Binding AdoptTheirsLabel}" Click="OnTheirs" IsEnabled="{Binding CanAdopt}" AutomationProperties.AutomationId="MergeWorkspace_BatchTheirs"/>
+                            <Button Content="{Binding AdoptOursLabel}" Click="OnOurs" IsEnabled="{Binding CanAdoptOurs}" AutomationProperties.AutomationId="MergeWorkspace_BatchOurs"/>
+                            <Button Content="{Binding AdoptTheirsLabel}" Click="OnTheirs" IsEnabled="{Binding CanAdoptTheirs}" AutomationProperties.AutomationId="MergeWorkspace_BatchTheirs"/>
+                            <Button AutomationProperties.AutomationId="Merge_AdoptBase_Batch" x:Uid="Merge_AdoptBase" Click="OnAdoptBase" IsEnabled="{Binding CanAdoptBase}"/>
+                            <Button AutomationProperties.AutomationId="Merge_DeleteChoice_Batch" x:Uid="Merge_DeleteChoice" Click="OnDeleteChoice" IsEnabled="{Binding CanDelete}"/>
                             <Button x:Uid="MergeWorkspace_ClearButton" Click="OnClear" IsEnabled="{Binding CanClear}" AutomationProperties.AutomationId="MergeWorkspace_BatchClear"/>
                         </StackPanel>
                     </StackPanel>
@@ -202,7 +208,7 @@
                                 <TextBlock Text="{Binding OursInfo}" Style="{StaticResource MergeCaptionStyle}"/>
                             </StackPanel>
                             <ListView x:Name="OursLinesList" Grid.Row="1" ItemsSource="{Binding OursLines}" ItemTemplate="{StaticResource DiffLineTemplate}" ItemContainerStyle="{StaticResource DiffRowStyle}" SelectionMode="None" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollMode="Enabled" Loaded="OnDiffLoaded"/>
-                            <Button x:Name="AdoptOursButton" Grid.Row="2" Margin="12" Content="{Binding AdoptOursLabel}" Click="OnOurs" IsEnabled="{Binding CanAdopt}" HorizontalAlignment="Stretch" Visibility="{Binding ShowFileActions, Converter={StaticResource BoolToVisConverter}}"/>
+                            <Button x:Name="AdoptOursButton" Grid.Row="2" Margin="12" Content="{Binding AdoptOursLabel}" Click="OnOurs" IsEnabled="{Binding CanAdoptOurs}" HorizontalAlignment="Stretch" Visibility="{Binding ShowFileActions, Converter={StaticResource BoolToVisConverter}}"/>
                         </Grid>
                         <Grid x:Name="TheirsPanel" Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{StaticResource OverlayCornerRadius}">
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -212,7 +218,7 @@
                                 <TextBlock Text="{Binding TheirsInfo}" Style="{StaticResource MergeCaptionStyle}"/>
                             </StackPanel>
                             <ListView x:Name="TheirsLinesList" Grid.Row="1" ItemsSource="{Binding TheirsLines}" ItemTemplate="{StaticResource DiffLineTemplate}" ItemContainerStyle="{StaticResource DiffRowStyle}" SelectionMode="None" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollMode="Enabled" Loaded="OnDiffLoaded"/>
-                            <Button x:Name="AdoptTheirsButton" Grid.Row="2" Margin="12" Content="{Binding AdoptTheirsLabel}" Click="OnTheirs" IsEnabled="{Binding CanAdopt}" HorizontalAlignment="Stretch" Visibility="{Binding ShowFileActions, Converter={StaticResource BoolToVisConverter}}"/>
+                            <Button x:Name="AdoptTheirsButton" Grid.Row="2" Margin="12" Content="{Binding AdoptTheirsLabel}" Click="OnTheirs" IsEnabled="{Binding CanAdoptTheirs}" HorizontalAlignment="Stretch" Visibility="{Binding ShowFileActions, Converter={StaticResource BoolToVisConverter}}"/>
                         </Grid>
                     </Grid>
                     <StackPanel Grid.Row="2" Spacing="8">
@@ -221,6 +227,8 @@
                         </Expander>
                         <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{Binding ShowFileActions, Converter={StaticResource BoolToVisConverter}}">
                             <Button x:Uid="MergeWorkspace_Import" Click="OnImport" IsEnabled="{Binding CanImport}" AutomationProperties.AutomationId="MergeWorkspace_ImportAction"/>
+                            <Button AutomationProperties.AutomationId="Merge_AdoptBase_Single" x:Uid="Merge_AdoptBase" Click="OnAdoptBase" IsEnabled="{Binding CanAdoptBase}"/>
+                            <Button AutomationProperties.AutomationId="Merge_DeleteChoice_Single" x:Uid="Merge_DeleteChoice" Click="OnDeleteChoice" IsEnabled="{Binding CanDelete}"/>
                             <Button x:Uid="MergeWorkspace_ClearButton" Click="OnClear" IsEnabled="{Binding CanClear}" AutomationProperties.AutomationId="MergeWorkspace_Clear"/>
                         </StackPanel>
                     </StackPanel>

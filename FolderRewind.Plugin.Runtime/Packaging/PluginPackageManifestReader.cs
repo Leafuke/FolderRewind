@@ -62,7 +62,14 @@ public static class PluginPackageManifestReader
                     format.MaximumVersion)).ToArray(),
                 (value.SupportedCompleteness ?? []).Select(ParseEnum<ArtifactCompleteness>).ToArray(),
                 (value.SupportedRestoreModes ?? []).Select(ParseEnum<RestoreMode>).ToArray())).ToArray(),
-            dto.HasBackupCompletionObserver);
+            dto.HasBackupCompletionObserver)
+        {
+            MergeProviders = (dto.MergeProviders ?? []).Select(value => new MergeProviderDeclaration(
+                new(pluginId, value.ProviderId), value.ContractVersion, Text(value.DisplayName, value.LocalizedDisplayName),
+                (value.CompatibleConfigKinds ?? []).Select(kind => new ConfigKindRef(new(kind.OwnerId), kind.KindId)).ToArray(),
+                (value.Policies ?? []).Select(policy => new MergePolicyDeclaration(policy.PolicyId, policy.Version,
+                    Text(policy.DisplayName, policy.LocalizedDisplayName), Text(policy.Description, policy.LocalizedDescription))).ToArray())).ToArray()
+        };
         return new ParsedPluginPackageManifest(
             contract,
             (dto.Architectures ?? ["any"]).Select(value => value.Trim().ToLowerInvariant()).Distinct().ToArray(),
@@ -123,6 +130,7 @@ public static class PluginPackageManifestReader
         public List<FormatDto>? ArtifactFormats { get; set; }
         public List<TransformerDto>? ArtifactTransformers { get; set; }
         public List<StrategyDto>? RestoreStrategies { get; set; }
+        public List<MergeProviderDto>? MergeProviders { get; set; }
         public bool HasBackupCompletionObserver { get; set; }
     }
     private sealed class ApiDto { public int Major { get; set; } public int Minor { get; set; } }
@@ -165,5 +173,23 @@ public static class PluginPackageManifestReader
         public List<FormatRangeDto>? SupportedFormats { get; set; }
         public List<string>? SupportedCompleteness { get; set; }
         public List<string>? SupportedRestoreModes { get; set; }
+    }
+    private sealed class MergeProviderDto
+    {
+        public string ProviderId { get; set; } = string.Empty;
+        public int ContractVersion { get; set; }
+        public string? DisplayName { get; set; }
+        public Dictionary<string, string>? LocalizedDisplayName { get; set; }
+        public List<KindRefDto>? CompatibleConfigKinds { get; set; }
+        public List<MergePolicyDto>? Policies { get; set; }
+    }
+    private sealed class MergePolicyDto
+    {
+        public string PolicyId { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public string? DisplayName { get; set; }
+        public Dictionary<string, string>? LocalizedDisplayName { get; set; }
+        public string? Description { get; set; }
+        public Dictionary<string, string>? LocalizedDescription { get; set; }
     }
 }

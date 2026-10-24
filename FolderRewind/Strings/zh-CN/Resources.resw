@@ -7292,4 +7292,18 @@ Pull Request：{1}</value>
   <data name="Preview_ZoomOutMenu.Text" xml:space="preserve"><value>缩小</value></data>
   <data name="Preview_FocusMode.Text" xml:space="preserve"><value>专注预览</value></data>
   <data name="Preview_ViewStatusButton.Content" xml:space="preserve"><value>查看地图状态</value></data>
+  <data name="Merge_Method.Header" xml:space="preserve"><value>合并方式（仅本次会话）</value></data>
+  <data name="Merge_Method.AutomationProperties.Name" xml:space="preserve"><value>合并方式</value></data>
+  <data name="Merge_FileMethod" xml:space="preserve"><value>文件合并（默认）</value></data>
+  <data name="Merge_FileMethodDescription" xml:space="preserve"><value>按文件进行三方合并。可为本次会话显式选择兼容插件提供的语义策略。</value></data>
+  <data name="Merge_SemanticUnavailable" xml:space="preserve"><value>此会话绑定的语义插件包或策略已不可用或已变化。会话及决定仍保留；恢复兼容插件后重新分析，再生成并审阅结果。</value></data>
+  <data name="Merge_AdoptBase.Content" xml:space="preserve"><value>采用 Base</value></data>
+  <data name="Merge_DeleteChoice.Content" xml:space="preserve"><value>采用删除</value></data>
+  <data name="Merge_Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="Merge_Automatic" xml:space="preserve"><value>自动处理</value></data>
+  <data name="Merge_ProviderDiagnostics.Title" xml:space="preserve"><value>插件结果说明</value></data>
+  <data name="Merge_SemanticCarryForward" xml:space="preserve"><value>本次无需三方文件组合，将沿用历史版本；所选语义策略不参与结果生成。</value></data>
+  <data name="Merge_BlockedSubject" xml:space="preserve">
+    <value>此项目暂不能语义合并，请查看覆盖范围说明。</value>
+  </data>
 </root>

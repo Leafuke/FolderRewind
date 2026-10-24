@@ -327,12 +327,23 @@ public sealed partial class HistoryRestoreService
                 cancellationToken, legacyRead?.VerificationContext ?? VerificationContext).ConfigureAwait(false);
             if (inlineNative) Services.HistoryOperationDiagnostics.Current?.Count("native-inline-prepared-sources");
             session?.RecordPrepared(source.SourceId);
+            var inputRepresentation = allRepresentations.Single(r => r.RepresentationId == assessment.Selected.RepresentationId);
+            var completeDirectories = NativePluginArtifactBackend.IsSupported(inputRepresentation);
+            if (version.CreationKind == SourceVersionCreationKind.Merge && inputRepresentation.Kind == RepresentationKind.CoreFull
+                && inputRepresentation.RepresentationSpecificMetadata.TryGetValue("mergeDirectoryEvidence", out var directoryEvidence) && directoryEvidence == "1")
+            {
+                var tree = await Merge.MergeTreeManifest.ReadAsync(staging, _ => true, cancellationToken).ConfigureAwait(false);
+                if (tree.Digest != inputRepresentation.StateFingerprint || tree.Digest != version.StateFingerprint)
+                    throw new InvalidDataException("Merge directory evidence does not match the materialized tree.");
+                completeDirectories = true;
+            }
             return new PreparedRestoreSource(
                 source with { EffectiveSourceBoundary = version.EffectiveSourceBoundary },
                 version,
                 assessment.Selected.Fidelity,
                 applyMode,
-                staging);
+                staging) { InputRepresentationId = legacyRead?.RepresentationId ?? assessment.Selected.RepresentationId,
+                    HasCompleteDirectoryInventory = completeDirectories };
         }
         catch
         {
@@ -386,7 +397,8 @@ public sealed partial class HistoryRestoreService
         try
         {
             await _representations.MaterializeAsync(lease.RepresentationId, representations, environment, MaterializationFidelity.Exact, staging, token, lease.VerificationContext).ConfigureAwait(false);
-            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(version.SourceId, staging, version.EffectiveSourceBoundary));
+            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(version.SourceId, staging, version.EffectiveSourceBoundary)
+                { LogicalDirectory = version.SourceDescriptorSnapshot.PathHint });
             if ((await Merge.MergeTreeManifest.ReadAsync(staging, include, token).ConfigureAwait(false)).Digest != expectedDigest)
                 throw new IOException("Exact representation no longer matches the fixed Merge input.");
             return lease;
@@ -652,5 +664,9 @@ public sealed partial class HistoryRestoreService
         MaterializationFidelity Fidelity,
         HistoryRestoreApplyMode ApplyMode,
         string StagingDirectory, string? ExpectedOriginalTreeDigest = null, string? ExpectedResultTreeDigest = null,
-        bool UserPreparationApplied = false);
+        bool UserPreparationApplied = false)
+    {
+        internal RepresentationId? InputRepresentationId { get; init; }
+        internal bool HasCompleteDirectoryInventory { get; init; }
+    }
 }

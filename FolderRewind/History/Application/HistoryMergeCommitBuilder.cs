@@ -17,23 +17,32 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Application;
 
-public sealed record PreparedMergeSource(SourceVersion Version, string StagingDirectory, string TreeDigest);
+public sealed record PreparedMergeSource(SourceVersion Version, string StagingDirectory, string TreeDigest)
+{
+    public ImmutableArray<Plugin.Abstractions.PluginDiagnostic> SemanticDiagnostics { get; init; } = [];
+    public ImmutableArray<string> RequiredAbsentPaths { get; init; } = [];
+}
 public sealed record PreparedMerge(MergeSession Session, ImmutableArray<PreparedMergeSource> Sources,
     ImmutableArray<object> Facts, SourceCheckpoint Checkpoint, BranchUpdate Update,
     ImmutableArray<LocalReplicaCatalogEntry> NewReplicas, PackId PackId, HistoryTransactionId TransactionId);
 
 public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRestoreService restore,
     IHistoryCompactionBackend archives, IArchiveRepresentationBackend materializer,
-    Func<SourceVersion, string, CancellationToken, Task<IReadOnlyList<VersionMetadataSnapshot>>>? metadata = null)
+    Func<SourceVersion, string, CancellationToken, Task<IReadOnlyList<VersionMetadataSnapshot>>>? metadata = null,
+    SemanticMergeEngine? semantic = null)
 {
+    private MergeProviderDescriptor Descriptor => semantic?.Descriptor ?? MergeProviderDescriptor.Generic;
     internal async Task<IDisposable> ValidateAndLockAsync(PreparedMerge prepared, CancellationToken token)
     {
-        history.MergeSessions.RequireCurrentContract(prepared.Session);
+        history.MergeSessions.RequireCurrentContract(prepared.Session, Descriptor);
         var held = new PayloadLocks();
         try
         {
+            if (semantic is not null) held.Items.Add(await semantic.AcquireAsync(token).ConfigureAwait(false));
             foreach (var source in prepared.Sources)
             {
+                RequireCoveragePreconditions(prepared.Session.Plan.Bindings.Single(b => b.SourceId == source.Version.SourceId).TargetDirectory,
+                    source.RequiredAbsentPaths, token);
                 var representation = prepared.Facts.OfType<VersionRepresentation>().SingleOrDefault(r => r.VersionId == source.Version.VersionId);
                 if (representation is null)
                 {
@@ -63,6 +72,26 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
         catch { held.Dispose(); throw; }
     }
 
+    internal static void RequireCoveragePreconditions(string root, IEnumerable<string> absentPaths, CancellationToken token)
+    {
+        foreach (var relative in absentPaths)
+        {
+            token.ThrowIfCancellationRequested(); SemanticMergeSourceView.Canonical(relative);
+            var path = Path.GetFullPath(root); var absent = false;
+            foreach (var segment in new[] { "" }.Concat(relative.Split('/')))
+            {
+                if (segment.Length != 0) path = Path.Combine(path, segment);
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(path); }
+                catch (FileNotFoundException) { absent = true; break; }
+                catch (DirectoryNotFoundException) { absent = true; break; }
+                if ((attributes & FileAttributes.ReparsePoint) != 0 || (attributes & FileAttributes.Directory) == 0) break;
+            }
+            if (!absent) throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged,
+                Detail: "Semantic Merge coverage requires an absent target path: " + relative));
+        }
+    }
+
     private sealed class PayloadLocks : IDisposable
     {
         internal List<IDisposable> Items { get; } = [];
@@ -74,10 +103,11 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
         var stage = "load-prepared";
         try
         {
-            history.MergeSessions.RequireCurrentContract(session);
+            history.MergeSessions.RequireCurrentContract(session, Descriptor);
+            using var providerLease = semantic is null ? null : await semantic.AcquireAsync(token).ConfigureAwait(false);
             if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
             if (history.MergeSessions.LoadPrepared(session) is { } stored) return stored.Restore(session);
-            var service = new HistoryMergeService(history, restore);
+            var service = new HistoryMergeService(history, restore, semantic: semantic);
             stage = "assemble-result";
             var sources = history.MergeSessions.Sources(session);
             if (history.MergeSessions.SourceCount(session) != session.Plan.Sources.Length) throw new InvalidDataException("Merge preparation is incomplete.");
@@ -108,6 +138,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                     var directories = tree.Directories.ToHashSet(StringComparer.Ordinal);
                     foreach (var (conflict, resolution) in service.AllConflicts(session, plan.SourceId))
                     {
+                        if (conflict.SemanticSubject is not null || conflict.AutomaticDisplayOnly) continue;
                         if (resolution is null || resolution.PlanRevision != session.Plan.Revision || resolution.InputSignature != conflict.InputSignature)
                             throw new InvalidOperationException("Conflict resolution is missing or stale.");
                         foreach (var path in conflict.Subject.Paths) { files.Remove(path); directories.Remove(path); }
@@ -117,21 +148,29 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                                 throw new InvalidOperationException("Invalid manual file resolution.");
                             files.Add(conflict.Subject.Paths[0], resolution.Manual);
                         }
-                        else
+                        else if (resolution.Choice != MergeResolutionChoice.Delete)
                         {
-                            foreach (var pair in resolution.Choice == MergeResolutionChoice.Ours ? conflict.Ours : conflict.Theirs) files.Add(pair.Key, pair.Value);
-                            directories.UnionWith(resolution.Choice == MergeResolutionChoice.Ours ? conflict.OursDirectories : conflict.TheirsDirectories);
+                            var selectedFiles = resolution.Choice switch
+                            {
+                                MergeResolutionChoice.Ours => conflict.Ours, MergeResolutionChoice.Theirs => conflict.Theirs,
+                                MergeResolutionChoice.Base => conflict.Base, _ => throw new InvalidDataException("Invalid file Merge choice.")
+                            };
+                            foreach (var pair in selectedFiles) files.Add(pair.Key, pair.Value);
+                            directories.UnionWith(resolution.Choice == MergeResolutionChoice.Ours ? conflict.OursDirectories
+                                : resolution.Choice == MergeResolutionChoice.Base ? conflict.BaseDirectories : conflict.TheirsDirectories);
                         }
                     }
                     tree = MergeTreeManifest.Create(files, directories);
-                    if (tree.Digest == source.Ours.Digest) selected = plan.Ours;
+                    if (semantic is not null) tree = await semantic.BuildAsync(session, source, tree, root, token).ConfigureAwait(false);
+                    else if (tree.Digest == source.Ours.Digest) selected = plan.Ours;
                     else if (tree.Digest == source.Theirs.Digest) selected = plan.Theirs;
                 }
                 SourceDirectorySnapshot.Validate(tree.Directories, tree.Files.Keys);
                 if (GenericFileMergeProvider.StructuralGroups(tree).Count != 0) throw new InvalidOperationException("Resolved tree contains path conflicts.");
                 var descriptor = selected ?? plan.Ours ?? plan.Theirs ?? throw new InvalidOperationException("Merge cannot create a Source without parents.");
                 var staging = Path.Combine(root, plan.SourceId.ToString()); Directory.CreateDirectory(staging);
-                var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(plan.SourceId, staging, descriptor.EffectiveSourceBoundary));
+                var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(plan.SourceId, staging, descriptor.EffectiveSourceBoundary)
+                    { LogicalDirectory = descriptor.SourceDescriptorSnapshot.PathHint });
                 foreach (var path in tree.Files.Keys)
                     if (!include(path)) throw new InvalidOperationException("Merge proposal escapes its boundary.");
                 var allowedDirectories = tree.Directories.Where(include).ToHashSet(StringComparer.Ordinal);
@@ -184,10 +223,11 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                     using (var seal = new FileStream(fullPayload, FileMode.Open, FileAccess.ReadWrite, FileShare.Read)) seal.Flush(true);
                     await using var payloadStream = File.OpenRead(payload.PayloadPath);
                     var storageHash = Convert.ToHexString(await SHA256.HashDataAsync(payloadStream, token).ConfigureAwait(false));
+                    var payloadMetadata = payload.Metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath)).SetItem("storageSha256", storageHash)
+                        .SetItem("storageLength", payloadStream.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    if (tree.HasCompleteDirectoryInventory) payloadMetadata = payloadMetadata.SetItem("mergeDirectoryEvidence", "1");
                     var representation = new VersionRepresentation(representationId, version.VersionId, RepresentationKind.CoreFull,
-                        payload.Format, [], MaterializationFidelity.Exact, tree.Digest, tree.Digest,
-                        payload.Metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath)).SetItem("storageSha256", storageHash)
-                            .SetItem("storageLength", payloadStream.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                        payload.Format, [], MaterializationFidelity.Exact, tree.Digest, tree.Digest, payloadMetadata);
                     stage = "archive-verify";
                     var verification = await archives.DeepVerifyAsync(representation, payload.PayloadPath, token).ConfigureAwait(false);
                     if (!verification.Success) throw new InvalidDataException("Merge archive verification failed: " + verification.Diagnostic);
@@ -206,7 +246,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                     replicas.Add(new(representationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(payload.PayloadPath), DateTimeOffset.UtcNow));
                 }
                 roster.Add(new(plan.SourceId, descriptor.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.CarriedForward, version.EffectiveSourceBoundary));
-                prepared.Add(new(version, staging, tree.Digest));
+                prepared.Add(new(version, staging, tree.Digest) { SemanticDiagnostics = tree.SemanticDiagnostics, RequiredAbsentPaths = tree.RequiredAbsentPaths });
             }
             SourceCheckpoint checkpoint;
             if (session.Plan.Mode == HistoryMergeMode.FastForwardLike)

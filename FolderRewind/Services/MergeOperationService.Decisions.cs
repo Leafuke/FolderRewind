@@ -78,6 +78,11 @@ internal sealed partial class MergeOperationService
         int Matching, int Total, int Unresolved);
     public ChangePage QueryChanges(MergeSession session, string search, string filter, int offset, int count, string? selectedId = null)
     {
+        if (session.Plan.SemanticProvider is not null)
+        {
+            var semanticPage = Runtime!.MergeSessions.QuerySemanticChanges(session, search, filter, offset, Math.Min(count, 1000));
+            return new(semanticPage.Rows, semanticPage.Matching, semanticPage.Total, semanticPage.Unresolved);
+        }
         var conflicts = Runtime!.MergeSessions.ConflictIndex(session);
         var matchingIds = search.Length == 0 ? null : Runtime.MergeSessions.ConflictIndex(session, search).Select(c => c.Id).ToHashSet();
         var automatic = AutomaticChanges(session).ToDictionary(c => c.Id);

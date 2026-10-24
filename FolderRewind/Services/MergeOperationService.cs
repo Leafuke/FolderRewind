@@ -37,7 +37,7 @@ internal sealed partial class MergeOperationService
     private Func<CancellationToken, Task>? _pendingSave;
     public bool CanRetrySave => !Snapshot.IsBusy && !Snapshot.IsSaved && _pendingSave is not null;
     public Task RetrySaveAsync() => _pendingSave is { } save ? Run(MergeOperationStage.Saving, save) : Task.CompletedTask;
-    private HistoryMergeService Core => new(Runtime!, _restore!);
+    private HistoryMergeService Core => NativeHistoryApplicationService.MergeCore(Runtime!, _restore!, Snapshot.Session);
 
     private Task Run(MergeOperationStage stage, Func<CancellationToken, Task> action, bool canStop = true)
     {
@@ -102,8 +102,7 @@ internal sealed partial class MergeOperationService
             var current = Runtime!.MergeSessions.Load(session.Id);
             if (current.State is MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready
                 && (current.Plan.ConfigRevision != _configSignature
-                    || current.Plan.ProviderVersion != MergeProviderDescriptor.GenericIdentity
-                    || current.Plan.PolicyVersion != MergeProviderDescriptor.GenericPolicyIdentity))
+                    || !NativeHistoryApplicationService.MergeBindingCurrent(current)))
                 current = Runtime.MergeSessions.Update(current, MergeSessionState.Stale);
             SetSession(current);
         }
@@ -127,12 +126,12 @@ internal sealed partial class MergeOperationService
         NormalizeRecoveredResult();
     });
 
-    public Task StartAsync(BranchId source) => Run(MergeOperationStage.Analyzing, async token =>
+    public Task StartAsync(BranchId source, SemanticMergeBinding? binding = null) => Run(MergeOperationStage.Analyzing, async token =>
     {
         if (_pendingSave is not null) throw new InvalidOperationException(I18n.GetString("MergeWorkspace_Unsaved"));
         Review = null; _undo = null; RecomputeSummary = null;
         Tracker.Update(s => s with { Result = null, Session = null });
-        SetSession(await NativeHistoryApplicationService.StartMergeAsync(Config, source, token).ConfigureAwait(false));
+        SetSession(await NativeHistoryApplicationService.StartMergeAsync(Config, source, token, binding).ConfigureAwait(false));
         if (Snapshot.Session is null) Tracker.Update(s => s with { Notice = "Merge_NoOp" });
         Refresh();
     });

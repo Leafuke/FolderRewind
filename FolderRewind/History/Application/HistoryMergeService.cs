@@ -2,6 +2,7 @@ using FolderRewind.History.Representation;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
+using FolderRewind.Plugin.Runtime.Artifacts;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -15,9 +16,11 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Application;
 
-public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreService restore, IHistoryMergeProvider? provider = null)
+public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreService restore, IHistoryMergeProvider? provider = null,
+    SemanticMergeEngine? semantic = null)
 {
     private readonly IHistoryMergeProvider _provider = provider ?? new GenericFileMergeProvider();
+    private MergeProviderDescriptor Descriptor => semantic?.Descriptor ?? _provider.Descriptor;
     public async Task<MergeSession?> StartAsync(BranchId source, string configRevision,
         IReadOnlyList<HistoryRestoreSourceBinding> bindings, CancellationToken token = default)
     {
@@ -26,7 +29,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
         {
             var workspace = (await history.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value
                 ?? throw new InvalidOperationException("Workspace is unavailable.");
-            var plan = await new HistoryMergePlanner(history).BuildAsync(source, workspace, configRevision, bindings, token, _provider.Descriptor).ConfigureAwait(false);
+            var plan = (await new HistoryMergePlanner(history).BuildAsync(source, workspace, configRevision, bindings, token, Descriptor).ConfigureAwait(false))
+                with { SemanticProvider = semantic?.Binding };
             if (plan.Mode == HistoryMergeMode.NoOp) return null;
             if (plan.Mode is HistoryMergeMode.NoCommonBase or HistoryMergeMode.MultipleMergeBases)
                 throw new HistoryMergeBlockedException(new(plan.Mode == HistoryMergeMode.NoCommonBase ? MergeDiagnosticCode.NoCommonBase : MergeDiagnosticCode.MultipleMergeBases));
@@ -44,7 +48,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
         {
             var workspace = (await history.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value
                 ?? throw new InvalidOperationException("Workspace is unavailable.");
-            var plan = await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace, configRevision, bindings, token, _provider.Descriptor).ConfigureAwait(false);
+            var plan = (await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace, configRevision, bindings, token, Descriptor).ConfigureAwait(false))
+                with { SemanticProvider = semantic?.Binding };
             if (plan.Mode is not (HistoryMergeMode.ThreeWay or HistoryMergeMode.FastForwardLike))
                 throw new HistoryMergeBlockedException(new(plan.Mode == HistoryMergeMode.NoCommonBase ? MergeDiagnosticCode.NoCommonBase
                     : plan.Mode == HistoryMergeMode.MultipleMergeBases ? MergeDiagnosticCode.MultipleMergeBases : MergeDiagnosticCode.Stale));
@@ -66,9 +71,10 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     private async Task<MergeSession> PrepareCoreAsync(MergeSession session, CancellationToken token)
     {
-        history.MergeSessions.RequireCurrentContract(session, _provider.Descriptor);
+        history.MergeSessions.RequireCurrentContract(session, Descriptor);
         if (session.State != MergeSessionState.Preparing)
             throw new InvalidOperationException("Merge preparation requires its fixed provider and Preparing state.");
+        using var inputScope = restore.EnterInputScope();
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), session.Plan.Revision.ToString("N"));
         Directory.CreateDirectory(root);
         var cache = new Dictionary<VersionId, MergeTreeManifest>();
@@ -82,14 +88,16 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 throw new HistoryMergeBlockedException(new(assessment.Readiness == HistoryReadiness.PreparationRequired
                     ? MergeDiagnosticCode.PreparationRequired : MergeDiagnosticCode.ExactUnavailable, source.SourceId, id, assessment.Selected?.RepresentationId));
             var destination = Path.Combine(root, "inputs", id.ToString());
-            var binding = new HistoryRestoreSourceBinding(source.SourceId, destination, source.EffectiveSourceBoundary);
+            var binding = new HistoryRestoreSourceBinding(source.SourceId, destination, source.EffectiveSourceBoundary)
+                { LogicalDirectory = source.SourceDescriptorSnapshot.PathHint };
             var prepared = await restore.PrepareSourceAsync(version, binding, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, token).ConfigureAwait(false);
             try
             {
                 // 每次重试使用新目录；已发布引用保持不可变。
                 destination += "-" + Guid.NewGuid().ToString("N"); Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 Directory.Move(prepared.StagingDirectory, destination);
-                var tree = await MergeTreeManifest.ReadAsync(destination, FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false);
+                var tree = (await MergeTreeManifest.ReadAsync(destination, FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false))
+                    with { InputRepresentationId = prepared.InputRepresentationId, HasCompleteDirectoryInventory = prepared.HasCompleteDirectoryInventory };
                 cache.Add(id, tree); return tree;
             }
             finally { HistoryRestoreTransactionJournalStore.CleanupStaging([prepared.StagingDirectory]); }
@@ -110,8 +118,10 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 o = await Materialize(plan.Ours); t = await Materialize(plan.Theirs);
                 if (plan.Action == HistoryMergeSourceAction.MergeFiles)
                 {
-                    b = await Materialize(plan.Base); var proposal = _provider.Analyze(plan.SourceId, b, o, t);
-                    ValidateProposal(plan.SourceId, b, o, t, proposal);
+                    b = await Materialize(plan.Base);
+                    var proposal = semantic is null ? _provider.Analyze(plan.SourceId, b, o, t)
+                        : await semantic.AnalyzeAsync(session, plan, b, o, t, _provider, token).ConfigureAwait(false);
+                    if (semantic is null) ValidateProposal(plan.SourceId, b, o, t, proposal);
                     automatic = proposal.Automatic; conflicts = proposal.Conflicts;
                 }
                 else
@@ -144,7 +154,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 var signature = ConflictSignature(session.Plan, plan, conflict);
                 return conflict with { Id = signature, InputSignature = signature };
             }).ToImmutableArray();
-            history.MergeSessions.SaveSource(session, new(plan, automatic, b, o, t), conflicts);
+            history.MergeSessions.SaveSource(session, new(plan, automatic, b, o, t), conflicts, retainSemantic: semantic is not null);
         }
         return history.MergeSessions.CompletePreparation(session, Roots(session.Plan));
     }
@@ -171,14 +181,18 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     public async Task<MergeSession> ImportManualAsync(MergeSession session, MergeConflict conflict, string externalFile, CancellationToken token = default)
     {
-        history.MergeSessions.RequireCurrentContract(session, _provider.Descriptor);
+        history.MergeSessions.RequireCurrentContract(session, Descriptor);
         if (!conflict.CanImportFile)
             throw new InvalidOperationException("Manual import requires a single-file content conflict.");
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), "manual", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root); var path = Path.Combine(root, "content");
+        HostArtifactWorkspace.CreatePrivateDirectory(root); var path = Path.Combine(root, "content");
         await using (var input = new FileStream(externalFile, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true))
         await using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true))
-        { await input.CopyToAsync(output, token).ConfigureAwait(false); output.Flush(true); }
+        {
+            if (input.Length > ArtifactTransformLimits.Default.MaximumBytes) throw new IOException("Manual Merge content exceeds the Source byte budget.");
+            using var reservation = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(path, input.Length));
+            await input.CopyToAsync(output, token).ConfigureAwait(false); output.Flush(true);
+        }
         var manifest = await MergeTreeManifest.ReadAsync(root, _ => true, token).ConfigureAwait(false);
         return history.MergeSessions.Resolve(session, new(session.Plan.Revision, conflict.Id, conflict.InputSignature,
             MergeResolutionChoice.Manual, manifest.Files["content"]));
