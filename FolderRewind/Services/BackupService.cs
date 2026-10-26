@@ -258,7 +258,7 @@ namespace FolderRewind.Services
                     safetySnapshotIntent: null,
                     cancellationToken).ConfigureAwait(false);
 
-                return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+                return result.ToPluginResult();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -292,7 +292,7 @@ namespace FolderRewind.Services
                     safetySnapshotIntent: null,
                     cancellationToken).ConfigureAwait(false);
 
-                return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+                return result.ToPluginResult();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

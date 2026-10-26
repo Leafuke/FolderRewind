@@ -29,6 +29,11 @@ public static partial class BackupService
         public string? RecoveryMessage { get; init; }
         public string? Diagnostic { get; init; }
 
+        public PluginBackupRequestResult ToPluginResult() => new(
+            HistoryRecoveryRequired && Outcome != OperationOutcome.RecoveryRequired
+                ? OperationOutcome.CommittedRecoveryRequired : Outcome,
+            CreatedNewArchive);
+
         public static BackupTransactionExecutionResult Blocked(string message) => new()
         {
             Outcome = OperationOutcome.Blocked,

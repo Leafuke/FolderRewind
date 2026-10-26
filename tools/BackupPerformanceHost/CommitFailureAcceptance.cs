@@ -19,8 +19,9 @@ internal static class CommitFailureAcceptance
         var results = new List<object>();
         foreach (var mode in new[] { BackupMode.Full, BackupMode.Smart, BackupMode.Rolling })
         foreach (var unreadable in new[] { false, true })
+        foreach (var entry in new[] { "public", "plugin-folder", "plugin-config" })
         {
-            var root = Path.Combine(Root, mode + "-" + unreadable);
+            var root = Path.Combine(Root, mode + "-" + unreadable + "-" + entry);
             var source = Path.Combine(root, "source"); Directory.CreateDirectory(source);
             File.WriteAllText(Path.Combine(source, "file.txt"), "original");
             var config = new BackupConfig { Name = "commit-failure", DestinationPath = Path.Combine(root, "backups") };
@@ -47,18 +48,32 @@ internal static class CommitFailureAcceptance
             File.AppendAllText(Path.Combine(source, "file.txt"), " changed");
             await Task.Delay(1100); // Existing archive naming may use a one-second window.
             BackupOperationResult result;
-            try { result = await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal()); }
+            try { result = await InvokeAsync(entry, config, folder); }
             finally { held?.Dispose(); callbackProperty.SetValue(repository, original); }
             Require(result.HistoryRecoveryRequired && !result.IsSuccessful, "Commit uncertainty was reported as ordinary success/failure");
             if (unreadable) Require(result.Outcome == OperationOutcome.RecoveryRequired, "Unknown publication was reported committed");
+            else if (entry != "public") Require(result.Outcome == OperationOutcome.CommittedRecoveryRequired, "Plugin lost the confirmed commit recovery outcome");
             for (int repeat = 0; repeat < 2; repeat++) await runtime.InitializeAsync();
             var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync()).Value!;
             Require((await repository.ReadAllPacksAsync()).Count == 2, "Recovery duplicated facts");
             Require(catalog.Entries.Length == 2 && catalog.Entries.All(entry => File.Exists(entry.Locator.AbsolutePath)), "Published archive was deleted");
-            results.Add(new { mode = mode.ToString(), unreadable, result.Outcome, result.HistoryRecoveryRequired, retained = catalog.Entries.Length });
+            results.Add(new { mode = mode.ToString(), unreadable, entry, result.Outcome, result.HistoryRecoveryRequired, retained = catalog.Entries.Length });
         }
         await LogService.FlushAsync();
         await File.WriteAllTextAsync(Path.Combine(Root, "commit-failure-results.json"), JsonSerializer.Serialize(results));
+    }
+    private static async Task<BackupOperationResult> InvokeAsync(string entry, BackupConfig config, ManagedFolder folder)
+    {
+        if (entry == "public") return await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal());
+        var method = typeof(BackupService).GetMethod(entry == "plugin-folder" ? "BackupFolderForPluginAsync" : "BackupConfigurationForPluginAsync",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        object sources = entry == "plugin-folder" ? folder : new[] { folder };
+        var task = (Task)method.Invoke(null, [config, sources, BackupInvocationOptions.ForInternal(), CancellationToken.None])!;
+        await task;
+        var result = task.GetType().GetProperty("Result")!.GetValue(task)!;
+        var outcome = (OperationOutcome)result.GetType().GetProperty("Outcome")!.GetValue(result)!;
+        return new(outcome, (bool)result.GetType().GetProperty("CreatedNewArchive")!.GetValue(result)!,
+            outcome is OperationOutcome.CommittedRecoveryRequired or OperationOutcome.RecoveryRequired);
     }
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 }
