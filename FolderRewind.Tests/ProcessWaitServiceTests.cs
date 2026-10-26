@@ -13,6 +13,7 @@ public sealed class ProcessWaitServiceTests
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
             ProcessWaitService.WaitAsync(process, TimeSpan.FromSeconds(30), cancellation.Token));
+        Assert.IsTrue(process.HasExited, "Cancellation must finish process cleanup before returning.");
         await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
         using var next = Start(wait: false);
         Assert.IsTrue(await ProcessWaitService.WaitAsync(next, TimeSpan.FromSeconds(5), CancellationToken.None));

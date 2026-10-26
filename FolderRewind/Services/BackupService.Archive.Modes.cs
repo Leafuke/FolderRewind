@@ -64,6 +64,7 @@ namespace FolderRewind.Services
             }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
+            using var archiveOwner = new PendingArchive(destFile);
             if (captureInput is not null)
                 source = (await PrepareCoreInputAsync(captureInput, currentStates.Keys, config, cancellationToken, full: true)).SourcePath;
             var inputBytes = currentStates.Values.Sum(file => file.Size);
@@ -72,12 +73,12 @@ namespace FolderRewind.Services
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
             bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, null, fileTypeExclusions, taskToUpdate,
                 applyAdditionalArguments: true, selection: selection, originalSourcePath: originalSourcePath,
-                capturedPaths: currentStates.Keys.ToArray(), capturedDirectories: captureInput?.Directories);
+                capturedPaths: currentStates.Keys.ToArray(), capturedDirectories: captureInput?.Directories, cancellationToken: cancellationToken);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, currentStates.Keys.ToArray(), null, password, taskToUpdate, selection, originalSourcePath);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, currentStates.Keys.ToArray(), null, password, taskToUpdate, selection, originalSourcePath, cancellationToken);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -89,7 +90,7 @@ namespace FolderRewind.Services
             if (result)
             {
                 var sevenZipExe = ResolveSevenZipExecutable();
-                return await VerifyAndCreateArchiveCaptureAsync(
+                return archiveOwner.Transfer(await VerifyAndCreateArchiveCaptureAsync(
                     sourceId,
                     captureScope,
                     destDir,
@@ -105,7 +106,7 @@ namespace FolderRewind.Services
                     password: password,
                     sevenZipExe: sevenZipExe,
                     verificationLevel: config.Archive.BackupVerificationLevel,
-                    taskToUpdate: taskToUpdate).ConfigureAwait(false);
+                    taskToUpdate: taskToUpdate, cancellationToken: cancellationToken).ConfigureAwait(false));
             }
             return SourceCaptureResult.Failed(sourceId, captureScope);
         }
@@ -211,6 +212,8 @@ namespace FolderRewind.Services
                 source = (await PrepareCoreInputAsync(captureInput, contentChangedFiles, config, cancellationToken)).SourcePath;
 
             // 3. 生成文件列表文件
+            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             // 当启用自定义文件类型处理时，需要将变更文件列表拆分：
             // - 主列表：不匹配任何 FileTypeRule 的文件（使用主压缩等级）
             // - 规则匹配文件：稍后用独立压缩等级追加
@@ -230,95 +233,93 @@ namespace FolderRewind.Services
             }
 
             string? listFile = null;
-            if (mainFiles.Count > 0)
+            try
             {
-                listFile = Path.GetTempFileName();
-                File.WriteAllLines(listFile, mainFiles);
-            }
-
-            string fileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Smart", comment);
-            string destFile = Path.Combine(destDir, fileName);
-
-            // 4. 执行压缩 (使用 @listfile)
-            // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
-            var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
-            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
-            {
-                return SourceCaptureResult.Failed(sourceId, captureScope);
-            }
-            bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
-            bool result;
-
-            if (deletionOnlyChange)
-            {
-                result = await CreateDeletionOnlyArchiveAsync(destFile, config.Archive, password, taskToUpdate);
-            }
-            else if (!string.IsNullOrWhiteSpace(listFile))
-            {
-                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, null, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
-            }
-            else
-            {
-                // 所有变更文件都被自定义规则接管，主压缩阶段跳过，后续规则追加负责创建归档。
-                result = true;
-            }
-
-            // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
-            if (result && hasFileTypeRules && contentChangedFiles.Count > 0)
-            {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password, taskToUpdate, selection);
-                if (!ruleResult)
+                if (mainFiles.Count > 0)
                 {
-                    if (string.IsNullOrWhiteSpace(listFile))
+                    listFile = Path.GetTempFileName();
+                    File.WriteAllLines(listFile, mainFiles);
+                }
+
+                string fileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Smart", comment);
+                string destFile = Path.Combine(destDir, fileName);
+                using var archiveOwner = new PendingArchive(destFile);
+
+                // 4. 执行压缩 (使用 @listfile)
+                // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
+                var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
+                bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
+                bool result;
+
+                if (deletionOnlyChange)
+                {
+                    result = await CreateDeletionOnlyArchiveAsync(destFile, config.Archive, password, taskToUpdate, cancellationToken);
+                }
+                else if (!string.IsNullOrWhiteSpace(listFile))
+                {
+                    result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, null, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    // 所有变更文件都被自定义规则接管，主压缩阶段跳过，后续规则追加负责创建归档。
+                    result = true;
+                }
+
+                // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
+                if (result && hasFileTypeRules && contentChangedFiles.Count > 0)
+                {
+                    bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password, taskToUpdate, selection, cancellationToken: cancellationToken);
+                    if (!ruleResult)
                     {
-                        result = false;
-                    }
-                    else
-                    {
-                        Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                        if (string.IsNullOrWhiteSpace(listFile))
+                        {
+                            result = false;
+                        }
+                        else
+                        {
+                            Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                        }
                     }
                 }
-            }
 
-            if (result)
-            {
-                try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
+                if (result)
+                {
+                    if (!File.Exists(destFile))
+                    {
+                        return SourceCaptureResult.Failed(sourceId, captureScope);
+                    }
 
-                if (!File.Exists(destFile))
+                    var expectedDeltaStates = contentChangedFiles.ToDictionary(
+                        path => path,
+                        path => currentStates[path],
+                        StringComparer.OrdinalIgnoreCase);
+                    var sevenZipExe = ResolveSevenZipExecutable();
+                    return archiveOwner.Transfer(await VerifyAndCreateArchiveCaptureAsync(
+                        sourceId,
+                        captureScope,
+                        destDir,
+                        fileName,
+                        RepresentationKind.CoreSmartDelta,
+                        config.Archive.Format,
+                        currentStates,
+                        expectedDeltaStates,
+                        allowDeletionMarker: deletionOnlyChange,
+                        baseline: baseline,
+                        dependencies: [baseline.BaseRepresentationId],
+                        consecutiveSmartCaptures: checked(baseline.ConsecutiveSmartCaptures + 1),
+                        password: password,
+                        sevenZipExe: sevenZipExe,
+                        verificationLevel: config.Archive.BackupVerificationLevel,
+                        taskToUpdate: taskToUpdate,
+                        expectedBaseVersionId: baseline.BaseVersionId,
+                        deletedFiles: changeSet.DeletedFiles, cancellationToken: cancellationToken).ConfigureAwait(false));
+                }
+                else
                 {
                     return SourceCaptureResult.Failed(sourceId, captureScope);
                 }
-
-                var expectedDeltaStates = contentChangedFiles.ToDictionary(
-                    path => path,
-                    path => currentStates[path],
-                    StringComparer.OrdinalIgnoreCase);
-                var sevenZipExe = ResolveSevenZipExecutable();
-                return await VerifyAndCreateArchiveCaptureAsync(
-                    sourceId,
-                    captureScope,
-                    destDir,
-                    fileName,
-                    RepresentationKind.CoreSmartDelta,
-                    config.Archive.Format,
-                    currentStates,
-                    expectedDeltaStates,
-                    allowDeletionMarker: deletionOnlyChange,
-                    baseline: baseline,
-                    dependencies: [baseline.BaseRepresentationId],
-                    consecutiveSmartCaptures: checked(baseline.ConsecutiveSmartCaptures + 1),
-                    password: password,
-                    sevenZipExe: sevenZipExe,
-                    verificationLevel: config.Archive.BackupVerificationLevel,
-                    taskToUpdate: taskToUpdate,
-                    expectedBaseVersionId: baseline.BaseVersionId,
-                    deletedFiles: changeSet.DeletedFiles).ConfigureAwait(false);
             }
-            else
-            {
-                try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
-                return SourceCaptureResult.Failed(sourceId, captureScope);
-            }
+            finally { try { if (listFile is not null) File.Delete(listFile); } catch { } }
         }
 
         // --- 模式 3: Rolling copy-on-write 备份 ---
@@ -375,7 +376,7 @@ namespace FolderRewind.Services
 
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrWhiteSpace(sevenZipExe)
-                || !await ValidateRestoreChainAsync(new List<FileInfo> { new(baselinePath) }, sevenZipExe, password, taskToUpdate).ConfigureAwait(false))
+                || !await ValidateRestoreChainAsync(new List<FileInfo> { new(baselinePath) }, sevenZipExe, password, taskToUpdate, cancellationToken).ConfigureAwait(false))
             {
                 Log(I18n.Format("BackupService_Log_RestoreIntegrityArchiveCheckFailed", baselineFileName), LogLevel.Warning);
                 return await FallbackToFullAsync();
@@ -387,11 +388,11 @@ namespace FolderRewind.Services
             string finalPath = Path.Combine(destDir, finalFileName);
             string? changedListFile = null;
             string? deletedListFile = null;
-            bool committed = false;
+            using var archiveOwner = new PendingArchive(finalPath);
 
             try
             {
-                using var transaction = RollingArchiveTransaction.Create(baselinePath, destDir);
+                using var transaction = await RollingArchiveTransaction.CreateAsync(baselinePath, destDir, cancellationToken).ConfigureAwait(false);
                 Log(I18n.Format("BackupService_Log_RollingUpdating", baselineFileName), LogLevel.Info);
 
                 var changedFiles = changeSet.AddedFiles
@@ -424,7 +425,7 @@ namespace FolderRewind.Services
                         filters: null,
                         fileTypeExclusions: null,
                         taskToUpdate,
-                        applyAdditionalArguments: true).ConfigureAwait(false);
+                        applyAdditionalArguments: true, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
 
                 if (updated && hasFileTypeRules && changedFiles.Count > 0)
@@ -436,7 +437,7 @@ namespace FolderRewind.Services
                         changedFiles,
                         filters: null,
                         password,
-                        taskToUpdate).ConfigureAwait(false);
+                        taskToUpdate, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
 
                 if (updated && changeSet.DeletedFiles.Count > 0)
@@ -452,12 +453,12 @@ namespace FolderRewind.Services
                         deletedListFile,
                         filters: null,
                         fileTypeExclusions: null,
-                        taskToUpdate).ConfigureAwait(false);
+                        taskToUpdate, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
 
                 bool exactArchiveState = updated
-                    && await ValidateRestoreChainAsync(new List<FileInfo> { new(transaction.StagingPath) }, sevenZipExe, password, taskToUpdate).ConfigureAwait(false)
-                    && await ValidateArchiveLogicalStateAsync(sevenZipExe, transaction.StagingPath, password, currentStates).ConfigureAwait(false);
+                    && await ValidateRestoreChainAsync(new List<FileInfo> { new(transaction.StagingPath) }, sevenZipExe, password, taskToUpdate, cancellationToken).ConfigureAwait(false)
+                    && await ValidateArchiveLogicalStateAsync(sevenZipExe, transaction.StagingPath, password, currentStates, cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (!exactArchiveState)
                 {
                     transaction.Dispose();
@@ -465,9 +466,7 @@ namespace FolderRewind.Services
                 }
 
                 transaction.Commit(finalPath);
-                committed = true;
-
-                return CreateArchiveCapture(
+                return archiveOwner.Transfer(CreateArchiveCapture(
                     sourceId,
                     captureScope,
                     destDir,
@@ -477,15 +476,12 @@ namespace FolderRewind.Services
                     currentStates,
                     baseline,
                     dependencies: [],
-                    consecutiveSmartCaptures: 0);
+                    consecutiveSmartCaptures: 0));
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 Log($"[Rolling] {ex.Message}", LogLevel.Error);
-                if (committed)
-                {
-                    try { File.Delete(finalPath); } catch { }
-                }
                 return SourceCaptureResult.Failed(sourceId, captureScope);
             }
             finally
@@ -517,7 +513,7 @@ namespace FolderRewind.Services
             BackupArchiveVerificationLevel verificationLevel,
             BackupTask? taskToUpdate,
             VersionId? expectedBaseVersionId = null,
-            IEnumerable<string>? deletedFiles = null)
+            IEnumerable<string>? deletedFiles = null, CancellationToken cancellationToken = default)
         {
             var archivePath = Path.GetFullPath(Path.Combine(destinationDirectory, fileName));
             var verified = !string.IsNullOrWhiteSpace(sevenZipExe)
@@ -528,12 +524,11 @@ namespace FolderRewind.Services
                     archivePath,
                     password,
                     expectedArchiveStates,
-                    allowDeletionMarker),
+                    allowDeletionMarker, cancellationToken),
                     () => ValidateRestoreChainAsync([new FileInfo(archivePath)], sevenZipExe,
-                        password, taskToUpdate)).ConfigureAwait(false);
+                        password, taskToUpdate, cancellationToken)).ConfigureAwait(false);
             if (!verified)
             {
-                TryDeleteUncommittedArchive(archivePath);
                 return SourceCaptureResult.Failed(
                     sourceId,
                     captureScope,
@@ -554,6 +549,25 @@ namespace FolderRewind.Services
                 expectedBaseVersionId,
                 deletedFiles,
                 verificationLevel.ToString());
+        }
+
+        private sealed class PendingArchive : IDisposable
+        {
+            private string? _path;
+            internal PendingArchive(string path)
+            {
+                if (Path.Exists(path)) throw new IOException("Candidate archive already exists.");
+                _path = path;
+            }
+            internal SourceCaptureResult Transfer(SourceCaptureResult result)
+            {
+                if (result.Outcome == SourceCaptureOutcome.Captured && result.CleanupHandle is not null) _path = null;
+                return result;
+            }
+            public void Dispose()
+            {
+                if (_path is { } path) { _path = null; TryDeleteUncommittedArchive(path); }
+            }
         }
 
         private static void TryDeleteUncommittedArchive(string path)
@@ -589,7 +603,7 @@ namespace FolderRewind.Services
         /// 创建"仅删除"归档：只包含一个内部标记文件（不含任何用户数据），
         /// 恢复阶段据此识别该历史点的变更全部为文件删除。临时目录在 finally 中尽力清理。
         /// </summary>
-        private static async Task<bool> CreateDeletionOnlyArchiveAsync(string archivePath, ArchiveSettings settings, string? password, BackupTask? taskToUpdate)
+        private static async Task<bool> CreateDeletionOnlyArchiveAsync(string archivePath, ArchiveSettings settings, string? password, BackupTask? taskToUpdate, CancellationToken cancellationToken)
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind_DeleteOnly_" + Guid.NewGuid().ToString("N"));
             try
@@ -598,9 +612,9 @@ namespace FolderRewind.Services
                 Directory.CreateDirectory(internalDir);
                 await File.WriteAllTextAsync(
                     Path.Combine(internalDir, InternalRestoreMarkerFileName),
-                    DateTime.UtcNow.ToString("O"));
+                    DateTime.UtcNow.ToString("O"), cancellationToken);
 
-                return await Run7zCommandAsync("a", tempDir, archivePath, settings, password, null, null, null, taskToUpdate);
+                return await Run7zCommandAsync("a", tempDir, archivePath, settings, password, null, null, null, taskToUpdate, cancellationToken: cancellationToken);
             }
             finally
             {

@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -21,8 +22,9 @@ namespace FolderRewind.Services
             string archivePath,
             string? password,
             IReadOnlyDictionary<string, SourceCaptureFileState> expectedStates,
-            bool allowDeletionMarker = false)
+            bool allowDeletionMarker = false, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var startInfo = new ProcessStartInfo
@@ -49,7 +51,8 @@ namespace FolderRewind.Services
                 HistoryOperationDiagnostics.Current?.Count("7z-l");
                 var standardOutput = process.StandardOutput.ReadToEndAsync();
                 var standardError = process.StandardError.ReadToEndAsync();
-                await process.WaitForExitAsync().ConfigureAwait(false);
+                try { await ProcessWaitService.WaitAsync(process, Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false); }
+                finally { await Task.WhenAll(standardOutput, standardError).ConfigureAwait(false); }
                 HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
                 string output = await standardOutput.ConfigureAwait(false);
                 string error = await standardError.ConfigureAwait(false);
@@ -93,6 +96,7 @@ namespace FolderRewind.Services
                 if (!deltaMatches) Log($"[History] {deltaDiagnostic}", LogLevel.Warning);
                 return deltaMatches;
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 Log($"[Rolling] Archive listing verification failed: {ex.Message}", LogLevel.Warning);

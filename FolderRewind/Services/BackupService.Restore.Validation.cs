@@ -3,6 +3,7 @@ using FolderRewind.Models;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -12,7 +13,7 @@ namespace FolderRewind.Services
             List<FileInfo> chain,
             string sevenZipExe,
             string? password,
-            BackupTask? restoreTask)
+            BackupTask? restoreTask, CancellationToken cancellationToken = default)
         {
             if (chain.Count == 0) return false;
             for (var index = 0; index < chain.Count; index++)
@@ -30,7 +31,7 @@ namespace FolderRewind.Services
                 var arguments = $"t \"{file.FullName}\" -bsp1";
                 if (!string.IsNullOrWhiteSpace(password)) arguments += $" -p\"{password}\"";
                 var safe = string.IsNullOrWhiteSpace(password) ? arguments : arguments.Replace(password, "***");
-                if (!await RunSevenZipProcessAsync(sevenZipExe, arguments, file.DirectoryName, safe))
+                if (!await RunSevenZipProcessAsync(sevenZipExe, arguments, file.DirectoryName, safe, cancellationToken: cancellationToken))
                     return false;
             }
             return true;

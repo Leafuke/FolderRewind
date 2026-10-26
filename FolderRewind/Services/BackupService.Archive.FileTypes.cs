@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -34,8 +35,9 @@ namespace FolderRewind.Services
             string? password = null,
             BackupTask? taskToUpdate = null,
             BackupSourceScope? selection = null,
-            string? originalSourcePath = null)
+            string? originalSourcePath = null, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!settings.FileTypeHandlingEnabled || settings.FileTypeRules == null || settings.FileTypeRules.Count == 0)
                 return true;
 
@@ -59,6 +61,7 @@ namespace FolderRewind.Services
             {
                 foreach (var group in levelGroups)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     int level = group.Key;
                     var patterns = group.Select(r => r.Pattern.Trim()).ToList();
                     var patternMatchers = CompileFileTypeWildcardPatterns(patterns);
@@ -104,7 +107,7 @@ namespace FolderRewind.Services
                         string args = sb.ToString();
                         string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority, cancellationToken: cancellationToken);
                         if (!ok) allSuccess = false;
                     }
                     else
@@ -174,7 +177,7 @@ namespace FolderRewind.Services
                         string args = sb.ToString();
                         string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority, cancellationToken: cancellationToken);
                         if (!ok) allSuccess = false;
                     }
                 }

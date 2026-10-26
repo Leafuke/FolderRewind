@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
@@ -21,8 +23,9 @@ internal sealed class RollingArchiveTransaction : IDisposable
     public string StagingPath => _stagingPath
         ?? throw new InvalidOperationException("Rolling transaction is already committed or disposed.");
 
-    public static RollingArchiveTransaction Create(string baselinePath, string destinationDirectory)
+    public static async Task<RollingArchiveTransaction> CreateAsync(string baselinePath, string destinationDirectory, CancellationToken token = default)
     {
+        token.ThrowIfCancellationRequested();
         var baseline = Path.GetFullPath(baselinePath ?? throw new ArgumentNullException(nameof(baselinePath)));
         var destination = Path.GetFullPath(
             destinationDirectory ?? throw new ArgumentNullException(nameof(destinationDirectory)));
@@ -34,20 +37,30 @@ internal sealed class RollingArchiveTransaction : IDisposable
         Directory.CreateDirectory(destination);
         var extension = Path.GetExtension(baseline);
         var staging = Path.Combine(destination, $".rolling-{Guid.NewGuid():N}.staging{extension}");
-        using (var source = new FileStream(baseline, FileMode.Open, FileAccess.Read, FileShare.Read))
-        using (var target = new FileStream(
-                   staging,
-                   FileMode.CreateNew,
-                   FileAccess.Write,
-                   FileShare.None,
-                   64 * 1024,
-                   FileOptions.WriteThrough))
+        bool created = false;
+        try
         {
-            source.CopyTo(target);
-            target.Flush(flushToDisk: true);
+            using (var source = new FileStream(baseline, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true))
+            using (var target = new FileStream(
+                       staging,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None,
+                       64 * 1024,
+                       FileOptions.WriteThrough | FileOptions.Asynchronous))
+            {
+                created = true;
+                await source.CopyToAsync(target, token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+                target.Flush(flushToDisk: true);
+            }
+            return new RollingArchiveTransaction(baseline, staging);
         }
-
-        return new RollingArchiveTransaction(baseline, staging);
+        catch
+        {
+            if (created) { try { File.Delete(staging); } catch { } }
+            throw;
+        }
     }
 
     public void Commit(string finalPath)

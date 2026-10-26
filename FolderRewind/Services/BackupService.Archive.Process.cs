@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -59,8 +60,9 @@ namespace FolderRewind.Services
             string? workingDirectory = null, string? logArguments = null,
             BackupTask? taskToUpdate = null,
             double progressBase = 0, double progressRange = 100,
-            bool runAtLowPriority = false)
+            bool runAtLowPriority = false, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             arguments = EnsureSswArgument(arguments);
             logArguments = EnsureSswArgument(logArguments ?? arguments);
 
@@ -127,7 +129,7 @@ namespace FolderRewind.Services
                 ApplyLowPriorityIfRequested(p, runAtLowPriority);
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
-                await p.WaitForExitAsync();
+                await ProcessWaitService.WaitAsync(p, Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
                 HistoryOperationDiagnostics.ObserveNativeProcess(processHandle);
 
                 // 7z 返回非零退出码且有 stderr 输出时，将错误信息写入任务
@@ -142,6 +144,7 @@ namespace FolderRewind.Services
 
                 return p.ExitCode == 0;
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 Log(I18n.Format("BackupService_Log_SystemError", ex.Message), LogLevel.Error);

@@ -25,6 +25,7 @@ internal static class ProcessWaitService
                 if (!process.HasExited) process.Kill(entireProcessTree: true);
             }
             catch (InvalidOperationException) { /* Process exited concurrently. */ }
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             return false;
         }

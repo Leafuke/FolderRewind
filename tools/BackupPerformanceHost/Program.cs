@@ -25,6 +25,9 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+#if !FOLDERREWIND_BENCHMARK_ONLY
+        if (BackupFailureAcceptance.RunArchiveChild(args)) return;
+#endif
         Root = Path.GetFullPath(args[0]);
         bool restoreExisting = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_SERVICE_PROBE") == "native-restore"
             && File.Exists(Path.Combine(Root, "restore-benchmark-owner.json"));
@@ -67,6 +70,11 @@ internal static class Program
                 var exe = Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z") ?? throw new InvalidOperationException("7-Zip path required.");
                 ConfigService.CurrentConfig.GlobalSettings.SevenZipPath = exe;
 #if !FOLDERREWIND_BENCHMARK_ONLY
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_HARDENING_ACCEPTANCE") == "backup")
+                {
+                    await BackupFailureAcceptance.RunAsync();
+                    Environment.Exit(0); return;
+                }
                 if (Environment.GetEnvironmentVariable("FOLDERREWIND_HARDENING_ACCEPTANCE") == "commit")
                 {
                     await CommitFailureAcceptance.RunAsync();

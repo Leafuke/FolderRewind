@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -28,8 +29,9 @@ namespace FolderRewind.Services
             BackupSourceScope? selection = null,
             string? originalSourcePath = null,
             IReadOnlyList<string>? capturedPaths = null,
-            IReadOnlyList<string>? capturedDirectories = null)
+            IReadOnlyList<string>? capturedDirectories = null, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
 
@@ -176,7 +178,7 @@ namespace FolderRewind.Services
             string args = sb.ToString();
             string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-            return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
+            return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority, cancellationToken: cancellationToken);
             }
             finally
             {
