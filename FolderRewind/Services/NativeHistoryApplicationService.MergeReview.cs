@@ -49,7 +49,7 @@ internal static partial class NativeHistoryApplicationService
             var binding = session.Plan.Bindings.Single(b => b.SourceId == source.Version.SourceId);
             var result = await MergeTreeManifest.ReadAsync(source.StagingDirectory, _ => true, token).ConfigureAwait(false);
             var ours = session.Plan.Sources.Single(s => s.SourceId == source.Version.SourceId).Ours;
-            var oursTree = await MaterializeMergeComparisonAsync(runtime, restore, session, ours, token).ConfigureAwait(false);
+            var oursTree = runtime.MergeSessions.ReviewOurs(session, ours);
             var exists = Directory.Exists(binding.TargetDirectory);
             var live = exists ? await MergeTreeManifest.ReadAsync(binding.TargetDirectory,
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
@@ -65,22 +65,4 @@ internal static partial class NativeHistoryApplicationService
         return review;
     }
 
-    internal static async Task<MergeTreeManifest> MaterializeMergeComparisonAsync(HistoryRuntime runtime, HistoryRestoreService restore,
-        MergeSession session, CheckpointSource? checkpoint, CancellationToken token)
-    {
-        if (checkpoint?.VersionId is not { } versionId) return MergeTreeManifest.Empty;
-        var version = await runtime.Query.GetVersionAsync(versionId, token).ConfigureAwait(false) ?? throw new InvalidDataException("Missing comparison version.");
-        var directory = Path.Combine(runtime.MergeSessions.SessionDirectory(session.Id), "comparison", versionId + "-" + Guid.NewGuid().ToString("N"));
-        // Separate immutable directories also support concurrent readers of an older saved session.
-        var source = await restore.PrepareSourceAsync(version, new(checkpoint.SourceId, directory, checkpoint.EffectiveSourceBoundary),
-            MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, token).ConfigureAwait(false);
-        try
-        {
-            _ = await MergeTreeManifest.ReadAsync(source.StagingDirectory, _ => true, token).ConfigureAwait(false);
-            Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
-            Directory.Move(source.StagingDirectory, directory);
-            return await MergeTreeManifest.ReadAsync(directory, _ => true, token).ConfigureAwait(false);
-        }
-        finally { HistoryRestoreTransactionJournalStore.CleanupStaging([source.StagingDirectory]); }
-    }
 }

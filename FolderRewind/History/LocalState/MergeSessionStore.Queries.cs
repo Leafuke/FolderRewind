@@ -1,4 +1,6 @@
 using FolderRewind.History.Merge;
+using FolderRewind.History.Domain;
+using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +9,24 @@ namespace FolderRewind.History.LocalState;
 
 public sealed partial class MergeSessionStore
 {
+    internal MergeTreeManifest ReviewOurs(MergeSession expected, CheckpointSource? checkpoint)
+    {
+        var current = Load(expected.Id);
+        if (current.Revision != expected.Revision || current.Plan.Revision != expected.Plan.Revision
+            || current.State != MergeSessionState.Ready)
+            throw new InvalidOperationException("Merge review Session changed.");
+        if (checkpoint?.VersionId is not { } version) return MergeTreeManifest.Empty;
+        var source = Sources(current).Single(s => s.Plan.SourceId == checkpoint.SourceId);
+        if (source.Plan.Ours?.VersionId != version
+            || source.Plan.Ours.EffectiveSourceBoundary.Fingerprint != checkpoint.EffectiveSourceBoundary.Fingerprint)
+            throw new InvalidDataException("Merge review input does not match its fixed analysis.");
+        var tree = source.Ours;
+        if (MergeTreeManifest.Create(tree.Files, tree.Directories).Digest != tree.Digest)
+            throw new InvalidDataException("Merge review input manifest is inconsistent.");
+        Services.HistoryOperationDiagnostics.Current?.Count("merge-review-ours-reuses");
+        return tree;
+    }
+
     public string? NextSemanticConflict(MergeSession session, string search, string? currentId)
     {
         using var db = Open();

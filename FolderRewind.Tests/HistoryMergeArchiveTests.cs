@@ -9,6 +9,30 @@ namespace FolderRewind.Tests;
 public sealed class HistoryMergeArchiveTests
 {
     [TestMethod]
+    public async Task RepeatedReviewReusesFixedOursAcrossReopenAndRejectsStaleIdentity()
+    {
+        await using var fixture = new HistoryMergeArchiveFixture(); await fixture.SeedAsync();
+        var session = fixture.Session; var store = fixture.History.MergeSessions;
+        var ours = session.Plan.Sources.Single().Ours!;
+        var original = store.Sources(session).Single().Ours;
+        var directories = Directory.GetDirectories(store.SessionDirectory(session.Id), "*", SearchOption.AllDirectories);
+        for (int repeat = 0; repeat < 2; repeat++)
+        {
+            var tree = store.ReviewOurs(session, ours);
+            Assert.AreEqual(original.Digest, tree.Digest);
+            CollectionAssert.AreEquivalent(original.Files.Keys.ToArray(), tree.Files.Keys.ToArray());
+        }
+        await fixture.ReopenAsync(); store = fixture.History.MergeSessions;
+        Assert.AreEqual(original.Digest, store.ReviewOurs(session, ours).Digest);
+        Assert.AreEqual(0, fixture.Archives.Materialized);
+        CollectionAssert.AreEquivalent(directories, Directory.GetDirectories(store.SessionDirectory(session.Id), "*", SearchOption.AllDirectories));
+        Assert.ThrowsExactly<InvalidDataException>(() => store.ReviewOurs(session,
+            new(ours.SourceId, ours.SourceDescriptorSnapshot, VersionId.New(), ours.Disposition, ours.EffectiveSourceBoundary)));
+        store.Update(session, MergeSessionState.Stale);
+        Assert.ThrowsExactly<InvalidOperationException>(() => store.ReviewOurs(session, ours));
+    }
+
+    [TestMethod]
     [DataRow("none")]
     [DataRow("base")]
     [DataRow("ours")]
