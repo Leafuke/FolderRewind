@@ -9,6 +9,55 @@ namespace FolderRewind.Tests;
 public sealed class HistoryMergeArchiveTests
 {
     [TestMethod]
+    [DataRow("none")]
+    [DataRow("base")]
+    [DataRow("ours")]
+    [DataRow("theirs")]
+    public async Task GenericMergePreservesOnlyCompleteInputDirectoryEvidence(string incomplete)
+    {
+        await using var fixture = new HistoryMergeArchiveFixture();
+        await fixture.SeedAsync((root, _) => Directory.CreateDirectory(Path.Combine(root, "empty")));
+        var store = fixture.History.MergeSessions;
+        var source = store.Sources(fixture.Session).Single();
+        var session = store.Create(fixture.Session.Plan with { Revision = Guid.NewGuid() },
+            [fixture.Base.VersionId, fixture.Ours.NewVersions.Single().VersionId, fixture.Theirs.NewVersions.Single().VersionId]);
+        // Arrange the persisted, already-admitted input evidence; exercise real archive/commit/restore below.
+        MergeTreeManifest CopyInput(MergeTreeManifest tree, string side)
+        {
+            var root = Path.Combine(store.SessionDirectory(session.Id), "inputs", side); Directory.CreateDirectory(root);
+            foreach (var directory in tree.Directories) Directory.CreateDirectory(Path.Combine(root, directory));
+            var files = tree.Files.ToDictionary(pair => pair.Key, pair =>
+            {
+                var path = Path.Combine(root, pair.Key); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.Copy(pair.Value.Handle, path);
+                return pair.Value with { Handle = path };
+            });
+            return MergeTreeManifest.Create(files, tree.Directories) with { HasCompleteDirectoryInventory = side != incomplete };
+        }
+        var b = CopyInput(source.Base, "base"); var o = CopyInput(source.Ours, "ours"); var t = CopyInput(source.Theirs, "theirs");
+        var proposal = new GenericFileMergeProvider().Analyze(fixture.Source, b, o, t);
+        store.SaveSource(session, new(source.Plan, proposal.Automatic, b, o, t), proposal.Conflicts);
+        session = store.Update(session, MergeSessionState.Ready);
+        var prepared = await fixture.Builder().BuildAsync(session);
+        var expected = incomplete == "none";
+        Assert.AreEqual(expected, prepared.Facts.OfType<VersionRepresentation>().Single().RepresentationSpecificMetadata.ContainsKey("mergeDirectoryEvidence"));
+        var restore = fixture.Restore();
+        var applied = await new HistoryMergeApplyService(fixture.History, restore, fixture.Builder(restore)).ApplyAsync(session, ready: prepared);
+        Assert.IsTrue(applied.Succeeded, applied.Diagnostic);
+        await fixture.ReopenAsync();
+        var materialized = await fixture.Restore().PrepareSourceAsync(prepared.Sources.Single().Version,
+            new(fixture.Source, Path.Combine(fixture.Root, "roundtrip")), MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, default);
+        try
+        {
+            Assert.AreEqual(expected, materialized.HasCompleteDirectoryInventory);
+            Assert.IsTrue(Directory.Exists(Path.Combine(materialized.StagingDirectory, "empty")));
+            Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(materialized.StagingDirectory, "a.txt")));
+            Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(materialized.StagingDirectory, "b.txt")));
+        }
+        finally { HistoryRestoreTransactionJournalStore.CleanupStaging([materialized.StagingDirectory]); }
+    }
+
+    [TestMethod]
     [DataRow("revision")]
     [DataRow("candidate")]
     [DataRow("working")]

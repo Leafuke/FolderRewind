@@ -93,7 +93,7 @@ public sealed class SemanticMergeEngine(MergeSessionStore store, SemanticMergeBi
             || merged.Files.Values.Sum(f => f.Length) > Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes)
             throw new IOException("Semantic Merge result exceeds the Source budget.");
         return merged with { SemanticDiagnostics = diagnostics.ToImmutable(),
-            HasCompleteDirectoryInventory = source.Base.HasCompleteDirectoryInventory && source.Ours.HasCompleteDirectoryInventory && source.Theirs.HasCompleteDirectoryInventory,
+            HasCompleteDirectoryInventory = source.HasCompleteDirectoryInventory,
             RequiredAbsentPaths = source.Automatic.RequiredAbsentPaths
             .Concat(views.RequiredAbsentPaths).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToImmutableArray() };
     }

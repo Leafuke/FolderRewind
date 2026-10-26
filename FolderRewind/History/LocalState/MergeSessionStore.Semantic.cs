@@ -126,9 +126,7 @@ public sealed partial class MergeSessionStore
         _ => throw new InvalidDataException("Unknown Merge choice.")
     };
     internal static bool SemanticChoiceAllowed(MergeSubject subject, MergeResolutionChoice choice)
-        => !subject.IsBlocked && (subject.IsAutomatic && choice == MergeResolutionChoice.Automatic
-            || (!subject.IsAutomatic || subject.CanOverrideAutomatic) && Enum.IsDefined(choice)
-                && choice != MergeResolutionChoice.Automatic && subject.AllowedDecisions.Contains(SemanticChoice(choice)));
+        => Enum.IsDefined(choice) && SemanticMergeDecisionPolicy.Allows(subject, SemanticChoice(choice));
 
     internal IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution)> SemanticDecisionPage(MergeSession session, SourceId source, string group, string? after, int count)
     {

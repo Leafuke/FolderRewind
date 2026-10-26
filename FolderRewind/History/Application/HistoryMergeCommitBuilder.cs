@@ -178,7 +178,8 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                                 : resolution.Choice == MergeResolutionChoice.Base ? conflict.BaseDirectories : conflict.TheirsDirectories);
                         }
                     }
-                    tree = MergeTreeManifest.Create(files, directories);
+                    tree = MergeTreeManifest.Create(files, directories) with
+                    { HasCompleteDirectoryInventory = source.HasCompleteDirectoryInventory };
                     if (semantic is not null) tree = await semantic.BuildAsync(session, source, tree, root, token).ConfigureAwait(false);
                     else if (tree.Digest == source.Ours.Digest) selected = plan.Ours;
                     else if (tree.Digest == source.Theirs.Digest) selected = plan.Theirs;

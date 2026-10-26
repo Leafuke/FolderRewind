@@ -172,16 +172,18 @@ public sealed class SemanticMergeIntegrationTests
         return bytes;
     }
     [TestMethod]
-    public async Task IndependentTextCapabilityPersistsDecisionsReopensBuildsCoreFullAndCommitsThroughHost()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task IndependentTextCapabilityPersistsDecisionsReopensBuildsCoreFullAndCommitsThroughHost(bool automatic)
     {
         await using var fixture = new HistoryMergeArchiveFixture(); await fixture.SeedAsync();
-        var provider = new TextPlugin(); var resolver = await Resolver.Create(provider);
+        var provider = new TextPlugin(automatic); var resolver = await Resolver.Create(provider);
         SemanticMergeEngine Engine() => new(fixture.History.MergeSessions, resolver.Binding, resolver);
         HistoryMergeService Service() => new(fixture.History, fixture.Restore(), semantic: Engine());
         var session = (await Service().StartAsync(fixture.Theirs.NewBranchUpdates.Single().BranchId, "fixture-v1", [new(fixture.Source, fixture.Target)]))!;
-        Assert.AreEqual(MergeSessionState.Resolving, session.State);
+        Assert.AreEqual(automatic ? MergeSessionState.Ready : MergeSessionState.Resolving, session.State);
         Assert.ThrowsExactly<ObjectDisposedException>(() => provider.LastRead!.ReadByte());
-        Assert.HasCount(2, fixture.History.MergeSessions.QuerySemanticChanges(session, "Text", "Unresolved", 0, 100).Rows);
+        Assert.HasCount(2, fixture.History.MergeSessions.QuerySemanticChanges(session, "Text", automatic ? "Automatic" : "Unresolved", 0, 100).Rows);
         var rows = Service().AllConflicts(session).ToArray();
         var a = rows.Single(r => r.Conflict.SemanticSubject!.SubjectId == "a.txt").Conflict;
         var b = rows.Single(r => r.Conflict.SemanticSubject!.SubjectId == "b.txt").Conflict;
@@ -199,6 +201,12 @@ public sealed class SemanticMergeIntegrationTests
         session = await Service().ImportManualAsync(session, a, manual);
         session = fixture.History.MergeSessions.Resolve(session, new(session.Plan.Revision, b.Id, b.InputSignature, MergeResolutionChoice.Theirs));
         await fixture.ReopenAsync(); session = fixture.History.MergeSessions.Load(session.Id);
+        if (automatic)
+        {
+            session = fixture.History.MergeSessions.SetResolutions(session, new Dictionary<string, MergeResolution?> { [a.Id] = null });
+            Assert.AreEqual(MergeResolutionChoice.Automatic, fixture.History.MergeSessions.GetConflict(session, a.Id).Resolution!.Choice);
+            session = await Service().ImportManualAsync(session, a, manual);
+        }
         var engine = Engine(); var restore = fixture.Restore();
         var builder = new HistoryMergeCommitBuilder(fixture.History, restore, fixture.Archives, fixture.Archives, semantic: engine);
         var prepared = await builder.BuildAsync(session);
@@ -246,7 +254,7 @@ public sealed class SemanticMergeIntegrationTests
     }
 
     // Only Merge is registered. No Artifact, discovery, preview or Config Kind ownership exists.
-    private sealed class TextPlugin : IFolderRewindPlugin, IMergeProviderCapability
+    private sealed class TextPlugin(bool automatic = false) : IFolderRewindPlugin, IMergeProviderCapability
     {
         public MergeProviderId ProviderId => new(new("com.test.text"), "lines");
         public int ContractVersion => 1;
@@ -262,7 +270,8 @@ public sealed class SemanticMergeIntegrationTests
             await plan.AddGroupAsync(new("document", Label("Text document"), JsonSerializer.SerializeToElement(1)), default);
             await plan.ClaimPathsAsync("document", ["a.txt", "b.txt"], ["document.txt"], default);
             await plan.AddSubjectsAsync(new[] { "a.txt", "b.txt" }.Select(path => new MergeSubject(path, "document", "fixture-1", Label("Text " + path), Label("Choose a segment"),
-                [MergeDecisionKind.Ours, MergeDecisionKind.Theirs, MergeDecisionKind.Base, MergeDecisionKind.Delete, MergeDecisionKind.Manual], false, JsonSerializer.SerializeToElement(path))).ToArray(), default);
+                [MergeDecisionKind.Ours, MergeDecisionKind.Theirs, MergeDecisionKind.Base, MergeDecisionKind.Delete, MergeDecisionKind.Manual], automatic, JsonSerializer.SerializeToElement(path))
+                { CanOverrideAutomatic = automatic }).ToArray(), default);
             return new(OperationOutcome.SuccessWithWarnings, [new("text.fixture_note", DiagnosticSeverity.Warning, "Merge", "com.test.text", new Dictionary<string, string>())]);
         }
         public async ValueTask<MergeProviderResult> BuildAsync(MergeBuildRequest request, IMergeOutputWorkspace output, PluginInvocationContext context)

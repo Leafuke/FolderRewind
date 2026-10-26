@@ -21,7 +21,11 @@ public sealed record MergeResolution(Guid PlanRevision, string ConflictId, strin
 public sealed record MergeSession(Guid Id, long Revision, MergeSessionState State, HistoryMergePlan Plan,
     HistoryTransactionId? ApplyTransactionId = null, PackId? IntendedPackId = null, HistoryWorkspace? ProtectedWorkspace = null, HistoryMergeDiagnostic? Diagnostic = null);
 public sealed record MergeSessionSource(HistoryMergeSourcePlan Plan, MergeTreeManifest Automatic,
-    MergeTreeManifest Base, MergeTreeManifest Ours, MergeTreeManifest Theirs);
+    MergeTreeManifest Base, MergeTreeManifest Ours, MergeTreeManifest Theirs)
+{
+    internal bool HasCompleteDirectoryInventory => Base.HasCompleteDirectoryInventory
+        && Ours.HasCompleteDirectoryInventory && Theirs.HasCompleteDirectoryInventory;
+}
 public sealed record PreparedMergeDescriptor(Guid SessionId, Guid PlanRevision, long ResolutionRevision,
     string ProviderVersion, string PolicyVersion, ImmutableArray<PreparedMergeSource> Sources,
     SourceCheckpoint Checkpoint, ImmutableArray<LocalReplicaCatalogEntry> NewReplicas, byte[] PackBytes)

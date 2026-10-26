@@ -9,6 +9,25 @@ namespace FolderRewind.Tests;
 public sealed class SemanticMergePlanDataTests
 {
     [TestMethod]
+    [DataRow(true, false, false, false)]
+    [DataRow(true, true, false, true)]
+    [DataRow(false, false, true, false)]
+    [DataRow(false, false, false, true)]
+    public void ManualImportAndPersistedDecisionUseTheSameEligibility(bool automatic, bool canOverride, bool blocked, bool allowed)
+    {
+        var text = new FolderRewind.Plugin.Abstractions.LocalizedText("subject", new Dictionary<string, string>());
+        var subject = new FolderRewind.Plugin.Abstractions.MergeSubject("s", "g", "input", text, text,
+            [FolderRewind.Plugin.Abstractions.MergeDecisionKind.Manual], automatic, System.Text.Json.JsonSerializer.SerializeToElement(new { }))
+            { CanOverrideAutomatic = canOverride, IsBlocked = blocked };
+        var tree = MergeTreeManifest.Empty;
+        var conflict = new MergeConflict("c", new(SourceId.New(), []), MergeConflictKind.ModifyModify, "input", tree.Files, tree.Files, tree.Files)
+            { SemanticSubject = subject };
+        Assert.AreEqual(allowed, conflict.CanImportFile);
+        Assert.AreEqual(allowed, MergeSessionStore.SemanticChoiceAllowed(subject, MergeResolutionChoice.Manual));
+        Assert.IsFalse((conflict with { SemanticSubject = subject with { AllowedDecisions = [] } }).CanImportFile);
+    }
+
+    [TestMethod]
     public async Task AutomaticOverridesPersistResetToDefaultAndCannotChangeLockedSubjects()
     {
         using var fixture = new PlanFixture(); using var writer = fixture.Writer();

@@ -96,7 +96,7 @@ public sealed record MergeConflict(string Id, MergeConflictSubject Subject, Merg
     public ImmutableArray<string> OursDirectories { get; init; } = [];
     public ImmutableArray<string> TheirsDirectories { get; init; } = [];
     [JsonIgnore] public bool CanImportFile => SemanticSubject is not null
-        ? !SemanticSubject.IsAutomatic && SemanticSubject.AllowedDecisions.Contains(Plugin.Abstractions.MergeDecisionKind.Manual)
+        ? SemanticMergeDecisionPolicy.Allows(SemanticSubject, Plugin.Abstractions.MergeDecisionKind.Manual)
         : Subject.Paths.Length == 1
         && BaseDirectories.IsEmpty && OursDirectories.IsEmpty && TheirsDirectories.IsEmpty
         && Kind is not (MergeConflictKind.PathStructure or MergeConflictKind.SourceRoster or MergeConflictKind.SourceBoundary);
