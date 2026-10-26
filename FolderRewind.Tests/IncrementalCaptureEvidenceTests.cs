@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using FolderRewind.History.Capture;
+using FolderRewind.History.Merge;
 using FolderRewind.History.Representation;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Artifacts;
@@ -18,6 +19,45 @@ public sealed class IncrementalCaptureEvidenceTests
         files.ToImmutableSortedDictionary(f => f.RelativePath, f => new SourceCaptureFileState(f.Length, DateTime.UnixEpoch)), 1);
     private static ArtifactIncrementalInput Input(bool checkpoint = false, params string[] changed) => new(Guid.NewGuid(),
         ArtifactCaptureInputKind.ChangesOnly, "boundary", "size-mtime-v1", "base", "base-rep", new(Guid.NewGuid()), [], changed, [], checkpoint);
+
+    [TestMethod]
+    public async Task SerialFileProcessingKeepsEmptyShortAndMultiBlockFilesIndependent()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "SerialFileProcessing", Guid.NewGuid().ToString("N"));
+        var source = Path.Combine(root, "source");
+        Directory.CreateDirectory(source);
+        var bytes = new Dictionary<string, byte[]>
+        {
+            ["a-large"] = Enumerable.Range(0, 131073).Select(i => (byte)(i % 251)).ToArray(),
+            ["b-empty"] = [], ["c-short"] = [9, 8, 7],
+            ["d-block"] = Enumerable.Repeat((byte)42, 65536).ToArray()
+        };
+        try
+        {
+            foreach (var pair in bytes) await System.IO.File.WriteAllBytesAsync(Path.Combine(source, pair.Key), pair.Value);
+            using var input = new SourceCaptureInput(source, bytes.ToDictionary(p => p.Key,
+                p => new SourceCaptureFileState(p.Value.Length, System.IO.File.GetLastWriteTimeUtc(Path.Combine(source, p.Key)))), [], null, "boundary");
+            var copy = await input.PrepareAsync(input.Files.Keys, true, true, Path.Combine(root, "temp"));
+            foreach (var pair in bytes)
+                CollectionAssert.AreEqual(pair.Value, await System.IO.File.ReadAllBytesAsync(Path.Combine(copy.SourcePath, pair.Key)));
+            var files = bytes.Select(p => File(p.Key, p.Value)).ToArray();
+            await using var view = new View(files, bytes);
+            var evidence = Evidence(files);
+            await evidence.VerifyViewAsync(view, default);
+            var restored = Path.Combine(root, "restored");
+            await evidence.CopyViewToAsync(view, restored, default);
+            var tree = await MergeTreeManifest.ReadAsync(restored, _ => true, default);
+            foreach (var pair in bytes)
+            {
+                CollectionAssert.AreEqual(pair.Value, await System.IO.File.ReadAllBytesAsync(Path.Combine(restored, pair.Key)));
+                Assert.AreEqual((long)pair.Value.Length, tree.Files[pair.Key].Length);
+                var expected = System.Text.Encoding.UTF8.GetBytes("folderrewind/file/1\0").Concat(pair.Value).ToArray();
+                Assert.AreEqual(Hash(expected), tree.Files[pair.Key].Digest);
+            }
+            input.Dispose();
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
 
     [TestMethod]
     [DataRow("space")]

@@ -55,6 +55,7 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
         Func<string, bool>? includeDirectory = null)
     {
         var files = new Dictionary<string, MergeFileValue>(StringComparer.Ordinal);
+        byte[]? buffer = null;
         var pending = new Stack<string>(); pending.Push(root);
         while (pending.TryPop(out var directory))
         {
@@ -71,7 +72,7 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
                 await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                 using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
                 hash.AppendData(Encoding.UTF8.GetBytes("folderrewind/file/1\0"));
-                var buffer = new byte[65536]; long size = 0; int read;
+                buffer ??= new byte[65536]; long size = 0; int read;
                 while ((read = await input.ReadAsync(buffer, token).ConfigureAwait(false)) != 0) { hash.AppendData(buffer, 0, read); size += read; }
                 files.Add(relative, new(path, Convert.ToHexString(hash.GetHashAndReset()), size));
             }

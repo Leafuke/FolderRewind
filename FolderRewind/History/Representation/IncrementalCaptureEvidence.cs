@@ -64,6 +64,7 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
             throw new InvalidDataException("Candidate file directory differs from the captured boundary.");
         var prior = baseline?.Files.ToDictionary(f => f.RelativePath, StringComparer.Ordinal);
         var changed = capture.AddedFiles.Concat(capture.ModifiedFiles).ToHashSet(StringComparer.Ordinal);
+        byte[]? buffer = null;
         foreach (var (path, evidence) in expected)
         {
             token.ThrowIfCancellationRequested(); var file = actual[path];
@@ -77,7 +78,7 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
             }
             await using var stream = await view.OpenReadAsync(path, token);
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            var buffer = new byte[65536]; long length = 0; int count;
+            buffer ??= new byte[65536]; long length = 0; int count;
             while ((count = await stream.ReadAsync(buffer, token)) > 0)
             { length = checked(length + count); if (length > evidence.Length) throw new InvalidDataException("Materialized stream exceeded evidence."); hash.AppendData(buffer, 0, count); }
             if (length != evidence.Length || !StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(hash.GetHashAndReset()), evidence.Sha256))
@@ -120,6 +121,7 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
         var actual = view.Files.ToDictionary(f => ArtifactPathRules.NormalizeRelativePath(f.RelativePath), StringComparer.Ordinal);
         if (!Files.Select(f => f.RelativePath).ToHashSet(StringComparer.Ordinal).SetEquals(actual.Keys))
             throw new InvalidDataException("Restore directory differs from committed evidence.");
+        byte[]? buffer = null;
         foreach (var file in Files)
         {
             var declared = actual[file.RelativePath];
@@ -131,7 +133,7 @@ public sealed record IncrementalCaptureEvidence(int Schema, string ConfigId, Gui
             await using (var target = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true))
             {
                 using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-                var buffer = new byte[65536]; long size = 0; int count;
+                buffer ??= new byte[65536]; long size = 0; int count;
                 while ((count = await source.ReadAsync(buffer, token)) != 0)
                 {
                     size = checked(size + count); if (size > file.Length) throw new InvalidDataException("Restore stream exceeds evidence.");

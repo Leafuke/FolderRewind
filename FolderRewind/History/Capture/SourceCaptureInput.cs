@@ -166,6 +166,7 @@ public sealed class SourceCaptureReadLease : IDisposable, IVersionMetadataSource
                 foreach (var directory in copyDirectories)
                     Directory.CreateDirectory(ArtifactPathRules.ResolveUnderRoot(lease.SourcePath, directory));
             }
+            byte[]? buffer = null;
             foreach (var relative in selected.Order(StringComparer.Ordinal))
             {
                 token.ThrowIfCancellationRequested();
@@ -184,7 +185,7 @@ public sealed class SourceCaptureReadLease : IDisposable, IVersionMetadataSource
                         FileShare.ReadWrite, 65536, true))
                     await using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true))
                     {
-                        var buffer = new byte[65536]; long count = 0; int read;
+                        buffer ??= new byte[65536]; long count = 0; int read;
                         while ((read = await source.ReadAsync(buffer, token).ConfigureAwait(false)) != 0)
                         {
                             count = checked(count + read);
