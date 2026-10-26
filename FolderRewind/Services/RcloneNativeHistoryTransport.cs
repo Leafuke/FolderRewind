@@ -21,9 +21,9 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     private readonly TimeSpan _timeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 10, 86400));
     internal Func<CloudJobPhase, CancellationToken, Task>? ObserveJobPhase { get; set; }
     private string Append(params string[] parts) => CloudRemotePath.Append(context.RemoteRoot, parts);
-    private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key), CopyAsync, (path, maximum, token) => ReadBytesAsync(path, token, maximum), ObjectSizeAsync, DownloadBoundedAsync, TemporaryRoot);
+    private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key), CopyFileAsync, (path, maximum, token) => ReadBytesAsync(path, token, maximum), ObjectSizeAsync, DownloadBoundedAsync, TemporaryRoot);
     public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token) => Objects.HasVerifiedObjectAsync(key, size, sha256, token);
-    public Task UploadObjectAsync(string key, string path, long size, string sha256, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.UploadObjectAsync(key, path, size, sha256, budget, token);
+    public Task UploadObjectAsync(string key, string path, long size, string sha256, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.UploadObjectAsync(key, Path.GetFullPath(path), size, sha256, budget, token);
     public Task DownloadObjectAsync(string key, string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.DownloadObjectAsync(key, path, expectedLength, budget, token);
     private async Task<long?> ObjectSizeAsync(string remote, CancellationToken token)
     {
@@ -61,7 +61,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     public async Task UploadAsync(ReplicaId id, string localPath, CancellationToken token)
     {
         if (ObserveJobPhase is not null) await ObserveJobPhase(CloudJobPhase.Uploading, token).ConfigureAwait(false);
-        await CopyAsync(localPath, ReplicaRoot(id) + "/payload", true, token).ConfigureAwait(false);
+        await CopyFileAsync(Path.GetFullPath(localPath), ReplicaRoot(id) + "/payload", true, token).ConfigureAwait(false);
     }
     public async Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token)
     {
@@ -70,7 +70,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         var temporary = Path.Combine(work.Root, "payload");
         try
         {
-            await CopyAsync(ReplicaRoot(id) + "/payload", temporary, false, token).ConfigureAwait(false);
+            await CopyFileAsync(ReplicaRoot(id) + "/payload", temporary, false, token).ConfigureAwait(false);
             await using var file = File.OpenRead(temporary);
             return new(true, file.Length, Convert.ToHexString(await SHA256.HashDataAsync(file, token).ConfigureAwait(false)).ToLowerInvariant(), "");
         }
@@ -113,7 +113,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     }
     public Task DownloadAsync(HistoryReplicaManifest manifest, string stagingPath, CancellationToken token)
     {
-        if (manifest.ArtifactRootId is null) return CopyAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, false, token);
+        if (manifest.ArtifactRootId is null) return CopyFileAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, false, token);
         if (manifest.Size is < 1 or > 16 * 1024 * 1024) throw new InvalidDataException("Native descriptor exceeds its metadata budget.");
         return DownloadBoundedAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, manifest.Size,
             new FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget(16 * 1024 * 1024), token);
@@ -125,13 +125,21 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     }
     private Task<string> RunAsync(IReadOnlyList<string> arguments, CancellationToken token)
         => RcloneConnectionService.RunAsync(context.CreateStartInfo(arguments), _timeout, token);
-    private async Task CopyAsync(string source, string destination, bool immutable, CancellationToken token)
+    private async Task CopyFileAsync(string source, string destination, bool immutable, CancellationToken token)
     {
-        if (Path.IsPathFullyQualified(source) && PreviewStoragePaths.IsReserved(source))
-            throw new IOException(I18n.GetString("Preview_CloudWorkspaceRejected"));
-        // Defense in depth for directory payloads; preview trees never enter the replica catalog.
-        var arguments = new List<string> { "copyto", source, destination, "--exclude", PreviewStoragePaths.DirectoryName + "/**" };
-        if (immutable) arguments.Add("--immutable");
+        token.ThrowIfCancellationRequested();
+        if (Path.IsPathFullyQualified(source))
+        {
+            if (PreviewStoragePaths.IsReserved(source))
+                throw new IOException(I18n.GetString("Preview_CloudWorkspaceRejected"));
+            if ((File.GetAttributes(source) & FileAttributes.Directory) != 0)
+                throw new InvalidDataException(I18n.GetString("Cloud_SourceFileRequired"));
+        }
+        // 历史载荷、对象与元数据均是单文件；目录过滤器会使 rclone 拒绝单文件 copyto。
+        // 预览目录由 Host 在入口拒绝，目录同步的排除规则仍由对应的目录传输路径负责。
+        var arguments = new List<string> { "copyto", source, destination };
+        // copyto 的单文件路径不能仅依赖 --immutable；跳过已存在目标后仍由调用者核验内容。
+        if (immutable) { arguments.Add("--immutable"); arguments.Add("--ignore-existing"); }
         _ = await RunAsync(arguments, token).ConfigureAwait(false);
     }
     private async Task<byte[]> ReadBytesAsync(string remote, CancellationToken token, int maximumBytes = 64 * 1024 * 1024)
@@ -147,12 +155,10 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         try
         {
             await File.WriteAllBytesAsync(temporary, bytes, token).ConfigureAwait(false);
-            try { await CopyAsync(temporary, remote, true, token).ConfigureAwait(false); }
-            catch (RcloneProcessException)
-            {
-                var existing = await ReadBytesAsync(remote, token).ConfigureAwait(false);
-                if (!existing.AsSpan().SequenceEqual(bytes)) throw new IOException("Remote immutable history object differs.");
-            }
+            try { await CopyFileAsync(temporary, remote, true, token).ConfigureAwait(false); }
+            catch (RcloneProcessException) { /* 已发布的同内容事实允许幂等重试，以下回读决定结果。 */ }
+            var existing = await ReadBytesAsync(remote, token, bytes.Length).ConfigureAwait(false);
+            if (!existing.AsSpan().SequenceEqual(bytes)) throw new IOException("Remote immutable history object differs.");
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }

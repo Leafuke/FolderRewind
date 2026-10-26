@@ -7499,4 +7499,5 @@ Pull Request：{1}</value>
     <value>{0}：{1}</value>
   </data>
   <data name="BackupService_CommitUnknown" xml:space="preserve"><value>无法确认备份提交状态（{0}），已保留备份数据，需恢复后再继续。</value></data>
+  <data name="Cloud_SourceFileRequired" xml:space="preserve"><value>历史云传输仅接受单个文件，不能上传目录。</value></data>
 </root>

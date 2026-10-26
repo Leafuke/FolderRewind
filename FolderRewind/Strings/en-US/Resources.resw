@@ -7499,4 +7499,5 @@ Inspection and batch checking are separate. Decisions affect complete merge item
     <value>{0}: {1}</value>
   </data>
   <data name="BackupService_CommitUnknown" xml:space="preserve"><value>The backup commit status could not be confirmed ({0}). Backup data has been preserved; recovery is required before continuing.</value></data>
+  <data name="Cloud_SourceFileRequired" xml:space="preserve"><value>History cloud transfers require a single file; directories cannot be uploaded.</value></data>
 </root>
