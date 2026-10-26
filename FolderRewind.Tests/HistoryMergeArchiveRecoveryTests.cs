@@ -12,6 +12,54 @@ namespace FolderRewind.Tests;
 public sealed class HistoryMergeArchiveRecoveryTests
 {
     [TestMethod]
+    [DataRow("corrupt-workspace")]
+    [DataRow("foreign-workspace")]
+    [DataRow("unreadable-workspace")]
+    [DataRow("corrupt-pack")]
+    [DataRow("different-pack")]
+    [DataRow("unreadable-pack")]
+    public async Task UncertainEvidencePreservesAppliedTreeAndRecoveryJournal(string fault)
+    {
+        await using var fixture = new HistoryMergeArchiveFixture();
+        await fixture.SeedAsync();
+        var prepared = await fixture.Builder().BuildAsync(fixture.Session);
+        var workspacePath = Path.Combine(fixture.History.Repository.Paths.LocalStateRoot, "workspace.json");
+        var originalWorkspace = File.ReadAllBytes(workspacePath);
+        FileStream? held = null;
+        var restore = fixture.Restore(publisher: async (pack, token) =>
+        {
+            if (fault == "corrupt-workspace") File.WriteAllText(workspacePath, "damaged");
+            if (fault == "foreign-workspace") await fixture.History.WorkspaceStore.SaveAsync(
+                fixture.Before.WithSourceStates([fixture.Before.GetSourceState(fixture.Source) with { ContentRealizationId = Guid.NewGuid() }]),
+                fixture.Before.StateRevision);
+            if (fault == "unreadable-workspace") held = new FileStream(workspacePath, FileMode.Open, FileAccess.Read, FileShare.None);
+            if (fault.EndsWith("pack", StringComparison.Ordinal))
+            {
+                var path = fixture.History.Repository.Paths.GetPackPath(pack.PackId);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                var codec = new HistoryPackCodec();
+                File.WriteAllBytes(path, fault == "corrupt-pack" ? [1, 2, 3] : codec.Encode(fault == "different-pack"
+                    ? new HistoryCommitPack(pack.PackId, pack.TransactionId, pack.CreatedAtUtc.AddSeconds(1), pack.Objects) : pack));
+                if (fault == "unreadable-pack") held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+            }
+            throw new IOException("Injected evidence fault");
+        });
+        HistoryRestoreResult result;
+        try { result = await new HistoryMergeApplyService(fixture.History, restore, fixture.Builder(restore)).ApplyAsync(fixture.Session, ready: prepared); }
+        finally { held?.Dispose(); }
+        Assert.AreEqual(HistoryRestoreStatus.MutationFailedRecoveryRequired, result.Status, result.Diagnostic);
+        Assert.IsFalse(result.TargetCommitted); Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(fixture.Target, "b.txt")));
+        Assert.AreNotEqual(HistoryRestoreTransactionPhase.Complete, ReadJournal(fixture, prepared).Phase);
+        Assert.IsTrue(Directory.Exists(ReadJournal(fixture, prepared).RollbackSnapshots.Single().RollbackDirectory));
+        // Resolve only the injected evidence fault, then verify idempotent real recovery.
+        File.WriteAllBytes(workspacePath, originalWorkspace);
+        if (fault is "corrupt-pack" or "different-pack") File.Delete(fixture.History.Repository.Paths.GetPackPath(prepared.PackId));
+        for (int repeat = 0; repeat < 2; repeat++) await fixture.ReopenAsync();
+        Assert.AreEqual(fault == "unreadable-pack" ? "theirs-b" : "base-b", File.ReadAllText(Path.Combine(fixture.Target, "b.txt")));
+    }
+
+    [TestMethod]
     [DataRow("before-pack")]
     [DataRow("after-pack")]
     [DataRow("cleanup-failure")]

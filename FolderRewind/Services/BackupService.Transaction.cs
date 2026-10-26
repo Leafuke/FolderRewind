@@ -355,6 +355,35 @@ public static partial class BackupService
                     intent,
                     safetySnapshotIntent, invocationOptions.Protect).ConfigureAwait(false);
             }
+            catch (HistoryCommitOutcomeUnknownException ex)
+            {
+                var message = I18n.Format("BackupService_CommitUnknown", ex.IntendedPackId.ToString());
+                terminalLifecycle.Set(new BackupTerminalLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["result"] = "recovery_required", ["reason"] = "history_commit_unknown",
+                    ["history_recovery_required"] = "true", ["pack_id"] = ex.IntendedPackId.ToString()
+                }));
+                Log(message + ": " + ex.Message, LogLevel.Warning);
+                try
+                {
+                    await RunOnUIAsync(() =>
+                    {
+                        foreach (var folder in requestedFolders) folder.StatusText = message;
+                        foreach (var task in sourceOutcomes.Select(item => item.Task).OfType<BackupTask>())
+                        {
+                            task.Status = message; task.ErrorMessage = message;
+                            task.IsCompleted = true; task.IsIndeterminate = false; task.IsSuccess = false;
+                        }
+                    });
+                }
+                catch (Exception notification) { Log("Recovery notification failed: " + notification.Message, LogLevel.Warning); }
+                return new BackupTransactionExecutionResult
+                {
+                    Outcome = OperationOutcome.RecoveryRequired, SourceOutcomes = sourceOutcomes,
+                    CreatedNewArchive = sourceOutcomes.Any(item => item.CreatedNewArchive),
+                    HistoryRecoveryRequired = true, RecoveryMessage = message
+                };
+            }
             catch (HistoryCommitRecoveryRequiredException ex)
             {
                 // Pack 已落盘成为 durable 历史事实。Recovery warning 叠加在 Source 原结果之上。

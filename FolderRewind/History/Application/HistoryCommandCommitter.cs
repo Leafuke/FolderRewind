@@ -50,45 +50,57 @@ internal static class HistoryCommandCommitter
                     currentWorkspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision)
             ];
         var journal = HistoryTransactionJournal.Prepared(pack.TransactionId, pack.PackId, intents);
-        await runtime.Repository.CommitAsync(pack, journal, cancellationToken).ConfigureAwait(false);
-
         try
         {
-            var recovery = new HistoryLocalStateJournalRecovery(
-                runtime.WorkspaceStore,
-                runtime.LocalReplicaCatalogStore);
-            await recovery.ApplyCommittedStateAsync(journal, cancellationToken).ConfigureAwait(false);
-            runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.LocalStateApplied });
-            runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.Complete });
-        }
-        catch (Exception ex)
-        {
-            throw new HistoryCommitRecoveryRequiredException(
-                pack.PackId,
-                "History command facts are durable, but Workspace state requires journal recovery.",
-                ex);
-        }
+            await runtime.Repository.CommitAsync(pack, journal, cancellationToken).ConfigureAwait(false);
 
-        await runtime.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
-        bool indexRefreshSucceeded;
-        try
-        {
-            await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
-            indexRefreshSucceeded = true;
-        }
-        catch
-        {
-            indexRefreshSucceeded = false;
-        }
+            try
+            {
+                var recovery = new HistoryLocalStateJournalRecovery(
+                    runtime.WorkspaceStore,
+                    runtime.LocalReplicaCatalogStore);
+                await recovery.ApplyCommittedStateAsync(journal, cancellationToken).ConfigureAwait(false);
+                runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.LocalStateApplied });
+                runtime.Repository.Journals.Save(journal with { Phase = HistoryTransactionPhase.Complete });
+            }
+            catch (Exception ex)
+            {
+                throw new HistoryCommitRecoveryRequiredException(
+                    pack.PackId,
+                    "History command facts are durable, but Workspace state requires journal recovery.",
+                    ex);
+            }
 
-        runtime.ChangeFeed.Publish(
-            runtime.ConfigId,
-            HistoryChangeKind.TransactionCommitted,
-            objects.Select(item => item.Id));
-        if (updatedWorkspace is not null)
-        {
-            runtime.ChangeFeed.Publish(runtime.ConfigId, HistoryChangeKind.LocalStateChanged);
+            await runtime.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
+            bool indexRefreshSucceeded;
+            try
+            {
+                await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+                indexRefreshSucceeded = true;
+            }
+            catch
+            {
+                indexRefreshSucceeded = false;
+            }
+
+            runtime.ChangeFeed.Publish(
+                runtime.ConfigId,
+                HistoryChangeKind.TransactionCommitted,
+                objects.Select(item => item.Id));
+            if (updatedWorkspace is not null)
+            {
+                runtime.ChangeFeed.Publish(runtime.ConfigId, HistoryChangeKind.LocalStateChanged);
+            }
+            return new HistoryCommandCommitResult(pack, indexRefreshSucceeded);
         }
-        return new HistoryCommandCommitResult(pack, indexRefreshSucceeded);
+        catch (Exception error)
+        {
+            var evidence = HistoryCommitEvidence.Read(runtime.Repository.Paths, codec.Encode(pack));
+            if (evidence.State == HistoryCommitState.NotCommitted) throw;
+            if (evidence.State == HistoryCommitState.Committed)
+                throw new HistoryCommitRecoveryRequiredException(pack.PackId, "History command completion requires recovery.", error);
+            throw new HistoryCommitOutcomeUnknownException(pack.PackId,
+                evidence.Error is null ? error : new AggregateException(error, evidence.Error));
+        }
     }
 }

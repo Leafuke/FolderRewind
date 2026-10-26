@@ -186,13 +186,11 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 {
                     try
                     {
-                        var path = history.Repository.Paths.GetPackPath(prepared.PackId);
-                        if (File.Exists(path))
-                        {
-                            var pack = new HistoryPackCodec().Decode(File.ReadAllBytes(path)).Pack;
-                            if (pack.TransactionId == prepared.TransactionId)
-                                return new(HistoryRestoreStatus.CommittedRecoveryRequired, ex.Message, false, []);
-                        }
+                        var codec = new HistoryPackCodec();
+                        var intended = new HistoryCommitPack(prepared.PackId, prepared.TransactionId, prepared.Update.CreatedAtUtc,
+                            prepared.Facts.Select(codec.CreateObject));
+                        if (HistoryCommitEvidence.Read(history.Repository.Paths, codec.Encode(intended)).State == HistoryCommitState.Committed)
+                            return new(HistoryRestoreStatus.CommittedRecoveryRequired, ex.Message, false, []);
                     }
                     catch { /* 无法证明提交状态，保留 intent 并阻断后续 mutation。 */ }
                 }

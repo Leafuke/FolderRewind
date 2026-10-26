@@ -67,6 +67,11 @@ internal static class Program
                 var exe = Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z") ?? throw new InvalidOperationException("7-Zip path required.");
                 ConfigService.CurrentConfig.GlobalSettings.SevenZipPath = exe;
 #if !FOLDERREWIND_BENCHMARK_ONLY
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_HARDENING_ACCEPTANCE") == "commit")
+                {
+                    await CommitFailureAcceptance.RunAsync();
+                    Environment.Exit(0); return;
+                }
                 if (Environment.GetEnvironmentVariable("FOLDERREWIND_CAPTURE_INPUT_ACCEPTANCE") == "1")
                 {
                     await CaptureInputAcceptance.RunAsync();

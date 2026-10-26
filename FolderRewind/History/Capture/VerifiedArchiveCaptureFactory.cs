@@ -119,11 +119,15 @@ public static class VerifiedArchiveCaptureFactory
         return builder.ToImmutable();
     }
 
-    private sealed class DeleteUncommittedArchiveCleanupHandle(string path) : ICaptureCleanupHandle
+    private sealed class DeleteUncommittedArchiveCleanupHandle(string path) : ICaptureCleanupHandle, ICapturePublicationOwnership
     {
+        private int _publicationStarted;
+        public void BeginPublication() => Interlocked.Exchange(ref _publicationStarted, 1);
+        public void ConfirmNotCommitted() => Interlocked.Exchange(ref _publicationStarted, 0);
         public ValueTask CleanupAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (Volatile.Read(ref _publicationStarted) != 0) return ValueTask.CompletedTask;
             if (File.Exists(path))
             {
                 try { File.SetAttributes(path, FileAttributes.Normal); } catch { }

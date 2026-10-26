@@ -130,6 +130,13 @@ public interface ICaptureCleanupHandle
     ValueTask CleanupAsync(CancellationToken cancellationToken);
 }
 
+// Only the commit authority may reopen cleanup after a publication attempt.
+internal interface ICapturePublicationOwnership
+{
+    void BeginPublication();
+    void ConfirmNotCommitted();
+}
+
 public interface ICaptureCommitParticipant
 {
     Task PrepareCommitAsync(PackId packId, HistoryTransactionId transactionId, CancellationToken token);

@@ -190,12 +190,10 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
     public bool IsPackCommitted(HistoryRestoreTransactionJournal journal)
     {
         if (journal.IntendedPackBytes is null) return false;
-        var codec = new HistoryPackCodec(); var expected = codec.Decode(journal.IntendedPackBytes).Pack;
-        var path = _runtime.Repository.Paths.GetPackPath(expected.PackId);
-        if (!File.Exists(path)) return false;
-        var bytes = File.ReadAllBytes(path); _ = codec.Decode(bytes);
-        if (!bytes.AsSpan().SequenceEqual(journal.IntendedPackBytes)) throw new InvalidDataException("Durable Merge pack differs from transaction intent.");
-        return true;
+        var evidence = HistoryCommitEvidence.Read(_runtime.Repository.Paths, journal.IntendedPackBytes);
+        if (evidence.State == HistoryCommitState.Unknown)
+            throw new InvalidDataException("Merge publication could not be confirmed; preserve transaction data.", evidence.Error);
+        return evidence.State == HistoryCommitState.Committed;
     }
 
     internal string TransactionDirectory(HistoryTransactionId id) => Path.GetDirectoryName(GetPath(id))!;

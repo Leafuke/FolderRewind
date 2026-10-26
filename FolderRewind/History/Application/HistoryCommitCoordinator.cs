@@ -169,6 +169,12 @@ public sealed class HistoryCommitRecoveryRequiredException(
     public PackId CommittedPackId { get; } = committedPackId;
 }
 
+public sealed class HistoryCommitOutcomeUnknownException(PackId intendedPackId, Exception innerException)
+    : Exception("History publication could not be confirmed; preserve payloads and recover before retrying.", innerException)
+{
+    public PackId IntendedPackId { get; } = intendedPackId;
+}
+
 public sealed record HistoryBoundaryRecaptureRequirement(
     SourceId SourceId,
     string PreviousBoundaryFingerprint,
@@ -277,6 +283,7 @@ public sealed class HistoryCommitCoordinator
         }
 
         HistoryCommitPack? preparedPack = null;
+        bool publicationAttempted = false;
         await using var acquiredLease = lease;
         try
         {
@@ -336,6 +343,9 @@ public sealed class HistoryCommitCoordinator
                 batch.Pack.TransactionId,
                 batch.Pack.PackId,
                 intents);
+            foreach (var ownership in request.SourceCaptureResults.Select(c => c.CleanupHandle).OfType<ICapturePublicationOwnership>())
+                ownership.BeginPublication();
+            publicationAttempted = true;
             await _runtime.Repository.CommitAsync(batch.Pack, journal, cancellationToken).ConfigureAwait(false);
             var recovery = new HistoryLocalStateJournalRecovery(
                 _runtime.WorkspaceStore,
@@ -386,15 +396,23 @@ public sealed class HistoryCommitCoordinator
 
             return batch with { IndexRefreshSucceeded = indexRefreshSucceeded };
         }
-        catch
+        catch (Exception error)
         {
-            bool packIsDurable = preparedPack is not null
-                && File.Exists(_runtime.Repository.Paths.GetPackPath(preparedPack.PackId));
-            if (!packIsDurable)
+            var evidence = publicationAttempted
+                ? HistoryCommitEvidence.Read(_runtime.Repository.Paths, _codec.Encode(preparedPack!))
+                : new HistoryCommitEvidence(HistoryCommitState.NotCommitted);
+            if (evidence.State == HistoryCommitState.NotCommitted)
             {
+                foreach (var ownership in request.SourceCaptureResults.Select(c => c.CleanupHandle).OfType<ICapturePublicationOwnership>())
+                    ownership.ConfirmNotCommitted();
                 await CleanupUncommittedCaptureAsync(request.SourceCaptureResults).ConfigureAwait(false);
+                throw;
             }
-            throw;
+            if (evidence.State == HistoryCommitState.Committed)
+                throw new HistoryCommitRecoveryRequiredException(preparedPack!.PackId,
+                    "History facts are durable, but completion requires recovery.", error);
+            throw new HistoryCommitOutcomeUnknownException(preparedPack!.PackId,
+                evidence.Error is null ? error : new AggregateException(error, evidence.Error));
         }
         finally
         {

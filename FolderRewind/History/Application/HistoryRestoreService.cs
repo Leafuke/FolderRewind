@@ -566,9 +566,13 @@ public sealed partial class HistoryRestoreService
             ReleaseReads();
             if (commitPack is not null)
             {
+                var evidence = HistoryCommitEvidence.Read(_history.Repository.Paths, journal.IntendedPackBytes!);
+                if (evidence.State == HistoryCommitState.Unknown)
+                    return new(HistoryRestoreStatus.MutationFailedRecoveryRequired,
+                        $"Merge publication could not be confirmed; preserve transaction data: {evidence.Error?.Message}", false, applied.ToImmutableArray());
                 try
                 {
-                    if (_journals.IsPackCommitted(journal))
+                    if (evidence.State == HistoryCommitState.Committed)
                     {
                         await _journals.CompleteLocalStateAsync(journal, CancellationToken.None).ConfigureAwait(false);
                         return await CompleteCommittedAsync(journal, snapshots, applied).ConfigureAwait(false);
@@ -581,7 +585,7 @@ public sealed partial class HistoryRestoreService
                 }
             }
             var workspaceLoad = await _history.WorkspaceStore.LoadAsync(CancellationToken.None).ConfigureAwait(false);
-            if (workspaceLoad.Value is not null
+            if (commitPack is null && workspaceLoad.Value is not null
                 && HistoryRestoreTransactionJournalStore.WorkspaceEquals(workspaceLoad.Value, desiredWorkspace))
             {
                 var committed = await CompleteCommittedAsync(journal, snapshots, applied).ConfigureAwait(false);
@@ -593,6 +597,11 @@ public sealed partial class HistoryRestoreService
                         : committed.Diagnostic
                 };
             }
+
+            if (workspaceLoad.Value is null
+                || !HistoryRestoreTransactionJournalStore.WorkspaceEquals(workspaceLoad.Value, currentWorkspace))
+                return new(HistoryRestoreStatus.MutationFailedRecoveryRequired,
+                    $"Uncommitted restore Workspace cannot be confirmed; preserve transaction data: {ex.Message}", false, applied.ToImmutableArray());
 
             bool rollbackFailed = false;
             foreach (var snapshot in snapshots.Where(s => journal.StartedSources.Contains(s.SourceId)).Reverse())

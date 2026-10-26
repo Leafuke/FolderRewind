@@ -7498,4 +7498,5 @@ Inspection and batch checking are separate. Decisions affect complete merge item
   <data name="Filter_RuleSummary" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="BackupService_CommitUnknown" xml:space="preserve"><value>The backup commit status could not be confirmed ({0}). Backup data has been preserved; recovery is required before continuing.</value></data>
 </root>
