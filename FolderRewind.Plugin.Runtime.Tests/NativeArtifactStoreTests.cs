@@ -15,6 +15,21 @@ public sealed class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    public async Task DiscardedCandidateRemovesOnlyItsOwnSealedNodesAndPayloads()
+    {
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        var original = (await store.Ledger.LoadAsync()).Artifacts;
+        await fixture.CaptureAsync(discardPrepared: true);
+        CollectionAssert.AreEquivalent(original.Select(n => n.ArtifactId).ToArray(),
+            (await store.Ledger.LoadAsync()).Artifacts.Select(n => n.ArtifactId).ToArray());
+        Assert.HasCount(original.Count, Directory.GetDirectories(Path.Combine(store.Root, "artifacts")));
+        Assert.IsEmpty(store.Pending());
+        await using var read = await store.OpenAsync(root, default);
+        Assert.HasCount(original.Count, read.Artifacts);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task LogicalMismatchOrCancellationReleasesDecodedProtectionAndAllowsRetry(bool cancel)
@@ -407,7 +422,7 @@ public sealed class NativeArtifactStoreTests
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeArtifactTests", Guid.NewGuid().ToString("N"));
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
-            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false, bool borrowedOperation = false)
+            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false, bool borrowedOperation = false, bool discardPrepared = false)
         {
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
@@ -433,6 +448,7 @@ public sealed class NativeArtifactStoreTests
             await using (prepared)
             {
             await prepared.SealAndCommitGraphAsync(default);
+            if (discardPrepared) { await prepared.DiscardUncommittedAsync(default); return (store, capturedRoot); }
             if (transferPendingOwnership) prepared.TransferPendingOwnership();
             if (validatePrepared)
             {

@@ -412,7 +412,7 @@ namespace FolderRewind.Services
             string[] preservePaths;
             try { preservePaths = RestorePreservePaths.Normalize(request.GetRestorePreservePaths()); }
             catch (Exception ex) { return $"ERROR:invalid_preserve_path:{ex.Message}"; }
-            try { PathRuleMatcher.ValidateRestoreRules(config!.Filters.RestoreWhitelist.Concat(restoreWhitelist)); }
+            try { PathRuleMatcher.ValidateRules(config!.Filters.RestoreWhitelist.Concat(restoreWhitelist.Select(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy)), restore: true); }
             catch (Exception ex) { return $"ERROR:invalid_filter_rule:{ex.Message}"; }
             var options = new FolderRewind.Plugin.Abstractions.RestoreRequestOptions
             {

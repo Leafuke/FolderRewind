@@ -205,12 +205,21 @@ public sealed partial class NativeArtifactStore
                 new CombinedArtifactReadService(handle, primaryRead, baselineRead?.Read), staging, NullPluginOperationProgress.Instance)
             { IncrementalInput = incrementalInput, ReadableArtifacts = baselineRead?.Artifacts ?? [] };
             ArtifactTransformResult result;
-            using (ArtifactDiagnostics.Source.StartActivity("transform"))
-                result = await transformer.TransformAsync(request, lease.Context);
+            try
+            {
+                using (ArtifactDiagnostics.Source.StartActivity("transform"))
+                    result = await transformer.TransformAsync(request, lease.Context);
+            }
+            catch (Exception error) when (ArtifactCaptureTransformException.IsDomainFailure(error))
+            { throw new ArtifactCaptureTransformException("Native source conversion failed.", error); }
             lease.Context.OperationCancellation.ThrowIfCancellationRequested();
+            if (result.Outcome == OperationOutcome.Canceled)
+                throw new OperationCanceledException("Native conversion was canceled.");
+            if (result.Outcome is OperationOutcome.Blocked or OperationOutcome.RecoveryRequired or OperationOutcome.CommittedRecoveryRequired)
+                throw new InvalidOperationException("Native conversion cannot proceed: " + result.Outcome);
             if (result.Outcome is not (OperationOutcome.Success or OperationOutcome.SuccessWithWarnings) || result.Patch is null
                 || result.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
-                throw new InvalidDataException("Transformer did not produce a successful patch.");
+                throw new ArtifactCaptureTransformException("Transformer did not produce a successful patch.");
             foreach (var node in result.Patch.AddedArtifacts)
             {
                 if (!manifest.ArtifactFormats.Any(f => f.Format == node.Format && f.MinimumVersion <= node.FormatVersion && f.MaximumVersion >= node.FormatVersion)
@@ -462,6 +471,11 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
         => _store.OpenWithoutGateAsync(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }), token);
     public NativeArtifactReadLease OpenLazy()
         => _store.OpenLazyWithoutGate(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }), _verifiedDirectories, _baselineRead);
+    public Task DiscardUncommittedAsync(CancellationToken token)
+    {
+        if (_historyOwnsIntent) throw new InvalidOperationException("History already owns this capture.");
+        return _store.DiscardPreparedArtifactsAsync(_before, Intent, token);
+    }
     public async ValueTask DisposeAsync()
     {
         try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); await _staging.DisposeAsync(); }

@@ -312,7 +312,7 @@ internal static class StageTwoAcceptance
         Directory.CreateSymbolicLink(Path.Combine(folder.Path, "cache"), outside);
         File.WriteAllText(Path.Combine(folder.Path, "missing-from-backup.txt"), "current player contents");
         File.WriteAllText(Path.Combine(folder.Path, "keep.txt"), "current changed existing file");
-        config.Filters.RestoreWhitelist.Add("missing-from-backup.txt"); config.Archive.BackupBeforeRestore = false;
+        config.Filters.RestoreWhitelist.Add(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy("missing-from-backup.txt")); config.Archive.BackupBeforeRestore = false;
         await SaveAsync();
         var measured = await MeasureAsync(history, "preserve", () => InvokeAsync<HistoryRestoreResult>("RestoreVersionAsync", config, folder,
             baseline, BackupService.RestoreMode.Clean, CancellationToken.None));
@@ -450,8 +450,8 @@ internal static class StageTwoAcceptance
             config.Archive.Method = archiveFormat == "zip" ? "Deflate" : "LZMA2";
         }
         config.Archive.RestorePreflightMode = grade == BackupArchiveVerificationLevel.Strict ? RestoreArchivePreflightMode.Strict : RestoreArchivePreflightMode.Balanced;
-        if (excludeCache) config.Filters.Blacklist.Add("cache");
-        if (absoluteExclusion) config.Filters.Blacklist.Add(Path.Combine(source, "cache"));
+        if (excludeCache) config.Filters.Blacklist.Add(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy("cache"));
+        if (absoluteExclusion) config.Filters.Blacklist.Add(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy(Path.Combine(source, "cache")));
         ConfigService.CurrentConfig.BackupConfigs.Add(config); await SaveAsync();
         Require((await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal())).CreatedNewArchive, "Initial real Host backup failed.");
         return (config, folder);

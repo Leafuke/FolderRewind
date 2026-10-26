@@ -12,9 +12,11 @@ namespace FolderRewind.Services;
 internal static class RestoreWhitelistPreparation
 {
     public static async Task<IReadOnlyList<RestoreStagedFileProposal>> PrepareAsync(IRestoreSourceView current,
-        IRestoreSourceView target, IEnumerable<string> rules, string comparisonRoot, CancellationToken token)
+        IRestoreSourceView target, IEnumerable<PathFilterRule> rules, string comparisonRoot, CancellationToken token, bool useRegex = false)
     {
-        var matcher = PathRuleMatcher.CreateForRestore(rules, comparisonRoot);
+        var activeRules = rules.Where(rule => !string.IsNullOrWhiteSpace(rule.Pattern)).ToArray();
+        if (activeRules.Length == 0) return [];
+        var matcher = PathRuleMatcher.CreateForRestoreRules(activeRules, comparisonRoot, useRegex);
         var targetPaths = new HashSet<string>(target.RelativePaths, StringComparer.OrdinalIgnoreCase);
         var proposals = new List<RestoreStagedFileProposal>();
         long bytes = 0;

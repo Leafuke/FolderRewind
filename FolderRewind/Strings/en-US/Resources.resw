@@ -1117,7 +1117,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Add</value>
   </data>
   <data name="ConfigSettingsDialog_UseRegex.Content" xml:space="preserve">
-    <value>Treat blacklist entries as regex</value>
+    <value>Enable regular expressions prefixed with regex:</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelist.Text" xml:space="preserve">
     <value>Restore whitelist</value>
@@ -7212,7 +7212,7 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="OperationDiagnostic_RestoreMultipleWorlds" xml:space="preserve"><value>Several affected worlds are in use, so restore cannot be coordinated safely. Exit those worlds and try again.</value></data>
   <data name="OperationDiagnostic_RestoreCoordinationFailed" xml:space="preserve"><value>World restore coordination failed. Review the original error in the logs and check the game state and integration connection.</value></data>
   <data name="OperationDiagnostic_RestoreRejoinFailed" xml:space="preserve"><value>The game could not rejoin the world automatically. Check the restore result before joining manually.</value></data>
-  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>World files are in use and a game save could not be coordinated. A best-effort copy was captured, but it may span multiple saves. Exit the world and back up again, or check integration.</value></data>
+  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>The world activity lock is in use and a game save could not be coordinated. The backup may span multiple saves. See the log for the lock path and coordination status.</value></data>
   <data name="OperationDiagnostic_ConsistencyHandshakeUnavailable" xml:space="preserve"><value>A compatible mod did not answer the backup handshake, so a game save could not be confirmed. Check integration or exit the world and back up again.</value></data>
   <data name="OperationDiagnostic_ConsistencySaveTimeout" xml:space="preserve"><value>Timed out waiting for the game to confirm saving. Backup consistency is unconfirmed. Exit the world and back up again.</value></data>
   <data name="OperationDiagnostic_ConsistencyCoordinationFailed" xml:space="preserve"><value>Game-save coordination failed before backup. Backup continued on a best-effort basis. Review the logs and back up again after exiting the world.</value></data>
@@ -7475,4 +7475,27 @@ Inspection and batch checking are separate. Decisions affect complete merge item
   <data name="SpatialWorkspace_Ready_Compare" xml:space="preserve"><value>Read-only comparison · Drag to pan, wheel to zoom.</value></data>
   <data name="SpatialWorkspace_Ready_Merge" xml:space="preserve"><value>Inspect unresolved items or select an area for batch decisions.</value></data>
   <data name="SpatialWorkspace_Ready_Scope" xml:space="preserve"><value>Add or remove areas, then preview the effective backup scope.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SourceReadMode.Header" xml:space="preserve"><value>Source file reading</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SourceReadMode.Description" xml:space="preserve"><value>Automatic prefers direct reading and copies required Native input on file sharing conflicts. Copies need temporary space. Direct only fails if Native cannot protect an input file.</value></data>
+  <data name="ConfigSettingsDialog_SourceReadMode_CardInput.AutomationProperties.Name" xml:space="preserve"><value>Source file reading</value></data>
+  <data name="ConfigSettingsDialog_SourceReadAutomatic.Content" xml:space="preserve"><value>Automatic (recommended)</value></data>
+  <data name="ConfigSettingsDialog_SourceReadAlwaysCopy.Content" xml:space="preserve"><value>Always copy</value></data>
+  <data name="ConfigSettingsDialog_SourceReadDirectOnly.Content" xml:space="preserve"><value>Direct only</value></data>
+  <data name="BackupSourceView_PluginUpgradeRequired" xml:space="preserve"><value>This plugin cannot let the Host manage backup input. Update the plugin and try again.</value></data>
+  <data name="BackupSourceView_InputFailed" xml:space="preserve"><value>Could not prepare backup input: {0}. Backup stopped. Check file use, permissions, and available space, then retry. Details: {1}</value></data>
+  <data name="Filter_TargetAny.Content" xml:space="preserve">
+    <value>Files and folders</value>
+  </data>
+  <data name="Filter_TargetFile.Content" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Filter_TargetDirectory.Content" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="Filter_RuleHelp.Text" xml:space="preserve">
+    <value>File rules match files only; folder rules include descendants. Names match at any depth; ./ anchors to the source root. * stays in one level; ** spans levels. Unedited older rules keep their original matching behavior.</value>
+  </data>
+  <data name="Filter_RuleSummary" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
 </root>

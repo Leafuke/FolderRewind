@@ -10,6 +10,7 @@ namespace FolderRewind.History.Storage;
 internal sealed class HistoryWorkingTreeReadLease : IDisposable
 {
     private readonly HistoryRestoreSourceBinding _binding;
+    private readonly string _requestedRoot;
     private readonly Dictionary<string, (RestoreObjectIdentity Id, FileStream Stream)> _files = new(StringComparer.Ordinal);
     private readonly Dictionary<string, RestoreObjectIdentity> _directories = new(StringComparer.Ordinal);
     private readonly WindowsPhysicalDirectoryLease? _parents;
@@ -18,6 +19,7 @@ internal sealed class HistoryWorkingTreeReadLease : IDisposable
     internal HistoryWorkingTreeReadLease(HistoryRestoreSourceBinding binding)
     {
         _root = binding.TargetDirectory;
+        _requestedRoot = Path.GetFullPath(binding.TargetDirectory);
         _binding = binding;
         try { _parents = new WindowsPhysicalDirectoryLease(binding.TargetDirectory); }
         catch (FileNotFoundException) { return; }
@@ -64,6 +66,9 @@ internal sealed class HistoryWorkingTreeReadLease : IDisposable
             || WindowsRestoreFileSystem.Identity(path) != known)) throw new IOException("Current directories changed during Quick restore preparation.");
     }
     internal string PhysicalRoot => _root;
+    internal bool Matches(HistoryRestoreSourceBinding binding) => !_disposed
+        && _binding.SourceId == binding.SourceId && _binding.Boundary.Fingerprint == binding.Boundary.Fingerprint
+        && StringComparer.OrdinalIgnoreCase.Equals(_requestedRoot, Path.GetFullPath(binding.TargetDirectory));
     private IEnumerable<RestoreTreeEntry> TrackedEntries()
     {
         var scope = new HistoryRestoreTreeScope(_binding);

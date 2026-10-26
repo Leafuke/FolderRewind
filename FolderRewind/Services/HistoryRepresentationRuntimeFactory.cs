@@ -34,7 +34,8 @@ internal static class HistoryRepresentationRuntimeFactory
             new CoreArchiveRepresentationHandler(context.Archive),
             new SmartDeltaRepresentationHandler(context.Archive),
             Plugins.V3.NativeArtifactHostService.Handler(context.Snapshot, context.History,
-                context.ArtifactStore, context.IsNativeRegistered)
+                context.ArtifactStore, context.IsNativeRegistered,
+                context.Archive is IArchiveRestorePreflightBackend preflight ? () => preflight.InputPolicyIdentity : null)
         ]);
     }
 }

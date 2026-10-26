@@ -38,11 +38,13 @@ public static class BackupSourceFileEnumerator
     // Capture builds a dictionary and does not need an intermediate sorted list.
     internal static IEnumerable<BackupSourceFile> EnumerateUnordered(
         string sourceRoot, BackupSourceScope? sourceScope,
-        Func<string, bool>? additionalFilter = null, CancellationToken cancellationToken = default)
+        Func<string, bool>? additionalFilter = null, CancellationToken cancellationToken = default, bool requireComplete = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceRoot);
         cancellationToken.ThrowIfCancellationRequested();
         var root = Path.GetFullPath(sourceRoot);
+        if (requireComplete && (File.GetAttributes(root) & FileAttributes.Directory) == 0)
+            throw new IOException("Capture source is not a directory: " + root);
         if (!Directory.Exists(root) || PreviewStoragePaths.IsReserved(root))
         {
             yield break;
@@ -55,7 +57,7 @@ public static class BackupSourceFileEnumerator
         var options = new EnumerationOptions
         {
             RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
+            IgnoreInaccessible = !requireComplete,
             AttributesToSkip = FileAttributes.System | FileAttributes.ReparsePoint,
             ReturnSpecialDirectories = false
         };
@@ -72,8 +74,8 @@ public static class BackupSourceFileEnumerator
                     LastWriteTimeUtc = entry.LastWriteTimeUtc.UtcDateTime
                 };
             }
-            catch (IOException) { return null; }
-            catch (UnauthorizedAccessException) { return null; }
+            catch (IOException) when (!requireComplete) { return null; }
+            catch (UnauthorizedAccessException) when (!requireComplete) { return null; }
         }, options)
         {
             ShouldIncludePredicate = (ref FileSystemEntry entry) => !entry.IsDirectory,

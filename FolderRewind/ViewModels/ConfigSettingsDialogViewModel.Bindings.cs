@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using System.Collections.ObjectModel;
+using FolderRewind.Plugin.Abstractions;
 using System;
 
 namespace FolderRewind.ViewModels;
@@ -17,6 +18,11 @@ public sealed partial class ConfigSettingsDialogViewModel
     public int KeepCount { get => _archive.KeepCount; set => _archive.KeepCount = value; }
     public int MaxSmartBackupsPerFull { get => _archive.MaxSmartBackupsPerFull; set => _archive.MaxSmartBackupsPerFull = value; }
     public bool SkipIfUnchanged { get => _archive.SkipIfUnchanged; set => _archive.SkipIfUnchanged = value; }
+    public int SourceReadModeSelectedIndex
+    {
+        get => (int)_archive.SourceReadMode;
+        set { if (value is >= 0 and <= 2) { _archive.SourceReadMode = (BackupSourceReadMode)value; OnPropertyChanged(); } }
+    }
     public bool FileTypeHandlingEnabled { get => _archive.FileTypeHandlingEnabled; set => _archive.FileTypeHandlingEnabled = value; }
     public ObservableCollection<FileTypeRule> FileTypeRules => _archive.FileTypeRules;
     public bool BackupBeforeRestore { get => _archive.BackupBeforeRestore; set => _archive.BackupBeforeRestore = value; }
@@ -52,7 +58,7 @@ public sealed partial class ConfigSettingsDialogViewModel
         }
     }
 
-    public ObservableCollection<string> RestoreWhitelist => _filters.RestoreWhitelist;
-    public ObservableCollection<string> Blacklist => _filters.Blacklist;
-    public ObservableCollection<string> BackupWhitelist => _filters.BackupWhitelist;
+    public ObservableCollection<PathFilterRule> RestoreWhitelist => _filters.RestoreWhitelist;
+    public ObservableCollection<PathFilterRule> Blacklist => _filters.Blacklist;
+    public ObservableCollection<PathFilterRule> BackupWhitelist => _filters.BackupWhitelist;
 }

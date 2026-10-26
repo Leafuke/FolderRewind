@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Services;
 
@@ -260,6 +261,7 @@ internal static class ConfigSnapshotMapper
         KeepCount = value.KeepCount,
         Mode = value.Mode,
         SkipIfUnchanged = value.SkipIfUnchanged,
+        SourceReadMode = value.SourceReadMode,
         CpuThreads = value.CpuThreads,
         BackupBeforeRestore = value.BackupBeforeRestore,
         SafeRestoreEnabled = value.SafeRestoreEnabled,
@@ -297,11 +299,11 @@ internal static class ConfigSnapshotMapper
 
     public static FilterSettings Copy(FilterSettings? value) => value is null ? null! : new FilterSettings
     {
-        Blacklist = value.Blacklist is null ? null! : new ObservableCollection<string>(value.Blacklist.Select(item0 => item0)),
+        Blacklist = value.Blacklist is null ? null! : new ObservableCollection<PathFilterRule>(value.Blacklist),
         BackupFilterMode = value.BackupFilterMode,
-        BackupWhitelist = value.BackupWhitelist is null ? null! : new ObservableCollection<string>(value.BackupWhitelist.Select(item0 => item0)),
+        BackupWhitelist = value.BackupWhitelist is null ? null! : new ObservableCollection<PathFilterRule>(value.BackupWhitelist),
         UseRegex = value.UseRegex,
-        RestoreWhitelist = value.RestoreWhitelist is null ? null! : new ObservableCollection<string>(value.RestoreWhitelist.Select(item0 => item0)),
+        RestoreWhitelist = value.RestoreWhitelist is null ? null! : new ObservableCollection<PathFilterRule>(value.RestoreWhitelist),
         SchemaExtensions = value.SchemaExtensions is null ? null! : value.SchemaExtensions.ToDictionary(pair0 => pair0.Key, pair0 => pair0.Value.Clone(), value.SchemaExtensions.Comparer),
     };
 

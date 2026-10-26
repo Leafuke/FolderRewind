@@ -3,6 +3,7 @@ using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Tests;
 
@@ -190,15 +191,22 @@ public sealed class HistoryMergeTests
     {
         var values = new FolderRewind.Services.GuardedDictionary<string>(); values.Add("key", "original");
         var list = new FolderRewind.Services.GuardedObservableCollection<string>(["original"]);
-        using (FolderRewind.Services.ConfigMutationProtection.Freeze([values, list]))
+        var rule = PathFilterRule.Legacy("session.lock");
+        var typedRules = new FolderRewind.Services.GuardedObservableCollection<PathFilterRule>([rule]);
+        using (FolderRewind.Services.ConfigMutationProtection.Freeze([values, list, typedRules]))
         {
             Assert.ThrowsExactly<InvalidOperationException>(() => values["key"] = "changed");
             Assert.ThrowsExactly<InvalidOperationException>(() => values.Clear());
             Assert.ThrowsExactly<InvalidOperationException>(() => list.RemoveAt(0));
             Assert.ThrowsExactly<InvalidOperationException>(() => list[0] = "changed");
+            Assert.ThrowsExactly<InvalidOperationException>(() => typedRules[0] = new("session.lock", PathFilterTarget.File));
+            Assert.ThrowsExactly<InvalidOperationException>(() => typedRules.Add(new("cache", PathFilterTarget.Directory)));
         }
         values["key"] = "changed"; list.Clear();
+        typedRules[0] = new("session.lock", PathFilterTarget.File);
         Assert.AreEqual("changed", values["key"]); Assert.IsEmpty(list);
+        Assert.AreEqual(1, rule.SemanticsVersion, "Replacing a rule must not mutate a frozen snapshot's record.");
+        Assert.AreEqual(PathFilterTarget.File, typedRules[0].Target);
     }
 
     [TestMethod]

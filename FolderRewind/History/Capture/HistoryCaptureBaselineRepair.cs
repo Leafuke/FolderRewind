@@ -43,25 +43,44 @@ public static class HistoryCaptureBaselineRepair
         var graph = await history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
         var catalog = (await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         var environment = new RepresentationEnvironment(catalog?.Entries ?? [], [], []);
+        using var verification = new ArchiveRestoreVerificationContext(Models.RestoreArchivePreflightMode.Strict);
         var assessment = await engine.AssessVersionAsync(versionId, graph, environment, AssessmentDepth.Deep,
-            MaterializationFidelity.Exact, token).ConfigureAwait(false);
+            MaterializationFidelity.Exact, token, verification).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected?.SelectedLocalPath is not { } path) return null;
         var representation = graph.Single(r => r.RepresentationId == assessment.Selected.RepresentationId);
         var version = await history.Query.GetVersionAsync(versionId, token).ConfigureAwait(false);
         if (version is null || version.BoundaryConfidence != HistoricalBoundaryConfidence.Known) return null;
-        using var held = await engine.LockExactVersionAsync(versionId, graph, environment, token).ConfigureAwait(false);
+        using var held = await engine.LockExactVersionAsync(versionId, graph, environment, token, verification).ConfigureAwait(false);
         var staging = Path.Combine(history.Repository.Paths.TransactionsRoot, "baseline-" + Guid.NewGuid().ToString("N"));
         try
         {
             await engine.MaterializeAsync(representation.RepresentationId, graph, environment, MaterializationFidelity.Exact, staging, token, held.VerificationContext).ConfigureAwait(false);
-            var tree = await HistoryRewriteTree.ReadAsync(staging, token).ConfigureAwait(false);
             var existing = await history.CaptureBaselines.LoadAsync(source, token).ConfigureAwait(false);
-            var files = tree.Files.ToImmutableSortedDictionary(p => p.Key, p => new SourceCaptureFileState(p.Value.Length, p.Value.LastWriteUtc), StringComparer.Ordinal);
+            var files = ReadMetadata(staging, token);
             await history.CaptureBaselines.SaveAsync(source, new(existing?.Revision ?? -1, path,
                 HistoryChainRewriteExecutor.DeltaDepth(representation.RepresentationId, graph.ToDictionary(r => r.RepresentationId)),
                 files, version.EffectiveSourceBoundaryFingerprint), versionId, representation, token).ConfigureAwait(false);
             return await history.CaptureBaselines.LoadAsync(source, token).ConfigureAwait(false);
         }
         finally { new HistoryChainRewriteJournalStore(history).CleanupOwnedTree(staging); }
+    }
+
+    // Core baseline stores statistics, not a content witness. Preserve structural checks without hashing discarded bytes.
+    internal static ImmutableSortedDictionary<string, SourceCaptureFileState> ReadMetadata(string root, CancellationToken token)
+    {
+        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) throw new IOException("Baseline root cannot be a filesystem alias.");
+        var files = ImmutableSortedDictionary.CreateBuilder<string, SourceCaptureFileState>(StringComparer.Ordinal);
+        var directories = SourceDirectorySnapshot.Read(root, _ => true, [], token, enforceLimits: false);
+        foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            token.ThrowIfCancellationRequested();
+            var info = new FileInfo(path);
+            if ((info.Attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("Baseline input contains a filesystem alias.");
+            var relative = Plugin.Runtime.Artifacts.ArtifactPathRules.NormalizeRelativePath(Path.GetRelativePath(root, path).Replace('\\', '/'));
+            files.Add(relative, new(info.Length, info.LastWriteTimeUtc));
+        }
+        SourceDirectorySnapshot.Validate(directories, files.Keys, enforceLimits: false);
+        Services.HistoryOperationDiagnostics.Current?.Count("baseline-metadata-files", files.Count);
+        return files.ToImmutable();
     }
 }

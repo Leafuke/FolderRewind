@@ -29,7 +29,10 @@ public enum MergeBoundaryFilter { Blacklist = 0, Whitelist = 1 }
 
 /// <summary>Exact inputs are complete relative to this boundary, not necessarily to a physical source directory.</summary>
 public sealed record MergeInputBoundary(int SchemaVersion, MergeBoundaryScope Scope, IReadOnlyList<string> ScopeRules,
-    MergeBoundaryFilter Filter, IReadOnlyList<string> FilterRules, bool UseRegex, string Fingerprint);
+    MergeBoundaryFilter Filter, IReadOnlyList<string> FilterRules, bool UseRegex, string Fingerprint)
+{
+    public IReadOnlyList<PathFilterRule> TypedFilterRules { get; init; } = Array.Empty<PathFilterRule>();
+}
 
 /// <summary>Digest is a Host-defined content identity, not necessarily a raw SHA-256 digest.</summary>
 public sealed record MergeInputEntry(string RelativePath, bool IsDirectory, long Length, string Digest);

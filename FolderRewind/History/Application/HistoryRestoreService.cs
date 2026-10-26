@@ -397,9 +397,11 @@ public sealed partial class HistoryRestoreService
         try
         {
             await _representations.MaterializeAsync(lease.RepresentationId, representations, environment, MaterializationFidelity.Exact, staging, token, lease.VerificationContext).ConfigureAwait(false);
-            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(version.SourceId, staging, version.EffectiveSourceBoundary)
-                { LogicalDirectory = version.SourceDescriptorSnapshot.PathHint });
-            if ((await Merge.MergeTreeManifest.ReadAsync(staging, include, token).ConfigureAwait(false)).Digest != expectedDigest)
+            var binding = new HistoryRestoreSourceBinding(version.SourceId, staging, version.EffectiveSourceBoundary)
+                { LogicalDirectory = version.SourceDescriptorSnapshot.PathHint };
+            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
+            if ((await Merge.MergeTreeManifest.ReadAsync(staging, include, token,
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false)).Digest != expectedDigest)
                 throw new IOException("Exact representation no longer matches the fixed Merge input.");
             return lease;
         }
@@ -478,7 +480,8 @@ public sealed partial class HistoryRestoreService
                 var snapshot = snapshots.Single(s => s.SourceId == item.Binding.SourceId);
                 var tree = snapshot.HadOriginalTarget
                     ? await Merge.MergeTreeManifest.ReadAsync(snapshot.RollbackDirectory,
-                        FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding), cancellationToken).ConfigureAwait(false)
+                        FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding), cancellationToken,
+                        FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding, isDirectory: true)).ConfigureAwait(false)
                     : Merge.MergeTreeManifest.Empty;
                 if (tree.Digest != item.ExpectedOriginalTreeDigest) throw new IOException("Working files changed after protection and before mutation.");
             }
@@ -540,7 +543,8 @@ public sealed partial class HistoryRestoreService
                         || !StringComparer.Ordinal.Equals(path.Replace('\\', '/'), snapshot.NewTargetOwnershipMarker))
                     && boundary(path);
                 if ((await Merge.MergeTreeManifest.ReadAsync(item.Binding.TargetDirectory,
-                    IncludeResult, cancellationToken).ConfigureAwait(false)).Digest != item.ExpectedResultTreeDigest)
+                    IncludeResult, cancellationToken,
+                    FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding, isDirectory: true)).ConfigureAwait(false)).Digest != item.ExpectedResultTreeDigest)
                     throw new IOException("Applied Merge state differs from the verified result.");
             }
             if (commitPack is not null)

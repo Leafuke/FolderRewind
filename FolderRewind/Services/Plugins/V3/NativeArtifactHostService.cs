@@ -69,18 +69,20 @@ internal static class NativeArtifactHostService
         catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException) { return false; }
     }
 
-    internal static async Task<SourceCaptureBaseline> RevalidateStatisticsAsync(BackupConfig config, string source,
+    internal static async Task<SourceCaptureBaseline> RevalidateStatisticsAsync(BackupConfig config, SourceCaptureReadLease source,
         SourceCaptureBaseline baseline, System.Collections.Generic.IReadOnlyDictionary<string, SourceCaptureFileState> current, CancellationToken token)
     {
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("native-baseline-validation");
         await using var read = await Store(config).OpenLazyAsync(new(baseline.ArtifactRootId!.Value), token);
         var evidence = await IncrementalCaptureEvidence.ReadAsync(read, new(baseline.ArtifactRootId.Value), token);
         var states = baseline.FileStates.ToBuilder();
         foreach (var file in evidence.Files)
         {
             if (!current.TryGetValue(file.RelativePath, out var stat)) continue;
-            var path = ArtifactPathRules.ResolveUnderRoot(source, file.RelativePath);
-            await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            await using var input = await source.OpenCapturedReadAsync(file.RelativePath, token);
             var hash = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(input, token));
+            HistoryOperationDiagnostics.Current?.Count("native-baseline-content-files");
+            HistoryOperationDiagnostics.Current?.Count("native-baseline-content-bytes", input.Length);
             states[file.RelativePath] = input.Length == file.Length && StringComparer.OrdinalIgnoreCase.Equals(hash, file.Sha256)
                 ? stat : new SourceCaptureFileState(-1, DateTime.MinValue);
         }
@@ -150,7 +152,8 @@ internal static class NativeArtifactHostService
         => Handler(config, history, () => Store(config, codec));
 
     internal static PluginArtifactRepresentationHandler Handler(BackupConfig config, HistoryRuntime history,
-        Func<NativeArtifactStore> store, Func<VersionRepresentation, CancellationToken, Task<bool>>? isRegistered = null)
+        Func<NativeArtifactStore> store, Func<VersionRepresentation, CancellationToken, Task<bool>>? isRegistered = null,
+        Func<object>? verificationPolicy = null)
         => new(new NativePluginArtifactBackend(PluginV3RuntimeService.Runtime, store, async (root, token) =>
         {
             var representations = await history.Query.GetAllRepresentationsAsync(token);
@@ -169,5 +172,5 @@ internal static class NativeArtifactHostService
             return new NativeArtifactBinding(representation, snapshot, folder)
             { LocalRegistered = isRegistered is null ? catalog?.Entries.Any(e => e.RepresentationId == representation.RepresentationId) == true
                 : await isRegistered(representation, token) };
-        }));
+        }, verificationPolicy));
 }

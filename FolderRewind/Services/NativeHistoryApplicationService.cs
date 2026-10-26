@@ -435,7 +435,8 @@ internal static partial class NativeHistoryApplicationService
         var configSignature = expectedSignature ?? NativeHistoryConfigLease.Signature(config);
         var archive = new SevenZipHistoryArchiveBackend(config, verificationContext is not null);
         var representations = HistoryRepresentationRuntimeFactory.Create(config, runtime, archive);
-        return new HistoryRestoreService(
+        HistoryRestoreService? restore = null;
+        restore = new HistoryRestoreService(
             runtime,
             representations,
             token => BuildEnvironmentAsync(runtime, token),
@@ -446,7 +447,7 @@ internal static partial class NativeHistoryApplicationService
                 NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData == true, binding, staging, token,
                 NativeHistoryRestoreOrchestrator.Current?.PreservePlayerDataOverride,
                 NativeHistoryRestoreOrchestrator.Current?.RestoreWhitelist,
-                NativeHistoryRestoreOrchestrator.Current?.RestorePreservePaths) : null,
+                NativeHistoryRestoreOrchestrator.Current?.RestorePreservePaths, currentInput: restore!.CurrentInputs.GetValueOrDefault(binding.SourceId)) : null,
             token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token))
         {
             RecoverNativeInsideOperation = (operation, token) => Plugins.V3.NativeArtifactHostService.RecoverInsideOperationAsync(config, runtime, operation, token),
@@ -464,6 +465,7 @@ internal static partial class NativeHistoryApplicationService
                 : [config.DestinationPath, AppRuntimeInfo.ApplicationBaseDirectory, ConfigService.ConfigDirectory],
             AllowDirectorySwap = !RequiresRestoreCurrentInput(config)
         };
+        return restore;
     }
 
     internal static async Task<IRepresentationEnvironment> BuildEnvironmentAsync(

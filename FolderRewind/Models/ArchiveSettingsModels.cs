@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
 {
+    public enum BackupSourceReadMode { Automatic = 0, AlwaysCopy = 1, DirectOnly = 2 }
 
     /// <summary>
     /// 自定义文件类型处理规则：针对匹配指定通配符/后缀的文件使用独立的压缩等级。
@@ -41,6 +42,9 @@ namespace FolderRewind.Models
         private int _keepCount = 0;
         private BackupMode _mode = BackupMode.Full;
         private bool _skipIfUnchanged = true;      // 无变更时跳过备份
+        private BackupSourceReadMode _sourceReadMode = BackupSourceReadMode.Automatic;
+        private bool _sourceReadModeSpecified;
+        private bool? _legacyCopySourceBeforeArchive;
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
         private bool _safeRestoreEnabled = true;     // 旧输入别名；不控制事务回滚。
@@ -66,6 +70,34 @@ namespace FolderRewind.Models
         /// 无变更时跳过备份，即使是全量模式也会先检测文件变化
         /// </summary>
         public bool SkipIfUnchanged { get => _skipIfUnchanged; set => SetProperty(ref _skipIfUnchanged, value); }
+
+        public BackupSourceReadMode SourceReadMode
+        {
+            get => _sourceReadMode;
+            set
+            {
+                if (!Enum.IsDefined(value)) throw new System.Text.Json.JsonException("Invalid backup source read mode.");
+                SetProperty(ref _sourceReadMode, value);
+                _sourceReadModeSpecified = true;
+            }
+        }
+
+        // Read old JSON without writing a second, conflicting setting. Explicit new modes take precedence.
+        [JsonPropertyName("CopySourceBeforeArchive")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? LegacyCopySourceBeforeArchive
+        {
+            get => null;
+            set => SetProperty(ref _legacyCopySourceBeforeArchive, value);
+        }
+
+        // Compatibility for existing callers; capture orchestration uses SourceReadMode.
+        [JsonIgnore]
+        public bool CopySourceBeforeArchive
+        {
+            get => SourceReadMode == BackupSourceReadMode.AlwaysCopy;
+            set => SourceReadMode = value ? BackupSourceReadMode.AlwaysCopy : BackupSourceReadMode.DirectOnly;
+        }
 
         /// <summary>
         /// CPU 线程数，0 表示自动（由 7z 决定），传递给 7z 的 -mmt 参数
@@ -124,6 +156,9 @@ namespace FolderRewind.Models
         internal void ApplyDeserializedInputMigration()
         {
             if (_inputMigrationApplied) return;
+            if (!_sourceReadModeSpecified && _legacyCopySourceBeforeArchive is { } copy)
+                SourceReadMode = copy ? BackupSourceReadMode.AlwaysCopy : BackupSourceReadMode.DirectOnly;
+            _legacyCopySourceBeforeArchive = null;
             _safeRestoreEnabled = true;
             _inputMigrationApplied = true;
         }

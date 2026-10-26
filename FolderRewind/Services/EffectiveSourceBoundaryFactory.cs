@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Services;
 
@@ -25,10 +26,10 @@ internal static class EffectiveSourceBoundaryFactory
         var rawFilterRules = filterMode == EffectiveBoundaryFilterMode.Whitelist
             ? filters?.BackupWhitelist
             : filters?.Blacklist;
-        PathRuleMatcher.ValidateBackupRules(rawFilterRules, filters?.UseRegex == true);
-        var filterRules = NormalizeFilterRules(sourceRoot, rawFilterRules);
+        PathRuleMatcher.ValidateRules(rawFilterRules);
+        var filterRules = NormalizeRules(sourceRoot, rawFilterRules);
 
-        return new EffectiveSourceBoundarySnapshot(
+        return EffectiveSourceBoundarySnapshot.CreateTyped(
             sourceScope.Mode == BackupSourceScopeMode.Include
                 ? EffectiveBoundaryScopeMode.Include
                 : EffectiveBoundaryScopeMode.All,
@@ -36,6 +37,21 @@ internal static class EffectiveSourceBoundaryFactory
             filterMode,
             filterRules,
             filters?.UseRegex == true);
+    }
+
+    private static IEnumerable<PathFilterRule> NormalizeRules(string root, IEnumerable<PathFilterRule>? rules)
+    {
+        foreach (var rule in rules ?? [])
+        {
+            if (rule.SemanticsVersion == 1)
+            {
+                foreach (var pattern in NormalizeFilterRules(root, [rule.Pattern])) yield return rule with { Pattern = pattern };
+                continue;
+            }
+            var parsed = PathFilterPattern.Parse(rule, root);
+            if (!parsed.Applicable) continue;
+            yield return parsed.ToBoundaryRule();
+        }
     }
 
     private static IEnumerable<string> NormalizeFilterRules(

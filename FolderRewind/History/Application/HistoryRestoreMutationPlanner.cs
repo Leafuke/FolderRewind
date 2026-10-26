@@ -46,7 +46,7 @@ internal static class HistoryRestoreMutationPlanner
                 continue;
             }
             bool physicalAll = boundary.ScopeMode == EffectiveBoundaryScopeMode.All
-                && boundary.FilterMode == EffectiveBoundaryFilterMode.Blacklist && boundary.FilterRules.IsEmpty;
+                && boundary.FilterMode == EffectiveBoundaryFilterMode.Blacklist && boundary.Rules.IsEmpty;
             bool swap = allowDirectorySwap && source.ApplyMode == HistoryRestoreApplyMode.Clean && physicalAll
                 && source.Version.CaptureScope == CaptureScope.FullSource && source.Version.BoundaryConfidence == HistoricalBoundaryConfidence.Known
                 && source.Fidelity == MaterializationFidelity.Exact;
@@ -116,12 +116,13 @@ internal static class HistoryRestoreMutationPlanner
         {
             var target = workspace.Location.Target; var container = workspace.Location.Container;
             var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(source.Binding);
+            var includeDirectory = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(source.Binding, isDirectory: true);
             var stage = Scan(source.StagingDirectory, source.Binding);
             var current = Directory.Exists(target) ? Scan(target, source.Binding) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             var currentIndex = new RestorePathIndex<bool>();
             var excluded = new RestorePathIndex<bool>();
             foreach (var pair in current)
-            { currentIndex.Set(pair.Key, pair.Value); if (!include(pair.Key)) excluded.Set(pair.Key, pair.Value); }
+            { currentIndex.Set(pair.Key, pair.Value); if (!(pair.Value ? includeDirectory(pair.Key) : include(pair.Key))) excluded.Set(pair.Key, pair.Value); }
             if (Directory.Exists(target))
             {
                 new DirectoryInfo(source.StagingDirectory).SetAccessControl(new DirectoryInfo(target).GetAccessControl(AccessControlSections.Access));
@@ -134,7 +135,7 @@ internal static class HistoryRestoreMutationPlanner
             }
             var stagedFiles = stage.Where(pair => !pair.Value && include(pair.Key)).Select(pair => pair.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var neededDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
-            foreach (var path in stagedFiles.Concat(stage.Where(pair => pair.Value && include(pair.Key)).Select(pair => pair.Key)))
+            foreach (var path in stagedFiles.Concat(stage.Where(pair => pair.Value && includeDirectory(pair.Key)).Select(pair => pair.Key)))
             {
                 var directory = stage.TryGetValue(path, out var isDirectory) && isDirectory ? path : Parent(path);
                 while (true) { neededDirs.Add(directory); if (directory.Length == 0) break; directory = Parent(directory); }
@@ -156,7 +157,7 @@ internal static class HistoryRestoreMutationPlanner
             }
             foreach (var path in stagedFiles.Where(path => current.TryGetValue(path, out var dir) && dir).OrderBy(path => path.Count(c => c == '/')))
             {
-                if (excluded.HasDescendants(path))
+                if (!includeDirectory(path) || excluded.HasDescendants(path))
                     throw new IOException("Restore file conflicts with a directory containing boundary-excluded data.");
                 Retire(path, directory: true);
             }
@@ -185,7 +186,7 @@ internal static class HistoryRestoreMutationPlanner
                     WindowsRestoreFileSystem.Identity(from), WindowsRestoreFileSystem.Identity(Path.GetDirectoryName(from)!), parentIds[Parent(path)], reset: true);
             }
             if (source.ApplyMode == HistoryRestoreApplyMode.Clean)
-                foreach (var path in current.Where(pair => pair.Value && include(pair.Key) && !neededDirs.Contains(pair.Key))
+                foreach (var path in current.Where(pair => pair.Value && includeDirectory(pair.Key) && !neededDirs.Contains(pair.Key))
                     .Select(pair => pair.Key).OrderByDescending(path => path.Length))
                     if (!IsRetired(path) && !excluded.HasDescendants(path))
                         Retire(path, directory: true, empty: true);
@@ -197,7 +198,7 @@ internal static class HistoryRestoreMutationPlanner
             var finalIndex = Index(finalEntries.Keys);
             evidence.Add(new(source.Binding.SourceId, source.Version.VersionId, target, source.Binding.Boundary,
                 finalEntries.Where(pair => !pair.Value && include(pair.Key)).Select(pair => pair.Key).ToArray(),
-                finalEntries.Where(pair => pair.Value && include(pair.Key) && !finalIndex.HasDescendants(pair.Key))
+                finalEntries.Where(pair => pair.Value && includeDirectory(pair.Key) && !finalIndex.HasDescendants(pair.Key))
                     .Select(pair => pair.Key).ToArray(), source.Binding.ComparisonRoot));
 
             void Retire(string relative, bool directory, bool empty = false)

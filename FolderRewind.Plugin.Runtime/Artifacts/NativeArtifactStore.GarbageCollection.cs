@@ -69,6 +69,11 @@ public sealed partial class NativeArtifactStore
     public async Task<IReadOnlyList<NativeArtifactCollectionReceipt>> CollectDetailedAsync(IEnumerable<ArtifactId> roots, CancellationToken token)
     {
         using var held = await EnterAsync(token);
+        return await CollectDetailedWithoutGateAsync(roots, token);
+    }
+
+    private async Task<IReadOnlyList<NativeArtifactCollectionReceipt>> CollectDetailedWithoutGateAsync(IEnumerable<ArtifactId> roots, CancellationToken token)
+    {
         await RecoverGarbageWithoutGateAsync(token);
         var ledger = await Ledger.LoadAsync(token);
         var ids = ledger.Artifacts.Select(a => a.ArtifactId).ToHashSet();
@@ -109,6 +114,19 @@ public sealed partial class NativeArtifactStore
         }
         return ReadGarbageIntents().Where(i => i.Complete).Select(i => new NativeArtifactCollectionReceipt(i.Id,
             i.Entries.Select(e => new NativeArtifactReclaimedObject(e.Node.ArtifactId, e.Node.FolderId, e.PhysicalBytes)).ToArray())).ToArray();
+    }
+
+    // The prepared capture still owns the store gate; preserve every node that preceded this attempt.
+    internal async Task DiscardPreparedArtifactsAsync(ArtifactLedgerDocument before, NativeArtifactPending pending, CancellationToken token)
+    {
+        var earlierReceipts = ReadGarbageIntents().Select(i => i.Id).ToHashSet(StringComparer.Ordinal);
+        CompletePending(pending.Id);
+        var receipts = await CollectDetailedWithoutGateAsync(before.Artifacts.Select(a => a.ArtifactId), token);
+        var priorIds = before.Artifacts.Select(a => a.ArtifactId).ToHashSet();
+        if ((await Ledger.LoadAsync(token)).Artifacts.Any(a => !priorIds.Contains(a.ArtifactId)))
+            throw new IOException("Rejected Native candidate could not be reclaimed within the recovery budget.");
+        foreach (var receipt in receipts.Where(r => !earlierReceipts.Contains(r.Id)))
+            File.Delete(Path.Combine(GarbageRoot, receipt.Id + ".json"));
     }
 
     public async Task AcknowledgeCollectionsAsync(IEnumerable<string> ids, CancellationToken token)

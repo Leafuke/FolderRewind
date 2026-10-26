@@ -20,13 +20,13 @@ internal sealed class HistoryRestoreTreeScope
         _binding = binding;
         _scope = binding.Boundary.ScopeMode == EffectiveBoundaryScopeMode.Include
             ? BackupSourceScopePatternSet.Compile(binding.Boundary.ScopeRules) : null;
-        _filter = PathRuleMatcher.CreateForBackup(binding.Boundary.FilterRules,
+        _filter = PathRuleMatcher.CreateForBackupRules(binding.Boundary.Rules,
             binding.ComparisonRoot, binding.ComparisonRoot, binding.Boundary.UseRegex);
     }
-    internal bool Includes(string relative)
+    internal bool Includes(string relative, bool isDirectory = false)
     {
         if (_scope is not null && !_scope.IsMatch(relative)) return false;
-        var match = _filter.IsMatch(Path.Combine(_binding.ComparisonRoot, relative));
+        var match = _filter.IsMatch(Path.Combine(_binding.ComparisonRoot, relative), isDirectory);
         return _binding.Boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist ? match : !match;
     }
     internal bool MayDescend(string relative)
@@ -42,8 +42,8 @@ internal sealed class HistoryRestoreTreeScope
             foreach (var entry in new DirectoryInfo(parent).EnumerateFileSystemInfos())
             {
                 var relative = Path.GetRelativePath(root, entry.FullName).Replace('\\', '/');
-                bool managed = Includes(relative);
                 bool directory = (entry.Attributes & FileAttributes.Directory) != 0;
+                bool managed = Includes(relative, directory);
                 bool descend = directory && MayDescend(relative);
                 if (!managed && !descend)
                 {

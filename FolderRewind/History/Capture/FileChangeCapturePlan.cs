@@ -13,7 +13,8 @@ public sealed record FileChangeCapturePlan(ArtifactIncrementalInput Input,
 {
     public ImmutableArray<string> Directories { get; init; } = [];
     public static FileChangeCapturePlan Create(ImmutableSortedDictionary<string, SourceCaptureFileState> states,
-        SourceCaptureBaseline? baseline, EffectiveSourceBoundarySnapshot boundary, bool changesOnly, bool requestCheckpoint = false)
+        SourceCaptureBaseline? baseline, EffectiveSourceBoundarySnapshot boundary, bool changesOnly, bool requestCheckpoint = false,
+        ScopeAwareSourceCaptureDiff? capturedChanges = null)
     {
         ArtifactId? baseRoot = null;
         if (changesOnly)
@@ -24,7 +25,7 @@ public sealed record FileChangeCapturePlan(ArtifactIncrementalInput Input,
             baseRoot = new(root);
         }
         var old = changesOnly ? baseline!.FileStates : ImmutableSortedDictionary<string, SourceCaptureFileState>.Empty;
-        var diff = ScopeAwareSourceCaptureDiff.Compute(old, states, _ => true);
+        var diff = changesOnly && capturedChanges is not null ? capturedChanges : ScopeAwareSourceCaptureDiff.Compute(old, states, _ => true);
         return new(new(Guid.NewGuid(), changesOnly ? ArtifactCaptureInputKind.ChangesOnly : ArtifactCaptureInputKind.Full,
             boundary.Fingerprint, "size-mtime-v1",
             changesOnly ? baseline!.BaseVersionId.ToString() : null,

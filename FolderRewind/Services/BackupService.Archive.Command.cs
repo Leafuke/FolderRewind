@@ -26,7 +26,9 @@ namespace FolderRewind.Services
             BackupTask? taskToUpdate = null,
             bool applyAdditionalArguments = false,
             BackupSourceScope? selection = null,
-            string? originalSourcePath = null)
+            string? originalSourcePath = null,
+            IReadOnlyList<string>? capturedPaths = null,
+            IReadOnlyList<string>? capturedDirectories = null)
         {
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
@@ -35,10 +37,30 @@ namespace FolderRewind.Services
 
             try
             {
+                if (listFile is null && capturedPaths is not null)
+                {
+                    generatedWhitelistListFile = Path.GetTempFileName();
+                    // Directory arguments recurse in 7z. Include only genuinely empty captured directories;
+                    // parent entries are emitted by the selected files without widening the boundary.
+                    var nonempty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var file in capturedPaths)
+                    {
+                        var parent = file;
+                        while (parent.LastIndexOf('/') is var separator && separator >= 0)
+                        { parent = parent[..separator]; nonempty.Add(parent); }
+                    }
+                    var empty = (capturedDirectories ?? Array.Empty<string>()).Where(directory =>
+                        !nonempty.Contains(directory)
+                        && !Directory.EnumerateFileSystemEntries(Path.Combine(sourceDir, directory)).Any());
+                    var special = CompileFileTypeWildcardPatterns((fileTypeExclusions ?? Array.Empty<FileTypeRule>()).Select(rule => rule.Pattern));
+                    File.WriteAllLines(generatedWhitelistListFile,
+                        capturedPaths.Where(path => !MatchesAnyFileTypePattern(path, special)).Concat(empty), new UTF8Encoding(false));
+                    listFile = generatedWhitelistListFile;
+                }
                 // 白名单无法可靠翻译成 7z 的排除参数，统一转为相对路径 listfile，
                 // 让压缩包内容、差异扫描和元数据看到的是同一批文件。
                 if (string.IsNullOrWhiteSpace(listFile)
-                    && (HasBackupWhitelist(filters) || selection?.Mode == BackupSourceScopeMode.Include))
+                    && ((HasBackupWhitelist(filters) || filters?.Blacklist.Count > 0) || selection?.Mode == BackupSourceScopeMode.Include))
                 {
                     var includedFiles = EnumerateBackupRelativeFiles(
                         sourceDir,
@@ -75,6 +97,7 @@ namespace FolderRewind.Services
             }
 
             sb.Append($" -mx={settings.CompressionLevel} -m0={settings.Method} -ssw");
+            if (listFile is not null) sb.Append(" -spd"); // List entries are literal paths, never wildcards.
 
             int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
             if (cpuThreads > 0)
@@ -96,20 +119,20 @@ namespace FolderRewind.Services
             if (fileTypeExclusions != null && fileTypeExclusions.Count > 0)
             {
                 sb.Append(" -ms=off");
-                foreach (var rule in fileTypeExclusions.Where(r => !string.IsNullOrWhiteSpace(r.Pattern)))
+                foreach (var rule in fileTypeExclusions.Where(r => capturedPaths is null && !string.IsNullOrWhiteSpace(r.Pattern)))
                 {
                     sb.Append($" -xr!\"{rule.Pattern.Trim()}\"");
                 }
             }
 
             // 添加黑名单排除规则。白名单模式下不叠加黑名单，避免旧规则误伤明确纳入的文件。
-            if (filters?.BackupFilterMode != BackupFilterMode.Whitelist
+            if (listFile is null && filters?.BackupFilterMode != BackupFilterMode.Whitelist
                 && filters?.Blacklist != null
                 && filters.Blacklist.Count > 0)
             {
-                foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
+                foreach (var rule in filters.Blacklist.Where(r => r.SemanticsVersion == 1 && !string.IsNullOrWhiteSpace(r.Pattern)))
                 {
-                    var trimmedRule = rule.Trim();
+                    var trimmedRule = rule.Pattern.Trim();
 
                     // 跳过正则表达式规则（7z 不直接支持）
                     if (trimmedRule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))

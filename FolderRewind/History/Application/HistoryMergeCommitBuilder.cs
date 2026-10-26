@@ -187,11 +187,13 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 if (GenericFileMergeProvider.StructuralGroups(tree).Count != 0) throw new InvalidOperationException("Resolved tree contains path conflicts.");
                 var descriptor = selected ?? plan.Ours ?? plan.Theirs ?? throw new InvalidOperationException("Merge cannot create a Source without parents.");
                 var staging = Path.Combine(root, plan.SourceId.ToString()); Directory.CreateDirectory(staging);
-                var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(plan.SourceId, staging, descriptor.EffectiveSourceBoundary)
-                    { LogicalDirectory = descriptor.SourceDescriptorSnapshot.PathHint });
+                var binding = new HistoryRestoreSourceBinding(plan.SourceId, staging, descriptor.EffectiveSourceBoundary)
+                    { LogicalDirectory = descriptor.SourceDescriptorSnapshot.PathHint };
+                var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
+                var includeDirectory = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true);
                 foreach (var path in tree.Files.Keys)
                     if (!include(path)) throw new InvalidOperationException("Merge proposal escapes its boundary.");
-                var allowedDirectories = tree.Directories.Where(include).ToHashSet(StringComparer.Ordinal);
+                var allowedDirectories = tree.Directories.Where(includeDirectory).ToHashSet(StringComparer.Ordinal);
                 foreach (var path in tree.Files.Keys.Concat(allowedDirectories.ToArray()))
                     for (int slash = path.LastIndexOf('/'); slash >= 0; slash = path.LastIndexOf('/', slash - 1))
                     {
@@ -218,7 +220,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                     var output = Plugin.Runtime.Artifacts.ArtifactPathRules.ResolveUnderRoot(staging, pair.Key);
                     Directory.CreateDirectory(Path.GetDirectoryName(output)!); File.Copy(handle, output, overwrite: false);
                 }
-                var actual = await MergeTreeManifest.ReadAsync(staging, include, token).ConfigureAwait(false);
+                var actual = await MergeTreeManifest.ReadAsync(staging, include, token, includeDirectory).ConfigureAwait(false);
                 if (actual.Digest != tree.Digest) throw new InvalidDataException("Merge content changed after analysis.");
                 SourceVersion version;
                 if (selected?.VersionId is { } existingId)

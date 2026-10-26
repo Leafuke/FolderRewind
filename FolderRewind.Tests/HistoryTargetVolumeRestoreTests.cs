@@ -4,6 +4,7 @@ using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using System.Security.AccessControl;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Tests;
 
@@ -11,6 +12,68 @@ namespace FolderRewind.Tests;
 [DoNotParallelize]
 public sealed class HistoryTargetVolumeRestoreTests
 {
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task TypedStructuralConflictNeverReplacesAnExcludedObject(bool excludedDirectory)
+    {
+        await using var f = new HistoryChainRewriteFixture(); await f.InitializeAsync();
+        var name = excludedDirectory ? "voxy" : "session.lock";
+        var boundary = EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist,
+            [new(name, excludedDirectory ? PathFilterTarget.Directory : PathFilterTarget.File)], false);
+        var node = await f.AddAsync(null, root =>
+        {
+            if (excludedDirectory) File.WriteAllText(Path.Combine(root, name), "new file");
+            else { Directory.CreateDirectory(Path.Combine(root, name)); File.WriteAllText(Path.Combine(root, name, "new"), "new"); }
+        }, boundary: boundary);
+        var target = Path.Combine(f.Root, "typed-conflict"); Directory.CreateDirectory(target);
+        var protectedPath = Path.Combine(target, name);
+        if (excludedDirectory) Directory.CreateDirectory(protectedPath);
+        var content = excludedDirectory ? Path.Combine(protectedPath, "keep") : protectedPath;
+        File.WriteAllText(content, "protected");
+        var identity = WindowsRestoreFileSystem.Identity(content);
+        using var context = new FolderRewind.History.Representation.ArchiveRestoreVerificationContext(RestoreArchivePreflightMode.Balanced);
+        var restore = new HistoryRestoreService(f.History, f.Engine,
+            async token => new FolderRewind.History.Representation.RepresentationEnvironment((await f.History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []),
+            new FileSystemHistoryRestoreMutationBackend()) { UseTargetVolumeWorkspaces = true, AllowDirectorySwap = false, VerificationContext = context };
+        var result = await restore.RestoreVersionAsync(node.Version.VersionId, new(f.Source, target, boundary),
+            (await f.History.WorkspaceStore.LoadAsync()).Value!, HistoryRestoreApplyMode.Clean);
+        Assert.IsFalse(result.Succeeded, "A file/directory replacement must not consume an excluded object.");
+        Assert.AreEqual("protected", File.ReadAllText(content));
+        Assert.AreEqual(identity, WindowsRestoreFileSystem.Identity(content));
+    }
+    [TestMethod]
+    public async Task TypedFiltersPreserveExcludedFilesButRestoreSameNamedDirectoriesAndOrdinaryVoxyFiles()
+    {
+        await using var f = new HistoryChainRewriteFixture(); await f.InitializeAsync();
+        var boundary = EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist,
+            [new("session.lock", PathFilterTarget.File), new("voxy", PathFilterTarget.Directory)], false);
+        var node = await f.AddAsync(null, root =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, "nested", "session.lock"));
+            File.WriteAllText(Path.Combine(root, "nested", "session.lock", "data"), "restored");
+            Directory.CreateDirectory(Path.Combine(root, "empty", "session.lock"));
+            File.WriteAllText(Path.Combine(root, "voxy"), "ordinary file");
+        }, boundary: boundary);
+        var target = Path.Combine(f.Root, "typed-target"); Directory.CreateDirectory(Path.Combine(target, "nested", "voxy"));
+        File.WriteAllText(Path.Combine(target, "session.lock"), "keep lock");
+        File.WriteAllText(Path.Combine(target, "nested", "voxy", "cache"), "keep cache");
+        File.WriteAllText(Path.Combine(target, "stale"), "remove");
+        var lockIdentity = WindowsRestoreFileSystem.Identity(Path.Combine(target, "session.lock"));
+        using var context = new FolderRewind.History.Representation.ArchiveRestoreVerificationContext(RestoreArchivePreflightMode.Balanced);
+        var restore = new HistoryRestoreService(f.History, f.Engine,
+            async token => new FolderRewind.History.Representation.RepresentationEnvironment((await f.History.LocalReplicaCatalogStore.LoadAsync(token)).Value!.Entries, [], []),
+            new FileSystemHistoryRestoreMutationBackend()) { UseTargetVolumeWorkspaces = true, AllowDirectorySwap = false, VerificationContext = context };
+        var result = await restore.RestoreVersionAsync(node.Version.VersionId, new(f.Source, target, boundary),
+            (await f.History.WorkspaceStore.LoadAsync()).Value!, HistoryRestoreApplyMode.Clean);
+        Assert.IsTrue(result.Succeeded, result.Diagnostic);
+        Assert.AreEqual(lockIdentity, WindowsRestoreFileSystem.Identity(Path.Combine(target, "session.lock")));
+        Assert.AreEqual("keep cache", File.ReadAllText(Path.Combine(target, "nested", "voxy", "cache")));
+        Assert.AreEqual("restored", File.ReadAllText(Path.Combine(target, "nested", "session.lock", "data")));
+        Assert.IsTrue(Directory.Exists(Path.Combine(target, "empty", "session.lock")));
+        Assert.AreEqual("ordinary file", File.ReadAllText(Path.Combine(target, "voxy")));
+        Assert.IsFalse(File.Exists(Path.Combine(target, "stale")));
+    }
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]

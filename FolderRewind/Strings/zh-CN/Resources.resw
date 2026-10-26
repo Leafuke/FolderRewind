@@ -1117,7 +1117,7 @@
     <value>添加</value>
   </data>
   <data name="ConfigSettingsDialog_UseRegex.Content" xml:space="preserve">
-    <value>将黑名单项作为正则表达式</value>
+    <value>启用以 regex: 开头的正则表达式规则</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelist.Text" xml:space="preserve">
     <value>还原白名单</value>
@@ -7212,7 +7212,7 @@ Pull Request：{1}</value>
   <data name="OperationDiagnostic_RestoreMultipleWorlds" xml:space="preserve"><value>多个受影响世界仍被占用，无法安全协调还原。请退出这些世界后重试。</value></data>
   <data name="OperationDiagnostic_RestoreCoordinationFailed" xml:space="preserve"><value>世界还原协调失败。请查看日志中的原始异常，并检查游戏状态及互联连接。</value></data>
   <data name="OperationDiagnostic_RestoreRejoinFailed" xml:space="preserve"><value>游戏未能自动重新进入世界。请先查看还原结果，再手动进入世界。</value></data>
-  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>世界文件仍被占用，未能协调游戏保存；已尽力创建备份副本，但无法保证来自同一次完整保存。请退出世界后再备份，或检查互联连接。</value></data>
+  <data name="OperationDiagnostic_ConsistencyRawSource" xml:space="preserve"><value>世界活动锁被占用，未能协调游戏保存；备份可能包含不同保存时刻的数据。请查看日志中的锁文件和协调状态。</value></data>
   <data name="OperationDiagnostic_ConsistencyHandshakeUnavailable" xml:space="preserve"><value>备份时兼容模组未响应握手，无法确认游戏已保存。请检查模组和互联连接，或退出世界后重新备份。</value></data>
   <data name="OperationDiagnostic_ConsistencySaveTimeout" xml:space="preserve"><value>等待游戏确认保存超时，备份一致性未得到确认。请退出世界后重新备份。</value></data>
   <data name="OperationDiagnostic_ConsistencyCoordinationFailed" xml:space="preserve"><value>备份前的游戏保存协调失败，已尽力继续备份。请查看日志，退出世界后重新备份。</value></data>
@@ -7475,4 +7475,27 @@ Pull Request：{1}</value>
   <data name="SpatialWorkspace_Ready_Compare" xml:space="preserve"><value>只读比较 · 拖动平移，滚轮缩放。</value></data>
   <data name="SpatialWorkspace_Ready_Merge" xml:space="preserve"><value>查看待处理项，或框选区域批量决定。</value></data>
   <data name="SpatialWorkspace_Ready_Scope" xml:space="preserve"><value>添加或移除区域，然后预览实际备份范围。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SourceReadMode.Header" xml:space="preserve"><value>源文件读取方式</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SourceReadMode.Description" xml:space="preserve"><value>自动优先直接读取；Native 遇到文件共享冲突时复制本次必要内容。副本占用临时空间；仅直读时，Native 无法保护文件会失败。</value></data>
+  <data name="ConfigSettingsDialog_SourceReadMode_CardInput.AutomationProperties.Name" xml:space="preserve"><value>源文件读取方式</value></data>
+  <data name="ConfigSettingsDialog_SourceReadAutomatic.Content" xml:space="preserve"><value>自动（推荐）</value></data>
+  <data name="ConfigSettingsDialog_SourceReadAlwaysCopy.Content" xml:space="preserve"><value>始终复制</value></data>
+  <data name="ConfigSettingsDialog_SourceReadDirectOnly.Content" xml:space="preserve"><value>仅直读</value></data>
+  <data name="BackupSourceView_PluginUpgradeRequired" xml:space="preserve"><value>当前插件不支持由主程序管理备份输入，请升级插件后重试。</value></data>
+  <data name="BackupSourceView_InputFailed" xml:space="preserve"><value>无法准备备份输入：{0}。本次备份已停止。请检查文件占用、访问权限和可用空间后重试。详细原因：{1}</value></data>
+  <data name="Filter_TargetAny.Content" xml:space="preserve">
+    <value>文件和文件夹</value>
+  </data>
+  <data name="Filter_TargetFile.Content" xml:space="preserve">
+    <value>文件</value>
+  </data>
+  <data name="Filter_TargetDirectory.Content" xml:space="preserve">
+    <value>文件夹</value>
+  </data>
+  <data name="Filter_RuleHelp.Text" xml:space="preserve">
+    <value>文件规则只匹配文件；文件夹规则包含全部后代。名称匹配任意层级；./ 限定源根目录；* 匹配一层，** 匹配多层。未修改的旧规则保留原匹配方式。</value>
+  </data>
+  <data name="Filter_RuleSummary" xml:space="preserve">
+    <value>{0}：{1}</value>
+  </data>
 </root>

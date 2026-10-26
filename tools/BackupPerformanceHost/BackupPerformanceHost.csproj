@@ -27,6 +27,7 @@
     <Compile Include="../performance/RestoreServiceAnalysisProbe.cs" Link="RestoreAnalysisProbe.cs" />
     <Compile Remove="StageTwoAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
     <Compile Remove="RestoreCoordinationAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
+    <Compile Remove="CaptureInputAcceptance*.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
     <Page Remove="BenchApplication.xaml" />
     <ApplicationDefinition Include="BenchApplication.xaml" />
     <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />

@@ -26,6 +26,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     private readonly PluginV3BackupSourceResolution _resolution;
     private readonly List<PluginDiagnostic> _diagnostics;
     private PluginOperationLease? _artifactOperation;
+    private IReadOnlyList<string> _metadataPaths = [];
     internal PluginOperationLease? ArtifactOperation => _artifactOperation;
 
     public PluginV3BackupSession(PluginV3BackupSourceResolution resolution)
@@ -43,6 +44,27 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public bool IsBlocked => _resolution.IsBlocked;
     public string SourcePath => _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
     public bool HasStableSourceView => _captureLeaseOwner.StableSourcePath is not null;
+    public IReadOnlyList<string> MetadataPaths => _metadataPaths;
+
+    public async ValueTask PrepareMetadataRequirementsAsync(CancellationToken token)
+    {
+        _metadataPaths = [];
+        if (_resolution.PluginId is null || _resolution.ConfigSnapshot is null || _resolution.FolderSnapshot is null) return;
+        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IVersionMetadataProviderCapability>(
+            _resolution.PluginId.Value, c => c.Kind == _resolution.ConfigSnapshot.Kind, token);
+        if (lease is null) return;
+        try
+        {
+            using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
+            var paths = await lease.Capability.GetRequiredSourcePathsAsync(_resolution.ConfigSnapshot, _resolution.FolderSnapshot, lease.Context);
+            if (paths.Count > 64) throw new InvalidDataException("Metadata input request exceeds its quota.");
+            _metadataPaths = paths.Select(ArtifactPathRules.NormalizeRelativePath).Distinct(StringComparer.Ordinal).ToArray();
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        { _diagnostics.Add(new("plugin.version_metadata_capture_failed", DiagnosticSeverity.Warning, "VersionMetadata",
+            _resolution.PluginId.Value.Value, new Dictionary<string, string> { ["message"] = ex.Message })); }
+    }
 
     public static async ValueTask<PluginV3BackupSession> PrepareAsync(
         BackupConfig originalConfig,
@@ -80,7 +102,8 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     }
 
     public async ValueTask<PluginV3VersionMetadataCaptureResult> CaptureVersionMetadataAsync(
-        CancellationToken cancellationToken = default, string? stagedSourcePath = null)
+        CancellationToken cancellationToken = default, string? stagedSourcePath = null,
+        IVersionMetadataSourceView? sourceView = null)
     {
         if (_resolution.PluginId is null || _resolution.ConfigSnapshot is null || _resolution.FolderSnapshot is null)
             return PluginV3VersionMetadataCaptureResult.Empty;
@@ -91,7 +114,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         var context = operation?.Context ?? lease?.Context;
         if (capability is null || context is null) return PluginV3VersionMetadataCaptureResult.Empty;
         var stableSourcePath = stagedSourcePath ?? _captureLeaseOwner.StableSourcePath;
-        if (stableSourcePath is null)
+        if (stableSourcePath is null && sourceView is null)
         {
             // A successful ordinary source lease intentionally has no stable metadata view.
             // Metadata is optional; consistency diagnostics already describe any degraded world capture.
@@ -113,7 +136,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
                 new VersionMetadataCaptureRequest(
                     _resolution.ConfigSnapshot,
                     _resolution.FolderSnapshot,
-                    new StableCaptureSourceView(stableSourcePath)),
+                    sourceView ?? new StableCaptureSourceView(stableSourcePath!)),
                 context).ConfigureAwait(false);
             ArgumentNullException.ThrowIfNull(result);
             ArgumentNullException.ThrowIfNull(result.Snapshots);

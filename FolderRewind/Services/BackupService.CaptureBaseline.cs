@@ -97,16 +97,36 @@ public static partial class BackupService
                     continue;
                 }
 
-                var currentStates = ScanDirectory(
-                    folder.Path,
-                    config.Filters,
-                    selection: folder.SourceScope);
+                var version = await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
+                if (version is null)
+                {
+                    await RemoveCaptureBaselineAsync(runtime, sourceId, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+                // The restored Version includes plugin FilePolicy rules which are not persisted in config.Filters.
+                // Reuse its authoritative boundary so excluded caches cannot become phantom incremental deletions.
+                var historicalBinding = new HistoryRestoreSourceBinding(sourceId, folder.Path, version.EffectiveSourceBoundary)
+                    { LogicalDirectory = version.SourceDescriptorSnapshot.PathHint };
+                var currentStates = ScanDirectory(folder.Path, cancellationToken: cancellationToken, historicalBinding: historicalBinding);
+                var directories = local.Representation.Kind == RepresentationKind.PluginArtifact
+                    ? SourceDirectorySnapshot.Read(folder.Path,
+                        FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(historicalBinding),
+                        currentStates.Keys, cancellationToken, skipLinks: true,
+                        includeDirectory: FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(historicalBinding, isDirectory: true))
+                    : ImmutableArray<string>.Empty;
+                if (local.Representation.Kind == RepresentationKind.PluginArtifact)
+                    SourceDirectorySnapshot.Validate(directories, currentStates.Keys);
+                var pathFingerprint = Plugins.V3.NativeArtifactHostService.SourcePathFingerprint(folder.Path);
                 var existing = await runtime.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false);
                 if (existing is not null
                     && existing.BaseVersionId == versionId
                     && existing.BaseRepresentationId == local.Representation.RepresentationId
                     && string.Equals(existing.PayloadPath, local.Path, StringComparison.OrdinalIgnoreCase)
-                    && FileStatesEqual(existing.FileStates, currentStates))
+                    && FileStatesEqual(existing.FileStates, currentStates)
+                    && existing.Directories.SequenceEqual(directories)
+                    && existing.ContentRealizationId == workspaceBaseline.ContentRealizationId
+                    && existing.SourcePathFingerprint == pathFingerprint
+                    && !existing.RequiresContentValidation)
                 {
                     continue;
                 }
@@ -122,10 +142,9 @@ public static partial class BackupService
                             pair => pair.Key,
                             pair => pair.Value,
                             StringComparer.Ordinal),
-                        (await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false))
-                            ?.EffectiveSourceBoundaryFingerprint ?? string.Empty)
+                        version?.EffectiveSourceBoundaryFingerprint ?? string.Empty)
                     { ContentRealizationId = workspaceBaseline.ContentRealizationId,
-                        SourcePathFingerprint = Plugins.V3.NativeArtifactHostService.SourcePathFingerprint(folder.Path) },
+                        SourcePathFingerprint = pathFingerprint, Directories = directories },
                     versionId,
                     local.Representation,
                     cancellationToken).ConfigureAwait(false);

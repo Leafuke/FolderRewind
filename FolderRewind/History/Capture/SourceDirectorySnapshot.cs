@@ -12,7 +12,8 @@ namespace FolderRewind.History.Capture;
 public static class SourceDirectorySnapshot
 {
     public static ImmutableArray<string> Read(string root, Func<string, bool> include,
-        IEnumerable<string> files, CancellationToken token)
+        IEnumerable<string> files, CancellationToken token, bool enforceLimits = true, bool skipLinks = false,
+        Func<string, bool>? includeDirectory = null)
     {
         var directories = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Stack<string>(); pending.Push(root);
@@ -24,11 +25,14 @@ public static class SourceDirectorySnapshot
                 if (Services.PreviewStoragePaths.IsReserved(entry)) continue;
                 var attributes = File.GetAttributes(entry);
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    if (skipLinks) continue;
                     throw new IOException("A stable Native source cannot contain filesystem links.");
+                }
                 if ((attributes & FileAttributes.Directory) == 0) continue;
                 pending.Push(entry);
                 var relative = Path.GetRelativePath(root, entry).Replace('\\', '/');
-                if (include(relative)) Add(relative);
+                if ((includeDirectory ?? include)(relative)) Add(relative);
             }
         }
         foreach (var file in files) AddParents(file);
@@ -38,26 +42,26 @@ public static class SourceDirectorySnapshot
         {
             directories.Add(ArtifactPathRules.NormalizeRelativePath(path));
             AddParents(path);
-            if (directories.Count > ArtifactTransformLimits.Default.MaximumFiles)
+            if (enforceLimits && directories.Count > ArtifactTransformLimits.Default.MaximumFiles)
                 throw new InvalidDataException("Native directory inventory exceeds its entry budget.");
         }
         void AddParents(string path)
         {
             while (path.LastIndexOf('/') is var separator && separator >= 0)
             { path = path[..separator]; directories.Add(ArtifactPathRules.NormalizeRelativePath(path)); }
-            if (directories.Count > ArtifactTransformLimits.Default.MaximumFiles)
+            if (enforceLimits && directories.Count > ArtifactTransformLimits.Default.MaximumFiles)
                 throw new InvalidDataException("Native directory inventory exceeds its entry budget.");
         }
     }
 
-    public static void Validate(IReadOnlyList<string> directories, IEnumerable<string> filePaths)
+    public static void Validate(IReadOnlyList<string> directories, IEnumerable<string> filePaths, bool enforceLimits = true)
     {
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in filePaths)
             if (file != ArtifactPathRules.NormalizeRelativePath(file) || !files.Add(file))
                 throw new InvalidDataException("Native file inventory is ambiguous.");
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (directories.Count + files.Count > ArtifactTransformLimits.Default.MaximumFiles)
+        if (enforceLimits && directories.Count + files.Count > ArtifactTransformLimits.Default.MaximumFiles)
             throw new InvalidDataException("Native logical tree exceeds its entry budget.");
         foreach (var directory in directories)
             if (directory != ArtifactPathRules.NormalizeRelativePath(directory) || !paths.Add(directory) || files.Contains(directory))

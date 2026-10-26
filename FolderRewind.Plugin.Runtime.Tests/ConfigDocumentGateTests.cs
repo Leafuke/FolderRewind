@@ -42,7 +42,7 @@ public sealed class ConfigDocumentGateTests
 
         Assert.AreEqual(ConfigDocumentGateStatus.Migrated, result.Status);
         var root = result.Document!;
-        Assert.AreEqual(1, root["schemaVersion"]!.GetValue<int>());
+        Assert.AreEqual(ConfigSchema.CurrentVersion, root["schemaVersion"]!.GetValue<int>());
         Assert.IsTrue(root["LegacyRootMarker"]!["future"]!.GetValue<bool>());
 
         var configs = root["BackupConfigs"]!.AsArray();
@@ -79,7 +79,7 @@ public sealed class ConfigDocumentGateTests
         Assert.AreEqual("default", core["Kind"]!["KindId"]!.GetValue<string>());
 
         var preset = root["Templates"]![0]!.AsObject();
-        Assert.AreEqual(1, preset["SchemaVersion"]!.GetValue<int>());
+        Assert.AreEqual(ConfigSchema.CurrentVersion, preset["SchemaVersion"]!.GetValue<int>());
         Assert.AreEqual("com.folderrewind.minerewind", preset["Kind"]!["OwnerId"]!.GetValue<string>());
         Assert.IsNotNull(preset["ProviderDefaults"]);
         Assert.AreEqual("com.folderrewind.minerewind", preset["RequiredPluginIds"]![0]!.GetValue<string>());

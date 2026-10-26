@@ -256,6 +256,10 @@ Generated_Code/
 # because we have git ;-)
 _UpgradeReport_Files/
 Backup*/
+!tools/BackupPerformanceHost/
+tools/BackupPerformanceHost/*
+!tools/BackupPerformanceHost/CaptureInputAcceptance.cs
+!tools/BackupPerformanceHost/CaptureInputAcceptance.Faults.cs
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/

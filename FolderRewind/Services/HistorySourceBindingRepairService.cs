@@ -5,6 +5,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Services;
 
@@ -100,13 +101,13 @@ internal static class HistorySourceBindingRepairService
                 ? BackupFilterMode.Whitelist
                 : BackupFilterMode.Blacklist,
             BackupWhitelist = boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist
-                ? new ObservableCollection<string>(boundary.FilterRules)
-                : new ObservableCollection<string>(),
+                ? new ObservableCollection<PathFilterRule>(boundary.Rules)
+                : new ObservableCollection<PathFilterRule>(),
             Blacklist = boundary.FilterMode == EffectiveBoundaryFilterMode.Blacklist
-                ? new ObservableCollection<string>(boundary.FilterRules)
-                : new ObservableCollection<string>(),
+                ? new ObservableCollection<PathFilterRule>(boundary.Rules)
+                : new ObservableCollection<PathFilterRule>(),
             UseRegex = boundary.UseRegex,
-            RestoreWhitelist = new ObservableCollection<string>(previousFilters.RestoreWhitelist)
+            RestoreWhitelist = new ObservableCollection<PathFilterRule>(previousFilters.RestoreWhitelist)
         };
         config.ConfigRevision = Guid.NewGuid().ToString("N");
         var save = ConfigService.SaveWithResult();

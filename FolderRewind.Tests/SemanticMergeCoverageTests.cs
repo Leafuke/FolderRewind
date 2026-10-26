@@ -9,6 +9,75 @@ namespace FolderRewind.Tests;
 [TestClass]
 public sealed class SemanticMergeCoverageTests
 {
+    [TestMethod]
+    public void TypedLockFileDoesNotOverlapTerrainAndIgnoredCacheDoesNotMaskAnotherExclusion()
+    {
+        var lockedFile = new PathFilterRule("session.lock", PathFilterTarget.File);
+        var cache = new PathFilterRule("voxy", PathFilterTarget.Directory);
+        EffectiveSourceBoundarySnapshot Boundary(params PathFilterRule[] rules)
+            => EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, rules, false);
+        Assert.AreEqual(MergeCoverageState.Complete, new SemanticMergeCoverage(Boundary(lockedFile), Root).Check(Region(), default).State);
+        var proof = new SemanticMergeCoverage(Boundary(lockedFile, cache), Root);
+        Assert.AreEqual(MergeCoverageState.Filtered, proof.Check(Region(), default).State);
+        Assert.AreEqual(MergeCoverageState.Complete, proof.Check(Region() with { IgnoredBlacklistRules = [cache] }, default).State);
+        Assert.AreEqual(MergeCoverageState.Filtered, proof.Check(Region(), default).State, "The ignored-rule set belongs in the cache key.");
+        var actualExclusion = new PathFilterRule("region/*.mca", PathFilterTarget.File);
+        proof = new(Boundary(cache, lockedFile, actualExclusion), Root);
+        var blocked = proof.Check(Region() with { IgnoredBlacklistRules = [cache] }, default);
+        Assert.AreEqual(MergeCoverageState.Filtered, blocked.State);
+        Assert.AreEqual(actualExclusion.Pattern, blocked.Evidence.Single().Rule);
+    }
+
+    [TestMethod]
+    public void LegacyLockExceptionRechecksOtherRulesAndNeverChangesWhitelistCoverage()
+    {
+        var legacy = PathFilterRule.Legacy("session.lock");
+        var proof = new SemanticMergeCoverage(Blacklist("session.lock"), Root);
+        Assert.AreEqual(MergeCoverageState.Complete, proof.Check(Region() with { IgnoredBlacklistRules = [legacy] }, default).State);
+        proof = new(Blacklist("session.lock", "**/*.mcc"), Root);
+        Assert.AreEqual("**/*.mcc", proof.Check(Region() with { IgnoredBlacklistRules = [legacy] }, default).Evidence.Single().Rule);
+        var white = new EffectiveSourceBoundarySnapshot(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Whitelist, ["session.lock"], false);
+        Assert.AreEqual(MergeCoverageState.Filtered, new SemanticMergeCoverage(white, Root).Check(Region() with { IgnoredBlacklistRules = [legacy] }, default).State);
+        Assert.ThrowsExactly<ArgumentException>(() => proof.Check(Region() with { IgnoredBlacklistRules = [new("session.lock", PathFilterTarget.File)] }, default));
+    }
+
+    [TestMethod]
+    [DataRow("region")]
+    [DataRow("entities")]
+    [DataRow("poi")]
+    [DataRow("*.mca")]
+    [DataRow("*.mcc")]
+    public void LegacyLockExceptionCannotHideRealMinecraftDataExclusions(string exclusion)
+    {
+        var proof = new SemanticMergeCoverage(Blacklist("session.lock", exclusion), Root);
+        var query = new MergeCoverageQuery("minecraft-data", "", ["region/*.mca", "region/*.mcc", "entities/*.mca", "poi/*.mca"])
+        { IgnoredBlacklistRules = [PathFilterRule.Legacy("session.lock")] };
+        var blocked = proof.Check(query, default);
+        Assert.AreEqual(MergeCoverageState.Filtered, blocked.State);
+        Assert.AreEqual(exclusion, blocked.Evidence.Single().Rule);
+    }
+
+    [TestMethod]
+    public void VersionOneFingerprintAndTypedBoundaryRoundTripsRemainStable()
+    {
+        var original = Blacklist("session.lock");
+        const string json = "{\"SchemaVersion\":1,\"ScopeMode\":0,\"ScopeRules\":[],\"FilterMode\":0,\"FilterRules\":[\"session.lock\"],\"UseRegex\":false}";
+        var expected = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+            "folderrewind/effective-source-boundary/v1\n" + json))).ToLowerInvariant();
+        Assert.AreEqual(json, System.Text.Json.JsonSerializer.Serialize(original));
+        Assert.AreEqual(expected, original.Fingerprint);
+        Assert.AreEqual(expected, System.Text.Json.JsonSerializer.Deserialize<EffectiveSourceBoundarySnapshot>(json)!.Fingerprint);
+        var typed = EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist,
+            [new("session.lock", PathFilterTarget.File)], false);
+        var copy = System.Text.Json.JsonSerializer.Deserialize<EffectiveSourceBoundarySnapshot>(System.Text.Json.JsonSerializer.Serialize(typed))!;
+        Assert.AreEqual(typed.Fingerprint, copy.Fingerprint);
+        Assert.AreEqual(PathFilterTarget.File, copy.Rules.Single().Target);
+        Assert.AreNotEqual(expected, copy.Fingerprint);
+        var scope = new SemanticMergeCoverage(copy, Root, []);
+        Assert.AreEqual(MergePathPresence.Unknown, scope.Inspect("session.lock"));
+        Assert.AreEqual(MergePathPresence.Absent, scope.Inspect("session.lock", isDirectory: true));
+    }
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "MergeCoverageWorld");
     private static MergeCoverageQuery Region(string root = "") => new("terrain", root, ["region/*.mca", "region/*.mcc", "dimensions/*/**/region/*.mca", "DIM-1/region/*.mca"]);
     private static EffectiveSourceBoundarySnapshot Blacklist(params string[] rules) => new(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, rules, false);

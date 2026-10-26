@@ -14,6 +14,10 @@ public sealed record MergePathCoverage(string RelativePath, MergePathPresence Pr
 /// and **/ also matches zero directories. Character classes and parent traversal are unsupported.
 /// The query includes possible absent paths, not just inventory entries. It grants no new read/write authority.
 /// </summary>
-public sealed record MergeCoverageQuery(string RequirementId, string RelativeRoot, IReadOnlyList<string> Patterns);
+public sealed record MergeCoverageQuery(string RequirementId, string RelativeRoot, IReadOnlyList<string> Patterns)
+{
+    /// <summary>Exact blacklist rules the provider declares irrelevant to these domain dependencies. This changes proof only, never input/output authority.</summary>
+    public IReadOnlyList<PathFilterRule> IgnoredBlacklistRules { get; init; } = Array.Empty<PathFilterRule>();
+}
 public sealed record MergeCoverageResult(string RequirementId, string BoundaryFingerprint, MergeCoverageState State,
     IReadOnlyList<MergeCoverageEvidence> Evidence);

@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Views;
 
@@ -32,7 +33,8 @@ public sealed partial class ConfigSettingsPage
                 XamlRoot.ContentIslandEnvironment.AppWindowId, folders, $"Filter_{kind}_{folders}");
             if (!IsLoaded || !ReferenceEquals(Config, draft)) return;
             foreach (var path in paths)
-                ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(edit, Path.TrimEndingDirectorySeparator(Path.GetFullPath(path))));
+                ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(edit, new PathFilterRule(
+                    Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)), folders ? PathFilterTarget.Directory : PathFilterTarget.File)));
         }
         catch (Exception ex)
         {
@@ -55,35 +57,46 @@ public sealed partial class ConfigSettingsPage
 
     private void OnAddBlacklistClick(object sender, RoutedEventArgs e)
     {
-        ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.AddBlacklist, BlacklistBox.Text));
+        ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.AddBlacklist,
+            new PathFilterRule(BlacklistBox.Text, (PathFilterTarget)BlacklistTarget.SelectedIndex)));
         BlacklistBox.Text = string.Empty;
     }
     private void OnRemoveBlacklistClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: string item })
+        if (sender is Button { DataContext: PathFilterRule item })
             ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.RemoveBlacklist, item));
     }
 
     private void OnAddBackupWhitelistClick(object sender, RoutedEventArgs e)
     {
-        ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.AddBackupWhitelist, BackupWhitelistBox.Text));
+        ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.AddBackupWhitelist,
+            new PathFilterRule(BackupWhitelistBox.Text, (PathFilterTarget)BackupWhitelistTarget.SelectedIndex)));
         BackupWhitelistBox.Text = string.Empty;
     }
     private void OnRemoveBackupWhitelistClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: string item })
+        if (sender is Button { DataContext: PathFilterRule item })
             ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.RemoveBackupWhitelist, item));
     }
 
     private void OnAddRestoreWhitelistClick(object sender, RoutedEventArgs e)
     {
-        ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.AddRestoreWhitelist, RestoreWhitelistBox.Text));
+        ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.AddRestoreWhitelist,
+            new PathFilterRule(RestoreWhitelistBox.Text, (PathFilterTarget)RestoreWhitelistTarget.SelectedIndex)));
         RestoreWhitelistBox.Text = string.Empty;
     }
     private void OnRemoveRestoreWhitelistClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: string item })
+        if (sender is Button { DataContext: PathFilterRule item })
             ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.RemoveRestoreWhitelist, item));
+    }
+
+    private void OnFilterRuleTypeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { IsLoaded: true, DataContext: PathFilterRule rule, Tag: string list, SelectedIndex: >= 0 } picker
+            && picker.SelectedIndex != (int)rule.Target)
+            ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.ChangeFilterTarget,
+                new FilterTargetEdit(list, rule, (PathFilterTarget)picker.SelectedIndex)));
     }
 
     private void OnIconSelectionChanged(object sender, SelectionChangedEventArgs e)

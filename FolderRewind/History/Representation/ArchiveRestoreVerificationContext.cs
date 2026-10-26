@@ -33,9 +33,52 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
     private sealed record OwnerPlanInput(RepresentationId Id, string Path, Services.ArchiveSafeListing Listing, object Policy);
     private sealed record OwnerPlanEntry(string Marker, OwnerPlanInput[] Inputs, Services.NativeSmartOwnerPlan? Plan, string Fallback);
     private readonly List<OwnerPlanEntry> _ownerPlans = [];
+    private sealed record ProtectedInput(VersionRepresentation Representation, object Policy, string Binding,
+        string[] Paths, IReadOnlyList<IDisposable> Guards, PayloadVerificationResult Result);
+    private readonly Dictionary<(object Owner, RepresentationId Id), ProtectedInput> _nativeInputs = [];
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
     public RestoreArchivePreflightMode Mode { get; } = Enum.IsDefined(mode) ? mode : throw new ArgumentOutOfRangeException(nameof(mode));
+
+    internal async ValueTask<PayloadVerificationResult> VerifyProtectedNativeAsync(object owner,
+        VersionRepresentation representation, object policy, string binding, IEnumerable<string> paths,
+        Func<CancellationToken, ValueTask<PayloadVerificationResult>> verify, CancellationToken token,
+        Func<IDisposable>? acquireOwner = null)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var normalized = paths.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            var key = (owner, representation.RepresentationId);
+            if (_nativeInputs.TryGetValue(key, out var cached))
+            {
+                if (!Equivalent(cached.Representation, representation) || !Equals(cached.Policy, policy)
+                    || cached.Binding != binding || !cached.Paths.SequenceEqual(normalized, StringComparer.OrdinalIgnoreCase))
+                    throw new IOException("Native verification binding changed during the operation.");
+                Services.HistoryOperationDiagnostics.Current?.Count("native-verification-reuses");
+                return cached.Result;
+            }
+            var guards = new List<IDisposable>();
+            try
+            {
+                if (acquireOwner is not null) guards.Add(acquireOwner());
+                var parents = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var path in normalized)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (parents.Add(Path.GetDirectoryName(path)!)) guards.Add(new WindowsDirectoryReadLease(path));
+                    guards.Add(WindowsDirectoryReadLease.OpenPayload(path));
+                }
+                var result = await verify(token).ConfigureAwait(false);
+                _nativeInputs.Add(key, new(representation, policy, binding, normalized, guards, result));
+                Services.HistoryOperationDiagnostics.Current?.Count("native-protected-verifications");
+                return result;
+            }
+            catch { for (int i = guards.Count - 1; i >= 0; i--) guards[i].Dispose(); throw; }
+        }
+        finally { _gate.Release(); }
+    }
     internal async ValueTask<PayloadVerificationResult> VerifyAsync(IArchiveRestorePreflightBackend backend,
         VersionRepresentation representation, string path, CancellationToken token)
     {
@@ -141,6 +184,9 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
         foreach (var reservation in _space.Values) reservation.Dispose();
         _space.Clear();
         foreach (var input in _inputs.Values) { input.Stream.Dispose(); input.Parents.Dispose(); }
+        foreach (var input in _nativeInputs.Values)
+            for (int i = input.Guards.Count - 1; i >= 0; i--) input.Guards[i].Dispose();
+        _nativeInputs.Clear();
         _inputs.Clear(); _ownerPlans.Clear(); _gate.Dispose();
     }
 }

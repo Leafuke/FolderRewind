@@ -51,7 +51,8 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
         return new(sorted, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(signature.ToString())))) { Directories = ordered };
     }
 
-    public static async Task<MergeTreeManifest> ReadAsync(string root, Func<string, bool> include, CancellationToken token)
+    public static async Task<MergeTreeManifest> ReadAsync(string root, Func<string, bool> include, CancellationToken token,
+        Func<string, bool>? includeDirectory = null)
     {
         var files = new Dictionary<string, MergeFileValue>(StringComparer.Ordinal);
         var pending = new Stack<string>(); pending.Push(root);
@@ -75,7 +76,7 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
                 files.Add(relative, new(path, Convert.ToHexString(hash.GetHashAndReset()), size));
             }
         }
-        var result = Create(files, SourceDirectorySnapshot.Read(root, include, files.Keys, token));
+        var result = Create(files, SourceDirectorySnapshot.Read(root, include, files.Keys, token, includeDirectory: includeDirectory));
         SourceDirectorySnapshot.Validate(result.Directories, result.Files.Keys);
         if (GenericFileMergeProvider.StructuralGroups(result).Count != 0)
             throw new IOException("Input tree contains case or file/directory collisions.");

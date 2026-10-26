@@ -24,15 +24,16 @@ public sealed class RealWorldPerformanceBenchmarkTests
         if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(snapshot)) Assert.Inconclusive("Explicit isolated snapshot opt-in required.");
         Assert.IsFalse(Path.Exists(snapshot), "Never overwrite an existing snapshot.");
         var rules = await MineRewindPerformanceIntegrationTests.ReadPackagedPolicyAsync(source);
-        var boundary = new EffectiveSourceBoundarySnapshot(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, rules, false);
+        var boundary = EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, rules, false);
         var binding = new HistoryRestoreSourceBinding(SourceId.New(), source, boundary);
         using var reads = new HistoryWorkingTreeReadLease(binding);
         var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
+        var includeDirectory = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true);
         Directory.CreateDirectory(snapshot);
         foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(source, directory).Replace('\\', '/');
-            if (include(relative)) Directory.CreateDirectory(Path.Combine(snapshot, relative));
+            if (includeDirectory(relative)) Directory.CreateDirectory(Path.Combine(snapshot, relative));
         }
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {

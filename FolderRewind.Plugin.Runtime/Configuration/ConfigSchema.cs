@@ -5,7 +5,7 @@ namespace FolderRewind.Plugin.Runtime.Configuration;
 
 public static class ConfigSchema
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
     public const string VersionPropertyName = "schemaVersion";
     public const string CoreOwnerId = "folderrewind.core";
     public const string CoreDefaultKindId = "default";

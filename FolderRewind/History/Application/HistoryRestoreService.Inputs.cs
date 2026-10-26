@@ -49,6 +49,8 @@ public sealed partial class HistoryRestoreService
         return (graph, environment);
     }
     internal ArtifactSpaceBudget SpaceBudget { get; init; } = ArtifactSpaceBudget.Shared;
+    internal IReadOnlyDictionary<SourceId, HistoryWorkingTreeReadLease> CurrentInputs { get; private set; }
+        = new Dictionary<SourceId, HistoryWorkingTreeReadLease>();
     private IDisposable EnterCurrentInputScope(IEnumerable<HistoryRestoreSourceBinding> bindings) => new CurrentInputScope(this, bindings);
     private sealed class CurrentInputScope : IDisposable
     {
@@ -56,12 +58,16 @@ public sealed partial class HistoryRestoreService
         private readonly List<HistoryWorkingTreeReadLease> _leases = [];
         private readonly bool _previousProtection;
         private readonly Action? _previousValidation;
+        private readonly IReadOnlyDictionary<SourceId, HistoryWorkingTreeReadLease> _previousInputs;
         internal CurrentInputScope(HistoryRestoreService restore, IEnumerable<HistoryRestoreSourceBinding> bindings)
         {
             _restore = restore; _previousProtection = restore.HoldCurrentReadProtection; _previousValidation = restore.ValidateCurrentInputs;
+            _previousInputs = restore.CurrentInputs;
             try
             {
-                foreach (var binding in bindings) _leases.Add(new(binding));
+                var inputs = new Dictionary<SourceId, HistoryWorkingTreeReadLease>();
+                foreach (var binding in bindings) { var read = new HistoryWorkingTreeReadLease(binding); _leases.Add(read); inputs.Add(binding.SourceId, read); }
+                restore.CurrentInputs = inputs;
                 restore.HoldCurrentReadProtection = true;
                 restore.ValidateCurrentInputs = () => { _previousValidation?.Invoke(); foreach (var lease in _leases) lease.Validate(); };
             }
@@ -70,6 +76,7 @@ public sealed partial class HistoryRestoreService
         public void Dispose()
         {
             _restore.HoldCurrentReadProtection = _previousProtection; _restore.ValidateCurrentInputs = _previousValidation;
+            _restore.CurrentInputs = _previousInputs;
             foreach (var lease in _leases) lease.Dispose(); _leases.Clear();
         }
     }

@@ -123,7 +123,8 @@ public sealed class SemanticMergeEngine(MergeSessionStore store, SemanticMergeBi
             var boundary = identity.EffectiveSourceBoundary;
             return new(version.ToString(), representation.ToString(), tree.Digest,
                 new(boundary.SchemaVersion, (MergeBoundaryScope)boundary.ScopeMode, boundary.ScopeRules,
-                    (MergeBoundaryFilter)boundary.FilterMode, boundary.FilterRules, boundary.UseRegex, boundary.Fingerprint), view);
+                    (MergeBoundaryFilter)boundary.FilterMode, boundary.FilterRules, boundary.UseRegex, boundary.Fingerprint)
+                    { TypedFilterRules = boundary.Rules }, view);
         }
         return new(session.Id, session.Plan.Revision, source.SourceId.Value, Binding.Kind, Binding.PolicyId, Binding.PolicyVersion,
             Input(source.Base, b, views.Base), Input(source.Ours, o, views.Ours), Input(source.Theirs, t, views.Theirs), MergeLimits.Default);

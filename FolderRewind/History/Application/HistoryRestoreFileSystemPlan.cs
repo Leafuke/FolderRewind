@@ -317,7 +317,7 @@ internal static class HistoryRestoreFileSystemPlanStore
         {
             if (plan.Sources?.Any(source => source.Target.Equals(action.To, StringComparison.OrdinalIgnoreCase)
                 && source.Boundary.ScopeMode == EffectiveBoundaryScopeMode.All
-                && source.Boundary.FilterMode == EffectiveBoundaryFilterMode.Blacklist && source.Boundary.FilterRules.IsEmpty) == true) continue;
+                && source.Boundary.FilterMode == EffectiveBoundaryFilterMode.Blacklist && source.Boundary.Rules.IsEmpty) == true) continue;
             foreach (var item in CaptureTree(action.To))
                 if (!expected.TryGetValue(item.Path, out var known) || known.Identity != item.Identity)
                     throw new IOException("Published restore tree contains an external member.");

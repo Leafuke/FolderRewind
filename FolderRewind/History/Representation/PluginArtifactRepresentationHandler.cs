@@ -91,8 +91,9 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
 
         if (context.Depth == AssessmentDepth.Deep)
         {
-            var verification = await _backend.VerifyAsync(artifactRootId, pluginId, cancellationToken)
-                .ConfigureAwait(false);
+            var verification = _backend is NativePluginArtifactBackend native && context.RestoreVerification is { } protectedContext
+                ? await native.VerifyAsync(artifactRootId, pluginId, context.Representation, protectedContext, cancellationToken).ConfigureAwait(false)
+                : await _backend.VerifyAsync(artifactRootId, pluginId, cancellationToken).ConfigureAwait(false);
             if (!verification.Success)
             {
                 return new RepresentationAssessment(

@@ -38,6 +38,13 @@ No Minecraft, UI, Capture takeover or Merge contract is introduced. Existing
 constructors and numeric enum contracts remain unchanged. 3.10 is a local P3
 candidate until separately published; use an isolated package feed/cache.
 
+API 3.17 adds immutable `PathFilterRule` values (file, directory, or both),
+typed FilePolicy and Merge boundary fields, and exact `IgnoredBlacklistRules`
+for provider-declared non-semantic exclusions. Legacy string members remain
+available. Version-1 rules retain their original matching behavior; version-2
+rules use source-relative globs and explicit target types. Proof exceptions
+never widen source reads, output writes, source scope, or whitelist coverage.
+
 API 3.1 adds the optional `IDiscoveryDefinitionCatalog` metadata extension.
 An existing discovery capability may implement it to expose stable game
 definitions to Host game discovery and provider-targeted backup presets. It is
@@ -109,3 +116,5 @@ API 3.11 adds optional spatial view modes, navigation heights, distance units, l
 ## API 3.15: comparison presentation
 
 `ISpatialComparisonCapability.DescribeComparisonAsync` optionally supplies localized category IDs and default visibility. Its default implementation returns an empty catalog. `SpatialChange.SourcePaths` supplies relative source paths for details/search; older providers retain an empty list. The Host preserves Components without interpreting domain names. These presentation hints never alter merge decisions, content integrity or capture coverage.
+
+API 3.16 adds opt-in `SupportsCoordinationOnly` and `BackupConsistencyRequest.CoordinationOnly`. In this mode a provider coordinates saving without copying or replacing the requested source; the Host owns bounded copying or protected direct input. Older providers default to unsupported and are never invoked with this mode. `IVersionMetadataProviderCapability.GetRequiredSourcePathsAsync` optionally declares exact metadata input paths; declarations cannot expand the capture boundary. Capture and Artifact storage formats are unchanged.

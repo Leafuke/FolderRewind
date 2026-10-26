@@ -87,6 +87,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         CancellationToken cancellationToken)
     {
         var boundary = CreateBoundaryMatcher(source);
+        var directoryBoundary = CreateBoundaryMatcher(source, isDirectory: true);
         if (rollbackSnapshot.HadOriginalTarget)
         {
             await CopyTreeAsync(
@@ -95,14 +96,14 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
                     applyMode == HistoryRestoreApplyMode.Overwrite
                         ? null
                         : relativePath => !boundary(relativePath),
-                    cancellationToken)
+                    cancellationToken, applyMode == HistoryRestoreApplyMode.Overwrite ? null : relative => !directoryBoundary(relative))
                 .ConfigureAwait(false);
         }
         await CopyTreeAsync(
                 stagingDirectory,
                 rollbackSnapshot.TargetDirectory,
                 relativePath => boundary(relativePath),
-                cancellationToken)
+                cancellationToken, directoryBoundary)
             .ConfigureAwait(false);
     }
 
@@ -147,7 +148,8 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         string sourceDirectory,
         string targetDirectory,
         Func<string, bool>? include,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<string, bool>? includeDirectory = null)
     {
         var source = Path.GetFullPath(sourceDirectory);
         if (!Directory.Exists(source)) throw new DirectoryNotFoundException($"Materialized directory '{source}' is missing.");
@@ -155,7 +157,8 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         var files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
             .Select(file => (FullPath: file, RelativePath: Path.GetRelativePath(source, file).Replace('\\', '/')))
             .Where(file => include is null || include(file.RelativePath)).ToArray();
-        var directories = SourceDirectorySnapshot.Read(source, include ?? (_ => true), files.Select(file => file.RelativePath), cancellationToken);
+        var directories = SourceDirectorySnapshot.Read(source, include ?? (_ => true), files.Select(file => file.RelativePath), cancellationToken,
+            includeDirectory: includeDirectory);
         SourceDirectorySnapshot.Validate(directories, files.Select(file => file.RelativePath));
         foreach (var directory in directories)
         {
@@ -175,10 +178,10 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         }
     }
 
-    internal static Func<string, bool> CreateBoundaryMatcher(HistoryRestoreSourceBinding source)
+    internal static Func<string, bool> CreateBoundaryMatcher(HistoryRestoreSourceBinding source, bool isDirectory = false)
     {
         var scope = new Storage.HistoryRestoreTreeScope(source);
-        return relativePath => scope.Includes(relativePath.Replace('\\', '/'));
+        return relativePath => scope.Includes(relativePath.Replace('\\', '/'), isDirectory);
     }
 
     private static Task MoveDirectoryWithRetryAsync(

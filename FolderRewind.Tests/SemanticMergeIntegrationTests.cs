@@ -20,10 +20,13 @@ namespace FolderRewind.Tests;
 public sealed class SemanticMergeIntegrationTests
 {
     [TestMethod]
-    [DataRow(false, false)]
-    [DataRow(true, false)]
-    [DataRow(false, true)]
-    public async Task ExactBundledMineRewindPackageMergesCoreHistoryWithoutArtifactTransformEnablement(bool smart, bool blocked)
+    [DataRow(false, false, false)]
+    [DataRow(true, false, false)]
+    [DataRow(false, true, false)]
+    [DataRow(false, false, true)]
+    [DataRow(true, false, true)]
+    [DataRow(false, true, true)]
+    public async Task ExactBundledMineRewindPackageMergesCoreHistoryWithoutArtifactTransformEnablement(bool smart, bool blocked, bool typed)
     {
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !Directory.Exists(Path.Combine(repo.FullName, "FolderRewind", "Assets", "Plugins"))) repo = repo.Parent;
@@ -39,9 +42,15 @@ public sealed class SemanticMergeIntegrationTests
         var manifest = PluginPackageManifestReader.Parse(File.ReadAllBytes(Path.Combine(extraction, "manifest.json"))).Contract;
         using var loaded = PluginAssemblyLoader.Load(new(manifest.PluginId, extraction, manifest.EntryAssembly, manifest.EntryType, manifest.RequiredApi));
         var resolver = await Resolver.Create(loaded.Instance, manifest, hash, smart ? "terrain-first" : null);
+        var legacyRules = new[] { "session.lock", "**/session.lock", "voxy/**", "**/distanthorizons.sqlite", "**/distanthorizons.sqlite-shm", "**/distanthorizons.sqlite-wal", "*.log" }
+            .Concat(blocked ? ["region/*.mca"] : Array.Empty<string>()).ToArray();
+        PathFilterRule[] typedRules = [new("session.lock", PathFilterTarget.File), new("voxy", PathFilterTarget.Directory),
+            new("DistantHorizons.sqlite", PathFilterTarget.File), new("DistantHorizons.sqlite-shm", PathFilterTarget.File),
+            new("DistantHorizons.sqlite-wal", PathFilterTarget.File), new("*.log", PathFilterTarget.File),
+            .. blocked ? new[] { new PathFilterRule("region/*.mca", PathFilterTarget.File) } : Array.Empty<PathFilterRule>()];
         await using var fixture = new HistoryMergeArchiveFixture { UseSmartDeltas = smart,
-            Boundary = new(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist,
-                ["**/session.lock", "voxy/**", "**/distanthorizons.sqlite", "**/distanthorizons.sqlite-shm", "**/distanthorizons.sqlite-wal", "*.log", .. blocked ? new[] { "session.lock" } : Array.Empty<string>()], false) };
+            Boundary = typed ? EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, typedRules, false)
+                : new(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, legacyRules, false) };
         SemanticMergeEngine Engine(HistoryRuntime history) => new(history.MergeSessions, resolver.Binding, resolver);
         await fixture.SeedAsync((root, side) =>
         {
@@ -79,7 +88,7 @@ public sealed class SemanticMergeIntegrationTests
         if (blocked)
         {
             var row = fixture.History.MergeSessions.QuerySemanticChanges(fixture.Session, "", "Unresolved", 0, 100).Rows.Single(r => r.Conflict.SemanticSubject?.IsBlocked == true);
-            StringAssert.Contains(row.Conflict.SemanticSubject!.Description.Default, "session.lock");
+            StringAssert.Contains(row.Conflict.SemanticSubject!.Description.Default, "region/*.mca");
             Assert.ThrowsExactly<InvalidOperationException>(() => fixture.History.MergeSessions.Resolve(fixture.Session,
                 new(fixture.Session.Plan.Revision, row.Conflict.Id, row.Conflict.InputSignature, MergeResolutionChoice.Ours)));
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => builder.BuildAsync(fixture.Session));

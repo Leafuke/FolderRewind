@@ -20,7 +20,7 @@ public static class ConfigDocumentValidator
         if (!TryGetInt(root, ConfigSchema.VersionPropertyName, out var version)
             || version != ConfigSchema.CurrentVersion)
         {
-            issues.Add(new("config_schema_version_invalid", "$.schemaVersion", "The document is not schema 1."));
+            issues.Add(new("config_schema_version_invalid", "$.schemaVersion", "The document is not the current configuration schema."));
         }
 
         if (Get(root, "GlobalSettings") is not JsonObject globalSettings)
@@ -60,6 +60,7 @@ public static class ConfigDocumentValidator
             }
 
             ValidateKind(config, path, issues);
+            ValidateFilters(Get(config, "Filters"), path + ".Filters", issues);
             ValidateProviderStates(Get(config, "ProviderStates"), path + ".ProviderStates", issues);
             ValidateScope(Get(config, "BackupScope"), path + ".BackupScope", issues);
             ValidateHistoryRepositoryBinding(
@@ -103,6 +104,28 @@ public static class ConfigDocumentValidator
 
         ValidatePresets(Get(root, "Templates"), issues);
         return new ConfigValidationResult { Issues = issues };
+    }
+
+    private static void ValidateFilters(JsonNode? node, string path, List<ConfigValidationIssue> issues)
+    {
+        if (node is null) return;
+        if (node is not JsonObject filters) { issues.Add(new("filter_settings_invalid", path, "Filters must be an object.")); return; }
+        foreach (var name in new[] { "Blacklist", "BackupWhitelist", "RestoreWhitelist" })
+        {
+            var rules = Get(filters, name);
+            if (rules is null) continue;
+            if (rules is not JsonArray array) { issues.Add(new("filter_rules_invalid", path + "." + name, "Filter rules must be an array.")); continue; }
+            foreach (var rule in array)
+            {
+                try
+                {
+                    if (rule is not JsonObject || System.Text.Json.JsonSerializer.Deserialize<FolderRewind.Plugin.Abstractions.PathFilterRule>(rule.ToJsonString()) is null)
+                        throw new System.Text.Json.JsonException("A typed filter object is required.");
+                }
+                catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException or FormatException)
+                { issues.Add(new("filter_rule_invalid", path + "." + name, error.Message)); }
+            }
+        }
     }
 
     private static void ValidateHistoryRepositoryBinding(
@@ -189,10 +212,11 @@ public static class ConfigDocumentValidator
 
             if (!TryGetInt(preset, "SchemaVersion", out var schemaVersion) || schemaVersion != ConfigSchema.CurrentVersion)
             {
-                issues.Add(new("preset_schema_invalid", path + ".SchemaVersion", "Preset SchemaVersion must be 1."));
+                issues.Add(new("preset_schema_invalid", path + ".SchemaVersion", "Preset SchemaVersion must match the current configuration schema."));
             }
 
             ValidateKind(preset, path, issues);
+            ValidateFilters(Get(preset, "Filters"), path + ".Filters", issues);
             if (Get(preset, "ProviderDefaults") is not JsonObject)
             {
                 issues.Add(new("preset_provider_defaults_invalid", path + ".ProviderDefaults", "ProviderDefaults must be an object."));

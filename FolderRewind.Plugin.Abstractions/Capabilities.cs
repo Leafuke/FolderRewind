@@ -96,7 +96,11 @@ public interface IFilePolicyCapability : IPluginCapability
 }
 
 public sealed record FilePolicyRequest(ConfigSnapshot Config, FolderSnapshot Folder);
-public sealed record FilePolicyResult(IReadOnlyList<string> RequiredExclusions, IReadOnlyList<string> RequiredInclusions, IReadOnlyList<PluginDiagnostic> Diagnostics);
+public sealed record FilePolicyResult(IReadOnlyList<string> RequiredExclusions, IReadOnlyList<string> RequiredInclusions, IReadOnlyList<PluginDiagnostic> Diagnostics)
+{
+    public IReadOnlyList<PathFilterRule> TypedRequiredExclusions { get; init; } = Array.Empty<PathFilterRule>();
+    public IReadOnlyList<PathFilterRule> TypedRequiredInclusions { get; init; } = Array.Empty<PathFilterRule>();
+}
 
 public interface IBackupScopeCapability : IPluginCapability
 {
@@ -113,6 +117,8 @@ public interface IBackupConsistencyCapability : IPluginCapability
 {
     ConfigKindRef Kind { get; }
     bool SupportsBoundedSourceView => false;
+    /// <summary>Allows the Host to own input preparation without a provider-created copy.</summary>
+    bool SupportsCoordinationOnly => false;
     ValueTask<IConsistencyLease> AcquireAsync(BackupConsistencyRequest request, PluginInvocationContext context);
 }
 
@@ -121,6 +127,8 @@ public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnaps
 {
     /// <summary>Optional Host budget for a temporary source view. Null preserves ordinary capture policy.</summary>
     public BackupSourceViewLimits? SourceViewLimits { get; init; }
+    /// <summary>Coordinate the source only. SourcePath must remain the requested folder; do not copy it.</summary>
+    public bool CoordinationOnly { get; init; }
 }
 public interface IConsistencyLease : IAsyncDisposable
 {
@@ -151,6 +159,10 @@ public sealed record FolderMetadataResult(
 public interface IVersionMetadataProviderCapability : IPluginCapability
 {
     ConfigKindRef Kind { get; }
+    /// <summary>Exact relative files needed for optional metadata. An empty list declines scoped capture.</summary>
+    ValueTask<IReadOnlyList<string>> GetRequiredSourcePathsAsync(
+        ConfigSnapshot config, FolderSnapshot folder, PluginInvocationContext context)
+        => ValueTask.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     ValueTask<VersionMetadataCaptureResult> CaptureAsync(
         VersionMetadataCaptureRequest request,
         PluginInvocationContext context);

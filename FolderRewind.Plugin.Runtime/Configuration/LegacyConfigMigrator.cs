@@ -23,6 +23,12 @@ public sealed class LegacyConfigMigrator
     public LegacyConfigMigrationResult Migrate(JsonObject legacy)
     {
         ArgumentNullException.ThrowIfNull(legacy);
+        if (ConfigDocumentValidator.TryGetInt(legacy, ConfigSchema.VersionPropertyName, out var existingVersion) && existingVersion == 1)
+        {
+            var typed = (JsonObject)legacy.DeepClone();
+            ConfigFilterRuleMigration.Upgrade(typed);
+            return new(typed, Array.Empty<string>());
+        }
         if (ConfigDocumentValidator.TryGetInt(legacy, ConfigSchema.VersionPropertyName, out var version)
             && version == ConfigSchema.CurrentVersion)
         {
@@ -56,6 +62,7 @@ public sealed class LegacyConfigMigrator
         }
 
         MigratePresets(root, warnings);
+        ConfigFilterRuleMigration.Upgrade(root);
 
         return new LegacyConfigMigrationResult(root, warnings);
     }

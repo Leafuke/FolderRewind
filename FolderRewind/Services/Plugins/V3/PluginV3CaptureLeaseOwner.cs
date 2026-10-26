@@ -56,16 +56,23 @@ internal sealed class PluginV3CaptureLeaseOwner
             return;
         }
 
+        // Policy compatibility is not a Prefer coordination failure: never call a provider that may copy implicitly.
+        if (!capability.SupportsCoordinationOnly)
+        {
+            ownershipLease.Dispose();
+            throw new NotSupportedException(I18n.GetString("BackupSourceView_PluginUpgradeRequired"));
+        }
         IConsistencyLease? acquiredConsistency = null;
         try
         {
-            if (sourceViewLimits is not null && !capability.SupportsBoundedSourceView)
-                throw new InvalidOperationException(I18n.GetString("SemanticBackup_BoundedProviderUnavailable"));
             using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             acquiredConsistency = await capability.AcquireAsync(
-                new BackupConsistencyRequest(config, folder, intent) { SourceViewLimits = sourceViewLimits },
+                new BackupConsistencyRequest(config, folder, intent) { CoordinationOnly = true },
                 context!).ConfigureAwait(false);
             ArgumentNullException.ThrowIfNull(acquiredConsistency);
+            if (acquiredConsistency.IsStableSourceView || !StringComparer.OrdinalIgnoreCase.Equals(
+                System.IO.Path.GetFullPath(acquiredConsistency.SourcePath), System.IO.Path.GetFullPath(folder.Path)))
+                throw new NotSupportedException("Coordination-only provider returned a replacement source view.");
             ArgumentNullException.ThrowIfNull(acquiredConsistency.Diagnostics);
             var consistencyDiagnostics = acquiredConsistency.Diagnostics.ToArray();
             // 发布成对 holder 前先验证并复制插件拥有的数据，避免暴露半初始化所有权。
@@ -88,7 +95,12 @@ internal sealed class PluginV3CaptureLeaseOwner
 
             acquiredConsistency = null;
         }
-        catch (OperationCanceledException) when (
+        catch (NotSupportedException)
+        {
+            await ReleaseUnpublishedAsync(acquiredConsistency, ownershipLease).ConfigureAwait(false);
+            throw;
+        }
+        catch (OperationCanceledException ex) when (
             intent == ConsistencyIntent.Prefer
             && !cancellationToken.IsCancellationRequested)
         {
@@ -98,9 +110,10 @@ internal sealed class PluginV3CaptureLeaseOwner
                 DiagnosticSeverity.Warning,
                 "BackupConsistency",
                 pluginId.Value,
-                new Dictionary<string, string>()));
+                new Dictionary<string, string> { ["reason"] = "coordination_timeout", ["message"] = ex.Message,
+                    ["exceptionType"] = ex.GetType().FullName ?? ex.GetType().Name, ["hresult"] = $"0x{ex.HResult:X8}" }));
         }
-        catch (Exception) when (intent == ConsistencyIntent.Prefer && !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (intent == ConsistencyIntent.Prefer && !cancellationToken.IsCancellationRequested)
         {
             await ReleaseUnpublishedAsync(acquiredConsistency, ownershipLease).ConfigureAwait(false);
             diagnostics.Add(new PluginDiagnostic(
@@ -108,7 +121,8 @@ internal sealed class PluginV3CaptureLeaseOwner
                 DiagnosticSeverity.Warning,
                 "BackupConsistency",
                 pluginId.Value,
-                new Dictionary<string, string>()));
+                new Dictionary<string, string> { ["reason"] = "coordination_failed", ["message"] = ex.Message,
+                    ["exceptionType"] = ex.GetType().FullName ?? ex.GetType().Name, ["hresult"] = $"0x{ex.HResult:X8}" }));
         }
         catch
         {

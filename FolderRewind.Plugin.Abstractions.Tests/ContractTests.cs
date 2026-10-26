@@ -9,6 +9,19 @@ namespace FolderRewind.Plugin.Abstractions.Tests;
 public sealed class ContractTests
 {
     [TestMethod]
+    public void TypedFiltersRoundTripWithoutPromotingLegacyStrings()
+    {
+        var legacy = JsonSerializer.Deserialize<PathFilterRule>("\"session.lock\"")!;
+        Assert.AreEqual(PathFilterRule.Legacy("session.lock"), legacy);
+        var typed = new PathFilterRule("session.lock", PathFilterTarget.File);
+        Assert.AreEqual(typed, JsonSerializer.Deserialize<PathFilterRule>(JsonSerializer.Serialize(typed)));
+        Assert.AreNotEqual(legacy, typed);
+        Assert.IsEmpty(new FilePolicyResult([], [], []).TypedRequiredExclusions);
+        Assert.IsEmpty(new MergeCoverageQuery("files", "", ["*.mca"]).IgnoredBlacklistRules);
+        Assert.ThrowsExactly<JsonException>(() => JsonSerializer.Deserialize<PathFilterRule>("{\"Pattern\":\"x\",\"Target\":\"Unknown\"}"));
+        Assert.ThrowsExactly<JsonException>(() => JsonSerializer.Deserialize<PathFilterRule>("{\"Pattern\":\"x\",\"Target\":\"File\",\"SemanticsVersion\":1}"));
+    }
+    [TestMethod]
     public async Task ExistingComparisonProvidersNeedNotImplementPresentationMetadata()
     {
         ISpatialComparisonCapability old = new OldComparisonProvider();
@@ -40,7 +53,7 @@ public sealed class ContractTests
         Assert.IsTrue(new PluginApiVersion(3, 0).IsSatisfiedBy(new PluginApiVersion(3, 2)));
         Assert.IsFalse(new PluginApiVersion(3, 2).IsSatisfiedBy(new PluginApiVersion(3, 1)));
         Assert.IsFalse(new PluginApiVersion(2, 9).IsSatisfiedBy(new PluginApiVersion(3, 9)));
-        Assert.AreEqual(new PluginApiVersion(3, 15), PluginApiVersion.HostVersion);
+        Assert.AreEqual(new PluginApiVersion(3, 17), PluginApiVersion.HostVersion);
     }
 
     [TestMethod]
@@ -187,6 +200,20 @@ public sealed class ContractTests
         public string SourcePath => "live";
         public IReadOnlyList<PluginDiagnostic> Diagnostics => [];
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    [TestMethod]
+    public void LegacyProviderMustOptIntoCoordinationOnly()
+    {
+        IBackupConsistencyCapability provider = new LegacyConsistencyProvider();
+        Assert.IsFalse(provider.SupportsCoordinationOnly);
+        Assert.IsFalse(new BackupConsistencyRequest(null!, null!, ConsistencyIntent.Prefer).CoordinationOnly);
+    }
+    private sealed class LegacyConsistencyProvider : IBackupConsistencyCapability
+    {
+        public ConfigKindRef Kind => new(new("test"), "kind");
+        public ValueTask<IConsistencyLease> AcquireAsync(BackupConsistencyRequest request, PluginInvocationContext context)
+            => ValueTask.FromResult<IConsistencyLease>(new LegacyConsistencyLease());
     }
 }
 

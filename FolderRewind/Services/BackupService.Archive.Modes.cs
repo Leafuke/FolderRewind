@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -24,7 +25,7 @@ namespace FolderRewind.Services
         /// SkipIfUnchanged 短路需同时满足两个前提：确无变更，且缓存引用的上个归档文件仍然存在
         /// （防止基于已被手动删除的 payload 判定"无变化"）。FileTypeRules 追加压缩失败只记警告。
         /// </remarks>
-        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null, string? originalSourcePath = null)
+        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null, string? originalSourcePath = null, SourceCaptureInput? captureInput = null, CancellationToken cancellationToken = default)
         {
             if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
             {
@@ -33,12 +34,14 @@ namespace FolderRewind.Services
                     captureScope,
                     "Partial capture requires an Exact parent patch and cannot be represented by CoreFull.");
             }
-            var currentStates = ScanDirectory(source, config.Filters, originalSourcePath, selection);
+            IReadOnlyDictionary<string, SourceCaptureFileState> currentStates = captureInput?.Files
+                ?? (IReadOnlyDictionary<string, SourceCaptureFileState>)ScanDirectory(source, config.Filters, originalSourcePath, selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
                 return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
             var changeSet = CompareFileStates(currentStates, baseline?.FileStates);
+            if (captureInput is not null) captureInput.Changes = changeSet.ToCaptureDiff();
 
             if (config.Archive.SkipIfUnchanged && baseline is not null)
             {
@@ -61,16 +64,20 @@ namespace FolderRewind.Services
             }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
+            if (captureInput is not null)
+                source = (await PrepareCoreInputAsync(captureInput, currentStates.Keys, config, cancellationToken, full: true)).SourcePath;
             var inputBytes = currentStates.Values.Sum(file => file.Size);
             using var outputSpace = Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(destDir,
                 checked(inputBytes + currentStates.Count * 4096L + Math.Max(8L * 1024 * 1024, inputBytes / 20))));
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection, originalSourcePath: originalSourcePath);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, null, fileTypeExclusions, taskToUpdate,
+                applyAdditionalArguments: true, selection: selection, originalSourcePath: originalSourcePath,
+                capturedPaths: currentStates.Keys.ToArray(), capturedDirectories: captureInput?.Directories);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate, selection, originalSourcePath);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, currentStates.Keys.ToArray(), null, password, taskToUpdate, selection, originalSourcePath);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -115,7 +122,7 @@ namespace FolderRewind.Services
         /// （截断链条）。变更文件会先按 FileTypeRules 拆分：不匹配规则的进主列表文件，
         /// 匹配的留给追加压缩阶段处理；若变更全部由删除构成，则跳过主压缩直接生成仅删除归档。
         /// </remarks>
-        private static async Task<SourceCaptureResult> DoSmartBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoSmartBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null, SourceCaptureInput? captureInput = null, CancellationToken cancellationToken = default)
         {
             if (baseline is null)
             {
@@ -127,7 +134,7 @@ namespace FolderRewind.Services
                         "Partial capture requires an Exact logical baseline.");
                 }
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline: null, baseName, config, selection, comment, taskToUpdate);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline: null, baseName, config, selection, comment, taskToUpdate, captureInput: captureInput, cancellationToken: cancellationToken);
             }
             if (!File.Exists(baseline.PayloadPath))
             {
@@ -140,7 +147,7 @@ namespace FolderRewind.Services
                         expectedBaseVersionId: baseline.BaseVersionId);
                 }
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate, captureInput: captureInput, cancellationToken: cancellationToken);
             }
 
             // 2. 智能备份链长度检查（参考 MineBackup maxSmartBackupsPerFull 逻辑）
@@ -158,12 +165,13 @@ namespace FolderRewind.Services
                         expectedBaseVersionId: baseline.BaseVersionId);
                 }
                 Log(I18n.Format("BackupService_Log_SmartChainLimitReached", maxChain), LogLevel.Info);
-                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate, captureInput: captureInput, cancellationToken: cancellationToken);
             }
 
             // 2. 扫描并对比文件（带黑名单过滤）
             Log(I18n.Format("BackupService_Log_AnalyzingDiff"), LogLevel.Info);
-            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            IReadOnlyDictionary<string, SourceCaptureFileState> currentStates = captureInput?.Files
+                ?? (IReadOnlyDictionary<string, SourceCaptureFileState>)ScanDirectory(source, config.Filters, selection: selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
                 return SourceCaptureResult.Unavailable(sourceId, captureScope);
@@ -186,6 +194,7 @@ namespace FolderRewind.Services
                 changeSet = CompareFileStates(currentStates, baseline.FileStates);
             }
 
+            if (captureInput is not null) captureInput.Changes = changeSet.ToCaptureDiff();
             if (!changeSet.HasChanges)
             {
                 Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
@@ -198,6 +207,8 @@ namespace FolderRewind.Services
                 .ToList();
 
             Log(I18n.Format("BackupService_Log_ChangesDetected", contentChangedFiles.Count + changeSet.DeletedFiles.Count), LogLevel.Info);
+            if (captureInput is not null)
+                source = (await PrepareCoreInputAsync(captureInput, contentChangedFiles, config, cancellationToken)).SourcePath;
 
             // 3. 生成文件列表文件
             // 当启用自定义文件类型处理时，需要将变更文件列表拆分：
@@ -244,7 +255,7 @@ namespace FolderRewind.Services
             }
             else if (!string.IsNullOrWhiteSpace(listFile))
             {
-                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
+                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, null, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
             }
             else
             {
@@ -318,7 +329,7 @@ namespace FolderRewind.Services
         /// <remarks>
         /// 基线缺失、类型不明、缓存损坏、归档校验失败或不能证明选择范围精确时，保守回退为 Full。
         /// </remarks>
-        private static async Task<SourceCaptureResult> DoRollingBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoRollingBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null, SourceCaptureInput? captureInput = null, CancellationToken cancellationToken = default)
         {
             if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
             {
@@ -328,7 +339,7 @@ namespace FolderRewind.Services
                     "Partial capture must use an Exact-parent SmartDelta patch.");
             }
             async Task<SourceCaptureResult> FallbackToFullAsync()
-                => await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
+                => await DoFullBackupAsync(sourceId, captureScope, captureInput?.OriginalRoot ?? source, destDir, baseline, baseName, config, selection, comment, taskToUpdate, captureInput: captureInput, cancellationToken: cancellationToken);
 
             if (baseline is null
                 || selection.Mode == BackupSourceScopeMode.Include
@@ -342,13 +353,15 @@ namespace FolderRewind.Services
             string baselinePath = baseline.PayloadPath;
             string baselineFileName = Path.GetFileName(baselinePath);
 
-            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            IReadOnlyDictionary<string, SourceCaptureFileState> currentStates = captureInput?.Files
+                ?? (IReadOnlyDictionary<string, SourceCaptureFileState>)ScanDirectory(source, config.Filters, selection: selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
                 return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
 
             var changeSet = CompareFileStates(currentStates, baseline.FileStates);
+            if (captureInput is not null) captureInput.Changes = changeSet.ToCaptureDiff();
             if (config.Archive.SkipIfUnchanged && !changeSet.HasChanges)
             {
                 Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
@@ -369,6 +382,8 @@ namespace FolderRewind.Services
             }
 
             string finalFileName = CreateUniqueArchiveFileName(destDir, baseName, config.Archive.Format, "Rolling", comment);
+            if (captureInput is not null)
+                source = (await PrepareCoreInputAsync(captureInput, changeSet.AddedFiles.Concat(changeSet.ModifiedFiles), config, cancellationToken)).SourcePath;
             string finalPath = Path.Combine(destDir, finalFileName);
             string? changedListFile = null;
             string? deletedListFile = null;

@@ -217,12 +217,22 @@ internal static class HistorySourceBoundaryResolver
 
     private static void MergeFilePolicy(FilterSettings filters, FilePolicyResult policy)
     {
-        filters.Blacklist ??= new ObservableCollection<string>();
-        filters.BackupWhitelist ??= new ObservableCollection<string>();
+        filters.Blacklist ??= new ObservableCollection<PathFilterRule>();
+        filters.BackupWhitelist ??= new ObservableCollection<PathFilterRule>();
         foreach (var exclusion in policy.RequiredExclusions.Where(BackupSourceScopePatternSet.IsSafeRelativePattern))
             BackupFilterRulePolicy.AddDistinct(filters.Blacklist, exclusion);
+        foreach (var exclusion in policy.TypedRequiredExclusions)
+        {
+            PathRuleMatcher.ValidateRules([exclusion]);
+            if (BackupSourceScopePatternSet.IsSafeRelativePattern(exclusion.Pattern)) BackupFilterRulePolicy.AddDistinct(filters.Blacklist, exclusion);
+        }
         if (filters.BackupFilterMode != BackupFilterMode.Whitelist) return;
         foreach (var inclusion in policy.RequiredInclusions.Where(BackupSourceScopePatternSet.IsSafeRelativePattern))
             BackupFilterRulePolicy.AddDistinct(filters.BackupWhitelist, inclusion);
+        foreach (var inclusion in policy.TypedRequiredInclusions)
+        {
+            PathRuleMatcher.ValidateRules([inclusion]);
+            if (BackupSourceScopePatternSet.IsSafeRelativePattern(inclusion.Pattern)) BackupFilterRulePolicy.AddDistinct(filters.BackupWhitelist, inclusion);
+        }
     }
 }

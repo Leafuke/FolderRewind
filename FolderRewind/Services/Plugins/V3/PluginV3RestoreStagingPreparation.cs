@@ -17,7 +17,7 @@ internal static class PluginV3RestoreStagingPreparation
     public static async Task<bool> PrepareAsync(BackupConfig config, Guid operationId, bool preservePlayerData,
         HistoryRestoreSourceBinding binding, string staging, CancellationToken token,
         bool? preservePlayerDataOverride = null, IReadOnlyList<string>? additionalRestoreWhitelist = null,
-        IReadOnlyList<string>? preservePaths = null)
+        IReadOnlyList<string>? preservePaths = null, History.Storage.HistoryWorkingTreeReadLease? currentInput = null)
     {
         var kind = PluginV3ModelMapper.ToKind(config);
         using var lease = kind.OwnerId.Value == "folderrewind.core" ? null
@@ -31,11 +31,11 @@ internal static class PluginV3RestoreStagingPreparation
         var proposed = new Dictionary<string, RestoreStagedFileProposal>(StringComparer.OrdinalIgnoreCase);
         IReadOnlyList<RestoreStagedFileProposal> proposals;
         IReadOnlyList<string> deletes = [];
-        using (var current = new LockedView(binding.TargetDirectory, binding))
-        using (var target = new LockedView(staging, binding))
+        using (var current = new History.Storage.HistoryRestoreSourceReadView(binding.TargetDirectory, binding, currentInput))
+        using (var target = new History.Storage.HistoryRestoreSourceReadView(staging, binding))
         {
             foreach (var proposal in await RestoreWhitelistPreparation.PrepareAsync(current, target,
-                config.Filters.RestoreWhitelist.Concat(additionalRestoreWhitelist ?? []), binding.ComparisonRoot, token).ConfigureAwait(false))
+                config.Filters.RestoreWhitelist.Concat((additionalRestoreWhitelist ?? []).Select(PathFilterRule.Legacy)), binding.ComparisonRoot, token, config.Filters.UseRegex).ConfigureAwait(false))
                 proposed.Add(proposal.RelativePath, proposal);
             if (lease is not null)
             {
@@ -43,17 +43,17 @@ internal static class PluginV3RestoreStagingPreparation
                 var result = await lease.Capability.PrepareAsync(new(operationId,
                     PluginV3ModelMapper.ToSnapshot(config), binding.SourceId.Value, current, target, preservePlayerData)
                     { PreservePlayerDataOverride = preservePlayerDataOverride }, lease.Context).ConfigureAwait(false);
+                OperationDiagnosticFormatter.Log(result.Diagnostics, "Restore preparation", nameof(PluginV3RestoreStagingPreparation));
                 var error = result.Diagnostics.FirstOrDefault(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
                 if (error is not null) throw new InvalidDataException(error.Code +
                     (error.Arguments.TryGetValue("message", out var message) ? ": " + message : string.Empty));
                 // Freeze and validate plugin output before combining it with host-owned whitelist output.
                 foreach (var proposal in RestoreStagingProposalValidator.ValidateAndFreeze(result, include))
                     proposed[proposal.RelativePath] = proposal;
-                foreach (var diagnostic in result.Diagnostics) LogService.LogWarning(diagnostic.Code, "Restore preparation");
             }
             var preserve = await RestorePreservePreparation.PrepareAsync(current, target, preservePaths ?? [],
                 kind.OwnerId.Value == "com.folderrewind.minerewind", include, token,
-                proposed.Keys.Concat(current.AllRelativePaths).Concat(target.AllRelativePaths)).ConfigureAwait(false);
+                proposed.Keys.Concat(current.EnumerateAllRelativePaths()).Concat(target.EnumerateAllRelativePaths())).ConfigureAwait(false);
             deletes = preserve.Deletes;
             foreach (var path in deletes) proposed.Remove(path);
             foreach (var proposal in preserve.Files) proposed[proposal.RelativePath] = proposal;
@@ -81,42 +81,4 @@ internal static class PluginV3RestoreStagingPreparation
         return changed;
     }
 
-    // 插件只能读取复制出的流；文件锁在整个 preparation 回调期间保留。
-    private sealed class LockedView : IRestoreSourceView, IDisposable
-    {
-        private readonly Dictionary<string, FileStream> _files = new(StringComparer.Ordinal);
-        private readonly List<string> _allRelativePaths = [];
-        private readonly History.Storage.HistoryWorkingTreeReadLease? _read;
-        public IReadOnlyList<string> AllRelativePaths => _allRelativePaths.AsReadOnly();
-        public LockedView(string root, HistoryRestoreSourceBinding binding)
-        {
-            try
-            {
-                _read = new History.Storage.HistoryWorkingTreeReadLease(binding with { TargetDirectory = root, LogicalDirectory = binding.ComparisonRoot });
-                if (!Directory.Exists(root)) return;
-                foreach (var entry in new History.Storage.HistoryRestoreTreeScope(binding).Enumerate(_read.PhysicalRoot, includeExcluded: true))
-                {
-                    if (entry.Directory) continue;
-                    _allRelativePaths.Add(entry.RelativePath);
-                    if (entry.Managed) _files.Add(entry.RelativePath, _read.GetStream(entry.RelativePath));
-                }
-            }
-            catch { Dispose(); throw; }
-        }
-        public IReadOnlyList<string> RelativePaths => Array.AsReadOnly(_files.Keys.OrderBy(path => path, StringComparer.Ordinal).ToArray());
-        public ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var path = ArtifactPathRules.NormalizeRelativePath(relativePath);
-            if (!_files.TryGetValue(path, out var input)) throw new FileNotFoundException(path);
-            lock (input)
-            {
-                if (input.Length > 64 * 1024 * 1024) throw new IOException("Restore preparation input exceeds limit.");
-                input.Position = 0;
-                using var buffer = new MemoryStream(); input.CopyTo(buffer);
-                return ValueTask.FromResult<Stream>(new MemoryStream(buffer.ToArray(), writable: false));
-            }
-        }
-        public void Dispose() { _files.Clear(); _read?.Dispose(); }
-    }
 }

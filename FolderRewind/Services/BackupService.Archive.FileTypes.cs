@@ -88,7 +88,7 @@ namespace FolderRewind.Services
                         File.WriteAllLines(tmpList, matchedFiles);
 
                         var sb = new StringBuilder();
-                        sb.Append($"a -t{settings.Format} \"{archivePath}\" @\"{tmpList}\" -scsUTF-8");
+                        sb.Append($"a -t{settings.Format} \"{archivePath}\" @\"{tmpList}\" -scsUTF-8 -spd");
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
                         int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
                         if (cpuThreads > 0) sb.Append($" -mmt{cpuThreads}"); else sb.Append(" -mmt");
@@ -111,7 +111,7 @@ namespace FolderRewind.Services
                     {
                         // 全量/覆写模式：白名单下仍使用 listfile，避免 -ir! 把白名单外同类型文件追加进归档。
                         List<string>? matchedWhitelistFiles = null;
-                        if (HasBackupWhitelist(filters)
+                        if (HasBackupWhitelist(filters) || filters?.Blacklist.Count > 0
                             || selection?.Mode == BackupSourceScopeMode.Include)
                         {
                             matchedWhitelistFiles = EnumerateBackupRelativeFiles(
@@ -154,11 +154,11 @@ namespace FolderRewind.Services
                         sb.Append(" -bsp1");
 
                         // 添加黑名单排除（同主压缩一致）。白名单模式已用 listfile 精确限制。
-                        if (filters?.BackupFilterMode != BackupFilterMode.Whitelist && filters?.Blacklist != null)
+                        if (matchedWhitelistFiles is null && filters?.BackupFilterMode != BackupFilterMode.Whitelist && filters?.Blacklist != null)
                         {
-                            foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
+                            foreach (var rule in filters.Blacklist.Where(r => r.SemanticsVersion == 1 && !string.IsNullOrWhiteSpace(r.Pattern)))
                             {
-                                var trimmedRule = rule.Trim();
+                                var trimmedRule = rule.Pattern.Trim();
                                 if (trimmedRule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase)) continue;
                                 if (Path.IsPathRooted(trimmedRule)) trimmedRule = Path.GetRelativePath(originalSourcePath ?? sourceDir, trimmedRule);
                                 sb.Append($" -xr!\"{trimmedRule}\"");

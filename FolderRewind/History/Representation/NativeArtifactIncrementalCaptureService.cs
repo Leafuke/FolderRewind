@@ -33,7 +33,7 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
             || plan.FileStates.Any(f => f.Value.Size < 0)
             || plan.FileStates.Sum(f => f.Value.Size) > ArtifactTransformLimits.Default.MaximumBytes)
             throw new InvalidDataException("Capture source exceeds the Artifact input budget.");
-        var readPrimary = new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [new("primary")] = primary },
+        await using var readPrimary = new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [new("primary")] = primary },
             plan.Input.AddedFiles.Concat(plan.Input.ModifiedFiles).ToHashSet(StringComparer.Ordinal));
         var physical = await readPrimary.ListFilesAsync(new("primary"), token);
         if (!physical.Select(f => f.RelativePath).ToHashSet(StringComparer.Ordinal)
@@ -62,27 +62,41 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
             plan.FileStates, plan.Input.Checkpoint ? 0 : checked((plan.Baseline?.ConsecutiveSmartCaptures ?? 0) + 1))
             { Directories = plan.Directories };
         var evidenceBytes = JsonSerializer.SerializeToUtf8Bytes(document);
-        await using var prepared = await store.PrepareAsync(plugins, config, folder, version.ToString(), representation.ToString(), primary,
-            policy, encrypted, token, plan.Input,
-            repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document), new(new("primary"), readPrimary), captureOperation);
+        PreparedNativeArtifact prepared;
+        using (Services.HistoryOperationDiagnostics.Current?.Measure("native-conversion"))
+            prepared = await store.PrepareAsync(plugins, config, folder, version.ToString(), representation.ToString(), primary,
+                policy, encrypted, token, plan.Input,
+                repacked => JsonSerializer.SerializeToUtf8Bytes(repacked ? document with { CapturesSinceCheckpoint = 0 } : document), new(new("primary"), readPrimary), captureOperation);
+        await using var preparedLifetime = prepared;
         try
         {
             if (prepared.RequiresFullVerification)
             { document = document with { CapturesSinceCheckpoint = 0 }; evidenceBytes = JsonSerializer.SerializeToUtf8Bytes(document); }
-            await prepared.SealAndCommitGraphAsync(token);
+            using (Services.HistoryOperationDiagnostics.Current?.Measure("native-envelope-seal"))
+                await prepared.SealAndCommitGraphAsync(token);
+            using var candidateTiming = Services.HistoryOperationDiagnostics.Current?.Measure("native-candidate-verification");
             await using var read = prepared.OpenLazy();
             var node = read.Artifacts.Single(a => a.ArtifactId == prepared.Intent.Root);
             var materializer = prepared.Operation.Find<IRestoreMaterializerCapability>(c => c.RestoreStrategyId == node.RestoreStrategyId)
                 ?? throw new InvalidOperationException("Materializer unavailable.");
             if (materializer is not IArtifactFileViewProvider provider) throw new InvalidOperationException("Incremental validation requires a file-view provider.");
-            await using var view = await provider.OpenFileViewAsync(new(config, folder, version.ToString(), node.ArtifactId, read.Artifacts, read.Read), prepared.Operation.Context);
+            IArtifactFileView candidateView;
+            try { candidateView = await provider.OpenFileViewAsync(new(config, folder, version.ToString(), node.ArtifactId, read.Artifacts, read.Read), prepared.Operation.Context); }
+            catch (Exception error) when (ArtifactCaptureTransformException.IsDomainFailure(error))
+            { throw new ArtifactCaptureTransformException("Native candidate could not be decoded.", error); }
+            await using var view = candidateView;
             IArtifactFileView? oldView = null;
             try
             {
                 if (prepared.BaselineRead is { } oldRead && plan.Input.BaseRootArtifactId is { } oldRoot)
                     oldView = await provider.OpenFileViewAsync(new(config, folder, plan.Input.BaseVersionId!, oldRoot, oldRead.Artifacts, oldRead.Read), prepared.Operation.Context);
-                using (ArtifactDiagnostics.Source.StartActivity("candidate.validate"))
-                    await document.ValidateViewAsync(view, oldView, plan.Input with { Checkpoint = plan.Input.Checkpoint || prepared.RequiresFullVerification }, token);
+                try
+                {
+                    using (ArtifactDiagnostics.Source.StartActivity("candidate.validate"))
+                        await document.ValidateViewAsync(view, oldView, plan.Input with { Checkpoint = plan.Input.Checkpoint || prepared.RequiresFullVerification }, token);
+                }
+                catch (InvalidDataException error) when (ArtifactCaptureTransformException.IsDomainFailure(error))
+                { throw new ArtifactCaptureTransformException("Native candidate does not match captured source evidence.", error); }
             }
             finally { if (oldView is not null) await oldView.DisposeAsync(); }
             var stored = prepared.Ledger.Artifacts.Single(n => n.ArtifactId == node.ArtifactId);
@@ -114,6 +128,6 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 baselineCandidate, boundary, [])
             { ReservedVersionId = version, CommitParticipant = new NativeArtifactCaptureCommitParticipant(store, prepared.TransferPendingOwnership()) };
         }
-        catch { store.CompletePending(prepared.Intent.Id); throw; }
+        catch { await prepared.DiscardUncommittedAsync(CancellationToken.None); throw; }
     }
 }

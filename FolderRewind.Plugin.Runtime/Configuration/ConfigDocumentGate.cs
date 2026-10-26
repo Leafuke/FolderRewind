@@ -43,13 +43,14 @@ public sealed class ConfigDocumentGate
         if (parse.Kind == ConfigDocumentKind.Current)
         {
             var normalization = _migrator.NormalizeCurrentIdentities(parse.Document);
+            var filtersUpgraded = ConfigFilterRuleMigration.Upgrade(normalization.Document);
             var validation = ConfigDocumentValidator.Validate(normalization.Document);
             if (!validation.IsValid)
             {
                 return RecoveryFromValidation(validation);
             }
 
-            if (normalization.Warnings.Count > 0)
+            if (normalization.Warnings.Count > 0 || filtersUpgraded)
             {
                 var normalizedJson = normalization.Document.ToJsonString(SerializerOptions);
                 return new ConfigDocumentGateResult(
@@ -68,6 +69,7 @@ public sealed class ConfigDocumentGate
         try
         {
             var migration = _migrator.Migrate(parse.Document);
+            ConfigFilterRuleMigration.Upgrade(migration.Document);
             var validation = ConfigDocumentValidator.Validate(migration.Document);
             if (!validation.IsValid)
             {

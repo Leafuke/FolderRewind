@@ -9,6 +9,25 @@ namespace FolderRewind.Tests;
 public sealed class HistoryChainRewriteBaselineTests
 {
     [TestMethod]
+    public async Task BaselineRepairReusesStrictProofThroughMaterialization()
+    {
+        await using var f = new HistoryChainRewriteFixture();
+        await f.InitializeAsync();
+        var node = await f.AddAsync(null, p => File.WriteAllText(Path.Combine(p, "file.txt"), "baseline"));
+        await f.History.WorkspaceStore.SaveAsync(new(f.Config, 1,
+            [new WorkspaceSourceBaseline(f.Source, node.Version.VersionId, WorkspaceBaselineRelation.Exact)]), 0);
+        using var diagnostics = Services.HistoryOperationDiagnostics.Begin("baseline-proof-reuse");
+        var rebuilt = await HistoryCaptureBaselineRepair.RebuildAsync(f.History, f.Engine, f.Source);
+        diagnostics.Dispose();
+        Assert.IsNotNull(rebuilt);
+        Assert.AreEqual(8L, rebuilt.FileStates["file.txt"].Size);
+        Assert.AreEqual(1L, diagnostics.Summary!.Counters.GetValueOrDefault("7z-t"));
+        Assert.AreEqual(1L, diagnostics.Summary.Counters.GetValueOrDefault("7z-l"));
+        Assert.AreEqual(1L, diagnostics.Summary.Counters.GetValueOrDefault("7z-x"));
+        Assert.AreEqual(1L, diagnostics.Summary.Counters.GetValueOrDefault("baseline-metadata-files"));
+    }
+
+    [TestMethod]
     public async Task RewriteMigratesHistoricalCacheAndRebuildNeverReadsLiveSource()
     {
         await using var f = new HistoryChainRewriteFixture();

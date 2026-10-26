@@ -39,7 +39,8 @@ public sealed record MergeReviewSnapshot(PreparedMerge Prepared, ImmutableArray<
                 || System.IO.Directory.Exists(binding.TargetDirectory) != target.Existed)
                 throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged));
             var tree = target.Existed ? await MergeTreeManifest.ReadAsync(binding.TargetDirectory,
-                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false) : MergeTreeManifest.Empty;
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false) : MergeTreeManifest.Empty;
             if (tree.Digest != target.Digest) throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged));
         }
     }

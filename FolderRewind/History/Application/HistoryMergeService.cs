@@ -96,7 +96,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 // 每次重试使用新目录；已发布引用保持不可变。
                 destination += "-" + Guid.NewGuid().ToString("N"); Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 Directory.Move(prepared.StagingDirectory, destination);
-                var tree = (await MergeTreeManifest.ReadAsync(destination, FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false))
+                var tree = (await MergeTreeManifest.ReadAsync(destination, FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false))
                     with { InputRepresentationId = prepared.InputRepresentationId, HasCompleteDirectoryInventory = prepared.HasCompleteDirectoryInventory };
                 cache.Add(id, tree); return tree;
             }

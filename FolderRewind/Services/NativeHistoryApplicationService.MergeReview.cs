@@ -52,7 +52,8 @@ internal static partial class NativeHistoryApplicationService
             var oursTree = await MaterializeMergeComparisonAsync(runtime, restore, session, ours, token).ConfigureAwait(false);
             var exists = Directory.Exists(binding.TargetDirectory);
             var live = exists ? await MergeTreeManifest.ReadAsync(binding.TargetDirectory,
-                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false) : MergeTreeManifest.Empty;
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false) : MergeTreeManifest.Empty;
             branchChanges.AddRange(MergeReviewSnapshot.Compare(oursTree, result));
             workingChanges.AddRange(MergeReviewSnapshot.Compare(live, result));
             targets.Add(new(binding.SourceId, binding.TargetDirectory, exists, live.Digest));

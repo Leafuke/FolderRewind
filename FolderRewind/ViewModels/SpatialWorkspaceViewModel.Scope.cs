@@ -106,7 +106,7 @@ public sealed partial class SpatialWorkspaceViewModel
         var boundary = await Task.Run(async () => await HistorySourceBoundaryResolver.ResolveAsync(previewConfig, previewFolder, token), token);
         if (boundary.IsBlocked) throw new InvalidOperationException(string.Join("\n", boundary.Diagnostics.Select(d => d.Arguments.TryGetValue("error", out var reason) ? reason : d.Code)));
         Details = I18n.GetString("SpatialWorkspace_ScopeIncludes") + "\n" + string.Join("\n", boundary.EffectiveFolder.SourceScope.IncludePatterns)
-            + "\n\n" + I18n.GetString("SpatialWorkspace_ScopeFilters") + "\n" + string.Join("\n", boundary.Boundary.FilterRules);
+            + "\n\n" + I18n.GetString("SpatialWorkspace_ScopeFilters") + "\n" + string.Join("\n", boundary.Boundary.Rules.Select(rule => I18n.Format("Filter_RuleSummary", I18n.GetString("Filter_Target" + rule.Target + ".Content"), rule.Pattern)));
         UpdateScopeSummary();
     });
     public Task SaveScopeAsync() => RunAsync(async token =>

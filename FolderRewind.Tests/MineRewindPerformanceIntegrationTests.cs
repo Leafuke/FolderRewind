@@ -22,8 +22,9 @@ public sealed class MineRewindPerformanceIntegrationTests
         var target = Path.Combine(f.Root, "world"); Directory.CreateDirectory(target);
         File.WriteAllText(Path.Combine(target, "level.dat"), "synthetic discovery marker, not a real Minecraft world");
         var exclusions = await ReadPackagedPolicyAsync(target);
-        CollectionAssert.Contains(exclusions, "session.lock"); CollectionAssert.Contains(exclusions, "voxy/**");
-        var boundary = new EffectiveSourceBoundarySnapshot(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, exclusions, false);
+        CollectionAssert.Contains(exclusions, new PathFilterRule("session.lock", PathFilterTarget.File));
+        CollectionAssert.Contains(exclusions, new PathFilterRule("voxy", PathFilterTarget.Directory));
+        var boundary = EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, exclusions, false);
         var node = await f.AddAsync(null, dir => { File.WriteAllText(Path.Combine(dir, "level.dat"), "restored synthetic data"); File.WriteAllText(Path.Combine(dir, "current.txt"), "restored"); }, boundary: boundary);
         var lockPath = Path.Combine(target, "session.lock"); File.WriteAllText(lockPath, "excluded original");
         var identity = WindowsRestoreFileSystem.Identity(lockPath);
@@ -43,12 +44,14 @@ public sealed class MineRewindPerformanceIntegrationTests
         Assert.AreEqual("FileDelta", stats.Observations["mutation-strategy"]);
         Assert.AreEqual(0L, stats.Counters.GetValueOrDefault("copy-tree-bytes"));
     }
-    internal static async Task<string[]> ReadPackagedPolicyAsync(string world)
+    internal static async Task<PathFilterRule[]> ReadPackagedPolicyAsync(string world)
     {
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "AGENTS.md"))) repo = repo.Parent;
         Assert.IsNotNull(repo);
-        var package = Directory.GetFiles(Path.Combine(repo.FullName, "FolderRewind", "Assets", "Plugins"), "MineRewind-*.frplugin").Single();
+        using var preset = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo.FullName, "FolderRewind", "Assets", "PluginPresets", "minecraft-enhanced-experience.v1.json")));
+        var package = Path.Combine(repo.FullName, "FolderRewind", preset.RootElement.GetProperty("actions").EnumerateArray()
+            .Single(action => action.GetProperty("id").GetString() == "install-minerewind").GetProperty("packagePath").GetString()!);
         Assert.IsTrue(File.Exists(package));
         var root = Path.Combine(Path.GetTempPath(), "fr-minerewind-package-" + Guid.NewGuid().ToString("N"));
         ZipFile.ExtractToDirectory(package, root);
@@ -69,7 +72,7 @@ public sealed class MineRewindPerformanceIntegrationTests
             }
         }
     }
-    private static async Task<string[]> InvokePolicyAsync(string root, string world)
+    private static async Task<PathFilterRule[]> InvokePolicyAsync(string root, string world)
     {
         var id = new PluginId("com.folderrewind.minerewind");
         using var plugin = PluginAssemblyLoader.Load(new(id, root, "MineRewind.dll", "MineRewind.MinecraftSavesPlugin", new(3, 9)));
@@ -80,7 +83,7 @@ public sealed class MineRewindPerformanceIntegrationTests
         var capability = context.Capabilities.OfType<IFilePolicyCapability>().Single();
         var result = await capability.ResolveAsync(new(config, folder), new(id, new UnusedHostServices(), default, default));
         await plugin.Instance.DeactivateAsync(default);
-        return result.RequiredExclusions.ToArray();
+        return result.TypedRequiredExclusions.Concat(result.RequiredExclusions.Select(PathFilterRule.Legacy)).ToArray();
     }
     private sealed class ActivationContext(PluginId id, ConfigSnapshot config) : IPluginActivationContext
     {

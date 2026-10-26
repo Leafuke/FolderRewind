@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using System;
 using FolderRewind.Services;
 using System.Collections.ObjectModel;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.ViewModels;
 
@@ -9,10 +10,11 @@ internal enum ConfigSettingsEdit
 {
     AddBlacklist, RemoveBlacklist, AddBackupWhitelist, RemoveBackupWhitelist,
     AddRestoreWhitelist, RemoveRestoreWhitelist, SetIcon, AddFileTypeRule, RemoveFileTypeRule,
-    AddSchedule, RemoveSchedule
+    AddSchedule, RemoveSchedule, ChangeFilterTarget
 }
 
 internal sealed record ConfigSettingsEditRequest(ConfigSettingsEdit Kind, object? Value = null, double Number = 1);
+internal sealed record FilterTargetEdit(string List, PathFilterRule Rule, PathFilterTarget Target);
 
 public sealed partial class ConfigSettingsDialogViewModel
 {
@@ -22,12 +24,26 @@ public sealed partial class ConfigSettingsDialogViewModel
         var text = request.Value as string;
         switch (request.Kind)
         {
-            case ConfigSettingsEdit.AddBlacklist: AddRule(_filters.Blacklist, text); break;
-            case ConfigSettingsEdit.RemoveBlacklist: if (text is not null) _filters.Blacklist.Remove(text); break;
-            case ConfigSettingsEdit.AddBackupWhitelist: AddRule(_filters.BackupWhitelist, text); break;
-            case ConfigSettingsEdit.RemoveBackupWhitelist: if (text is not null) _filters.BackupWhitelist.Remove(text); break;
-            case ConfigSettingsEdit.AddRestoreWhitelist: AddRule(_filters.RestoreWhitelist, text); break;
-            case ConfigSettingsEdit.RemoveRestoreWhitelist: if (text is not null) _filters.RestoreWhitelist.Remove(text); break;
+            case ConfigSettingsEdit.AddBlacklist: AddRule(_filters.Blacklist, request.Value); break;
+            case ConfigSettingsEdit.RemoveBlacklist: if (request.Value is PathFilterRule blacklist) _filters.Blacklist.Remove(blacklist); break;
+            case ConfigSettingsEdit.AddBackupWhitelist: AddRule(_filters.BackupWhitelist, request.Value); break;
+            case ConfigSettingsEdit.RemoveBackupWhitelist: if (request.Value is PathFilterRule whitelist) _filters.BackupWhitelist.Remove(whitelist); break;
+            case ConfigSettingsEdit.AddRestoreWhitelist: AddRule(_filters.RestoreWhitelist, request.Value); break;
+            case ConfigSettingsEdit.RemoveRestoreWhitelist: if (request.Value is PathFilterRule restore) _filters.RestoreWhitelist.Remove(restore); break;
+            case ConfigSettingsEdit.ChangeFilterTarget:
+                if (request.Value is FilterTargetEdit edit)
+                {
+                    var rules = edit.List switch
+                    {
+                        nameof(FilterSettings.Blacklist) => _filters.Blacklist,
+                        nameof(FilterSettings.BackupWhitelist) => _filters.BackupWhitelist,
+                        nameof(FilterSettings.RestoreWhitelist) => _filters.RestoreWhitelist,
+                        _ => throw new ArgumentException("Unknown filter list.")
+                    };
+                    var index = rules.IndexOf(edit.Rule);
+                    if (index >= 0) rules[index] = edit.Rule with { Target = edit.Target, SemanticsVersion = 2 };
+                }
+                break;
             case ConfigSettingsEdit.SetIcon:
                 if (!string.IsNullOrWhiteSpace(text)) _config.IconGlyph = text;
                 break;
@@ -53,8 +69,9 @@ public sealed partial class ConfigSettingsDialogViewModel
         RefreshDraftState(edited: true);
     }
 
-    private static void AddRule(ObservableCollection<string> rules, string? text)
+    private static void AddRule(ObservableCollection<PathFilterRule> rules, object? value)
     {
-        if (!string.IsNullOrWhiteSpace(text)) BackupFilterRulePolicy.AddDistinct(rules, text);
+        if (value is PathFilterRule rule) BackupFilterRulePolicy.AddDistinct(rules, rule);
+        else if (value is string text && !string.IsNullOrWhiteSpace(text)) BackupFilterRulePolicy.AddDistinct(rules, new PathFilterRule(text, PathFilterTarget.File));
     }
 }

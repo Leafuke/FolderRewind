@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Input;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
@@ -1131,9 +1131,9 @@ public sealed partial class HistoryPageViewModel
     }
 
     private static string FormatBoundary(EffectiveSourceBoundarySnapshot boundary)
-        => boundary.ScopeMode == EffectiveBoundaryScopeMode.All && boundary.FilterRules.IsEmpty
+        => boundary.ScopeMode == EffectiveBoundaryScopeMode.All && boundary.Rules.IsEmpty
             ? I18n.GetString("Restore_ScopeAll")
-            : I18n.Format("Restore_ScopeRules", boundary.ScopeRules.Length, boundary.FilterRules.Length);
+            : I18n.Format("Restore_ScopeRules", boundary.ScopeRules.Length, boundary.Rules.Length);
 
     private void ShowInteractionWarning(string? diagnostic)
         => _interactions.Notify(

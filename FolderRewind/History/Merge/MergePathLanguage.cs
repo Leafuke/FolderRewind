@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using FolderRewind.Services;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.History.Merge;
 
@@ -55,7 +57,7 @@ internal sealed class MergePathLanguage
         _epsilon[from].Add(next); _epsilon[from].Add(loop);
         _edges[loop].Add(new(loop, Any: true)); _edges[loop].Add(new(next, '/')); return next;
     }
-    private int Glob(int from, string pattern, bool filter)
+    private int Glob(int from, string pattern, bool filter, bool ordinalLiterals = false)
     {
         for (var i = 0; i < pattern.Length; i++)
         {
@@ -68,9 +70,21 @@ internal sealed class MergePathLanguage
             }
             else if (c == '?')
             { var next = NewState(); _edges[from].Add(new(next, Any: filter, Segment: !filter)); from = next; }
-            else from = Literal(from, c);
+            else from = Literal(from, c, ordinalLiterals);
         }
         return from;
+    }
+    internal void AddTypedFilter(PathFilterPattern pattern)
+    {
+        var start = NewState(); _epsilon[0].Add(start);
+        if (pattern.NameOnly) start = Directories(start);
+        var end = Glob(start, pattern.Pattern, filter: false, ordinalLiterals: pattern.IsLiteral);
+        if (pattern.Rule.Target != PathFilterTarget.Directory) _accept.Add(end);
+        if (pattern.Rule.Target != PathFilterTarget.File)
+        {
+            end = Literal(end, '/');
+            _accept.Add(Star(end, false));
+        }
     }
     internal void AddGlob(string literalRoot, string pattern, bool filter = false, bool filename = false)
     {

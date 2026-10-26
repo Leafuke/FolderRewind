@@ -335,6 +335,7 @@ namespace FolderRewind.Services
 
         private static void NormalizeImportedTemplate(BackupPreset template)
         {
+            template.SchemaVersion = Plugin.Runtime.Configuration.ConfigSchema.CurrentVersion;
             if (string.IsNullOrWhiteSpace(template.Id))
             {
                 template.Id = Guid.NewGuid().ToString("N");

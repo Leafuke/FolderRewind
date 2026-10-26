@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Services;
 
@@ -36,6 +37,10 @@ internal sealed class PathRuleMatcher
     private readonly bool _matchWildcardAgainstRelativePath;
     private readonly string _backupSourceRoot;
     private readonly string _originalSourceRoot;
+    private readonly HashSet<string> _fileNames = new(StringComparer.OrdinalIgnoreCase), _filePaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _directoryNames = new(StringComparer.OrdinalIgnoreCase), _directoryPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<(PathFilterPattern Pattern, Regex Matcher)> _typedPatterns = new();
+    private readonly bool _hasTypedDirectoryRules;
 
     private PathRuleMatcher(
         IEnumerable<string>? rules,
@@ -121,6 +126,41 @@ internal sealed class PathRuleMatcher
         }
     }
 
+    private PathRuleMatcher(IEnumerable<PathFilterRule>? rules, string root, string originalRoot, bool enableRegexRules, bool restore)
+        : this((rules ?? []).Where(r => r.SemanticsVersion == 1).Select(r => r.Pattern), root, originalRoot,
+            recognizeRegexRules: !restore, enableRegexRules: !restore && enableRegexRules, matchWildcardAgainstRelativePath: !restore)
+    {
+        var materialized = (rules ?? []).ToArray();
+        if (materialized.Length > MaxRuleCount) throw new PathRuleValidationException($"Filter contains more than {MaxRuleCount} rules.");
+        foreach (var rule in materialized)
+        {
+            if (!Enum.IsDefined(rule.Target) || rule.SemanticsVersion is not (1 or 2)
+                || rule.SemanticsVersion == 1 && rule.Target != PathFilterTarget.Any)
+                throw new PathRuleValidationException("Invalid filter target or semantics version.");
+            if (rule.SemanticsVersion == 1) continue;
+            var pattern = PathFilterPattern.Parse(rule, originalRoot);
+            if (!pattern.Applicable || pattern.IsRegex && !enableRegexRules) continue;
+            if (rule.Target != PathFilterTarget.File) _hasTypedDirectoryRules = true;
+            if (pattern.IsLiteral)
+            {
+                if (rule.Target != PathFilterTarget.Directory) (pattern.NameOnly ? _fileNames : _filePaths).Add(pattern.Pattern);
+                if (rule.Target != PathFilterTarget.File) (pattern.NameOnly ? _directoryNames : _directoryPaths).Add(pattern.Pattern);
+            }
+            else
+            {
+                try { _typedPatterns.Add((pattern, pattern.Compile())); }
+                catch (ArgumentException error) { throw new PathRuleValidationException($"Invalid filter '{rule.Pattern}'.", error); }
+            }
+        }
+    }
+
+    internal static PathRuleMatcher CreateForBackupRules(IEnumerable<PathFilterRule>? rules, string root, string originalRoot, bool enableRegexRules)
+        => new(rules, root, originalRoot, enableRegexRules, restore: false);
+    internal static PathRuleMatcher CreateForRestoreRules(IEnumerable<PathFilterRule>? rules, string root, bool enableRegexRules = false)
+        => new(rules, root, root, enableRegexRules, restore: true);
+    internal static void ValidateRules(IEnumerable<PathFilterRule>? rules, bool restore = false)
+        => _ = new PathRuleMatcher(rules, "", "", enableRegexRules: true, restore);
+
         /// <summary>
         /// 构建备份用的匹配器：识别 regex: 前缀规则（可按设置禁用），通配符规则同时
         /// 匹配文件名与相对路径。backupSourceRoot 与 originalSourceRoot 分离用于快照源路径
@@ -169,7 +209,8 @@ internal sealed class PathRuleMatcher
     {
         var full = NormalizeFullPath(directory);
         var relative = TryGetRelativePath(_backupSourceRoot, full);
-        return MatchesLiteralPath(full) || (!string.IsNullOrWhiteSpace(relative) && MatchesLiteralPath(relative));
+        return MatchesLiteralPath(full) || (!string.IsNullOrWhiteSpace(relative) && MatchesLiteralPath(relative))
+            || MatchesTyped(relative, isDirectory: true, directoriesOnly: true);
     }
 
         /// <summary>
@@ -177,10 +218,9 @@ internal sealed class PathRuleMatcher
         /// 候选先换算为相对源根的路径再参与匹配；正则规则的执行带 250ms 超时
         /// （<see cref="RegexTimeout"/>），防止病态模式拖垮备份。
         /// </summary>
-        public bool IsMatch(string candidatePath)
+        public bool IsMatch(string candidatePath, bool isDirectory = false)
     {
-        if ((_literalRules.Count == 0 && _wildcardRules.Count == 0 && _regexRules.Count == 0)
-            || string.IsNullOrWhiteSpace(candidatePath))
+        if (string.IsNullOrWhiteSpace(candidatePath))
         {
             return false;
         }
@@ -188,6 +228,8 @@ internal sealed class PathRuleMatcher
         string fullPath = NormalizeFullPath(candidatePath);
         string relativePath = TryGetRelativePath(_backupSourceRoot, fullPath);
         string fileName = Path.GetFileName(fullPath);
+
+        if (MatchesTyped(relativePath, isDirectory)) return true;
 
         if (_literalRules.Contains(fullPath) || _literalRules.Contains(relativePath)
             || MatchesLiteralPath(fullPath)
@@ -218,6 +260,26 @@ internal sealed class PathRuleMatcher
 
         return false;
     }
+
+    private bool MatchesTyped(string relative, bool isDirectory, bool directoriesOnly = false)
+    {
+        if (string.IsNullOrEmpty(relative)) return false;
+        if (!isDirectory && !directoriesOnly && (_filePaths.Contains(relative) || _fileNames.Contains(Path.GetFileName(relative)))) return true;
+        foreach (var (pattern, matcher) in _typedPatterns)
+            if (!isDirectory && !directoriesOnly && pattern.Rule.Target != PathFilterTarget.Directory
+                && matcher.IsMatch(pattern.NameOnly ? Path.GetFileName(relative) : relative)) return true;
+        if (!_hasTypedDirectoryRules) return false;
+        var directory = isDirectory ? relative : Parent(relative);
+        while (directory.Length > 0)
+        {
+            if (_directoryPaths.Contains(directory) || _directoryNames.Contains(Path.GetFileName(directory))) return true;
+            foreach (var (pattern, matcher) in _typedPatterns)
+                if (pattern.Rule.Target != PathFilterTarget.File && matcher.IsMatch(pattern.NameOnly ? Path.GetFileName(directory) : directory)) return true;
+            directory = Parent(directory);
+        }
+        return false;
+    }
+    private static string Parent(string path) => path.LastIndexOf('/') is var separator && separator >= 0 ? path[..separator] : "";
 
     private void AddLiteralRule(string rule)
     {

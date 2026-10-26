@@ -8,6 +8,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using FolderRewind.Plugin.Abstractions;
+using FolderRewind.History.Application;
+using FolderRewind.History.Storage;
 
 namespace FolderRewind.Services
 {
@@ -47,7 +50,7 @@ namespace FolderRewind.Services
         {
             return filters?.BackupFilterMode == BackupFilterMode.Whitelist
                 && filters.BackupWhitelist != null
-                && filters.BackupWhitelist.Any(rule => !string.IsNullOrWhiteSpace(rule));
+                && filters.BackupWhitelist.Any(rule => !string.IsNullOrWhiteSpace(rule.Pattern));
         }
 
         public static bool IsPartialBackupFilter(FilterSettings? filters)
@@ -65,11 +68,11 @@ namespace FolderRewind.Services
 
             try
             {
-                IEnumerable<string>? backupRules = filters.BackupFilterMode == BackupFilterMode.Whitelist
+                IEnumerable<PathFilterRule>? backupRules = filters.BackupFilterMode == BackupFilterMode.Whitelist
                     ? filters.BackupWhitelist
                     : filters.Blacklist;
-                PathRuleMatcher.ValidateBackupRules(backupRules, filters.UseRegex);
-                PathRuleMatcher.ValidateRestoreRules(filters.RestoreWhitelist);
+                PathRuleMatcher.ValidateRules(backupRules);
+                PathRuleMatcher.ValidateRules(filters.RestoreWhitelist, restore: true);
                 return true;
             }
             catch (PathRuleValidationException ex)
@@ -89,10 +92,10 @@ namespace FolderRewind.Services
 
             try
             {
-                IEnumerable<string>? rules = filters.BackupFilterMode == BackupFilterMode.Whitelist
+                IEnumerable<PathFilterRule>? rules = filters.BackupFilterMode == BackupFilterMode.Whitelist
                     ? filters.BackupWhitelist
                     : filters.Blacklist;
-                PathRuleMatcher.ValidateBackupRules(rules, filters.UseRegex);
+                PathRuleMatcher.ValidateRules(rules);
                 return true;
             }
             catch (PathRuleValidationException ex)
@@ -135,22 +138,7 @@ namespace FolderRewind.Services
                 return true;
             }
 
-            if (filters.BackupFilterMode == BackupFilterMode.Whitelist)
-            {
-                return IsWhitelistedForBackup(
-                    fileToCheck,
-                    backupSourceRoot,
-                    originalSourceRoot,
-                    filters.BackupWhitelist,
-                    filters.UseRegex);
-            }
-
-            return !IsBlacklisted(
-                fileToCheck,
-                backupSourceRoot,
-                originalSourceRoot,
-                filters.Blacklist,
-                filters.UseRegex);
+            return ShouldIncludeInBackup(fileToCheck, filters, CreateBackupMatcher(backupSourceRoot, originalSourceRoot, filters));
         }
 
         private static PathRuleMatcher? CreateBackupMatcher(
@@ -163,10 +151,10 @@ namespace FolderRewind.Services
                 return null;
             }
 
-            IEnumerable<string>? rules = filters.BackupFilterMode == BackupFilterMode.Whitelist
+            IEnumerable<PathFilterRule>? rules = filters.BackupFilterMode == BackupFilterMode.Whitelist
                 ? filters.BackupWhitelist
                 : filters.Blacklist;
-            return PathRuleMatcher.CreateForBackup(
+            return PathRuleMatcher.CreateForBackupRules(
                 rules,
                 backupSourceRoot,
                 originalSourceRoot,
@@ -231,7 +219,9 @@ namespace FolderRewind.Services
             string path,
             FilterSettings? filters = null,
             string? originalSourcePath = null,
-            BackupSourceScope? selection = null)
+            BackupSourceScope? selection = null,
+            System.Threading.CancellationToken cancellationToken = default,
+            HistoryRestoreSourceBinding? historicalBinding = null)
         {
             using var stage = FolderRewind.Plugin.Runtime.Artifacts.ArtifactDiagnostics.Source.StartActivity("source.scan");
             using var timing = HistoryOperationDiagnostics.Current?.Measure("source-scan");
@@ -239,13 +229,16 @@ namespace FolderRewind.Services
             var result = new Dictionary<string, SourceCaptureFileState>(1024, StringComparer.OrdinalIgnoreCase);
             var originalRoot = originalSourcePath ?? path;
             var matcher = CreateBackupMatcher(path, originalRoot, filters);
+            var historical = historicalBinding is null ? null : new HistoryRestoreTreeScope(historicalBinding);
 
             foreach (var file in BackupSourceFileEnumerator.EnumerateUnordered(
                          path,
                          selection,
-                         candidate => ShouldIncludeInBackup(candidate, filters, matcher)))
+                         candidate => historical is null ? ShouldIncludeInBackup(candidate, filters, matcher)
+                             : historical.Includes(Path.GetRelativePath(path, candidate).Replace('\\', '/')), cancellationToken, requireComplete: true))
             {
-                result[file.RelativePath] = new SourceCaptureFileState(file.Size, file.LastWriteTimeUtc);
+                if (!result.TryAdd(file.RelativePath, new SourceCaptureFileState(file.Size, file.LastWriteTimeUtc)))
+                    throw new System.IO.InvalidDataException("Capture input contains ambiguous file paths: " + file.RelativePath);
             }
 
             if (result.Count == 0 && filters != null
