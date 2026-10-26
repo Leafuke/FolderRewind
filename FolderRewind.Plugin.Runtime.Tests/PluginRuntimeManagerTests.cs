@@ -714,20 +714,23 @@ public sealed class PluginRuntimeManagerTests
         bool throwOnAcquire = false) : IBackupConsistencyCapability
     {
         public ConfigKindRef Kind { get; } = kind;
+        public bool SupportsCoordinationOnly => true;
 
         public ValueTask<IConsistencyLease> AcquireAsync(
             BackupConsistencyRequest request,
             PluginInvocationContext context)
-            => throwOnAcquire
-                ? ValueTask.FromException<IConsistencyLease>(
-                    new InvalidOperationException("consistency acquire failed"))
+        {
+            Assert.IsTrue(request.CoordinationOnly);
+            return throwOnAcquire
+                ? ValueTask.FromException<IConsistencyLease>(new InvalidOperationException("consistency acquire failed"))
                 : ValueTask.FromResult<IConsistencyLease>(lease);
+        }
     }
 
     private sealed class FakeConsistencyLease(string sourcePath, bool throwOnDispose = false) : IConsistencyLease
     {
         public string SourcePath { get; } = sourcePath;
-        public bool IsStableSourceView => true;
+        public bool IsStableSourceView => false;
         public IReadOnlyList<PluginDiagnostic> Diagnostics { get; } = Array.Empty<PluginDiagnostic>();
 
         public ValueTask DisposeAsync()

@@ -261,11 +261,18 @@ public sealed partial class NativeArtifactStore
             return new PreparedNativeArtifact(this, runtime, config, folder, versionId, current, candidate,
                 staging, facts, pending, lease, held, result.Diagnostics, encrypted, baselineRead, result.RequiresFullVerification, operation is null);
         }
-        catch
+        catch (Exception error)
         {
-            if (staging is not null) await staging.DisposeAsync();
-            if (baselineRead is not null) await baselineRead.DisposeAsync();
-            if (operation is null) lease?.Dispose(); held.Dispose(); throw;
+            // Cleanup must neither replace the transform failure nor retain another resource's lease.
+            try { if (staging is not null) await staging.DisposeAsync(); }
+            catch (Exception cleanup) { error.Data["StagingCleanupError"] = cleanup; }
+            try { if (baselineRead is not null) await baselineRead.DisposeAsync(); }
+            catch (Exception cleanup) { error.Data["BaselineCleanupError"] = cleanup; }
+            try { if (operation is null) lease?.Dispose(); }
+            catch (Exception cleanup) { error.Data["OperationCleanupError"] = cleanup; }
+            try { held.Dispose(); }
+            catch (Exception cleanup) { error.Data["StoreCleanupError"] = cleanup; }
+            throw;
         }
     }
 
@@ -478,8 +485,24 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     }
     public async ValueTask DisposeAsync()
     {
-        try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); await _staging.DisposeAsync(); }
+        try
+        {
+            Exception? failure = null;
+            try { if (_baselineRead is not null) await _baselineRead.DisposeAsync(); }
+            catch (Exception error) { failure = error; }
+            try { await _staging.DisposeAsync(); }
+            catch (Exception error)
+            {
+                if (failure is null) failure = error;
+                else failure.Data["StagingCleanupError"] = error;
+            }
+            if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        }
         catch { _store.ReleasePendingOperation(Intent.Id); throw; }
-        finally { if (!_historyOwnsIntent) _store.ReleasePendingOperation(Intent.Id); if (_ownsLease) _lease.Dispose(); _held.Dispose(); }
+        finally
+        {
+            try { if (!_historyOwnsIntent) _store.ReleasePendingOperation(Intent.Id); }
+            finally { try { if (_ownsLease) _lease.Dispose(); } finally { _held.Dispose(); } }
+        }
     }
 }

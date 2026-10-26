@@ -15,6 +15,32 @@ public sealed class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task PrepareCleanupFailureReleasesStoreAndOnlyOwnedOperation(bool borrowed)
+    {
+        using var fixture = new Fixture();
+        var plugin = new GraphPlugin(false) { FailWithOpenStream = true };
+        await fixture.CaptureAsync(suppliedPlugin: plugin, borrowedOperation: borrowed, expectPrepareFailure: true);
+    }
+
+    [TestMethod]
+    public async Task LazyCleanupFailureStillReleasesOtherDecodedTreesAndStore()
+    {
+        using var fixture = new Fixture();
+        var (store, root) = await fixture.CaptureAsync();
+        var lazy = await store.OpenLazyAsync(root, default);
+        foreach (var node in lazy.Artifacts) await lazy.Read.ListFilesAsync(node.Content, default);
+        var files = Directory.GetFiles(Path.Combine(store.Root, ".read"), "*.txt", SearchOption.AllDirectories);
+        Assert.HasCount(2, files);
+        using (var external = new FileStream(files[0], FileMode.Open, FileAccess.Read, FileShare.Read))
+            await Assert.ThrowsExactlyAsync<AggregateException>(() => lazy.DisposeAsync().AsTask());
+        Assert.IsFalse(File.Exists(files[1]), "One cleanup error must not skip another decoded tree.");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var resumed = await store.EnterAsync(timeout.Token);
+    }
+
+    [TestMethod]
     public async Task DiscardedCandidateRemovesOnlyItsOwnSealedNodesAndPayloads()
     {
         using var fixture = new Fixture();
@@ -422,7 +448,8 @@ public sealed class NativeArtifactStoreTests
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeArtifactTests", Guid.NewGuid().ToString("N"));
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
-            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false, bool borrowedOperation = false, bool discardPrepared = false)
+            string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false, bool borrowedOperation = false, bool discardPrepared = false,
+            GraphPlugin? suppliedPlugin = null, bool expectPrepareFailure = false)
         {
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
@@ -437,11 +464,28 @@ public sealed class NativeArtifactStoreTests
                     JsonDocument.Parse("{\"type\":\"object\"}").RootElement.Clone(), [ArtifactTransformFailureBehavior.RequireTransform])],
                 [new(Strategy, [new(Format, 1, 1)], [ArtifactCompleteness.Complete], [RestoreMode.Clean])], false);
             var config = new ConfigSnapshot(configId, new("revision"), Kind, "world", [Folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
-            var result = await runtime.ActivateAsync(new(Id, () => new GraphPlugin(diamond), new(Id, new Dictionary<string, JsonElement>()), [config], new Host(), new ActivationStore(), manifest));
+            var result = await runtime.ActivateAsync(new(Id, () => suppliedPlugin ?? new GraphPlugin(diamond), new(Id, new Dictionary<string, JsonElement>()), [config], new Host(), new ActivationStore(), manifest));
             Assert.IsTrue(result.Success, JsonSerializer.Serialize(result.Diagnostics));
             var codec = suppliedCodec ?? new ZipCodec();
             var store = new NativeArtifactStore(storageRoot ?? Path.Combine(Root, "store"), codec);
             using var operation = borrowedOperation ? runtime.TryAcquireOperation(Id) : null;
+            if (expectPrepareFailure)
+            {
+                try
+                {
+                    var error = await Assert.ThrowsExactlyAsync<IOException>(() => store.PrepareAsync(runtime, config, Folder,
+                        Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
+                        new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default, operation: operation));
+                    StringAssert.Contains(error.Message, "injected transform failure");
+                    Assert.IsNotNull(error.Data["StagingCleanupError"]);
+                    Assert.AreEqual(borrowedOperation ? 1 : 0, runtime.GetSnapshot(Id).ActiveLeases);
+                }
+                finally { suppliedPlugin!.HeldStream?.Dispose(); }
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                using var resumed = await store.EnterAsync(timeout.Token);
+                Assert.IsEmpty((await store.Ledger.LoadAsync()).Artifacts);
+                return (store, default);
+            }
             var prepared = await store.PrepareAsync(runtime, config, Folder, Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
                 new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default, operation: operation);
             var capturedRoot = prepared.Intent.Root;
@@ -480,6 +524,8 @@ public sealed class NativeArtifactStoreTests
 
     private sealed class GraphPlugin(bool diamond) : IFolderRewindPlugin, IBackupArtifactTransformerCapability, IRestoreMaterializerCapability
     {
+        internal bool FailWithOpenStream { get; init; }
+        internal Stream? HeldStream { get; private set; }
         public ArtifactTransformerId TransformerId => new(Id, "full");
         public RestoreStrategyId RestoreStrategyId => Strategy;
         public ValueTask<RestoreMaterializationResult> MaterializeAsync(RestoreMaterializationRequest request, PluginInvocationContext context)
@@ -489,6 +535,12 @@ public sealed class NativeArtifactStoreTests
         public ValueTask DeactivateAsync(CancellationToken token) => ValueTask.CompletedTask;
         public async ValueTask<ArtifactTransformResult> TransformAsync(ArtifactTransformRequest request, PluginInvocationContext context)
         {
+            if (FailWithOpenStream)
+            {
+                var unfinished = await request.Staging.CreateArtifactAsync(default);
+                HeldStream = await request.Staging.OpenWriteAsync(unfinished.Staging, "open.txt", default);
+                throw new IOException("injected transform failure");
+            }
             var dependency = await request.Staging.CreateArtifactAsync(default);
             var root = await request.Staging.CreateArtifactAsync(default);
             await using (var stream = await request.Staging.OpenWriteAsync(dependency.Staging, "dependency.txt", default))

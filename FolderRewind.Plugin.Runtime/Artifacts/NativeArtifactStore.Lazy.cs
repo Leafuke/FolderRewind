@@ -88,7 +88,19 @@ public sealed partial class NativeArtifactStore
         public async ValueTask DisposeAsync()
         {
             await _gate.WaitAsync();
-            try { if (_disposed) return; _disposed = true; foreach (var lease in _opened.Values) await lease.DisposeAsync(); _opened.Clear(); }
+            try
+            {
+                if (_disposed) return;
+                _disposed = true;
+                List<Exception>? errors = null;
+                foreach (var lease in _opened.Values)
+                {
+                    try { await lease.DisposeAsync(); }
+                    catch (Exception error) { (errors ??= []).Add(error); }
+                }
+                _opened.Clear();
+                if (errors is not null) throw new AggregateException("Artifact read cleanup failed.", errors);
+            }
             finally { _gate.Release(); }
         }
     }
