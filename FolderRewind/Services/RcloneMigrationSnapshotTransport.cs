@@ -79,6 +79,38 @@ public sealed class RcloneMigrationSnapshotTransport(RcloneExecutionContext cont
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
+
+    internal async Task DownloadLegacyConfigurationAsync(string name, string destination, CancellationToken token)
+    {
+        if (name != "config.json" && (!name.StartsWith("config-", StringComparison.Ordinal) || !name.EndsWith(".json", StringComparison.Ordinal)
+            || name.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '.')))
+            throw new InvalidDataException(I18n.GetString("CloudConfig_InvalidExport"));
+        const long maximumBytes = 64L * 1024 * 1024;
+        var remote = CloudRemotePath.Append(context.RemoteRoot, name == "config.json" ? name : "_folderrewind/config-exports/" + name);
+        using var stat = JsonDocument.Parse(await RcloneConnectionService.RunBytesAsync(
+            context.CreateStartInfo(["lsjson", remote, "--stat"]), _timeout, token, 64 * 1024).ConfigureAwait(false));
+        var entry = stat.RootElement;
+        if (entry.ValueKind != JsonValueKind.Object || !entry.TryGetProperty("IsDir", out var isDirectory)
+            || isDirectory.ValueKind != JsonValueKind.False || !entry.TryGetProperty("Size", out var size)
+            || size.ValueKind != JsonValueKind.Number || !size.TryGetInt64(out var expectedLength)
+            || expectedLength < 0 || expectedLength > maximumBytes)
+            throw new InvalidDataException(I18n.GetString("Migration_ErrorData"));
+
+        // --max-size 属于目录过滤器，不能约束单文件 copyto。预检查后仍按实际流字节核验，
+        // 防止 stat 与 cat 之间源文件增长或缩短；发布前始终保留原目标。
+        var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".download";
+        try
+        {
+            await RcloneConnectionService.RunToFileAsync(context.CreateStartInfo(["cat", remote]), _timeout, token,
+                temporary, expectedLength, new(maximumBytes)).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested(); File.Move(temporary, destination, false);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
     private Task<string> CopyAsync(string source, string target, CancellationToken token, bool immutable = false)
         => RcloneConnectionService.RunAsync(context.CreateStartInfo(immutable ? ["copyto", source, target, "--immutable"] : ["copyto", source, target]), _timeout, token);
     private static async Task VerifyAsync(string path, MigrationCloudSnapshot snapshot, CancellationToken token)
