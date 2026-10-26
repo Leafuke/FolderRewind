@@ -109,7 +109,7 @@ public sealed class HistoryMergeArchiveRecoveryTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
         { await using var lease = await fixture.History.MutationGate.EnterAsync(); });
         await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
-            fixture.History.Commit.FindRequiredBoundaryRecapturesAsync(fixture.Snapshot, [fixture.Source]));
+            fixture.History.Commit.ValidateCapturePreflightAsync(fixture.Snapshot, [fixture.Source]));
         await using (var independent = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(new("independent-" + Guid.NewGuid().ToString("N")))) { }
 
         for (var restart = 0; restart < 2; restart++)

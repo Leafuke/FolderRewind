@@ -874,11 +874,11 @@ public sealed class HistoryCommitCoordinatorTests
             Source(sourceA, "source-a", boundaryA),
             Source(sourceB, "source-b", boundaryB));
 
-        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+        await runtime.Commit.ValidateCapturePreflightAsync(
             nextSnapshot,
             [sourceA]);
 
-        Assert.IsEmpty(requirements);
+
     }
 
     [TestMethod]
@@ -914,11 +914,11 @@ public sealed class HistoryCommitCoordinatorTests
             Source(sourceA, "source-a", boundaryA),
             Source(sourceB, "source-b", changedBoundaryB));
 
-        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+        await runtime.Commit.ValidateCapturePreflightAsync(
             driftSnapshot,
             [sourceA]);
 
-        Assert.IsEmpty(requirements);
+
     }
 
     [TestMethod]
@@ -947,11 +947,11 @@ public sealed class HistoryCommitCoordinatorTests
             false);
         var driftSnapshot = Snapshot(Source(sourceB, "source-b", changedBoundaryB));
 
-        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+        await runtime.Commit.ValidateCapturePreflightAsync(
             driftSnapshot,
             [sourceB]);
 
-        Assert.IsEmpty(requirements);
+
     }
 
     private async Task<HistoryRuntime> CreateRuntimeAsync()
@@ -1217,7 +1217,7 @@ public sealed class HistoryCommitCoordinatorTests
         await File.WriteAllTextAsync(workspacePath, "{ not-valid-json");
 
         await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
-            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: []));
+            runtime.Commit.ValidateCapturePreflightAsync(snapshot, plannedCaptureSources: []));
     }
 
     [TestMethod]
@@ -1235,11 +1235,11 @@ public sealed class HistoryCommitCoordinatorTests
         await runtime.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
 
         await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
-            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: [sourceId]));
-        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, []));
+            runtime.Commit.ValidateCapturePreflightAsync(snapshot, plannedCaptureSources: [sourceId]));
+        await runtime.Commit.ValidateCapturePreflightAsync(snapshot, []);
         var other = SourceId.New();
-        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
-            Snapshot(Source(sourceId, "source-a"), Source(other, "source-b")), [other]));
+        await runtime.Commit.ValidateCapturePreflightAsync(
+            Snapshot(Source(sourceId, "source-a"), Source(other, "source-b")), [other]);
         Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
     }
 
@@ -1256,7 +1256,7 @@ public sealed class HistoryCommitCoordinatorTests
         await runtime.WorkspaceStore.SaveAsync(invalid, before.StateRevision);
         var snapshot = Snapshot(Source(requested, "requested"));
         await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
-            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, [requested]));
+            runtime.Commit.ValidateCapturePreflightAsync(snapshot, [requested]));
         var cleanup = new DeleteFileCleanup(Path.Combine(_root, "cross-source.bin"));
         var capture = CreateCapture(requested, "captured", invalid.StateRevision,
             first.NewVersions.Single().VersionId, Path.Combine(_root, "cross-source.bin"), cleanup);
@@ -1271,7 +1271,7 @@ public sealed class HistoryCommitCoordinatorTests
     {
         await using var runtime = await CreateRuntimeAsync();
         var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
-        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, [source]));
+        await runtime.Commit.ValidateCapturePreflightAsync(snapshot, [source]);
         var workspace = new HistoryWorkspace(_configId, 0,
             [new(source, VersionId.New(), WorkspaceBaselineRelation.Unknown)]);
         await runtime.WorkspaceStore.SaveAsync(workspace, -1);

@@ -111,7 +111,7 @@ public sealed class HistoryJointTransactionRecoveryTests
                 history.ObservePendingRecovery();
                 Assert.IsTrue(history.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired));
                 await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(async () =>
-                    await history.Commit.FindRequiredBoundaryRecapturesAsync(new HistoryConfigSnapshot(config,
+                    await history.Commit.ValidateCapturePreflightAsync(new HistoryConfigSnapshot(config,
                         [new HistoryConfigSourceSnapshot(source, version.SourceDescriptorSnapshot)]), [source]));
                 await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => { await using var lease = await history.MutationGate.EnterAsync(); });
                 if (packCommitted) await history.Repository.CommitAsync(pack);

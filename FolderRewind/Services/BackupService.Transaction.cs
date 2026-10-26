@@ -273,29 +273,10 @@ public static partial class BackupService
             .Select(f => new SourceId(Guid.Parse(f.Id)))
             .ToArray();
 
-        var requiredRecaptures = await operationRuntime.Commit.FindRequiredBoundaryRecapturesAsync(
+        await operationRuntime.Commit.ValidateCapturePreflightAsync(
             historySnapshot,
             plannedSourceIds,
             cancellationToken).ConfigureAwait(false);
-
-        if (requiredRecaptures.Count > 0)
-        {
-            var driftSourceId = requiredRecaptures[0].SourceId;
-            var driftFolder = config.SourceFolders.FirstOrDefault(f => Guid.TryParse(f.Id, out var id) && new SourceId(id) == driftSourceId);
-            var driftName = driftFolder?.DisplayName ?? driftSourceId.ToString();
-            var prevShort = requiredRecaptures[0].PreviousBoundaryFingerprint[..Math.Min(10, requiredRecaptures[0].PreviousBoundaryFingerprint.Length)];
-            var currShort = requiredRecaptures[0].CurrentBoundaryFingerprint[..Math.Min(10, requiredRecaptures[0].CurrentBoundaryFingerprint.Length)];
-            var driftMessage = $"配置中的“{driftName}”有效备份边界已变化，需要先通过完整配置备份重新建立可靠基线。(SourceId={driftSourceId}, previous={prevShort}, current={currShort}, requested=false)";
-            Log(driftMessage, LogLevel.Warning);
-
-            BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
-            {
-                ["reason"] = "boundary_drift_requires_recapture",
-                ["source_id"] = driftSourceId.ToString()
-            });
-
-            return BackupTransactionExecutionResult.Blocked(driftMessage);
-        }
 
         // 4. 发送事务级 command_started 与 command_progress（一笔备份请求只广播一次）
         BroadcastBackupLifecycle("command_started");

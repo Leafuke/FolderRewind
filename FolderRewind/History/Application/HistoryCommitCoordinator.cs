@@ -175,11 +175,6 @@ public sealed class HistoryCommitOutcomeUnknownException(PackId intendedPackId, 
     public PackId IntendedPackId { get; } = intendedPackId;
 }
 
-public sealed record HistoryBoundaryRecaptureRequirement(
-    SourceId SourceId,
-    string PreviousBoundaryFingerprint,
-    string CurrentBoundaryFingerprint);
-
 /// <summary>
 /// The only Native Backup writer for Run, Version, Representation, Checkpoint and BranchUpdate facts.
 /// All authoritative facts enter one immutable Commit Pack; device-local Workspace and replica catalog
@@ -201,7 +196,7 @@ public sealed class HistoryCommitCoordinator
     /// <summary>
     /// 检查工作区健康及请求来源的基线引用。未请求来源不阻断独立来源捕获。
     /// </summary>
-    public async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
+    public async Task ValidateCapturePreflightAsync(
         HistoryConfigSnapshot snapshot,
         IReadOnlyCollection<SourceId> plannedCaptureSources,
         CancellationToken cancellationToken = default)
@@ -233,7 +228,7 @@ public sealed class HistoryCommitCoordinator
         var workspace = workspaceLoad.Value;
         if (workspace is null)
         {
-            return Array.Empty<HistoryBoundaryRecaptureRequirement>();
+            return;
         }
 
         foreach (var sourceId in plannedCaptureSources.Distinct())
@@ -242,7 +237,6 @@ public sealed class HistoryCommitCoordinator
                 await RequireVersionForSourceAsync(versionId, sourceId, cancellationToken).ConfigureAwait(false);
         }
 
-        return Array.Empty<HistoryBoundaryRecaptureRequirement>();
     }
 
     public async Task<HistoryCommitBatch> CommitAsync(

@@ -206,20 +206,6 @@ public static class NativeHistoryCoreGateway
             .Timeline.FirstOrDefault(item => item.VersionId == versionId);
     }
 
-    public static async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
-        HistoryConfigSnapshot snapshot,
-        IReadOnlyCollection<SourceId> plannedCaptureSources,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
-        ArgumentNullException.ThrowIfNull(plannedCaptureSources);
-        var runtime = await EnsureReadyAsync(snapshot.ConfigId.Value, cancellationToken).ConfigureAwait(false);
-        return await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
-            snapshot,
-            plannedCaptureSources,
-            cancellationToken).ConfigureAwait(false);
-    }
-
     public static async Task<HistoryCommitBatch> CommitBackupAsync(
         HistoryConfigSnapshot configSnapshot,
         IEnumerable<SourceCaptureResult> results,
