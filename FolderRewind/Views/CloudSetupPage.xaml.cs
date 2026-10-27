@@ -1,167 +1,81 @@
 using FolderRewind.Models;
-using CommunityToolkit.WinUI.Controls;
 using FolderRewind.Services;
-using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Threading.Tasks;
 
 namespace FolderRewind.Views;
 
 public sealed partial class CloudSetupPage : Page
 {
-    public CloudSetupViewModel ViewModel { get; } = new();
+    private CloudWizardSession? _session;
     private bool _active;
-    private readonly System.Threading.CancellationTokenSource _pageLifetime = new();
-    public CloudSetupPage()
-    {
-        InitializeComponent();
-        Loaded += (_, _) => ConnectionSelector.SelectedItem = string.IsNullOrWhiteSpace(ViewModel.ConfigPath)
-            ? WebDavConnectionItem : ExistingConnectionItem;
-    }
+    public CloudSetupPage() => InitializeComponent();
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
-        try
+        var options = e.Parameter as CloudSetupNavigationParameter ?? new((e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "");
+        if (options.Intent != CloudSetupIntent.Connect || options.ConfigId.Length == 0 && !options.ManageConnection)
         {
-            var options = e.Parameter as CloudSetupNavigationParameter;
-            await ViewModel.InitializeAsync(options?.ConfigId ?? (e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "", _pageLifetime.Token,
-                options?.ManageConnection == true, options?.ProfileId);
-            if (_active && !string.IsNullOrWhiteSpace(ViewModel.ConfigPath)) ConnectionSelector.SelectedItem = ExistingConnectionItem;
+            var frame = Frame;
+            var recovery = options.Intent != CloudSetupIntent.ProjectStatus;
+            NavigationService.NavigateTo(recovery ? "CloudRecovery" : "CloudProject",
+                options with { Intent = recovery ? CloudSetupIntent.Recover : CloudSetupIntent.ProjectStatus });
+            if (frame.BackStack.Count > 0 && frame.BackStack[^1].SourcePageType == typeof(CloudSetupPage)) frame.BackStack.RemoveAt(frame.BackStack.Count - 1);
+            return;
         }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { if (_active) ViewModel.Message = CloudCommandSecurity.Redact(ex.Message); }
-    }
-    protected override void OnNavigatedFrom(NavigationEventArgs e) { _active = false; Password.Password = ""; _pageLifetime.Cancel(); ViewModel.Dispose(); base.OnNavigatedFrom(e); }
-    public InfoBarSeverity GetMessageSeverity(OnboardingCheckState state) => state switch
-    {
-        OnboardingCheckState.Ready => InfoBarSeverity.Success,
-        OnboardingCheckState.Blocked => InfoBarSeverity.Error,
-        OnboardingCheckState.NeedsInput => InfoBarSeverity.Warning,
-        _ => InfoBarSeverity.Informational
-    };
-    private void OnConnectionMethodChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
-    {
-        if (WebDavPanel is null || ExistingPanel is null) return;
-        var existing = sender.SelectedItem == ExistingConnectionItem;
-        WebDavPanel.Visibility = existing ? Visibility.Collapsed : Visibility.Visible;
-        ExistingPanel.Visibility = existing ? Visibility.Visible : Visibility.Collapsed;
-    }
-    private void OnCloudPageSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (ConnectionLayout is not null) ConnectionLayout.Width = Math.Min(960, Math.Max(0, e.NewSize.Width - 48));
-    }
-    private void OnConnectionCardSizeChanged(object sender, SizeChangedEventArgs e)
-        => SettingsCardLayout.Apply(sender, e);
-
-    private void OnOpenListEnvironment(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("Settings", NavigationService.SettingsOpenListTarget);
-    private void OnRepair(object sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.CanEdit || sender is not Button { Tag: OnboardingDiagnosticItem item }) return;
-        if (!ViewModel.IsDiagnosticCurrent(item)) { ViewModel.Message = I18n.GetString("SettingsProject_Stale"); return; }
-        switch (item.Target)
+        _session = CloudWizardSessions.Get(options); var vm = _session.ViewModel;
+        vm.PropertyChanged += OnChanged;
+        if (!_session.Initialized)
         {
-            case OnboardingRepairTarget.CloudConnection: ConnectionSelector.SelectedItem = ExistingConnectionItem; ConfigPathBox.StartBringIntoView(); ConfigPathBox.Focus(FocusState.Programmatic); break;
-            case OnboardingRepairTarget.OpenListEnvironment: OnOpenListEnvironment(sender, e); break;
+            await vm.InitializeAsync(options.ConfigId, manageConnection: options.ManageConnection, profileId: options.ProfileId);
+            if (options.ProfileId is not null) { vm.ConnectionMethod = 2; vm.WizardStep = 4; }
+            _session.Initialized = true;
         }
+        if (_active) { Editor.Attach(vm); Editor.Visibility = Visibility.Visible; RefreshResult(); }
     }
-    private async void OnExportDiagnostics(object sender, RoutedEventArgs e)
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    { _active = false; if (_session is not null) { _session.ViewModel.PropertyChanged -= OnChanged; _session.ViewModel.SuspendChecks(); } base.OnNavigatedFrom(e); }
+    private void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) { if (_active) RefreshResult(); }
+    private async void OnConfirmed(object? sender, EventArgs e)
     {
-        try { await OnboardingDiagnosticsInteraction.ExportAsync(ViewModel.Diagnostics, XamlRoot, _pageLifetime.Token); }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { if (_active) ViewModel.Message = CloudCommandSecurity.Redact(ex.Message); }
-    }
-    private async void OnPickExecutable(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(async token =>
-    {
-        var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
-        if (_active && path is not null) ViewModel.Executable = path;
-    });
-    private async void OnPickConfig(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(async token =>
-    {
-        var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Config", [".conf"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
-        if (_active && path is not null) { ViewModel.ConfigPath = path; ViewModel.LoadRemotes(); }
-    });
-    private async void OnCreateWebDav(object sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.CanEdit) return;
-        var url = UrlBox.Text; var user = UserBox.Text; var password = Password.Password;
-        var allowInsecure = AllowInsecure.IsChecked == true;
-        await ViewModel.RunCheckAsync(async token =>
+        if (_session is null || !_session.ViewModel.CanEdit) return;
+        var vm = _session.ViewModel;
+        if (vm.SaveImpactMessage.Length != 0 && !await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), vm.SaveImpactMessage, I18n.GetString("Common_Confirm"), XamlRoot)) return;
+        var actionsReady = false;
+        await vm.RunCheckAsync(async token =>
         {
-            await ViewModel.CreateWebDavAsync(url, user, password, token, allowInsecure);
-            if (!_active) return;
-            Password.Password = "";
-            ConnectionSelector.SelectedItem = ExistingConnectionItem;
+            if (vm.RequestFirstUpload && vm.SelectedVersionIndex < 0) throw new InvalidOperationException(I18n.GetString("CloudSetup_SelectVersion"));
+            await vm.SaveAsync(token);
+            if (vm.LastSaveResult?.Success != true) return;
+            vm.WizardStep = 5;
+            if (vm.IsProject && vm.RequestAutomaticUpload) await vm.SetAutomaticUploadAsync(true, token);
+            actionsReady = true;
         });
+        if (actionsReady && vm.IsProject && vm.RequestFirstUpload) await vm.UploadAsync();
+        if (_active) { Editor.Refresh(); RefreshResult(); }
     }
-    private async void OnListRemotes(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(token => { ViewModel.LoadRemotes(); return Task.CompletedTask; });
-    private async void OnImportManaged(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.ImportManagedAsync);
-    private async void OnRefreshJobs(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.RefreshJobsAsync);
-    private async void OnRetryJobs(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.RetryJobsAsync);
-    private async void OnCancelJob(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(token => ViewModel.CancelSelectedJobAsync(false, token));
-    private async void OnAbandonJob(object sender, RoutedEventArgs e)
+    private void RefreshResult()
     {
-        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudJob_AbandonTitle"), I18n.GetString("CloudJob_AbandonDescription"), I18n.GetString("Common_Confirm"), XamlRoot))
-            await ViewModel.RunCheckAsync(token => ViewModel.CancelSelectedJobAsync(true, token));
+        if (_session is null) return;
+        var vm = _session.ViewModel;
+        ResultPanel.Visibility = vm.WizardStep == 5 ? Visibility.Visible : Visibility.Collapsed;
+        ResultText.Text = vm.CurrentConnectionSummary + "\n" + vm.RemoteRoot + "\n"
+            + (vm.IsProject ? vm.AutomaticSummary + "\n" + vm.CopySummary + "\n" + vm.ManualJobStatus + "\n" : "") + vm.Message;
     }
-    private async void OnInitializeMissing(object sender, RoutedEventArgs e)
+    private void OnProject(object sender, RoutedEventArgs e)
     {
-        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudJob_AbandonTitle"), I18n.GetString("CloudJob_InitializeMissingDescription"), I18n.GetString("Common_Confirm"), XamlRoot))
-            await ViewModel.RunCheckAsync(ViewModel.InitializeMissingAdmissionAsync);
+        if (_session is null) return;
+        var id = _session.ViewModel.ProjectId;
+        if (id.Length == 0) NavigationService.NavigateTo("CloudConnections");
+        else NavigationService.NavigateTo("CloudProject", new CloudSetupNavigationParameter(id, Intent: CloudSetupIntent.ProjectStatus));
     }
-    private async void OnBrowse(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.BrowseAsync);
-    private async void OnBrowseMore(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.BrowseMoreAsync);
-    private void OnEnterDirectory(object sender, ItemClickEventArgs e) { if (ViewModel.CanEdit && e.ClickedItem is string name) ViewModel.EnterDirectory(name); }
-    private async void OnVerifyWrite(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.VerifyWriteAsync);
-    private async void OnSave(object sender, RoutedEventArgs e)
+    private void OnFinish(object sender, RoutedEventArgs e) { var session = _session; OnProject(sender, e); if (session is not null) CloudWizardSessions.End(session); }
+    private void OnCancel(object sender, RoutedEventArgs e)
     {
-        var message = ViewModel.SaveImpactMessage;
-        if (message.Length != 0 && !await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), message, I18n.GetString("Common_Confirm"), XamlRoot)) return;
-        await ViewModel.RunCheckAsync(ViewModel.SaveAsync);
-    }
-    private async void OnReconnectProject(object sender, RoutedEventArgs e)
-    {
-        if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), I18n.Format("CloudRecovery_ReconnectConfirm", ViewModel.RemoteRoot), I18n.GetString("Common_Confirm"), XamlRoot)) return;
-        await ViewModel.RunCheckAsync(ViewModel.ReconnectProjectHistoryAsync);
-    }
-    private async void OnLoadVersions(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.LoadVersionsAsync);
-    private async void OnUpload(object sender, RoutedEventArgs e)
-    {
-        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), I18n.Format("CloudSetup_UploadConfirm", ViewModel.RemoteRoot), I18n.GetString("Common_Confirm"), XamlRoot))
-            await ViewModel.UploadAsync();
-    }
-    private void OnOpenManagement(object sender, RoutedEventArgs e)
-    {
-        try { var uri = RcloneConnectionService.ValidateWebDavUrl(ManagementUrl.Text); ShellPathService.TryOpenPath(uri.AbsoluteUri, out _); }
-        catch (Exception ex) { ViewModel.Message = ex.Message; }
-    }
-    private void OnCancelCheck(object sender, RoutedEventArgs e) => ViewModel.CancelCheck();
-    private async void OnDiscoverRepositories(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.DiscoverRepositoriesAsync);
-    private async void OnAnalyzeRepository(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.AnalyzeRepositoryAsync);
-    private async void OnRestoreNew(object sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.CanEdit || ViewModel.SelectedVersionIndex < 0 || ViewModel.SelectedVersionIndex >= ViewModel.Versions.Count) return;
-        try
-        {
-            CloudSetupViewModel.RecoveryConfirmation? confirmation = null;
-            await ViewModel.RunCheckAsync(async token => confirmation = await ViewModel.PreviewRecoveryAsync(token));
-            if (!_active || confirmation is null) return;
-            var previewText = CloudSetupViewModel.DescribeRecovery(confirmation.Preview);
-            if (!confirmation.Preview.CanPrepare)
-            {
-                await AppDialogService.Default.ShowMessageAsync(I18n.GetString("Export_Title"), previewText, XamlRoot);
-                return;
-            }
-            var parent = await MainWindowService.PickFolderPathAsync(I18n.GetString("Export_Title"), "FolderRewind.CloudRecovery.Target", MainWindowService.SuggestedPickerLocation.ComputerFolder);
-            if (!_active || string.IsNullOrEmpty(parent)) return;
-            var target = System.IO.Path.Combine(parent, "FolderRewind-restored-" + Guid.NewGuid().ToString("N"));
-            if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("Export_Title"),
-                previewText + "\n\n" + I18n.Format("CloudRecovery_DestinationConfirm", target), I18n.GetString("Common_Confirm"), XamlRoot)) return;
-            var password = RecoveryPassword.Password; RecoveryPassword.Password = "";
-            if (_active) await ViewModel.RestoreAnalyzedAsync(target, string.IsNullOrEmpty(password) ? null : password, confirmation);
-        }
-        catch (Exception ex) { if (_active) ViewModel.Message = CloudCommandSecurity.Redact(ex.Message); }
+        if (_session is null) return;
+        var session = _session; _session = null; CloudWizardSessions.End(session);
+        if (Frame.CanGoBack) Frame.GoBack(); else NavigationService.NavigateTo("Home");
     }
 }

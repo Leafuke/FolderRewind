@@ -13,7 +13,7 @@ public sealed partial class ConfigSettingsPage
 {
     private bool _allowNavigation;
     private bool _leaving;
-    private void OnCloudSetup(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudSetup", new ConfigSettingsNavigationParameter(Config.Id));
+    private void OnCloudSetup(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudProject", new ConfigSettingsNavigationParameter(Config.Id));
     private void OnContinueProjectMigration(object sender, RoutedEventArgs e)
         => NavigationService.NavigateTo("Migration", new MigrationWizardRequest(MigrationWizardMode.Continue, ConfigId: Config.Id));
     private void OnApplyPerformance(object sender, RoutedEventArgs e) => ViewModel.ApplyPendingPerformance();

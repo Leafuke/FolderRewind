@@ -13,6 +13,13 @@ namespace FolderRewind.Services
 {
     public static class CloudOnboardingService
     {
+        internal static async Task PrepareRuntimeToolsAsync(bool includeOpenList, IProgress<string>? progress, CancellationToken token)
+        {
+            var rclone = await EnsureToolAsync("rclone", progress, token).ConfigureAwait(false);
+            var prepareNew = includeOpenList && !File.Exists(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime.ConfigFilePath);
+            var openList = prepareNew ? await EnsureToolAsync("openlist", progress, token, true).ConfigureAwait(false) : "";
+            await ApplyToolPathsAsync(rclone, openList, token).ConfigureAwait(false);
+        }
         public static IReadOnlyList<CloudOnboardingProviderOption> GetProviderOptions()
         {
             return new[]
@@ -108,7 +115,7 @@ namespace FolderRewind.Services
             };
         }
 
-        private static Task<string> EnsureToolAsync(string tool, IProgress<string>? progress, CancellationToken ct)
+        private static Task<string> EnsureToolAsync(string tool, IProgress<string>? progress, CancellationToken ct, bool requirePinnedOpenList = false)
         {
             var settings = ConfigService.CurrentConfig.GlobalSettings;
             var configuredPath = tool == "rclone" ? settings.RcloneExecutablePath : settings.OpenListRuntime.ExecutablePath;
@@ -117,7 +124,12 @@ namespace FolderRewind.Services
                 OnboardingToolInstaller.PathCandidates(tool + ".exe", Environment.GetEnvironmentVariable("PATH"))
                     .Concat(AppPathCandidates(tool + ".exe")),
                 (asset, token) => GitHubReleaseService.DownloadVerifiedAssetAsync(asset.Url, asset.Sha256, token),
-                ToolExecutableVerifier.VerifyAsync,
+                async (path, name, token) =>
+                {
+                    var version = await ToolExecutableVerifier.VerifyAsync(path, name, token).ConfigureAwait(false);
+                    if (requirePinnedOpenList) await OpenListInitializer.VerifySupportedAsync(path, token).ConfigureAwait(false);
+                    return version;
+                },
                 message => { progress?.Report(message); LogService.LogInfo(message, nameof(CloudOnboardingService)); }, ct);
         }
 

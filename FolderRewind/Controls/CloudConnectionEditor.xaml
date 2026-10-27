@@ -1,0 +1,100 @@
+<UserControl x:Class="FolderRewind.Controls.CloudConnectionEditor"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:FolderRewind.ViewModels">
+ <StackPanel Spacing="16" HorizontalAlignment="Stretch">
+  <TextBlock x:Name="StepTitle" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+  <InfoBar x:Name="Status" IsClosable="False" AutomationProperties.LiveSetting="Polite" AutomationProperties.AutomationId="CloudSetupStatus"/>
+  <Expander x:Uid="Diagnostics_Details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+   <ItemsControl ItemsSource="{x:Bind ViewModel.Diagnostics, Mode=OneWay}"><ItemsControl.ItemTemplate>
+    <DataTemplate x:DataType="vm:OnboardingDiagnosticItem"><TextBlock Text="{x:Bind Display, Mode=OneTime}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/></DataTemplate>
+   </ItemsControl.ItemTemplate></ItemsControl>
+  </Expander>
+  <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="24" Height="24" HorizontalAlignment="Left"/>
+  <Button x:Uid="CloudSetup_CancelCheck" Click="OnCancelCheck" Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+  <StackPanel x:Name="ChoicePanel" Spacing="12">
+   <Button x:Uid="CloudWizard_ChooseOpenList" Tag="0" Click="OnChoose" HorizontalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <Button x:Uid="CloudWizard_ChooseWebDav" Tag="1" Click="OnChoose" HorizontalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <Button x:Uid="CloudWizard_ChooseRclone" Tag="2" Click="OnChoose" HorizontalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <Button x:Name="SavedChoice" x:Uid="CloudWizard_ChooseSaved" Tag="3" Click="OnChoose" HorizontalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+  </StackPanel>
+  <StackPanel x:Name="EnvironmentPanel" Spacing="12">
+   <TextBlock x:Uid="CloudWizard_EnvironmentHelp" TextWrapping="Wrap"/>
+   <TextBox x:Uid="CloudSetup_Executable_Input" Header="rclone" Text="{x:Bind ViewModel.Executable, Mode=TwoWay}" AutomationProperties.AutomationId="CloudSetupExecutable" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <Button x:Uid="CloudSetup_PickExecutable" Click="OnPickExecutable" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <Button x:Uid="CloudWizard_PrepareRclone" Click="OnPrepareRclone" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <StackPanel x:Name="LocalOpenListPanel" Spacing="12">
+    <TextBlock x:Uid="CloudWizard_OpenListEnvironmentHelp" TextWrapping="Wrap"/>
+    <TextBlock Text="{x:Bind ViewModel.LocalOpenListSummary, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+    <Button x:Uid="CloudWizard_UseLocal" Click="OnUseLocal" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <Button x:Uid="CloudWizard_UseExternal" Click="OnUseExternal" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <Expander x:Uid="CloudWizard_InitializeOpenList" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+     <StackPanel Spacing="10">
+      <TextBlock x:Uid="CloudWizard_InitializationHelp" TextWrapping="Wrap"/>
+      <Button x:Uid="CloudWizard_PrepareOpenList" Click="OnPrepareOpenList" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+      <PasswordBox x:Name="InitialPassword" x:Uid="CloudWizard_InitialPassword" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+      <NumberBox x:Name="Port" x:Uid="CloudWizard_Port" Value="5244" Minimum="1024" Maximum="65535" SpinButtonPlacementMode="Compact" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+      <Button x:Uid="CloudWizard_Initialize" Click="OnInitialize" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+      <Button x:Uid="CloudWizard_AuthorizeStart" Click="OnAuthorizeStart" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+     </StackPanel>
+    </Expander>
+    <Button x:Uid="CloudSetup_RepairOpenList" Click="OnEnvironmentSettings" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   </StackPanel>
+  </StackPanel>
+  <StackPanel x:Name="AccessPanel" Spacing="12">
+   <StackPanel x:Name="WebDavPanel" Spacing="12">
+    <TextBlock x:Name="OpenListAccountHelp" x:Uid="CloudWizard_OpenListAccountHelp" TextWrapping="Wrap"/>
+    <TextBox x:Uid="CloudSetup_Url_Input" x:Name="UrlBox" Header="{x:Bind UrlLabel, Mode=OneTime}" Text="{x:Bind ViewModel.WebDavUrl, Mode=TwoWay}" AutomationProperties.AutomationId="CloudSetupUrl" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <TextBox x:Uid="CloudSetup_User_Input" Header="{x:Bind UserLabel, Mode=OneTime}" Text="{x:Bind ViewModel.WebDavUser, Mode=TwoWay}" AutomationProperties.AutomationId="CloudSetupUser" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <PasswordBox x:Name="Password" x:Uid="CloudSetup_Password_Input" Header="{x:Bind PasswordLabel, Mode=OneTime}" AutomationProperties.AutomationId="CloudSetupPassword" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <CheckBox x:Name="AllowInsecure" x:Uid="CloudSetup_Insecure" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <Button x:Name="ManagementButton" x:Uid="CloudSetup_OpenManagement" Click="OnManagement" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   </StackPanel>
+   <StackPanel x:Name="RclonePanel" Spacing="12">
+    <TextBlock x:Uid="CloudWizard_RcloneHelp" TextWrapping="Wrap"/>
+    <TextBox x:Uid="CloudSetup_ConfigPath_Input" Header="{x:Bind ConfigLabel, Mode=OneTime}" Text="{x:Bind ViewModel.ConfigPath, Mode=TwoWay}" AutomationProperties.AutomationId="CloudSetupConfigPath" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <Button x:Uid="CloudWizard_DetectConfig" Click="OnDetectConfig" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <Button x:Uid="CloudSetup_PickConfig" Click="OnPickConfig" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <Button x:Uid="CloudSetup_ListRemotes" Click="OnListRemotes" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <ComboBox x:Uid="CloudSetup_Remote_Input" Header="{x:Bind RemoteLabel, Mode=OneTime}" ItemsSource="{x:Bind ViewModel.Remotes, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedRemoteIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <TextBlock x:Uid="CloudWizard_ImportHelp" TextWrapping="Wrap"/>
+    <Button x:Uid="CloudWizard_ReuseCredentials" Click="OnReuseCredentials" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <Button x:Uid="CloudWizard_ImportNew" Click="OnImportNew" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   </StackPanel>
+  </StackPanel>
+  <StackPanel x:Name="SavedPanel" Spacing="12">
+   <ComboBox x:Uid="CloudConnections_Select" ItemsSource="{x:Bind ViewModel.ConnectionProfiles, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedProfileIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="CloudProfileSelector" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+  </StackPanel>
+  <StackPanel x:Name="LocationPanel" Spacing="12">
+   <TextBox x:Uid="CloudSetup_RemoteRoot_Input" Header="{x:Bind LocationLabel, Mode=OneTime}" Text="{x:Bind ViewModel.RemoteRoot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="CloudSetupRemoteRoot" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <TextBlock x:Uid="CloudWizard_PathHelp" TextWrapping="Wrap"/>
+   <Button x:Uid="CloudSetup_Browse" Click="OnBrowse" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <Button x:Uid="CloudWizard_Parent" Click="OnParent" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <ListView ItemsSource="{x:Bind ViewModel.Directories, Mode=OneWay}" IsItemClickEnabled="True" ItemClick="OnDirectory" MaxHeight="240" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <Button x:Uid="CloudSetup_BrowseMore" Click="OnBrowseMore" IsEnabled="{x:Bind ViewModel.CanBrowseMore, Mode=OneWay}"/>
+   <Button x:Name="SuggestFolder" x:Uid="CloudWizard_SuggestFolder" Click="OnSuggestFolder" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   <TextBlock x:Name="VerificationHelp" TextWrapping="Wrap"/>
+  </StackPanel>
+  <StackPanel x:Name="ConfirmPanel" Spacing="12">
+   <TextBlock Text="{x:Bind ViewModel.RemoteRoot, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+   <StackPanel x:Name="ProfileFields" Spacing="10">
+    <TextBox x:Uid="CloudConnections_Name" Text="{x:Bind ViewModel.ConnectionName, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <CheckBox x:Uid="CloudConnections_Share" IsChecked="{x:Bind ViewModel.ShareConnection, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   </StackPanel>
+   <StackPanel x:Name="UploadChoices" Spacing="12">
+    <CheckBox x:Uid="CloudWizard_EnableAutomatic" IsChecked="{x:Bind ViewModel.RequestAutomaticUpload, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <CheckBox x:Uid="CloudWizard_FirstUpload" IsChecked="{x:Bind ViewModel.RequestFirstUpload, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <ComboBox x:Uid="CloudSetup_Version_Input" ItemsSource="{x:Bind ViewModel.Versions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedVersionIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <TextBlock x:Name="NoVersions" x:Uid="CloudWizard_NoVersions" TextWrapping="Wrap"/>
+   </StackPanel>
+  </StackPanel>
+  <Expander x:Name="Advanced" x:Uid="CloudSetup_ExecutionAdvanced" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+   <StackPanel Spacing="8">
+    <TextBox x:Uid="CloudSetup_WorkingDirectory_Input" Text="{x:Bind ViewModel.WorkingDirectory, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+    <CheckBox x:Uid="CloudConnections_DependsOpenList" IsChecked="{x:Bind ViewModel.DependsOnOpenList, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEditConnection, Mode=OneWay}"/>
+   </StackPanel>
+  </Expander>
+  <StackPanel Orientation="Horizontal" Spacing="12">
+   <Button x:Name="BackButton" x:Uid="CloudWizard_Back" Click="OnBack"/>
+   <Button x:Name="NextButton" Click="OnNext" Style="{StaticResource AccentButtonStyle}"/>
+  </StackPanel>
+ </StackPanel>
+</UserControl>

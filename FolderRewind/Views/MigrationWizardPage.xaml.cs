@@ -109,7 +109,7 @@ public sealed partial class MigrationWizardPage : Page
         if (config is null) { NotificationService.ShowError(I18n.GetString("SettingsProject_Stale")); return; }
         var resume = ViewModel.ResumeRequest;
         var frame = Frame;
-        if (!NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(config.Id)) || resume is null || frame is null) return;
+        if (!NavigationService.NavigateTo("CloudRecovery", new CloudSetupNavigationParameter(config.Id, Intent: CloudSetupIntent.Recover)) || resume is null || frame is null) return;
         // Returning from connection setup must resume the persisted workflow, including a newly imported one.
         var last = frame.BackStack.Count - 1;
         if (last >= 0 && frame.BackStack[last].SourcePageType == typeof(MigrationWizardPage))

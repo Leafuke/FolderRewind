@@ -72,6 +72,27 @@ public static class OpenListRuntimeService
         }, ct => EndpointObservedAsync(settings, ct), TimeSpan.FromSeconds(30), token).ConfigureAwait(false);
     }
     internal static bool CanStop => ManagedProcess.CanStop(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime.AuthorizationSignature);
+    internal static bool OwnsCurrent => ManagedProcess.Owns(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime.AuthorizationSignature);
+    internal static async Task AuthorizeAndStartAsync(OpenListRuntimeSettings draft, bool requireOwned, CancellationToken token)
+    {
+        if (requireOwned) OpenListInitializer.RequireAvailablePort(Validate(draft).Port);
+        var settings = ConfigService.CurrentConfig.GlobalSettings;
+        var previous = settings.OpenListRuntime;
+        await AuthorizeAsync(draft, token);
+        draft.AllowStartOnDemand = true;
+        await SaveAsync(draft);
+        using var lease = await AcquireDependencyAsync(token, manual: true);
+        if (requireOwned && !OwnsCurrent)
+        {
+            // A different process may have taken the port between the preflight and startup.
+            if (ReferenceEquals(settings.OpenListRuntime, draft))
+                await ConfigEditTransaction.ApplyAsync(() => settings.OpenListRuntime = previous,
+                    () => settings.OpenListRuntime = draft, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
+            throw new InvalidOperationException(I18n.GetString("CloudWizard_OpenListPortConflict"));
+        }
+    }
+    internal static Task<IDisposable?> AcquireForConnectionAsync(bool dependsOnLocalOpenList, CancellationToken token)
+        => dependsOnLocalOpenList ? AcquireDependencyAsync(token) : Task.FromResult<IDisposable?>(null);
     internal static Task StopAsync(CancellationToken token) => ManagedProcess.StopAsync(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime.AuthorizationSignature, token);
     private static async Task<bool> EndpointObservedAsync(OpenListRuntimeSettings settings, CancellationToken token)
     {

@@ -17,8 +17,11 @@ namespace FolderRewind.ViewModels;
 
 public sealed record CloudJobDisplay(string JobId, string Summary, string Detail);
 
-public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
+public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
 {
+    private readonly CloudSetupSaveSession _saveSession = new();
+    private readonly CloudSetupCoordinator _saveCoordinator = new(new CloudSetupPersistence());
+    internal CloudSetupSaveResult? LastSaveResult { get; private set; }
     private BackupConfig? _config;
     private bool _manageConnection;
     private CloudConnectionProfile? _editingProfile;
@@ -33,8 +36,11 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         get => _selectedProfileIndex;
         set
         {
+            if (_saveSession.PersistenceUncertain) { Message = I18n.GetString("CloudWizard_SaveUncertain"); return; }
             if (!SetProperty(ref _selectedProfileIndex, value) || value < 0 || value >= _profiles.Count) return;
             var profile = _profiles[value];
+            if (_owned is not null && _owned.ConfigPath != profile.CredentialReference) { _owned.Dispose(); _owned = null; }
+            _saveSession.Select(profile, _manageConnection);
             if (_manageConnection) _editingProfile = profile;
             _selectedProfileId = profile.Id; ConfigPath = profile.CredentialReference;
             Executable = PathExecutable(profile.ExecutablePath); WorkingDirectory = profile.WorkingDirectory;
@@ -48,7 +54,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         ? value : ConfigService.CurrentConfig.GlobalSettings.RcloneExecutablePath;
     public string ConnectionName { get => _connectionName; set => SetProperty(ref _connectionName, value); }
     public bool ShareConnection { get => _shareConnection; set => SetProperty(ref _shareConnection, value); }
-    public bool DependsOnOpenList { get => _dependsOnOpenList; set => SetProperty(ref _dependsOnOpenList, value); }
+    public bool DependsOnOpenList { get => _dependsOnOpenList; set { if (SetProperty(ref _dependsOnOpenList, value)) Invalidate(); } }
     public bool CanSaveConnection => _config is not null || _manageConnection;
     public bool HasHistoryActions => !_manageConnection;
     public string SaveImpactMessage
@@ -85,7 +91,8 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     private IDisposable? _jobSubscription;
     private bool _jobsRefreshing, _jobsRefreshAgain;
     public ObservableCollection<CloudJobDisplay> Jobs { get; } = [];
-    public int SelectedJobIndex { get; set; } = -1;
+    private int _selectedJobIndex = -1;
+    public int SelectedJobIndex { get => _selectedJobIndex; set => SetProperty(ref _selectedJobIndex, value); }
     private string? _inspectionEvidence;
     private string? _readableEvidence, _writableEvidence;
     private int _nextDirectoryOffset = -1;
@@ -131,8 +138,9 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public ObservableCollection<string> Remotes { get; } = [];
     public ObservableCollection<string> Directories { get; } = [];
     public ObservableCollection<string> Versions { get; } = [];
-    public bool IsBusy { get => _busy; private set { SetProperty(ref _busy, value); OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanBrowseMore)); OnPropertyChanged(nameof(CanUpload)); } }
+    public bool IsBusy { get => _busy; private set { SetProperty(ref _busy, value); OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanEditConnection)); OnPropertyChanged(nameof(CanBrowseMore)); OnPropertyChanged(nameof(CanUpload)); } }
     public bool CanEdit => !IsBusy;
+    public bool CanEditConnection => CanEdit && !_saveSession.PersistenceUncertain;
     public bool CanUpload => IsProject && CanEdit && _saved && _config?.Cloud.WritableEvidence.Length > 0;
     public OnboardingCheckState MessageState { get; private set; } = OnboardingCheckState.Unknown;
     public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
@@ -209,6 +217,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         ConnectionName = _config.Name;
         if (_profiles.FirstOrDefault(p => p.Id == _config.Cloud.ConnectionProfileId) is { } initialProfile)
         {
+            _saveSession.Select(initialProfile, false);
             _selectedProfileId = initialProfile.Id; _selectedProfileIndex = _profiles.IndexOf(initialProfile);
             ConnectionName = initialProfile.DisplayName; ShareConnection = initialProfile.Scope == CloudConnectionScope.Shared;
             DependsOnOpenList = initialProfile.DependsOnLocalOpenList; _importedFrom = initialProfile.ImportedFromReference;
@@ -230,6 +239,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     }
     private void Invalidate()
     {
+        _flow.TargetChanged();
         MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState));
         _revision++; _request?.Cancel(); _saved = false;
         OnPropertyChanged(nameof(CanUpload));
@@ -297,6 +307,16 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     {
         var code = RcloneConnectionDiagnostics.Code(error);
         var message = CloudCommandSecurity.Redact(error.Message);
+        var wizardKey = error.Message switch
+        {
+            "[openlist.initialization-input]" => "CloudWizard_InitializationInput",
+            "[openlist.initialization-overlap]" => "CloudWizard_InitializationOverlap",
+            "[openlist.initialization-version]" => "CloudWizard_InitializationVersion",
+            "[openlist.initialization-port]" => "CloudWizard_InitializationPort",
+            "[openlist.initialization-failed]" => "CloudWizard_InitializationFailed",
+            _ => null
+        };
+        if (wizardKey is not null) message = I18n.GetString(wizardKey);
         RecordCheck(code, OnboardingCheckState.NeedsInput, message);
         Message = code == "cloud.access-unconfirmed" ? I18n.GetString("CloudSetup_CheckFailedShort") : message;
     }
@@ -311,8 +331,10 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     }
     public async Task CreateWebDavAsync(string url, string user, string password, CancellationToken token, bool allowInsecure = false)
     {
+        if (_saveSession.PersistenceUncertain) throw new InvalidOperationException(I18n.GetString("CloudWizard_SaveUncertain"));
         var connection = await RcloneConnectionService.CreateWebDavAsync(Executable, ConfigService.RcloneConnectionsDirectory, url, user, password, allowInsecure, token);
         if (_lifetime.IsCancellationRequested) { connection.Dispose(); return; }
+        BeginNewConnection();
         _owned?.Dispose(); _owned = connection;
         ConfigPath = connection.ConfigPath; RemoteRoot = connection.RemoteRoot;
         LoadRemotes(); Message = I18n.GetString("CloudSetup_CredentialsCreated");
@@ -321,6 +343,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public Task BrowseMoreAsync(CancellationToken token) => _nextDirectoryOffset >= 0 ? BrowseCoreAsync(_nextDirectoryOffset, token) : Task.CompletedTask;
     private async Task BrowseCoreAsync(int offset, CancellationToken token)
     {
+        using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, token);
         var revision = _revision;
         using var context = CreateContext();
         var result = await RcloneConnectionService.BrowseAsync(context, token, offset);
@@ -335,6 +358,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     }
     public async Task VerifyWriteAsync(CancellationToken token)
     {
+        using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, token);
         var revision = _revision;
         using var context = CreateContext();
         var result = await RcloneConnectionService.VerifyWriteAsync(context, token);
@@ -355,84 +379,103 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         if (!CanSaveConnection) return;
         using var context = CreateContext();
         context.RequireUnchanged();
-        var selected = _profiles.FirstOrDefault(p => p.Id == _selectedProfileId);
-        if (selected is not null)
+        var selected = ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == _selectedProfileId);
+        var evidence = context.TargetRevisionEvidence + "|" + RemoteRoot;
+        var sameExecution = selected is not null && selected.CredentialReference == ConfigPath
+            && selected.RemoteName == CloudRemotePath.Split(RemoteRoot).Remote && PathExecutable(selected.ExecutablePath) == Executable
+            && selected.WorkingDirectory == WorkingDirectory && selected.DependsOnLocalOpenList == DependsOnOpenList;
+        if (sameExecution && selected is not null)
         {
-            var currentEvidence = context.TargetRevisionEvidence + "|" + RemoteRoot;
-            if (CloudConnectionResolver.VerifiedAccessEvidence(selected, RemoteRoot, writable: false) == currentEvidence)
-                _readableEvidence ??= currentEvidence;
-            if (CloudConnectionResolver.VerifiedAccessEvidence(selected, RemoteRoot, writable: true) == currentEvidence)
-                _writableEvidence ??= currentEvidence;
+            if (CloudConnectionResolver.VerifiedAccessEvidence(selected, RemoteRoot, false) == evidence) _readableEvidence ??= evidence;
+            if (CloudConnectionResolver.VerifiedAccessEvidence(selected, RemoteRoot, true) == evidence) _writableEvidence ??= evidence;
+            if (_config?.Cloud.ReadableEvidence == evidence) _readableEvidence ??= evidence;
+            if (_config?.Cloud.WritableEvidence == evidence) _writableEvidence ??= evidence;
         }
-        if (_manageConnection || selected is null || ShareConnection && selected.Scope != CloudConnectionScope.Shared
-            || !ShareConnection && selected.Scope == CloudConnectionScope.Shared || selected.DependsOnLocalOpenList != DependsOnOpenList
-            || selected.CredentialReference != ConfigPath || selected.RemoteName != CloudRemotePath.Split(RemoteRoot).Remote
-            || selected.ExecutablePath != Executable && PathExecutable(selected.ExecutablePath) != Executable
-            || selected.WorkingDirectory != WorkingDirectory
-            || _config is not null && _config.Cloud.WritableEvidence.Length > 64 && _config.Cloud.WritableEvidence[..64] != context.TargetRevisionEvidence)
+        var profile = new CloudConnectionProfile
         {
-            var profile = new CloudConnectionProfile
-            {
-                Id = _editingProfile?.Id ?? Guid.NewGuid().ToString("N"), DisplayName = string.IsNullOrWhiteSpace(ConnectionName) ? CloudRemotePath.Split(RemoteRoot).Remote : ConnectionName.Trim(),
-                Scope = ShareConnection ? CloudConnectionScope.Shared : CloudConnectionScope.Project,
-                OwnerProjectId = ShareConnection ? null : _config?.Id ?? _editingProfile?.OwnerProjectId,
-                CredentialReference = ConfigPath, ImportedFromReference = _importedFrom,
-                CredentialOwnership = CloudConnectionCatalog.IsManaged(ConfigPath) ? CloudCredentialOwnership.ManagedCopy : CloudCredentialOwnership.ExternalReference,
-                RemoteName = CloudRemotePath.Split(RemoteRoot).Remote, ExecutablePath = Executable, WorkingDirectory = WorkingDirectory,
-                DependsOnLocalOpenList = DependsOnOpenList, Access = _writableEvidence is not null ? CloudConnectionAccess.VerifiedWritable
-                    : _readableEvidence is not null ? CloudConnectionAccess.VerifiedReadable : CloudConnectionAccess.ConnectedUnverified,
-                VerificationEvidence = _writableEvidence ?? _readableEvidence ?? ""
-            };
-            if (profile.Scope == CloudConnectionScope.Project && profile.OwnerProjectId is null)
-                throw new InvalidOperationException(I18n.GetString("CloudConnections_OwnerRequired"));
-            if (_editingProfile is { } original && original.RemoteName == profile.RemoteName && original.CredentialReference == profile.CredentialReference
-                && original.ExecutablePath == profile.ExecutablePath && original.WorkingDirectory == profile.WorkingDirectory
-                && original.DependsOnLocalOpenList == profile.DependsOnLocalOpenList
-                && (original.VerificationEvidence.Length <= 64 || original.VerificationEvidence[..64] == context.TargetRevisionEvidence))
-                profile.ProfileRevision = original.ProfileRevision;
-            try { await CloudConnectionCatalog.SaveProfileAsync(profile, _editingProfile?.ProfileRevision, token); }
-            catch (ConfigEditRollbackException) { _owned?.Commit(); _owned = null; throw; }
-            _owned?.Commit(); _owned = null;
-            selected = profile; _selectedProfileId = profile.Id;
-            if (_manageConnection) { _editingProfile = profile; _saved = true; Message = I18n.GetString("CloudSetup_SavedNoCopy"); return; }
-        }
-        if (_config is null) return;
-        var draft = new ConfigSettingsDraftService(_config);
-        draft.Draft.Cloud.ExecutablePath = Executable;
-        draft.Draft.Cloud.RcloneConfigPath = ConfigPath;
-        draft.Draft.Cloud.WorkingDirectory = WorkingDirectory;
-        draft.Draft.Cloud.RemoteBasePath = RemoteRoot;
-        draft.Draft.Cloud.CommandMode = CloudCommandMode.Rclone;
-        draft.Draft.Cloud.LegacyConversionRequired = false;
-        draft.Draft.Cloud.ReadableEvidence = _readableEvidence ?? "";
-        draft.Draft.Cloud.WritableEvidence = _writableEvidence ?? "";
-        draft.Draft.Cloud.ConnectionProfileId = selected?.Id;
-        draft.Draft.Cloud.RemotePathSuffix = CloudRemotePath.Split(RemoteRoot).Suffix;
-        if (selected is not null) { draft.Draft.Cloud.ExecutablePath = selected.ExecutablePath; draft.Draft.Cloud.WorkingDirectory = selected.WorkingDirectory; }
-        if (_writableEvidence is null) draft.Draft.Cloud.Enabled = false;
-        token.ThrowIfCancellationRequested();
-        ConfigSaveResult result;
-        try { result = await draft.CommitAsync(); }
-        catch (ConfigEditRollbackException ex)
+            Id = _saveSession.ProfileId, DisplayName = string.IsNullOrWhiteSpace(ConnectionName) ? CloudRemotePath.Split(RemoteRoot).Remote : ConnectionName.Trim(),
+            Scope = ShareConnection ? CloudConnectionScope.Shared : CloudConnectionScope.Project,
+            OwnerProjectId = ShareConnection ? null : _config?.Id ?? _editingProfile?.OwnerProjectId,
+            CredentialReference = ConfigPath, ImportedFromReference = _importedFrom,
+            CredentialOwnership = CloudConnectionCatalog.IsManaged(ConfigPath) ? CloudCredentialOwnership.ManagedCopy : CloudCredentialOwnership.ExternalReference,
+            RemoteName = CloudRemotePath.Split(RemoteRoot).Remote, ExecutablePath = Executable, WorkingDirectory = WorkingDirectory,
+            DependsOnLocalOpenList = DependsOnOpenList, Access = _writableEvidence is not null ? CloudConnectionAccess.VerifiedWritable
+                : _readableEvidence is not null ? CloudConnectionAccess.VerifiedReadable : CloudConnectionAccess.ConnectedUnverified,
+            VerificationEvidence = _writableEvidence ?? _readableEvidence ?? ""
+        };
+        if (selected is not null && PathExecutable(selected.ExecutablePath) == Executable) profile.ExecutablePath = selected.ExecutablePath;
+        if (selected is not null && _saveSession.Intent == CloudConnectionEditIntent.Reuse)
         {
-            _owned?.Commit(); _owned = null;
-            throw RcloneConnectionDiagnostics.Failure("cloud.credentials-save-uncertain", "CloudSetup_CredentialSaveUncertain", ex);
+            // Reusing a profile never edits shared metadata or its execution settings.
+            if (profile.RemoteName != selected.RemoteName || profile.CredentialReference != selected.CredentialReference
+                || PathExecutable(selected.ExecutablePath) != Executable || profile.WorkingDirectory != selected.WorkingDirectory
+                || profile.DependsOnLocalOpenList != selected.DependsOnLocalOpenList)
+                throw new InvalidOperationException(I18n.GetString("CloudWizard_NewConnectionRequired"));
+            profile = CloudConnectionEditPolicy.Copy(selected);
         }
-        if (!result.Success) throw RcloneConnectionDiagnostics.Failure("cloud.connection-save-failed", "CloudSetup_ConnectionSaveFailed", result.Exception);
-        _owned?.Commit(); _owned = null;
-        ConfigService.ConfirmRcloneCredentialPath(ConfigPath);
-        _config = ConfigService.CurrentConfig.BackupConfigs.Single(c => c.Id == _config.Id);
-        context.RequireUnchanged();
-        _inspectionEvidence = context.RevisionEvidence;
-        _saved = true;
-        Message = I18n.GetString("CloudSetup_SavedNoCopy");
+        else if (sameExecution && selected is not null && profile.VerificationEvidence.Length == 0
+            && (selected.VerificationEvidence.Length == 0 || selected.VerificationEvidence.Length > 64 && selected.VerificationEvidence[..64] == context.TargetRevisionEvidence))
+        {
+            profile.VerificationEvidence = selected.VerificationEvidence; profile.Access = selected.Access;
+        }
+        var result = await _saveCoordinator.SaveAsync(_saveSession,
+            new(profile, _manageConnection ? null : _config?.Id, RemoteRoot, _readableEvidence ?? "", _writableEvidence ?? "", _config?.ConfigRevision,
+                selected is not null && selected.VerificationEvidence.Length > 64 && selected.VerificationEvidence[..64] != context.TargetRevisionEvidence), token);
+        LastSaveResult = result;
+        OnPropertyChanged(nameof(CanEditConnection));
+        if (result.ConnectionSaved || !result.PersistenceCertain) { _owned?.Commit(); _owned = null; }
+        if (result.ConnectionSaved)
+        {
+            _selectedProfileId = _saveSession.ProfileId;
+            _editingProfile = _saveSession.Expected;
+            RefreshProfiles();
+        }
+        _saved = result.Success;
+        if (result.ProjectBound) _config = ConfigService.CurrentConfig.BackupConfigs.Single(c => c.Id == _config!.Id);
+        if (!result.Success)
+        {
+            Message = I18n.GetString(!result.PersistenceCertain ? "CloudWizard_SaveUncertain"
+                : result.ConnectionSaved ? "CloudWizard_BindingFailed" : "CloudWizard_SaveFailed");
+            RecordCheck("cloud.save-incomplete", OnboardingCheckState.NeedsInput, CloudCommandSecurity.Redact(result.Error?.Message ?? ""));
+        }
+        else
+        {
+            _inspectionEvidence = context.RevisionEvidence;
+            Message = I18n.GetString(_manageConnection ? "CloudWizard_ConnectionSaved" : "CloudSetup_SavedNoCopy");
+        }
+        OnPropertyChanged(nameof(CanUpload));
+    }
+    private void RefreshProfiles()
+    {
+        _profiles.Clear(); ConnectionProfiles.Clear();
+        foreach (var p in ConfigService.CurrentConfig.CloudConnections.Where(p => _manageConnection || p.Scope == CloudConnectionScope.Shared
+            || _config is not null && new HistoryConfigId(_config.Id).Matches(p.OwnerProjectId)))
+        { _profiles.Add(p); ConnectionProfiles.Add(p.DisplayName + " · " + I18n.GetString(p.Scope == CloudConnectionScope.Shared ? "CloudConnections_Shared" : "CloudConnections_Project")); }
+        _selectedProfileIndex = _profiles.FindIndex(p => p.Id == _selectedProfileId);
+        OnPropertyChanged(nameof(SelectedProfileIndex)); OnPropertyChanged(nameof(HasProfiles));
+    }
+    public bool HasProfiles => ConnectionProfiles.Count != 0;
+    public void BeginNewConnection()
+    {
+        _saveSession.CreateNew(); _owned?.Dispose(); _owned = null;
+        _editingProfile = null; _selectedProfileId = null; _selectedProfileIndex = -1;
+        _importedFrom = ""; LastSaveResult = null;
+        OnPropertyChanged(nameof(SelectedProfileIndex)); Invalidate();
+    }
+    public void ReuseManagedCredentials()
+    {
+        var source = Path.GetFullPath(ConfigPath);
+        var existing = ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => CloudConnectionCatalog.SameCredentialStorage(p.ImportedFromReference, source)
+            && File.Exists(p.CredentialReference) && (_manageConnection || p.Scope == CloudConnectionScope.Shared
+                || _config is not null && new HistoryConfigId(_config.Id).Matches(p.OwnerProjectId)))
+            ?? throw new InvalidOperationException(I18n.GetString("CloudWizard_NoSavedCredentials"));
+        RefreshProfiles(); SelectedProfileIndex = _profiles.FindIndex(p => p.Id == existing.Id);
+        LoadRemotes();
     }
     public async Task ImportManagedAsync(CancellationToken token)
     {
+        if (_saveSession.PersistenceUncertain) throw new InvalidOperationException(I18n.GetString("CloudWizard_SaveUncertain"));
         var source = System.IO.Path.GetFullPath(ConfigPath);
-        if (CloudConnectionCatalog.IsManaged(source)) return;
-        var existing = ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.ImportedFromReference == source && System.IO.File.Exists(p.CredentialReference));
-        if (existing is not null) { ConfigPath = existing.CredentialReference; _importedFrom = source; LoadRemotes(); return; }
         RcloneCredentialRefresh.RejectReparsePoints(source);
         var catalog = RcloneConnectionService.InspectRemotes(source);
         var bytes = await Task.Run(() => RcloneExecutionContext.ReadConfigurationBytes(source), token);
@@ -443,6 +486,8 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         RcloneExecutionContext.CreatePrivateDirectory(directory);
         var target = System.IO.Path.Combine(directory, "rclone.conf");
         await AtomicFileService.WriteAsync(target, (s, ct) => s.WriteAsync(bytes, ct).AsTask(), token);
+        if (_owned is not null && CloudConnectionCatalog.SameCredentialStorage(_owned.ConfigPath, source)) _owned.Commit();
+        BeginNewConnection();
         _owned?.Dispose(); _owned = new(target, RemoteRoot);
         _importedFrom = source; ConfigPath = target; LoadRemotes();
         Message = I18n.GetString("CloudConnections_ManagedImported");
@@ -460,14 +505,32 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
             if (change.Kind == HistoryChangeKind.CloudJobChanged && !_disposed)
                 EnqueueOnUiThread(() => TaskObserver.Observe(RefreshJobsAsync(_lifetime.Token), nameof(CloudSetupViewModel)));
         });
+        CanInitializeMissingJournal = !File.Exists(runtime.CloudJobs.JournalPath) && File.Exists(runtime.CloudJobs.JournalPath + ".required");
+        OnPropertyChanged(nameof(CanInitializeMissingJournal));
         var document = await Task.Run(() => runtime.CloudJobs.Read(), token);
         if (_disposed) return;
+        HasMaintenanceIssue = document.Jobs.Any(j => j.Protection == CloudProtectionDisposition.Held);
+        var complete = document.Jobs.Where(j => j.Phase == CloudJobPhase.Succeeded).OrderByDescending(j => j.CreatedUtc).FirstOrDefault();
+        CopySummary = complete is null ? I18n.GetString("CloudWizard_CopyUnknown")
+            : I18n.Format("CloudWizard_LastCompleted", UserDisplayFormatter.LongDateTime(complete.CreatedUtc.LocalDateTime));
+        if (complete is not null)
+            foreach (var id in complete.Representations.Take(10))
+                if (await runtime.Query.GetRepresentationAsync(id, token) is { } representation
+                    && await runtime.Query.GetVersionAsync(representation.VersionId, token) is { } version)
+                    CopySummary += "\n" + version.SourceDescriptorSnapshot.DisplayName + " · " + version.VersionId;
+        OnPropertyChanged(nameof(CopySummary)); OnPropertyChanged(nameof(HasMaintenanceIssue)); OnPropertyChanged(nameof(CanInitializeMissingJournal));
         var selected = SelectedJobIndex >= 0 && SelectedJobIndex < Jobs.Count ? Jobs[SelectedJobIndex].JobId : null;
         Jobs.Clear(); SelectedJobIndex = -1;
         foreach (var job in document.Jobs.OrderByDescending(j => j.CreatedUtc).Take(100))
             Jobs.Add(new(job.JobId, I18n.GetString("CloudJob_Phase_" + job.Phase) + " · " + UserDisplayFormatter.LongDateTime(job.CreatedUtc.LocalDateTime),
-                I18n.Format("CloudJob_Detail", job.JobId, I18n.GetString(job.Protection == CloudProtectionDisposition.Held ? "CloudJob_ProtectionHeld" : "CloudJob_ProtectionReleased"), CloudCommandSecurity.Redact(job.Diagnostic), job.Attempt)));
+                I18n.Format("CloudJob_Detail", job.JobId, I18n.GetString(job.Protection == CloudProtectionDisposition.Held ? "CloudJob_ProtectionHeld" : "CloudJob_ProtectionReleased"), CloudCommandSecurity.Redact(job.Diagnostic), job.Attempt) + "\n" + job.Target.RemoteRoot));
         SelectedJobIndex = Jobs.ToList().FindIndex(j => j.JobId == selected);
+        OnPropertyChanged(nameof(ManualJobStatus));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            HasMaintenanceIssue = true; OnPropertyChanged(nameof(HasMaintenanceIssue));
+            ReportConnectionFailure(ex);
         }
         finally
         {
@@ -492,6 +555,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     }
     public async Task ReconnectProjectHistoryAsync(CancellationToken token)
     {
+        using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, token);
         if (_config is null || _manageConnection) return;
         using var context = CreateContext();
         var transport = new RcloneNativeHistoryTransport(context);
@@ -504,6 +568,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         _readableEvidence = context.TargetRevisionEvidence + "|" + RemoteRoot;
         _inspectionEvidence = context.RevisionEvidence;
         await SaveAsync(token);
+        if (LastSaveResult?.Success != true) return;
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_config, token);
         var result = await new HistoryMetadataSyncService(runtime, transport).PullAsync(token);
         if (!result.Succeeded) throw new InvalidDataException(CloudCommandSecurity.Redact(result.Diagnostic));
@@ -520,35 +585,35 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         if (_config is null) return;
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_config, token);
         var versions = await runtime.Query.GetAllVersionsAsync(token);
+        var branches = await runtime.Query.GetAllBranchUpdatesAsync(token);
+        var checkpoints = (await runtime.Query.GetAllCheckpointsAsync(token)).ToDictionary(c => c.CheckpointId, c => c.VersionId);
         if (_lifetime.IsCancellationRequested) return;
         Versions.Clear(); _versions.Clear();
         foreach (var version in versions.OrderByDescending(v => v.CreatedAtUtc))
         {
             _versions.Add(version.VersionId);
-            Versions.Add(version.SourceDescriptorSnapshot.DisplayName + " · " + UserDisplayFormatter.LongDateTime(version.CreatedAtUtc.LocalDateTime));
+            var names = branches.Where(b => b.TargetCheckpointId is { } checkpoint && checkpoints.GetValueOrDefault(checkpoint) == version.VersionId).Select(b => b.Name).Distinct();
+            Versions.Add(version.SourceDescriptorSnapshot.DisplayName + " · " + string.Join(", ", names) + " · "
+                + UserDisplayFormatter.LongDateTime(version.CreatedAtUtc.LocalDateTime) + " · " + version.VersionId);
         }
     }
     public async Task UploadAsync()
     {
-        if (_disposed || IsBusy || _config is null) return;
-        if (!_saved) { Message = I18n.GetString("CloudSetup_SaveFirst"); return; }
-        if (_config.Cloud.WritableEvidence.Length == 0) { Message = I18n.GetString("CloudJob_WriteVerificationRequired"); return; }
-        if (SelectedVersionIndex < 0 || SelectedVersionIndex >= _versions.Count) { Message = I18n.GetString("CloudSetup_SelectVersion"); return; }
-        IsBusy = true;
-        _durableOperation = new();
-        try
+        await RunCheckAsync(async token =>
         {
-            using var context = CreateContext();
-            using var connection = new RcloneExecutionScope(context, owns: false);
-            var result = await CloudSyncService.UploadVersionClosureAsync(_config, _versions[SelectedVersionIndex], _durableOperation.Token);
-            var details = string.Join("\n", result.Items.Select(i => i.RepresentationId + ": " + i.State + " " + CloudCommandSecurity.Redact(i.Diagnostic)))
-                + "\n" + string.Join(", ", result.Missing) + "\n" + CloudCommandSecurity.Redact(result.Metadata?.Diagnostic);
-            Message = I18n.GetString(result.Canceled ? "Common_Canceled" : result.Complete ? "CloudSetup_UploadComplete" : "CloudSetup_UploadIncomplete");
-            RecordCheck(result.Complete ? "cloud.copy-complete" : "cloud.copy-incomplete", result.Complete ? OnboardingCheckState.Ready : OnboardingCheckState.NeedsInput, details);
-        }
-        catch (OperationCanceledException) { Message = I18n.GetString("Common_Canceled"); }
-        catch (Exception ex) { ReportConnectionFailure(ex); }
-        finally { IsBusy = false; _durableOperation.Dispose(); _durableOperation = null; }
+            if (!_saved || _config is null) throw new InvalidOperationException(I18n.GetString("CloudSetup_SaveFirst"));
+            if (_config.Cloud.WritableEvidence.Length == 0) throw new InvalidOperationException(I18n.GetString("CloudJob_WriteVerificationRequired"));
+            if (SelectedVersionIndex < 0 || SelectedVersionIndex >= _versions.Count) throw new InvalidOperationException(I18n.GetString("CloudSetup_SelectVersion"));
+            var key = _versions[SelectedVersionIndex] + "|" + _config.Cloud.ConnectionProfileId + "|" + _config.Cloud.BindingRevision;
+            if (!_manualJobs.TryGetValue(key, out var jobId))
+            {
+                jobId = await CloudSyncService.QueueVersionClosureAsync(_config, _versions[SelectedVersionIndex], token);
+                _manualJobs.Add(key, jobId);
+            }
+            ManualJobId = jobId;
+            Message = I18n.Format("CloudWizard_JobRegistered", jobId);
+            await RefreshJobsAsync(token);
+        });
     }
     public void EnterDirectory(string name)
     {
@@ -558,6 +623,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public void CancelCheck() { _request?.Cancel(); _durableOperation?.Cancel(); }
     public async Task DiscoverRepositoriesAsync(CancellationToken token)
     {
+        using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, token);
         var revision = _revision;
         using var context = CreateContext();
         var output = await RcloneConnectionService.RunAsync(context.CreateStartInfo(["lsf", CloudRemotePath.Append(context.RemoteRoot, "_folderrewind/history"), "--dirs-only"]), OnboardingOperationBudgets.RemoteBrowse, token);
@@ -577,6 +643,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     }
     public async Task AnalyzeRepositoryAsync(CancellationToken token)
     {
+        using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, token);
         if (SelectedRepositoryIndex < 0 || SelectedRepositoryIndex >= RecoveryRepositories.Count) throw new InvalidOperationException(I18n.GetString("CloudRecovery_SelectRepository"));
         var revision = _revision;
         using var context = CreateContext();
@@ -606,6 +673,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
         HistoryConfigId ConfigId, string RepositoryFolder, string? ProjectSignature = null);
     public async Task<RecoveryConfirmation> PreviewRecoveryAsync(CancellationToken token)
     {
+        using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, token);
         if (IsProject)
         {
             if (!_saved || SelectedVersionIndex < 0 || SelectedVersionIndex >= _versions.Count) throw new InvalidOperationException(I18n.GetString("CloudSetup_SaveFirst"));
@@ -650,6 +718,7 @@ public sealed class CloudSetupViewModel : ViewModelBase, IDisposable
     public async Task RestoreAnalyzedAsync(string destination, string? password, RecoveryConfirmation confirmation)
     {
         if (_disposed || IsBusy || !IsProject && _analysis is null || SelectedVersionIndex < 0 || SelectedVersionIndex >= _versions.Count) return;
+        using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, _lifetime.Token);
         using var context = CreateContext();
         if (!MatchesConnectionRevision(confirmation.ConnectionRevision, context)
             || confirmation.Revision != _revision || confirmation.Preview.Version.VersionId != _versions[SelectedVersionIndex]

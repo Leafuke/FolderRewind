@@ -7500,4 +7500,87 @@ Pull Request：{1}</value>
   </data>
   <data name="BackupService_CommitUnknown" xml:space="preserve"><value>无法确认备份提交状态（{0}），已保留备份数据，需恢复后再继续。</value></data>
   <data name="Cloud_SourceFileRequired" xml:space="preserve"><value>历史云传输仅接受单个文件，不能上传目录。</value></data>
+  <data name="CloudWizard_Title.Text" xml:space="preserve"><value>设置云备份</value></data>
+  <data name="CloudWizard_ChooseOpenList.Content" xml:space="preserve"><value>通过 OpenList 使用国内网盘</value></data>
+  <data name="CloudWizard_ChooseWebDav.Content" xml:space="preserve"><value>连接已有 WebDAV 服务</value></data>
+  <data name="CloudWizard_ChooseRclone.Content" xml:space="preserve"><value>使用 rclone 配置（高级：OneDrive、S3 等）</value></data>
+  <data name="CloudWizard_ChooseSaved.Content" xml:space="preserve"><value>选择已保存的云连接</value></data>
+  <data name="CloudWizard_EnvironmentHelp.Text" xml:space="preserve"><value>确认 rclone 可用。已有工具可以直接继续，缺少时再准备。</value></data>
+  <data name="CloudWizard_PrepareRclone.Content" xml:space="preserve"><value>准备 rclone</value></data>
+  <data name="CloudWizard_OpenListEnvironmentHelp.Text" xml:space="preserve"><value>外部服务器或 NAS 上的 OpenList 无需本机环境。仅本机实例需要准备和授权启动。</value></data>
+  <data name="CloudWizard_UseLocal.Content" xml:space="preserve"><value>使用已配置的本机 OpenList</value></data>
+  <data name="CloudWizard_UseExternal.Content" xml:space="preserve"><value>使用外部已运行服务</value></data>
+  <data name="CloudWizard_InitializeOpenList.Header" xml:space="preserve"><value>首次准备本机 OpenList</value></data>
+  <data name="CloudWizard_InitializationHelp.Text" xml:space="preserve"><value>仅创建新的专用目录，支持 OpenList 4.2.6。管理员为 admin，请设置并记住初始密码；FR 不保存此密码，不重置已有实例。</value></data>
+  <data name="CloudWizard_PrepareOpenList.Content" xml:space="preserve"><value>准备 rclone 与 OpenList 程序</value></data>
+  <data name="CloudWizard_InitialPassword.Header" xml:space="preserve"><value>新实例的初始管理员密码</value></data>
+  <data name="CloudWizard_Port.Header" xml:space="preserve"><value>本机回环端口</value></data>
+  <data name="CloudWizard_Initialize.Content" xml:space="preserve"><value>初始化新实例（不启动服务）</value></data>
+  <data name="CloudWizard_AuthorizeStart.Content" xml:space="preserve"><value>授权并启动本机实例</value></data>
+  <data name="CloudWizard_OpenListAccountHelp.Text" xml:space="preserve"><value>在 OpenList 管理页授权并挂载网盘后返回。填写 OpenList 用户的账号密码，不是网盘密码；用户须有目标位置的 WebDAV 读取、管理和上传权限。</value></data>
+  <data name="CloudWizard_RcloneHelp.Text" xml:space="preserve"><value>先在 rclone 完成 OneDrive、S3 等配置，再选择文件和 Remote。FR 不代办这些账户的登录。</value></data>
+  <data name="CloudWizard_DetectConfig.Content" xml:space="preserve"><value>检测 rclone 配置位置</value></data>
+  <data name="CloudWizard_ImportHelp.Text" xml:space="preserve"><value>复制整份配置（可能含多个账户及依赖）到私有目录并建立新连接。原文件、旧连接和其他项目保持原样；FR 维护自己的 OAuth 副本，两份配置不会自动同步。</value></data>
+  <data name="CloudWizard_ReuseCredentials.Content" xml:space="preserve"><value>使用此来源已保存的认证</value></data>
+  <data name="CloudWizard_ImportNew.Content" xml:space="preserve"><value>复制并建立新连接</value></data>
+  <data name="CloudWizard_PathHelp.Text" xml:space="preserve"><value>可浏览或手工填写准确的 rclone 路径。保留前导 /；S3 可直接输入 bucket/prefix，无需列出所有 Bucket。</value></data>
+  <data name="CloudWizard_Parent.Content" xml:space="preserve"><value>返回上级目录</value></data>
+  <data name="CloudWizard_SuggestFolder.Content" xml:space="preserve"><value>在当前位置使用 FolderRewind 子目录</value></data>
+  <data name="CloudWizard_EnableAutomatic.Content" xml:space="preserve"><value>以后本地备份成功后自动上传（不补传旧历史）</value></data>
+  <data name="CloudWizard_FirstUpload.Content" xml:space="preserve"><value>立即上传下面选定的一个版本及其依赖</value></data>
+  <data name="CloudWizard_NoVersions.Text" xml:space="preserve"><value>没有可选本地版本。请先完成本地备份，再从项目云备份页上传。</value></data>
+  <data name="CloudWizard_Back.Content" xml:space="preserve"><value>上一步</value></data>
+  <data name="CloudWizard_Next" xml:space="preserve"><value>继续</value></data>
+  <data name="CloudWizard_VerifyNext" xml:space="preserve"><value>验证此位置并继续</value></data>
+  <data name="CloudWizard_Confirm" xml:space="preserve"><value>确认并继续</value></data>
+  <data name="CloudWizard_ReadOnlyCheck" xml:space="preserve"><value>此恢复流程只读取云端，不执行写入测试。</value></data>
+  <data name="CloudWizard_WriteCheck" xml:space="preserve"><value>会写入并读回一个小型测试文件，随后清理；目标子目录可能随写入创建。</value></data>
+  <data name="CloudWizard_Step0" xml:space="preserve"><value>选择接入方式</value></data>
+  <data name="CloudWizard_Step1" xml:space="preserve"><value>准备环境</value></data>
+  <data name="CloudWizard_Step2" xml:space="preserve"><value>建立访问</value></data>
+  <data name="CloudWizard_Step3" xml:space="preserve"><value>选择并验证云端位置</value></data>
+  <data name="CloudWizard_Step4" xml:space="preserve"><value>确认设置与后续操作</value></data>
+  <data name="CloudWizard_Step5" xml:space="preserve"><value>设置结果</value></data>
+  <data name="CloudWizard_ConnectionSavedText.Text" xml:space="preserve"><value>连接设置已保存。自动上传和云副本状态分别如下。</value></data>
+  <data name="CloudWizard_OpenProject.Content" xml:space="preserve"><value>查看项目云备份 / 云连接</value></data>
+  <data name="CloudWizard_Finish.Content" xml:space="preserve"><value>完成</value></data>
+  <data name="CloudWizard_Cancel.Content" xml:space="preserve"><value>取消此向导</value></data>
+  <data name="CloudWizard_ProjectTitle.Text" xml:space="preserve"><value>项目云备份</value></data>
+  <data name="CloudWizard_ChangeConnection.Content" xml:space="preserve"><value>添加或更换云连接</value></data>
+  <data name="CloudWizard_EditConnection.Content" xml:space="preserve"><value>编辑当前连接（查看影响范围）</value></data>
+  <data name="CloudWizard_Automatic.Header" xml:space="preserve"><value>以后备份成功后自动上传</value></data>
+  <data name="CloudWizard_ManualHelp.Text" xml:space="preserve"><value>一次手动上传选择一个版本及其依赖。选项中显示来源、分支和版本身份；没有版本时请先完成本地备份。</value></data>
+  <data name="CloudWizard_JobsTitle.Text" xml:space="preserve"><value>云任务与处理状态</value></data>
+  <data name="CloudWizard_OpenRecovery.Content" xml:space="preserve"><value>从云端找回原有备份</value></data>
+  <data name="CloudWizard_RecoveryTitle.Text" xml:space="preserve"><value>从云端恢复</value></data>
+  <data name="CloudWizard_BackToConnection.Content" xml:space="preserve"><value>返回连接设置</value></data>
+  <data name="CloudWizard_NewConnectionRequired" xml:space="preserve"><value>这会修改已保存连接的目标。请明确编辑该连接，或建立新连接后换绑。</value></data>
+  <data name="CloudWizard_SaveUncertain" xml:space="preserve"><value>保存结果尚不能确定，凭据已保留。重试将先核对配置状态，暂不开启上传。</value></data>
+  <data name="CloudWizard_BindingFailed" xml:space="preserve"><value>连接已保存，但项目绑定未完成。可以重试，无需重新创建连接。</value></data>
+  <data name="CloudWizard_SaveFailed" xml:space="preserve"><value>连接保存失败，请查看诊断后重试。</value></data>
+  <data name="CloudWizard_ConnectionSaved" xml:space="preserve"><value>连接信息已保存，不会因此上传备份。</value></data>
+  <data name="CloudWizard_NoSavedCredentials" xml:space="preserve"><value>没有找到此来源可供当前项目使用的受管连接。</value></data>
+  <data name="CloudWizard_NoConnection" xml:space="preserve"><value>尚未绑定云连接</value></data>
+  <data name="CloudWizard_AutoOn" xml:space="preserve"><value>自动上传：已开启</value></data>
+  <data name="CloudWizard_AutoOff" xml:space="preserve"><value>自动上传：未开启</value></data>
+  <data name="CloudWizard_CopyUnknown" xml:space="preserve"><value>云端完整副本：尚未确认</value></data>
+  <data name="CloudWizard_LastCompleted" xml:space="preserve"><value>最近确认完成的云任务：{0}（不代表全部版本）</value></data>
+  <data name="CloudWizard_OpenListExists" xml:space="preserve"><value>已有 OpenList 配置，请使用或检查已有环境；不会覆盖初始化。</value></data>
+  <data name="CloudWizard_OpenListInitialized" xml:space="preserve"><value>实例已初始化，尚未启动或挂载网盘。请授权启动，再以 admin 和刚设置的密码进入管理页。</value></data>
+  <data name="CloudWizard_OpenListPortConflict" xml:space="preserve"><value>端点已响应，但无法确认是本次启动的实例。请检查端口占用。</value></data>
+  <data name="CloudWizard_OpenListNotReady" xml:space="preserve"><value>请先准备本机 OpenList，或选择已运行的外部服务。</value></data>
+  <data name="CloudWizard_ToolRequired" xml:space="preserve"><value>请选择有效的 rclone 程序，或先准备工具。</value></data>
+  <data name="CloudWizard_ConfigNotFound" xml:space="preserve"><value>未检测到可读取的配置文件，请手动选择。</value></data>
+  <data name="CloudWizard_ManagedRequired" xml:space="preserve"><value>此 Remote 需要更新 OAuth 登录信息。请先复制并建立新连接，或选择已保存的受管认证。</value></data>
+  <data name="CloudWizard_JobRegistered" xml:space="preserve"><value>云任务已登记：{0}。离开页面不会取消，请在项目云备份页查看进度。</value></data>
+  <data name="CloudWizard_InitializationInput" xml:space="preserve"><value>请检查程序路径、初始密码和端口（1024–65535）。</value></data>
+  <data name="CloudWizard_InitializationOverlap" xml:space="preserve"><value>初始化目录不能与备份源、仓库或 FR 配置目录重叠。</value></data>
+  <data name="CloudWizard_InitializationVersion" xml:space="preserve"><value>自动初始化仅支持 OpenList 4.2.6；其他版本请先自行初始化再接入。</value></data>
+  <data name="CloudWizard_InitializationPort" xml:space="preserve"><value>端口已占用，请选择其他端口或接入已有服务。</value></data>
+  <data name="CloudWizard_InitializationFailed" xml:space="preserve"><value>初始化未完成，专用目录已保留供检查；不会覆盖已有实例或重置密码。</value></data>
+  <data name="CloudWizard_VerificationRequired" xml:space="preserve"><value>请先验证新连接的目标位置，再切换项目绑定。</value></data>
+  <data name="CloudWizard_LocalEnvironment" xml:space="preserve"><value>本机程序：{0}
+服务地址：{1}
+数据目录：{2}
+启动前会核对当前环境与授权。</value></data>
 </root>

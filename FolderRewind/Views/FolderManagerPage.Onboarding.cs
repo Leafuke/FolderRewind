@@ -19,7 +19,7 @@ public sealed partial class FolderManagerPage
     }
     private void OnCloudSetup(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.CurrentConfig is { } config) NavigationService.NavigateTo("CloudSetup", new ConfigSettingsNavigationParameter(config.Id));
+        if (ViewModel.CurrentConfig is { } config) NavigationService.NavigateTo("CloudProject", new ConfigSettingsNavigationParameter(config.Id));
     }
     private void OnMinecraftIntegration(object sender, RoutedEventArgs e)
     {

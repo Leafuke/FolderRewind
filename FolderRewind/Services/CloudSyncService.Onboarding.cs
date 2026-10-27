@@ -37,6 +37,19 @@ public static partial class CloudSyncService
     }
     public static async Task<HistoryCloudBackupResult> UploadVersionClosureAsync(BackupConfig config, VersionId version, CancellationToken token = default)
     {
+        var (runtime, job) = await RegisterManualVersionAsync(config, version, token).ConfigureAwait(false);
+        var result = await ExecuteCloudJobAsync(runtime, job, token).ConfigureAwait(false);
+        if (!result.Complete) ResumeCloudJobs(config);
+        return result;
+    }
+    internal static async Task<string> QueueVersionClosureAsync(BackupConfig config, VersionId version, CancellationToken token)
+    {
+        var (_, job) = await RegisterManualVersionAsync(config, version, token).ConfigureAwait(false);
+        ResumeCloudJobs(config);
+        return job.JobId;
+    }
+    private static async Task<(HistoryRuntime Runtime, HistoryCloudJob Job)> RegisterManualVersionAsync(BackupConfig config, VersionId version, CancellationToken token)
+    {
         RequireMigrationCloudPermission(config);
         config = await PrepareConnectionAsync(config, token).ConfigureAwait(false);
         using var connection = CaptureConnection(config);
@@ -46,11 +59,8 @@ public static partial class CloudSyncService
         var selected = assessment.Selected.RepresentationId;
         var packs = await runtime.Repository.ReadAllPacksAsync(token).ConfigureAwait(false);
         var pack = packs.First(p => p.Pack.Objects.Any(o => o.Kind == HistoryObjectKinds.VersionRepresentation && o.Id == selected.ToString())).Pack;
-        HistoryCloudJob job;
-        await using (var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false))
-            job = runtime.CloudJobs.RegisterManual(pack, FreezeTarget(config), [selected]);
-        var result = await ExecuteCloudJobAsync(runtime, job, token).ConfigureAwait(false);
-        if (!result.Complete) ResumeCloudJobs(config);
-        return result;
+        await using var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false);
+        var job = runtime.CloudJobs.RegisterManual(pack, FreezeTarget(config), [selected]);
+        return (runtime, job);
     }
 }

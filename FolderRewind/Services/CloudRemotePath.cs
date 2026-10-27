@@ -6,6 +6,13 @@ namespace FolderRewind.Services;
 // rclone 的冒号后路径不是本机路径；空后缀与前导斜杠必须逐字保留。
 public static class CloudRemotePath
 {
+    public static string Parent(string root)
+    {
+        var (remote, suffix) = Split(root);
+        var trimmed = suffix.TrimEnd('/');
+        var slash = trimmed.LastIndexOf('/');
+        return remote + ":" + (slash > 0 ? trimmed[..slash] : suffix.StartsWith('/') ? "/" : "");
+    }
     public static (string Remote, string Suffix) Split(string root)
     {
         var separator = root.IndexOf(':');

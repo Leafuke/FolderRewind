@@ -7500,4 +7500,87 @@ Inspection and batch checking are separate. Decisions affect complete merge item
   </data>
   <data name="BackupService_CommitUnknown" xml:space="preserve"><value>The backup commit status could not be confirmed ({0}). Backup data has been preserved; recovery is required before continuing.</value></data>
   <data name="Cloud_SourceFileRequired" xml:space="preserve"><value>History cloud transfers require a single file; directories cannot be uploaded.</value></data>
+  <data name="CloudWizard_Title.Text" xml:space="preserve"><value>Set up cloud backup</value></data>
+  <data name="CloudWizard_ChooseOpenList.Content" xml:space="preserve"><value>Use cloud drives through OpenList</value></data>
+  <data name="CloudWizard_ChooseWebDav.Content" xml:space="preserve"><value>Connect an existing WebDAV service</value></data>
+  <data name="CloudWizard_ChooseRclone.Content" xml:space="preserve"><value>Use rclone configuration (advanced: OneDrive, S3, and more)</value></data>
+  <data name="CloudWizard_ChooseSaved.Content" xml:space="preserve"><value>Choose a saved cloud connection</value></data>
+  <data name="CloudWizard_EnvironmentHelp.Text" xml:space="preserve"><value>Confirm rclone is available. Continue with an existing tool or prepare it below.</value></data>
+  <data name="CloudWizard_PrepareRclone.Content" xml:space="preserve"><value>Prepare rclone</value></data>
+  <data name="CloudWizard_OpenListEnvironmentHelp.Text" xml:space="preserve"><value>External OpenList servers or NAS devices need no local setup. Only local instances need preparation and startup authorization.</value></data>
+  <data name="CloudWizard_UseLocal.Content" xml:space="preserve"><value>Use configured local OpenList</value></data>
+  <data name="CloudWizard_UseExternal.Content" xml:space="preserve"><value>Use an externally running service</value></data>
+  <data name="CloudWizard_InitializeOpenList.Header" xml:space="preserve"><value>Prepare local OpenList</value></data>
+  <data name="CloudWizard_InitializationHelp.Text" xml:space="preserve"><value>Creates a new dedicated directory for OpenList 4.2.6. The administrator is admin. Set and remember the initial password; FR does not store it or reset existing instances.</value></data>
+  <data name="CloudWizard_PrepareOpenList.Content" xml:space="preserve"><value>Prepare rclone and OpenList tools</value></data>
+  <data name="CloudWizard_InitialPassword.Header" xml:space="preserve"><value>Initial administrator password</value></data>
+  <data name="CloudWizard_Port.Header" xml:space="preserve"><value>Local loopback port</value></data>
+  <data name="CloudWizard_Initialize.Content" xml:space="preserve"><value>Initialize new instance (without starting server)</value></data>
+  <data name="CloudWizard_AuthorizeStart.Content" xml:space="preserve"><value>Authorize and start local instance</value></data>
+  <data name="CloudWizard_OpenListAccountHelp.Text" xml:space="preserve"><value>Authorize and mount the drive in OpenList, then return. Enter OpenList user credentials, not drive account credentials. The user needs WebDAV read, management, and upload permissions at the destination.</value></data>
+  <data name="CloudWizard_RcloneHelp.Text" xml:space="preserve"><value>Configure OneDrive, S3, or other backends in rclone first, then select the file and Remote. FR does not sign in to these accounts.</value></data>
+  <data name="CloudWizard_DetectConfig.Content" xml:space="preserve"><value>Detect rclone configuration location</value></data>
+  <data name="CloudWizard_ImportHelp.Text" xml:space="preserve"><value>Copies the entire configuration, possibly including multiple accounts and dependencies, to a private directory and creates a new connection. The original file, old connection, and other projects remain unchanged. FR maintains its own OAuth copy; copies do not synchronize automatically.</value></data>
+  <data name="CloudWizard_ReuseCredentials.Content" xml:space="preserve"><value>Use saved credentials from this source</value></data>
+  <data name="CloudWizard_ImportNew.Content" xml:space="preserve"><value>Copy and create a new connection</value></data>
+  <data name="CloudWizard_PathHelp.Text" xml:space="preserve"><value>Browse or enter the exact rclone path. Leading slashes are preserved. For S3, enter bucket/prefix directly without listing all buckets.</value></data>
+  <data name="CloudWizard_Parent.Content" xml:space="preserve"><value>Parent folder</value></data>
+  <data name="CloudWizard_SuggestFolder.Content" xml:space="preserve"><value>Use a FolderRewind folder here</value></data>
+  <data name="CloudWizard_EnableAutomatic.Content" xml:space="preserve"><value>Automatically upload future successful backups (no historical backfill)</value></data>
+  <data name="CloudWizard_FirstUpload.Content" xml:space="preserve"><value>Upload the selected version and its dependencies now</value></data>
+  <data name="CloudWizard_NoVersions.Text" xml:space="preserve"><value>No local versions are available. Make a local backup first, then upload from the project cloud backup page.</value></data>
+  <data name="CloudWizard_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="CloudWizard_Next" xml:space="preserve"><value>Continue</value></data>
+  <data name="CloudWizard_VerifyNext" xml:space="preserve"><value>Verify this location and continue</value></data>
+  <data name="CloudWizard_Confirm" xml:space="preserve"><value>Confirm and continue</value></data>
+  <data name="CloudWizard_ReadOnlyCheck" xml:space="preserve"><value>This recovery flow only reads the cloud and does not run a write test.</value></data>
+  <data name="CloudWizard_WriteCheck" xml:space="preserve"><value>Writes and reads back a small test file, then cleans it up. Writing may create the destination folder.</value></data>
+  <data name="CloudWizard_Step0" xml:space="preserve"><value>Choose connection method</value></data>
+  <data name="CloudWizard_Step1" xml:space="preserve"><value>Prepare environment</value></data>
+  <data name="CloudWizard_Step2" xml:space="preserve"><value>Establish access</value></data>
+  <data name="CloudWizard_Step3" xml:space="preserve"><value>Choose and verify location</value></data>
+  <data name="CloudWizard_Step4" xml:space="preserve"><value>Confirm settings and next actions</value></data>
+  <data name="CloudWizard_Step5" xml:space="preserve"><value>Setup results</value></data>
+  <data name="CloudWizard_ConnectionSavedText.Text" xml:space="preserve"><value>Connection settings are saved. Automatic upload and cloud copy status are shown separately below.</value></data>
+  <data name="CloudWizard_OpenProject.Content" xml:space="preserve"><value>Open project cloud backup / connections</value></data>
+  <data name="CloudWizard_Finish.Content" xml:space="preserve"><value>Finish</value></data>
+  <data name="CloudWizard_Cancel.Content" xml:space="preserve"><value>Cancel this wizard</value></data>
+  <data name="CloudWizard_ProjectTitle.Text" xml:space="preserve"><value>Project cloud backup</value></data>
+  <data name="CloudWizard_ChangeConnection.Content" xml:space="preserve"><value>Add or change cloud connection</value></data>
+  <data name="CloudWizard_EditConnection.Content" xml:space="preserve"><value>Edit current connection (review affected projects)</value></data>
+  <data name="CloudWizard_Automatic.Header" xml:space="preserve"><value>Automatically upload future successful backups</value></data>
+  <data name="CloudWizard_ManualHelp.Text" xml:space="preserve"><value>Manually upload one explicit version and its dependencies. Options show the source, branch, and version identity. Make a local backup first if no versions exist.</value></data>
+  <data name="CloudWizard_JobsTitle.Text" xml:space="preserve"><value>Cloud jobs and status</value></data>
+  <data name="CloudWizard_OpenRecovery.Content" xml:space="preserve"><value>Recover existing backups from the cloud</value></data>
+  <data name="CloudWizard_RecoveryTitle.Text" xml:space="preserve"><value>Recover from the cloud</value></data>
+  <data name="CloudWizard_BackToConnection.Content" xml:space="preserve"><value>Return to connection setup</value></data>
+  <data name="CloudWizard_NewConnectionRequired" xml:space="preserve"><value>This changes a saved connection target. Edit it explicitly, or create a new connection and switch the binding.</value></data>
+  <data name="CloudWizard_SaveUncertain" xml:space="preserve"><value>The save result is uncertain. Credentials are retained. Retry first reconciles configuration state; upload remains disabled.</value></data>
+  <data name="CloudWizard_BindingFailed" xml:space="preserve"><value>The connection is saved but project binding is incomplete. Retry without creating another connection.</value></data>
+  <data name="CloudWizard_SaveFailed" xml:space="preserve"><value>Connection save failed. Review the diagnostic and retry.</value></data>
+  <data name="CloudWizard_ConnectionSaved" xml:space="preserve"><value>Connection information is saved; this does not upload a backup.</value></data>
+  <data name="CloudWizard_NoSavedCredentials" xml:space="preserve"><value>No managed connection from this source is available to this project.</value></data>
+  <data name="CloudWizard_NoConnection" xml:space="preserve"><value>No cloud connection is bound</value></data>
+  <data name="CloudWizard_AutoOn" xml:space="preserve"><value>Automatic upload: enabled</value></data>
+  <data name="CloudWizard_AutoOff" xml:space="preserve"><value>Automatic upload: disabled</value></data>
+  <data name="CloudWizard_CopyUnknown" xml:space="preserve"><value>Complete cloud copy: not yet confirmed</value></data>
+  <data name="CloudWizard_LastCompleted" xml:space="preserve"><value>Last confirmed completed cloud job: {0} (does not represent every version)</value></data>
+  <data name="CloudWizard_OpenListExists" xml:space="preserve"><value>An OpenList configuration exists. Use or inspect it; initialization will not overwrite it.</value></data>
+  <data name="CloudWizard_OpenListInitialized" xml:space="preserve"><value>The instance is initialized but not started or connected to a drive. Authorize startup, then sign in with admin and the password you just set.</value></data>
+  <data name="CloudWizard_OpenListPortConflict" xml:space="preserve"><value>The endpoint responds but cannot be identified as the instance started here. Check the port conflict.</value></data>
+  <data name="CloudWizard_OpenListNotReady" xml:space="preserve"><value>Prepare local OpenList first or choose an externally running service.</value></data>
+  <data name="CloudWizard_ToolRequired" xml:space="preserve"><value>Select a valid rclone executable or prepare the tool first.</value></data>
+  <data name="CloudWizard_ConfigNotFound" xml:space="preserve"><value>No readable configuration file was detected. Select it manually.</value></data>
+  <data name="CloudWizard_ManagedRequired" xml:space="preserve"><value>This Remote needs OAuth credential updates. Copy it into a new connection or select saved managed credentials first.</value></data>
+  <data name="CloudWizard_JobRegistered" xml:space="preserve"><value>Cloud job registered: {0}. Leaving does not cancel it. View progress on the project cloud backup page.</value></data>
+  <data name="CloudWizard_InitializationInput" xml:space="preserve"><value>Check executable path, initial password, and port (1024–65535).</value></data>
+  <data name="CloudWizard_InitializationOverlap" xml:space="preserve"><value>The initialization directory must not overlap backup sources, repositories, or FR configuration.</value></data>
+  <data name="CloudWizard_InitializationVersion" xml:space="preserve"><value>Automatic initialization supports OpenList 4.2.6 only. Initialize other versions externally before connecting.</value></data>
+  <data name="CloudWizard_InitializationPort" xml:space="preserve"><value>The port is occupied. Choose another port or connect to the existing service.</value></data>
+  <data name="CloudWizard_InitializationFailed" xml:space="preserve"><value>Initialization did not complete. The dedicated directory is retained for inspection. Existing instances and passwords are not overwritten.</value></data>
+  <data name="CloudWizard_VerificationRequired" xml:space="preserve"><value>Verify the new connection's destination before switching the project binding.</value></data>
+  <data name="CloudWizard_LocalEnvironment" xml:space="preserve"><value>Local executable: {0}
+Service address: {1}
+Data directory: {2}
+The environment and authorization are checked before startup.</value></data>
 </root>

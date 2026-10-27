@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\CloudSetupCoordinator.cs" Link="Source\CloudSetupCoordinator.cs" />
+    <Compile Include="..\FolderRewind\Services\OpenListInitializer.cs" Link="Source\OpenListInitializer.cs" />
+    <Compile Include="..\FolderRewind\Models\OpenListRuntimeSettings.cs" Link="Source\OpenListRuntimeSettings.cs" />
     <Compile Include="..\FolderRewind\Services\BundledMineRewindPackage.cs" Link="Source\BundledMineRewindPackage.cs" />
     <Compile Include="..\FolderRewind\Services\SourceScopeIntersection.cs" Link="Source\SourceScopeIntersection.cs" />
     <Compile Include="..\FolderRewind\Services\SpatialWorkspaceIndex*.cs" Link="Source\SpatialWorkspaceIndex.cs" />

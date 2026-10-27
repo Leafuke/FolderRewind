@@ -137,6 +137,8 @@ namespace FolderRewind.Views
                 "BackupSetup" => typeof(BackupSetupPage),
                 "ConfigSettings" => typeof(ConfigSettingsPage),
                 "CloudSetup" => typeof(CloudSetupPage),
+                "CloudProject" => typeof(CloudProjectPage),
+                "CloudRecovery" => typeof(CloudRecoveryPage),
                 "CloudConnections" => typeof(CloudConnectionsPage),
                 "MinecraftIntegration" => typeof(MinecraftIntegrationPage),
                 "SpatialPreview" => typeof(SpatialPreviewPage),
@@ -326,6 +328,8 @@ namespace FolderRewind.Views
             if (sourcePageType == typeof(BackupSetupPage)) return "BackupSetup";
             if (sourcePageType == typeof(ConfigSettingsPage)) return "ConfigSettings";
             if (sourcePageType == typeof(CloudSetupPage)) return "CloudSetup";
+            if (sourcePageType == typeof(CloudProjectPage)) return "CloudProject";
+            if (sourcePageType == typeof(CloudRecoveryPage)) return "CloudRecovery";
             if (sourcePageType == typeof(CloudConnectionsPage)) return "CloudConnections";
             if (sourcePageType == typeof(MinecraftIntegrationPage)) return "MinecraftIntegration";
             if (sourcePageType == typeof(SpatialPreviewPage)) return "SpatialPreview";

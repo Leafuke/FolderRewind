@@ -413,7 +413,7 @@ public sealed partial class HomePage : Page
     private void OnScenarioChosen(object? sender, BackupSetupScenario scenario)
         => NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Scenario: scenario));
     private void OnOpenHistory(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("History");
-    private void OnOpenCloudRecovery(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudSetup");
+    private void OnOpenCloudRecovery(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudRecovery", new CloudSetupNavigationParameter(Intent: CloudSetupIntent.Recover));
 
     private void OnAddConfigClick(SplitButton sender, SplitButtonClickEventArgs args)
         => NavigationService.NavigateTo("BackupSetup");

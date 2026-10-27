@@ -87,12 +87,19 @@ internal static class CloudConnectionCatalog
         return copy;
     }
 
-    internal static async Task SaveProfileAsync(CloudConnectionProfile profile, string? expectedRevision, CancellationToken token)
+    internal static async Task SaveProfileAsync(CloudConnectionProfile profile, string? expectedRevision, CancellationToken token,
+        CloudConnectionProfile? expectedSnapshot = null)
     {
         var app = ConfigService.CurrentConfig;
         var existing = app.CloudConnections.SingleOrDefault(p => p.Id == profile.Id);
         if (existing is not null && existing.ProfileRevision != expectedRevision) throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
+        if (expectedSnapshot is not null && (existing is null || !CloudConnectionEditPolicy.SameSnapshot(existing, expectedSnapshot)))
+            throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
         var projects = app.BackupConfigs.Where(p => p.Cloud.ConnectionProfileId == profile.Id).ToArray();
+        CloudConnectionEditPolicy.ValidateScope(profile, projects.Select(p => p.Id));
+        var targetChanged = existing is not null && (!CloudConnectionEditPolicy.SameTarget(existing, profile) || existing.ProfileRevision != profile.ProfileRevision);
+        if (existing is not null && !targetChanged) profile.ProfileRevision = existing.ProfileRevision;
+        if (existing is not null && CloudConnectionEditPolicy.SameSnapshot(existing, profile)) return;
         var leases = new System.Collections.Generic.List<NativeHistoryConfigurationOperationGate.Lease>();
         try
         {
@@ -102,7 +109,9 @@ internal static class CloudConnectionCatalog
             if (app.CloudConnections.SingleOrDefault(p => p.Id == profile.Id) != existing
                 || app.BackupConfigs.Where(p => p.Cloud.ConnectionProfileId == profile.Id).Except(projects).Any())
                 throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
-            foreach (var project in projects) await CloudSyncService.CloseCloudAdmissionAsync(project, token);
+            CloudConnectionEditPolicy.ValidateScope(profile, projects.Select(p => p.Id));
+            if (targetChanged)
+                foreach (var project in projects) await CloudSyncService.CloseCloudAdmissionAsync(project, token);
             var originals = projects.Select(p => ConfigSnapshotMapper.Copy(p.Cloud)).ToArray();
             var index = existing is null ? app.CloudConnections.Count : app.CloudConnections.IndexOf(existing);
             await ConfigEditTransaction.ApplyAsync(() =>
@@ -115,7 +124,7 @@ internal static class CloudConnectionCatalog
                     project.Cloud.ExecutablePath = profile.ExecutablePath;
                     project.Cloud.WorkingDirectory = profile.WorkingDirectory;
                     project.Cloud.RemoteBasePath = profile.RemoteName + ":" + project.Cloud.RemotePathSuffix;
-                    if (existing?.ProfileRevision != profile.ProfileRevision)
+                    if (targetChanged)
                     {
                         project.Cloud.Enabled = false;
                         project.Cloud.ReadableEvidence = project.Cloud.WritableEvidence = "";
@@ -131,7 +140,8 @@ internal static class CloudConnectionCatalog
         {
             for (var i = leases.Count - 1; i >= 0; i--) await leases[i].DisposeAsync();
         }
-        foreach (var project in projects) CloudSyncService.ResumeCloudJobs(project);
+        if (targetChanged)
+            foreach (var project in projects) CloudSyncService.ResumeCloudJobs(project);
     }
 
     internal static async Task DeleteProfileAsync(string id, CancellationToken token)
