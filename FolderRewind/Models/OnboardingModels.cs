@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Models;
 
@@ -14,7 +15,10 @@ public sealed record OnboardingPreparation(IReadOnlyList<string> CompletedAction
 
 public enum SetupSourceOutcome { Captured, NoChange, Failed, Canceled, NotExecuted, NeedsRecovery }
 public sealed record SetupSourceResult(string SourceId, string Name, SetupSourceOutcome Outcome,
-    string? VersionId, bool IsPartial, IReadOnlyList<string> Diagnostics);
+    string? VersionId, bool IsPartial, IReadOnlyList<string> Diagnostics)
+{
+    public IReadOnlyList<PluginDiagnostic> WarningDiagnostics { get; init; } = [];
+}
 public sealed record SetupBackupResult(IReadOnlyList<SetupSourceResult> Sources, string? CheckpointId,
     string? RunId, bool RecoveryRequired, DateTimeOffset ObservedAtUtc)
 {
@@ -22,11 +26,11 @@ public sealed record SetupBackupResult(IReadOnlyList<SetupSourceResult> Sources,
     public int UnchangedCount => Sources.Count(s => s.Outcome == SetupSourceOutcome.NoChange);
     public int FailedCount => Sources.Count(s => s.Outcome == SetupSourceOutcome.Failed);
     public int CanceledCount => Sources.Count(s => s.Outcome is SetupSourceOutcome.Canceled or SetupSourceOutcome.NotExecuted);
-    public bool HasWarnings => RecoveryRequired || Sources.Any(s => s.IsPartial || s.Diagnostics.Count != 0);
+    public bool HasWarnings => RecoveryRequired || Sources.Any(s => s.WarningDiagnostics.Count != 0 || s.Diagnostics.Count != 0);
     public SetupBackupResult MergeRetry(SetupBackupResult retry)
         => retry with
         {
             Sources = Sources.Where(s => retry.Sources.All(r => r.SourceId != s.SourceId)).Concat(retry.Sources).ToArray(),
-            RecoveryRequired = RecoveryRequired || retry.RecoveryRequired
+            RecoveryRequired = retry.RecoveryRequired || RecoveryRequired && Sources.Any(s => retry.Sources.All(r => r.SourceId != s.SourceId))
         };
 }

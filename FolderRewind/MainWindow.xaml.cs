@@ -26,6 +26,7 @@ namespace FolderRewind
 
         private WindowCloseController? _closeController;
         private FrameworkElement? _themeRoot;
+        private WindowSizeLimits? _appliedSizeLimits;
 
         private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
         {
@@ -53,6 +54,7 @@ namespace FolderRewind
 
             // 等窗口真正激活后再做依赖句柄的初始化（热键/图标等）。
             Activated += MainWindow_Activated;
+            AppWindow.Changed += OnWindowGeometryChanged;
 
             // 用 Shell 的 XAML 区域接管标题栏，后面再动态同步左右 inset。
             ExtendsContentIntoTitleBar = true;
@@ -97,6 +99,7 @@ namespace FolderRewind
             Activated -= MainWindow_Activated;
 
             ApplyMinimumWindowSize();
+            if (ShellRoot.XamlRoot is { } root) root.Changed += OnXamlRootChanged;
 
             try
             {
@@ -115,15 +118,27 @@ namespace FolderRewind
             {
                 if (AppWindow?.Presenter is OverlappedPresenter presenter)
                 {
-                    var scale = ShellRoot?.XamlRoot?.RasterizationScale ?? 1d;
-                    presenter.PreferredMinimumWidth = Convert.ToInt32(AppConstants.WindowMinWidth * scale);
-                    presenter.PreferredMinimumHeight = Convert.ToInt32(AppConstants.WindowMinHeight * scale);
+                    var limits = MainWindowService.GetSizeLimits(this);
+                    if (_appliedSizeLimits == limits) return;
+                    _appliedSizeLimits = limits;
+                    presenter.PreferredMinimumWidth = limits.MinimumWidth;
+                    presenter.PreferredMinimumHeight = limits.MinimumHeight;
+                    if (presenter.State == OverlappedPresenterState.Restored)
+                        MainWindowService.ApplySize(this, AppWindow.Size.Width, AppWindow.Size.Height);
+                    MainWindowService.NotifySizeLimitsChanged();
                 }
             }
             catch
             {
             }
         }
+
+        private void OnWindowGeometryChanged(AppWindow sender, AppWindowChangedEventArgs args)
+        {
+            if (args.DidPositionChange || args.DidPresenterChange) ApplyMinimumWindowSize();
+        }
+
+        private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => ApplyMinimumWindowSize();
 
         #endregion
 
@@ -133,6 +148,8 @@ namespace FolderRewind
         {
             ThemeService.ThemeChanged -= ThemeService_ThemeChanged;
             Activated -= MainWindow_Activated;
+            AppWindow.Changed -= OnWindowGeometryChanged;
+            if (ShellRoot.XamlRoot is { } root) root.Changed -= OnXamlRootChanged;
             if (_themeRoot is not null)
             {
                 _themeRoot.ActualThemeChanged -= Root_ActualThemeChanged;

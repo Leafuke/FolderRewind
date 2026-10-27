@@ -191,9 +191,9 @@
             <Grid Visibility="{x:Bind local:MigrationWizardPage.Visible(ViewModel.ShowResult)}" RowSpacing="12">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                 <Button x:Uid="MigrationWizard_ContinueRemaining" Click="OnContinueRemaining" HorizontalAlignment="Left" Visibility="{x:Bind local:MigrationWizardPage.Visible(ViewModel.HasIncompleteResult)}" AutomationProperties.AutomationId="MigrationWizardContinueRemaining"/>
-            <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Projects}" SelectionMode="None" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="MigrationWizardResults">
-                <ListView.ItemTemplate><DataTemplate x:DataType="vm:MigrationWizardProjectItem">
-                    <StackPanel Spacing="4" Padding="8"><TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}"/><TextBlock Text="{x:Bind Status}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind BackupRoot}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/></StackPanel>
+            <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Results}" SelectionMode="None" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="MigrationWizardResults">
+                <ListView.ItemTemplate><DataTemplate x:DataType="vm:MigrationWizardResultItem">
+                    <StackPanel Spacing="4" Padding="8" AutomationProperties.Name="{x:Bind Name, Mode=OneTime}"><TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Status, Mode=OneTime}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Content, Mode=OneTime}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/></StackPanel>
                 </DataTemplate></ListView.ItemTemplate>
             </ListView>
             </Grid>

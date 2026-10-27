@@ -299,6 +299,14 @@ public sealed partial class HomePageViewModel
         CreateConfigFromTemplateRequest request,
         CancellationToken cancellationToken)
     {
+        PluginService.Initialize();
+        var unavailable = (request.Template.RequiredPluginIds ?? []).Where(id => !PluginService.GetPluginEnabled(id)).ToArray();
+        if (unavailable.Length > 0)
+        {
+            await _interactions.ShowMessageAsync(I18n.GetString("Template_CreateFrom_Home_Title"),
+                I18n.Format("Template_CreateFrom_MissingPlugins", string.Join(", ", unavailable)), cancellationToken);
+            return;
+        }
         var mode = BackupPresetApplicationClassifier.Classify(request.Template);
         if (mode == BackupPresetApplicationMode.ProviderTargeted)
         {
@@ -331,6 +339,17 @@ public sealed partial class HomePageViewModel
         if (request.ConfigKind is not null)
         {
             PluginService.ApplyConfigKind(result.Config, request.ConfigKind);
+        }
+        if (result.MissingPluginIds.Count > 0)
+        {
+            await _interactions.ShowMessageAsync(I18n.GetString("Template_CreateFrom_Home_Title"),
+                I18n.Format("Template_CreateFrom_MissingPlugins", string.Join(", ", result.MissingPluginIds)), cancellationToken);
+            return;
+        }
+        if (mode == BackupPresetApplicationMode.ManualSources)
+        {
+            NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(result.Config, request.Template.ShareId));
+            return;
         }
         var folders = await _interactions.ConfirmTemplateFoldersAsync(
             request.Template,

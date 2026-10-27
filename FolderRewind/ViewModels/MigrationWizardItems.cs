@@ -10,6 +10,8 @@ using System.Linq;
 
 namespace FolderRewind.ViewModels;
 
+public sealed record MigrationWizardResultItem(string Name, string Status, string Content);
+
 public sealed class MigrationWizardSourceItem : ObservableObject
 {
     public string Id { get; }

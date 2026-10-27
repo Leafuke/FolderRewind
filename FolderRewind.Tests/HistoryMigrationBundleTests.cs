@@ -15,6 +15,24 @@ public sealed class HistoryMigrationBundleTests
     private string _root = null!;
     [TestInitialize] public void Initialize() { _root = Path.Combine(Path.GetTempPath(), "FolderRewindMigrationBundles", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(_root); }
     [TestCleanup] public void Cleanup() { Directory.Delete(_root, true); }
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task CompletedReceiptContainsOnlyProjectsWrittenToThePackage(bool embedded)
+    {
+        var projects = Enumerable.Range(1, 4).Select(i => new HistoryMigrationExportProject(
+            new(new HistoryConfigId(Guid.NewGuid().ToString("N")), "project " + i, [], null), Path.Combine(_root, "backup-" + i))).ToArray();
+        var destination = Path.Combine(_root, "selected.frhistory");
+        var service = new HistoryMigrationBundleService();
+        var receipt = await service.ExportAsync([projects[2]], destination, "test", null, embedded);
+        Assert.IsTrue(File.Exists(destination));
+        Assert.HasCount(1, receipt.Projects);
+        Assert.AreEqual(projects[2].History.ConfigId, receipt.Projects.Single().ConfigId);
+        Assert.AreEqual(embedded, receipt.IncludesPayloads);
+        var preview = await service.PreviewAsync(destination);
+        CollectionAssert.AreEqual(receipt.Projects.Select(p => p.ConfigId).ToArray(), preview.History.Projects.Select(p => p.ConfigId).ToArray());
+        Assert.AreEqual(receipt.Projects.Single().Name, preview.History.Projects.Single().Name);
+    }
     private async Task<(HistoryRuntime Runtime, HistoryMigrationExportProject Project, string Payload, string Bundle)> FixtureAsync(bool embedded)
     {
         var id = new HistoryConfigId(Guid.NewGuid().ToString("N")); var source = SourceId.New();

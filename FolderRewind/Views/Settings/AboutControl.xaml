@@ -11,7 +11,7 @@
         <!-- 关于 -->
         <TextBlock x:Uid="SettingsPage_Section_About" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
-        <toolkit:SettingsExpander Margin="0,0,0,24" IsExpanded="False">
+        <toolkit:SettingsExpander Margin="0,0,0,24" IsExpanded="False" x:Uid="SettingsPage_AboutExpander" AutomationProperties.AutomationId="SettingsPage_AboutExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_About" AutomationProperties.AutomationId="SettingsAboutHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>

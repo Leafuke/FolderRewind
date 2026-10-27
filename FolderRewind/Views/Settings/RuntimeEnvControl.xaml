@@ -16,7 +16,7 @@
         </toolkit:SettingsCard>
 
         <!-- 运行环境 -->
-        <toolkit:SettingsExpander x:Name="RuntimeEnvironmentExpander" IsExpanded="False" AutomationProperties.AutomationId="RuntimeEnvironmentExpander">
+        <toolkit:SettingsExpander x:Name="RuntimeEnvironmentExpander" IsExpanded="False" AutomationProperties.AutomationId="RuntimeEnvironmentExpander" x:Uid="SettingsPage_EnvironmentExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_Environment" AutomationProperties.AutomationId="SettingsEnvironmentHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>

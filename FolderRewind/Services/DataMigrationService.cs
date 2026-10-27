@@ -17,6 +17,8 @@ using System.Threading.Tasks;
 namespace FolderRewind.Services;
 
 internal enum DataMigrationScope { ConfigurationAndHistory, Configuration, History, MetadataOnly }
+internal sealed record DataMigrationExportResult(string Path, DataMigrationScope Scope, bool IncludesPayloads,
+    ImmutableArray<HistoryTransferProject> Projects);
 internal sealed record DataMigrationPreview(string Path, string FileSha256, ImmutableArray<HistoryTransferProject> Projects,
     byte[]? ConfigurationUtf8, HistoryMigrationBundlePreview? Bundle);
 internal sealed record DataMigrationProjectIssue(HistoryConfigId ConfigId, string Diagnostic);
@@ -29,7 +31,7 @@ internal sealed record DataMigrationRecoveryResult(HistoryReplicaRecoveryResult 
 /// <summary>Coordinates existing configuration, history, payload and permission transactions.</summary>
 internal static class DataMigrationService
 {
-    internal static async Task ExportAsync(string path, IReadOnlyCollection<HistoryConfigId> ids, DataMigrationScope scope,
+    internal static async Task<DataMigrationExportResult> ExportAsync(string path, IReadOnlyCollection<HistoryConfigId> ids, DataMigrationScope scope,
         bool includePayloads, CancellationToken token)
     {
         var runtimes = new Dictionary<HistoryConfigId, HistoryRuntime>();
@@ -40,7 +42,10 @@ internal static class DataMigrationService
         {
             await ConfigService.ValidateMigrationExportAsync(snapshot.Fingerprint, token).ConfigureAwait(false);
             await AtomicFileService.WriteAsync(path, (stream, cancellation) => stream.WriteAsync(snapshot.PortableUtf8, cancellation).AsTask(), token).ConfigureAwait(false);
-            return;
+            var written = ConfigService.PrepareImportedConfig(snapshot.PortableUtf8);
+            return new(path, scope, false, [.. written.BackupConfigs.Select(c => new HistoryTransferProject(new(c.Id), c.Name,
+                [.. c.SourceFolders.Select(f => new HistoryTransferSource(new(Guid.Parse(f.Id)), f.DisplayName, f.Path))], 0, 0,
+                ImmutableSortedDictionary<string, string>.Empty))]);
         }
         var projects = snapshot.Original.BackupConfigs.Where(c => ids.Contains(new HistoryConfigId(c.Id))).Select(c =>
         {
@@ -54,11 +59,15 @@ internal static class DataMigrationService
             };
         }).ToArray();
         if (scope == DataMigrationScope.MetadataOnly)
+        {
             await new HistoryRepositoryBatchTransferService().ExportAsync(projects.Select(p => p.History).ToArray(), path, AppRuntimeInfo.GetApplicationVersion()?.ToString() ?? "unknown", token).ConfigureAwait(false);
-        else
-            await new HistoryMigrationBundleService().ExportAsync(projects, path, AppRuntimeInfo.GetApplicationVersion()?.ToString() ?? "unknown",
+            var written = await new HistoryRepositoryBatchTransferService().PreviewAsync(path, token).ConfigureAwait(false);
+            return new(path, scope, false, written.Projects);
+        }
+        var manifest = await new HistoryMigrationBundleService().ExportAsync(projects, path, AppRuntimeInfo.GetApplicationVersion()?.ToString() ?? "unknown",
                 scope == DataMigrationScope.ConfigurationAndHistory ? snapshot.PortableUtf8 : null, includePayloads,
                 cancellation => ConfigService.ValidateMigrationExportAsync(snapshot.Fingerprint, cancellation), token).ConfigureAwait(false);
+        return new(path, scope, manifest.IncludesPayloads, manifest.Projects);
     }
 
     internal static async Task<DataMigrationPreview> PreviewAsync(string path, CancellationToken token)

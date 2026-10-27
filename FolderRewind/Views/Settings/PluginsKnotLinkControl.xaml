@@ -13,7 +13,7 @@
         <!-- 插件 -->
         <toolkit:SettingsExpander x:Name="PluginsExpander"
                                   AutomationProperties.AutomationId="SettingsPluginsExpander"
-                                  IsExpanded="False" Expanded="OnPluginsExpanderExpanded">
+                                  IsExpanded="False" Expanded="OnPluginsExpanderExpanded" x:Uid="SettingsPage_PluginsExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_Plugins" AutomationProperties.AutomationId="SettingsPluginsHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -130,7 +130,7 @@
         </toolkit:SettingsExpander>
 
         <!-- KnotLink 互联 -->
-        <toolkit:SettingsExpander x:Name="KnotLinkExpander" AutomationProperties.AutomationId="SettingsKnotLinkExpander" IsExpanded="False">
+        <toolkit:SettingsExpander x:Name="KnotLinkExpander" AutomationProperties.AutomationId="SettingsKnotLinkExpander" IsExpanded="False" x:Uid="SettingsPage_KnotLinkExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_KnotLink" AutomationProperties.AutomationId="SettingsKnotLinkHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>

@@ -23,6 +23,14 @@ public sealed class BackupPresetDiscoveryPolicyTests
     }
 
     [TestMethod]
+    public void SettingsOnlyPresetsUseManualSourcesButBrokenDefinitionsStayInvalid()
+    {
+        Assert.AreEqual(BackupPresetApplicationMode.ManualSources, BackupPresetApplicationPolicy.Classify(false, []));
+        Assert.AreEqual(BackupPresetApplicationMode.Invalid, BackupPresetApplicationPolicy.Classify(false, [], hasDeclaredPathRules: true));
+        Assert.AreEqual(BackupPresetApplicationMode.Invalid, BackupPresetApplicationPolicy.Classify(false, [new(false, false)]));
+    }
+
+    [TestMethod]
     public void DefinitionMatchingIgnoresProviderCaseButPreservesDefinitionCase()
     {
         Assert.IsTrue(DiscoveryDefinitionMatchPolicy.Matches(

@@ -30,7 +30,7 @@ public sealed partial class HistoryMigrationBundleService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly HistoryPackCodec _codec = new();
 
-    public async Task ExportAsync(IReadOnlyList<HistoryMigrationExportProject> projects, string destination,
+    public async Task<HistoryTransferV3Manifest> ExportAsync(IReadOnlyList<HistoryMigrationExportProject> projects, string destination,
         string applicationVersion, byte[]? portableConfiguration, bool includePayloads,
         Func<CancellationToken, Task>? validateConfiguration = null, CancellationToken token = default)
     {
@@ -49,6 +49,7 @@ public sealed partial class HistoryMigrationBundleService
                     leases.Add(await runtime.MutationGate.EnterForRecoveryAsync(token).ConfigureAwait(false));
             }
             var descriptions = ImmutableArray.CreateBuilder<HistoryTransferProject>();
+            HistoryTransferV3Manifest manifest;
             long metadataBytes = portableConfiguration?.Length ?? 0;
             await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true))
             using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
@@ -159,7 +160,7 @@ public sealed partial class HistoryMigrationBundleService
                     { Migration = new(root, hints.ToImmutable(), [.. (workspace?.SourceBaselines ?? []).Where(s => project.History.Sources.Any(h => h.SourceId == s.SourceId))],
                         payloads.ToImmutable(), closure, [.. directories.Order(StringComparer.Ordinal)], native.Payloads, native.Objects) });
                 }
-                var manifest = new HistoryTransferV3Manifest(HistoryTransferManifest.CurrentMagic, descriptions.Any(p => !p.Migration!.NativePayloads.IsDefaultOrEmpty) ? 4 : 3, applicationVersion, includePayloads,
+                manifest = new HistoryTransferV3Manifest(HistoryTransferManifest.CurrentMagic, descriptions.Any(p => !p.Migration!.NativePayloads.IsDefaultOrEmpty) ? 4 : 3, applicationVersion, includePayloads,
                     descriptions.ToImmutable(), portableConfiguration is null ? null : Hash(portableConfiguration), Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow);
                 var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
                 if (metadataBytes + manifestBytes.Length > MaximumMetadataBytes) throw new InvalidDataException("Migration metadata exceeds its memory budget.");
@@ -167,6 +168,7 @@ public sealed partial class HistoryMigrationBundleService
                 if (validateConfiguration is not null) await validateConfiguration(token).ConfigureAwait(false);
             }
             token.ThrowIfCancellationRequested(); File.Move(temporary, output, true);
+            return manifest;
         }
         finally
         {

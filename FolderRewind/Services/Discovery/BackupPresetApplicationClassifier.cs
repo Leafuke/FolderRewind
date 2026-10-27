@@ -19,7 +19,7 @@ public static class BackupPresetApplicationClassifier
                 && source.PathRules?.Any(IsUsableInlineRule) == true,
                 source?.Kind == BackupPresetDiscoverySourceKind.ProviderReference
                 && !string.IsNullOrWhiteSpace(source.ProviderId)
-                && !string.IsNullOrWhiteSpace(source.DefinitionId))));
+                && !string.IsNullOrWhiteSpace(source.DefinitionId))), preset.PathRules?.Count > 0);
     }
 
     private static bool IsUsableInlineRule(TemplatePathRule? rule) =>

@@ -35,6 +35,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
     private string[] _legacySnapshots = [];
 
     public ObservableCollection<MigrationWizardProjectItem> Projects { get; } = [];
+    public ObservableCollection<MigrationWizardResultItem> Results { get; } = [];
     public ObservableCollection<MigrationWizardArchiveItem> Archives { get; } = [];
     public ObservableCollection<MigrationWizardBranchItem> Branches { get; } = [];
     public ObservableCollection<string> Connections { get; } = [];
@@ -139,6 +140,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
 
     internal async Task InitializeAsync(MigrationWizardRequest request)
     {
+        Results.Clear();
         _request = request;
         _connections = ConfigService.CurrentConfig.CloudConnections.ToArray();
         Connections.Clear(); foreach (var connection in _connections) Connections.Add(connection.DisplayName);
@@ -294,6 +296,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
 
     private async Task ExportCoreAsync(CancellationToken token)
     {
+        Results.Clear();
         var extension = _request.Scope == DataMigrationScope.Configuration ? ".json" : ".frhistory";
         string? path = TransportIndex == 1 ? Path.Combine(Path.GetTempPath(), "FolderRewind-wizard-" + Guid.NewGuid().ToString("N") + extension)
             : PickExport is null ? null : await PickExport(extension);
@@ -301,10 +304,24 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
         var ids = Projects.Where(p => p.Selected).Select(p => new HistoryConfigId(p.Id)).ToArray();
         try
         {
-            await Task.Run(() => DataMigrationService.ExportAsync(path, ids, _request.Scope, ArchiveIndex == 1, token), token);
+            var receipt = await Task.Run(() => DataMigrationService.ExportAsync(path, ids, _request.Scope, ArchiveIndex == 1, token), token);
             var destination = path;
             if (TransportIndex == 1) { var snapshot = await CloudSyncService.ExportMigrationSnapshotAsync(Connection(), path, token); destination = RemoteRoot + "/_folderrewind/migration-exports/" + snapshot.FileName; }
-            Message = I18n.Format("Migration_ExportDone", ids.Length) + "\n" + I18n.Format("MigrationWizard_SavedTo", destination) + "\n" + ContentDescription;
+            token.ThrowIfCancellationRequested();
+            foreach (var project in receipt.Projects)
+            {
+                var files = project.Migration;
+                var payloadCount = files is null ? 0 : files.PayloadFiles.Length
+                    + (files.NativePayloads.IsDefault ? 0 : files.NativePayloads.Length)
+                    + (files.NativeObjects.IsDefault ? 0 : files.NativeObjects.Length);
+                var content = I18n.GetString("MigrationWizard_Scope_" + receipt.Scope);
+                if (receipt.Scope is DataMigrationScope.ConfigurationAndHistory or DataMigrationScope.History)
+                    content += "\n" + (receipt.IncludesPayloads
+                        ? payloadCount == 0 ? I18n.GetString("MigrationExport_NoBackupFiles") : I18n.Format("MigrationExport_BackupFiles", payloadCount)
+                        : I18n.GetString("MigrationExport_ExternalFiles"));
+                Results.Add(new(project.Name, I18n.GetString("MigrationExport_ProjectDone"), content));
+            }
+            Message = I18n.Format("Migration_ExportDone", receipt.Projects.Length) + "\n" + I18n.Format("MigrationWizard_SavedTo", destination);
             MessageStatus = SemanticStatus.Success;
             _step = WizardStep.Result;
         }
@@ -332,6 +349,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
         if (_document is null) return;
         CaptureProjectEditor();
         _step = _document.IsFinished ? WizardStep.Result : WizardStep.Recovery;
+        Results.Clear();
         Projects.Clear();
         foreach (var project in _document.Projects)
         {
@@ -344,6 +362,8 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
             }
             Projects.Add(new(project.ConfigId, project.Name, paths, project) { AwaitingActivation = ShowPendingRestart });
         }
+        if (_document.IsFinished)
+            foreach (var project in Projects) Results.Add(new(project.Name, project.Status, project.BackupRoot));
         Message = _document.MetadataOnly ? I18n.GetString("Migration_MetadataOnly") : I18n.GetString("MigrationWizard_Stage_" + _document.Stage);
         MessageStatus = MigrationPresentationPolicy.StatusFor(_document.Stage);
         if (_document.Projects.Any(p => p.Phase == MigrationProjectPhase.Completed))

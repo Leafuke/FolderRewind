@@ -35,12 +35,12 @@ public static partial class BackupService
                 _ when executed is not null => SetupSourceOutcome.Failed,
                 _ => SetupSourceOutcome.NotExecuted
             };
-            var diagnostics = (fact?.Diagnostics.Select(d => d.Code) ?? [])
+            var warnings = OperationDiagnosticFormatter.CaptureWarnings(executed?.WarningDiagnostics ?? [], fact?.Diagnostics ?? []);
+            var diagnostics = (fact?.Diagnostics.Where(d => d.Severity == HistoryDiagnosticSeverity.Error).Select(d => d.Code) ?? [])
                 .Concat(string.IsNullOrWhiteSpace(executed?.ErrorMessage) ? [] : new[] { executed.ErrorMessage })
-                .Concat(executed?.OperationOutcome == OperationOutcome.SuccessWithWarnings ? new[] { I18n.GetString("Onboarding_ConsistencyWarning") } : [])
                 .ToArray();
             return new SetupSourceResult(folder.Id, folder.DisplayName, outcome, fact?.VersionId?.ToString(),
-                version?.CaptureScope == CaptureScope.PartialSource, diagnostics);
+                version?.CaptureScope == CaptureScope.PartialSource, diagnostics) { WarningDiagnostics = warnings };
         }).ToArray();
         return new(sources, sources.Length == 1 ? run?.SourceResults.SingleOrDefault()?.CheckpointId?.ToString() : null, run?.RunId.ToString(),
             result.HistoryRecoveryRequired, DateTimeOffset.UtcNow);

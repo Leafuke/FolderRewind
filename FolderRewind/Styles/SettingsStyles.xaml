@@ -8,10 +8,6 @@
     <x:Double x:Key="SettingsActionControlWidth">180</x:Double>
     <x:Double x:Key="SettingsNumericControlWidth">180</x:Double>
     <x:Double x:Key="SettingsPathControlWidth">320</x:Double>
-    <x:Double x:Key="StartupWidthMin">1200</x:Double>
-    <x:Double x:Key="StartupWidthMax">3840</x:Double>
-    <x:Double x:Key="StartupHeightMin">600</x:Double>
-    <x:Double x:Key="StartupHeightMax">2160</x:Double>
 
     <Style x:Key="SettingsSectionHeaderTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
         <Setter Property="Margin" Value="0,32,0,8" />

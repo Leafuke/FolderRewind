@@ -25,7 +25,8 @@
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" 
                     BorderThickness="0,0,0,1" Spacing="0">
             <!-- 第一行：配置选择与全局操作 -->
-            <Grid Padding="24,16,24,12">
+            <Grid x:Name="ProjectToolbar" Padding="24,16,24,12" RowSpacing="12" SizeChanged="OnToolbarSizeChanged">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -60,7 +61,7 @@
                 </StackPanel>
 
                 <!-- 右侧：全局操作 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <StackPanel x:Name="ProjectActions" Grid.Column="2" Orientation="Horizontal" Spacing="8">
                     <Button x:Name="AddFolderButton" x:Uid="FolderManager_AddFolderButton" AutomationProperties.AutomationId="FolderManagerAddFolder">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE710;"/>
@@ -89,7 +90,8 @@
             <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="24,0"/>
 
             <!-- 第二行：选中项操作与注释 -->
-            <Grid Padding="24,8,24,12" Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid x:Name="SourceToolbar" Padding="24,8,24,12" Background="{ThemeResource LayerFillColorDefaultBrush}" RowSpacing="12" SizeChanged="OnToolbarSizeChanged">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -99,12 +101,12 @@
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
                     <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                    <TextBlock Text="{x:Bind ViewModel.SelectedFolderDisplayName, Mode=OneWay}" 
+                    <TextBlock Text="{x:Bind ViewModel.SelectedFolderDisplayName, Mode=OneWay}" MaxWidth="220" TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
 
                 <!-- 中间：备份注释输入框 -->
-                <Grid Grid.Column="1" Margin="24,0" MaxWidth="400" HorizontalAlignment="Left">
+                <Grid x:Name="CommentLayout" Grid.Column="1" Margin="24,0" MaxWidth="400" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -118,7 +120,7 @@
                 </Grid>
 
                 <!-- 右侧：针对选中项的按钮 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <StackPanel x:Name="SourceActions" Grid.Column="2" Orientation="Horizontal" Spacing="8">
                     <Button x:Name="BackupSelectedButton" x:Uid="FolderManager_BackupSelectedButton" AutomationProperties.AutomationId="FolderManagerBackupSelected" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnBackupSelectedClick" Style="{StaticResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE898;"/>

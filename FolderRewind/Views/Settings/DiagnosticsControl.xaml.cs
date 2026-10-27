@@ -3,6 +3,8 @@ using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using Microsoft.UI.Xaml.Automation;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace FolderRewind.Views.Settings
 {
@@ -92,29 +94,43 @@ namespace FolderRewind.Views.Settings
 
         private async System.Threading.Tasks.Task ShowTextDialogAsync(string title, string content)
         {
-            var tb = new TextBox
+            var tb = new TextBlock
             {
                 Text = content,
-                IsReadOnly = true,
+                IsTextSelectionEnabled = true,
                 TextWrapping = TextWrapping.Wrap,
-                AcceptsReturn = true,
-                MinHeight = 320
             };
+            AutomationProperties.SetName(tb, title);
+            AutomationProperties.SetAutomationId(tb, "BackupEnvironmentReportText");
 
             var scroll = new ScrollViewer
             {
                 Content = tb,
-                MaxHeight = 560
+                MaxHeight = Math.Max(96, Math.Min(560, XamlRoot.Size.Height - 220)),
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
+            AutomationProperties.SetAutomationId(scroll, "BackupEnvironmentReportScroll");
 
             var dialog = new ContentDialog
             {
                 Title = title,
                 Content = scroll,
+                PrimaryButtonText = I18n.GetString("CoreValidation_CopyReport"),
                 CloseButtonText = I18n.GetString("Common_Close"),
                 XamlRoot = this.XamlRoot
             };
-            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
+            dialog.PrimaryButtonClick += (_, args) =>
+            {
+                args.Cancel = true;
+                var package = new DataPackage(); package.SetText(content); Clipboard.SetContent(package);
+            };
+            var root = XamlRoot;
+            void ResizeReport(XamlRoot sender, XamlRootChangedEventArgs args)
+                => scroll.MaxHeight = Math.Max(96, Math.Min(560, sender.Size.Height - 220));
+            root.Changed += ResizeReport;
+            try { await AppDialogService.Default.ShowCustomAsync(dialog, root); }
+            finally { root.Changed -= ResizeReport; }
         }
     }
 }

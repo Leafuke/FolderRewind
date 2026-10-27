@@ -9,7 +9,7 @@
 
     <StackPanel Spacing="8">
         <!-- 外观与布局 (Expander) -->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_PersonalizationExpander" AutomationProperties.AutomationId="SettingsPage_PersonalizationExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_Personalization" AutomationProperties.AutomationId="SettingsPersonalizationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -121,8 +121,8 @@
                                    x:Uid="SettingsPage_StartupWidthInput"
                                    AutomationProperties.AutomationId="SettingsStartupWidth"
                                    Width="112"
-                                   Minimum="{StaticResource StartupWidthMin}"
-                                   Maximum="{StaticResource StartupWidthMax}"
+                                   Minimum="{x:Bind ViewModel.StartupWidthMinimum, Mode=OneWay}"
+                                   Maximum="{x:Bind ViewModel.StartupWidthMaximum, Mode=OneWay}"
                                    Value="{x:Bind ViewModel.StartupWidth, Mode=TwoWay}"
                                    ValueChanged="OnStartupSizeChanged" />
                         <TextBlock Text="×" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -130,8 +130,8 @@
                                    x:Uid="SettingsPage_StartupHeightInput"
                                    AutomationProperties.AutomationId="SettingsStartupHeight"
                                    Width="112"
-                                   Minimum="{StaticResource StartupHeightMin}"
-                                   Maximum="{StaticResource StartupHeightMax}"
+                                   Minimum="{x:Bind ViewModel.StartupHeightMinimum, Mode=OneWay}"
+                                   Maximum="{x:Bind ViewModel.StartupHeightMaximum, Mode=OneWay}"
                                    Value="{x:Bind ViewModel.StartupHeight, Mode=TwoWay}"
                                    ValueChanged="OnStartupSizeChanged" />
                         <TextBlock Text="px" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

@@ -1045,7 +1045,7 @@
     <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
-    <value>安全还原</value>
+    <value>失败回滚保护</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
     <value>开启 — 失败时自动从临时副本回滚</value>
@@ -1057,7 +1057,7 @@
     <value>无法找到完整还原基准</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
-    <value>未能找到智能增量备份”{0}”对应的基础全量备份，精确安全还原已不可用。继续将改用兼容模式：从最新备份倒序覆写到目标备份。此方式可回退文件版本，但不会删除多余旧文件。是否继续？</value>
+    <value>未能找到智能增量备份”{0}”对应的基础全量备份，精确清理还原已不可用。继续将改用兼容模式：从最新备份倒序覆写到目标备份。此方式可回退文件版本，但不会删除多余旧文件。是否继续？</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>继续兼容还原</value>
@@ -1123,7 +1123,7 @@
     <value>还原白名单</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistDesc.Text" xml:space="preserve">
-    <value>安全还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
+    <value>清理还原时，保留符合这些规则的额外文件和文件夹。</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>输入文件名、相对路径、完整路径或通配符...</value>
@@ -1156,19 +1156,19 @@
     <value>日志与诊断</value>
   </data>
   <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
-    <value>核心功能自动校验</value>
+    <value>备份环境检查</value>
   </data>
   <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
-    <value>自动验证备份与还原核心流程是否能在当前电脑上正常工作</value>
+    <value>检查项目历史记录、索引状态和 7-Zip 程序位置。</value>
   </data>
   <data name="SettingsPage_CoreValidation_Run.Text" xml:space="preserve">
-    <value>执行完整自检</value>
+    <value>检查备份环境</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
-    <value>自动创建临时配置并验证 Smart 备份、共享锁文件、还原、依赖安全保留与数量限制等关键行为</value>
+    <value>逐项检查现有项目，并列出检查结果和需要处理的问题。</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
-    <value>立即校验</value>
+    <value>开始检查</value>
   </data>
   <data name="SettingsPage_CoreValidation_ViewReportButton.Content" xml:space="preserve">
     <value>查看本次报告</value>
@@ -1180,19 +1180,19 @@
     <value>展示运行状态、最近执行时间与最近一次摘要</value>
   </data>
   <data name="CoreValidation_Status_Idle" xml:space="preserve">
-    <value>尚未开始核心功能自动校验</value>
+    <value>尚未开始检查</value>
   </data>
   <data name="CoreValidation_Status_Preparing" xml:space="preserve">
-    <value>正在准备核心功能自动校验环境</value>
+    <value>正在准备检查…</value>
   </data>
   <data name="CoreValidation_Status_Step" xml:space="preserve">
-    <value>正在执行：{0}</value>
+    <value>正在检查“{0}”…</value>
   </data>
   <data name="CoreValidation_Status_Succeeded" xml:space="preserve">
-    <value>核心功能自动校验已通过</value>
+    <value>备份环境检查通过</value>
   </data>
   <data name="CoreValidation_Status_Failed" xml:space="preserve">
-    <value>核心功能自动校验失败</value>
+    <value>检查发现问题，请查看报告</value>
   </data>
   <data name="CoreValidation_LastRun_None" xml:space="preserve">
     <value>最近执行：尚未执行</value>
@@ -1204,16 +1204,16 @@
     <value>最近摘要：暂无</value>
   </data>
   <data name="CoreValidation_AlreadyRunning" xml:space="preserve">
-    <value>核心功能自动校验正在进行中，请稍后再试。</value>
+    <value>正在检查备份环境，完成后就能查看报告。</value>
   </data>
   <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
-    <value>核心功能自动校验</value>
+    <value>备份环境检查</value>
   </data>
   <data name="CoreValidation_Report_Title" xml:space="preserve">
-    <value>核心功能自动校验报告</value>
+    <value>备份环境检查报告</value>
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
-    <value>当前会话还没有可查看的校验报告。</value>
+    <value>开始检查后，可以在这里查看本次报告。</value>
   </data>
   <data name="CoreValidation_Report_Result" xml:space="preserve">
     <value>结果</value>
@@ -1246,10 +1246,10 @@
     <value>摘要</value>
   </data>
   <data name="CoreValidation_Summary_Passed" xml:space="preserve">
-    <value>备份与还原核心功能自动校验全部通过。</value>
+    <value>历史记录、索引状态和 7-Zip 程序位置检查通过。</value>
   </data>
   <data name="CoreValidation_Summary_Failed" xml:space="preserve">
-    <value>备份与还原核心功能自动校验失败。</value>
+    <value>检查发现问题，请查看具体原因。</value>
   </data>
   <data name="CoreValidation_Step_PrepareWorkspace" xml:space="preserve">
     <value>准备临时校验环境</value>
@@ -1273,10 +1273,10 @@
     <value>仅删除变更备份校验</value>
   </data>
   <data name="CoreValidation_Step_CleanRestore" xml:space="preserve">
-    <value>安全还原校验</value>
+    <value>清理还原校验</value>
   </data>
   <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
-    <value>覆写还原校验</value>
+    <value>覆盖还原校验</value>
   </data>
   <data name="CoreValidation_Step_DependencyRetention" xml:space="preserve">
     <value>依赖安全保留校验</value>
@@ -1657,7 +1657,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>启动窗口大小</value>
   </data>
   <data name="SettingsPage_StartupSizeDesc.Text" xml:space="preserve">
-    <value>设定应用启动时的窗口宽高，便于大屏或多显示器使用</value>
+    <value>设置启动窗口的宽高，单位为像素。尺寸会按当前显示器的缩放和可用空间调整。</value>
   </data>
   <data name="SettingsPage_ApplySize.Content" xml:space="preserve">
     <value>立即应用</value>
@@ -2065,7 +2065,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>正在清空目标目录...</value>
   </data>
   <data name="BackupService_Log_RestoreCleanFailedContinueOverwrite" xml:space="preserve">
-    <value>清理目录失败：{0}，尝试继续覆写还原...</value>
+    <value>清理目录失败：{0}，尝试继续覆盖还原...</value>
   </data>
   <data name="BackupService_Log_RestoreApplyingArchive" xml:space="preserve">
     <value>应用 {0}</value>
@@ -2128,10 +2128,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>还原已终止：备份完整性校验未通过</value>
   </data>
   <data name="BackupService_Log_RestoreSnapshotPrepared" xml:space="preserve">
-    <value>已创建安全还原快照：{0}</value>
+    <value>已创建还原保护快照：{0}</value>
   </data>
   <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
-    <value>创建安全还原快照失败：{0}</value>
+    <value>创建还原保护快照失败：{0}</value>
   </data>
   <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
     <value>还原失败，开始回滚目录快照：{0}</value>
@@ -2143,7 +2143,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>回滚失败：{0}</value>
   </data>
   <data name="BackupService_Log_RestoreCommitFailed" xml:space="preserve">
-    <value>提交安全还原结果失败：{0}</value>
+    <value>提交清理还原结果失败：{0}</value>
   </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>存档时光机</value>
@@ -2155,14 +2155,14 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>时间：{0}
 备注：{1}
 
-安全还原模式：先清空目标文件夹，再还原（推荐，防止残留）。
-覆写还原模式：直接解压覆盖（可能保留旧文件）。</value>
+清理还原：还原备份内容，并删除还原范围内、备份中没有的文件。
+覆盖还原：写入备份中的文件，保留其他文件。</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
-    <value>安全还原</value>
+    <value>清理还原</value>
   </data>
   <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
-    <value>覆写还原</value>
+    <value>覆盖还原</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
     <value>未启用</value>
@@ -4756,7 +4756,7 @@ Pull Request：{1}</value>
     <value>添加</value>
   </data>
   <data name="ConfigSettingsDialog_BackupWhitelistCleanWarning" xml:space="preserve">
-    <value>白名单备份只包含部分文件。用安全还原模式还原这类备份时，未被备份的文件可能会被清除；建议优先使用覆写还原，或先把需要保留的数据加入还原白名单。</value>
+    <value>此备份只包含部分文件。使用覆盖还原可保留其他文件；需要清理还原时，可先将要保留的内容加入还原保留规则。</value>
   </data>
   <data name="ConfigSettingsDialog_BackupScope.Header" xml:space="preserve">
     <value>备份范围</value>
@@ -4771,7 +4771,7 @@ Pull Request：{1}</value>
     <value>当前备份范围由插件提供，但插件未启用或不再可用。</value>
   </data>
   <data name="ConfigSettingsDialog_BackupScopePartialWarning.Text" xml:space="preserve">
-    <value>插件备份范围通常只会备份部分文件。安全还原部分备份会有删除未备份文件的风险。</value>
+    <value>此范围只备份部分内容，还原时会按该版本记录的范围处理文件。</value>
   </data>
   <data name="ConfigSettingsDialog_OpenFailed_Title" xml:space="preserve">
     <value>打开配置设置失败</value>
@@ -4786,10 +4786,10 @@ Pull Request：{1}</value>
     <value>还原部分备份</value>
   </data>
   <data name="History_PartialRestore_Content" xml:space="preserve">
-    <value>该归档只包含选中的文件。FolderRewind 将强制使用覆写还原，保留备份范围之外的现有文件。</value>
+    <value>该归档只包含选中的文件。FolderRewind 将强制使用覆盖还原，保留备份范围之外的现有文件。</value>
   </data>
   <data name="History_PartialRestore_Primary" xml:space="preserve">
-    <value>使用覆写还原</value>
+    <value>使用覆盖还原</value>
   </data>
   <data name="Tray_ToolTip" xml:space="preserve">
     <value>存档时光机</value>
@@ -4946,7 +4946,7 @@ Pull Request：{1}</value>
   <data name="History_Run_SourceFailed" xml:space="preserve"><value>失败</value></data>
   <data name="History_Run_SourceUnavailable" xml:space="preserve"><value>不可用</value></data>
   <data name="History_Run_RestoreTitle" xml:space="preserve"><value>还原完整备份项目运行</value></data>
-  <data name="History_Run_RestoreContent" xml:space="preserve"><value>将依次安全还原此运行中的所有可用来源；单个来源失败后仍会继续，不提供跨来源原子回滚。</value></data>
+  <data name="History_Run_RestoreContent" xml:space="preserve"><value>将依次清理还原此运行中的所有可用来源；单个来源失败后仍会继续，不提供跨来源原子回滚。</value></data>
   <data name="History_Run_RestoreSummary" xml:space="preserve"><value>运行还原完成：{0} 个来源成功，{1} 个来源失败或跳过。</value></data>
   <data name="History_Run_DeleteTitle" xml:space="preserve"><value>删除备份项目运行</value></data>
   <data name="History_Run_DeleteContent" xml:space="preserve"><value>这只会删除批次分组记录，不会直接删除仍处于来源保留范围内、被其他批次引用或被增量链依赖的归档。</value></data>
@@ -5026,8 +5026,8 @@ Pull Request：{1}</value>
   <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>选择要切换的分支进展</value></data>
   <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>尚无可用于创建分支的检查点。</value></data>
   <data name="History_Branch_CheckoutTitle" xml:space="preserve"><value>切换分支</value></data>
-  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>这会用所选分支检查点精确替换当前备份项目中的所有源目录内容。请确认当前未提交的更改可以丢弃。</value></data>
-  <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>丢弃当前更改并切换</value></data>
+  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>将“{0}”还原为“{1}”分支的目标版本，受影响的目录列在下方。</value></data>
+  <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>切换分支</value></data>
   <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>归档验证失败，未写入原生历史记录。</value></data>
   <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>历史记录初始化失败</value></data>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>无法为“{0}”初始化原生历史：{1}</value></data>
@@ -5062,7 +5062,7 @@ Pull Request：{1}</value>
   <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>从此备份项目检查点创建休眠分支</value></data>
   <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>此版本没有满足精确还原条件的文件夹检查点</value></data>
   <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>此版本属于多个备份项目检查点，请改从一次备份运行创建分支</value></data>
-  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>切换分支前会先备份当前内容，再还原所选分支。</value></data>
+  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>先备份“{0}”的当前更改，再切换到“{1}”。备份失败时会停止切换。</value></data>
   <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>可以切换</value></data>
   <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>需要下载备份</value></data>
   <data name="History_CheckoutReadiness_ProtectionRequired" xml:space="preserve"><value>切换前将保护当前工作</value></data>
@@ -5495,7 +5495,7 @@ Pull Request：{1}</value>
 诊断：{9}
 安全快照：{10}
 
-清空恢复会替换此源有效范围中的当前内容；覆盖恢复会写入版本中的文件、保留其他文件。恢复成功会更新本机 Workspace 基线；不会移动分支 tip。游戏协调仍由现有插件检查。可取消并先使用“恢复到新位置”验证。</value></data>
+清理还原会替换此源有效范围中的当前内容；覆盖还原会写入版本中的文件、保留其他文件。恢复成功会更新本机 Workspace 基线；不会移动分支 tip。游戏协调仍由现有插件检查。可取消并先使用“恢复到新位置”验证。</value></data>
   <data name="Restore_BoundaryUnknown" xml:space="preserve"><value>历史未记录明确范围；执行时按原安全规则复核。</value></data>
   <data name="Restore_SafetyEnabled" xml:space="preserve"><value>还原前会先备份当前内容；备份失败时停止还原。</value></data>
   <data name="Restore_SafetyDisabled" xml:space="preserve"><value>未启用还原前备份，当前文件的更改可能无法找回。</value></data>
@@ -5601,7 +5601,7 @@ Pull Request：{1}</value>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve"><value>还原前自动备份</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>安全还原</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>失败回滚保护</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve"><value>还原前校验备份完整性</value></data>
@@ -5667,7 +5667,7 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>无变更时跳过备份</value></data>
   <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>每个备份源保留最近版本数（0 为无限保留）</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前自动备份</value></data>
-  <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>安全还原</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>失败回滚保护</value></data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前校验备份完整性</value></data>
   <data name="ConfigSettingsDialog_AutoBackup_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>启用自动备份</value></data>
   <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>重复未发现变更后停止自动任务</value></data>
@@ -5695,7 +5695,7 @@ Pull Request：{1}</value>
   <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>云存储</value></data>
   <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>文件规则</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>仅普通还原使用此选项。恢复点供成功还原后反悔使用，失败回滚始终开启。</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>失败时自动回滚；关闭后可能丢失原文件。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>还原出错时自动启动回滚。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>执行还原时检查备份，损坏时停止操作。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>备份后自动上传</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Description" xml:space="preserve"><value>将新版本上传到已连接的云存储。</value></data>
@@ -5721,8 +5721,8 @@ Pull Request：{1}</value>
   <data name="Restore_FieldNote" xml:space="preserve"><value>备注</value></data>
   <data name="Restore_FieldTarget" xml:space="preserve"><value>目标目录</value></data>
   <data name="Restore_FieldScope" xml:space="preserve"><value>还原范围</value></data>
-  <data name="Restore_ModesHelp" xml:space="preserve"><value>安全还原：清理备份范围内的额外文件。
-覆盖还原：保留额外文件，仅覆盖备份中已有内容。</value></data>
+  <data name="Restore_ModesHelp" xml:space="preserve"><value>清理还原：还原备份内容，并删除还原范围内、备份中没有的文件。
+覆盖还原：写入备份中的文件，保留其他文件。</value></data>
   <data name="Restore_PartialHelp" xml:space="preserve"><value>此版本仅备份部分内容，使用覆盖还原；范围外的文件会保留。</value></data>
   <data name="Restore_Overwrite" xml:space="preserve"><value>覆盖还原</value></data>
   <data name="Restore_BoundaryDifference" xml:space="preserve"><value>当前筛选范围与备份不同；执行前会复核，必要时会阻止还原。</value></data>
@@ -5870,7 +5870,7 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_PluginBatch_PickRoot.Content" xml:space="preserve"><value>选择目录扫描</value></data>
   <data name="GameDiscovery_PluginBatch_NoCandidates" xml:space="preserve"><value>没有发现可创建的存档项目。可选择启动器、游戏实例或存档目录后扫描。</value></data>
   <data name="GameDiscovery_ContinueSetup" xml:space="preserve"><value>继续创建备份项目</value></data>
-  <data name="LegacyMigration_Boundary" xml:space="preserve"><value>无法确认历史删除边界，仅允许不删除现有文件的覆盖恢复及导出到新目录。</value></data>
+  <data name="LegacyMigration_Boundary" xml:space="preserve"><value>无法确认历史删除边界，仅允许不删除现有文件的覆盖还原及导出到新目录。</value></data>
   <data name="LegacyMigration_KeepSource" xml:space="preserve"><value>保持当前关联／保留待归属</value></data>
   <data name="LegacyMigration_Notice" xml:space="preserve"><value>旧记录已保留，部分归档仍待定位或验证。建议创建新的完整备份建立基线。1.9 不迁移旧云存档及云配置，请自行创建新的云配置，原远端数据保持不变。取回旧 Smart 备份时，请同时保留依赖归档和元数据。</value></data>
   <data name="LegacyMigration_Open.Content" xml:space="preserve"><value>迁移报告</value></data>
@@ -6377,7 +6377,7 @@ Pull Request：{1}</value>
     <value>备份归档未验证。等待对应配置的项目请先导入原配置；已关联项目可通过“完成迁移设置”确认来源和路径。</value>
   </data>
   <data name="Migration_ExportDone" xml:space="preserve">
-    <value>已导出 {0} 个项目的历史元数据。</value>
+    <value>已导出 {0} 个项目。</value>
   </data>
   <data name="Migration_FormatPreview" xml:space="preserve">
     <value>原应用版本：{0} · 迁移格式：v{1}</value>
@@ -6731,7 +6731,7 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_RestorePreflightDescription.Text" xml:space="preserve"><value>默认均衡：检查路径、依赖及实际提取结果。严格会额外完整测试依赖链，耗时更长。</value></data>
   <data name="ConfigSettingsDialog_VerificationBalanced.Content" xml:space="preserve"><value>均衡</value></data>
   <data name="ConfigSettingsDialog_VerificationStrict.Content" xml:space="preserve"><value>严格</value></data>
-  <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>失败回滚始终开启，与验证等级和还原前备份无关。</value></data>
+  <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>失败回滚保护已开启：还原出错时自动启动回滚。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Header" xml:space="preserve"><value>快速还原前的安全恢复点</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Description" xml:space="preserve"><value>默认开启；独立于普通还原。关闭后不创建恢复点，失败回滚仍始终开启。</value></data>
   <data name="ConfigSettingsDialog_QuickSafetySnapshot.OnContent" xml:space="preserve"><value>开启</value></data>
@@ -7220,7 +7220,7 @@ Pull Request：{1}</value>
   <data name="OperationDiagnostic_SnapshotLinksSkipped" xml:space="preserve"><value>创建备份副本时跳过了目录内的文件系统链接。请在详情中检查跳过的路径。</value></data>
   <data name="OperationDiagnostic_ConsistencyFallback" xml:space="preserve"><value>插件一致性能力不可用，已按尽力备份策略继续。请检查插件状态，并在退出游戏后重新备份。</value></data>
   <data name="OperationDiagnostic_ConsistencyCleanupFailed" xml:space="preserve"><value>备份读取已结束，但插件临时副本清理失败。请查看日志并检查临时目录权限。</value></data>
-  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>归档大小低于设置的警告阈值。请检查备份范围及归档内容，详情中包含实际大小。</value></data>
+  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>备份文件较小，建议检查备份范围。</value></data>
   <data name="OperationDiagnostic_BackupHistoryRecovery" xml:space="preserve"><value>备份已经提交，但本地历史状态需要恢复。请查看日志并完成恢复后再进行其他历史操作。</value></data>
   <data name="OperationDiagnostic_BackupFinalizationFailed" xml:space="preserve"><value>备份已提交，但完成后的辅助处理失败。请查看详情中的原始错误。</value></data>
   <data name="OperationDiagnostic_BackupConfigSaveFailed" xml:space="preserve"><value>备份已提交，但最近备份时间等配置保存失败。请检查配置目录的访问权限。</value></data>
@@ -7583,4 +7583,54 @@ Pull Request：{1}</value>
 服务地址：{1}
 数据目录：{2}
 启动前会核对当前环境与授权。</value></data>
+  <data name="CoreValidation_HistoryDetails" xml:space="preserve"><value>历史记录与索引正常，已检查 {0} 个历史数据包。</value></data>
+  <data name="CoreValidation_ToolPath" xml:space="preserve"><value>7-Zip 程序位置</value></data>
+  <data name="CoreValidation_CopyReport" xml:space="preserve"><value>复制报告</value></data>
+  <data name="Setup_ResultWarnings" xml:space="preserve"><value>备份已完成，有 {0} 项提醒</value></data>
+  <data name="Setup_ResultFailed" xml:space="preserve"><value>备份未完成</value></data>
+  <data name="Setup_ResultCanceled" xml:space="preserve"><value>备份已取消</value></data>
+  <data name="Setup_ResultNeedsRecovery" xml:space="preserve"><value>备份需要处理</value></data>
+  <data name="Setup_ResultUnchanged" xml:space="preserve"><value>内容没有变化</value></data>
+  <data name="Setup_OutcomeCapturedWithWarnings" xml:space="preserve"><value>已备份，有提醒</value></data>
+  <data name="Setup_ViewDetails.Content" xml:space="preserve"><value>查看详情</value></data>
+  <data name="Setup_ResultDetailsTitle" xml:space="preserve"><value>备份详情</value></data>
+  <data name="Setup_RecoveryHelp" xml:space="preserve"><value>历史记录需要恢复处理。请查看来源详情，再到项目历史中继续处理。</value></data>
+  <data name="Setup_TemplateSources" xml:space="preserve"><value>已应用“{0}”的设置，接下来选择要备份的文件夹。</value></data>
+  <data name="MigrationExport_ProjectDone" xml:space="preserve"><value>已导出</value></data>
+  <data name="MigrationExport_BackupFiles" xml:space="preserve"><value>已包含备份文件（{0} 个文件）</value></data>
+  <data name="MigrationExport_NoBackupFiles" xml:space="preserve"><value>此项目尚无备份文件</value></data>
+  <data name="MigrationExport_ExternalFiles" xml:space="preserve"><value>备份文件保留在原目录，需另行复制</value></data>
+  <data name="Template_CreateFrom_MissingPlugins" xml:space="preserve"><value>请先安装并启用这些插件，再使用此模板：{0}</value></data>
+  <data name="History_Branch_CheckoutProtectedPrimary" xml:space="preserve"><value>备份并切换</value></data>
+  <data name="History_Checkout_Project" xml:space="preserve"><value>项目</value></data>
+  <data name="History_Checkout_CurrentBranch" xml:space="preserve"><value>当前分支</value></data>
+  <data name="History_Checkout_TargetBranch" xml:space="preserve"><value>目标分支</value></data>
+  <data name="History_Checkout_RestoreDirectory" xml:space="preserve"><value>将还原的目录</value></data>
+  <data name="History_Checkout_PreserveDirectory" xml:space="preserve"><value>保持原样的目录</value></data>
+  <data name="History_Checkout_TargetVersion" xml:space="preserve"><value>目标版本</value></data>
+  <data name="ConfigSettingsDialog_BrowseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>选择备份目标目录</value></data>
+  <data name="ConfigSettingsDialog_OpenDestination.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开备份目标目录</value></data>
+  <data name="ConfigSettingsSaveTemplate.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保存为模板</value></data>
+  <data name="Schedule_HourName" xml:space="preserve"><value>小时，计划于 {0}</value></data>
+  <data name="Schedule_MinuteName" xml:space="preserve"><value>分钟，计划于 {0}</value></data>
+  <data name="Schedule_DeleteName" xml:space="preserve"><value>删除计划，下次运行于 {0}</value></data>
+  <data name="Schedule_MonthName" xml:space="preserve"><value>月份，计划于 {0}</value></data>
+  <data name="Schedule_DayName" xml:space="preserve"><value>日期，计划于 {0}</value></data>
+  <data name="SettingsPage_AboutExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>关于 FolderRewind</value></data>
+  <data name="SettingsPage_PersonalizationExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>个性化</value></data>
+  <data name="SettingsPage_CoreBehaviorExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>核心行为</value></data>
+  <data name="SettingsPage_NotificationsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>通知</value></data>
+  <data name="SettingsPage_HotkeysExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>快捷键与热键</value></data>
+  <data name="SettingsPage_TemplateDataExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>模板数据</value></data>
+  <data name="SettingsPage_DataMigrationExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>数据迁移</value></data>
+  <data name="SettingsPage_CoreValidationExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份环境检查</value></data>
+  <data name="SettingsPage_LogDiagExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>日志与诊断</value></data>
+  <data name="SettingsPage_PluginsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>插件</value></data>
+  <data name="SettingsPage_KnotLinkExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>KnotLink 互联</value></data>
+  <data name="SettingsPage_PresetsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>入门预设</value></data>
+  <data name="SettingsPage_EnvironmentExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>运行环境</value></data>
+  <data name="CoreValidation_Summary_ToolsOnlyPassed" xml:space="preserve"><value>7-Zip 程序位置检查通过。添加项目后，可以检查项目历史记录与索引。</value></data>
+  <data name="CoreValidation_Summary_LastPassed" xml:space="preserve"><value>上次备份环境检查通过。</value></data>
+  <data name="Setup_ResultSingleWarning" xml:space="preserve"><value>备份已完成，有 {0} 项提醒</value></data>
+  <data name="CoreValidation_HistoryDetailsSingle" xml:space="preserve"><value>历史记录与索引正常，已检查 {0} 个历史数据包。</value></data>
 </root>

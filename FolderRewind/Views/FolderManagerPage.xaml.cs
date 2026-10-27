@@ -15,6 +15,26 @@ namespace FolderRewind.Views
     public sealed partial class FolderManagerPage : Page
     {
         public FolderManagerPageViewModel ViewModel { get; }
+        private void OnToolbarSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            var narrow = e.NewSize.Width < 1000;
+            if (ReferenceEquals(sender, ProjectToolbar))
+            {
+                Grid.SetRow(ProjectActions, narrow ? 1 : 0);
+                Grid.SetColumn(ProjectActions, narrow ? 0 : 2);
+                Grid.SetColumnSpan(ProjectActions, narrow ? 3 : 1);
+            }
+            else if (ReferenceEquals(sender, SourceToolbar))
+            {
+                Grid.SetRow(CommentLayout, narrow ? 1 : 0);
+                Grid.SetColumn(CommentLayout, narrow ? 0 : 1);
+                Grid.SetColumnSpan(CommentLayout, narrow ? 3 : 1);
+                CommentLayout.Margin = narrow ? new Thickness(0) : new Thickness(24, 0, 24, 0);
+                Grid.SetRow(SourceActions, narrow ? 2 : 0);
+                Grid.SetColumn(SourceActions, narrow ? 0 : 2);
+                Grid.SetColumnSpan(SourceActions, narrow ? 3 : 1);
+            }
+        }
 
         public FolderManagerPage()
         {

@@ -247,25 +247,33 @@ namespace FolderRewind.ViewModels
 
         public void HandleStartupSizeChanged(bool isWidth, double newValue)
         {
-            if (isWidth)
-            {
-                Settings.StartupWidth = ClampWidth(newValue);
-            }
-            else
-            {
-                Settings.StartupHeight = ClampHeight(newValue);
-            }
-
+            var size = MainWindowService.NormalizeSize(isWidth ? newValue : Settings.StartupWidth,
+                isWidth ? Settings.StartupHeight : newValue);
+            if (isWidth) Settings.StartupWidth = size.Width;
+            else Settings.StartupHeight = size.Height;
             _isDirty = true;
+            RefreshWindowSizeBounds();
         }
 
         public void HandleApplyStartupSize()
         {
-            Settings.StartupWidth = ClampWidth(Settings.StartupWidth);
-            Settings.StartupHeight = ClampHeight(Settings.StartupHeight);
+            if (MainWindowService.Resize(Settings.StartupWidth, Settings.StartupHeight) is { } size)
+            {
+                Settings.StartupWidth = size.Width;
+                Settings.StartupHeight = size.Height;
+                _isDirty = true;
+            }
+            RefreshWindowSizeBounds();
+        }
 
-            _isDirty = true;
-            ApplyWindowSize(Settings.StartupWidth, Settings.StartupHeight);
+        public double StartupWidthMinimum => MainWindowService.GetSizeLimits().MinimumWidth;
+        public double StartupHeightMinimum => MainWindowService.GetSizeLimits().MinimumHeight;
+        public double StartupWidthMaximum => MainWindowService.GetSizeLimits().MaximumWidth;
+        public double StartupHeightMaximum => MainWindowService.GetSizeLimits().MaximumHeight;
+        private void RefreshWindowSizeBounds()
+        {
+            foreach (var property in new[] { nameof(StartupWidthMinimum), nameof(StartupHeightMinimum), nameof(StartupWidthMaximum),
+                nameof(StartupHeightMaximum), nameof(StartupWidth), nameof(StartupHeight) }) OnPropertyChanged(property);
         }
 
         public void HandleFontFamilyChanged(string selectedFontFamily)
@@ -296,33 +304,6 @@ namespace FolderRewind.ViewModels
         private static string IndexToLanguage(int index)
         {
             return LanguageSettingPolicy.FromSelectionIndex(index);
-        }
-
-        private static double ClampWidth(double value)
-        {
-            if (double.IsNaN(value) || value <= 0)
-            {
-                return 1200;
-            }
-
-            return Math.Clamp(value, 640, 3840);
-        }
-
-        private static double ClampHeight(double value)
-        {
-            if (double.IsNaN(value) || value <= 0)
-            {
-                return 800;
-            }
-
-            return Math.Clamp(value, 480, 2160);
-        }
-
-        private static void ApplyWindowSize(double width, double height)
-        {
-            var clampedWidth = ClampWidth(width);
-            var clampedHeight = ClampHeight(height);
-            MainWindowService.Resize(clampedWidth, clampedHeight);
         }
 
 

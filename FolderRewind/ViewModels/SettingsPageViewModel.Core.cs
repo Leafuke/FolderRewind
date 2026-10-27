@@ -278,8 +278,10 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public string CoreValidationLastSummaryText => string.IsNullOrWhiteSpace(Settings.LastCoreValidationSummary)
+        public string CoreValidationLastSummaryText => Settings.LastCoreValidationUtc == DateTime.MinValue
             ? I18n.GetString("CoreValidation_LastSummary_None")
+            : Settings.LastCoreValidationPassed ? CoreFeatureValidationService.LastReport?.Summary ?? I18n.GetString("CoreValidation_Summary_LastPassed")
+            : string.IsNullOrWhiteSpace(Settings.LastCoreValidationSummary) ? I18n.GetString("CoreValidation_Summary_Failed")
             : Settings.LastCoreValidationSummary;
 
         public SettingsPageViewModel()
@@ -351,6 +353,8 @@ namespace FolderRewind.ViewModels
 
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             CoreFeatureValidationService.StateChanged += CoreFeatureValidationService_StateChanged;
+            MainWindowService.SizeLimitsChanged -= RefreshWindowSizeBounds;
+            MainWindowService.SizeLimitsChanged += RefreshWindowSizeBounds;
 
             SponsorService.StateChanged -= SponsorService_StateChanged;
             SponsorService.StateChanged += SponsorService_StateChanged;
@@ -365,6 +369,7 @@ namespace FolderRewind.ViewModels
             _active = false;
             StopObservingBindableSettings();
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
+            MainWindowService.SizeLimitsChanged -= RefreshWindowSizeBounds;
             SponsorService.StateChanged -= SponsorService_StateChanged;
             SponsorService.StatusChanged -= SponsorService_StateChanged;
             HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;

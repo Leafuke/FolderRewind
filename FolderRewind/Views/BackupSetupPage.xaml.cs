@@ -39,6 +39,21 @@ public sealed partial class BackupSetupPage : Page
     public InfoBarSeverity Severity(SetupMessageSeverity severity) => (InfoBarSeverity)severity;
     public Visibility Show(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public Visibility ShowNot(bool value) => Show(!value);
+    public static Visibility ShowResultDetails(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+    private async void OnResultDetails(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string text }) return;
+        var details = new TextBlock { Text = text, IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(details, "SetupResultDetailsText");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(details, I18n.GetString("Setup_ResultDetailsTitle"));
+        await AppDialogService.Default.ShowCustomAsync(new ContentDialog
+        {
+            Title = I18n.GetString("Setup_ResultDetailsTitle"),
+            Content = new ScrollViewer { Content = details, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, MaxHeight = Math.Max(96, Math.Min(420, XamlRoot.Size.Height - 220)) },
+            CloseButtonText = I18n.GetString("Common_Close")
+        }, XamlRoot);
+    }
     private async Task RunAsync(Func<Task> action)
     {
         try { await action(); }

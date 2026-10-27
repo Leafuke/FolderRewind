@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics;
+using System.Runtime.InteropServices;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 
@@ -27,6 +28,41 @@ namespace FolderRewind.Services
         // 由 App.OnLaunched 注入主窗口，供非视图层按需访问窗口能力。
         private static Window? _window;
         private static Views.SponsorWindow? _sponsorWindow;
+        internal static event Action? SizeLimitsChanged;
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hwnd);
+
+        internal static double GetWindowScale(Window? window = null)
+        {
+            window ??= GetMainWindow();
+            var dpi = window is null ? 96u : GetDpiForWindow(WindowNative.GetWindowHandle(window));
+            return MainWindowSizePolicy.NormalizeScale(dpi / 96d);
+        }
+
+        internal static WindowSizeLimits GetSizeLimits(Window? window = null)
+        {
+            window ??= GetMainWindow();
+            var work = window is null ? DisplayArea.Primary.WorkArea
+                : DisplayArea.GetFromWindowId(window.AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+            return MainWindowSizePolicy.GetLimits(GetWindowScale(window), work.Width, work.Height);
+        }
+
+        internal static WindowPixelSize NormalizeSize(double width, double height, Window? window = null)
+            => MainWindowSizePolicy.Normalize(width, height, GetWindowScale(window), GetSizeLimits(window));
+
+        internal static void NotifySizeLimitsChanged() => SizeLimitsChanged?.Invoke();
+
+        internal static SizeInt32 ApplySize(Window window, double width, double height)
+        {
+            var size = NormalizeSize(width, height, window);
+            window.AppWindow.Resize(new SizeInt32(size.Width, size.Height));
+            var work = DisplayArea.GetFromWindowId(window.AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+            var actual = window.AppWindow.Size;
+            var position = window.AppWindow.Position;
+            window.AppWindow.Move(new PointInt32(Math.Clamp(position.X, work.X, work.X + Math.Max(0, work.Width - actual.Width)),
+                Math.Clamp(position.Y, work.Y, work.Y + Math.Max(0, work.Height - actual.Height))));
+            return actual;
+        }
 
         public static void Initialize(Window? window)
         {
@@ -163,20 +199,21 @@ namespace FolderRewind.Services
             ThemeService.ApplyPersonalizationToWindow(GetMainWindow());
         }
 
-        public static void Resize(double width, double height)
+        public static SizeInt32? Resize(double width, double height)
         {
             var window = GetMainWindow();
             if (window == null)
             {
-                return;
+                return null;
             }
 
             try
             {
-                window.AppWindow?.Resize(new SizeInt32((int)Math.Round(width), (int)Math.Round(height)));
+                return ApplySize(window, width, height);
             }
             catch
             {
+                return null;
             }
         }
 

@@ -334,14 +334,28 @@ public sealed partial class HistoryPageViewModel
             {
                 case HistoryCheckoutReadiness.Ready:
                 case HistoryCheckoutReadiness.ProtectionRequired:
-                    if (!await _interactions.ConfirmAsync(
-                            I18n.GetString("History_Branch_CheckoutTitle"),
-                            plan.RequiresProtection
-                                ? I18n.GetString("History_Branch_CheckoutProtectionContent")
-                                : I18n.GetString("History_Branch_CheckoutContent"),
-                            I18n.GetString("History_Branch_CheckoutPrimary"),
-                            true,
-                            cancellationToken))
+                    var targetName = plan.Update?.Name ?? branch.Name;
+                    var review = new List<HistoryReviewField>
+                    {
+                        new(I18n.GetString("History_Checkout_Project"), _currentConfig?.Name ?? string.Empty),
+                        new(I18n.GetString("History_Checkout_CurrentBranch"), Branches.FirstOrDefault(b => b.IsActive)?.Name ?? I18n.GetString("History_Branch_CurrentNotEstablished")),
+                        new(I18n.GetString("History_Checkout_TargetBranch"), targetName)
+                    };
+                    foreach (var source in plan.Sources)
+                    {
+                        if (source.Binding is not { } binding) continue;
+                        review.Add(new(I18n.GetString(source.Action == HistoryCheckoutSourceAction.Restore
+                            ? "History_Checkout_RestoreDirectory" : "History_Checkout_PreserveDirectory"), binding.TargetDirectory));
+                        if (source.Action == HistoryCheckoutSourceAction.Restore && source.VersionId is { } version)
+                            review.Add(new(I18n.GetString("History_Checkout_TargetVersion"), version.ToString()));
+                    }
+                    var decision = await _interactions.ChooseAsync(new HistoryChoiceRequest(
+                        I18n.GetString("History_Branch_CheckoutTitle"),
+                        I18n.Format(plan.RequiresProtection ? "History_Branch_CheckoutProtectionContent" : "History_Branch_CheckoutContent",
+                            _currentConfig?.Name ?? string.Empty, targetName), [],
+                        I18n.GetString(plan.RequiresProtection ? "History_Branch_CheckoutProtectedPrimary" : "History_Branch_CheckoutPrimary"),
+                        null, IsDestructive: true, Fields: review), cancellationToken);
+                    if (decision.Outcome != HistoryInteractionOutcome.Primary)
                     {
                         return;
                     }

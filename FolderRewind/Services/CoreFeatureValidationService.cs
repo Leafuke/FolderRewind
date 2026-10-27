@@ -140,7 +140,7 @@ public static class CoreFeatureValidationService
                 {
                     Name = config.Name,
                     Success = true,
-                    Details = $"Validated {packs.Count} immutable Commit Packs and the derived index.",
+                    Details = I18n.Format(packs.Count == 1 ? "CoreValidation_HistoryDetailsSingle" : "CoreValidation_HistoryDetails", packs.Count),
                     Duration = timer.Elapsed
                 });
             }
@@ -159,7 +159,7 @@ public static class CoreFeatureValidationService
             ConfigService.CurrentConfig?.GlobalSettings?.SevenZipPath);
         steps.Add(new()
         {
-            Name = "7-Zip runtime",
+            Name = I18n.GetString("CoreValidation_ToolPath"),
             Success = !string.IsNullOrWhiteSpace(sevenZip),
             Details = sevenZip ?? I18n.GetString("BackupService_Log_SevenZipNotFound"),
             Duration = TimeSpan.Zero
@@ -172,7 +172,7 @@ public static class CoreFeatureValidationService
             FinishedAtUtc = DateTime.UtcNow,
             Success = success,
             Summary = success
-                ? I18n.GetString("CoreValidation_Summary_Passed")
+                ? I18n.GetString(steps.Count == 1 ? "CoreValidation_Summary_ToolsOnlyPassed" : "CoreValidation_Summary_Passed")
                 : steps.First(item => !item.Success).Details,
             Steps = steps
         };

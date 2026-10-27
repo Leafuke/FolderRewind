@@ -8,7 +8,7 @@
     mc:Ignorable="d">
 
     <StackPanel Spacing="8">
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_CoreValidationExpander" AutomationProperties.AutomationId="SettingsPage_CoreValidationExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_CoreValidation" AutomationProperties.AutomationId="SettingsCoreValidationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -61,7 +61,7 @@
         </toolkit:SettingsExpander>
 
         <!-- 日志与诊断 -->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_LogDiagExpander" AutomationProperties.AutomationId="SettingsPage_LogDiagExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_LogDiag" AutomationProperties.AutomationId="SettingsDiagnosticsHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>

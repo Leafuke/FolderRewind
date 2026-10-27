@@ -2,6 +2,7 @@
 <Page x:Class="FolderRewind.Views.BackupSetupPage"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="using:FolderRewind.Views"
  xmlns:controls="using:FolderRewind.Controls"
  xmlns:settings="using:CommunityToolkit.WinUI.Controls"
  xmlns:vm="using:FolderRewind.ViewModels" SizeChanged="OnPageSizeChanged">
@@ -70,7 +71,13 @@
       <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:SetupResultRow">
        <Grid Padding="16" Margin="0,0,0,4" ColumnSpacing="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{StaticResource OverlayCornerRadius}">
         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <StackPanel Spacing="4"><TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Path, Mode=OneTime}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/><TextBlock Text="{x:Bind Warning, Mode=OneTime}" TextWrapping="Wrap"/></StackPanel>
+        <StackPanel Spacing="4">
+         <TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+         <TextBlock Text="{x:Bind Path, Mode=OneTime}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+         <TextBlock Text="{x:Bind Scope, Mode=OneTime}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+         <TextBlock Text="{x:Bind Warning, Mode=OneTime}" TextWrapping="Wrap"/>
+         <Button x:Uid="Setup_ViewDetails" Click="OnResultDetails" Tag="{x:Bind Details, Mode=OneTime}" Visibility="{x:Bind local:BackupSetupPage.ShowResultDetails(HasDetails), Mode=OneTime}" AutomationProperties.AutomationId="SetupResultDetails"/>
+        </StackPanel>
         <TextBlock Grid.Column="1" Text="{x:Bind Status, Mode=OneTime}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="180"/>
        </Grid>
       </DataTemplate></ItemsControl.ItemTemplate>

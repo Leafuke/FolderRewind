@@ -14,7 +14,7 @@
         <!-- 扩展 -->
         <TextBlock x:Uid="SettingsPage_Section_Extensions" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_TemplateDataExpander" AutomationProperties.AutomationId="SettingsPage_TemplateDataExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_TemplateData" AutomationProperties.AutomationId="SettingsTemplateDataHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -44,7 +44,7 @@
         </toolkit:SettingsExpander>
 
         <!-- 数据迁移 -->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_DataMigrationExpander" AutomationProperties.AutomationId="SettingsPage_DataMigrationExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_DataMigration" AutomationProperties.AutomationId="SettingsDataMigrationHeader" Style="{StaticResource SettingsHeaderTextStyle}"/>
             </toolkit:SettingsExpander.Header>

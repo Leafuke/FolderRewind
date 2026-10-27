@@ -54,7 +54,20 @@ public sealed class BackupSetupViewModel : ViewModelBase
     public string KindDisplay => _selectedKind >= 0 && _selectedKind < KindNames.Count ? KindNames[_selectedKind] : string.Empty;
     public string EncryptionDisplay => I18n.GetString(Draft.IsEncrypted ? "Setup_Encrypted" : "Setup_NotEncrypted");
     public string StepDisplay => IsChoosingScenario ? I18n.GetString("Setup_SelectScenario") : IsResult ? string.Empty : I18n.Format("Setup_StepNumber", (int)Stage + 1);
-    public string ResultTitle => I18n.GetString(!_backupAttempted ? "Setup_ResultCreated" : CanRetry ? "Setup_ResultMixed" : "Setup_ResultComplete");
+    private SetupBackupSummaryState ResultState => SetupBackupPresentationPolicy.Summarize(_backupAttempted, _results.Values, _errors.Count);
+    private int WarningCount => _results.Values.Sum(r => r.Sources.Sum(s => s.WarningDiagnostics.Count));
+    public string ResultTitle => IsBusy && _backupAttempted ? I18n.GetString("Setup_BackupRunning")
+        : ResultState == SetupBackupSummaryState.CompleteWithWarnings ? I18n.Format(WarningCount <= 1 ? "Setup_ResultSingleWarning" : "Setup_ResultWarnings", Math.Max(1, WarningCount))
+        : I18n.GetString(ResultState switch
+        {
+            SetupBackupSummaryState.Created => "Setup_ResultCreated",
+            SetupBackupSummaryState.Incomplete => "Setup_ResultMixed",
+            SetupBackupSummaryState.Failed => "Setup_ResultFailed",
+            SetupBackupSummaryState.Canceled => "Setup_ResultCanceled",
+            SetupBackupSummaryState.NeedsRecovery => "Setup_ResultNeedsRecovery",
+            SetupBackupSummaryState.Unchanged => "Setup_ResultUnchanged",
+            _ => "Setup_ResultComplete"
+        });
     private BackupSetupStage _stage;
     private bool _busy;
     private string _message = string.Empty;
@@ -105,7 +118,8 @@ public sealed class BackupSetupViewModel : ViewModelBase
         _projects.AddRange(input?.Drafts is { Count: > 0 } drafts ? drafts : [input?.Draft ?? new BackupConfig { Name = string.Empty }]);
         Draft = _projects[0];
         _backupAttempted = false;
-        _scenario = input?.Scenario ?? (input?.Draft is not null || input?.Drafts is { Count: > 0 } ? BackupSetupScenario.Folder : BackupSetupScenario.None);
+        _scenario = input?.Scenario is { } scenario && scenario != BackupSetupScenario.None ? scenario
+            : input?.Draft is not null || input?.Drafts is { Count: > 0 } ? BackupSetupScenario.Folder : BackupSetupScenario.None;
         Message = string.Empty;
         MessageSeverity = SetupMessageSeverity.Informational;
         ProjectNames.Clear(); foreach (var project in _projects) ProjectNames.Add(project.Name);
@@ -118,6 +132,8 @@ public sealed class BackupSetupViewModel : ViewModelBase
         RefreshSelectedDraft();
         OnPropertyChanged(nameof(IsBatch)); OnPropertyChanged(nameof(SelectedProjectIndex));
         Stage = _projects.All(p => p.SourceFolders.Count > 0) ? BackupSetupStage.Location : BackupSetupStage.Content;
+        if (_presetId.Length != 0 && IsContent)
+            Message = I18n.Format("Setup_TemplateSources", BackupPresetService.GetTemplates().FirstOrDefault(p => p.ShareId == _presetId)?.Name ?? Name);
     }
     private void RefreshSelectedDraft()
     {
@@ -214,8 +230,14 @@ public sealed class BackupSetupViewModel : ViewModelBase
             }
             catch (Exception ex) { _errors[project.Id] = ex.Message; }
         }
-        MessageSeverity = _results.Values.Any(r => r.HasWarnings || r.RecoveryRequired) || _errors.Count > 0 || CanRetry ? SetupMessageSeverity.Warning : SetupMessageSeverity.Success;
-        Message = _results.Values.Any(r => r.RecoveryRequired) ? I18n.GetString("Onboarding_ConsistencyWarning") : string.Empty;
+        MessageSeverity = ResultState switch
+        {
+            SetupBackupSummaryState.Failed or SetupBackupSummaryState.NeedsRecovery => SetupMessageSeverity.Error,
+            SetupBackupSummaryState.Incomplete or SetupBackupSummaryState.Canceled or SetupBackupSummaryState.CompleteWithWarnings => SetupMessageSeverity.Warning,
+            _ => SetupMessageSeverity.Success
+        };
+        Message = ResultState == SetupBackupSummaryState.NeedsRecovery ? I18n.GetString("Setup_RecoveryHelp")
+            : string.Join(Environment.NewLine, _projects.Where(p => _errors.ContainsKey(p.Id)).Select(p => p.Name + ": " + _errors[p.Id]));
         Refresh();
     }
     public void RequireCreatedContextCurrent() => RequireCreatedContextCurrent(Draft);
@@ -300,13 +322,25 @@ public sealed class BackupSetupViewModel : ViewModelBase
                 var result = _results.GetValueOrDefault(project.Id)?.Sources.FirstOrDefault(s => s.SourceId == source.Id);
                 var outcome = result?.Outcome;
                 var status = !_backupAttempted ? "Setup_ResultWaiting" : outcome is null ? "Setup_OutcomeFailed" : "Setup_Outcome" + outcome;
-                ResultRows.Add(new(IsBatch ? project.Name + " · " + source.DisplayName : source.DisplayName, source.Path, I18n.GetString(status), result?.IsPartial == true ? I18n.GetString("Setup_PartialResult") : string.Empty));
+                var warnings = result is null ? string.Empty : OperationDiagnosticFormatter.Summary(result.WarningDiagnostics);
+                if (result?.Outcome == SetupSourceOutcome.Captured && result.WarningDiagnostics.Count > 0) status = "Setup_OutcomeCapturedWithWarnings";
+                var details = result is null ? _errors.GetValueOrDefault(project.Id, string.Empty)
+                    : string.Join(Environment.NewLine + Environment.NewLine, new[]
+                    {
+                        string.Join(Environment.NewLine, result.Diagnostics),
+                        OperationDiagnosticFormatter.Details(result.WarningDiagnostics)
+                    }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                ResultRows.Add(new(IsBatch ? project.Name + " · " + source.DisplayName : source.DisplayName, source.Path,
+                    I18n.GetString(status), warnings, result?.IsPartial == true ? I18n.GetString("Setup_PartialResult") : string.Empty, details));
             }
         foreach (var property in new[] { nameof(IsContent), nameof(IsLocation), nameof(IsReview), nameof(IsResult), nameof(HasMultipleSources), nameof(StageTitle), nameof(IsChoosingScenario), nameof(IsFolderContent), nameof(IsManualContent), nameof(IsMinecraftContent), nameof(IsOtherGameContent), nameof(ShowDraftActions), nameof(ShowBack), nameof(CanSaveDraft), nameof(ShowResultSourcePicker), nameof(HasSources), nameof(HasSavedDraft), nameof(CanStartBackup), nameof(CanRetry), nameof(HasVersions), nameof(KindDisplay), nameof(EncryptionDisplay), nameof(StepDisplay), nameof(ResultTitle) }) OnPropertyChanged(property);
     }
 }
 
 public sealed record SetupSourceRow(string Name, string Path);
-public sealed record SetupResultRow(string Name, string Path, string Status, string Warning);
+public sealed record SetupResultRow(string Name, string Path, string Status, string Warning, string Scope, string Details)
+{
+    public bool HasDetails => Details.Length != 0;
+}
 
 public enum SetupMessageSeverity { Informational, Success, Warning, Error }

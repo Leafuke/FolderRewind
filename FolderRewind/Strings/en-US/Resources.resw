@@ -1045,7 +1045,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
-    <value>Safe restore</value>
+    <value>Restore rollback protection</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
     <value>On — auto-rollback from a temporary copy on failure</value>
@@ -1123,7 +1123,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Restore whitelist</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistDesc.Text" xml:space="preserve">
-    <value>Files/folders not removed during Clean restore, protecting specific data from deletion.</value>
+    <value>Keep extra files and folders matching these rules during a clean restore.</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>Enter a filename, relative path, full path, or wildcard...</value>
@@ -1156,19 +1156,19 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Logs &amp; diagnostics</value>
   </data>
   <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
-    <value>Core feature validation</value>
+    <value>Backup environment check</value>
   </data>
   <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
-    <value>Automatically verify that backup and restore core flows work on this machine</value>
+    <value>Check project history, index status, and the 7-Zip executable location.</value>
   </data>
   <data name="SettingsPage_CoreValidation_Run.Text" xml:space="preserve">
-    <value>Run full self-check</value>
+    <value>Check the backup environment</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
-    <value>Create a temporary config and validate Smart backup, shared-lock files, restore, dependency-safe retention, and keep-count pruning</value>
+    <value>Check each existing project and review the results and any issues.</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
-    <value>Run validation</value>
+    <value>Run check</value>
   </data>
   <data name="SettingsPage_CoreValidation_ViewReportButton.Content" xml:space="preserve">
     <value>View current report</value>
@@ -1180,19 +1180,19 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Shows current state, latest run time, and the most recent summary</value>
   </data>
   <data name="CoreValidation_Status_Idle" xml:space="preserve">
-    <value>Core feature validation has not run yet</value>
+    <value>Check not started</value>
   </data>
   <data name="CoreValidation_Status_Preparing" xml:space="preserve">
-    <value>Preparing core feature validation workspace</value>
+    <value>Preparing the check…</value>
   </data>
   <data name="CoreValidation_Status_Step" xml:space="preserve">
-    <value>Running: {0}</value>
+    <value>Checking “{0}”…</value>
   </data>
   <data name="CoreValidation_Status_Succeeded" xml:space="preserve">
-    <value>Core feature validation passed</value>
+    <value>Backup environment check passed</value>
   </data>
   <data name="CoreValidation_Status_Failed" xml:space="preserve">
-    <value>Core feature validation failed</value>
+    <value>Issues found. View the report for details.</value>
   </data>
   <data name="CoreValidation_LastRun_None" xml:space="preserve">
     <value>Last run: never</value>
@@ -1204,16 +1204,16 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Latest summary: none</value>
   </data>
   <data name="CoreValidation_AlreadyRunning" xml:space="preserve">
-    <value>Core feature validation is already running. Please wait for it to finish.</value>
+    <value>The backup environment check is running. The report will be ready when it finishes.</value>
   </data>
   <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
-    <value>Core feature validation</value>
+    <value>Backup environment check</value>
   </data>
   <data name="CoreValidation_Report_Title" xml:space="preserve">
-    <value>Core feature validation report</value>
+    <value>Backup environment report</value>
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
-    <value>No validation report is available in the current session yet.</value>
+    <value>Run a check to see its report here.</value>
   </data>
   <data name="CoreValidation_Report_Result" xml:space="preserve">
     <value>Result</value>
@@ -1246,10 +1246,10 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Summary</value>
   </data>
   <data name="CoreValidation_Summary_Passed" xml:space="preserve">
-    <value>All core backup and restore checks passed.</value>
+    <value>Project history, index status, and the 7-Zip executable location passed the check.</value>
   </data>
   <data name="CoreValidation_Summary_Failed" xml:space="preserve">
-    <value>Core backup and restore validation failed.</value>
+    <value>The check found issues. Review the details.</value>
   </data>
   <data name="CoreValidation_Step_PrepareWorkspace" xml:space="preserve">
     <value>Prepare temporary workspace</value>
@@ -1657,7 +1657,7 @@ Keys use letters, digits, and underscores only. Values must be percent-encoded. 
     <value>Startup window size</value>
   </data>
   <data name="SettingsPage_StartupSizeDesc.Text" xml:space="preserve">
-    <value>Set window size at launch for larger or multi-monitor setups</value>
+    <value>Set the startup width and height in pixels. Sizes adjust to the current display scale and available space.</value>
   </data>
   <data name="SettingsPage_ApplySize.Content" xml:space="preserve">
     <value>Apply now</value>
@@ -2128,10 +2128,10 @@ If you have a listener subscribed to this signal, it should receive a message.</
     <value>Restore aborted: backup integrity check failed</value>
   </data>
   <data name="BackupService_Log_RestoreSnapshotPrepared" xml:space="preserve">
-    <value>Safe restore snapshot created: {0}</value>
+    <value>clean restore snapshot created: {0}</value>
   </data>
   <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
-    <value>Failed to create safe restore snapshot: {0}</value>
+    <value>Failed to create clean restore snapshot: {0}</value>
   </data>
   <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
     <value>Restore failed, starting rollback from snapshot: {0}</value>
@@ -2143,7 +2143,7 @@ If you have a listener subscribed to this signal, it should receive a message.</
     <value>Rollback failed: {0}</value>
   </data>
   <data name="BackupService_Log_RestoreCommitFailed" xml:space="preserve">
-    <value>Failed to commit safe restore result: {0}</value>
+    <value>Failed to commit clean restore result: {0}</value>
   </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>FolderRewind</value>
@@ -2155,8 +2155,8 @@ If you have a listener subscribed to this signal, it should receive a message.</
     <value>Time: {0}
 Comment: {1}
 
-[Clean] Mode: Clear the target folder first, then restore (recommended).
-[Overwrite] Mode: Extract and overwrite (may keep old files).</value>
+Clean restore: restore the backup and remove extra files within the restore scope.
+Overwrite restore: write the backup files and keep other files.</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
     <value>Clean restore</value>
@@ -4756,7 +4756,7 @@ Pull request: {1}</value>
     <value>Add</value>
   </data>
   <data name="ConfigSettingsDialog_BackupWhitelistCleanWarning" xml:space="preserve">
-    <value>Whitelist backups contain only part of the folder. Clean restore may remove files that were not included in the backup; prefer overwrite restore, or add data that must survive cleanup to the restore whitelist.</value>
+    <value>This backup contains selected files. Overwrite restore keeps other files. For a clean restore, add files you want to keep to the restore keep rules first.</value>
   </data>
   <data name="ConfigSettingsDialog_BackupScope.Header" xml:space="preserve">
     <value>Backup scope</value>
@@ -4771,7 +4771,7 @@ Pull request: {1}</value>
     <value>This backup scope is provided by a plugin, but the plugin is disabled or no longer available.</value>
   </data>
   <data name="ConfigSettingsDialog_BackupScopePartialWarning.Text" xml:space="preserve">
-    <value>Plugin backup scopes usually back up only part of the folder. Clean restore of a partial backup can delete files that were not backed up.</value>
+    <value>This scope backs up selected content. Restore follows the scope recorded in that version.</value>
   </data>
   <data name="ConfigSettingsDialog_OpenFailed_Title" xml:space="preserve">
     <value>Failed to open config settings</value>
@@ -5025,9 +5025,9 @@ Pull request: {1}</value>
   <data name="History_Branch_RenameTitle" xml:space="preserve"><value>Rename branch</value></data>
   <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>Select branch progress to check out</value></data>
   <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>No checkpoint is available for branch creation.</value></data>
-  <data name="History_Branch_CheckoutTitle" xml:space="preserve"><value>Check out branch</value></data>
-  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>This exactly replaces every source directory in the current backup project with the selected branch checkpoint. Confirm that current uncommitted changes may be discarded.</value></data>
-  <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>Discard changes and check out</value></data>
+  <data name="History_Branch_CheckoutTitle" xml:space="preserve"><value>Switch branch</value></data>
+  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>Restore “{0}” to the target version on branch “{1}”. The affected folders are listed below.</value></data>
+  <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>Switch branch</value></data>
   <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>Archive verification failed, so Native History was not committed.</value></data>
   <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>History initialization failed</value></data>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>Native History could not be initialized for “{0}”: {1}</value></data>
@@ -5062,7 +5062,7 @@ Pull request: {1}</value>
   <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>Create a dormant branch from this backup project checkpoint</value></data>
   <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>This version is not part of a complete branchable backup project checkpoint</value></data>
   <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>This version belongs to multiple checkpoints; create the branch from a backup run instead</value></data>
-  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>Current content will be backed up before restoring the selected branch.</value></data>
+  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>Back up the current changes in “{0}”, then switch to “{1}”. The switch stops if the backup fails.</value></data>
   <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>Ready to switch</value></data>
   <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>Backup download needed</value></data>
   <data name="History_CheckoutReadiness_ProtectionRequired" xml:space="preserve"><value>Current work will be protected first</value></data>
@@ -5601,7 +5601,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve"><value>Backup before restore</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>Safe restore</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>Restore rollback protection</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
@@ -5667,7 +5667,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Skip backup when unchanged</value></data>
   <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep recent versions per source (0 for unlimited)</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup before restore</value></data>
-  <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Safe restore</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Restore rollback protection</value></data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
   <data name="ConfigSettingsDialog_AutoBackup_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Enable auto backup</value></data>
   <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Stop auto task after repeated no changes</value></data>
@@ -5695,7 +5695,7 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>Cloud storage</value></data>
   <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>File rules</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Used only for ordinary restore. The snapshot lets you undo a successful restore; failure rollback is always enabled.</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>Roll back on failure; turning this off may cause loss of current files.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>Rollback starts automatically if a restore fails.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>Check backups during restoration and stop if damaged.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>Upload after backup</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Description" xml:space="preserve"><value>Upload new versions to the connected cloud storage.</value></data>
@@ -5721,8 +5721,8 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="Restore_FieldNote" xml:space="preserve"><value>Note</value></data>
   <data name="Restore_FieldTarget" xml:space="preserve"><value>Destination</value></data>
   <data name="Restore_FieldScope" xml:space="preserve"><value>Restore scope</value></data>
-  <data name="Restore_ModesHelp" xml:space="preserve"><value>Safe restore removes extra files within the backup scope.
-Overwrite restore keeps extra files and replaces backed-up content.</value></data>
+  <data name="Restore_ModesHelp" xml:space="preserve"><value>Clean restore: restore the backup and remove extra files within the restore scope.
+Overwrite restore: write the backup files and keep other files.</value></data>
   <data name="Restore_PartialHelp" xml:space="preserve"><value>This version contains a partial backup. Overwrite restore keeps files outside its scope.</value></data>
   <data name="Restore_Overwrite" xml:space="preserve"><value>Overwrite restore</value></data>
   <data name="Restore_BoundaryDifference" xml:space="preserve"><value>The current scope differs from this backup. Restore will verify the scope and may be blocked.</value></data>
@@ -6377,7 +6377,7 @@ Backup directory: {4}</value>
     <value>Backup archives are unverified. Import the original configuration for unassociated projects; use Complete migration setup for associated projects.</value>
   </data>
   <data name="Migration_ExportDone" xml:space="preserve">
-    <value>Exported history metadata for {0} projects.</value>
+    <value>Projects exported: {0}.</value>
   </data>
   <data name="Migration_FormatPreview" xml:space="preserve">
     <value>Source application: {0} · Transfer format: v{1}</value>
@@ -6731,7 +6731,7 @@ Attempts: {3}</value></data>
   <data name="ConfigSettingsDialog_RestorePreflightDescription.Text" xml:space="preserve"><value>Balanced is the default: check paths, dependencies and extracted data. Strict also tests the entire dependency chain and takes longer.</value></data>
   <data name="ConfigSettingsDialog_VerificationBalanced.Content" xml:space="preserve"><value>Balanced</value></data>
   <data name="ConfigSettingsDialog_VerificationStrict.Content" xml:space="preserve"><value>Strict</value></data>
-  <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>Failure rollback is always enabled, regardless of verification level or backup before restore.</value></data>
+  <data name="ConfigSettingsDialog_AlwaysRollback.Text" xml:space="preserve"><value>Rollback protection is on. Rollback starts automatically if a restore fails.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Header" xml:space="preserve"><value>Safety snapshot before Quick Restore</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_QuickSafetySnapshot.Description" xml:space="preserve"><value>Enabled by default and independent of ordinary restore. Turning it off skips the snapshot while failure rollback remains enabled.</value></data>
   <data name="ConfigSettingsDialog_QuickSafetySnapshot.OnContent" xml:space="preserve"><value>On</value></data>
@@ -7220,7 +7220,7 @@ Damaged files will be preserved first. Existing backups and branches remain avai
   <data name="OperationDiagnostic_SnapshotLinksSkipped" xml:space="preserve"><value>Filesystem links inside the source were skipped when creating the backup copy. Review the skipped paths in details.</value></data>
   <data name="OperationDiagnostic_ConsistencyFallback" xml:space="preserve"><value>Plugin consistency support was unavailable. Backup continued on a best-effort basis. Check the plugin and back up again after exiting the game.</value></data>
   <data name="OperationDiagnostic_ConsistencyCleanupFailed" xml:space="preserve"><value>Backup reading finished, but plugin temporary-copy cleanup failed. Review the logs and temporary-folder permissions.</value></data>
-  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>The archive is smaller than the configured warning threshold. Check the backup scope and archive contents; details include its actual size.</value></data>
+  <data name="OperationDiagnostic_BackupFileTooSmall" xml:space="preserve"><value>The backup file is small. Review the backup scope.</value></data>
   <data name="OperationDiagnostic_BackupHistoryRecovery" xml:space="preserve"><value>The backup was committed, but local history state needs recovery. Review the logs and complete recovery before other history operations.</value></data>
   <data name="OperationDiagnostic_BackupFinalizationFailed" xml:space="preserve"><value>The backup was committed, but a completion action failed. Review the original error in task details.</value></data>
   <data name="OperationDiagnostic_BackupConfigSaveFailed" xml:space="preserve"><value>The backup was committed, but settings such as the last backup time could not be saved. Check configuration-folder permissions.</value></data>
@@ -7583,4 +7583,54 @@ Inspection and batch checking are separate. Decisions affect complete merge item
 Service address: {1}
 Data directory: {2}
 The environment and authorization are checked before startup.</value></data>
+  <data name="CoreValidation_HistoryDetails" xml:space="preserve"><value>History and index are ready. Checked {0} history packs.</value></data>
+  <data name="CoreValidation_ToolPath" xml:space="preserve"><value>7-Zip executable location</value></data>
+  <data name="CoreValidation_CopyReport" xml:space="preserve"><value>Copy report</value></data>
+  <data name="Setup_ResultWarnings" xml:space="preserve"><value>Backup complete, with {0} warnings</value></data>
+  <data name="Setup_ResultFailed" xml:space="preserve"><value>Backup not completed</value></data>
+  <data name="Setup_ResultCanceled" xml:space="preserve"><value>Backup canceled</value></data>
+  <data name="Setup_ResultNeedsRecovery" xml:space="preserve"><value>Backup needs attention</value></data>
+  <data name="Setup_ResultUnchanged" xml:space="preserve"><value>No changes</value></data>
+  <data name="Setup_OutcomeCapturedWithWarnings" xml:space="preserve"><value>Backed up with warnings</value></data>
+  <data name="Setup_ViewDetails.Content" xml:space="preserve"><value>View details</value></data>
+  <data name="Setup_ResultDetailsTitle" xml:space="preserve"><value>Backup details</value></data>
+  <data name="Setup_RecoveryHelp" xml:space="preserve"><value>The history needs recovery. Review the source details, then open project history to continue.</value></data>
+  <data name="Setup_TemplateSources" xml:space="preserve"><value>Settings from “{0}” are ready. Choose the folders to back up.</value></data>
+  <data name="MigrationExport_ProjectDone" xml:space="preserve"><value>Exported</value></data>
+  <data name="MigrationExport_BackupFiles" xml:space="preserve"><value>Backup files included: {0}</value></data>
+  <data name="MigrationExport_NoBackupFiles" xml:space="preserve"><value>This project has no backup files yet</value></data>
+  <data name="MigrationExport_ExternalFiles" xml:space="preserve"><value>Backup files remain in their original folders. Copy them separately.</value></data>
+  <data name="Template_CreateFrom_MissingPlugins" xml:space="preserve"><value>Install and enable these plugins to use this template: {0}</value></data>
+  <data name="History_Branch_CheckoutProtectedPrimary" xml:space="preserve"><value>Back up and switch</value></data>
+  <data name="History_Checkout_Project" xml:space="preserve"><value>Project</value></data>
+  <data name="History_Checkout_CurrentBranch" xml:space="preserve"><value>Current branch</value></data>
+  <data name="History_Checkout_TargetBranch" xml:space="preserve"><value>Target branch</value></data>
+  <data name="History_Checkout_RestoreDirectory" xml:space="preserve"><value>Folder to restore</value></data>
+  <data name="History_Checkout_PreserveDirectory" xml:space="preserve"><value>Folder to keep</value></data>
+  <data name="History_Checkout_TargetVersion" xml:space="preserve"><value>Target version</value></data>
+  <data name="ConfigSettingsDialog_BrowseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Choose backup destination folder</value></data>
+  <data name="ConfigSettingsDialog_OpenDestination.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open backup destination folder</value></data>
+  <data name="ConfigSettingsSaveTemplate.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save as template</value></data>
+  <data name="Schedule_HourName" xml:space="preserve"><value>Hour, scheduled for {0}</value></data>
+  <data name="Schedule_MinuteName" xml:space="preserve"><value>Minute, scheduled for {0}</value></data>
+  <data name="Schedule_DeleteName" xml:space="preserve"><value>Delete schedule, next run {0}</value></data>
+  <data name="Schedule_MonthName" xml:space="preserve"><value>Month, scheduled for {0}</value></data>
+  <data name="Schedule_DayName" xml:space="preserve"><value>Day, scheduled for {0}</value></data>
+  <data name="SettingsPage_AboutExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>About FolderRewind</value></data>
+  <data name="SettingsPage_PersonalizationExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Personalization</value></data>
+  <data name="SettingsPage_CoreBehaviorExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Core behavior</value></data>
+  <data name="SettingsPage_NotificationsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Notifications</value></data>
+  <data name="SettingsPage_HotkeysExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Shortcuts &amp; Hotkeys</value></data>
+  <data name="SettingsPage_TemplateDataExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Template data</value></data>
+  <data name="SettingsPage_DataMigrationExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Data migration</value></data>
+  <data name="SettingsPage_CoreValidationExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup environment check</value></data>
+  <data name="SettingsPage_LogDiagExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Logs &amp; diagnostics</value></data>
+  <data name="SettingsPage_PluginsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Plugins</value></data>
+  <data name="SettingsPage_KnotLinkExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>KnotLink integration</value></data>
+  <data name="SettingsPage_PresetsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Starter presets</value></data>
+  <data name="SettingsPage_EnvironmentExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Environment</value></data>
+  <data name="CoreValidation_Summary_ToolsOnlyPassed" xml:space="preserve"><value>The 7-Zip executable location passed the check. Add a project to check its history and index.</value></data>
+  <data name="CoreValidation_Summary_LastPassed" xml:space="preserve"><value>The last backup environment check passed.</value></data>
+  <data name="Setup_ResultSingleWarning" xml:space="preserve"><value>Backup complete, with {0} warning</value></data>
+  <data name="CoreValidation_HistoryDetailsSingle" xml:space="preserve"><value>History and index are ready. Checked {0} history pack.</value></data>
 </root>

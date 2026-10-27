@@ -13,7 +13,7 @@
         <TextBlock x:Uid="SettingsPage_Section_General" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
         <!-- 核心行为-->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_CoreBehaviorExpander" AutomationProperties.AutomationId="SettingsPage_CoreBehaviorExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_CoreBehavior" AutomationProperties.AutomationId="SettingsCoreBehaviorHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -87,7 +87,7 @@
         </toolkit:SettingsExpander>
 
         <!-- 通知 -->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_NotificationsExpander" AutomationProperties.AutomationId="SettingsPage_NotificationsExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_Notifications" AutomationProperties.AutomationId="SettingsNotificationsHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -180,7 +180,7 @@
         </toolkit:SettingsExpander>
 
         <!-- 热键-->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander IsExpanded="False" x:Uid="SettingsPage_HotkeysExpander" AutomationProperties.AutomationId="SettingsPage_HotkeysExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_Hotkeys" AutomationProperties.AutomationId="SettingsHotkeysHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>

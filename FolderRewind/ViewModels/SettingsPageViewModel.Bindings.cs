@@ -13,8 +13,8 @@ public sealed partial class SettingsPageViewModel
     public double BaseFontSize { get => Settings.BaseFontSize; set => SetSetting(Settings.BaseFontSize, value, item => Settings.BaseFontSize = item); }
     public bool UseHistoryStatusColors { get => Settings.UseHistoryStatusColors; set => SetSetting(Settings.UseHistoryStatusColors, value, item => Settings.UseHistoryStatusColors = item); }
     public double NavPaneWidth { get => Settings.NavPaneWidth; set => SetSetting(Settings.NavPaneWidth, value, item => Settings.NavPaneWidth = item); }
-    public double StartupWidth { get => Settings.StartupWidth; set => SetSetting(Settings.StartupWidth, value, item => Settings.StartupWidth = item); }
-    public double StartupHeight { get => Settings.StartupHeight; set => SetSetting(Settings.StartupHeight, value, item => Settings.StartupHeight = item); }
+    public double StartupWidth { get => Services.MainWindowService.NormalizeSize(Settings.StartupWidth, Settings.StartupHeight).Width; set => SetSetting(Settings.StartupWidth, value, item => Settings.StartupWidth = item); }
+    public double StartupHeight { get => Services.MainWindowService.NormalizeSize(Settings.StartupWidth, Settings.StartupHeight).Height; set => SetSetting(Settings.StartupHeight, value, item => Settings.StartupHeight = item); }
     public int SponsorAccentColorIndex { get => Settings.SponsorAccentColorIndex; set => SetSetting(Settings.SponsorAccentColorIndex, value, item => Settings.SponsorAccentColorIndex = item); }
     public int SponsorBackdropIndex { get => Settings.SponsorBackdropIndex; set => SetSetting(Settings.SponsorBackdropIndex, value, item => Settings.SponsorBackdropIndex = item); }
     public string SponsorTitleText { get => Settings.SponsorTitleText; set => SetSetting(Settings.SponsorTitleText, value ?? string.Empty, item => Settings.SponsorTitleText = item); }

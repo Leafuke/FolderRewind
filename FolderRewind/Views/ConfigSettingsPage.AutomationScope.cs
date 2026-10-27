@@ -18,6 +18,27 @@ namespace FolderRewind.Views
     {
         private readonly List<string> _monthOptions = new();
         private readonly List<string> _dayOptions = new();
+        public static string ScheduleHourName(string time) => I18n.Format("Schedule_HourName", time);
+        public static string ScheduleMinuteName(string time) => I18n.Format("Schedule_MinuteName", time);
+        public static string ScheduleDeleteName(string time) => I18n.Format("Schedule_DeleteName", time);
+        public static string ScheduleMonthName(string time) => I18n.Format("Schedule_MonthName", time);
+        public static string ScheduleDayName(string time) => I18n.Format("Schedule_DayName", time);
+        private void OnScheduleNumberLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not NumberBox box) return;
+            box.ApplyTemplate();
+            LabelEditor(box, box);
+            static void LabelEditor(DependencyObject node, NumberBox label)
+            {
+                if (node is TextBox editor)
+                {
+                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetLabeledBy(editor, label);
+                    return;
+                }
+                for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(node); i++)
+                    LabelEditor(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(node, i), label);
+            }
+        }
 
         private void InitializeScheduleUI()
         {

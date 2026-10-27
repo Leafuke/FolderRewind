@@ -341,15 +341,13 @@ namespace FolderRewind
             if (settings == null) return;
 
             // 配置可被手动编辑，这里做一次保护性收敛，避免出现极端尺寸导致窗口异常。
-            double width = Math.Clamp(settings.StartupWidth, 640, 3840);
-            double height = Math.Clamp(settings.StartupHeight, 480, 2160);
 
             try
             {
                 var appWindow = window.AppWindow;
                 if (appWindow != null)
                 {
-                    appWindow.Resize(new SizeInt32((int)Math.Round(width), (int)Math.Round(height)));
+                    MainWindowService.ApplySize(window, settings.StartupWidth, settings.StartupHeight);
                 }
             }
             catch
