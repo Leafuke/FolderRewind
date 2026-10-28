@@ -4,7 +4,7 @@ namespace FolderRewind.Services
 {
     public interface INavigationHost
     {
-        void NavigateTo(string pageTag, object? parameter = null);
+        bool NavigateTo(string pageTag, object? parameter = null);
     }
 
     public static class NavigationService
@@ -68,8 +68,7 @@ namespace FolderRewind.Services
                 return false;
             }
 
-            host.NavigateTo(pageTag, parameter);
-            return true;
+            return host.NavigateTo(pageTag, parameter);
         }
     }
 }

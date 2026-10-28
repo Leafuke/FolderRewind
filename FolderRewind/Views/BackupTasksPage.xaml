@@ -17,10 +17,14 @@
             <TextBlock x:Uid="BackupTasksPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <TextBlock Text="{x:Bind ViewModel.TaskSummary, Mode=OneWay}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <InfoBar x:Uid="NotificationCenter_TaskFilter" IsClosable="False" Severity="Informational"
+                     IsOpen="{x:Bind ViewModel.IsFiltered, Mode=OneWay}">
+                <InfoBar.ActionButton><Button x:Uid="NotificationCenter_ShowAllTasks" Click="OnShowAllTasks" AutomationProperties.AutomationId="NotificationShowAllTasks"/></InfoBar.ActionButton>
+            </InfoBar>
         </StackPanel>
 
         <!-- 绑定到 Service 的静态列表 -->
-        <ListView Grid.Row="1" SelectionMode="None" ItemsSource="{x:Bind ViewModel.TasksView, Mode=OneWay}">
+        <ListView x:Name="TaskList" Grid.Row="1" SelectionMode="None" ItemsSource="{x:Bind ViewModel.TasksView, Mode=OneWay}" AutomationProperties.AutomationId="BackupTaskList">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>

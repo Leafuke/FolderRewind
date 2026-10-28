@@ -19,6 +19,7 @@ namespace FolderRewind.Models
         public string Message { get; set; } = string.Empty;
         public string? Source { get; set; }
         public string? Exception { get; set; }
+        public string? OperationId { get; set; }
     }
 
     public class LogOptions

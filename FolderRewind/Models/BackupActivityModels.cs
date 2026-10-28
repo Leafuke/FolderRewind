@@ -7,6 +7,11 @@ namespace FolderRewind.Models
 {
     public class BackupTask : ObservableObject
     {
+        [JsonIgnore] public string TaskId { get; } = System.Guid.NewGuid().ToString("N");
+        [JsonIgnore] public string? OperationId { get; init; }
+        [JsonIgnore] public string? ConfigId { get; init; }
+        [JsonIgnore] public string? FolderId { get; init; }
+        [JsonIgnore] public string? JobId { get; init; }
         private string _folderName = string.Empty;
         private double _progress;
         private string _status = string.Empty;

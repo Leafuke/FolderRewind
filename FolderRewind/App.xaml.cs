@@ -116,6 +116,7 @@ namespace FolderRewind
                 }
 
                 // 注册系统级 AppNotification 激活事件处理（仅在打包且支持时注册 COM 激活）
+                NotificationNavigationService.Initialize(RestoreWindowFromTray);
                 try
                 {
                     if (Services.AppRuntimeInfo.IsPackaged && Microsoft.Windows.AppNotifications.AppNotificationManager.IsSupported())
@@ -537,26 +538,7 @@ namespace FolderRewind
             Microsoft.Windows.AppNotifications.AppNotificationManager sender,
             Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs args)
         {
-            var window = _window;
-            if (window?.DispatcherQueue == null) return;
-
-            window.DispatcherQueue.TryEnqueue(() =>
-            {
-                try
-                {
-                    RestoreWindowFromTray();
-
-                    if (args.Arguments.TryGetValue("target", out var target) && !string.IsNullOrWhiteSpace(target))
-                    {
-                        args.Arguments.TryGetValue("param", out var param);
-                        Services.NavigationService.NavigateTo(target, param);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogService.Log($"[AppNotification] Failed to handle notification invoked: {ex.Message}");
-                }
-            });
+            NotificationNavigationService.QueueActivation(args.Arguments);
         }
 
         private async void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)

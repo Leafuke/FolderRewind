@@ -51,11 +51,18 @@ internal sealed class ShellNotificationPresenter : IDisposable
                     return;
                 }
                 var replacesCurrent = false;
+                var replacesQueued = false;
                 if (request.Correlation is { } correlation)
                 {
-                    _infoBarQueue.RemoveWhere(item => item.Correlation?.Group == correlation.Group);
+                    _infoBarQueue.RemoveWhere(item =>
+                    {
+                        if (item.Correlation?.Group != correlation.Group) return false;
+                        replacesQueued = true;
+                        return true;
+                    });
                     replacesCurrent = _currentNotification?.Correlation?.Group == correlation.Group;
                 }
+                if (request.IsQuietUpdate && !replacesCurrent && !replacesQueued) return;
                 if (_currentNotification == null && !GlobalInfoBar.IsOpen)
                 {
                     DisplayNotification(request);
@@ -114,7 +121,7 @@ internal sealed class ShellNotificationPresenter : IDisposable
             };
 
             // 如果有操作回调，添加操作按钮
-            if (request.Action != null)
+            if (request.Action != null || request.RecordId != null)
             {
                 var actionButton = new Button
                 {
@@ -128,7 +135,14 @@ internal sealed class ShellNotificationPresenter : IDisposable
                     GlobalInfoBar.IsOpen = false;
                     try
                     {
-                        request.Action?.Invoke();
+                        if (request.RecordId is { } id)
+                        {
+                            NotificationCenterService.MarkRead(id);
+                            if (request.Action is not null) request.Action.Invoke();
+                            else if (request.Target is { Kind: not NotificationTargetKind.None }) NotificationNavigationService.Open(request.Target);
+                            else NotificationNavigationService.RequestDetails(id);
+                        }
+                        else request.Action?.Invoke();
                     }
                     catch (Exception ex)
                     {

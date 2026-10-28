@@ -337,6 +337,8 @@ namespace FolderRewind.Services
             // 1. 创建任务对象并确保在 UI 线程添加到集合
             var task = new BackupTask
             {
+                OperationId = NotificationOperationScope.Current?.OperationId,
+                ConfigId = config.Id, FolderId = folder.Id,
                 FolderName = folder.DisplayName,
                 Status = I18n.Format("BackupService_Task_Preparing"),
                 Progress = 0

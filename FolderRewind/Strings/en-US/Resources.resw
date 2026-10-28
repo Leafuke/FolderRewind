@@ -2430,7 +2430,7 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Enable notifications</value>
   </data>
   <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
-    <value>Show in-app notifications and system alerts</value>
+    <value>Controls banners, system alerts, completion sounds, and unread badges. Key results from this session remain available in the notification center when disabled.</value>
   </data>
   <data name="Notification_Success_Title" xml:space="preserve">
     <value>Success</value>
@@ -7701,4 +7701,35 @@ Location: {2}
   <data name="CloudRecovery_Cancel.AutomationProperties.Name" xml:space="preserve"><value>Cancel the current cloud check, read, or recovery</value></data>
   <data name="SettingsProject_ReloadChangesBody" xml:space="preserve"><value>Reloading will discard the unsaved edits to: {0}. The latest project settings will then be shown.</value></data>
   <data name="SettingsProject_ReloadNoChangesBody" xml:space="preserve"><value>There are no unsaved edits on this page. Reload to show the latest project settings.</value></data>
+  <data name="NotificationCenter_Title.Text" xml:space="preserve"><value>Notifications</value></data>
+  <data name="NotificationCenter_SessionHint.Text" xml:space="preserve"><value>The latest 500 results from this session. Read does not mean resolved.</value></data>
+  <data name="NotificationCenter_Bell.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open notification center</value></data>
+  <data name="NotificationCenter_Close.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Close notification center</value></data>
+  <data name="NotificationCenter_Filter.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Filter notifications</value></data>
+  <data name="NotificationCenter_List.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Notifications. Select an item to view details.</value></data>
+  <data name="NotificationCenter_All.Content" xml:space="preserve"><value>All</value></data>
+  <data name="NotificationCenter_UnreadFilter.Content" xml:space="preserve"><value>Unread</value></data>
+  <data name="NotificationCenter_MarkAllRead.Content" xml:space="preserve"><value>Mark all read</value></data>
+  <data name="NotificationCenter_Read" xml:space="preserve"><value>Read</value></data>
+  <data name="NotificationCenter_Unread" xml:space="preserve"><value>Unread</value></data>
+  <data name="NotificationCenter_Empty.Text" xml:space="preserve"><value>No matching notifications</value></data>
+  <data name="NotificationCenter_OpenTarget.Content" xml:space="preserve"><value>Open related item</value></data>
+  <data name="NotificationCenter_OpenLogs.Content" xml:space="preserve"><value>View related logs</value></data>
+  <data name="NotificationCenter_CloseDetails.Content" xml:space="preserve"><value>Close details</value></data>
+  <data name="NotificationCenter_TargetUnavailable" xml:space="preserve"><value>The related record was removed or belongs to a previous session. Its result summary remains available in notification details.</value></data>
+  <data name="NotificationCenter_RestoreWarning" xml:space="preserve"><value>“{0}” was restored with warnings. View the details for required follow-up.</value></data>
+  <data name="NotificationCenter_BackupTitle" xml:space="preserve"><value>Backup result</value></data>
+  <data name="NotificationCenter_BatchRunningFailure" xml:space="preserve"><value>“{0}” is still processing. {1} of {2} items have failed.</value></data>
+  <data name="NotificationCenter_BatchSummary" xml:space="preserve"><value>{0} · {1}
+New backups {2} · Unchanged {3} · With warnings {4} · Failed {5}</value></data>
+  <data name="NotificationCenter_Result_Success" xml:space="preserve"><value>Completed</value></data>
+  <data name="NotificationCenter_Result_Warning" xml:space="preserve"><value>Completed with warnings</value></data>
+  <data name="NotificationCenter_Result_NoChanges" xml:space="preserve"><value>No changes</value></data>
+  <data name="NotificationCenter_Result_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="NotificationCenter_Result_Failed" xml:space="preserve"><value>Failed or blocked</value></data>
+  <data name="NotificationCenter_Result_RecoveryRequired" xml:space="preserve"><value>Recovery required</value></data>
+  <data name="NotificationCenter_TaskFilter.Message" xml:space="preserve"><value>Showing tasks related to this notification</value></data>
+  <data name="NotificationCenter_ShowAllTasks.Content" xml:space="preserve"><value>Show all tasks</value></data>
+  <data name="NotificationCenter_LogFilter.Message" xml:space="preserve"><value>Showing session logs for this operation. Older entries may be available in the log files.</value></data>
+  <data name="NotificationCenter_ShowAllLogs.Content" xml:space="preserve"><value>Show all logs</value></data>
 </root>

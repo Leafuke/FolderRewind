@@ -30,6 +30,7 @@ namespace FolderRewind.Views
         public ShellPage()
         {
             this.InitializeComponent();
+            InitializeNotificationCenter();
             _startup = new(() => XamlRoot);
             _notifications = new(GlobalInfoBar, TasksRunningInfoBadge, DispatcherQueue);
             // ShellPage 是当前唯一导航宿主，供 ViewModel/Service 发起跨页跳转。
@@ -47,11 +48,13 @@ namespace FolderRewind.Views
         {
             // 页面卸载时要撤销宿主与事件订阅，避免下次重建后出现重复回调。
             NavigationService.Clear(this);
+            NotificationNavigationService.SetReady(false);
             Loaded -= ShellPage_Loaded;
             ViewModel.Dispose();
 
             _startup.Dispose();
             _notifications.Dispose();
+            DisposeNotificationCenter();
 
             Unloaded -= ShellPage_Unloaded;
         }
@@ -104,6 +107,7 @@ namespace FolderRewind.Views
                 Bindings.Update();
 
                 NavigateTo("Home");
+                NotificationNavigationService.SetReady(true);
 
                 TaskObserver.Observe(_startup.StartAsync(), nameof(ShellPage));
                 TaskObserver.Observe(ContinueMigrationAfterRestartAsync(), nameof(ShellPage));
@@ -122,7 +126,7 @@ namespace FolderRewind.Views
         }
 
         // 公开方法：允许外部强制跳转，并同步选中项
-        public void NavigateTo(string pageTag, object? parameter = null)
+        public bool NavigateTo(string pageTag, object? parameter = null)
         {
             Type? pageType = pageTag switch
             {
@@ -154,7 +158,7 @@ namespace FolderRewind.Views
                     // 同页重复点击时不重建页面，只纠正导航栏选中态和标题。
                     UpdateNavSelection(pageTag);
                     UpdatePageHeader(pageTag);
-                    return;
+                    return true;
                 }
 
                 // 1. 执行跳转
@@ -165,7 +169,7 @@ namespace FolderRewind.Views
                     // NavigationView completes its selection event after this callback. Reapply
                     // the actual page then so a canceled settings navigation cannot select Home.
                     DispatcherQueue.TryEnqueue(() => UpdateNavSelection(GetPageTagFromType(ContentFrame.SourcePageType) ?? ""));
-                    return;
+                    return false;
                 }
 
                 // 2. 同步左侧导航栏的选中状态 (解决你提到的不同步问题)
@@ -173,7 +177,9 @@ namespace FolderRewind.Views
 
                 // 3. 同步页面标题区状态。
                 UpdatePageHeader(pageTag);
+                return true;
             }
+            return false;
         }
 
         private void UpdatePageHeader(string pageTag)

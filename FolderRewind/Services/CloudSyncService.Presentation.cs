@@ -23,7 +23,12 @@ public static partial class CloudSyncService
             var phase = I18n.GetString("CloudJob_Phase_" + job.Phase);
             var request = new InAppNotificationRequest
             {
-                Correlation = new("cloud:" + job.ProjectId, job.JobId, job.CreatedUtc, job.UpdatedUtc ?? DateTimeOffset.UtcNow),
+                Correlation = new("cloud:" + job.ProjectId + ":" + job.JobId, job.JobId, job.CreatedUtc, job.UpdatedUtc ?? DateTimeOffset.UtcNow),
+                RecordId = "cloud:" + job.JobId,
+                Target = new(NotificationTargetKind.CloudProject, job.JobId, config?.Id ?? job.ProjectId, JobId: job.JobId),
+                KeepInCenter = success || failed || job.Phase is CloudJobPhase.Canceled or CloudJobPhase.Aborted,
+                ResultKey = job.Phase + ":" + CloudCommandSecurity.Redact(job.Diagnostic),
+                Details = CloudCommandSecurity.Redact(job.Diagnostic),
                 Title = I18n.Format("CloudNotice_Title", config?.Name ?? job.ProjectId, phase),
                 Message = I18n.Format("CloudNotice_Body", UserDisplayFormatter.LongDateTime((job.UpdatedUtc ?? job.CreatedUtc).LocalDateTime),
                     job.JobId[..8], failed ? CloudFailurePresentation.Message(CloudFailurePresentation.Kind("", job.Diagnostic)) : phase),
@@ -31,8 +36,7 @@ public static partial class CloudSyncService
                     ? NotificationSeverity.Informational : NotificationSeverity.Warning,
                 AutoCloseMs = failed ? 10000 : 5000,
                 ActionText = I18n.GetString("CloudNotice_ViewTask"),
-                Action = () => NavigationService.NavigateTo("CloudProject", new CloudSetupNavigationParameter(config?.Id ?? job.ProjectId,
-                    Intent: CloudSetupIntent.ProjectStatus, JobId: job.JobId))
+                ToastOnlyInBackground = success
             };
             if (failed)
             {
@@ -45,7 +49,8 @@ public static partial class CloudSyncService
             }
             else
             {
-                NotificationService.ShowInfoBar(request);
+                if (success) NotificationService.ShowNotification(request, NotificationImportance.Info);
+                else NotificationService.ShowInfoBar(request);
             }
         }
         catch (Exception error) { LogService.LogWarning(CloudCommandSecurity.Redact(error.Message), nameof(CloudSyncService)); }
@@ -65,7 +70,11 @@ public static partial class CloudSyncService
             var now = DateTimeOffset.UtcNow;
             NotificationService.ShowInfoBar(new InAppNotificationRequest
             {
-                Correlation = new("cloud-display:" + job.ProjectId, job.JobId, job.CreatedUtc, now),
+                Correlation = new("cloud-display:" + job.ProjectId + ":" + job.JobId, job.JobId, job.CreatedUtc, now),
+                RecordId = "cloud-display:" + job.JobId, KeepInCenter = true,
+                ResultKey = "display-publish-failed:" + CloudCommandSecurity.Redact(error.Message),
+                Details = CloudCommandSecurity.Redact(error.Message),
+                Target = new(NotificationTargetKind.CloudProject, job.JobId, config.Id, JobId: job.JobId),
                 Title = I18n.GetString("Notification_Warning_Title"),
                 Message = I18n.Format("CloudNotice_Body", UserDisplayFormatter.LongDateTime(now.LocalDateTime), job.JobId[..8],
                     I18n.Format("CloudRecovery_DisplayPublishFailed", config.Name)),

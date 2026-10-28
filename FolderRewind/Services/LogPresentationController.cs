@@ -16,6 +16,7 @@ internal sealed class LogPresentationController
     private bool _active;
     private string _keyword = string.Empty;
     private LogLevel? _level;
+    private string? _operationId;
     private long _discardThrough;
 
     public LogPresentationController(int capacity = 5000)
@@ -105,7 +106,14 @@ internal sealed class LogPresentationController
     private void RefreshFiltered() => FilteredEntries.ReplaceAll(_entries.Where(Passes));
 
     private bool Passes(LogEntry entry)
-        => (!_level.HasValue || entry.Level == _level)
+        => (_operationId is null || entry.OperationId == _operationId)
+            && (!_level.HasValue || entry.Level == _level)
             && (string.IsNullOrWhiteSpace(_keyword)
                 || $"{entry.Message} {entry.Exception} {entry.Source}".Contains(_keyword, StringComparison.OrdinalIgnoreCase));
+
+    public void SetOperationFilter(string? operationId)
+    {
+        _operationId = operationId;
+        RefreshFiltered();
+    }
 }

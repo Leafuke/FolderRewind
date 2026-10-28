@@ -26,8 +26,8 @@
             </Border.Background>
         </Border>
 
+        <Grid Grid.Row="0" Height="44" ColumnDefinitions="*,Auto,Auto">
         <Border x:Name="AppTitleBar"
-                Grid.Row="0"
                 Height="44"
                 Background="Transparent"
             Padding="12,0,12,0"
@@ -47,6 +47,18 @@
                            TextTrimming="CharacterEllipsis" />
             </Grid>
         </Border>
+        <Button x:Name="NotificationBell" Grid.Column="1" x:Uid="NotificationCenter_Bell"
+                VerticalAlignment="Center" Margin="4,0,12,0" Click="OnNotificationBellClick"
+                AutomationProperties.AutomationId="NotificationBell">
+            <Grid>
+                <FontIcon Glyph="&#xE7F4;"/>
+                <InfoBadge Value="{x:Bind NotificationCenter.ViewModel.BadgeCount, Mode=OneWay, FallbackValue=0}" Margin="12,-8,-8,0"
+                           VerticalAlignment="Top" HorizontalAlignment="Right"
+                           Visibility="{x:Bind NotificationCenter.ViewModel.HasBadge, Mode=OneWay, Converter={StaticResource BoolToVisConverter}, FallbackValue=Collapsed}"/>
+            </Grid>
+        </Button>
+        <Border x:Name="CaptionButtonInset" Grid.Column="2"/>
+        </Grid>
 
         <!-- 全局 InfoBar 通知区域 -->
         <InfoBar x:Name="GlobalInfoBar"
@@ -58,8 +70,13 @@
                  PointerEntered="GlobalInfoBar_PointerEntered"
                  PointerExited="GlobalInfoBar_PointerExited" />
 
+        <SplitView x:Name="NotificationSplitView" Grid.Row="2" PanePlacement="Right" DisplayMode="Overlay"
+                   OpenPaneLength="420" IsPaneOpen="False" SizeChanged="OnNotificationAreaSizeChanged"
+                   PaneClosed="OnNotificationPaneClosed" KeyDown="OnNotificationKeyDown">
+            <SplitView.Pane>
+                <controls:NotificationCenterControl x:Name="NotificationCenter" CloseRequested="OnNotificationCloseRequested"/>
+            </SplitView.Pane>
         <NavigationView x:Name="NavView"
-                        Grid.Row="2"
                         Background="Transparent"
                         x:Uid="ShellPage_Header"
                         PaneDisplayMode="Auto"
@@ -118,5 +135,6 @@
 
             <Frame x:Name="ContentFrame" CacheSize="2" />
         </NavigationView>
+        </SplitView>
     </Grid>
 </Page>

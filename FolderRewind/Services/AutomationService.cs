@@ -725,7 +725,8 @@ namespace FolderRewind.Services
                 try
                 {
                     LogService.Log(I18n.Format("AutoBackup_Log_Failed", config.Name, ex.Message));
-                    NotificationService.ShowError(I18n.Format("AutoBackup_Notification_Failed", config.Name, ex.Message));
+                    if (!NotificationService.WasExceptionReported(ex))
+                        NotificationService.ShowError(I18n.Format("AutoBackup_Notification_Failed", config.Name, ex.Message));
                 }
                 catch
                 {
@@ -769,11 +770,14 @@ namespace FolderRewind.Services
 
             try
             {
-                NotificationService.ShowImportant(
-                    I18n.Format(
-                        "AutoBackup_StoppedNoChanges",
-                        config.Name,
-                        config.Automation.ConsecutiveNoChangeCount.ToString()));
+                NotificationService.ShowNotification(new InAppNotificationRequest
+                {
+                    Title = I18n.GetString("Notification_Important_Title"),
+                    Message = I18n.Format("AutoBackup_StoppedNoChanges", config.Name,
+                        config.Automation.ConsecutiveNoChangeCount.ToString()),
+                    Severity = NotificationSeverity.Warning,
+                    Target = new(NotificationTargetKind.Configuration, ConfigId: config.Id)
+                }, NotificationImportance.Important);
             }
             catch
             {

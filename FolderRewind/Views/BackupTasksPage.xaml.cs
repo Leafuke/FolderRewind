@@ -40,8 +40,19 @@ namespace FolderRewind.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            var target = (e.Parameter as NotificationNavigationParameter)?.Target;
+            ViewModel.SetNotificationFilter(target?.OperationId, target?.TaskId);
             ViewModel.Activate();
+            if (target is not null)
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (ViewModel.TasksView.Count == 0) { NotificationNavigationService.Unavailable(); return; }
+                    TaskList.ScrollIntoView(ViewModel.TasksView[0]);
+                    TaskList.Focus(FocusState.Programmatic);
+                });
         }
+
+        private void OnShowAllTasks(object sender, RoutedEventArgs e) => ViewModel.SetNotificationFilter(null, null);
 
         /// <summary>
         /// 离开页面时取消订阅，防止内存泄漏。

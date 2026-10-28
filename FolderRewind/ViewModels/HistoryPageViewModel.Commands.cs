@@ -626,6 +626,8 @@ public sealed partial class HistoryPageViewModel
         }
 
         SetOperationStatus("Restore_Progress");
+        if (NotificationOperationScope.Current is { } notification)
+            notification.Target = notification.Target with { ConfigId = config.Id, FolderId = folder.Id, VersionId = item.VersionId.ToString() };
         var result = await NativeHistoryApplicationService.RestoreVersionAsync(
             config,
             folder,
@@ -636,7 +638,7 @@ public sealed partial class HistoryPageViewModel
         _interactions.NotifyRestoreCompleted(
             folder.DisplayName,
             result?.Succeeded == true,
-            result?.Succeeded == true ? null : NormalizeDiagnostic(result?.Diagnostic));
+            result?.Succeeded == true ? RestoreWarningDetail(result) : NormalizeDiagnostic(result?.Diagnostic));
     }
 
     private Task RestoreRunCommandAsync(BackupRunViewItem? item, CancellationToken cancellationToken)
@@ -666,9 +668,11 @@ public sealed partial class HistoryPageViewModel
         if (mode is null) return;
 
         SetOperationStatus("Restore_Progress");
+        if (NotificationOperationScope.Current is { } notification)
+            notification.Target = notification.Target with { ConfigId = config.Id, FolderId = null, RunId = item.RunId.ToString() };
         var result = await NativeHistoryApplicationService.RestoreRunAsync(config, item.RunId,
             selectedIds.ToArray(), mode.Value, cancellationToken);
-        _interactions.NotifyRestoreCompleted(config.Name, result.Succeeded, NormalizeDiagnostic(result.Diagnostic));
+        _interactions.NotifyRestoreCompleted(config.Name, result.Succeeded, result.Succeeded ? RestoreWarningDetail(result) : NormalizeDiagnostic(result.Diagnostic));
         if (result.Succeeded) await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
@@ -679,9 +683,11 @@ public sealed partial class HistoryPageViewModel
         if (!await _interactions.ConfirmAsync(I18n.GetString("History_Run_RestoreSource"),
             I18n.Format("History_Run_RestoreSourceConfirm", item.Name, item.VersionDisplay, item.BranchName),
             I18n.GetString("Common_Ok"), true, token)) return;
+        if (NotificationOperationScope.Current is { } notification)
+            notification.Target = notification.Target with { ConfigId = config.Id, FolderId = item.SourceId.ToString(), RunId = item.RunId.ToString() };
         var result = await NativeHistoryApplicationService.RestoreRunAsync(config, item.RunId,
             [item.SourceId], BackupService.RestoreMode.Clean, token);
-        _interactions.NotifyRestoreCompleted(item.Name, result.Succeeded, NormalizeDiagnostic(result.Diagnostic));
+        _interactions.NotifyRestoreCompleted(item.Name, result.Succeeded, result.Succeeded ? RestoreWarningDetail(result) : NormalizeDiagnostic(result.Diagnostic));
         if (result.Succeeded) await RefreshCurrentHistoryAsync(token);
     }
 
@@ -1047,6 +1053,10 @@ public sealed partial class HistoryPageViewModel
             return;
         }
 
+        using var notificationOperation = new NotificationOperationScope(new(NotificationTargetKind.History,
+            ConfigId: _currentConfig?.Id, FolderId: _currentFolder?.Id));
+        var isRestore = operationName.Contains("restore", StringComparison.OrdinalIgnoreCase);
+
         SetOperationStatus("History_OperationProgress");
         NotifyCommandStateChanged();
         OnPropertyChanged(nameof(IsOperationBusy));
@@ -1057,10 +1067,18 @@ public sealed partial class HistoryPageViewModel
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            if (isRestore && !notificationOperation.ResultReported)
+                NotificationService.ShowInfoBar(new InAppNotificationRequest
+                {
+                    Title = I18n.GetString("Notification_RestoreCompleted_Title"),
+                    Message = I18n.GetString("NotificationCenter_Result_Canceled"), KeepInCenter = true,
+                    Target = notificationOperation.Target, ResultKey = "canceled"
+                });
         }
         catch (Exception ex)
         {
             ReportOperationFailure(operationName, ex);
+            if (isRestore && !notificationOperation.ResultReported) NotificationService.ShowError(NormalizeDiagnostic(ex.Message));
         }
         finally
         {
@@ -1069,6 +1087,10 @@ public sealed partial class HistoryPageViewModel
             NotifyCommandStateChanged();
         }
     }
+
+    private static string? RestoreWarningDetail(HistoryRestoreResult result)
+        => result.Status == HistoryRestoreStatus.CommittedWithPostActionWarning
+            ? NormalizeDiagnostic(result.PostActionDiagnostic ?? result.Diagnostic) : null;
 
     private void NotifyCommandStateChanged()
     {

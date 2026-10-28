@@ -186,6 +186,17 @@ public sealed partial class HistoryPage : Page
         _legacyNoticeActive = true;
         base.OnNavigatedTo(e);
 
+        if (e.Parameter is NotificationNavigationParameter notification)
+        {
+            try { await OpenNotificationTargetAsync(notification.Target); }
+            catch (Exception error)
+            {
+                LogService.LogError("Could not locate notification history target.", nameof(HistoryPage), error);
+                NotificationNavigationService.Unavailable();
+            }
+            return;
+        }
+
         var returnContext = e.Parameter as HistoryReturnContext ?? (e.NavigationMode == NavigationMode.Back ? _mergeReturnContext : null);
         if (returnContext is not null)
         {

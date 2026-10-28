@@ -98,7 +98,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", command, ex.Message), "KnotLink", ex);
-                NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                if (!NotificationService.WasExceptionReported(ex)) NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
                 if (context.Metadata.HasConversation)
                 {
                     BroadcastCommandLifecycle(context, "command_failed", new Dictionary<string, string?>
@@ -375,7 +375,7 @@ namespace FolderRewind.Services
                 catch (Exception ex)
                 {
                     LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, ex.Message), "KnotLink", ex);
-                    NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                    if (!NotificationService.WasExceptionReported(ex)) NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
                     BroadcastCommandLifecycle(context, "command_failed", new Dictionary<string, string?>
                     {
                         ["reason"] = "exception",
@@ -465,7 +465,7 @@ namespace FolderRewind.Services
                 catch (Exception ex)
                 {
                     LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, ex.Message), "KnotLink", ex);
-                    NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                    if (!NotificationService.WasExceptionReported(ex)) NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
                     BroadcastRestoreFailure(context, config!.Id, folder!.DisplayName, "exception", ex.Message);
                 }
             });
@@ -534,7 +534,7 @@ namespace FolderRewind.Services
                 catch (Exception ex)
                 {
                     LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, ex.Message), "KnotLink", ex);
-                    NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                    if (!NotificationService.WasExceptionReported(ex)) NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
                     BroadcastEvent(context, "backup_all_failed", new Dictionary<string, string?>
                     {
                         ["config"] = config.Id,
@@ -618,7 +618,7 @@ namespace FolderRewind.Services
                         catch (Exception ex)
                         {
                             LogService.Log(I18n.Format("KnotLink_AutoBackupFailed", ex.Message));
-                            NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                            if (!NotificationService.WasExceptionReported(ex)) NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
                             BroadcastEvent(context, "auto_backup_error", new Dictionary<string, string?>
                             {
                                 ["config"] = config.Id,

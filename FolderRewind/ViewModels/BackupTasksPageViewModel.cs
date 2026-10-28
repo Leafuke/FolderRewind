@@ -11,6 +11,15 @@ namespace FolderRewind.ViewModels
         private bool _isActive;
         private bool _isEmpty = true;
         private int _taskCount;
+        private string? _operationId, _taskId;
+        public bool IsFiltered => _operationId is not null || _taskId is not null;
+
+        public void SetNotificationFilter(string? operationId, string? taskId)
+        {
+            _operationId = operationId; _taskId = taskId;
+            OnPropertyChanged(nameof(IsFiltered));
+            RefreshTasksView();
+        }
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
         public BatchObservableCollection<object> TasksView { get; } = new();
@@ -58,9 +67,11 @@ namespace FolderRewind.ViewModels
 
         private void RefreshTasksView()
         {
-            TasksView.Synchronize(BackupService.ActiveTasks.Cast<object>());
+            var tasks = BackupService.ActiveTasks.Where(t => _taskId is not null ? t.TaskId == _taskId
+                : _operationId is null || t.OperationId == _operationId).ToArray();
+            TasksView.Synchronize(tasks.Cast<object>());
 
-            TaskCount = BackupService.ActiveTasks.Count;
+            TaskCount = tasks.Length;
             IsEmpty = TaskCount == 0;
         }
     }

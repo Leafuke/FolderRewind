@@ -26,7 +26,16 @@ public sealed partial class CloudProjectPage : Page
         var id = (e.Parameter as CloudSetupNavigationParameter)?.ConfigId ?? (e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "";
         ViewModel.PropertyChanged += OnChanged;
         ViewModel.RequestedJobId = (e.Parameter as CloudSetupNavigationParameter)?.JobId;
-        await ViewModel.InitializeAsync(id); if (_active) Refresh();
+        await ViewModel.InitializeAsync(id);
+        if (_active)
+        {
+            Refresh();
+            if (ViewModel.RequestedJobId is { } requested && !ViewModel.Jobs.Any(j => j.JobId == requested))
+            {
+                ViewModel.SelectedJobIndex = -1;
+                NotificationNavigationService.Unavailable();
+            }
+        }
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     { _active = false; ViewModel.PropertyChanged -= OnChanged; ViewModel.Dispose(); base.OnNavigatedFrom(e); }

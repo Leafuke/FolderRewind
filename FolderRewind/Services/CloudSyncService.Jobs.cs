@@ -170,6 +170,8 @@ public static partial class CloudSyncService
     private static async Task<HistoryCloudBackupResult> ExecuteCloudJobAsync(HistoryRuntime runtime, HistoryCloudJob initial,
         CancellationToken token, string? explicitLocalPath = null)
     {
+        using var notificationOperation = new NotificationOperationScope(new(NotificationTargetKind.CloudProject,
+            initial.JobId, initial.ProjectId, JobId: initial.JobId));
         HistoryCloudBackupResult Incomplete(string code) => new([], initial.Representations, null, token.IsCancellationRequested, DateTimeOffset.UtcNow);
         await CommandSemaphore.WaitAsync(token).ConfigureAwait(false);
         if (_automaticSyncStopping) { CommandSemaphore.Release(); return Incomplete("cloud.job-exit-pending"); }
@@ -218,7 +220,8 @@ public static partial class CloudSyncService
                     throw new InvalidOperationException("[cloud.target-changed] " + I18n.GetString("CloudJob_TargetChanged"));
             };
             using var connection = new RcloneExecutionScope(context, owns: false);
-            task = JobTasks.GetOrAdd(job.JobId, _ => new BackupTask { FolderName = config.Name });
+            task = JobTasks.GetOrAdd(job.JobId, _ => new BackupTask
+            { FolderName = config.Name, OperationId = job.JobId, ConfigId = config.Id, JobId = job.JobId });
             await RunOnUIAsync(() =>
             {
                 if (!BackupService.ActiveTasks.Contains(task)) BackupService.ActiveTasks.Add(task);

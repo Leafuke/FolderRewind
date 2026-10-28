@@ -399,7 +399,7 @@ public sealed partial class HomePageViewModel
                 $"[HomePageViewModel] {operation} failed: {ex.Message}",
                 nameof(HomePageViewModel),
                 ex);
-            _interactions.NotifyError(ex.Message);
+            if (!NotificationService.WasExceptionReported(ex)) _interactions.NotifyError(ex.Message);
         }
         finally
         {
@@ -422,7 +422,7 @@ public sealed partial class HomePageViewModel
     internal void ReportInteractionFailure(Exception exception)
     {
         LogService.LogError("[HomePageViewModel] Interaction failed.", nameof(HomePageViewModel), exception);
-        _interactions.NotifyError(exception.Message);
+        if (!NotificationService.WasExceptionReported(exception)) _interactions.NotifyError(exception.Message);
     }
 
     internal async Task RunFormInteractionAsync(Func<CancellationToken, Task> interaction)

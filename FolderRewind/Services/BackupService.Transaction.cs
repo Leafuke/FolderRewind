@@ -97,7 +97,7 @@ public static partial class BackupService
     /// 7. 在 durable boundary 后执行终态处理、云同步排队与保留期清理，辅助失败只降级为 warning；
     /// 8. 保持 Failed/Blocked/Canceled 聚合结果不被 post-commit warning 覆盖；其余结果可降级为 SuccessWithWarnings。
     /// </summary>
-    internal static async Task<BackupTransactionExecutionResult> ExecuteBackupTransactionAsync(
+    private static async Task<BackupTransactionExecutionResult> ExecuteBackupTransactionCoreAsync(
         BackupConfig config,
         IReadOnlyList<ManagedFolder> requestedFolders,
         BackupInvocationOptions invocationOptions,
@@ -311,6 +311,8 @@ public static partial class BackupService
                     operationLease,
                     cancellationToken).ConfigureAwait(false);
                 sourceOutcomes.Add(outcome);
+                if (outcome.OperationOutcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.RecoveryRequired)
+                    BackupNotificationBatch.Current?.Failed(folder, outcome.ErrorMessage);
             }
 
             // 如果有被取消的 Source，执行回滚清理
@@ -480,7 +482,6 @@ public static partial class BackupService
                 hasPostCommitWarnings = true;
                 await AddPostCommitWarningAsync(config, requestedFolders, sourceOutcomes, "backup.post_commit_cloud_failed",
                     operationRuntime.CloudJobs.Diagnostic.ToString() ?? string.Empty).ConfigureAwait(false);
-                NotificationService.ShowWarning(I18n.GetString("CloudJob_RegistrationNeedsAttention"));
             }
         }
         catch (Exception ex)
@@ -751,7 +752,6 @@ public static partial class BackupService
                             ["file"] = completedReference,
                             ["has_warnings"] = sourceHasWarnings ? "true" : "false"
                         });
-                        if (!sourceHasWarnings) NotificationService.NotifyBackupCompleted(folder.DisplayName, true);
                     }
                     else
                     {
@@ -818,7 +818,7 @@ public static partial class BackupService
                         failureFields["pack_id"] = recoveryRequired.CommittedPackId.ToString();
                     }
                     BroadcastBackupEvent(configIndex, config, folder, "backup_failed", failureFields);
-                    NotificationService.NotifyBackupCompleted(folder.DisplayName, false, outcome.ErrorMessage);
+                    BackupNotificationBatch.Current?.Failed(folder, outcome.ErrorMessage);
                 }
                 await PublishSourceWarningsAsync(config, folder, outcome).ConfigureAwait(false);
             }
@@ -934,6 +934,6 @@ public static partial class BackupService
             ["error"] = "transaction_failed",
             ["message"] = errorMessage
         });
-        NotificationService.NotifyBackupCompleted(folder.DisplayName, false, errorMessage);
+        BackupNotificationBatch.Current?.Failed(folder, errorMessage);
     }
 }

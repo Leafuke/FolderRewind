@@ -42,6 +42,15 @@ namespace FolderRewind.Views
         {
             base.OnNavigatedTo(e);
             _isActive = true;
+            var operationId = (e.Parameter as LogNavigationParameter)?.OperationId;
+            _presentation.SetOperationFilter(operationId);
+            OperationFilterNotice.IsOpen = operationId is not null;
+            if (operationId is not null)
+            {
+                _keyword = string.Empty; _filterLevel = null;
+                SearchBox.Text = string.Empty; LevelFilter.SelectedIndex = 0;
+                _presentation.SetFilter(null, string.Empty);
+            }
 
             EnsureSubscribed();
 
@@ -134,6 +143,12 @@ namespace FolderRewind.Views
         {
             _keyword = SearchBox.Text ?? string.Empty;
             RefreshFiltered();
+        }
+
+        private void OnClearOperationFilter(object sender, RoutedEventArgs e)
+        {
+            _presentation.SetOperationFilter(null);
+            OperationFilterNotice.IsOpen = false;
         }
 
         private void OnLiveToggled(object sender, RoutedEventArgs e)

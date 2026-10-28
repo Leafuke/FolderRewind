@@ -317,12 +317,14 @@ internal sealed class ShellStartupService : IDisposable
                 };
 
                 if (_lifetime.IsCancellationRequested) return;
-                NotificationService.ShowInfoBar(
-                    I18n.GetString("ShellPage_FolderConflict_Title"),
-                    string.Join(Environment.NewLine, lines),
-                    NotificationSeverity.Warning,
-                    autoCloseMs: 0,
-                    action: () => TaskObserver.Observe(ShowConflictDetailDialogAsync(), nameof(ShellStartupService)));
+                NotificationService.ShowInfoBar(new InAppNotificationRequest
+                {
+                    RecordId = "configuration-conflicts", KeepInCenter = true,
+                    Title = I18n.GetString("ShellPage_FolderConflict_Title"), Message = string.Join(Environment.NewLine, lines),
+                    Severity = NotificationSeverity.Warning, AutoCloseMs = 0,
+                    Target = new(NotificationTargetKind.FolderManager),
+                    Action = () => TaskObserver.Observe(ShowConflictDetailDialogAsync(), nameof(ShellStartupService))
+                });
             }
             catch (Exception ex)
             {

@@ -44,6 +44,15 @@ namespace FolderRewind.Services
     public sealed class InAppNotificationRequest
     {
         public NotificationCorrelation? Correlation { get; set; }
+        public string? RecordId { get; set; }
+        public NotificationTarget? Target { get; set; }
+        public bool KeepInCenter { get; set; }
+        public string? Details { get; set; }
+        public string? ResultKey { get; set; }
+        public bool AlertOnce { get; set; }
+        public bool IsQuietUpdate { get; internal set; }
+        public bool ToastOnlyInBackground { get; set; }
+        public bool? CompletionSoundSuccess { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public NotificationSeverity Severity { get; set; } = NotificationSeverity.Informational;
@@ -78,6 +87,7 @@ namespace FolderRewind.Services
         // 应用内 InfoBar 回调（由 ShellPage 订阅）
         public static event Action<InAppNotificationRequest>? InfoBarRequested;
         internal static event Action? NotificationsCleared;
+        internal static event Action? SettingsChanged;
 
         // Badge 计数变更事件
         public static event Action<int>? BadgeCountChanged;
@@ -86,7 +96,6 @@ namespace FolderRewind.Services
         public static event Action<int>? RunningTaskCountChanged;
 
         // 当前 Badge 计数
-        private static int _badgeCount = 0;
         private static int _runningTaskCount = 0;
         private static int _suppressionCount = 0;
         private static bool _taskBadgeTrackingInitialized;
@@ -95,6 +104,11 @@ namespace FolderRewind.Services
         private static readonly LatestNotificationTracker LatestNotifications = new();
         private static int _notificationGeneration;
         internal static int NotificationGeneration => Volatile.Read(ref _notificationGeneration);
+        private const string ReportedExceptionKey = "FolderRewind.NotificationReported";
+        internal static bool WasExceptionReported(Exception error) => error.Data[ReportedExceptionKey] is true;
+        internal static void MarkExceptionReported(Exception error) => error.Data[ReportedExceptionKey] = true;
+
+        static NotificationService() => NotificationCenterService.Changed += RefreshBadgeVisualState;
 
         /// <summary>
         /// 当前是否启用通知（全局开关）
@@ -117,6 +131,7 @@ namespace FolderRewind.Services
                 {
                     ApplyBadgeVisualState();
                 }
+                SettingsChanged?.Invoke();
             }
         }
 
@@ -185,11 +200,42 @@ namespace FolderRewind.Services
         private static void PublishNotification(InAppNotificationRequest request, NotificationImportance? importance = null,
             IDictionary<string, string>? arguments = null, string? tag = null, string? group = null)
         {
+            try { PublishNotificationCore(request, importance, arguments, tag, group); }
+            catch (Exception error)
+            {
+                // Notification failures must not turn a committed backup/restore into a failed operation.
+                System.Diagnostics.Debug.WriteLine($"[NotificationService] Could not publish notification: {error}");
+            }
+        }
+
+        private static void PublishNotificationCore(InAppNotificationRequest request, NotificationImportance? importance,
+            IDictionary<string, string>? arguments, string? tag, string? group)
+        {
             if (request == null) return;
             // 关联过滤在所有渠道发送前执行，防止旧云结果只被 InfoBar 丢弃却仍发出 Toast。
             lock (NotificationLock)
             {
-                if (!IsNotificationEnabled || !LatestNotifications.Accept(request.Correlation)) return;
+                if (Volatile.Read(ref _suppressionCount) > 0 || NotificationOperationScope.Current?.IsInternal == true
+                    || !LatestNotifications.Accept(request.Correlation)) return;
+                request.Target ??= NotificationOperationScope.Current?.Target;
+                if (request.KeepInCenter || importance >= NotificationImportance.Important || request.Severity == NotificationSeverity.Error)
+                {
+                    var existingOperationId = request.RecordId is { } existingId ? NotificationCenterService.Find(existingId)?.Target?.OperationId : null;
+                    request.Target ??= new(NotificationTargetKind.None);
+                    if (request.Target.OperationId is null)
+                        request.Target = request.Target with { OperationId = existingOperationId ?? Guid.NewGuid().ToString("N") };
+                    request.RecordId ??= request.Target?.OperationId is { } operationId ? "operation:" + operationId : null;
+                    var publication = NotificationCenterService.Upsert(request, importance, IsNotificationEnabled);
+                    request.RecordId = publication.Record.Id;
+                    if (!publication.Changed) return;
+                    request.IsQuietUpdate = !publication.Alert;
+                    if (NotificationOperationScope.Current is { } scope) scope.ResultReported = true;
+                    LogService.Log(request.Title + ": " + request.Message,
+                        request.Severity == NotificationSeverity.Error ? LogLevel.Error
+                            : request.Severity == NotificationSeverity.Warning ? LogLevel.Warning : LogLevel.Info,
+                        nameof(NotificationService), operationId: request.Target?.OperationId);
+                }
+                if (!IsNotificationEnabled) return;
                 try
                 {
                     InfoBarRequested?.Invoke(request);
@@ -199,9 +245,15 @@ namespace FolderRewind.Services
                     LogService.LogError("Could not dispatch in-app notification.", nameof(NotificationService), error);
                 }
 
-                if (importance == NotificationImportance.Error) IncrementBadge();
-                if (importance is { } level && ShouldShowToast(level))
-                    ShowToast(request.Title, request.Message, arguments, tag, group, request.Severity);
+                if (!request.IsQuietUpdate)
+                {
+                    if (request.CompletionSoundSuccess is { } success) CompletionSoundService.PlayConfiguredCompletionSound(success);
+                    if (importance is { } level && ShouldShowToast(level)
+                        && (!request.ToastOnlyInBackground || !IsAppForeground()))
+                        ShowToast(request.Title, request.Message,
+                            request.RecordId is null ? arguments : NotificationNavigationService.ToArguments(request.RecordId, request.Target),
+                            request.RecordId ?? tag, group, request.Severity);
+                }
             }
         }
 
@@ -388,19 +440,10 @@ namespace FolderRewind.Services
         /// 设置 Badge 通知计数
         /// </summary>
         /// <param name="count">计数值，0 清除 Badge</param>
-        public static void SetBadgeCount(int count)
-        {
-            lock (NotificationLock)
-            {
-                _badgeCount = IsNotificationEnabled ? Math.Max(0, count) : 0;
-                ApplyBadgeVisualState();
-                BadgeCountChanged?.Invoke(_badgeCount);
-            }
-        }
-
         public static void RefreshBadgeVisualState()
         {
             ApplyBadgeVisualState();
+            BadgeCountChanged?.Invoke(IsNotificationEnabled ? GetBadgeCount() : 0);
         }
 
         private static void ApplyBadgeVisualState()
@@ -419,9 +462,9 @@ namespace FolderRewind.Services
                         Microsoft.Windows.BadgeNotifications.BadgeNotificationManager.Current.SetBadgeAsGlyph(
                             Microsoft.Windows.BadgeNotifications.BadgeNotificationGlyph.Activity);
                     }
-                    else if (_badgeCount > 0)
+                    else if (GetBadgeCount() > 0)
                     {
-                        Microsoft.Windows.BadgeNotifications.BadgeNotificationManager.Current.SetBadgeAsCount((uint)_badgeCount);
+                        Microsoft.Windows.BadgeNotifications.BadgeNotificationManager.Current.SetBadgeAsCount((uint)GetBadgeCount());
                     }
                     else
                     {
@@ -436,29 +479,17 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 增加 Badge 计数
-        /// </summary>
-        public static void IncrementBadge(int delta = 1)
-        {
-            lock (NotificationLock)
-            {
-                if (!IsNotificationEnabled) return;
-                SetBadgeCount((int)Math.Clamp((long)_badgeCount + delta, 0, int.MaxValue));
-            }
-        }
-
-        /// <summary>
         /// 清除 Badge
         /// </summary>
         public static void ClearBadge()
         {
-            SetBadgeCount(0);
+            RefreshBadgeVisualState();
         }
 
         /// <summary>
         /// 获取当前 Badge 计数
         /// </summary>
-        public static int GetBadgeCount() => Volatile.Read(ref _badgeCount);
+        public static int GetBadgeCount() => NotificationCenterService.UnreadCount;
 
         public static int GetRunningTaskCount() => _runningTaskCount;
 
@@ -467,33 +498,15 @@ namespace FolderRewind.Services
         /// </summary>
         public static void NotifyBackupCompleted(string folderName, bool success, string? errorMessage = null)
         {
-            if (!IsNotificationEnabled) return;
-
-            CompletionSoundService.PlayConfiguredCompletionSound(success);
-
-            if (success)
+            ShowNotification(new InAppNotificationRequest
             {
-                var message = I18n.Format("Notification_BackupCompleted_Success", folderName);
-                ShowSuccess(message);
-
-                // 成功通知仅在用户设为 All 且应用在后台时发 Toast
-                if (ShouldShowToast(NotificationImportance.Info) && !IsAppForeground())
-                {
-                    var args = new Dictionary<string, string> { ["target"] = "Home" };
-                    ShowToast(I18n.GetString("Notification_BackupCompleted_Title"), message, args, tag: $"backup_{folderName}");
-                }
-            }
-            else
-            {
-                var message = I18n.Format("Notification_BackupCompleted_Failed", folderName, errorMessage ?? "");
-                var resolvedTitle = I18n.GetString("Notification_BackupFailed_Title");
-                var args = new Dictionary<string, string> { ["target"] = "Tasks" };
-
-                ShowNotification(new InAppNotificationRequest
-                {
-                    Title = resolvedTitle, Message = message, Severity = NotificationSeverity.Error, AutoCloseMs = 8000
-                }, NotificationImportance.Error, args, tag: $"backup_{folderName}");
-            }
+                Title = I18n.GetString(success ? "Notification_BackupCompleted_Title" : "Notification_BackupFailed_Title"),
+                Message = success ? I18n.Format("Notification_BackupCompleted_Success", folderName)
+                    : I18n.Format("Notification_BackupCompleted_Failed", folderName, errorMessage ?? ""),
+                Severity = success ? NotificationSeverity.Success : NotificationSeverity.Error,
+                KeepInCenter = true, CompletionSoundSuccess = success, ToastOnlyInBackground = success,
+                Target = NotificationOperationScope.Current?.Target ?? new(NotificationTargetKind.Tasks)
+            }, success ? NotificationImportance.Info : NotificationImportance.Error);
         }
 
         /// <summary>
@@ -501,32 +514,18 @@ namespace FolderRewind.Services
         /// </summary>
         public static void NotifyRestoreCompleted(string folderName, bool success, string? errorMessage = null)
         {
-            if (!IsNotificationEnabled) return;
-
-            CompletionSoundService.PlayConfiguredCompletionSound(success);
-
-            if (success)
+            var warning = success && !string.IsNullOrWhiteSpace(errorMessage);
+            ShowNotification(new InAppNotificationRequest
             {
-                var message = I18n.Format("Notification_RestoreCompleted_Success", folderName);
-                ShowSuccess(message);
-
-                if (ShouldShowToast(NotificationImportance.Info) && !IsAppForeground())
-                {
-                    var args = new Dictionary<string, string> { ["target"] = "History" };
-                    ShowToast(I18n.GetString("Notification_RestoreCompleted_Title"), message, args, tag: $"restore_{folderName}");
-                }
-            }
-            else
-            {
-                var message = I18n.Format("Notification_RestoreCompleted_Failed", folderName, errorMessage ?? "");
-                var resolvedTitle = I18n.GetString("Notification_Error_Title");
-                var args = new Dictionary<string, string> { ["target"] = "History" };
-
-                ShowNotification(new InAppNotificationRequest
-                {
-                    Title = resolvedTitle, Message = message, Severity = NotificationSeverity.Error, AutoCloseMs = 8000
-                }, NotificationImportance.Error, args, tag: $"restore_{folderName}");
-            }
+                Title = I18n.GetString("Notification_RestoreCompleted_Title"),
+                Message = warning ? I18n.Format("NotificationCenter_RestoreWarning", folderName)
+                    : success ? I18n.Format("Notification_RestoreCompleted_Success", folderName)
+                    : I18n.Format("Notification_RestoreCompleted_Failed", folderName, errorMessage ?? ""),
+                Details = errorMessage, Severity = !success ? NotificationSeverity.Error
+                    : warning ? NotificationSeverity.Warning : NotificationSeverity.Success,
+                KeepInCenter = true, CompletionSoundSuccess = success, ToastOnlyInBackground = success && !warning,
+                Target = NotificationOperationScope.Current?.Target ?? new(NotificationTargetKind.History)
+            }, !success ? NotificationImportance.Error : warning ? NotificationImportance.Important : NotificationImportance.Info);
         }
 
         /// <summary>

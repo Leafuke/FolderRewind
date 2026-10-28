@@ -20,6 +20,9 @@
         <StackPanel Spacing="4">
             <TextBlock x:Uid="LogPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <TextBlock x:Uid="LogPage_Subtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+            <InfoBar x:Name="OperationFilterNotice" x:Uid="NotificationCenter_LogFilter" IsOpen="False" IsClosable="False" Severity="Informational">
+                <InfoBar.ActionButton><Button x:Uid="NotificationCenter_ShowAllLogs" Click="OnClearOperationFilter" AutomationProperties.AutomationId="NotificationShowAllLogs"/></InfoBar.ActionButton>
+            </InfoBar>
         </StackPanel>
         <Grid x:Name="LogToolbar" Grid.Row="1" ColumnSpacing="12" RowSpacing="8" SizeChanged="OnToolbarSizeChanged">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

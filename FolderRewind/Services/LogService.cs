@@ -139,7 +139,7 @@ namespace FolderRewind.Services
             TrimOldLogFiles();
         }
 
-        public static void Log(string message, LogLevel level = LogLevel.Info, string? source = null, Exception? exception = null)
+        public static void Log(string message, LogLevel level = LogLevel.Info, string? source = null, Exception? exception = null, string? operationId = null)
         {
             if (string.IsNullOrWhiteSpace(message) && exception == null) return;
 
@@ -149,7 +149,8 @@ namespace FolderRewind.Services
                 Level = level,
                 Message = message?.Trim() ?? string.Empty,
                 Source = source,
-                Exception = exception?.ToString()
+                Exception = exception?.ToString(),
+                OperationId = operationId ?? NotificationOperationScope.Current?.OperationId
             };
 
             lock (_lock)
@@ -303,6 +304,7 @@ namespace FolderRewind.Services
         {
             var level = entry.Level.ToString().ToUpperInvariant();
             var source = string.IsNullOrWhiteSpace(entry.Source) ? string.Empty : $"[{entry.Source}] ";
+            if (entry.OperationId is { } operationId) source += $"[operation:{operationId}] ";
             var exception = string.IsNullOrWhiteSpace(entry.Exception) ? string.Empty : $" | {entry.Exception}";
             return FormattableString.Invariant(
                 $"[{entry.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {source}{entry.Message}{exception}");

@@ -17,8 +17,6 @@ namespace FolderRewind
     {
         #region 常量与状态
 
-        private const double TitleBarHorizontalPadding = 12;
-
 
         #endregion
 
@@ -230,9 +228,8 @@ namespace FolderRewind
             // 预留系统标题栏按钮区域，避免覆盖自定义标题栏内容。
             if (ShellRoot?.AppTitleBarElement != null)
             {
-                var left = TitleBarHorizontalPadding + AppWindow.TitleBar.LeftInset;
-                var right = TitleBarHorizontalPadding + AppWindow.TitleBar.RightInset;
-                ShellRoot.AppTitleBarElement.Padding = new Thickness(left, 0, right, 0);
+                var scale = MainWindowService.GetWindowScale(this);
+                ShellRoot.SetTitleBarInsets(AppWindow.TitleBar.LeftInset / scale, AppWindow.TitleBar.RightInset / scale);
             }
         }
 
