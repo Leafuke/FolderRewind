@@ -400,15 +400,18 @@ namespace FolderRewind
 
         internal static bool TryShowTrayNotification(string title, string message, NotificationSeverity severity)
         {
-            if (!Services.AppRuntimeInfo.IsMsiDistribution || Current is not App app || _window?.DispatcherQueue == null)
+            if (!NotificationService.IsNotificationEnabled || Current is not App app || _window?.DispatcherQueue == null)
             {
                 return false;
             }
 
+            var generation = NotificationService.NotificationGeneration;
             return _window.DispatcherQueue.TryEnqueue(() =>
             {
+                if (!NotificationService.IsNotificationEnabled || generation != NotificationService.NotificationGeneration) return;
                 try
                 {
+                    app.InitializeTrayIcon();
                     var icon = severity switch
                     {
                         NotificationSeverity.Error => H.NotifyIcon.Core.NotificationIcon.Error,

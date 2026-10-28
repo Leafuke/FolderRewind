@@ -48,7 +48,9 @@ public static partial class BackupService
         if (!outcome.WarningNotificationSent)
         {
             outcome.WarningNotificationSent = true;
-            NotificationService.ShowWarning(I18n.Format("BackupService_Warning_CompletedWithWarnings", folder.DisplayName));
+            NotificationService.ShowImportant(I18n.Format("BackupService_Warning_CompletedWithWarnings", folder.DisplayName),
+                I18n.GetString("Notification_Warning_Title"), autoCloseMs: 10000,
+                action: () => NavigationService.NavigateTo("Tasks"));
         }
     }
 

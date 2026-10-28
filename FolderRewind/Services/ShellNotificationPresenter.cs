@@ -12,7 +12,6 @@ internal sealed class ShellNotificationPresenter : IDisposable
     private readonly DispatcherQueue DispatcherQueue;
     private DispatcherQueueTimer? _infoBarTimer;
     private readonly PriorityNotificationQueue<InAppNotificationRequest> _infoBarQueue = new();
-    private readonly LatestNotificationTracker _latestNotifications = new();
     private readonly NotificationCountdown _countdown = new(TimeProvider.System);
     private InAppNotificationRequest? _currentNotification;
     private bool _isPointerHoveringInfoBar;
@@ -23,6 +22,7 @@ internal sealed class ShellNotificationPresenter : IDisposable
         TasksRunningInfoBadge = badge;
         DispatcherQueue = dispatcher;
         NotificationService.InfoBarRequested += OnInfoBarRequested;
+        NotificationService.NotificationsCleared += OnNotificationsCleared;
         NotificationService.RunningTaskCountChanged += OnRunningTaskCountChanged;
         UpdateTasksRunningBadge(NotificationService.GetRunningTaskCount());
     }
@@ -31,6 +31,7 @@ internal sealed class ShellNotificationPresenter : IDisposable
         if (_disposed) return;
         _disposed = true;
         NotificationService.InfoBarRequested -= OnInfoBarRequested;
+        NotificationService.NotificationsCleared -= OnNotificationsCleared;
         NotificationService.RunningTaskCountChanged -= OnRunningTaskCountChanged;
         _infoBarTimer?.Stop();
         if (_infoBarTimer is not null) _infoBarTimer.Tick -= InfoBarTimer_Tick;
@@ -39,29 +40,21 @@ internal sealed class ShellNotificationPresenter : IDisposable
     }
         private void OnInfoBarRequested(InAppNotificationRequest request)
         {
+            var generation = NotificationService.NotificationGeneration;
             DispatcherQueue.TryEnqueue(() =>
             {
                 if (_disposed) return;
-                if (!_latestNotifications.Accept(request.Correlation)) return;
+                if (generation != NotificationService.NotificationGeneration) return;
+                if (!NotificationService.IsNotificationEnabled)
+                {
+                    ClearNotifications();
+                    return;
+                }
+                var replacesCurrent = false;
                 if (request.Correlation is { } correlation)
                 {
                     _infoBarQueue.RemoveWhere(item => item.Correlation?.Group == correlation.Group);
-                    if (_currentNotification?.Correlation?.Group == correlation.Group)
-                    {
-                        _infoBarQueue.EnqueueFirst(request);
-                        GlobalInfoBar.IsOpen = false;
-                        return;
-                    }
-                    if (request.Severity >= NotificationSeverity.Warning && _currentNotification is { } current
-                        && current.Severity < request.Severity)
-                    {
-                        // A persistent announcement must not hide a new cloud failure.
-                        // Resume the unrelated message after the urgent result is shown.
-                        _infoBarQueue.EnqueueFirst(current);
-                        _infoBarQueue.EnqueueFirst(request);
-                        GlobalInfoBar.IsOpen = false;
-                        return;
-                    }
+                    replacesCurrent = _currentNotification?.Correlation?.Group == correlation.Group;
                 }
                 if (_currentNotification == null && !GlobalInfoBar.IsOpen)
                 {
@@ -69,20 +62,42 @@ internal sealed class ShellNotificationPresenter : IDisposable
                 }
                 else
                 {
-                    // 高优先级插队：若新通知为 Error 且当前展示的不是 Error，排到队首
-                    if (request.Severity == NotificationSeverity.Error
-                        && _currentNotification?.Severity != NotificationSeverity.Error)
+                    EnqueueNotification(request);
+                    if (replacesCurrent || _currentNotification is { } current
+                        && GetPriority(request) > GetPriority(current))
                     {
-                        _infoBarQueue.EnqueueFirst(request);
-
+                        // 临时结果优先于常驻公告；被抢占的无关消息稍后恢复。
+                        if (!replacesCurrent && _currentNotification is { } interrupted)
+                            EnqueueNotification(interrupted);
                         GlobalInfoBar.IsOpen = false;
-                    }
-                    else
-                    {
-                        _infoBarQueue.Enqueue(request);
                     }
                 }
             });
+        }
+
+        private static int GetPriority(InAppNotificationRequest request)
+            => request.Severity == NotificationSeverity.Error ? 3
+                : request.AutoCloseMs <= 0 ? 0
+                : request.Severity == NotificationSeverity.Warning ? 2 : 1;
+
+        private void EnqueueNotification(InAppNotificationRequest request)
+            => _infoBarQueue.Enqueue(request, (left, right) => GetPriority(right).CompareTo(GetPriority(left)));
+
+        private void OnNotificationsCleared()
+        {
+            if (DispatcherQueue.HasThreadAccess) ClearNotifications();
+            else DispatcherQueue.TryEnqueue(ClearNotifications);
+        }
+
+        private void ClearNotifications()
+        {
+            if (_disposed) return;
+            _infoBarQueue.Clear();
+            _infoBarTimer?.Stop();
+            _countdown.Start(0);
+            _currentNotification = null;
+            GlobalInfoBar.ActionButton = null;
+            GlobalInfoBar.IsOpen = false;
         }
 
         private void DisplayNotification(InAppNotificationRequest request)
@@ -167,8 +182,9 @@ internal sealed class ShellNotificationPresenter : IDisposable
 
         private void InfoBarTimer_Tick(DispatcherQueueTimer sender, object args)
         {
-            GlobalInfoBar.IsOpen = false;
+            // Closed 会同步展示下一条并重启同一个计时器，必须先停止本次计时。
             sender.Stop();
+            GlobalInfoBar.IsOpen = false;
         }
 
         public void GlobalInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
@@ -176,6 +192,13 @@ internal sealed class ShellNotificationPresenter : IDisposable
             _infoBarTimer?.Stop();
             _currentNotification = null;
             _countdown.Start(0);
+            GlobalInfoBar.ActionButton = null;
+
+            if (_disposed || !NotificationService.IsNotificationEnabled)
+            {
+                _infoBarQueue.Clear();
+                return;
+            }
 
             if (_infoBarQueue.TryDequeue(out var nextRequest))
             {

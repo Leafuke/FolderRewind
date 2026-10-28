@@ -2,6 +2,7 @@ using FolderRewind.History.Application;
 using FolderRewind.History.Cloud;
 using FolderRewind.Models;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +21,7 @@ public static partial class CloudSyncService
             var active = job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.SyncingMetadata;
             var failed = job.Phase is CloudJobPhase.NeedsAttention or CloudJobPhase.RetryableFailure;
             var phase = I18n.GetString("CloudJob_Phase_" + job.Phase);
-            NotificationService.ShowInfoBar(new InAppNotificationRequest
+            var request = new InAppNotificationRequest
             {
                 Correlation = new("cloud:" + job.ProjectId, job.JobId, job.CreatedUtc, job.UpdatedUtc ?? DateTimeOffset.UtcNow),
                 Title = I18n.Format("CloudNotice_Title", config?.Name ?? job.ProjectId, phase),
@@ -28,10 +29,24 @@ public static partial class CloudSyncService
                     job.JobId[..8], failed ? CloudFailurePresentation.Message(CloudFailurePresentation.Kind("", job.Diagnostic)) : phase),
                 Severity = success ? NotificationSeverity.Success : active || job.Phase is CloudJobPhase.Canceled or CloudJobPhase.Paused
                     ? NotificationSeverity.Informational : NotificationSeverity.Warning,
+                AutoCloseMs = failed ? 10000 : 5000,
                 ActionText = I18n.GetString("CloudNotice_ViewTask"),
                 Action = () => NavigationService.NavigateTo("CloudProject", new CloudSetupNavigationParameter(config?.Id ?? job.ProjectId,
                     Intent: CloudSetupIntent.ProjectStatus, JobId: job.JobId))
-            });
+            };
+            if (failed)
+            {
+                // 需要人工处理的失败也符合“仅错误”；自动重试失败按“重要”提醒。
+                var importance = job.Phase == CloudJobPhase.NeedsAttention
+                    ? NotificationImportance.Error : NotificationImportance.Important;
+                NotificationService.ShowNotification(request, importance,
+                    new Dictionary<string, string> { ["target"] = "Tasks" },
+                    tag: "cloud_" + job.ProjectId, group: "cloud");
+            }
+            else
+            {
+                NotificationService.ShowInfoBar(request);
+            }
         }
         catch (Exception error) { LogService.LogWarning(CloudCommandSecurity.Redact(error.Message), nameof(CloudSyncService)); }
     }

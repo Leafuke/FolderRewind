@@ -56,13 +56,7 @@ namespace FolderRewind.ViewModels
             Settings.EnableNotifications = isOn;
             _isDirty = true;
 
-            if (!isOn)
-            {
-                NotificationService.ClearBadge();
-                return;
-            }
-
-            NotificationService.RefreshBadgeVisualState();
+            NotificationService.RefreshNotificationSettings();
         }
 
         public void HandleToastLevelChanged(int selectedIndex)

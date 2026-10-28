@@ -7,6 +7,13 @@ internal sealed class PriorityNotificationQueue<T>
 {
     private readonly LinkedList<T> _items = new();
     public void Enqueue(T item) => _items.AddLast(item);
+    public void Enqueue(T item, Comparison<T> comparison)
+    {
+        var node = _items.First;
+        while (node is not null && comparison(item, node.Value) >= 0) node = node.Next;
+        if (node is null) _items.AddLast(item);
+        else _items.AddBefore(node, item);
+    }
     public void EnqueueFirst(T item) => _items.AddFirst(item);
     public void RemoveWhere(Predicate<T> predicate)
     {

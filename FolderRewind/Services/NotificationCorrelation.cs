@@ -12,10 +12,11 @@ internal sealed class LatestNotificationTracker
     {
         if (incoming is null) return true;
         if (_latest.TryGetValue(incoming.Group, out var previous)
-            && (previous.ItemCreatedUtc > incoming.ItemCreatedUtc
+            && (previous == incoming || previous.ItemCreatedUtc > incoming.ItemCreatedUtc
                 || previous.ItemCreatedUtc == incoming.ItemCreatedUtc && (previous.EventUtc > incoming.EventUtc
                     || previous.ItemId != incoming.ItemId && StringComparer.Ordinal.Compare(previous.ItemId, incoming.ItemId) > 0))) return false;
         _latest[incoming.Group] = incoming;
         return true;
     }
+    internal void Clear() => _latest.Clear();
 }

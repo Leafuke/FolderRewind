@@ -6,7 +6,7 @@ using WinRT.Interop;
 namespace FolderRewind.Services
 {
     /// <summary>
-    /// 仅用于用户主动请求恢复窗口时的 Win32 前台激活兜底。
+    /// 查询应用前台状态，并在用户主动请求恢复窗口时提供 Win32 激活兜底。
     /// </summary>
     internal static class NativeWindowActivationService
     {
@@ -44,6 +44,16 @@ namespace FolderRewind.Services
             uint idAttach,
             uint idAttachTo,
             [MarshalAs(UnmanagedType.Bool)] bool attach);
+
+        internal static bool IsAppForeground()
+        {
+            // 直接查询 HWND 所属进程，后台通知无需跨线程访问 WinUI Window。
+            // 同时覆盖主窗口、迷你窗口和应用拥有的其他窗口。
+            var foreground = GetForegroundWindow();
+            return foreground != IntPtr.Zero
+                && GetWindowThreadProcessId(foreground, out var processId) != 0
+                && processId == (uint)Environment.ProcessId;
+        }
 
         public static bool TryActivate(Window window)
         {
