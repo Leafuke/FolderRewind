@@ -22,6 +22,12 @@
                 </StackPanel>
                 <TextBox x:Name="SettingsSearchBox" x:Uid="SettingsProject_SearchCompact" TextChanged="OnSearchChanged" AutomationProperties.AutomationId="ProjectSettingsSearch" Grid.Column="1" Width="280" VerticalAlignment="Center" HorizontalAlignment="Left"/>
             </Grid>
+            <InfoBar IsOpen="{x:Bind ViewModel.HasSettingsConflict, Mode=OneWay}" Severity="Warning" Message="{x:Bind ViewModel.ConflictText, Mode=OneWay}" IsClosable="False" AutomationProperties.AutomationId="ProjectSettingsConflict">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button x:Uid="SettingsProject_ContinueEditing" Click="OnContinueEditing" AutomationProperties.AutomationId="ProjectSettingsContinueEditing"/>
+                    <Button x:Uid="SettingsProject_Reload" Click="OnReloadSettings" AutomationProperties.AutomationId="ProjectSettingsReload"/>
+                </StackPanel>
+            </InfoBar>
             <TextBlock x:Name="SearchFeedback" TextWrapping="Wrap" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <ScrollViewer x:Name="CategoryStrip" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
                 <SelectorBar x:Name="ConfigSelectorBar" SelectionChanged="OnSettingsSelectorBarSelectionChanged" AutomationProperties.AutomationId="ConfigSelectorBar">

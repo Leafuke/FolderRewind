@@ -5372,7 +5372,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="CloudSetup_ReadWriteVerified" xml:space="preserve"><value>Nonempty write and read-back verified for this directory. No backup data has been uploaded yet.</value></data>
   <data name="CloudSetup_ProbeMismatch" xml:space="preserve"><value>The probe read-back differs. Read and write verification did not pass.</value></data>
   <data name="CloudSetup_OutputTruncated" xml:space="preserve"><value>The response exceeded its read limit. Narrow the query. Results are incomplete.</value></data>
-  <data name="CloudSetup_InitialState" xml:space="preserve"><value>Connection not checked. Saving a connection does not create a cloud copy.</value></data>
+  <data name="CloudSetup_InitialState" xml:space="preserve"><value>Add a cloud connection to verify access and upload a backup.</value></data>
   <data name="CloudSetup_ConnectionChanged" xml:space="preserve"><value>Connection changed. Check again; previous observations are invalid.</value></data>
   <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>Connection draft created and selected under Existing configuration. The password box has been cleared. Browse and confirm the destination before saving. Canceling cleans up only this unsaved credentials file.</value></data>
   <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>Directory display is limited to 200 entries. Enter a narrower subdirectory and check again.</value></data>
@@ -6694,8 +6694,8 @@ Projects sharing this credential storage: {3}</value></data>
 Protection: {1}
 Diagnostic: {2}
 Attempts: {3}</value></data>
-  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>Local payload protection held</value></data>
-  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>Release or abandonment persisted</value></data>
+  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>Pending upload files are retained.</value></data>
+  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>File retention for this task has ended.</value></data>
   <data name="CloudHistory_AnalysisReady" xml:space="preserve"><value>Cloud history metadata analyzed; backup payloads have not been verified.</value></data>
   <data name="CloudHistory_MetadataSynchronized" xml:space="preserve"><value>History metadata synchronized: {0} packs imported and {1} uploaded. Backup payloads were not downloaded automatically.</value></data>
   <data name="CloudRecovery_OriginalRepositoryMissing" xml:space="preserve"><value>The original Native History repository for this project was not found. No remote repository was created or modified.</value></data>
@@ -7633,4 +7633,72 @@ The environment and authorization are checked before startup.</value></data>
   <data name="CoreValidation_Summary_LastPassed" xml:space="preserve"><value>The last backup environment check passed.</value></data>
   <data name="Setup_ResultSingleWarning" xml:space="preserve"><value>Backup complete, with {0} warning</value></data>
   <data name="CoreValidation_HistoryDetailsSingle" xml:space="preserve"><value>History and index are ready. Checked {0} history pack.</value></data>
+  <data name="CloudFailure_Tool" xml:space="preserve"><value>rclone was not found. Choose its location or set up the tool.</value></data>
+  <data name="CloudFailure_Configuration" xml:space="preserve"><value>The cloud connection configuration could not be read. Select it again and check access permissions.</value></data>
+  <data name="CloudFailure_Authentication" xml:space="preserve"><value>Sign-in was not accepted. Update the account or credentials and try again.</value></data>
+  <data name="CloudFailure_Permission" xml:space="preserve"><value>This account does not have the required access. Check the cloud folder permissions and try again.</value></data>
+  <data name="CloudFailure_Offline" xml:space="preserve"><value>The service could not be reached. Check the network and service status, then try again.</value></data>
+  <data name="CloudFailure_Timeout" xml:space="preserve"><value>The cloud service took too long to respond. Check the connection and try again.</value></data>
+  <data name="CloudFailure_History" xml:space="preserve"><value>Cloud history or pending files need attention. Review the task details before retrying.</value></data>
+  <data name="CloudFailure_Connection" xml:space="preserve"><value>The connection has changed or is not ready. Review its settings and verify it again.</value></data>
+  <data name="CloudFailure_Unknown" xml:space="preserve"><value>The cloud operation did not finish. Check the connection and try again. Diagnostics are available in the details.</value></data>
+  <data name="CloudStatus_CheckTitle.Text" xml:space="preserve"><value>Latest connection check</value></data>
+  <data name="CloudStatus_CopyTitle.Text" xml:space="preserve"><value>Latest completed upload</value></data>
+  <data name="CloudStatus_JobTitle.Text" xml:space="preserve"><value>Latest task</value></data>
+  <data name="CloudStatus_CheckUnknown" xml:space="preserve"><value>This connection location has not been checked yet.</value></data>
+  <data name="CloudStatus_CheckedAt" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="CloudStatus_WriteVerified" xml:space="preserve"><value>Read and write verified</value></data>
+  <data name="CloudStatus_ReadVerified" xml:space="preserve"><value>Read access verified</value></data>
+  <data name="CloudStatus_LegacyVerified" xml:space="preserve"><value>Read and write verification is saved; the check time was not recorded.</value></data>
+  <data name="CloudStatus_TimeUnrecorded" xml:space="preserve"><value>Completion time not recorded</value></data>
+  <data name="CloudStatus_NoJobs" xml:space="preserve"><value>No cloud tasks for this location yet.</value></data>
+  <data name="CloudStatus_Pending" xml:space="preserve"><value>Pending tasks: {0}</value></data>
+  <data name="CloudNotice_Title" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="CloudNotice_Body" xml:space="preserve"><value>{0} · Task {1}
+{2}</value></data>
+  <data name="CloudNotice_ViewTask" xml:space="preserve"><value>View task</value></data>
+  <data name="CloudRepair_Action.Content" xml:space="preserve"><value>Review connection</value></data>
+  <data name="CloudRepair_Action.AutomationProperties.Name" xml:space="preserve"><value>Review the cloud connection and resolve the issue</value></data>
+  <data name="CloudRecovery_DisplayPublishFailed" xml:space="preserve"><value>“{0}” was uploaded. Its name in the recovery list could not be updated; the next upload will retry.</value></data>
+  <data name="CloudRecovery_NamedOption" xml:space="preserve"><value>{0} · {1} · ID {2}</value></data>
+  <data name="CloudRecovery_UnnamedOption" xml:space="preserve"><value>Cloud backup project · ID {0}</value></data>
+  <data name="CloudRecovery_LoadingOption" xml:space="preserve"><value>Reading project information · ID {0}</value></data>
+  <data name="CloudRecovery_UnavailableOption" xml:space="preserve"><value>Project information unavailable · ID {0} (retry analysis)</value></data>
+  <data name="SettingsProject_Conflict" xml:space="preserve"><value>The project’s {0} changed. Your edits are preserved. Continue editing or reload the latest settings.</value></data>
+  <data name="SettingsProject_Reload.Content" xml:space="preserve"><value>Reload</value></data>
+  <data name="SettingsProject_Reload.AutomationProperties.Name" xml:space="preserve"><value>Reload project settings</value></data>
+  <data name="SettingsProject_ReloadTitle" xml:space="preserve"><value>Reload project settings?</value></data>
+  <data name="SettingsProject_ReloadBody" xml:space="preserve"><value>Reloading will discard the unsaved edits on this page and show the latest project settings.</value></data>
+  <data name="SettingsProject_ContinueEditing.Content" xml:space="preserve"><value>Continue editing</value></data>
+  <data name="SettingsProject_ContinueEditing.AutomationProperties.Name" xml:space="preserve"><value>Keep current edits and continue editing</value></data>
+  <data name="SettingsConflict_Cloud" xml:space="preserve"><value>cloud settings</value></data>
+  <data name="SettingsConflict_Sources" xml:space="preserve"><value>source settings</value></data>
+  <data name="SettingsConflict_Archive" xml:space="preserve"><value>archive settings</value></data>
+  <data name="SettingsConflict_Automation" xml:space="preserve"><value>automation settings</value></data>
+  <data name="SettingsConflict_Filters" xml:space="preserve"><value>filter rules</value></data>
+  <data name="SettingsConflict_Scope" xml:space="preserve"><value>backup scope</value></data>
+  <data name="SettingsConflict_General" xml:space="preserve"><value>general settings</value></data>
+  <data name="SettingsConflict_Deleted" xml:space="preserve"><value>project status (removed)</value></data>
+  <data name="SettingsConflict_Replaced" xml:space="preserve"><value>project configuration</value></data>
+  <data name="MigrationFailure_Format" xml:space="preserve"><value>This migration package uses an unsupported format. Update the app or export it again on the original device.</value></data>
+  <data name="MigrationFailure_Data" xml:space="preserve"><value>The migration package is damaged or incomplete. Choose another file or export it again on the original device.</value></data>
+  <data name="MigrationFailure_Missing" xml:space="preserve"><value>The migration file or required content could not be found. Check its location and choose it again.</value></data>
+  <data name="MigrationFailure_Permission" xml:space="preserve"><value>The migration file or destination could not be accessed. Check permissions and try again.</value></data>
+  <data name="MigrationFailure_Space" xml:space="preserve"><value>There is not enough disk space. Free some space or choose another location and try again.</value></data>
+  <data name="MigrationFailure_Io" xml:space="preserve"><value>Migration content could not be read or saved. Check the file and destination, then try again.</value></data>
+  <data name="MigrationFailure_Unexpected" xml:space="preserve"><value>This step did not finish. Review the input and try again, or open the details for more information.</value></data>
+  <data name="CloudStatus_NoCopy" xml:space="preserve"><value>No upload has completed for this location yet.</value></data>
+  <data name="CloudStatus_LegacyCopy" xml:space="preserve"><value>An upload completed; its completion time was not recorded.</value></data>
+  <data name="CloudStatus_UploadDone" xml:space="preserve"><value>Upload complete.</value></data>
+  <data name="CloudJob_ProtectionAbandoned" xml:space="preserve"><value>File retention for this task ended at your request.</value></data>
+  <data name="CloudRecovery_Identity" xml:space="preserve"><value>Project ID: {0}
+Version ID: {1}</value></data>
+  <data name="CloudStatus_ProjectConnection" xml:space="preserve"><value>Project: {0}
+Connection: {1}
+Location: {2}
+{3}</value></data>
+  <data name="CloudRecovery_Cancel.Content" xml:space="preserve"><value>Cancel current operation</value></data>
+  <data name="CloudRecovery_Cancel.AutomationProperties.Name" xml:space="preserve"><value>Cancel the current cloud check, read, or recovery</value></data>
+  <data name="SettingsProject_ReloadChangesBody" xml:space="preserve"><value>Reloading will discard the unsaved edits to: {0}. The latest project settings will then be shown.</value></data>
+  <data name="SettingsProject_ReloadNoChangesBody" xml:space="preserve"><value>There are no unsaved edits on this page. Reload to show the latest project settings.</value></data>
 </root>

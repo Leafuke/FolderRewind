@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\CloudFailurePresentation.cs" Link="Source\CloudFailurePresentation.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudConnectionObservationStore.cs" Link="Source\CloudConnectionObservationStore.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudRepositoryDisplayService.cs" Link="Source\CloudRepositoryDisplayService.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationCorrelation.cs" Link="Source\NotificationCorrelation.cs" />
+    <Compile Include="..\FolderRewind\Services\DraftFileGeneration.cs" Link="Source\DraftFileGeneration.cs" />
+    <Compile Include="..\FolderRewind\Services\MigrationFailurePresentation.cs" Link="Source\MigrationFailurePresentation.cs" />
+    <Compile Include="..\FolderRewind\Services\ConfigDraftComparison.cs" Link="Source\ConfigDraftComparison.cs" />
     <Compile Include="..\FolderRewind\Services\CloudSetupCoordinator.cs" Link="Source\CloudSetupCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\OpenListInitializer.cs" Link="Source\OpenListInitializer.cs" />
     <Compile Include="..\FolderRewind\Models\OpenListRuntimeSettings.cs" Link="Source\OpenListRuntimeSettings.cs" />

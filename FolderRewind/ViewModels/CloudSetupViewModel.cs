@@ -15,7 +15,7 @@ using System.IO;
 
 namespace FolderRewind.ViewModels;
 
-public sealed record CloudJobDisplay(string JobId, string Summary, string Detail);
+public sealed record CloudJobDisplay(string JobId, string Summary, string Detail, string TechnicalDetails);
 
 public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
 {
@@ -105,6 +105,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         if (_disposed) return;
         MessageState = state;
         OnPropertyChanged(nameof(MessageState));
+        OnPropertyChanged(nameof(MessageSeverity)); OnPropertyChanged(nameof(HasRepair));
         _diagnosticRevision = _revision;
         var context = new OnboardingRepairContext(_config?.Id ?? "", "", _config is null ? "" : NativeHistoryConfigLease.Signature(_config), DateTimeOffset.UtcNow);
         while (Diagnostics.Count >= OnboardingOperationBudgets.RecentDiagnostics) Diagnostics.RemoveAt(0);
@@ -174,7 +175,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
 
     private async Task InitializeCoreAsync(string id, CancellationToken token)
     {
-        _config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => c.Id == id);
+        _config = string.IsNullOrEmpty(id) ? null : ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(id).Matches(c.Id));
         _profiles.Clear(); ConnectionProfiles.Clear();
         foreach (var profile in ConfigService.CurrentConfig.CloudConnections.Where(p => _manageConnection || p.Scope == CloudConnectionScope.Shared
             || id.Length != 0 && new HistoryConfigId(id).Matches(p.OwnerProjectId)))
@@ -208,7 +209,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var originalPath = _config.Cloud.RcloneConfigPath;
         await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, token, allowUncertain: true);
         token.ThrowIfCancellationRequested();
-        _config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => c.Id == id)
+        _config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(id).Matches(c.Id))
             ?? throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
         _executable = CloudSyncService.GetEffectiveExecutablePath(_config);
         _configPath = _config.Cloud.RcloneConfigPath;
@@ -229,7 +230,12 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         Message = I18n.GetString("CloudSetup_InitialState");
         OnPropertyChanged(nameof(Executable)); OnPropertyChanged(nameof(ConfigPath)); OnPropertyChanged(nameof(RemoteRoot)); OnPropertyChanged(nameof(WorkingDirectory));
         OnPropertyChanged(nameof(IsProject)); OnPropertyChanged(nameof(IsRecovery));
-        if (_saved) { using var context = CreateContext(); _inspectionEvidence = context.RevisionEvidence; }
+        if (_saved)
+        {
+            using var context = CreateContext(); _inspectionEvidence = context.RevisionEvidence;
+            await RestoreConnectionObservationAsync(context, token);
+            Message = "";
+        }
         if (ConfigService.GetRcloneCredentialMigrationError(originalPath) is { } error)
         {
             _saved = false;
@@ -240,7 +246,8 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
     private void Invalidate()
     {
         _flow.TargetChanged();
-        MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState));
+        ConnectionCheckSummary = I18n.GetString("CloudStatus_CheckUnknown"); OnPropertyChanged(nameof(ConnectionCheckSummary));
+        MessageState = OnboardingCheckState.Unknown; OnPropertyChanged(nameof(MessageState)); OnPropertyChanged(nameof(MessageSeverity)); OnPropertyChanged(nameof(HasRepair));
         _revision++; _request?.Cancel(); _saved = false;
         OnPropertyChanged(nameof(CanUpload));
         _readableEvidence = null; _writableEvidence = null;
@@ -299,7 +306,14 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
                 await RcloneCredentialRefresh.PrepareStoreAsync(ConfigPath, ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(ConfigPath), _request.Token);
             await action(_request.Token);
         }
-        catch (OperationCanceledException) { if (!_lifetime.IsCancellationRequested) Message = I18n.GetString("Common_Canceled"); }
+        catch (OperationCanceledException)
+        {
+            if (!_lifetime.IsCancellationRequested)
+            {
+                if (_request?.IsCancellationRequested == true) { Message = I18n.GetString("Common_Canceled"); RecordCheck("cloud.canceled", OnboardingCheckState.Unknown, Message); }
+                else ReportConnectionFailure(new TimeoutException());
+            }
+        }
         catch (Exception ex) { if (!_lifetime.IsCancellationRequested) ReportConnectionFailure(ex); }
         finally { IsBusy = false; _requestFinished?.TrySetResult(true); }
     }
@@ -318,7 +332,9 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         };
         if (wizardKey is not null) message = I18n.GetString(wizardKey);
         RecordCheck(code, OnboardingCheckState.NeedsInput, message);
-        Message = code == "cloud.access-unconfirmed" ? I18n.GetString("CloudSetup_CheckFailedShort") : message;
+        FailureKind = CloudFailurePresentation.Kind(error);
+        OnPropertyChanged(nameof(FailureKind));
+        Message = wizardKey is not null ? message : CloudFailurePresentation.Message(FailureKind);
     }
     public void LoadRemotes()
     {
@@ -346,10 +362,15 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         using var dependency = await OpenListRuntimeService.AcquireForConnectionAsync(DependsOnOpenList, token);
         var revision = _revision;
         using var context = CreateContext();
-        var result = await RcloneConnectionService.BrowseAsync(context, token, offset);
+        RemoteDirectoryResult result;
+        try { result = await RcloneConnectionService.BrowseAsync(context, token, offset); }
+        catch (Exception error) when (!token.IsCancellationRequested)
+        { await ObserveConnectionAsync(context, false, false, CloudFailurePresentation.Kind(error)); throw; }
         if (revision != _revision || _lifetime.IsCancellationRequested) return;
         _inspectionEvidence = context.RevisionEvidence;
         _readableEvidence = context.TargetRevisionEvidence + "|" + RemoteRoot;
+        await ObserveConnectionAsync(context, false, true);
+        if (revision != _revision || _disposed) return;
         Directories.Clear(); foreach (var name in result.Names) Directories.Add(name);
         OnPropertyChanged(nameof(HasDirectories));
         _nextDirectoryOffset = result.NextOffset; OnPropertyChanged(nameof(CanBrowseMore));
@@ -362,6 +383,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var revision = _revision;
         using var context = CreateContext();
         var result = await RcloneConnectionService.VerifyWriteAsync(context, token);
+        if (token.IsCancellationRequested) token.ThrowIfCancellationRequested();
         if (result.RetainedObject is not null) NotificationService.ShowWarning(I18n.Format("CloudSetup_ProbeRetained", result.RetainedObject));
         if (revision != _revision || _lifetime.IsCancellationRequested) return;
         _inspectionEvidence = context.RevisionEvidence;
@@ -371,7 +393,10 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var details = CloudCommandSecurity.Redact(result.Diagnostic)
             + (result.RetainedObject is null ? "" : "\n" + I18n.Format("CloudSetup_ProbeRetained", result.RetainedObject));
         var code = result.Diagnostic.StartsWith("[cloud.snapshot-unavailable]", StringComparison.Ordinal) ? "cloud.snapshot-unavailable" : "cloud.access-unconfirmed";
-        if (code == "cloud.snapshot-unavailable") Message = I18n.GetString("CloudSetup_SnapshotUnavailable");
+        FailureKind = result.Canceled ? "Timeout" : CloudFailurePresentation.Kind(code, result.Diagnostic);
+        if (!result.ReadWriteVerified) Message = CloudFailurePresentation.Message(FailureKind);
+        await ObserveConnectionAsync(context, true, result.ReadWriteVerified, FailureKind);
+        if (revision != _revision || _disposed) return;
         RecordCheck(result.ReadWriteVerified ? "cloud.access-verified" : code, result.ReadWriteVerified ? OnboardingCheckState.Ready : OnboardingCheckState.NeedsInput, details);
     }
     public async Task SaveAsync(CancellationToken token)
@@ -510,21 +535,30 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var document = await Task.Run(() => runtime.CloudJobs.Read(), token);
         if (_disposed) return;
         HasMaintenanceIssue = document.Jobs.Any(j => j.Protection == CloudProtectionDisposition.Held);
-        var complete = document.Jobs.Where(j => j.Phase == CloudJobPhase.Succeeded).OrderByDescending(j => j.CreatedUtc).FirstOrDefault();
-        CopySummary = complete is null ? I18n.GetString("CloudWizard_CopyUnknown")
-            : I18n.Format("CloudWizard_LastCompleted", UserDisplayFormatter.LongDateTime(complete.CreatedUtc.LocalDateTime));
+        var current = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == _config.Id);
+        var target = current is null ? null : CloudSyncService.FreezeTarget(current);
+        var targetJobs = document.Jobs.Where(j => target is not null && CurrentTarget(j, target)).OrderByDescending(j => j.CreatedUtc).ThenByDescending(j => j.JobId, StringComparer.Ordinal).ToArray();
+        var complete = targetJobs.Where(j => j.Phase == CloudJobPhase.Succeeded).OrderByDescending(j => j.CompletedUtc ?? DateTimeOffset.MinValue).FirstOrDefault();
+        CopySummary = complete is null ? I18n.GetString("CloudStatus_NoCopy") : complete.CompletedUtc is null
+            ? I18n.GetString("CloudStatus_LegacyCopy") : JobTime(complete);
+        LatestJobSummary = targetJobs.FirstOrDefault() is { } latest ? I18n.GetString("CloudJob_Phase_" + latest.Phase) + " · "
+            + UserDisplayFormatter.LongDateTime((latest.UpdatedUtc ?? latest.CreatedUtc).LocalDateTime) + "\n" + JobExplanation(latest) : I18n.GetString("CloudStatus_NoJobs");
+        PendingJobSummary = I18n.Format("CloudStatus_Pending", document.Jobs.Count(j => j.Protection == CloudProtectionDisposition.Held));
+        OnPropertyChanged(nameof(LatestJobSummary)); OnPropertyChanged(nameof(PendingJobSummary));
         if (complete is not null)
             foreach (var id in complete.Representations.Take(10))
                 if (await runtime.Query.GetRepresentationAsync(id, token) is { } representation
                     && await runtime.Query.GetVersionAsync(representation.VersionId, token) is { } version)
                     CopySummary += "\n" + version.SourceDescriptorSnapshot.DisplayName + " · " + version.VersionId;
         OnPropertyChanged(nameof(CopySummary)); OnPropertyChanged(nameof(HasMaintenanceIssue)); OnPropertyChanged(nameof(CanInitializeMissingJournal));
-        var selected = SelectedJobIndex >= 0 && SelectedJobIndex < Jobs.Count ? Jobs[SelectedJobIndex].JobId : null;
+        var selected = RequestedJobId ?? (SelectedJobIndex >= 0 && SelectedJobIndex < Jobs.Count ? Jobs[SelectedJobIndex].JobId : null);
         Jobs.Clear(); SelectedJobIndex = -1;
-        foreach (var job in document.Jobs.OrderByDescending(j => j.CreatedUtc).Take(100))
-            Jobs.Add(new(job.JobId, I18n.GetString("CloudJob_Phase_" + job.Phase) + " · " + UserDisplayFormatter.LongDateTime(job.CreatedUtc.LocalDateTime),
-                I18n.Format("CloudJob_Detail", job.JobId, I18n.GetString(job.Protection == CloudProtectionDisposition.Held ? "CloudJob_ProtectionHeld" : "CloudJob_ProtectionReleased"), CloudCommandSecurity.Redact(job.Diagnostic), job.Attempt) + "\n" + job.Target.RemoteRoot));
+        foreach (var job in document.Jobs.OrderByDescending(j => j.CreatedUtc).Take(100)
+            .Concat(document.Jobs.Where(j => j.JobId == selected)).DistinctBy(j => j.JobId))
+            Jobs.Add(new(job.JobId, I18n.GetString("CloudJob_Phase_" + job.Phase) + " · " + (job.Phase == CloudJobPhase.Succeeded ? JobTime(job) : UserDisplayFormatter.LongDateTime((job.UpdatedUtc ?? job.CreatedUtc).LocalDateTime)),
+                JobExplanation(job), I18n.Format("CloudJob_Detail", job.JobId, I18n.GetString(job.Protection == CloudProtectionDisposition.Held ? "CloudJob_ProtectionHeld" : "CloudJob_ProtectionReleased"), CloudCommandSecurity.Redact(job.Diagnostic), job.Attempt) + "\n" + CloudCommandSecurity.Redact(job.Target.RemoteRoot)));
         SelectedJobIndex = Jobs.ToList().FindIndex(j => j.JobId == selected);
+        if (SelectedJobIndex >= 0) RequestedJobId = null;
         OnPropertyChanged(nameof(ManualJobStatus));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -566,6 +600,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         if (descriptor.ConfigId != expected.ConfigId || !descriptorBytes.AsSpan().SequenceEqual(expected.ToCanonicalBytes()))
             throw new InvalidDataException(I18n.GetString("Export_IdentityChanged"));
         _readableEvidence = context.TargetRevisionEvidence + "|" + RemoteRoot;
+        await ObserveConnectionAsync(context, false, true);
         _inspectionEvidence = context.RevisionEvidence;
         await SaveAsync(token);
         if (LastSaveResult?.Success != true) return;
@@ -630,15 +665,53 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         if (revision != _revision || _disposed) return;
         var folders = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(s => s.TrimEnd('/')).ToArray();
         // 即使发现列表内容相同，也必须重新确认选定仓库及分析代次。
-        SelectedRepositoryIndex = -1;
+        // This is an internal reset, not a user selection change that cancels the active request.
+        _selectedRepositoryIndex = -1;
+        OnPropertyChanged(nameof(SelectedRepositoryIndex));
         _revision++; InvalidateAnalysis();
         RecoveryRepositories.Clear(); _repositoryFolders.Clear();
         foreach (var folder in folders.Take(OnboardingOperationBudgets.RemoteBatch))
             if (folder.IndexOfAny(['/', '\\', ':']) < 0 && folder is not "." and not "..")
             {
                 _repositoryFolders.Add(folder);
-                RecoveryRepositories.Add(I18n.Format("CloudRecovery_RepositoryOption", _repositoryFolders.Count));
+                RecoveryRepositories.Add(I18n.Format("CloudRecovery_LoadingOption", folder.Length > 12 ? folder[..12] : folder));
             }
+        var listRevision = _revision;
+        var loaded = 0;
+        try
+        {
+            for (var i = 0; i < _repositoryFolders.Count; i++)
+            {
+                token.ThrowIfCancellationRequested();
+                var folder = _repositoryFolders[i];
+                string label;
+                try
+                {
+                    using var budget = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    budget.CancelAfter(OnboardingOperationBudgets.RemoteBrowse);
+                    label = await RepositoryLabelAsync(context, folder, budget.Token);
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                catch (Exception error)
+                {
+                    LogService.LogWarning(CloudCommandSecurity.Redact(error.Message), nameof(CloudSetupViewModel));
+                    label = I18n.Format("CloudRecovery_UnavailableOption", folder.Length > 12 ? folder[..12] : folder);
+                }
+                if (_disposed || listRevision != _revision) return;
+                RecoveryRepositories[i] = label;
+                loaded = i + 1;
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            if (!_disposed && listRevision == _revision)
+                for (var i = loaded; i < _repositoryFolders.Count; i++)
+                {
+                    var folder = _repositoryFolders[i];
+                    RecoveryRepositories[i] = I18n.Format("CloudRecovery_UnnamedOption", folder.Length > 12 ? folder[..12] : folder);
+                }
+            throw;
+        }
         Message = I18n.GetString(folders.Length > OnboardingOperationBudgets.RemoteBatch ? "CloudSetup_DirectoriesTruncated" : "CloudRecovery_SelectRepository");
     }
     public async Task AnalyzeRepositoryAsync(CancellationToken token)
@@ -712,7 +785,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         if (preview.RequiredFidelity == MaterializationFidelity.Partial) text += "\n\n" + I18n.GetString("Export_PartialNotice");
         if (!preview.CanPrepare) text += "\n\n" + I18n.GetString("CloudRecovery_PreviewBlocked");
         if (!preview.CanPrepare) text += "\n" + string.Join("\n", preview.Assessment.Candidates.SelectMany(c => c.Diagnostics).Select(CloudCommandSecurity.Redact));
-        return text;
+        return text + "\n\n" + I18n.Format("CloudRecovery_Identity", preview.Version.ConfigId.Value, preview.Version.VersionId);
     }
 
     public async Task RestoreAnalyzedAsync(string destination, string? password, RecoveryConfirmation confirmation)

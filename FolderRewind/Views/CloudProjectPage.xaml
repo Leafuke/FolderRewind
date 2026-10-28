@@ -1,22 +1,32 @@
-<Page x:Class="FolderRewind.Views.CloudProjectPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:FolderRewind.ViewModels">
- <ScrollViewer Padding="24"><StackPanel Spacing="16" MaxWidth="860" HorizontalAlignment="Stretch">
+<Page SizeChanged="OnPageSizeChanged" x:Class="FolderRewind.Views.CloudProjectPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:FolderRewind.ViewModels">
+ <ScrollViewer AutomationProperties.AutomationId="CloudProjectPageScroll" Padding="24"><StackPanel x:Name="ContentLayout" Spacing="16" MaxWidth="860" HorizontalAlignment="Stretch">
   <TextBlock x:Uid="CloudWizard_ProjectTitle" Style="{StaticResource TitleTextBlockStyle}"/>
   <TextBlock x:Name="ProjectSummary" TextWrapping="Wrap"/>
-  <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False"/>
+  <InfoBar Severity="{x:Bind Severity(ViewModel.MessageSeverity), Mode=OneWay}" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False"/>
+  <StackPanel Spacing="8">
+   <TextBlock x:Uid="CloudStatus_CheckTitle" Style="{StaticResource SubtitleTextBlockStyle}"/>
+   <TextBlock Text="{x:Bind ViewModel.ConnectionCheckSummary, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.AutomationId="CloudConnectionCheckSummary"/>
+   <TextBlock x:Uid="CloudStatus_CopyTitle" Style="{StaticResource SubtitleTextBlockStyle}"/>
+   <TextBlock Text="{x:Bind ViewModel.CopySummary, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.AutomationId="CloudCopySummary"/>
+   <TextBlock x:Uid="CloudStatus_JobTitle" Style="{StaticResource SubtitleTextBlockStyle}"/>
+   <TextBlock Text="{x:Bind ViewModel.LatestJobSummary, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.AutomationId="CloudLatestJobSummary"/>
+   <TextBlock Text="{x:Bind ViewModel.PendingJobSummary, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.AutomationId="CloudPendingJobSummary"/>
+  </StackPanel>
   <Button x:Uid="CloudWizard_ChangeConnection" Click="OnConnect"/>
+  <Button x:Uid="CloudRepair_Action" Click="OnConnect" Visibility="{x:Bind ViewModel.HasRepair, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
   <Button x:Uid="CloudWizard_EditConnection" Click="OnEdit"/>
   <ToggleSwitch x:Name="Automatic" x:Uid="CloudWizard_Automatic" Toggled="OnAutomatic"/>
   <TextBlock x:Uid="CloudWizard_ManualHelp" TextWrapping="Wrap"/>
-  <Button x:Uid="CloudSetup_LoadVersions" Click="OnLoadVersions"/>
+  <Button AutomationProperties.AutomationId="CloudLoadVersions" x:Uid="CloudSetup_LoadVersions" Click="OnLoadVersions"/>
   <ComboBox x:Uid="CloudSetup_Version_Input" ItemsSource="{x:Bind ViewModel.Versions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedVersionIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"/>
-  <Button x:Uid="CloudSetup_Upload" Click="OnUpload" IsEnabled="{x:Bind ViewModel.CanUpload, Mode=OneWay}"/>
+  <Button AutomationProperties.AutomationId="CloudUploadVersion" x:Uid="CloudSetup_Upload" Click="OnUpload" IsEnabled="{x:Bind ViewModel.CanUpload, Mode=OneWay}"/>
   <TextBlock x:Uid="CloudWizard_JobsTitle" Style="{StaticResource SubtitleTextBlockStyle}"/>
-  <ListView ItemsSource="{x:Bind ViewModel.Jobs, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedJobIndex, Mode=TwoWay}" MaxHeight="360">
-   <ListView.ItemTemplate><DataTemplate x:DataType="vm:CloudJobDisplay"><StackPanel Spacing="4"><TextBlock Text="{x:Bind Summary, Mode=OneTime}"/><TextBlock Text="{x:Bind Detail, Mode=OneTime}" TextWrapping="Wrap"/></StackPanel></DataTemplate></ListView.ItemTemplate>
+  <ListView AutomationProperties.AutomationId="CloudProjectJobs" ItemsSource="{x:Bind ViewModel.Jobs, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedJobIndex, Mode=TwoWay}" MaxHeight="360">
+   <ListView.ItemTemplate><DataTemplate x:DataType="vm:CloudJobDisplay"><StackPanel Spacing="4"><TextBlock Text="{x:Bind Summary, Mode=OneTime}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Detail, Mode=OneTime}" TextWrapping="Wrap"/><Expander x:Uid="Diagnostics_Details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBlock Text="{x:Bind TechnicalDetails, Mode=OneTime}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/></Expander></StackPanel></DataTemplate></ListView.ItemTemplate>
   </ListView>
-  <Button x:Uid="CloudJob_Refresh" Click="OnRefresh"/>
+  <Button AutomationProperties.AutomationId="CloudRefreshJobs" x:Uid="CloudJob_Refresh" Click="OnRefresh"/>
   <StackPanel Visibility="{x:Bind ViewModel.HasMaintenanceIssue, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="12">
-   <Button x:Uid="CloudJob_Retry" Click="OnRetry"/>
+   <Button AutomationProperties.AutomationId="CloudRetryJobs" x:Uid="CloudJob_Retry" Click="OnRetry"/>
    <Button x:Uid="CloudJob_Cancel" Click="OnCancelJob"/>
    <Expander x:Uid="Diagnostics_Details" HorizontalAlignment="Stretch"><StackPanel Spacing="12"><Button x:Uid="CloudJob_Abandon" Click="OnAbandon"/></StackPanel></Expander>
   </StackPanel>

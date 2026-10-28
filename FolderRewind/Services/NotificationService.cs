@@ -45,6 +45,7 @@ namespace FolderRewind.Services
     /// </summary>
     public sealed class InAppNotificationRequest
     {
+        public NotificationCorrelation? Correlation { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public NotificationSeverity Severity { get; set; } = NotificationSeverity.Informational;

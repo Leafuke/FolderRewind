@@ -12,6 +12,7 @@ internal sealed class ShellNotificationPresenter : IDisposable
     private readonly DispatcherQueue DispatcherQueue;
     private DispatcherQueueTimer? _infoBarTimer;
     private readonly PriorityNotificationQueue<InAppNotificationRequest> _infoBarQueue = new();
+    private readonly LatestNotificationTracker _latestNotifications = new();
     private readonly NotificationCountdown _countdown = new(TimeProvider.System);
     private InAppNotificationRequest? _currentNotification;
     private bool _isPointerHoveringInfoBar;
@@ -41,6 +42,27 @@ internal sealed class ShellNotificationPresenter : IDisposable
             DispatcherQueue.TryEnqueue(() =>
             {
                 if (_disposed) return;
+                if (!_latestNotifications.Accept(request.Correlation)) return;
+                if (request.Correlation is { } correlation)
+                {
+                    _infoBarQueue.RemoveWhere(item => item.Correlation?.Group == correlation.Group);
+                    if (_currentNotification?.Correlation?.Group == correlation.Group)
+                    {
+                        _infoBarQueue.EnqueueFirst(request);
+                        GlobalInfoBar.IsOpen = false;
+                        return;
+                    }
+                    if (request.Severity >= NotificationSeverity.Warning && _currentNotification is { } current
+                        && current.Severity < request.Severity)
+                    {
+                        // A persistent announcement must not hide a new cloud failure.
+                        // Resume the unrelated message after the urgent result is shown.
+                        _infoBarQueue.EnqueueFirst(current);
+                        _infoBarQueue.EnqueueFirst(request);
+                        GlobalInfoBar.IsOpen = false;
+                        return;
+                    }
+                }
                 if (_currentNotification == null && !GlobalInfoBar.IsOpen)
                 {
                     DisplayNotification(request);

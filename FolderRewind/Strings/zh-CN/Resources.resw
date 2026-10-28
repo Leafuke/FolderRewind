@@ -5372,7 +5372,7 @@ Pull Request：{1}</value>
   <data name="CloudSetup_ReadWriteVerified" xml:space="preserve"><value>已完成此远端目录的非空写入与读回核对；尚未上传业务备份。</value></data>
   <data name="CloudSetup_ProbeMismatch" xml:space="preserve"><value>探测文件读回内容不一致，不能判定读写验证通过。</value></data>
   <data name="CloudSetup_OutputTruncated" xml:space="preserve"><value>远端响应超过读取上限，请缩小查询范围。结果不完整。</value></data>
-  <data name="CloudSetup_InitialState" xml:space="preserve"><value>连接尚未检查。保存连接不表示云副本已完成。</value></data>
+  <data name="CloudSetup_InitialState" xml:space="preserve"><value>添加云连接后，可以验证访问并上传备份。</value></data>
   <data name="CloudSetup_ConnectionChanged" xml:space="preserve"><value>连接选择已改变，请重新检查；旧检查结果失效。</value></data>
   <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>连接草稿已创建并切换到已有配置，密码框已安全清空。请浏览并确认目标后保存；取消只清理本次未保存的凭据文件。</value></data>
   <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>目录展示已截断为 200 项，请输入更具体的子目录后重新检查。</value></data>
@@ -6694,8 +6694,8 @@ Pull Request：{1}</value>
 保护：{1}
 诊断：{2}
 已尝试：{3}</value></data>
-  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>仍持有本地载荷保护</value></data>
-  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>已持久化释放或放弃</value></data>
+  <data name="CloudJob_ProtectionHeld" xml:space="preserve"><value>待上传文件已保留。</value></data>
+  <data name="CloudJob_ProtectionReleased" xml:space="preserve"><value>此任务的文件保留已结束。</value></data>
   <data name="CloudHistory_AnalysisReady" xml:space="preserve"><value>已分析云端历史元数据集合，备份载荷尚未验证。</value></data>
   <data name="CloudHistory_MetadataSynchronized" xml:space="preserve"><value>历史元数据同步完成：导入 {0} 个 Pack，上传 {1} 个 Pack。未自动下载备份载荷。</value></data>
   <data name="CloudRecovery_OriginalRepositoryMissing" xml:space="preserve"><value>当前目录未找到此项目的原 Native History 仓库，未创建或写入远端仓库。</value></data>
@@ -7633,4 +7633,72 @@ Pull Request：{1}</value>
   <data name="CoreValidation_Summary_LastPassed" xml:space="preserve"><value>上次备份环境检查通过。</value></data>
   <data name="Setup_ResultSingleWarning" xml:space="preserve"><value>备份已完成，有 {0} 项提醒</value></data>
   <data name="CoreValidation_HistoryDetailsSingle" xml:space="preserve"><value>历史记录与索引正常，已检查 {0} 个历史数据包。</value></data>
+  <data name="CloudFailure_Tool" xml:space="preserve"><value>找不到 rclone，请选择程序位置或准备工具。</value></data>
+  <data name="CloudFailure_Configuration" xml:space="preserve"><value>无法读取云连接配置，请重新选择配置文件并检查访问权限。</value></data>
+  <data name="CloudFailure_Authentication" xml:space="preserve"><value>登录信息未通过验证，请更新账号或凭据后重试。</value></data>
+  <data name="CloudFailure_Permission" xml:space="preserve"><value>当前账号没有所需的访问权限，请检查云端目录权限后重试。</value></data>
+  <data name="CloudFailure_Offline" xml:space="preserve"><value>服务暂时无法连接，请检查网络和服务状态后重试。</value></data>
+  <data name="CloudFailure_Timeout" xml:space="preserve"><value>等待云服务响应超时，请检查连接后重试。</value></data>
+  <data name="CloudFailure_History" xml:space="preserve"><value>云历史或待上传文件需要处理，请查看任务详情后重试。</value></data>
+  <data name="CloudFailure_Connection" xml:space="preserve"><value>连接信息已变化或尚未就绪，请检查连接设置并重新验证。</value></data>
+  <data name="CloudFailure_Unknown" xml:space="preserve"><value>云操作未完成，请检查连接后重试。详情中保留了诊断信息。</value></data>
+  <data name="CloudStatus_CheckTitle.Text" xml:space="preserve"><value>最近连接检查</value></data>
+  <data name="CloudStatus_CopyTitle.Text" xml:space="preserve"><value>最近完成上传</value></data>
+  <data name="CloudStatus_JobTitle.Text" xml:space="preserve"><value>最新任务</value></data>
+  <data name="CloudStatus_CheckUnknown" xml:space="preserve"><value>尚未检查此连接位置。</value></data>
+  <data name="CloudStatus_CheckedAt" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="CloudStatus_WriteVerified" xml:space="preserve"><value>读写验证通过</value></data>
+  <data name="CloudStatus_ReadVerified" xml:space="preserve"><value>读取验证通过</value></data>
+  <data name="CloudStatus_LegacyVerified" xml:space="preserve"><value>已保存读写验证，检查时间未记录。</value></data>
+  <data name="CloudStatus_TimeUnrecorded" xml:space="preserve"><value>完成时间未记录</value></data>
+  <data name="CloudStatus_NoJobs" xml:space="preserve"><value>此位置还没有云任务。</value></data>
+  <data name="CloudStatus_Pending" xml:space="preserve"><value>待处理任务：{0}</value></data>
+  <data name="CloudNotice_Title" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="CloudNotice_Body" xml:space="preserve"><value>{0} · 任务 {1}
+{2}</value></data>
+  <data name="CloudNotice_ViewTask" xml:space="preserve"><value>查看任务</value></data>
+  <data name="CloudRepair_Action.Content" xml:space="preserve"><value>检查连接</value></data>
+  <data name="CloudRepair_Action.AutomationProperties.Name" xml:space="preserve"><value>检查云连接并处理问题</value></data>
+  <data name="CloudRecovery_DisplayPublishFailed" xml:space="preserve"><value>“{0}”已上传，云恢复列表的项目名称尚未更新，下次上传时会重试。</value></data>
+  <data name="CloudRecovery_NamedOption" xml:space="preserve"><value>{0} · {1} · ID {2}</value></data>
+  <data name="CloudRecovery_UnnamedOption" xml:space="preserve"><value>云备份项目 · ID {0}</value></data>
+  <data name="CloudRecovery_LoadingOption" xml:space="preserve"><value>正在读取项目信息 · ID {0}</value></data>
+  <data name="CloudRecovery_UnavailableOption" xml:space="preserve"><value>项目信息暂不可读 · ID {0}（可重试分析）</value></data>
+  <data name="SettingsProject_Conflict" xml:space="preserve"><value>项目的{0}已变化，当前编辑已保留。可继续编辑，或重新加载最新设置。</value></data>
+  <data name="SettingsProject_Reload.Content" xml:space="preserve"><value>重新加载</value></data>
+  <data name="SettingsProject_Reload.AutomationProperties.Name" xml:space="preserve"><value>重新加载项目设置</value></data>
+  <data name="SettingsProject_ReloadTitle" xml:space="preserve"><value>重新加载项目设置？</value></data>
+  <data name="SettingsProject_ReloadBody" xml:space="preserve"><value>重新加载将放弃本页未保存的编辑，并显示项目的最新设置。</value></data>
+  <data name="SettingsProject_ContinueEditing.Content" xml:space="preserve"><value>继续编辑</value></data>
+  <data name="SettingsProject_ContinueEditing.AutomationProperties.Name" xml:space="preserve"><value>保留当前编辑并继续修改</value></data>
+  <data name="SettingsConflict_Cloud" xml:space="preserve"><value>云连接</value></data>
+  <data name="SettingsConflict_Sources" xml:space="preserve"><value>来源设置</value></data>
+  <data name="SettingsConflict_Archive" xml:space="preserve"><value>归档设置</value></data>
+  <data name="SettingsConflict_Automation" xml:space="preserve"><value>自动化设置</value></data>
+  <data name="SettingsConflict_Filters" xml:space="preserve"><value>筛选规则</value></data>
+  <data name="SettingsConflict_Scope" xml:space="preserve"><value>备份范围</value></data>
+  <data name="SettingsConflict_General" xml:space="preserve"><value>常规设置</value></data>
+  <data name="SettingsConflict_Deleted" xml:space="preserve"><value>项目状态（已移除）</value></data>
+  <data name="SettingsConflict_Replaced" xml:space="preserve"><value>项目配置</value></data>
+  <data name="MigrationFailure_Format" xml:space="preserve"><value>此迁移包使用了当前版本不支持的格式，请更新应用或在原设备重新导出。</value></data>
+  <data name="MigrationFailure_Data" xml:space="preserve"><value>迁移包损坏或内容不完整，请重新选择文件，或在原设备重新导出。</value></data>
+  <data name="MigrationFailure_Missing" xml:space="preserve"><value>找不到迁移文件或所需内容，请检查文件位置后重新选择。</value></data>
+  <data name="MigrationFailure_Permission" xml:space="preserve"><value>无法访问迁移文件或目标目录，请检查访问权限后重试。</value></data>
+  <data name="MigrationFailure_Space" xml:space="preserve"><value>可用磁盘空间不足，请释放空间或选择其他位置后重试。</value></data>
+  <data name="MigrationFailure_Io" xml:space="preserve"><value>读取或保存迁移内容时遇到问题，请检查文件和目标位置后重试。</value></data>
+  <data name="MigrationFailure_Unexpected" xml:space="preserve"><value>这一步未完成，请检查输入后重试，或展开详情查看原因。</value></data>
+  <data name="CloudStatus_NoCopy" xml:space="preserve"><value>此位置还没有完成上传的副本。</value></data>
+  <data name="CloudStatus_LegacyCopy" xml:space="preserve"><value>已有任务完成上传，完成时间未记录。</value></data>
+  <data name="CloudStatus_UploadDone" xml:space="preserve"><value>上传已完成。</value></data>
+  <data name="CloudJob_ProtectionAbandoned" xml:space="preserve"><value>已按你的选择结束此任务的文件保留。</value></data>
+  <data name="CloudRecovery_Identity" xml:space="preserve"><value>项目 ID：{0}
+版本 ID：{1}</value></data>
+  <data name="CloudStatus_ProjectConnection" xml:space="preserve"><value>项目：{0}
+连接：{1}
+位置：{2}
+{3}</value></data>
+  <data name="CloudRecovery_Cancel.Content" xml:space="preserve"><value>取消当前操作</value></data>
+  <data name="CloudRecovery_Cancel.AutomationProperties.Name" xml:space="preserve"><value>取消当前云端检查、读取或恢复操作</value></data>
+  <data name="SettingsProject_ReloadChangesBody" xml:space="preserve"><value>重新加载将放弃这些未保存的编辑：{0}。随后显示项目的最新设置。</value></data>
+  <data name="SettingsProject_ReloadNoChangesBody" xml:space="preserve"><value>本页没有未保存的编辑。重新加载后将显示项目的最新设置。</value></data>
 </root>

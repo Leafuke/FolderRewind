@@ -48,7 +48,8 @@ public sealed class RcloneExecutionContext : IDisposable
         AllowTokenWriteback = allowTokenWriteback;
         WorkingDirectory = Path.GetFullPath(string.IsNullOrEmpty(workingDirectory) ? Path.GetDirectoryName(ExecutablePath)! : workingDirectory);
         RemoteRoot = remoteRoot;
-        if (!File.Exists(ExecutablePath) || !Directory.Exists(WorkingDirectory)) throw new IOException("Rclone executable or working directory is unavailable.");
+        if (!File.Exists(ExecutablePath)) throw RcloneConnectionDiagnostics.Failure("cloud.tool-unavailable", "CloudFailure_Tool");
+        if (!Directory.Exists(WorkingDirectory)) throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudFailure_Configuration");
         byte[] content;
         try { content = ReadConfigurationBytes(ConfigPath); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -200,11 +201,16 @@ public sealed class RcloneExecutionContext : IDisposable
         if (_disposed) return;
         _disposed = true;
         Contexts.TryRemove(SnapshotPath, out _);
-        _ownership.Dispose();
-        if (PreserveSnapshot || File.Exists(Path.Combine(_taskDirectory, "attempt.json"))) return;
+        if (PreserveSnapshot || File.Exists(Path.Combine(_taskDirectory, "attempt.json"))) { _ownership.Dispose(); return; }
         // 只清理由本任务创建的确切文件，不递归清理用户凭据目录。
-        try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
+        var cleaned = false;
+        try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); cleaned = true; }
         catch (IOException) { } // 临时锁释放后可由有界过期回收处理，不改变业务成功事实。
+        catch (UnauthorizedAccessException) { }
+        finally { _ownership.Dispose(); }
+        if (!cleaned) return;
+        try { File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
+        catch (IOException) { }
         catch (UnauthorizedAccessException) { }
     }
 }

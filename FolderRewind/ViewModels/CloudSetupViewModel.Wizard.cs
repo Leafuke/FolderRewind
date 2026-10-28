@@ -26,6 +26,7 @@ public sealed partial class CloudSetupViewModel
     private OpenListRuntimeSettings? _initializedOpenList;
     public bool IsConnectionManagement => _manageConnection;
     public string ProjectId => _config?.Id ?? "";
+    public string ProjectName => ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == _config?.Id)?.Name ?? _config?.Name ?? "";
     public bool CanEditProfile => _saveSession.Intent != CloudConnectionEditIntent.Reuse;
     public string LocationSummary => RemoteRoot;
     public string CurrentConnectionSummary => _config is null ? ConnectionName :
@@ -86,13 +87,13 @@ public sealed partial class CloudSetupViewModel
     public void UseExternalOpenList() { _initializedOpenList = null; DependsOnOpenList = false; WebDavUrl = ""; }
     public void RequireEnvironmentReady()
     {
-        if (!File.Exists(Executable)) throw new InvalidOperationException(I18n.GetString("CloudWizard_ToolRequired"));
+        if (!File.Exists(Executable)) throw RcloneConnectionDiagnostics.InvalidFailure("cloud.tool-unavailable", "CloudFailure_Tool");
         if (ConnectionMethod == 0 && _initializedOpenList is not null)
             throw new InvalidOperationException(I18n.GetString("CloudWizard_OpenListNotReady"));
     }
     public async Task DetectConfigurationAsync(CancellationToken token)
     {
-        if (!Path.IsPathFullyQualified(Executable) || !File.Exists(Executable)) throw new InvalidOperationException(I18n.GetString("CloudWizard_ToolRequired"));
+        if (!Path.IsPathFullyQualified(Executable) || !File.Exists(Executable)) throw RcloneConnectionDiagnostics.InvalidFailure("cloud.tool-unavailable", "CloudFailure_Tool");
         var start = new ProcessStartInfo(Executable) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add("config"); start.ArgumentList.Add("file");
         var output = await RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(15), token);

@@ -18,6 +18,8 @@ internal static class Program
     private static int Main(string[] args)
     {
 #if NATIVE_ARTIFACT_ACCEPTANCE
+        if (args.Length == 2 && args[0] == "--ui-round2-acceptance")
+            return Services.Development.UiUxRoundTwoAcceptance.RunAsync(args[1]).GetAwaiter().GetResult();
         if (args.Length == 2 && args[0] == "--native-artifact-acceptance")
             return Services.Development.NativeArtifactAcceptance.RunAsync(args[1]).GetAwaiter().GetResult();
 #endif

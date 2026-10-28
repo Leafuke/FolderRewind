@@ -15,6 +15,7 @@ internal sealed class ConfigSettingsDraftService
     public BackupConfig Draft { get; }
     internal BackupConfig? LastCommittedSnapshot { get; private set; }
     internal BackupConfigurationHandoff? LastCommittedHandoff { get; private set; }
+    internal string[] ConflictSections { get; private set; } = [];
     public ConfigSettingsDraftService(BackupConfig original)
     {
         _original = original;
@@ -23,6 +24,7 @@ internal sealed class ConfigSettingsDraftService
         _baseline = Serialize(Draft);
     }
     public bool IsDirty => Serialize(Draft) != _baseline;
+    internal string[] UnsavedSections => ConfigDraftComparison.ChangedSections(_baseline, Serialize(Draft));
     public void AcceptInitialNormalization() => _baseline = Serialize(Draft);
     // A backup updates timestamps in the saved configuration. Rebase only those known
     // runtime facts; unrelated configuration edits must still produce a stale-draft error.
@@ -37,7 +39,7 @@ internal sealed class ConfigSettingsDraftService
             var prior = expected.SourceFolders.FirstOrDefault(f => f.Id == folder.Id);
             if (prior is not null) folder.LastBackupTime = prior.LastBackupTime;
         }
-        if (Serialize(comparison) != _expected) return;
+        if (!ConfigDraftComparison.OnlyRuntimeFactsChanged(_expected, Serialize(comparison))) return;
         var baseline = JsonSerializer.Deserialize(_baseline, AppJsonContext.Default.BackupConfig)!;
         foreach (var saved in current.SourceFolders)
         {
@@ -47,12 +49,17 @@ internal sealed class ConfigSettingsDraftService
             if (baselineFolder is not null) baselineFolder.LastBackupTime = saved.LastBackupTime;
         }
         _expected = Serialize(current);
+        CopyCloudRuntime(current.Cloud, Draft.Cloud);
+        CopyCloudRuntime(current.Cloud, baseline.Cloud);
         _baseline = Serialize(baseline);
     }
+    private static void CopyCloudRuntime(CloudSettings source, CloudSettings target)
+    { target.LastRunUtc = source.LastRunUtc; target.LastExitCode = source.LastExitCode; target.LastErrorMessage = source.LastErrorMessage; }
     private static string Serialize(BackupConfig config) => JsonSerializer.Serialize(config, AppJsonContext.Default.BackupConfig);
     public Task<ConfigSaveResult> CommitAsync() => CommitAsync(default);
     public async Task<ConfigSaveResult> CommitAsync(System.Threading.CancellationToken token)
     {
+        ConflictSections = [];
         var submitted = BackupConfigCloneService.CloneForRuntimeMutation(Draft, I18n.GetString("Common_Failed"));
 #if NATIVE_ARTIFACT_ACCEPTANCE
         await Development.NativeArtifactAcceptance.PauseUiFixtureAsync("settings-save", token);
@@ -62,7 +69,14 @@ internal sealed class ConfigSettingsDraftService
         var configs = ConfigService.CurrentConfig.BackupConfigs;
         var current = configs.FirstOrDefault(c => c.Id == _original.Id);
         if (current is null || !ReferenceEquals(current, _original) || Serialize(current) != _expected)
-            return new() { Success = false, ErrorMessage = I18n.GetString("SettingsProject_Stale") };
+        {
+            ConflictSections = current is null ? ["Deleted"] : ConfigDraftComparison.ChangedSections(_expected, Serialize(current));
+            if (ConflictSections.Length == 0) ConflictSections = ["Replaced"];
+            using var expectedDocument = JsonDocument.Parse(_expected);
+            var expectedRevision = expectedDocument.RootElement.GetProperty("ConfigRevision").GetString();
+            LogService.LogWarning($"Settings commit conflict: Project={_original.Id}; ExpectedRevision={expectedRevision}; CurrentRevision={current?.ConfigRevision}; Replaced={!ReferenceEquals(current, _original)}; Sections={string.Join(',', ConflictSections)}", nameof(ConfigSettingsDraftService));
+            return new() { Success = false, ErrorMessage = I18n.Format("SettingsProject_Conflict", string.Join(", ", ConflictSections.Select(SectionLabel))) };
+        }
         if (string.IsNullOrWhiteSpace(submitted.Name) || configs.Any(c => c.Id != submitted.Id && string.Equals(c.Name.Trim(), submitted.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
             return new() { Success = false, ErrorMessage = I18n.GetString("Setup_InvalidName") };
         if (string.IsNullOrWhiteSpace(submitted.DestinationPath) || configs.Any(c => c.Id != submitted.Id && string.Equals(
@@ -81,6 +95,7 @@ internal sealed class ConfigSettingsDraftService
             }
         }
         ConfigMutationProtection.RequireWritable(current);
+        CopyCloudRuntime(current.Cloud, submitted.Cloud);
         foreach (var source in submitted.SourceFolders)
             if (current.SourceFolders.FirstOrDefault(f => f.Id == source.Id) is { } savedSource) source.LastBackupTime = savedSource.LastBackupTime;
         var replacement = BackupConfigCloneService.CloneForRuntimeMutation(submitted, I18n.GetString("Common_Failed"));
@@ -130,4 +145,9 @@ internal sealed class ConfigSettingsDraftService
         CloudSyncService.ResumeCloudJobs(replacement);
         return new() { Success = true };
     }
+    internal static string SectionLabel(string section) => I18n.GetString("SettingsConflict_" + (section switch
+    {
+        "Cloud" => "Cloud", "SourceFolders" => "Sources", "Archive" => "Archive", "Automation" => "Automation",
+        "Filters" => "Filters", "BackupScope" => "Scope", "Deleted" => "Deleted", "Replaced" => "Replaced", _ => "General"
+    }));
 }

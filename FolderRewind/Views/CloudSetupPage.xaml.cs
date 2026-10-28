@@ -9,6 +9,8 @@ namespace FolderRewind.Views;
 
 public sealed partial class CloudSetupPage : Page
 {
+    private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
+        => ContentLayout.Width = Math.Min(860, Math.Max(0, e.NewSize.Width - 48));
     private CloudWizardSession? _session;
     private bool _active;
     public CloudSetupPage() => InitializeComponent();

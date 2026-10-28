@@ -14,14 +14,18 @@ namespace FolderRewind.Views;
 
 public sealed partial class CloudProjectPage : Page
 {
+    private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
+        => ContentLayout.Width = Math.Min(860, Math.Max(0, e.NewSize.Width - 48));
     public CloudSetupViewModel ViewModel { get; } = new();
     private bool _refreshing, _active;
+    public InfoBarSeverity Severity(int value) => (InfoBarSeverity)value;
     public CloudProjectPage() => InitializeComponent();
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
         var id = (e.Parameter as CloudSetupNavigationParameter)?.ConfigId ?? (e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "";
         ViewModel.PropertyChanged += OnChanged;
+        ViewModel.RequestedJobId = (e.Parameter as CloudSetupNavigationParameter)?.JobId;
         await ViewModel.InitializeAsync(id); if (_active) Refresh();
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -30,7 +34,7 @@ public sealed partial class CloudProjectPage : Page
     private void Refresh()
     {
         _refreshing = true;
-        ProjectSummary.Text = ViewModel.CurrentConnectionSummary + "\n" + ViewModel.RemoteRoot + "\n" + ViewModel.AutomaticSummary + "\n" + ViewModel.CopySummary;
+        ProjectSummary.Text = I18n.Format("CloudStatus_ProjectConnection", ViewModel.ProjectName, ViewModel.CurrentConnectionSummary, ViewModel.RemoteRoot, ViewModel.AutomaticSummary);
         Automatic.IsOn = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(p => p.Id == ViewModel.ProjectId)?.Cloud.Enabled == true;
         Automatic.IsEnabled = ViewModel.CanEdit; Bindings.Update(); _refreshing = false;
     }

@@ -691,7 +691,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                 UserRoot = _pluginBatchRoot,
                 IncludeKnownLocations = _pluginBatchIncludeKnownLocations,
                 ReturnDraftToSetup = true,
-                ResumingSelections = SetupReentry?.ResumingSelections ?? []
+                ResumingSelections = SetupReentry?.ResumingSelections ?? [], DraftGeneration = SetupReentry?.DraftGeneration
             };
     }
 

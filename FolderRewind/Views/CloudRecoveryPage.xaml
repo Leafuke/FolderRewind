@@ -1,16 +1,18 @@
-<Page x:Class="FolderRewind.Views.CloudRecoveryPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Page SizeChanged="OnPageSizeChanged" x:Class="FolderRewind.Views.CloudRecoveryPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:FolderRewind.Controls">
- <ScrollViewer Padding="24"><StackPanel Spacing="16" MaxWidth="860" HorizontalAlignment="Stretch">
+ <ScrollViewer AutomationProperties.AutomationId="CloudRecoveryPageScroll" Padding="24"><StackPanel x:Name="ContentLayout" Spacing="16" MaxWidth="860" HorizontalAlignment="Stretch">
   <TextBlock x:Uid="CloudWizard_RecoveryTitle" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
   <TextBlock x:Uid="CloudSetup_RecoveryScope" TextWrapping="Wrap"/>
   <controls:CloudConnectionEditor x:Name="Editor" Visibility="Collapsed" Confirmed="OnConnected"/>
   <StackPanel x:Name="RecoveryPanel" Visibility="Collapsed" Spacing="12">
-   <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False"/>
+   <InfoBar Severity="{x:Bind Severity(ViewModel.MessageSeverity), Mode=OneWay}" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False"/>
+   <Button x:Uid="CloudRecovery_Cancel" Click="OnCancelOperation" AutomationProperties.AutomationId="CloudRecoveryCancelOperation" Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+   <Button x:Uid="CloudRepair_Action" Click="OnBack" Visibility="{x:Bind ViewModel.HasRepair, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
    <Button x:Name="Reconnect" x:Uid="CloudRecovery_ReconnectProject" Click="OnReconnect"/>
    <StackPanel x:Name="DiscoverPanel" Spacing="12">
-    <Button x:Uid="CloudRecovery_Discover" Click="OnDiscover"/>
+    <Button AutomationProperties.AutomationId="CloudDiscoverProjects" x:Uid="CloudRecovery_Discover" Click="OnDiscover"/>
     <ComboBox x:Uid="CloudRecovery_Repository_Input" ItemsSource="{x:Bind ViewModel.RecoveryRepositories, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedRepositoryIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"/>
-    <Button x:Uid="CloudRecovery_Analyze" Click="OnAnalyze"/>
+    <Button AutomationProperties.AutomationId="CloudAnalyzeProject" x:Uid="CloudRecovery_Analyze" Click="OnAnalyze"/>
    </StackPanel>
    <ComboBox x:Uid="CloudSetup_Version_Input" ItemsSource="{x:Bind ViewModel.Versions, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedVersionIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"/>
    <PasswordBox x:Name="RecoveryPassword" x:Uid="CloudRecovery_Password_Input" Header="{x:Bind PasswordLabel, Mode=OneTime}"/>

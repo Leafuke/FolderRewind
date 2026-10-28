@@ -44,6 +44,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
     public ObservableCollection<string> ArchiveOptions { get; } = [I18n.GetString("MigrationWizard_ExternalArchives"), I18n.GetString("MigrationWizard_EmbeddedArchives")];
     public bool Busy { get => _busy; private set { if (SetProperty(ref _busy, value)) Notify(); } }
     public bool CanOperate => !Busy;
+    public bool CanContinue => !Busy && (IsExport || _step != WizardStep.Source || TransportIndex == 1 && SnapshotIndex >= 0 || _preview is not null);
     public bool IsExport => _request.Mode == MigrationWizardMode.Export;
     public bool IsOriginalSettings => _request.Mode == MigrationWizardMode.OriginalSettings;
     public bool ShowExportProjects => IsExport && _step == WizardStep.Source;
@@ -113,7 +114,7 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
             _snapshots = []; _legacySnapshots = []; Snapshots.Clear(); SnapshotIndex = -1;
         }
     }
-    public int SnapshotIndex { get => _snapshotIndex; set => SetProperty(ref _snapshotIndex, value); }
+    public int SnapshotIndex { get => _snapshotIndex; set { if (SetProperty(ref _snapshotIndex, value)) OnPropertyChanged(nameof(CanContinue)); } }
     public MigrationWizardProjectItem? SelectedProject { get => _selectedProject; private set { SetProperty(ref _selectedProject, value); Notify(); } }
     public string SelectedProjectName => SelectedProject?.Name ?? "";
     public ObservableCollection<MigrationWizardSourceItem> SelectedSources => SelectedProject?.Sources ?? [];
@@ -182,7 +183,15 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
 
     private async Task ReadPackageAsync(string path, CancellationToken token)
     {
-        _preview = await Task.Run(() => DataMigrationService.PreviewAsync(path, token), token); PackagePath = path;
+        try { await ReadPackageCoreAsync(path, token); }
+        catch { _preview = null; Projects.Clear(); SelectedProject = null; Notify(); throw; }
+    }
+    private async Task ReadPackageCoreAsync(string path, CancellationToken token)
+    {
+        _preview = null; Projects.Clear(); SelectedProject = null; _inspection = null; _editors.Clear();
+        PackagePath = path; Notify();
+        var preview = await Task.Run(() => DataMigrationService.PreviewAsync(path, token), token);
+        _preview = preview;
         Projects.Clear();
         if (IsOriginalSettings)
         {
@@ -515,13 +524,13 @@ public sealed class MigrationWizardViewModel : ObservableObject, IDisposable
         using var operation = new CancellationTokenSource(); _operation = operation; ErrorDetails = ""; Busy = true;
         try { await action(operation.Token); }
         catch (OperationCanceledException) when (operation.IsCancellationRequested) { Message = I18n.GetString("MigrationWizard_Paused"); MessageStatus = SemanticStatus.Info; }
-        catch (Exception error) { Message = I18n.GetString("MigrationWizard_ActionFailed"); ErrorDetails = CloudCommandSecurity.Redact(error.ToString()); MessageStatus = SemanticStatus.Error;
+        catch (Exception error) { Message = MigrationFailurePresentation.Message(error); ErrorDetails = CloudCommandSecurity.Redact(error.ToString()); MessageStatus = SemanticStatus.Error;
             LogService.LogError("Migration wizard action failed.", nameof(MigrationWizardViewModel), error); }
         finally { _operation = null; Busy = false; Notify(); }
     }
     private void Notify()
     {
-        foreach (var property in new[] { nameof(CanOperate), nameof(IsExport), nameof(IsOriginalSettings), nameof(ShowExportProjects), nameof(ShowExportContent),
+        foreach (var property in new[] { nameof(CanOperate), nameof(CanContinue), nameof(IsExport), nameof(IsOriginalSettings), nameof(ShowExportProjects), nameof(ShowExportContent),
             nameof(ShowArchiveOptions), nameof(ShowTransport), nameof(ShowCloud), nameof(ShowCloudSnapshots), nameof(ShowLocalPackage), nameof(ShowImportSelection),
             nameof(ShowOriginalSelection), nameof(ShowConfigurationChoice), nameof(ShowRecovery), nameof(ShowResult), nameof(ShowPendingRestart), nameof(ShowIssue),
             nameof(ShowPassword), nameof(ShowHistoryFile), nameof(ShowReconciliation), nameof(ShowMissingArchives), nameof(ShowIssuePaths), nameof(CanGoBack),

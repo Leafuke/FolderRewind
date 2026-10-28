@@ -353,7 +353,7 @@ public sealed partial class GameDiscoveryPage : Page
             try
             {
                 var drafts = ViewModel.TakeSelectedSetupDrafts();
-                NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Drafts: drafts, DiscoveryReentry: ViewModel.SetupReentry));
+                NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Drafts: drafts, DiscoveryReentry: ViewModel.SetupReentry, DraftGeneration: ViewModel.SetupReentry?.DraftGeneration));
             }
             catch (Exception ex) { await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message); }
             return;
@@ -377,7 +377,7 @@ public sealed partial class GameDiscoveryPage : Page
             try
             {
                 var drafts = ViewModel.TakeSelectedSetupDrafts();
-                NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Drafts: drafts, DiscoveryReentry: ViewModel.SetupReentry));
+                NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Drafts: drafts, DiscoveryReentry: ViewModel.SetupReentry, DraftGeneration: ViewModel.SetupReentry?.DraftGeneration));
             }
             catch (Exception ex) { await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message); }
             return;

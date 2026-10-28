@@ -17,6 +17,7 @@ public sealed class GameDiscoveryNavigationParameter
     public string UserRoot { get; init; } = string.Empty;
     public bool IncludeKnownLocations { get; init; }
     public bool ReturnDraftToSetup { get; init; }
+    public string? DraftGeneration { get; init; }
     public System.Collections.Generic.List<BackupSetupDraftSelection> ResumingSelections { get; init; } = [];
 
     public static GameDiscoveryNavigationParameter ForPreset(

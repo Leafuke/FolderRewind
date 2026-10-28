@@ -7,6 +7,7 @@ public enum BackupSetupScenario { None, Folder, Minecraft, OtherGame }
 public sealed class BackupSetupSession
 {
     public int SchemaVersion { get; set; } = 1;
+    public string GenerationId { get; set; } = "";
     public BackupSetupStage Stage { get; set; }
     public string Name { get; set; } = string.Empty;
     public string DestinationPath { get; set; } = string.Empty;
@@ -33,4 +34,4 @@ public sealed class BackupSetupDraftSelection
 // 非持久输入可携带预设已生成的完整草稿，不伪造发现身份。
 public sealed record BackupSetupNavigationParameter(BackupConfig? Draft = null, string? PresetShareId = null,
     IReadOnlyList<BackupConfig>? Drafts = null, GameDiscoveryNavigationParameter? DiscoveryReentry = null,
-    BackupSetupScenario Scenario = BackupSetupScenario.None);
+    BackupSetupScenario Scenario = BackupSetupScenario.None, string? DraftGeneration = null);

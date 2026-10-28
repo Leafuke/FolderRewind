@@ -205,7 +205,7 @@
             <Button x:Uid="MigrationWizard_Back" Click="OnBack" IsEnabled="{x:Bind ViewModel.CanGoBack}" AutomationProperties.AutomationId="MigrationWizardBack"/>
             <Button Grid.Column="1" x:Uid="MigrationWizard_Leave" Click="OnLeave" Visibility="{x:Bind local:MigrationWizardPage.NotVisible(ViewModel.Busy)}" AutomationProperties.AutomationId="MigrationWizardLeave"/>
             <Button Grid.Column="1" x:Uid="Migration_CancelOperation" Click="OnCancel" Visibility="{x:Bind local:MigrationWizardPage.Visible(ViewModel.Busy)}" AutomationProperties.AutomationId="MigrationWizardCancel"/>
-            <Button x:Name="WizardPrimary" Grid.Column="3" Content="{x:Bind ViewModel.PrimaryText}" Click="OnPrimary" IsEnabled="{x:Bind ViewModel.CanOperate}" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="MigrationWizardPrimary"/>
+            <Button x:Name="WizardPrimary" Grid.Column="3" Content="{x:Bind ViewModel.PrimaryText}" Click="OnPrimary" IsEnabled="{x:Bind ViewModel.CanContinue}" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="MigrationWizardPrimary"/>
         </Grid>
     </Grid>
 </Page>

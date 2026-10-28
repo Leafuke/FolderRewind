@@ -13,11 +13,14 @@ namespace FolderRewind.Views;
 
 public sealed partial class CloudRecoveryPage : Page
 {
+    private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
+        => ContentLayout.Width = Math.Min(860, Math.Max(0, e.NewSize.Width - 48));
     private CloudWizardSession? _session;
     private bool _active;
     public CloudSetupViewModel ViewModel { get; private set; } = null!;
     public string PasswordLabel => I18n.GetString("CloudRecovery_Password.Header");
     public CloudRecoveryPage() => InitializeComponent();
+    public InfoBarSeverity Severity(int value) => (InfoBarSeverity)value;
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
@@ -38,6 +41,7 @@ public sealed partial class CloudRecoveryPage : Page
     private void OnBack(object s, RoutedEventArgs e) { ViewModel.WizardStep = 0; RecoveryPanel.Visibility = Visibility.Collapsed; Editor.Visibility = Visibility.Visible; Editor.Refresh(); }
     private async Task Run(Func<CancellationToken, Task> action) { await ViewModel.RunCheckAsync(action); if (_active) Bindings.Update(); }
     private async void OnDiscover(object s, RoutedEventArgs e) => await Run(ViewModel.DiscoverRepositoriesAsync);
+    private void OnCancelOperation(object s, RoutedEventArgs e) => ViewModel.CancelCheck();
     private async void OnAnalyze(object s, RoutedEventArgs e) => await Run(ViewModel.AnalyzeRepositoryAsync);
     private async void OnReconnect(object s, RoutedEventArgs e)
     {

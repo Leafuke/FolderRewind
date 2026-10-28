@@ -98,6 +98,7 @@ public sealed class BackupSetupViewModel : ViewModelBase
     public string? CreatedConfigId => _created ? Draft.Id : null;
     public SetupBackupResult? BackupResult => _results.GetValueOrDefault(Draft.Id);
     private string _presetId = string.Empty;
+    private string? _draftGeneration;
     private GameDiscoveryNavigationParameter? _discoveryReentry;
     private PluginConfigKindOption[] _kinds = [];
     public ObservableCollection<string> KindNames { get; } = [];
@@ -114,6 +115,7 @@ public sealed class BackupSetupViewModel : ViewModelBase
     }
     public void Initialize(BackupSetupNavigationParameter? input)
     {
+        _draftGeneration = input?.DraftGeneration;
         _projects.Clear(); _results.Clear(); _errors.Clear(); _confirmedSignatures.Clear(); _created = false; _selectedProject = 0;
         _projects.AddRange(input?.Drafts is { Count: > 0 } drafts ? drafts : [input?.Draft ?? new BackupConfig { Name = string.Empty }]);
         Draft = _projects[0];
@@ -193,6 +195,9 @@ public sealed class BackupSetupViewModel : ViewModelBase
             await BackupSetupCoordinator.CommitAsync(_projects, passwords, token);
             foreach (var project in _projects) _confirmedSignatures[project.Id] = NativeHistoryConfigLease.Signature(project);
             _created = true;
+            try { await BackupSetupSessionStore.DiscardIfCurrentAsync(_draftGeneration); }
+            catch (Exception cleanup) when (cleanup is System.IO.IOException or UnauthorizedAccessException)
+            { LogService.LogWarning("Created project draft cleanup: " + cleanup.GetType().Name, nameof(BackupSetupViewModel)); }
             Stage = BackupSetupStage.Result;
             MessageSeverity = SetupMessageSeverity.Success;
             Message = string.Empty;
@@ -258,12 +263,12 @@ public sealed class BackupSetupViewModel : ViewModelBase
                 Identity = new() { ProviderId = p.DiscoveryOrigin?.Identity.ProviderId ?? "", DefinitionId = p.DiscoveryOrigin?.Identity.DefinitionId ?? "", SetId = p.DiscoveryOrigin?.Identity.SetId ?? "" },
                 Name = p.Name, DestinationPath = p.DestinationPath, Kind = new() { OwnerId = p.Kind.OwnerId, KindId = p.Kind.KindId }, IsEncrypted = p.IsEncrypted, IconGlyph = p.IconGlyph
             }).ToList();
-            await BackupSetupSessionStore.SaveAsync(new() { DiscoveryReentry = _discoveryReentry, Selections = selections });
+            _draftGeneration = await BackupSetupSessionStore.SaveWithGenerationAsync(new() { DiscoveryReentry = _discoveryReentry, Selections = selections });
             Message = I18n.GetString("Setup_DiscoveryDraftSaved");
             return;
         }
         // 有复杂预设的草稿由预设重建；此处只保存用户选择，不存 provider state/秘密。
-        await BackupSetupSessionStore.SaveAsync(new() { Name = Name, DestinationPath = Destination,
+        _draftGeneration = await BackupSetupSessionStore.SaveWithGenerationAsync(new() { Name = Name, DestinationPath = Destination,
             Stage = Stage, SourcePaths = SourcePaths.ToList(), PresetShareId = _presetId,
             Kind = new() { OwnerId = Draft.Kind.OwnerId, KindId = Draft.Kind.KindId }, IsEncrypted = Draft.IsEncrypted, IconGlyph = Draft.IconGlyph });
         MessageSeverity = SetupMessageSeverity.Success;
@@ -272,7 +277,7 @@ public sealed class BackupSetupViewModel : ViewModelBase
     }
     public void Resume()
     {
-        var session = BackupSetupSessionStore.Load();
+        var session = BackupSetupSessionStore.Load(out _draftGeneration);
         if (session is null) return;
         if (session.DiscoveryReentry is { } request)
         {
@@ -281,7 +286,7 @@ public sealed class BackupSetupViewModel : ViewModelBase
                 Mode = request.Mode, PresetShareId = request.PresetShareId, RequestedConfigName = request.RequestedConfigName,
                 PluginId = request.PluginId, ConfigKind = request.ConfigKind, UserRoot = request.UserRoot,
                 IncludeKnownLocations = request.IncludeKnownLocations,
-                ReturnDraftToSetup = true, ResumingSelections = session.Selections
+                ReturnDraftToSetup = true, ResumingSelections = session.Selections, DraftGeneration = _draftGeneration
             });
             return;
         }

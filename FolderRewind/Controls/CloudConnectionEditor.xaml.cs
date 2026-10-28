@@ -20,6 +20,7 @@ public sealed partial class CloudConnectionEditor : UserControl
     public string RemoteLabel => I18n.GetString("CloudSetup_Remote.Header");
     public string LocationLabel => I18n.GetString("CloudSetup_RemoteRoot.Header");
     public event EventHandler? Confirmed;
+    private string _shownFailure = "";
     public CloudConnectionEditor()
     {
         InitializeComponent();
@@ -50,8 +51,16 @@ public sealed partial class CloudConnectionEditor : UserControl
         NextButton.Content = I18n.GetString(step == 3 ? "CloudWizard_VerifyNext" : step == 4 ? "CloudWizard_Confirm" : "CloudWizard_Next");
         VerificationHelp.Text = I18n.GetString(ViewModel.RecoveryMode ? "CloudWizard_ReadOnlyCheck" : "CloudWizard_WriteCheck");
         Status.Message = ViewModel.Message; Status.IsOpen = ViewModel.HasMessage;
-        Status.Severity = ViewModel.MessageState == Models.OnboardingCheckState.NeedsInput ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
+        Status.Severity = (InfoBarSeverity)ViewModel.MessageSeverity;
+        RepairButton.Content = I18n.GetString(ViewModel.FailureKind == "Tool" ? "CloudSetup_PickExecutable.Content" : "CloudRepair_Action.Content");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(RepairButton, (string)RepairButton.Content);
         Bindings.Update();
+        if (ViewModel.IsBusy) _shownFailure = "";
+        else if (ViewModel.HasRepair && Status.IsOpen && _shownFailure != ViewModel.Message)
+        {
+            _shownFailure = ViewModel.Message;
+            DispatcherQueue.TryEnqueue(() => Status.StartBringIntoView());
+        }
     }
     private async Task Run(Func<CancellationToken, Task> action) { await ViewModel.RunCheckAsync(action); Refresh(); }
     private void OnChoose(object sender, RoutedEventArgs e) { ViewModel.StartMethod(int.Parse((string)((Button)sender).Tag)); Refresh(); }
@@ -134,6 +143,13 @@ public sealed partial class CloudConnectionEditor : UserControl
             ShellPathService.TryOpenPath(builder.Uri.AbsoluteUri, out _);
         }
         catch (Exception ex) { ViewModel.Message = CloudCommandSecurity.Redact(ex.Message); Refresh(); }
+    }
+    private void OnRepair(object s, RoutedEventArgs e)
+    {
+        if (!ViewModel.CanEdit) return;
+        if (ViewModel.FailureKind == "Tool") { ViewModel.WizardStep = 1; Refresh(); OnPickExecutable(s, e); }
+        else if (ViewModel.FailureKind == "Offline" && ViewModel.DependsOnOpenList) OnEnvironmentSettings(s, e);
+        else { ViewModel.WizardStep = ViewModel.ConnectionMethod == 3 ? 1 : 2; Refresh(); }
     }
     private void OnCancelCheck(object s, RoutedEventArgs e) => ViewModel.SuspendChecks();
 }

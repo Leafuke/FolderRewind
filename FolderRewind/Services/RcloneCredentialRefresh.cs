@@ -127,8 +127,11 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         => AtomicFileService.Write(Path.Combine(directory, "snapshot.json"), stream => JsonSerializer.Serialize(stream,
             new CredentialSnapshotRegistration(1, source, revision), CredentialRefreshJsonContext.Default.CredentialSnapshotRegistration));
 
-    private static void RecoverIdleSnapshot(string directory, string source)
+    internal static void RecoverIdleSnapshot(string directory, string source)
     {
+        // The owner may finish cleanup between enumeration and acquiring ownership.
+        // Missing payload after acquiring the lock proves there are no unique bytes to recover.
+        if (!File.Exists(Path.Combine(directory, "rclone.conf"))) return;
         var registration = Path.Combine(directory, "snapshot.json");
         if (!File.Exists(registration) || new FileInfo(registration).Length > 65536) throw Conflict();
         RejectReparsePoints(registration);

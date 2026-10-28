@@ -15,6 +15,11 @@ public sealed partial class ConfigSettingsDialogViewModel
     private bool _savingDraft;
     private bool? _draftSaveResult;
     public bool HasUnsavedChanges => _editingDraft?.IsDirty == true;
+    public bool HasSettingsConflict => _editingDraft?.ConflictSections.Length > 0;
+    public string ConflictText => !HasSettingsConflict ? "" : I18n.Format("SettingsProject_Conflict", string.Join(", ", _editingDraft!.ConflictSections.Select(ConfigSettingsDraftService.SectionLabel)));
+    public string ReloadConfirmationText => _editingDraft is { IsDirty: true } draft
+        ? I18n.Format("SettingsProject_ReloadChangesBody", string.Join(", ", draft.UnsavedSections.Select(ConfigSettingsDraftService.SectionLabel).Distinct()))
+        : I18n.GetString("SettingsProject_ReloadNoChangesBody");
     public bool IsSavingSettings => _savingDraft || _saveController.IsSaving;
     public string DraftStatusText => I18n.GetString(_savingDraft ? "SettingsProject_Saving"
         : _draftSaveResult == false ? "SettingsProject_SaveFailed"
@@ -27,6 +32,7 @@ public sealed partial class ConfigSettingsDialogViewModel
         OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(IsSavingSettings));
         OnPropertyChanged(nameof(DraftStatusText));
+        OnPropertyChanged(nameof(HasSettingsConflict)); OnPropertyChanged(nameof(ConflictText));
     }
 
     private void StopObservingDraft()

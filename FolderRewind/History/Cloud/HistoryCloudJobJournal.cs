@@ -25,7 +25,11 @@ public sealed record CloudUploadIntent(RepresentationId RepresentationId, Replic
 public sealed record HistoryCloudJob(string JobId, string ProjectId, string AdmissionId, PackId PackId, HistoryTransactionId TransactionId,
     CloudJobTarget Target, ImmutableArray<RepresentationId> Representations, ImmutableArray<CloudUploadIntent> UploadIntents,
     CloudJobPhase Phase, CloudProtectionDisposition Protection, int Attempt, DateTimeOffset NextEligibleUtc, string Diagnostic,
-    DateTimeOffset CreatedUtc, bool Automatic);
+    DateTimeOffset CreatedUtc, bool Automatic)
+{
+    public DateTimeOffset? UpdatedUtc { get; init; }
+    public DateTimeOffset? CompletedUtc { get; init; }
+}
 public sealed record HistoryCloudJournalDocument(int Version, long Revision, ImmutableArray<CloudAdmissionInterval> Admissions,
     ImmutableArray<HistoryCloudJob> Jobs, bool UnknownProtectionAbandoned = false);
 
@@ -263,6 +267,9 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
             || previous.UploadIntents.Any(old => !job.UploadIntents.Any(i => i.RepresentationId == old.RepresentationId && i.ReplicaId == old.ReplicaId
                 && (old.Manifest is null || i.Manifest is not null && HistoryCloudReplicaValidity.Matches(i.Manifest, old.Manifest)))))
             throw new InvalidOperationException("Cloud upload identity and published payload evidence cannot be replaced.");
+        var now = DateTimeOffset.UtcNow;
+        job = job with { UpdatedUtc = now, CompletedUtc = previous.CompletedUtc
+            ?? (job.Phase == CloudJobPhase.Succeeded ? now : null) };
         Save(document with { Jobs = document.Jobs.Replace(previous, job) });
     }
     public ImmutableArray<RepresentationId> ProtectedRoots()

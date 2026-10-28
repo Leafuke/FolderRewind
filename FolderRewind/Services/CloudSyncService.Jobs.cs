@@ -188,6 +188,7 @@ public static partial class CloudSyncService
                 job = job with { Phase = CloudJobPhase.Resolving, Attempt = job.Attempt + 1, Diagnostic = "" };
                 runtime.CloudJobs.Update(job);
             }
+            PublishJobNotification(runtime, job.JobId);
             var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(job.ProjectId).Matches(c.Id));
             if (current is not null)
             {
@@ -270,6 +271,7 @@ public static partial class CloudSyncService
                     await using var gate = await runtime.MutationGate.EnterAsync(ct).ConfigureAwait(false);
                     job = job with { UploadIntents = [.. intents.Values] }; runtime.CloudJobs.Update(job);
                 }, payloads).ConfigureAwait(false);
+            var failureDetail = "";
             if (result.Complete)
             {
                 context.TargetGuard();
@@ -285,17 +287,19 @@ public static partial class CloudSyncService
                 var diagnostic = result.Canceled ? "cloud.job-canceled" : string.Join("\n", result.Items.Where(i => i.State == HistoryCloudItemState.Failed).Select(i => i.Diagnostic));
                 if (result.Missing.Count > 0) diagnostic += "\n[cloud.payload-missing] " + string.Join(", ", result.Missing);
                 if (result.Metadata?.Succeeded == false) diagnostic += "\n[cloud.metadata-sync-failed] " + result.Metadata.Diagnostic;
+                failureDetail = CloudCommandSecurity.Redact(diagnostic);
                 await RecordJobFailureAsync(runtime, job, diagnostic, result.Canceled).ConfigureAwait(false);
             }
+            if (result.Complete) await PublishDisplayAfterSuccessAsync(runtime, context, config, job).ConfigureAwait(false);
             await RunOnUIAsync(() =>
             {
                 task.IsCompleted = true; task.IsSuccess = result.Complete; task.IsIndeterminate = false;
-                task.Status = I18n.GetString(result.Complete ? "CloudSetup_UploadComplete" : "CloudJob_ProtectedPending");
-                task.ErrorMessage = result.Complete ? "" : task.Status;
+                task.Status = I18n.GetString(result.Complete ? "CloudSetup_UploadComplete" : result.Canceled ? "CloudJob_Phase_Canceled" : "CloudJob_ProtectedPending");
+                task.ErrorMessage = result.Complete ? "" : result.Canceled ? I18n.GetString("Common_Canceled")
+                    : CloudFailurePresentation.Message(CloudFailurePresentation.Kind("", failureDetail));
+                if (!result.Complete) task.Log += "\n" + failureDetail;
             }).ConfigureAwait(false);
-            if (result.Complete) NotificationService.ShowSuccess(I18n.GetString("CloudSetup_UploadComplete"));
-            else if (job.Attempt == 1 || runtime.CloudJobs.Read().Jobs.Single(j => j.JobId == job.JobId).Phase == CloudJobPhase.NeedsAttention)
-                NotificationService.ShowWarning(I18n.GetString("CloudJob_ProtectedPending"));
+
             return result;
         }
         catch (Exception ex)
@@ -308,12 +312,18 @@ public static partial class CloudSyncService
             }
             try { await RecordJobFailureAsync(runtime, job, diagnostic, token.IsCancellationRequested).ConfigureAwait(false); }
             catch (Exception journal) { runtime.CloudJobs.ObserveFailure(journal); }
-            if (task is not null) await RunOnUIAsync(() => { task.IsCompleted = true; task.IsSuccess = false; task.IsIndeterminate = false; task.Status = I18n.GetString("CloudJob_ProtectedPending"); task.ErrorMessage = diagnostic; }).ConfigureAwait(false);
+            if (task is not null) await RunOnUIAsync(() =>
+            {
+                task.IsCompleted = true; task.IsSuccess = false; task.IsIndeterminate = false;
+                task.Status = I18n.GetString(token.IsCancellationRequested ? "CloudJob_Phase_Canceled" : "CloudJob_ProtectedPending");
+                task.ErrorMessage = token.IsCancellationRequested ? I18n.GetString("Common_Canceled") : CloudFailurePresentation.Message(CloudFailurePresentation.Kind(ex));
+                task.Log += "\n" + diagnostic;
+            }).ConfigureAwait(false);
             LogService.LogWarning("JobId: " + job.JobId + " " + diagnostic, nameof(CloudSyncService));
-            if (job.Attempt == 1 || job.Attempt >= 5) NotificationService.ShowWarning(I18n.GetString("CloudJob_ProtectedPending"));
+
             return Incomplete(diagnostic);
         }
-        finally { JobCancellation.TryRemove(initial.JobId, out _); CommandSemaphore.Release(); }
+        finally { PublishJobNotification(runtime, initial.JobId); JobCancellation.TryRemove(initial.JobId, out _); CommandSemaphore.Release(); }
     }
     private static Task CompleteNativeJobTransfersAsync(BackupConfig config, HistoryRuntime runtime, string jobId, CancellationToken token)
     {

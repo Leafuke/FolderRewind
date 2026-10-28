@@ -79,6 +79,15 @@ public sealed partial class ConfigSettingsPage
         Config.Cloud.PropertyChanged -= OnDialogCloudPropertyChanged;
         base.OnNavigatedFrom(e);
     }
+    private void OnContinueEditing(object sender, RoutedEventArgs e) => SettingsSearchBox.Focus(FocusState.Programmatic);
+    private async void OnReloadSettings(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsSavingSettings) return;
+        if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("SettingsProject_ReloadTitle"),
+            ViewModel.ReloadConfirmationText, I18n.GetString("SettingsProject_Reload.Content"), XamlRoot)) return;
+        try { ViewModel.BeginDraft(Config.Id); Rebind(ViewModel.Config); ViewModel.AcceptDraftNormalization(); Bindings.Update(); }
+        catch (Exception error) { NotificationService.ShowError(error.Message); }
+    }
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.SaveCommand.CanExecute(null)) return;

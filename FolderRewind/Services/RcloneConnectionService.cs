@@ -78,6 +78,8 @@ public static class RcloneConnectionService
     public static async Task<OwnedRcloneConnection> CreateWebDavAsync(string executable, string credentialsRoot, string url, string user, string password,
         bool allowInsecure = false, CancellationToken token = default)
     {
+        if (!Path.IsPathFullyQualified(executable) || !File.Exists(executable))
+            throw RcloneConnectionDiagnostics.Failure("cloud.tool-unavailable", "CloudFailure_Tool");
         var endpoint = ValidateWebDavUrl(url, allowInsecure);
         if (user.IndexOfAny(['\r', '\n', '\0']) >= 0 || password.IndexOfAny(['\r', '\n', '\0']) >= 0)
             throw new ArgumentException(I18n.GetString("CloudSetup_InvalidCredential"));
