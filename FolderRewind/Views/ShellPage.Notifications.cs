@@ -9,60 +9,83 @@ namespace FolderRewind.Views;
 
 public sealed partial class ShellPage
 {
-    private bool _restoreNotificationFocus = true;
-
+    private bool _notificationOpen, _restoreNotificationFocus, _navigationClosing;
+    private string? _pendingDetailsId;
     private void InitializeNotificationCenter()
     {
+        var shadow = new Microsoft.UI.Xaml.Media.ThemeShadow(); shadow.Receivers.Add(NavView);
+        NotificationToast.Shadow = shadow; NotificationToast.Translation = new System.Numerics.Vector3(0, 0, 32);
         NotificationCenter.ViewModel.Activate();
         NotificationCenter.ViewModel.Navigated += OnNotificationNavigated;
         NotificationNavigationService.DetailsRequested += OnNotificationDetailsRequested;
     }
-
     private void DisposeNotificationCenter()
     {
+        NotificationService.SetCenterOpen(false); NotificationCenter.EndOpen();
         NotificationNavigationService.DetailsRequested -= OnNotificationDetailsRequested;
         NotificationCenter.ViewModel.Navigated -= OnNotificationNavigated;
         NotificationCenter.ViewModel.Dispose();
     }
-
     public void SetTitleBarInsets(double left, double right)
+    { AppTitleBar.Padding = new Thickness(12 + left, 0, 12, 0); CaptionButtonInset.Width = Math.Max(0, right); }
+    private void OnNotificationItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs e)
     {
-        AppTitleBar.Padding = new Thickness(12 + left, 0, 12, 0);
-        CaptionButtonInset.Width = Math.Max(0, right);
+        if (!ReferenceEquals(e.InvokedItemContainer, NotificationBell)) return;
+        if (_notificationOpen) { _restoreNotificationFocus = true; NotificationFlyout.Hide(); }
+        else OpenNotificationCenter();
     }
-
-    private void OnNotificationBellClick(object sender, RoutedEventArgs e)
+    private void OpenNotificationCenter()
     {
-        _restoreNotificationFocus = true;
-        NotificationSplitView.IsPaneOpen = !NotificationSplitView.IsPaneOpen;
-        if (NotificationSplitView.IsPaneOpen) DispatcherQueue.TryEnqueue(NotificationCenter.FocusHeader);
+        if (_notificationOpen) return;
+        _restoreNotificationFocus = false; _notificationOpen = true;
+        NotificationCenter.BeginOpen(); NotificationService.SetCenterOpen(true);
+        NotificationFlyout.ShowAt(NotificationBell);
     }
-
+    private void OnNotificationFlyoutOpened(object sender, object e)
+        => DispatcherQueue.TryEnqueue(NotificationCenter.FocusHeader);
     private void OnNotificationDetailsRequested(string id)
     {
-        NotificationCenter.ViewModel.ShowDetails(id);
-        _restoreNotificationFocus = true;
-        NotificationSplitView.IsPaneOpen = true;
-        DispatcherQueue.TryEnqueue(NotificationCenter.FocusHeader);
+        if (_navigationClosing) { _pendingDetailsId = id; return; }
+        OpenNotificationCenter(); NotificationCenter.ShowDetails(id);
     }
-
-    private void OnNotificationCloseRequested(object? sender, EventArgs e) => NotificationSplitView.IsPaneOpen = false;
+    private void OnNotificationCloseRequested(object? sender, EventArgs e)
+    { _restoreNotificationFocus = true; NotificationFlyout.Hide(); }
     private void OnNotificationNavigated()
+    { _restoreNotificationFocus = false; _navigationClosing = true; NotificationFlyout.Hide(); }
+    private void OnNotificationFlyoutClosed(object sender, object e)
     {
-        _restoreNotificationFocus = false;
-        NotificationSplitView.IsPaneOpen = false;
-    }
-    private void OnNotificationPaneClosed(SplitView sender, object args)
-    {
+        _notificationOpen = false; NotificationCenter.EndOpen(); NotificationService.SetCenterOpen(false);
         if (_restoreNotificationFocus) NotificationBell.Focus(FocusState.Programmatic);
-        _restoreNotificationFocus = true;
+        var navigated = _navigationClosing; _navigationClosing = false;
+        if (_pendingDetailsId is { } id)
+        {
+            _pendingDetailsId = null;
+            DispatcherQueue.TryEnqueue(() => OnNotificationDetailsRequested(id));
+        }
+        else if (navigated) DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_notificationOpen) return;
+            for (var node = XamlRoot is null ? null : FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
+                node is not null; node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+                if (ReferenceEquals(node, ContentFrame)) return;
+            if (FocusManager.FindFirstFocusableElement(ContentFrame) is Control control) control.Focus(FocusState.Programmatic);
+        });
+        _restoreNotificationFocus = false;
     }
     private void OnNotificationAreaSizeChanged(object sender, SizeChangedEventArgs e)
-        => NotificationSplitView.OpenPaneLength = Math.Min(420, Math.Max(0, e.NewSize.Width));
+    {
+        if (NotificationCenter is null || NotificationToast is null) return;
+        // Content must fit inside the native presenter stroke, not exceed its outer bounds.
+        var border = Application.Current.Resources.TryGetValue("FlyoutBorderThemeThickness", out var value) && value is Thickness thickness
+            ? thickness : new Thickness(1);
+        NotificationCenter.Width = Math.Max(0, Math.Min(420, e.NewSize.Width - 24) - border.Left - border.Right);
+        NotificationCenter.MaxHeight = Math.Max(0, Math.Min(560, e.NewSize.Height - 44 - 24) - border.Top - border.Bottom);
+        NotificationToast.Width = Math.Min(380, Math.Max(0, e.NewSize.Width - 32));
+        NotificationToast.MaxHeight = Math.Max(0, e.NewSize.Height - 44 - 32);
+    }
     private void OnNotificationKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Escape || !NotificationSplitView.IsPaneOpen) return;
-        NotificationSplitView.IsPaneOpen = false;
-        e.Handled = true;
+        if (e.Key != VirtualKey.Escape || !_notificationOpen) return;
+        _restoreNotificationFocus = true; NotificationFlyout.Hide(); e.Handled = true;
     }
 }

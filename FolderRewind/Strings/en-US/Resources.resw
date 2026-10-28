@@ -832,7 +832,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Selected:</value>
   </data>
   <data name="FolderManager_BackupComment.Text" xml:space="preserve">
-    <value>Operation comment:</value>
+    <value>Backup comment:</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
     <value>e.g., Before update (optional)</value>
@@ -2859,7 +2859,7 @@ Status: {3}</value>
     <value>System notification level</value>
   </data>
   <data name="SettingsPage_ToastNotificationLevelDesc.Text" xml:space="preserve">
-    <value>Controls when system pop-up notifications (Toast) are sent; in-app notifications are not affected</value>
+    <value>System alerts are sent only in the background at this level. Successful automatic backups and cloud syncs, including unchanged results, are always recorded silently without popups or completion sounds. Important issues still notify you.</value>
   </data>
   <data name="SettingsPage_ToastLevel_Off.Content" xml:space="preserve">
     <value>Off</value>
@@ -2871,7 +2871,7 @@ Status: {3}</value>
     <value>Important and above</value>
   </data>
   <data name="SettingsPage_ToastLevel_All.Content" xml:space="preserve">
-    <value>All</value>
+    <value>All operation results</value>
   </data>
   <data name="Notification_Important_Title" xml:space="preserve">
     <value>Important</value>
@@ -7702,7 +7702,7 @@ Location: {2}
   <data name="SettingsProject_ReloadChangesBody" xml:space="preserve"><value>Reloading will discard the unsaved edits to: {0}. The latest project settings will then be shown.</value></data>
   <data name="SettingsProject_ReloadNoChangesBody" xml:space="preserve"><value>There are no unsaved edits on this page. Reload to show the latest project settings.</value></data>
   <data name="NotificationCenter_Title.Text" xml:space="preserve"><value>Notifications</value></data>
-  <data name="NotificationCenter_SessionHint.Text" xml:space="preserve"><value>The latest 500 results from this session. Read does not mean resolved.</value></data>
+  <data name="NotificationCenter_SessionHint.Text" xml:space="preserve"><value>The latest 200 results from this session. The badge counts unread important warnings and errors only. Reading or clearing a record does not resolve the issue. Clearing can be undone for 10 seconds.</value></data>
   <data name="NotificationCenter_Bell.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open notification center</value></data>
   <data name="NotificationCenter_Close.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Close notification center</value></data>
   <data name="NotificationCenter_Filter.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Filter notifications</value></data>
@@ -7732,4 +7732,55 @@ New backups {2} · Unchanged {3} · With warnings {4} · Failed {5}</value></dat
   <data name="NotificationCenter_ShowAllTasks.Content" xml:space="preserve"><value>Show all tasks</value></data>
   <data name="NotificationCenter_LogFilter.Message" xml:space="preserve"><value>Showing session logs for this operation. Older entries may be available in the log files.</value></data>
   <data name="NotificationCenter_ShowAllLogs.Content" xml:space="preserve"><value>Show all logs</value></data>
+  <data name="NotificationUI_BellName" xml:space="preserve"><value>Notifications, {0} unread important notifications</value></data>
+  <data name="NotificationUI_NewResults" xml:space="preserve"><value>{0} new results</value></data>
+  <data name="NotificationUI_Cleared" xml:space="preserve"><value>Removed {0} read records</value></data>
+  <data name="NotificationUI_Undo.Content" xml:space="preserve"><value>Undo</value></data>
+  <data name="NotificationUI_All.Text" xml:space="preserve"><value>All</value></data>
+  <data name="NotificationUI_Important.Text" xml:space="preserve"><value>Warnings &amp; errors</value></data>
+  <data name="NotificationUI_UnreadOnly.Text" xml:space="preserve"><value>Unread only</value></data>
+  <data name="NotificationUI_ClearRead.Text" xml:space="preserve"><value>Clear read records</value></data>
+  <data name="NotificationUI_Details.Content" xml:space="preserve"><value>Details</value></data>
+  <data name="NotificationUI_Session.Text" xml:space="preserve"><value>This session · Latest 200</value></data>
+  <data name="NotificationUI_NavigationCanceled" xml:space="preserve"><value>Navigation did not complete. You can keep reading this result or open it later.</value></data>
+  <data name="NotificationUI_TitleFormat" xml:space="preserve"><value>{0} · {1}: {2}</value></data>
+  <data name="NotificationUI_Operation_Other" xml:space="preserve"><value>Operation</value></data>
+  <data name="NotificationUI_Operation_Backup" xml:space="preserve"><value>Backup</value></data>
+  <data name="NotificationUI_Operation_Restore" xml:space="preserve"><value>Restore</value></data>
+  <data name="NotificationUI_Operation_Cloud" xml:space="preserve"><value>Cloud sync</value></data>
+  <data name="NotificationUI_Result_Unknown" xml:space="preserve"><value>Result</value></data>
+  <data name="NotificationUI_Result_Running" xml:space="preserve"><value>In progress</value></data>
+  <data name="NotificationUI_Result_Success" xml:space="preserve"><value>Completed</value></data>
+  <data name="NotificationUI_Result_NoChanges" xml:space="preserve"><value>No changes</value></data>
+  <data name="NotificationUI_Result_Warning" xml:space="preserve"><value>Completed with warnings</value></data>
+  <data name="NotificationUI_Result_Failed" xml:space="preserve"><value>Did not complete</value></data>
+  <data name="NotificationUI_Result_Canceled" xml:space="preserve"><value>Canceled</value></data>
+  <data name="NotificationUI_Count_Created" xml:space="preserve"><value>New {0}</value></data>
+  <data name="NotificationUI_Count_Unchanged" xml:space="preserve"><value>Unchanged {0}</value></data>
+  <data name="NotificationUI_Count_Warnings" xml:space="preserve"><value>Warnings {0}</value></data>
+  <data name="NotificationUI_Count_Failed" xml:space="preserve"><value>Failed {0}</value></data>
+  <data name="NotificationUI_ViewTasks" xml:space="preserve"><value>View task</value></data>
+  <data name="NotificationUI_ViewHistory" xml:space="preserve"><value>View version</value></data>
+  <data name="NotificationUI_ViewCloud" xml:space="preserve"><value>View cloud task</value></data>
+  <data name="NotificationUI_Back.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Back to notifications</value></data>
+  <data name="NotificationUI_Back.ToolTipService.ToolTip" xml:space="preserve"><value>Back to notifications</value></data>
+  <data name="NotificationUI_MarkAll.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mark all read</value></data>
+  <data name="NotificationUI_MarkAll.ToolTipService.ToolTip" xml:space="preserve"><value>Mark all read</value></data>
+  <data name="NotificationUI_More.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Notification options</value></data>
+  <data name="NotificationUI_More.ToolTipService.ToolTip" xml:space="preserve"><value>Notification options</value></data>
+  <data name="NotificationUI_About.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>About notification records</value></data>
+  <data name="NotificationUI_About.ToolTipService.ToolTip" xml:space="preserve"><value>About notification records</value></data>
+  <data name="NotificationUI_CloseToast.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dismiss notification</value></data>
+  <data name="NotificationUI_CloseToast.ToolTipService.ToolTip" xml:space="preserve"><value>Dismiss notification</value></data>
+  <data name="NotificationUI_Result_RecoveryRequired" xml:space="preserve"><value>Recovery required</value></data>
+  <data name="NotificationUI_NavEntry.Content" xml:space="preserve"><value>Notifications</value></data>
+  <data name="FolderManager_ConfigSelector.AutomationProperties.Name" xml:space="preserve"><value>Current backup project</value></data>
+  <data name="FolderManager_CommentPlaceholder.AutomationProperties.Name" xml:space="preserve"><value>Backup comment (optional)</value></data>
+  <data name="FolderManager_CommentPlaceholder.ToolTipService.ToolTip" xml:space="preserve"><value>Optional comment for this backup</value></data>
+  <data name="FolderManager_CompactCommentPlaceholder" xml:space="preserve"><value>Backup comment (optional)</value></data>
+  <data name="FolderManager_AddFolderButton.ToolTipService.ToolTip" xml:space="preserve"><value>Add folder</value></data>
+  <data name="FolderManager_BackupConfigButton.ToolTipService.ToolTip" xml:space="preserve"><value>Back up all folders in the current project</value></data>
+  <data name="FolderManager_BackupSelectedButton.ToolTipService.ToolTip" xml:space="preserve"><value>Back up the selected folder</value></data>
+  <data name="FolderManager_HistoryButton.ToolTipService.ToolTip" xml:space="preserve"><value>View the selected folder's history</value></data>
+  <data name="Onboarding_ProjectActions.ToolTipService.ToolTip" xml:space="preserve"><value>Further project setup</value></data>
 </root>

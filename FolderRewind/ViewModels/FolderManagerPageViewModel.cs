@@ -51,9 +51,11 @@ namespace FolderRewind.ViewModels
         private readonly CollectionChangedSubscription _configSubscription = new();
         private readonly CollectionChangedSubscription _folderSubscription = new();
         private BackupConfig? _currentConfig;
-        private ManagedFolder? _selectedFolder;
+        private readonly FolderManagerContext<BackupConfig, ManagedFolder> _context = new(c => c.SourceFolders, f => f.Id, f => f.Path);
+        private ManagedFolder? _selectedFolder => _context.SelectedFolder;
+        private bool _refreshingConfigs;
+        private bool _refreshingFolders;
         private string _backupComment = string.Empty;
-        private string? _pendingFolderPath;
         private bool _mineRewindHintShown;
         // Prevents N redundant RefreshCurrentFoldersView enqueues when
         // SourceFolders.Add is called in a tight loop (e.g. by AddDiscoveredFolders,
@@ -78,7 +80,7 @@ namespace FolderRewind.ViewModels
             get => _currentConfig;
             set
             {
-                if (ReferenceEquals(_currentConfig, value))
+                if (_refreshingConfigs || ReferenceEquals(_currentConfig, value))
                 {
                     return;
                 }
@@ -88,17 +90,16 @@ namespace FolderRewind.ViewModels
                 UnhookCurrentFoldersChanged();
 
                 _currentConfig = value;
+                _context.SwitchProject(value);
+                BackupComment = string.Empty;
 
                 OnPropertyChanged(nameof(CurrentConfig));
                 OnPropertyChanged(nameof(HasCurrentConfig));
+                OnPropertyChanged(nameof(CurrentConfigDisplayName));
+                NotifyActionState();
 
                 HookCurrentFoldersChanged(_currentConfig);
                 RefreshCurrentFoldersView();
-
-                if (_selectedFolder != null && (_currentConfig == null || !_currentConfig.SourceFolders.Contains(_selectedFolder)))
-                {
-                    SetSelectedFolder(null, persistSelection: false);
-                }
 
                 // 这里只持久化配置选择；文件夹选择由显式用户操作触发。
                 PersistManagerSelection(_currentConfig?.Id, null);
@@ -109,8 +110,7 @@ namespace FolderRewind.ViewModels
 
         public bool HasSelectedFolder => _selectedFolder != null;
         public bool HasCurrentConfig => _currentConfig != null;
-
-        public string SelectedFolderDisplayName => _selectedFolder?.DisplayName ?? I18n.GetString("FolderManager_NotSelected");
+        public string CurrentConfigDisplayName => _currentConfig?.Name ?? string.Empty;
 
         public string BackupComment
         {
@@ -118,7 +118,22 @@ namespace FolderRewind.ViewModels
             set => SetProperty(ref _backupComment, value ?? string.Empty);
         }
 
-        public string? PendingFolderPath => _pendingFolderPath;
+        public string SelectedFolderDisplayName => _selectedFolder?.DisplayName ?? I18n.GetString("FolderManager_NotSelected");
+
+        public ManagedFolder? SelectedFolderItem
+        {
+            get => _selectedFolder;
+            set
+            {
+                if (!_refreshingFolders && !ReferenceEquals(value, _selectedFolder))
+                    SetSelectedFolder(value, persistSelection: true);
+            }
+        }
+
+        public bool HasFolders => CurrentFoldersView.Count > 0;
+        public bool IsEmpty => !HasFolders;
+
+        public string? PendingFolderPath => _context.Pending?.Path;
 
         public void Activate()
         {
@@ -136,6 +151,8 @@ namespace FolderRewind.ViewModels
             HookCurrentFoldersChanged(_currentConfig);
             HookConfigsChanged();
             RefreshConfigsView();
+            if (_currentConfig is not null && !Configs.Contains(_currentConfig))
+                CurrentConfig = FindConfigById(_currentConfig.Id) ?? Configs.FirstOrDefault();
         }
 
         public void Deactivate()
@@ -147,6 +164,8 @@ namespace FolderRewind.ViewModels
 
             // 与 Activate 成对解绑，防止重复回调与内存滞留。
             _isActive = false;
+            _currentFoldersRefreshPending = false;
+            _context.InvalidatePending();
 
             ConfigService.Saved -= OnConfigurationSaved;
             _commands.Deactivate();
@@ -181,12 +200,12 @@ namespace FolderRewind.ViewModels
 
         public void SetPendingFolderPath(string? path)
         {
-            _pendingFolderPath = string.IsNullOrWhiteSpace(path) ? null : path;
+            _context.RequestSelection(path);
         }
 
         public void ClearPendingFolderPath()
         {
-            _pendingFolderPath = null;
+            _context.InvalidatePending();
         }
 
         public BackupConfig? FindConfigById(string? configId)
@@ -225,21 +244,31 @@ namespace FolderRewind.ViewModels
 
         public void SetSelectedFolder(ManagedFolder? folder, bool persistSelection)
         {
-            if (ReferenceEquals(_selectedFolder, folder))
-            {
-                return;
-            }
+            _context.Select(folder);
+            NotifySelectionChanged();
 
-            _selectedFolder = folder;
+            if (persistSelection && _selectedFolder != null)
+                PersistManagerSelection(CurrentConfig?.Id, _selectedFolder.Path);
+        }
+
+        private void NotifySelectionChanged()
+        {
             OnPropertyChanged(nameof(SelectedFolder));
             OnPropertyChanged(nameof(HasSelectedFolder));
             OnPropertyChanged(nameof(SelectedFolderDisplayName));
+            OnPropertyChanged(nameof(SelectedFolderItem));
+            NotifyActionState();
+        }
 
-            if (persistSelection && folder != null)
-            {
-                // 仅在用户明确选中时持久化，程序内部清空选择不覆盖历史路径。
-                PersistManagerSelection(CurrentConfig?.Id, folder.Path);
-            }
+        internal FolderManagerContext<BackupConfig, ManagedFolder>.PendingSelection? PendingSelection => _context.Pending;
+
+        internal bool ApplyPendingSelection(FolderManagerContext<BackupConfig, ManagedFolder>.PendingSelection request)
+        {
+            if (!_isActive || !_context.ApplySelection(request)) return false;
+            NotifySelectionChanged();
+            if (_selectedFolder is not null) PersistManagerSelection(CurrentConfig?.Id, _selectedFolder.Path);
+            else ClearRememberedFolderPathIfMatches(request.Path);
+            return true;
         }
 
         public void ClearRememberedFolderPathIfMatches(string path)
@@ -360,16 +389,10 @@ namespace FolderRewind.ViewModels
 
         public string BuildHotkeyBackupComment()
         {
-            var baseComment = BackupComment;
+            var comment = BackupComment.Trim();
             var marker = I18n.GetString("Hotkeys_BackupCommentMarker");
-            if (string.IsNullOrWhiteSpace(baseComment))
-            {
-                return marker;
-            }
-
-            return baseComment.Contains(marker, StringComparison.OrdinalIgnoreCase)
-                ? baseComment
-                : $"{baseComment} {marker}";
+            return string.IsNullOrWhiteSpace(comment) ? marker
+                : comment.Contains(marker, StringComparison.OrdinalIgnoreCase) ? comment : $"{comment} {marker}";
         }
 
         public bool TryOpenFolder(ManagedFolder folder)
@@ -581,7 +604,7 @@ namespace FolderRewind.ViewModels
 
                 if (CurrentConfig != null && !Configs.Contains(CurrentConfig))
                 {
-                    CurrentConfig = Configs.FirstOrDefault();
+                    CurrentConfig = FindConfigById(CurrentConfig.Id) ?? Configs.FirstOrDefault();
                 }
 
                 if (CurrentConfig == null && Configs.Count > 0)
@@ -591,7 +614,7 @@ namespace FolderRewind.ViewModels
                         ?? Configs.FirstOrDefault();
                 }
 
-                if (CurrentConfig != null && !string.IsNullOrWhiteSpace(Settings?.LastManagerFolderPath))
+                if (CurrentConfig != null && _selectedFolder is null && Settings?.LastManagerConfigId == CurrentConfig.Id && !string.IsNullOrWhiteSpace(Settings?.LastManagerFolderPath))
                 {
                     SetPendingFolderPath(Settings.LastManagerFolderPath);
                     // 触发一次“延迟选中”，由 View 在列表就绪后完成真正定位。
@@ -621,6 +644,7 @@ namespace FolderRewind.ViewModels
 
         private void OnCurrentConfigPropertyChanged(object? sender, PropertyChangedEventArgs args)
         {
+            if (args.PropertyName == nameof(BackupConfig.Name)) OnPropertyChanged(nameof(CurrentConfigDisplayName));
             if (args.PropertyName != nameof(BackupConfig.SourceFolders)) return;
             HookCurrentFoldersChanged(_currentConfig);
             OnCurrentFoldersChanged(sender, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
@@ -648,8 +672,8 @@ namespace FolderRewind.ViewModels
             _currentFoldersRefreshPending = true;
             EnqueueOnUiThread(() =>
             {
-                if (!_isActive) return;
                 _currentFoldersRefreshPending = false;
+                if (!_isActive) return;
                 RefreshCurrentFoldersView();
 
                 // 当前选中文件夹被删/移出后，立刻清空选择避免悬挂引用。
@@ -662,25 +686,40 @@ namespace FolderRewind.ViewModels
 
         public void RefreshConfigsView()
         {
-            ConfigsView.Clear();
-            foreach (var cfg in Configs)
+            _refreshingConfigs = true;
+            try
             {
-                ConfigsView.Add(cfg);
+                SynchronizeView(ConfigsView, Configs.Cast<object>().ToArray());
             }
+            finally { _refreshingConfigs = false; }
+            OnPropertyChanged(nameof(CurrentConfig));
         }
 
         public void RefreshCurrentFoldersView()
         {
-            CurrentFoldersView.Clear();
-            if (CurrentConfig?.SourceFolders == null)
+            _refreshingFolders = true;
+            try
             {
-                return;
+                var desired = CurrentConfig?.SourceFolders.Cast<object>().ToArray() ?? Array.Empty<object>();
+                SynchronizeView(CurrentFoldersView, desired);
+                _context.RefreshSelection();
             }
+            finally { _refreshingFolders = false; }
+            NotifySelectionChanged();
+            OnPropertyChanged(nameof(HasFolders));
+            OnPropertyChanged(nameof(IsEmpty));
+        }
 
-            foreach (var folder in CurrentConfig.SourceFolders)
+        private static void SynchronizeView(ObservableCollection<object> view, object[] desired)
+        {
+            for (var i = 0; i < desired.Length; i++)
             {
-                CurrentFoldersView.Add(folder);
+                if (i < view.Count && ReferenceEquals(view[i], desired[i])) continue;
+                var previous = view.IndexOf(desired[i]);
+                if (previous >= 0) view.Move(previous, i);
+                else view.Insert(i, desired[i]);
             }
+            while (view.Count > desired.Length) view.RemoveAt(view.Count - 1);
         }
 
         private void PersistManagerSelection(string? configId, string? folderPath)

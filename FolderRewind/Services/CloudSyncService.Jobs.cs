@@ -19,6 +19,7 @@ namespace FolderRewind.Services;
 
 public static partial class CloudSyncService
 {
+    private static readonly NotificationExecutionOrigins NotificationOrigins = new(TimeProvider.System);
     private static readonly ConcurrentDictionary<string, Task> CloudWorkers = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, BackupTask> JobTasks = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, CancellationTokenSource> JobCancellation = new(StringComparer.Ordinal);
@@ -142,6 +143,7 @@ public static partial class CloudSyncService
             {
                 if (!IsFrozenTargetCurrent(job, out _)) continue;
                 runtime.CloudJobs.Update(job with { Phase = CloudJobPhase.Pending, NextEligibleUtc = DateTimeOffset.UtcNow, Diagnostic = "" });
+                NotificationOrigins.RequestManual(job.JobId);
             }
         }
         ResumeCloudJobs(config);
@@ -175,6 +177,7 @@ public static partial class CloudSyncService
         HistoryCloudBackupResult Incomplete(string code) => new([], initial.Representations, null, token.IsCancellationRequested, DateTimeOffset.UtcNow);
         await CommandSemaphore.WaitAsync(token).ConfigureAwait(false);
         if (_automaticSyncStopping) { CommandSemaphore.Release(); return Incomplete("cloud.job-exit-pending"); }
+        var notificationTrigger = NotificationOrigins.Take(initial.JobId, initial.Automatic);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
         token = cancellation.Token; JobCancellation[initial.JobId] = cancellation;
         var job = initial;
@@ -190,7 +193,7 @@ public static partial class CloudSyncService
                 job = job with { Phase = CloudJobPhase.Resolving, Attempt = job.Attempt + 1, Diagnostic = "" };
                 runtime.CloudJobs.Update(job);
             }
-            PublishJobNotification(runtime, job.JobId);
+            PublishJobNotification(runtime, job.JobId, notificationTrigger);
             var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(job.ProjectId).Matches(c.Id));
             if (current is not null)
             {
@@ -326,7 +329,7 @@ public static partial class CloudSyncService
 
             return Incomplete(diagnostic);
         }
-        finally { PublishJobNotification(runtime, initial.JobId); JobCancellation.TryRemove(initial.JobId, out _); CommandSemaphore.Release(); }
+        finally { PublishJobNotification(runtime, initial.JobId, notificationTrigger); JobCancellation.TryRemove(initial.JobId, out _); CommandSemaphore.Release(); }
     }
     private static Task CompleteNativeJobTransfersAsync(BackupConfig config, HistoryRuntime runtime, string jobId, CancellationToken token)
     {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FolderRewind.Services;
 
@@ -16,6 +17,7 @@ internal sealed class LatestNotificationTracker
                 || previous.ItemCreatedUtc == incoming.ItemCreatedUtc && (previous.EventUtc > incoming.EventUtc
                     || previous.ItemId != incoming.ItemId && StringComparer.Ordinal.Compare(previous.ItemId, incoming.ItemId) > 0))) return false;
         _latest[incoming.Group] = incoming;
+        while (_latest.Count > 2048) _latest.Remove(_latest.MinBy(p => p.Value.EventUtc).Key);
         return true;
     }
     internal void Clear() => _latest.Clear();

@@ -1,244 +1,178 @@
+using FolderRewind.Controls;
 using FolderRewind.Models;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using System;
 
 namespace FolderRewind.Services;
 
+/// <summary>Two independent surfaces share the tested scheduler, not their queues or focus.</summary>
 internal sealed class ShellNotificationPresenter : IDisposable
 {
-    private readonly InfoBar GlobalInfoBar;
-    private readonly InfoBadge TasksRunningInfoBadge;
-    private readonly DispatcherQueue DispatcherQueue;
-    private DispatcherQueueTimer? _infoBarTimer;
-    private readonly PriorityNotificationQueue<InAppNotificationRequest> _infoBarQueue = new();
-    private readonly NotificationCountdown _countdown = new(TimeProvider.System);
-    private InAppNotificationRequest? _currentNotification;
-    private bool _isPointerHoveringInfoBar;
-    private bool _disposed;
-    public ShellNotificationPresenter(InfoBar bar, InfoBadge badge, DispatcherQueue dispatcher)
+    private readonly InfoBar _bar;
+    private readonly NotificationToastControl _toast;
+    private readonly InfoBadge _badge;
+    private readonly DispatcherQueue _dispatcher;
+    private readonly DispatcherQueueTimer _timer;
+    private readonly NotificationScheduler _temporary = new(TimeProvider.System), _persistent = new(TimeProvider.System);
+    private bool _disposed, _rendering, _toastHover, _toastFocus, _barHover, _barFocus;
+    private int _toastRevision = -1, _barRevision = -1;
+    private string? _toastGroup, _barGroup;
+    public ShellNotificationPresenter(InfoBar bar, NotificationToastControl toast, InfoBadge badge, DispatcherQueue dispatcher)
     {
-        GlobalInfoBar = bar;
-        TasksRunningInfoBadge = badge;
-        DispatcherQueue = dispatcher;
-        NotificationService.InfoBarRequested += OnInfoBarRequested;
-        NotificationService.NotificationsCleared += OnNotificationsCleared;
-        NotificationService.RunningTaskCountChanged += OnRunningTaskCountChanged;
-        UpdateTasksRunningBadge(NotificationService.GetRunningTaskCount());
+        _bar = bar; _toast = toast; _badge = badge; _dispatcher = dispatcher;
+        _timer = dispatcher.CreateTimer(); _timer.Interval = TimeSpan.FromMilliseconds(250); _timer.IsRepeating = true; _timer.Tick += OnTick;
+        _bar.GotFocus += OnFocusChanged; _bar.LostFocus += OnFocusChanged;
+        _toast.GotFocus += OnFocusChanged; _toast.LostFocus += OnFocusChanged;
+        _toast.PointerEntered += OnToastEntered; _toast.PointerExited += OnToastExited;
+        _toast.CloseRequested += CloseToast; _toast.ActionRequested += OnToastAction;
+        NotificationService.InfoBarRequested += OnRequested; NotificationService.NotificationsCleared += OnCleared;
+        NotificationService.CenterVisibilityChanged += OnCenterChanged;
+        NotificationService.RunningTaskCountChanged += OnRunningCount;
+        UpdateBadge(NotificationService.GetRunningTaskCount());
     }
     public void Dispose()
     {
-        if (_disposed) return;
         _disposed = true;
-        NotificationService.InfoBarRequested -= OnInfoBarRequested;
-        NotificationService.NotificationsCleared -= OnNotificationsCleared;
-        NotificationService.RunningTaskCountChanged -= OnRunningTaskCountChanged;
-        _infoBarTimer?.Stop();
-        if (_infoBarTimer is not null) _infoBarTimer.Tick -= InfoBarTimer_Tick;
-        _infoBarQueue.Clear();
-        GlobalInfoBar.ActionButton = null;
+        NotificationService.InfoBarRequested -= OnRequested; NotificationService.NotificationsCleared -= OnCleared;
+        NotificationService.CenterVisibilityChanged -= OnCenterChanged; NotificationService.RunningTaskCountChanged -= OnRunningCount;
+        _bar.GotFocus -= OnFocusChanged; _bar.LostFocus -= OnFocusChanged;
+        _toast.GotFocus -= OnFocusChanged; _toast.LostFocus -= OnFocusChanged;
+        _toast.PointerEntered -= OnToastEntered; _toast.PointerExited -= OnToastExited;
+        _toast.CloseRequested -= CloseToast; _toast.ActionRequested -= OnToastAction;
+        _timer.Stop(); _timer.Tick -= OnTick; _temporary.Clear(); _persistent.Clear(); _bar.ActionButton = null;
     }
-        private void OnInfoBarRequested(InAppNotificationRequest request)
+    private void OnRequested(NotificationBannerRequest request) => _dispatcher.TryEnqueue(() =>
+    {
+        if (_disposed || !NotificationService.Core.CanQueueBanner(request)) return;
+        var scheduler = request.Event.IsPersistent ? _persistent : _temporary;
+        scheduler.SetForeground(NotificationService.GetEnvironment().Foreground); scheduler.Enqueue(request); Pump();
+    });
+    private void OnCleared() => _dispatcher.TryEnqueue(() =>
+    {
+        if (_disposed) return;
+        _toastHover = _toastFocus = _barHover = _barFocus = false;
+        _temporary.Clear(); _persistent.Clear(); Pump();
+    });
+    private void OnCenterChanged() => _dispatcher.TryEnqueue(() =>
+    {
+        if (_disposed) return;
+        if (NotificationService.IsCenterOpen) { _temporary.DiscardRecorded(); _toastHover = _toastFocus = false; }
+        Pump();
+    });
+    private void OnTick(DispatcherQueueTimer sender, object args) => Pump();
+    private void Pump()
+    {
+        if (_disposed) return;
+        try
         {
-            var generation = NotificationService.NotificationGeneration;
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                if (_disposed) return;
-                if (generation != NotificationService.NotificationGeneration) return;
-                if (!NotificationService.IsNotificationEnabled)
-                {
-                    ClearNotifications();
-                    return;
-                }
-                var replacesCurrent = false;
-                var replacesQueued = false;
-                if (request.Correlation is { } correlation)
-                {
-                    _infoBarQueue.RemoveWhere(item =>
-                    {
-                        if (item.Correlation?.Group != correlation.Group) return false;
-                        replacesQueued = true;
-                        return true;
-                    });
-                    replacesCurrent = _currentNotification?.Correlation?.Group == correlation.Group;
-                }
-                if (request.IsQuietUpdate && !replacesCurrent && !replacesQueued) return;
-                if (_currentNotification == null && !GlobalInfoBar.IsOpen)
-                {
-                    DisplayNotification(request);
-                }
-                else
-                {
-                    EnqueueNotification(request);
-                    if (replacesCurrent || _currentNotification is { } current
-                        && GetPriority(request) > GetPriority(current))
-                    {
-                        // 临时结果优先于常驻公告；被抢占的无关消息稍后恢复。
-                        if (!replacesCurrent && _currentNotification is { } interrupted)
-                            EnqueueNotification(interrupted);
-                        GlobalInfoBar.IsOpen = false;
-                    }
-                }
-            });
+            var environment = NotificationService.GetEnvironment();
+            if (!environment.Enabled || environment.Suppressed) { _temporary.Clear(); _persistent.Clear(); }
+            if (environment.CenterOpen) _temporary.DiscardRecorded();
+            _temporary.SetForeground(environment.Foreground); _persistent.SetForeground(environment.Foreground);
+            _temporary.Advance(); _persistent.Advance();
+            RenderToast(); RenderPersistent(environment.Foreground);
+            if (_temporary.HasWork || _persistent.HasWork) _timer.Start(); else _timer.Stop();
         }
-
-        private static int GetPriority(InAppNotificationRequest request)
-            => request.Severity == NotificationSeverity.Error ? 3
-                : request.AutoCloseMs <= 0 ? 0
-                : request.Severity == NotificationSeverity.Warning ? 2 : 1;
-
-        private void EnqueueNotification(InAppNotificationRequest request)
-            => _infoBarQueue.Enqueue(request, (left, right) => GetPriority(right).CompareTo(GetPriority(left)));
-
-        private void OnNotificationsCleared()
+        catch (Exception error) { _timer.Stop(); LogService.LogError("Could not render notification.", nameof(ShellNotificationPresenter), error); }
+    }
+    private void RenderToast()
+    {
+        while (_toastRevision != _temporary.Revision)
         {
-            if (DispatcherQueue.HasThreadAccess) ClearNotifications();
-            else DispatcherQueue.TryEnqueue(ClearNotifications);
-        }
-
-        private void ClearNotifications()
-        {
-            if (_disposed) return;
-            _infoBarQueue.Clear();
-            _infoBarTimer?.Stop();
-            _countdown.Start(0);
-            _currentNotification = null;
-            GlobalInfoBar.ActionButton = null;
-            GlobalInfoBar.IsOpen = false;
-        }
-
-        private void DisplayNotification(InAppNotificationRequest request)
-        {
-            _currentNotification = request;
-            GlobalInfoBar.Title = request.Title;
-            GlobalInfoBar.Message = request.Message;
-            GlobalInfoBar.Severity = request.Severity switch
+            var request = _temporary.Current;
+            if (request is not null)
             {
-                NotificationSeverity.Success => InfoBarSeverity.Success,
-                NotificationSeverity.Warning => InfoBarSeverity.Warning,
-                NotificationSeverity.Error => InfoBarSeverity.Error,
-                _ => InfoBarSeverity.Informational
-            };
-
-            // 如果有操作回调，添加操作按钮
-            if (request.Action != null || request.RecordId != null)
-            {
-                var actionButton = new Button
-                {
-                    Content = !string.IsNullOrWhiteSpace(request.ActionText)
-                        ? request.ActionText
-                        : I18n.GetString("Notification_Action_View")
-                };
-                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(actionButton, "ShellNotificationAction");
-                actionButton.Click += (s, e) =>
-                {
-                    GlobalInfoBar.IsOpen = false;
-                    try
-                    {
-                        if (request.RecordId is { } id)
-                        {
-                            NotificationCenterService.MarkRead(id);
-                            if (request.Action is not null) request.Action.Invoke();
-                            else if (request.Target is { Kind: not NotificationTargetKind.None }) NotificationNavigationService.Open(request.Target);
-                            else NotificationNavigationService.RequestDetails(id);
-                        }
-                        else request.Action?.Invoke();
-                    }
-                    catch (Exception ex)
-                    {
-                        LogService.LogError("InfoBar action failed.", nameof(ShellNotificationPresenter), ex);
-                    }
-                };
-                GlobalInfoBar.ActionButton = actionButton;
+                request = NotificationService.Core.PrepareBanner(request, _toastGroup == request.Event.GroupKey);
+                if (request is null || request.QuietUpdate && !request.Resume && _toastGroup != request.Event.GroupKey)
+                { _temporary.Close(); continue; }
             }
+            _toastGroup = request?.Event.GroupKey;
+            if (request is null) _toast.Visibility = Visibility.Collapsed;
             else
             {
-                GlobalInfoBar.ActionButton = null;
+                var item = request.Event;
+                var action = item.TransientAction is not null ? item.ActionText : item.KeepInCenter
+                    ? I18n.GetString(NotificationNavigationService.IsTargetAvailable(item.Target)
+                        ? NotificationContentFormatter.ActionResource(item.Target) : "NotificationUI_Details.Content") : null;
+                _toast.Render(item, string.IsNullOrWhiteSpace(action) ? I18n.GetString("Notification_Action_View") : action,
+                    item.TransientAction is not null || item.KeepInCenter, !request.Resume && !request.QuietUpdate);
+                NotificationService.Core.ReportBannerShown(request);
             }
-
-            GlobalInfoBar.IsOpen = true;
-            _infoBarTimer?.Stop();
-
-            _countdown.Start(request.AutoCloseMs);
-
-            if (request.AutoCloseMs > 0 && !_isPointerHoveringInfoBar)
+            _toastRevision = _temporary.Revision;
+        }
+    }
+    private void RenderPersistent(bool foreground)
+    {
+        while (_barRevision != _persistent.Revision)
+        {
+            var request = _persistent.Current;
+            if (request is not null)
             {
-                EnsureInfoBarTimer();
-                _infoBarTimer!.Interval = TimeSpan.FromMilliseconds(request.AutoCloseMs);
-                _infoBarTimer.Start();
+                if (!foreground) return;
+                request = NotificationService.Core.PrepareBanner(request, _barGroup == request.Event.GroupKey);
+                if (request is null) { _persistent.Close(); continue; }
             }
-        }
-
-        private void OnRunningTaskCountChanged(int runningTaskCount)
-        {
-            DispatcherQueue.TryEnqueue(() => { if (!_disposed) UpdateTasksRunningBadge(runningTaskCount); });
-        }
-
-        private void UpdateTasksRunningBadge(int runningTaskCount)
-        {
-            TasksRunningInfoBadge.Value = Math.Max(0, runningTaskCount);
-            TasksRunningInfoBadge.Visibility = runningTaskCount > 0
-                ? Microsoft.UI.Xaml.Visibility.Visible
-                : Microsoft.UI.Xaml.Visibility.Collapsed;
-        }
-
-        private void EnsureInfoBarTimer()
-        {
-            if (_infoBarTimer != null)
+            _rendering = true;
+            try
             {
-                return;
+                _bar.IsOpen = false; _bar.ActionButton = null; _barGroup = request?.Event.GroupKey;
+                if (request is not null)
+                {
+                    var item = request.Event; _bar.Title = item.Title; _bar.Message = item.Message;
+                    _bar.Severity = item.Severity switch { NotificationSeverity.Error => InfoBarSeverity.Error,
+                        NotificationSeverity.Warning => InfoBarSeverity.Warning, NotificationSeverity.Success => InfoBarSeverity.Success, _ => InfoBarSeverity.Informational };
+                    if (item.TransientAction is not null || item.KeepInCenter)
+                    {
+                        var button = new HyperlinkButton { Content = string.IsNullOrWhiteSpace(item.ActionText) ? I18n.GetString("Notification_Action_View") : item.ActionText };
+                        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(button, "ShellNotificationAction");
+                        button.Click += (_, _) => { _persistent.Close(); Pump(); InvokeAction(item); };
+                        _bar.ActionButton = button;
+                    }
+                    _bar.IsOpen = true; NotificationService.Core.ReportBannerShown(request);
+                }
+                _barRevision = _persistent.Revision;
             }
-
-            _infoBarTimer = DispatcherQueue.CreateTimer();
-            _infoBarTimer.IsRepeating = false;
-            _infoBarTimer.Tick += InfoBarTimer_Tick;
+            finally { _rendering = false; }
         }
-
-        private void InfoBarTimer_Tick(DispatcherQueueTimer sender, object args)
+    }
+    private void OnToastAction()
+    { if (_temporary.Current?.Event is { } item) { CloseToast(); InvokeAction(item); } }
+    private static void InvokeAction(NotificationEvent item)
+    {
+        try
         {
-            // Closed 会同步展示下一条并重启同一个计时器，必须先停止本次计时。
-            sender.Stop();
-            GlobalInfoBar.IsOpen = false;
+            if (item.KeepInCenter) NotificationCenterService.MarkRead(item.Id, item.Revision);
+            if (item.TransientAction is not null) item.TransientAction();
+            else if (!NotificationNavigationService.IsTargetAvailable(item.Target) || !NotificationNavigationService.Open(item.Target!))
+                NotificationNavigationService.RequestDetails(item.Id);
         }
-
-        public void GlobalInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
-        {
-            _infoBarTimer?.Stop();
-            _currentNotification = null;
-            _countdown.Start(0);
-            GlobalInfoBar.ActionButton = null;
-
-            if (_disposed || !NotificationService.IsNotificationEnabled)
-            {
-                _infoBarQueue.Clear();
-                return;
-            }
-
-            if (_infoBarQueue.TryDequeue(out var nextRequest))
-            {
-                DisplayNotification(nextRequest);
-            }
-        }
-
-        public void GlobalInfoBar_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        {
-            _isPointerHoveringInfoBar = true;
-            if (_infoBarTimer?.IsRunning == true)
-            {
-                _infoBarTimer.Stop();
-                _countdown.Pause();
-            }
-        }
-
-        public void GlobalInfoBar_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        {
-            _isPointerHoveringInfoBar = false;
-            if (GlobalInfoBar.IsOpen && _countdown.RemainingMilliseconds > 0)
-            {
-                EnsureInfoBarTimer();
-                _countdown.Resume();
-                _infoBarTimer!.Interval = TimeSpan.FromMilliseconds(_countdown.RemainingMilliseconds);
-                _infoBarTimer.Start();
-            }
-        }
+        catch (Exception error) { LogService.LogError("Notification action failed.", nameof(ShellNotificationPresenter), error); }
+    }
+    private void CloseToast() { _temporary.Close(); _temporary.SetInteraction(_toastHover, _toastFocus); Pump(); }
+    public void GlobalInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    { if (_disposed || _rendering) return; _barHover = _barFocus = false; _persistent.Close(); Pump(); }
+    public void GlobalInfoBar_PointerEntered(object sender, PointerRoutedEventArgs e)
+    { _barHover = true; _persistent.SetInteraction(_barHover, _barFocus); Pump(); }
+    public void GlobalInfoBar_PointerExited(object sender, PointerRoutedEventArgs e)
+    { _barHover = false; _persistent.SetInteraction(_barHover, _barFocus); Pump(); }
+    private void OnToastEntered(object sender, PointerRoutedEventArgs e)
+    { _toastHover = true; _temporary.SetInteraction(_toastHover, _toastFocus); Pump(); }
+    private void OnToastExited(object sender, PointerRoutedEventArgs e)
+    { _toastHover = false; _temporary.SetInteraction(_toastHover, _toastFocus); Pump(); }
+    private void OnFocusChanged(object sender, RoutedEventArgs args) => _dispatcher.TryEnqueue(() =>
+    {
+        if (_disposed) return;
+        _toastFocus = _barFocus = false;
+        for (var node = _bar.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as DependencyObject : null;
+            node is not null; node = VisualTreeHelper.GetParent(node))
+        { if (ReferenceEquals(node, _toast)) _toastFocus = true; if (ReferenceEquals(node, _bar)) _barFocus = true; }
+        _temporary.SetInteraction(_toastHover, _toastFocus); _persistent.SetInteraction(_barHover, _barFocus); Pump();
+    });
+    private void OnRunningCount(int count) => _dispatcher.TryEnqueue(() => { if (!_disposed) UpdateBadge(count); });
+    private void UpdateBadge(int count)
+    { _badge.Value = Math.Max(0, count); _badge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed; }
 }

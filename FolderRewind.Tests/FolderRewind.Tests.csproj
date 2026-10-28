@@ -1,5 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Models\NotificationModels.cs" Link="Source\NotificationModels.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationContracts.cs" Link="Source\NotificationContracts.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationPolicy.cs" Link="Source\NotificationPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationStore.cs" Link="Source\NotificationStore.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationCoordinator.cs" Link="Source\NotificationCoordinator.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationScheduler.cs" Link="Source\NotificationScheduler.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationActivation.cs" Link="Source\NotificationActivation.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationReadingSession.cs" Link="Source\NotificationReadingSession.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationContentFormatter.cs" Link="Source\NotificationContentFormatter.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationExecutionOrigins.cs" Link="Source\NotificationExecutionOrigins.cs" />
     <Compile Include="..\FolderRewind\Services\CloudFailurePresentation.cs" Link="Source\CloudFailurePresentation.cs" />
     <Compile Include="..\FolderRewind\Services\CloudConnectionObservationStore.cs" Link="Source\CloudConnectionObservationStore.cs" />
     <Compile Include="..\FolderRewind\Services\CloudRepositoryDisplayService.cs" Link="Source\CloudRepositoryDisplayService.cs" />

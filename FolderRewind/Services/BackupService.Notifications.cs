@@ -24,7 +24,10 @@ public static partial class BackupService
             internalCapture ? NotificationOperationScope.Current?.OperationId : null, config?.Id,
             requestedFolders?.Count == 1 ? requestedFolders[0].Id : null);
         using var operation = new NotificationOperationScope(target, internalCapture);
-        using var batch = new BackupNotificationBatch(config?.Name ?? "", operation.Target, requestedFolders?.Count ?? 0);
+        using var batch = new BackupNotificationBatch(config?.Name ?? "", operation.Target, requestedFolders?.Count ?? 0,
+            requestedFolders?.Count == 1 ? requestedFolders[0].DisplayName : config?.Name ?? "",
+            invocationOptions?.Source == BackupInvocationSource.Automatic ? NotificationTrigger.Automatic
+                : invocationOptions?.Source is BackupInvocationSource.Manual or BackupInvocationSource.PluginHotkey ? NotificationTrigger.Manual : NotificationTrigger.Unknown);
         try
         {
             var result = await ExecuteBackupTransactionCoreAsync(config!, requestedFolders!, invocationOptions!, intent,
@@ -54,9 +57,11 @@ public static partial class BackupService
         private readonly DateTimeOffset _started = DateTimeOffset.UtcNow;
         private readonly Dictionary<string, string> _failures = new(StringComparer.Ordinal);
         private NotificationTarget _target;
+        private readonly string _objectName;
+        private readonly NotificationTrigger _trigger;
         internal static BackupNotificationBatch? Current => Ambient.Value;
-        public BackupNotificationBatch(string name, NotificationTarget target, int total)
-        { _previous = Ambient.Value; Ambient.Value = this; _name = name; _target = target; _total = total; }
+        public BackupNotificationBatch(string name, NotificationTarget target, int total, string objectName, NotificationTrigger trigger)
+        { _previous = Ambient.Value; Ambient.Value = this; _name = name; _target = target; _total = total; _objectName = objectName; _trigger = trigger; }
         public void Dispose() => Ambient.Value = _previous;
 
         public void Failed(ManagedFolder folder, string detail)
@@ -67,7 +72,7 @@ public static partial class BackupService
                 _failures[folder.Id] = detail;
                 Publish(I18n.Format("NotificationCenter_BatchRunningFailure", _name, _failures.Count, _total),
                     string.Join(Environment.NewLine, _failures.Values), NotificationSeverity.Error, NotificationImportance.Error,
-                    "failure:" + _failures.Count + ":" + detail, false);
+                    "failure:" + _failures.Count + ":" + detail, false, result: NotificationResultKind.Failed);
             }
             catch (Exception error) { System.Diagnostics.Debug.WriteLine($"[BackupNotification] {error}"); }
         }
@@ -98,27 +103,34 @@ public static partial class BackupService
                         : o.Status == BackupSourceExecutionStatus.NewArchive ? o.WarningDiagnostics.Count > 0 ? "Warning" : "Success" : "Failed"))
                     + " " + o.ErrorMessage + " " + OperationDiagnosticFormatter.Summary(o.WarningDiagnostics)));
                 details += Environment.NewLine + (result.RecoveryMessage ?? result.Diagnostic ?? "");
-                Publish(message, details, canceled ? NotificationSeverity.Informational : failed ? NotificationSeverity.Error
+                Publish(message, details, canceled ? NotificationSeverity.Informational : failed || result.HistoryRecoveryRequired ? NotificationSeverity.Error
                         : warning ? NotificationSeverity.Warning : NotificationSeverity.Success,
                     failed || result.HistoryRecoveryRequired ? NotificationImportance.Error : warning ? NotificationImportance.Important : NotificationImportance.Info,
                     "final:" + statusKey + ":" + message + ":" + details,
-                    canceled ? null : !failed);
+                    canceled ? null : !failed, canceled ? NotificationCategory.Cancellation : NotificationCategory.BusinessResult,
+                    canceled ? NotificationResultKind.Canceled : result.HistoryRecoveryRequired ? NotificationResultKind.RecoveryRequired
+                        : failed ? NotificationResultKind.Failed : warning ? NotificationResultKind.Warning
+                        : result.Outcome == OperationOutcome.NoChanges ? NotificationResultKind.NoChanges : NotificationResultKind.Success,
+                    new(succeeded, unchanged, warnings, failures));
             }
             catch (Exception error) { LogService.LogError("Could not publish backup result.", nameof(BackupService), error); }
         }
 
         private void Publish(string message, string details, NotificationSeverity severity, NotificationImportance importance,
-            string resultKey, bool? sound)
+            string resultKey, bool? sound, NotificationCategory category = NotificationCategory.BusinessResult,
+            NotificationResultKind result = NotificationResultKind.Unknown, NotificationStatistics? statistics = null)
         {
             try
             {
                 NotificationService.ShowNotification(new InAppNotificationRequest
                 {
                     RecordId = "operation:" + _target.OperationId, Target = _target, KeepInCenter = true, AlertOnce = true,
+                    Category = category, Source = "backup",
+                    Content = new(NotificationOperationKind.Backup, _trigger, result, _name, _objectName, statistics),
                     Correlation = new("operation:" + _target.OperationId, _target.OperationId!, _started, DateTimeOffset.UtcNow),
                     Title = I18n.GetString("NotificationCenter_BackupTitle"), Message = message, Details = details,
-                    ResultKey = resultKey, Severity = severity, AutoCloseMs = importance > NotificationImportance.Info ? 10000 : 5000,
-                    ToastOnlyInBackground = importance == NotificationImportance.Info, CompletionSoundSuccess = sound
+                    ResultKey = resultKey, Severity = severity,
+                    CompletionSoundSuccess = sound
                 }, importance);
             }
             catch (Exception error) { LogService.LogError("Could not publish backup notification.", nameof(BackupService), error); }

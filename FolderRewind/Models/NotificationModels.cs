@@ -19,7 +19,17 @@ public sealed record NotificationTarget(
 public sealed record NotificationRecord(
     string Id, string Title, string Message, string Details,
     NotificationSeverity Severity, DateTimeOffset CreatedUtc, DateTimeOffset UpdatedUtc,
-    bool IsRead, string ResultKey, NotificationTarget? Target);
+    bool IsRead, string ResultKey, NotificationTarget? Target,
+    NotificationImportance Importance = NotificationImportance.Info,
+    string Revision = "", NotificationContent? Content = null);
+
+public enum NotificationOperationKind { Other, Backup, Restore, Cloud }
+public enum NotificationTrigger { Unknown, Manual, Automatic }
+public enum NotificationResultKind { Unknown, Running, Success, NoChanges, Warning, Failed, Canceled, RecoveryRequired }
+public sealed record NotificationStatistics(int Created, int Unchanged, int Warnings, int Failed);
+// Display snapshots, never live configuration or task references.
+public sealed record NotificationContent(NotificationOperationKind Operation, NotificationTrigger Trigger,
+    NotificationResultKind Result, string ProjectName, string ObjectName, NotificationStatistics? Statistics = null, string Summary = "");
 
 public sealed record NotificationNavigationParameter(NotificationTarget Target);
 

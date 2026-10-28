@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using BackupRequest = FolderRewind.Services.FolderManagerContext<FolderRewind.Models.BackupConfig, FolderRewind.Models.ManagedFolder>.BackupRequest;
 
 namespace FolderRewind.ViewModels;
 
@@ -17,6 +18,9 @@ public sealed partial class FolderManagerPageViewModel
     private readonly AsyncCommandLifetime _commands;
     private readonly List<IRelayCommand> _allCommands = new();
     public bool IsBusy => _commands.IsBusy;
+    public bool CanExecuteActions => HasCurrentConfig && _commands.CanExecute;
+    public bool CanBackupConfig => CanExecuteActions && HasFolders;
+    public bool CanBackupSelected => CanExecuteActions && _selectedFolder is not null && _context.Contains(_selectedFolder);
     internal sealed record DescriptionEdit(ManagedFolder Folder, string Text);
     public IAsyncRelayCommand<ManagedFolder> RemoveFolderCommand { get; }
     public IAsyncRelayCommand<ManagedFolder> ToggleFavoriteCommand { get; }
@@ -49,7 +53,7 @@ public sealed partial class FolderManagerPageViewModel
         _commands.StateChanged += () =>
         {
             OnPropertyChanged(nameof(IsBusy));
-            foreach (var command in _allCommands) command.NotifyCanExecuteChanged();
+            NotifyActionState();
         };
         RemoveFolderCommand = ItemCommand(RemoveFolderCoreAsync);
         ToggleFavoriteCommand = ItemCommand(ToggleFavoriteCoreAsync);
@@ -63,8 +67,11 @@ public sealed partial class FolderManagerPageViewModel
         AddSingleFolderCommand = PageCommand(AddSingleFolderCoreAsync);
         AddSubFoldersCommand = PageCommand(AddSubFoldersCoreAsync);
         PluginDiscoverCommand = PageCommand(PluginDiscoverCoreAsync);
-        BackupConfigCommand = PageCommand(BackupConfigCoreAsync);
-        BackupSelectedCommand = PageCommand(BackupSelectedCoreAsync);
+        BackupConfigCommand = new AsyncRelayCommand(token => RunBackupAsync(_context.CaptureBackup(null, BackupComment), token), () => CanBackupConfig);
+        _allCommands.Add(BackupConfigCommand);
+        BackupSelectedCommand = new AsyncRelayCommand(token => RunBackupAsync(
+            _selectedFolder is { } folder ? _context.CaptureBackup(folder, BackupComment) : null, token), () => CanBackupSelected);
+        _allCommands.Add(BackupSelectedCommand);
         HotkeyBackupCommand = PageCommand(HotkeyBackupCoreAsync);
         ConfigSettingsCommand = PageCommand(ConfigSettingsCoreAsync);
         SaveDescriptionCommand = new AsyncRelayCommand<DescriptionEdit>((edit, token) =>
@@ -81,9 +88,12 @@ public sealed partial class FolderManagerPageViewModel
     private IAsyncRelayCommand<ManagedFolder> ItemCommand(Func<ManagedFolder, CancellationToken, Task> action)
     {
         var command = new AsyncRelayCommand<ManagedFolder>((folder, token) =>
-            _commands.RunAsync(inner => folder is not null && CurrentConfig?.SourceFolders.Contains(folder) == true
-                ? action(folder, inner) : Task.CompletedTask, token),
-            folder => folder is not null && _commands.CanExecute);
+            _commands.RunAsync(inner =>
+            {
+                if (folder is null || !_context.Contains(folder)) return Task.CompletedTask;
+                SetSelectedFolder(folder, true);
+                return action(folder, inner);
+            }, token), folder => folder is not null && _context.Contains(folder) && CanExecuteActions);
         _allCommands.Add(command);
         return command;
     }
@@ -91,7 +101,7 @@ public sealed partial class FolderManagerPageViewModel
     private IAsyncRelayCommand PageCommand(Func<CancellationToken, Task> action)
     {
         var command = new AsyncRelayCommand(token => _commands.RunAsync(inner =>
-            CurrentConfig is not null ? action(inner) : Task.CompletedTask, token), () => _commands.CanExecute);
+            CurrentConfig is not null ? action(inner) : Task.CompletedTask, token), () => CanExecuteActions);
         _allCommands.Add(command);
         return command;
     }
@@ -150,9 +160,9 @@ public sealed partial class FolderManagerPageViewModel
         var result = await FolderRenameService.RenameAsync(folder, name, token);
         if (!result.Success) throw new IOException(result.Message);
         token.ThrowIfCancellationRequested();
-        SetPendingFolderPath(result.NewPath);
         SetSelectedFolder(null, false);
         RefreshCurrentFoldersView();
+        SetPendingFolderPath(result.NewPath);
         PendingFolderSelectionRequested?.Invoke();
         _interaction.Notify(result.Message);
     }
@@ -281,21 +291,39 @@ public sealed partial class FolderManagerPageViewModel
     private Task<bool> ConfirmAsync(string title, string message, CancellationToken token, bool destructive = false)
         => _interaction.ConfirmAsync(I18n.GetString(title), I18n.GetString(message), token, destructive);
 
-    private async Task BackupConfigCoreAsync(CancellationToken token)
+    private void NotifyActionState()
     {
-        await BackupCurrentConfigAsync();
-        if (!token.IsCancellationRequested) BackupComment = string.Empty;
+        OnPropertyChanged(nameof(CanExecuteActions));
+        OnPropertyChanged(nameof(CanBackupConfig));
+        OnPropertyChanged(nameof(CanBackupSelected));
+        foreach (var command in _allCommands) command.NotifyCanExecuteChanged();
     }
 
-    private async Task BackupSelectedCoreAsync(CancellationToken token)
+    private Task RunBackupAsync(BackupRequest? request, CancellationToken token) =>
+        _commands.RunAsync(async inner =>
+        {
+            await ExecuteBackupAsync(request, inner);
+            if (!inner.IsCancellationRequested && request is not null && ReferenceEquals(CurrentConfig, request.Project)
+                && BackupComment.Trim() == request.Comment) BackupComment = string.Empty;
+        }, token);
+
+    private async Task ExecuteBackupAsync(BackupRequest? request, CancellationToken token, BackupInvocationOptions? options = null)
     {
-        await BackupSelectedFolderAsync();
-        if (!token.IsCancellationRequested) BackupComment = string.Empty;
+        token.ThrowIfCancellationRequested();
+        if (request is null || !_context.IsCurrent(request)) return;
+        options ??= BackupInvocationOptions.ForManual(request.Comment);
+        if (request.Folder is { } folder)
+            await BackupService.BackupFolderAsync(request.Project, folder, options);
+        else
+            await BackupService.BackupConfigAsync(request.Project, options);
     }
 
     private async Task HotkeyBackupCoreAsync(CancellationToken token)
     {
-        await BackupSelectedFolderAsync(BackupInvocationOptions.ForPluginHotkey().WithComment(BuildHotkeyBackupComment()));
-        if (!token.IsCancellationRequested) BackupComment = string.Empty;
+        if (_selectedFolder is not { } folder) return;
+        var request = _context.CaptureBackup(folder, BackupComment);
+        await ExecuteBackupAsync(request, token, BackupInvocationOptions.ForPluginHotkey().WithComment(BuildHotkeyBackupComment()));
+        if (!token.IsCancellationRequested && request is not null && ReferenceEquals(CurrentConfig, request.Project)
+            && BackupComment.Trim() == request.Comment) BackupComment = string.Empty;
     }
 }

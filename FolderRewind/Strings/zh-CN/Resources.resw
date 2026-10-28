@@ -829,10 +829,10 @@
     <value>备份全部文件夹</value>
   </data>
   <data name="FolderManager_SelectedAction.Text" xml:space="preserve">
-    <value>选中项操作：</value>
+    <value>选中项：</value>
   </data>
   <data name="FolderManager_BackupComment.Text" xml:space="preserve">
-    <value>本次备份注释：</value>
+    <value>备份注释：</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
     <value>例如：修复了一处问题（选填）</value>
@@ -2859,7 +2859,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>系统通知等级</value>
   </data>
   <data name="SettingsPage_ToastNotificationLevelDesc.Text" xml:space="preserve">
-    <value>控制何时发送系统弹窗通知（Toast），应用内通知不受影响</value>
+    <value>仅在后台按此等级发送系统通知。自动备份和自动云同步的正常成功、无变化始终只记录，不弹窗、不播放完成声音；重要异常仍会提醒。</value>
   </data>
   <data name="SettingsPage_ToastLevel_Off.Content" xml:space="preserve">
     <value>关闭</value>
@@ -2871,7 +2871,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>重要及以上</value>
   </data>
   <data name="SettingsPage_ToastLevel_All.Content" xml:space="preserve">
-    <value>全部</value>
+    <value>全部业务结果</value>
   </data>
   <data name="Notification_Important_Title" xml:space="preserve">
     <value>重要通知</value>
@@ -7702,7 +7702,7 @@ Pull Request：{1}</value>
   <data name="SettingsProject_ReloadChangesBody" xml:space="preserve"><value>重新加载将放弃这些未保存的编辑：{0}。随后显示项目的最新设置。</value></data>
   <data name="SettingsProject_ReloadNoChangesBody" xml:space="preserve"><value>本页没有未保存的编辑。重新加载后将显示项目的最新设置。</value></data>
   <data name="NotificationCenter_Title.Text" xml:space="preserve"><value>通知</value></data>
-  <data name="NotificationCenter_SessionHint.Text" xml:space="preserve"><value>仅保留本次运行的最近 500 条结果；已读不代表问题已解决</value></data>
+  <data name="NotificationCenter_SessionHint.Text" xml:space="preserve"><value>仅保留本次运行最近 200 条结果。角标只统计未读的重要警告和错误；已读或清除不代表问题已解决。清除后 10 秒内可以撤销。</value></data>
   <data name="NotificationCenter_Bell.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开通知中心</value></data>
   <data name="NotificationCenter_Close.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>关闭通知中心</value></data>
   <data name="NotificationCenter_Filter.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>通知筛选</value></data>
@@ -7732,4 +7732,55 @@ Pull Request：{1}</value>
   <data name="NotificationCenter_ShowAllTasks.Content" xml:space="preserve"><value>显示全部任务</value></data>
   <data name="NotificationCenter_LogFilter.Message" xml:space="preserve"><value>当前仅显示此操作的会话日志；更早的日志可在日志文件中查阅</value></data>
   <data name="NotificationCenter_ShowAllLogs.Content" xml:space="preserve"><value>显示全部日志</value></data>
+  <data name="NotificationUI_BellName" xml:space="preserve"><value>通知，{0} 条未读重要通知</value></data>
+  <data name="NotificationUI_NewResults" xml:space="preserve"><value>有 {0} 条新结果</value></data>
+  <data name="NotificationUI_Cleared" xml:space="preserve"><value>已清除 {0} 条已读记录</value></data>
+  <data name="NotificationUI_Undo.Content" xml:space="preserve"><value>撤销</value></data>
+  <data name="NotificationUI_All.Text" xml:space="preserve"><value>全部</value></data>
+  <data name="NotificationUI_Important.Text" xml:space="preserve"><value>警告与错误</value></data>
+  <data name="NotificationUI_UnreadOnly.Text" xml:space="preserve"><value>仅显示未读</value></data>
+  <data name="NotificationUI_ClearRead.Text" xml:space="preserve"><value>清除已读记录</value></data>
+  <data name="NotificationUI_Details.Content" xml:space="preserve"><value>详情</value></data>
+  <data name="NotificationUI_Session.Text" xml:space="preserve"><value>本次运行 · 最近 200 条</value></data>
+  <data name="NotificationUI_NavigationCanceled" xml:space="preserve"><value>导航未完成，你可以继续查看此结果或稍后再打开。</value></data>
+  <data name="NotificationUI_TitleFormat" xml:space="preserve"><value>{0} · {1}{2}</value></data>
+  <data name="NotificationUI_Operation_Other" xml:space="preserve"><value>操作</value></data>
+  <data name="NotificationUI_Operation_Backup" xml:space="preserve"><value>备份</value></data>
+  <data name="NotificationUI_Operation_Restore" xml:space="preserve"><value>还原</value></data>
+  <data name="NotificationUI_Operation_Cloud" xml:space="preserve"><value>云同步</value></data>
+  <data name="NotificationUI_Result_Unknown" xml:space="preserve"><value>结果</value></data>
+  <data name="NotificationUI_Result_Running" xml:space="preserve"><value>处理中</value></data>
+  <data name="NotificationUI_Result_Success" xml:space="preserve"><value>已完成</value></data>
+  <data name="NotificationUI_Result_NoChanges" xml:space="preserve"><value>无变化</value></data>
+  <data name="NotificationUI_Result_Warning" xml:space="preserve"><value>有警告</value></data>
+  <data name="NotificationUI_Result_Failed" xml:space="preserve"><value>未完成</value></data>
+  <data name="NotificationUI_Result_Canceled" xml:space="preserve"><value>已取消</value></data>
+  <data name="NotificationUI_Count_Created" xml:space="preserve"><value>新增 {0}</value></data>
+  <data name="NotificationUI_Count_Unchanged" xml:space="preserve"><value>无变化 {0}</value></data>
+  <data name="NotificationUI_Count_Warnings" xml:space="preserve"><value>警告 {0}</value></data>
+  <data name="NotificationUI_Count_Failed" xml:space="preserve"><value>失败 {0}</value></data>
+  <data name="NotificationUI_ViewTasks" xml:space="preserve"><value>查看任务</value></data>
+  <data name="NotificationUI_ViewHistory" xml:space="preserve"><value>查看历史版本</value></data>
+  <data name="NotificationUI_ViewCloud" xml:space="preserve"><value>查看云任务</value></data>
+  <data name="NotificationUI_Back.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>返回通知列表</value></data>
+  <data name="NotificationUI_Back.ToolTipService.ToolTip" xml:space="preserve"><value>返回通知列表</value></data>
+  <data name="NotificationUI_MarkAll.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>全部标为已读</value></data>
+  <data name="NotificationUI_MarkAll.ToolTipService.ToolTip" xml:space="preserve"><value>全部标为已读</value></data>
+  <data name="NotificationUI_More.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>通知选项</value></data>
+  <data name="NotificationUI_More.ToolTipService.ToolTip" xml:space="preserve"><value>通知选项</value></data>
+  <data name="NotificationUI_About.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>关于通知记录</value></data>
+  <data name="NotificationUI_About.ToolTipService.ToolTip" xml:space="preserve"><value>关于通知记录</value></data>
+  <data name="NotificationUI_CloseToast.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>关闭提示</value></data>
+  <data name="NotificationUI_CloseToast.ToolTipService.ToolTip" xml:space="preserve"><value>关闭提示</value></data>
+  <data name="NotificationUI_Result_RecoveryRequired" xml:space="preserve"><value>需要恢复处理</value></data>
+  <data name="NotificationUI_NavEntry.Content" xml:space="preserve"><value>通知</value></data>
+  <data name="FolderManager_ConfigSelector.AutomationProperties.Name" xml:space="preserve"><value>当前备份项目</value></data>
+  <data name="FolderManager_CommentPlaceholder.AutomationProperties.Name" xml:space="preserve"><value>备份注释（选填）</value></data>
+  <data name="FolderManager_CommentPlaceholder.ToolTipService.ToolTip" xml:space="preserve"><value>本次备份的注释，可不填写</value></data>
+  <data name="FolderManager_CompactCommentPlaceholder" xml:space="preserve"><value>备份注释（选填）</value></data>
+  <data name="FolderManager_AddFolderButton.ToolTipService.ToolTip" xml:space="preserve"><value>添加文件夹</value></data>
+  <data name="FolderManager_BackupConfigButton.ToolTipService.ToolTip" xml:space="preserve"><value>备份当前项目的全部文件夹</value></data>
+  <data name="FolderManager_BackupSelectedButton.ToolTipService.ToolTip" xml:space="preserve"><value>备份选中的文件夹</value></data>
+  <data name="FolderManager_HistoryButton.ToolTipService.ToolTip" xml:space="preserve"><value>查看选中文件夹的历史版本</value></data>
+  <data name="Onboarding_ProjectActions.ToolTipService.ToolTip" xml:space="preserve"><value>项目后续设置</value></data>
 </root>

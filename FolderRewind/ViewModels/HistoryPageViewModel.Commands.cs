@@ -1072,6 +1072,7 @@ public sealed partial class HistoryPageViewModel
                 {
                     Title = I18n.GetString("Notification_RestoreCompleted_Title"),
                     Message = I18n.GetString("NotificationCenter_Result_Canceled"), KeepInCenter = true,
+                    Category = NotificationCategory.Cancellation,
                     Target = notificationOperation.Target, ResultKey = "canceled"
                 });
         }

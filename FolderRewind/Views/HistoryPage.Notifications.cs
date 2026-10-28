@@ -13,7 +13,7 @@ public sealed partial class HistoryPage
     {
         var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == target.ConfigId);
         var folder = target.FolderId is null ? null : config?.SourceFolders.FirstOrDefault(f => f.Id == target.FolderId);
-        if (config is null || target.FolderId is not null && folder is null) { NotificationNavigationService.Unavailable(); return; }
+        if (config is null || target.FolderId is not null && folder is null) { NotificationNavigationService.Unavailable(target); return; }
         ViewModel.CommentFilterText = string.Empty;
         ViewModel.SelectedBranch = null;
         await ApplySelectionFromNavigationAsync(config.Id, target.RunId is null ? folder?.Path : null);
@@ -30,7 +30,7 @@ public sealed partial class HistoryPage
             if (count == ViewModel.FilteredRuns.Count + ViewModel.FilteredHistory.Count) break;
         }
         if (!_legacyNoticeActive) return;
-        if (item is null) { NotificationNavigationService.Unavailable(); return; }
+        if (item is null) { NotificationNavigationService.Unavailable(target); return; }
         var list = target.RunId is null ? HistoryList : RunHistoryList;
         list.ScrollIntoView(item);
         list.UpdateLayout();

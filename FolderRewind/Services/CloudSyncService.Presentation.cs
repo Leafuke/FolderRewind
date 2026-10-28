@@ -11,7 +11,7 @@ namespace FolderRewind.Services;
 
 public static partial class CloudSyncService
 {
-    private static void PublishJobNotification(HistoryRuntime runtime, string jobId)
+    private static void PublishJobNotification(HistoryRuntime runtime, string jobId, NotificationTrigger trigger)
     {
         try
         {
@@ -25,6 +25,15 @@ public static partial class CloudSyncService
             {
                 Correlation = new("cloud:" + job.ProjectId + ":" + job.JobId, job.JobId, job.CreatedUtc, job.UpdatedUtc ?? DateTimeOffset.UtcNow),
                 RecordId = "cloud:" + job.JobId,
+                Category = active || job.Phase is CloudJobPhase.Prepared or CloudJobPhase.Pending or CloudJobPhase.Paused ? NotificationCategory.Progress
+                    : job.Phase is CloudJobPhase.Canceled or CloudJobPhase.Aborted ? NotificationCategory.Cancellation
+                    : failed ? NotificationCategory.Attention : NotificationCategory.BusinessResult,
+                Source = "cloud", FailureCode = failed ? CloudFailurePresentation.Kind("", job.Diagnostic) : null,
+                Content = new(NotificationOperationKind.Cloud, trigger,
+                    success ? NotificationResultKind.Success : failed ? NotificationResultKind.Failed
+                        : job.Phase is CloudJobPhase.Canceled or CloudJobPhase.Aborted ? NotificationResultKind.Canceled : NotificationResultKind.Running,
+                    config?.Name ?? job.ProjectId, config?.Name ?? job.ProjectId, Summary:
+                        failed ? CloudFailurePresentation.Message(CloudFailurePresentation.Kind("", job.Diagnostic)) : phase),
                 Target = new(NotificationTargetKind.CloudProject, job.JobId, config?.Id ?? job.ProjectId, JobId: job.JobId),
                 KeepInCenter = success || failed || job.Phase is CloudJobPhase.Canceled or CloudJobPhase.Aborted,
                 ResultKey = job.Phase + ":" + CloudCommandSecurity.Redact(job.Diagnostic),
@@ -32,11 +41,10 @@ public static partial class CloudSyncService
                 Title = I18n.Format("CloudNotice_Title", config?.Name ?? job.ProjectId, phase),
                 Message = I18n.Format("CloudNotice_Body", UserDisplayFormatter.LongDateTime((job.UpdatedUtc ?? job.CreatedUtc).LocalDateTime),
                     job.JobId[..8], failed ? CloudFailurePresentation.Message(CloudFailurePresentation.Kind("", job.Diagnostic)) : phase),
-                Severity = success ? NotificationSeverity.Success : active || job.Phase is CloudJobPhase.Canceled or CloudJobPhase.Paused
+                Severity = success ? NotificationSeverity.Success : job.Phase == CloudJobPhase.NeedsAttention ? NotificationSeverity.Error
+                    : active || job.Phase is CloudJobPhase.Canceled or CloudJobPhase.Aborted or CloudJobPhase.Paused
                     ? NotificationSeverity.Informational : NotificationSeverity.Warning,
-                AutoCloseMs = failed ? 10000 : 5000,
-                ActionText = I18n.GetString("CloudNotice_ViewTask"),
-                ToastOnlyInBackground = success
+                ActionText = I18n.GetString("CloudNotice_ViewTask")
             };
             if (failed)
             {

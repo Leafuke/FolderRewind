@@ -32,7 +32,7 @@ namespace FolderRewind.Views
             this.InitializeComponent();
             InitializeNotificationCenter();
             _startup = new(() => XamlRoot);
-            _notifications = new(GlobalInfoBar, TasksRunningInfoBadge, DispatcherQueue);
+            _notifications = new(GlobalInfoBar, NotificationToast, TasksRunningInfoBadge, DispatcherQueue);
             // ShellPage 是当前唯一导航宿主，供 ViewModel/Service 发起跨页跳转。
             NavigationService.Initialize(this);
 

@@ -33,7 +33,7 @@ public sealed partial class CloudProjectPage : Page
             if (ViewModel.RequestedJobId is { } requested && !ViewModel.Jobs.Any(j => j.JobId == requested))
             {
                 ViewModel.SelectedJobIndex = -1;
-                NotificationNavigationService.Unavailable();
+                NotificationNavigationService.Unavailable(new(NotificationTargetKind.CloudProject, requested, id, JobId: requested));
             }
         }
     }

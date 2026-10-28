@@ -1,6 +1,5 @@
 using FolderRewind.Models;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,21 +7,45 @@ namespace FolderRewind.Services;
 
 internal static class NotificationNavigationService
 {
-    private static readonly ConcurrentQueue<Dictionary<string, string>> Pending = new();
-    private static volatile bool _ready;
+    private static readonly NotificationActivationQueue Pending = new();
     private static Action? _restoreWindow;
+    private static readonly object UnavailableLock = new();
+    private static readonly HashSet<string> UnavailableTargets = new(StringComparer.Ordinal);
+    private static readonly Queue<string> UnavailableOrder = new();
+    private static string TargetKey(NotificationTarget target) => string.Join("|", target.OperationId, target.ConfigId,
+        target.FolderId, target.RunId, target.VersionId, target.JobId);
     public static event Action<string>? DetailsRequested;
 
     public static void Initialize(Action restoreWindow) => _restoreWindow = restoreWindow;
     public static void SetReady(bool ready)
     {
-        _ready = ready;
+        Pending.SetReady(ready);
         if (ready) Drain();
     }
     public static void RequestDetails(string id) => DetailsRequested?.Invoke(id);
 
+    public static bool IsTargetAvailable(NotificationTarget? target)
+    {
+        if (target is null || target.Kind == NotificationTargetKind.None) return false;
+        lock (UnavailableLock) if (UnavailableTargets.Contains(TargetKey(target))) return false;
+        if (target.Kind == NotificationTargetKind.FolderManager) return true;
+        if (target.Kind == NotificationTargetKind.Logs) return target.OperationId is not null;
+        var config = ConfigService.CurrentConfig?.BackupConfigs.FirstOrDefault(c => c.Id == target.ConfigId);
+        if (target.ConfigId is not null && config is null) return false;
+        return target.Kind switch
+        {
+            NotificationTargetKind.Tasks => target.TaskId is null && target.OperationId is null
+                || BackupService.ActiveTasks.Any(t => target.TaskId is { } id ? t.TaskId == id : t.OperationId == target.OperationId)
+                || config is not null && target.RunId is not null,
+            NotificationTargetKind.History => config is not null && (target.FolderId is null || config.SourceFolders.Any(f => f.Id == target.FolderId)),
+            NotificationTargetKind.Configuration or NotificationTargetKind.CloudProject => config is not null,
+            _ => false
+        };
+    }
+
     public static bool Open(NotificationTarget target)
     {
+        lock (UnavailableLock) if (UnavailableTargets.Contains(TargetKey(target))) return false;
         if (target.Kind == NotificationTargetKind.FolderManager) return NavigationService.NavigateTo("Manager");
         if (target.Kind == NotificationTargetKind.Logs)
             return target.OperationId is { } operation && NavigationService.NavigateTo("Logs", new LogNavigationParameter(operation));
@@ -56,8 +79,23 @@ internal static class NotificationNavigationService
         return Unavailable();
     }
 
-    internal static bool Unavailable()
+    internal static bool Unavailable(NotificationTarget? target = null)
     {
+        if (target is not null)
+        {
+            var key = TargetKey(target);
+            lock (UnavailableLock)
+            {
+                if (UnavailableTargets.Add(key)) UnavailableOrder.Enqueue(key);
+                while (UnavailableOrder.Count > 200) UnavailableTargets.Remove(UnavailableOrder.Dequeue());
+            }
+            var record = NotificationCenterService.Snapshot().FirstOrDefault(r => r.Target is { } candidate && TargetKey(candidate) == key);
+            if (record is not null)
+            {
+                UiDispatcherService.Post(() => RequestDetails(record.Id));
+                return false;
+            }
+        }
         NotificationService.ShowWarning(I18n.GetString("NotificationCenter_TargetUnavailable"));
         return false;
     }
@@ -75,34 +113,19 @@ internal static class NotificationNavigationService
 
     public static void QueueActivation(IEnumerable<KeyValuePair<string, string>> args)
     {
-        Pending.Enqueue(args.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal));
-        if (_ready) UiDispatcherService.Enqueue(Drain);
+        Pending.Enqueue(args);
+        if (Pending.Ready) UiDispatcherService.Enqueue(Drain);
     }
 
     private static void Drain()
     {
-        if (!_ready) return;
-        while (Pending.TryDequeue(out var args))
+        while (Pending.TryTake(out var args))
         {
             try
             {
                 _restoreWindow?.Invoke();
-                var id = args.GetValueOrDefault("notification");
-                var record = id is null ? null : NotificationCenterService.Find(id);
-                if (record is not null)
-                {
-                    NotificationCenterService.MarkRead(record.Id);
-                    if (record.Target is null or { Kind: NotificationTargetKind.None } || !Open(record.Target)) RequestDetails(record.Id);
-                    continue;
-                }
-                if (Enum.TryParse<NotificationTargetKind>(args.GetValueOrDefault("kind"), out var kind) && Enum.IsDefined(kind))
-                {
-                    string? Read(string key) => args.GetValueOrDefault(key) is { Length: > 0 and <= 128 } value ? value : null;
-                    Open(new(kind, Read("operation"), Read("config"), Read("folder"), Read("task"), Read("run"), Read("version"), Read("job")));
-                }
-                else if (args.GetValueOrDefault("target") is { } legacy && legacy is "Home" or "Tasks" or "History" or "Logs")
-                    NavigationService.NavigateTo(legacy);
-                else Unavailable();
+                NotificationActivationRouter.Route(args, NotificationCenterService.Find, NotificationCenterService.MarkRead,
+                    Open, page => NavigationService.NavigateTo(page), RequestDetails, () => Unavailable(), NotificationCenterService.MarkRead);
             }
             catch (Exception error)
             {
