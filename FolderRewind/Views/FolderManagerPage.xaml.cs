@@ -15,25 +15,30 @@ namespace FolderRewind.Views
     public sealed partial class FolderManagerPage : Page
     {
         public FolderManagerPageViewModel ViewModel { get; }
+        private bool? _compactToolbar;
         private void OnToolbarSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            var narrow = e.NewSize.Width < 1000;
-            if (ReferenceEquals(sender, ProjectToolbar))
-            {
-                Grid.SetRow(ProjectActions, narrow ? 1 : 0);
-                Grid.SetColumn(ProjectActions, narrow ? 0 : 2);
-                Grid.SetColumnSpan(ProjectActions, narrow ? 3 : 1);
-            }
-            else if (ReferenceEquals(sender, SourceToolbar))
-            {
-                Grid.SetRow(CommentLayout, narrow ? 1 : 0);
-                Grid.SetColumn(CommentLayout, narrow ? 0 : 1);
-                Grid.SetColumnSpan(CommentLayout, narrow ? 3 : 1);
-                CommentLayout.Margin = narrow ? new Thickness(0) : new Thickness(24, 0, 24, 0);
-                Grid.SetRow(SourceActions, narrow ? 2 : 0);
-                Grid.SetColumn(SourceActions, narrow ? 0 : 2);
-                Grid.SetColumnSpan(SourceActions, narrow ? 3 : 1);
-            }
+            var compact = e.NewSize.Width < 1000;
+            if (_compactToolbar == compact) return;
+            _compactToolbar = compact;
+            var textVisibility = compact ? Visibility.Collapsed : Visibility.Visible;
+            // Keep both rows in place. Reclaim space from labels rather than
+            // moving commands or the comment field into extra rows.
+            foreach (var label in new UIElement[] { ProjectLabel, SelectedLabel, BackupCommentLabel,
+                AddFolderText, AddFolderChevron, BackupConfigText, BackupSelectedText, HistoryText })
+                label.Visibility = textVisibility;
+            CommentIcon.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+            CommentBox.PlaceholderText = I18n.GetString(compact
+                ? "FolderManager_CompactCommentPlaceholder" : "FolderManager_CommentPlaceholder.PlaceholderText");
+            SelectionColumn.Width = new GridLength(compact ? 160 : 240);
+            Grid.SetColumn(ConfigSelector, compact ? 0 : 1);
+            Grid.SetColumnSpan(ConfigSelector, compact ? 2 : 1);
+            Grid.SetColumn(SelectedFolderName, compact ? 1 : 2);
+            Grid.SetColumnSpan(SelectedFolderName, compact ? 2 : 1);
+            foreach (var content in new[] { AddFolderContent, BackupConfigContent, BackupSelectedContent, HistoryContent })
+                content.Spacing = compact ? 0 : 8;
+            foreach (var button in new[] { AddFolderButton, BackupConfigButton, BackupSelectedButton, HistoryButton })
+                button.Padding = compact ? new Thickness(8, 4, 8, 4) : new Thickness(12, 4, 12, 4);
         }
 
         public FolderManagerPage()
@@ -79,9 +84,6 @@ namespace FolderRewind.Views
             catch
             {
             }
-
-            // 进入页面时刷新一次视图集合，避免安装包环境下首次绑定异常。
-            ViewModel.RefreshConfigsView();
 
             if (e.Parameter is ManagerNavigationParameter managerParam)
             {
@@ -173,8 +175,8 @@ namespace FolderRewind.Views
 
         private void TryApplyPendingSelection()
         {
-            var path = ViewModel.PendingFolderPath;
-            if (string.IsNullOrWhiteSpace(path))
+            var request = ViewModel.PendingSelection;
+            if (request is null)
             {
                 return;
             }
@@ -186,46 +188,25 @@ namespace FolderRewind.Views
 
             _ = DispatcherQueue.TryEnqueue(() =>
             {
-                var target = ViewModel.FindFolderInCurrentConfig(path);
-                if (target == null)
-                {
-                    ViewModel.ClearRememberedFolderPathIfMatches(path);
-                    ViewModel.ClearPendingFolderPath();
-                    return;
-                }
-
-                FolderList.SelectedItem = target;
-                FolderList.ScrollIntoView(target);
-                ViewModel.SetSelectedFolder(target, persistSelection: true);
-                ViewModel.ClearPendingFolderPath();
+                if (ViewModel.ApplyPendingSelection(request) && ViewModel.SelectedFolderItem is { } target)
+                    FolderList.ScrollIntoView(target);
             });
         }
 
-        private void ConfigSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private ManagedFolder? GetActionFolder(object sender)
         {
-            if (ConfigSelector.SelectedItem is BackupConfig config)
-            {
-                ViewModel.CurrentConfig = config;
-            }
-            else
-            {
-                ViewModel.CurrentConfig = null;
-            }
-
-            ViewModel.SetSelectedFolder(null, persistSelection: false);
+            if ((sender as FrameworkElement)?.DataContext is not ManagedFolder folder ||
+                ViewModel.CurrentConfig?.SourceFolders.Contains(folder) != true) return null;
+            ViewModel.SetSelectedFolder(folder, true);
+            return folder;
         }
 
-        private void FolderList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            ViewModel.SetSelectedFolder(FolderList.SelectedItem as ManagedFolder, persistSelection: true);
-        }
-
-        private void OnRemoveFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RemoveFolderCommand, (sender as FrameworkElement)?.DataContext);
-        private void OnFavoriteToggleClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ToggleFavoriteCommand, (sender as FrameworkElement)?.DataContext);
-        private void OnPinToTopClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.PinFolderCommand, (sender as FrameworkElement)?.DataContext);
-        private void OnOpenFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenFolderCommand, (sender as FrameworkElement)?.DataContext);
-        private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenMiniWindowCommand, (sender as FrameworkElement)?.DataContext);
-        private void OnShowFolderDetailsClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ShowDetailsCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnRemoveFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RemoveFolderCommand, GetActionFolder(sender));
+        private void OnFavoriteToggleClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ToggleFavoriteCommand, GetActionFolder(sender));
+        private void OnPinToTopClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.PinFolderCommand, GetActionFolder(sender));
+        private void OnOpenFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenFolderCommand, GetActionFolder(sender));
+        private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenMiniWindowCommand, GetActionFolder(sender));
+        private void OnShowFolderDetailsClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ShowDetailsCommand, GetActionFolder(sender));
         private void OnFolderActionsOpening(object sender, object args)
         {
             if (sender is not MenuFlyout flyout) return;
@@ -238,35 +219,52 @@ namespace FolderRewind.Views
         }
         private void OnSpatialPreviewClick(object sender, RoutedEventArgs e)
         {
-            if ((sender as FrameworkElement)?.DataContext is ManagedFolder folder && ViewModel.CurrentConfig is { } config
+            if (GetActionFolder(sender) is { } folder && ViewModel.CurrentConfig is { } config
                 && Guid.TryParse(folder.Id, out var id))
                 NavigationService.NavigateTo("SpatialPreview", new SpatialPreviewNavigationParameter(config.Id, id));
         }
         private void OnSpatialScopeClick(object sender, RoutedEventArgs e)
         {
-            if ((sender as FrameworkElement)?.DataContext is ManagedFolder folder && ViewModel.CurrentConfig is { } config && Guid.TryParse(folder.Id, out var id))
+            if (GetActionFolder(sender) is { } folder && ViewModel.CurrentConfig is { } config && Guid.TryParse(folder.Id, out var id))
                 NavigationService.NavigateTo("SpatialWorkspace", new SpatialWorkspaceNavigationParameter(config.Id, id, SpatialWorkspaceMode.Scope));
         }
-        private void OnRenameFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RenameFolderCommand, (sender as FrameworkElement)?.DataContext);
-        private void OnEditSourceScopeClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.EditSourceScopeCommand, (sender as FrameworkElement)?.DataContext);
-        private void OnChangeIconClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ChangeIconCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnRenameFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RenameFolderCommand, GetActionFolder(sender));
+        private void OnEditSourceScopeClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.EditSourceScopeCommand, GetActionFolder(sender));
+        private void OnChangeIconClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ChangeIconCommand, GetActionFolder(sender));
         private void OnAddSingleFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.AddSingleFolderCommand);
         private void OnAddSubFoldersClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.AddSubFoldersCommand);
         private void OnPluginDiscoverFoldersClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.PluginDiscoverCommand);
-        private void OnBackupConfigClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.BackupConfigCommand);
-        private void OnBackupSelectedClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.BackupSelectedCommand);
-        private void OnConfigSettingsClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ConfigSettingsCommand);
         private static void ExecuteCommand(System.Windows.Input.ICommand command, object? parameter = null)
         {
             if (command.CanExecute(parameter)) command.Execute(parameter);
         }
 
+        private void OnHistoryClick(object sender, RoutedEventArgs e)
+        {
+            if (!ViewModel.CanBackupSelected || ViewModel.SelectedFolder is not { } folder || ViewModel.CurrentConfig is not { } config)
+            {
+                return;
+            }
+
+            var param = ManagerNavigationParameter.ForFolder(config.Id, folder.Path);
+            _ = NavigationService.NavigateTo("History", param);
+        }
+
         private void OnDescriptionEditorKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key != VirtualKey.Enter || sender is not TextBox input) return;
-            e.Handled = true;
-            SaveDescription(input);
-            FolderList.Focus(FocusState.Programmatic);
+            if (sender is not TextBox { DataContext: ManagedFolder folder } input) return;
+            if (e.Key == VirtualKey.Escape)
+            {
+                e.Handled = true;
+                input.Text = folder.Description;
+                FolderList.Focus(FocusState.Programmatic);
+            }
+            else if (e.Key == VirtualKey.Enter)
+            {
+                e.Handled = true;
+                SaveDescription(input);
+                FolderList.Focus(FocusState.Programmatic);
+            }
         }
 
         private void OnDescriptionEditorLostFocus(object sender, RoutedEventArgs e)
@@ -278,23 +276,6 @@ namespace FolderRewind.Views
         {
             if (input.DataContext is ManagedFolder folder)
                 ExecuteCommand(ViewModel.SaveDescriptionCommand, new FolderManagerPageViewModel.DescriptionEdit(folder, input.Text));
-        }
-
-        private void OnHistoryClick(object sender, RoutedEventArgs e)
-        {
-            if (!TryGetSelectedContext(out var config, out var folder))
-            {
-                return;
-            }
-
-            var param = ManagerNavigationParameter.ForFolder(config.Id, folder.Path);
-            _ = NavigationService.NavigateTo("History", param);
-        }
-        private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
-        {
-            config = ViewModel.CurrentConfig ?? null!;
-            folder = ViewModel.SelectedFolder ?? null!;
-            return config != null && folder != null;
         }
     }
 }

@@ -18,8 +18,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer" Version="0.7.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.4" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer" Version="0.7.1" PrivateAssets="all" />
     <Compile Include="..\..\FolderRewind\Services\AppUpdatePolicy.cs" Link="AppUpdatePolicy.cs" />
     <Compile Include="..\..\FolderRewind\Services\AppUpdatePresentation.cs" Link="AppUpdatePresentation.cs" />
     <Compile Include="..\..\FolderRewind\Services\Plugins\GitHubReleaseMetadata.cs" Link="GitHubReleaseMetadata.cs" />
