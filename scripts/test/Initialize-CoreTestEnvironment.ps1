@@ -17,7 +17,7 @@ if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) { $sevenZip = (Get-C
 if ($LASTEXITCODE) { throw 'Real 7-Zip is required for archive integration tests.' }
 
 # Use the same pinned Windows x64 asset and SHA-256 as the application installer.
-$catalog = Get-Content -LiteralPath (Join-Path $root 'FolderRewind/Services/OnboardingToolAssets.cs') -Raw
+$catalog = Get-Content -LiteralPath (Join-Path $root 'src/FolderRewind/Services/Onboarding/OnboardingToolAssets.cs') -Raw
 $assets = [regex]::Matches($catalog, '\("rclone", Architecture\.X64\) => \("(?<version>v[\d.]+)", "rclone/rclone", "(?<file>rclone-[^"]+\.zip)", "(?<hash>[a-f0-9]{64})"\)')
 if ($assets.Count -ne 1) { throw 'Expected exactly one pinned Windows x64 rclone asset.' }
 $version = $assets[0].Groups['version'].Value
@@ -42,7 +42,7 @@ if ($LASTEXITCODE -or $rcloneVersion.Count -eq 0 -or $rcloneVersion[0] -cne "rcl
 $rcloneVersion | Out-Host
 
 # The OpenList integration test initializes only an isolated temporary instance.
-$initializer = Get-Content -LiteralPath (Join-Path $root 'FolderRewind/Services/OpenListInitializer.cs') -Raw
+$initializer = Get-Content -LiteralPath (Join-Path $root 'src/FolderRewind/Services/Cloud/OpenListInitializer.cs') -Raw
 $openListVersionMatch = [regex]::Match($initializer, 'SupportedVersion\s*=\s*"(?<version>[\d.]+)"')
 $openListAsset = [regex]::Match($catalog, '\("openlist", Architecture\.X64\) => \("v" \+ OpenListInitializer\.SupportedVersion, "(?<repository>[^"]+)", "(?<file>[^"]+)", "(?<hash>[a-f0-9]{64})"\)')
 if (-not $openListVersionMatch.Success -or -not $openListAsset.Success) { throw 'Pinned OpenList test asset was not found.' }

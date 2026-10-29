@@ -1,7 +1,7 @@
 **中文** | [English](README_en.md)
 
 <p align="center">
-<img src="FolderRewind/Assets/StoreLogo.png" width="48px"/>
+<img src="src/FolderRewind/Assets/StoreLogo.png" width="48px"/>
 </p>
 
 <div align="center">
@@ -103,14 +103,14 @@ Store 更新由商店管理，版本可能与 GitHub 不同步。Setup 与 Store
 
 ### 插件开发
 
-插件引用独立的 `FolderRewind.Plugin.Abstractions` 契约，不引用应用或 UI 项目。当前契约版本为 **3.6.0**，API 为 **3.6**；参考[插件开发文档](https://folderrewind.top/docs/plugins/overview)、[仓库内 v3 说明](docs/plugin-v3/README.md)和 [SDK 说明](FolderRewind.Plugin.Abstractions/README.md)。
+插件引用独立的 `FolderRewind.Plugin.Abstractions` 契约，不引用应用或 UI 项目。当前契约版本为 **3.6.0**，API 为 **3.6**；参考[插件开发文档](https://folderrewind.top/docs/plugins/overview)、[仓库内 v3 说明](docs/plugin-v3/README.md)和 [SDK 说明](src/FolderRewind.Plugin.Abstractions/README.md)。
 
 
 ## 交流讨论
 
 有兴趣一起交流的话，可以加 QQ 群。
 
-<img src="./FolderRewind/Assets/qq_group_light.jpg" width="240px" />
+<img src="./src/FolderRewind/Assets/qq_group_light.jpg" width="240px" />
 
 ## 鸣谢
 

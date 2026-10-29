@@ -17,7 +17,7 @@
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NativeOutputDirectory Condition="'$(NativeOutputDirectory)'==''">$(MSBuildThisFileDirectory)..\artifacts\installer-native</NativeOutputDirectory>
-    <PublishDir Condition="'$(PublishDir)'==''">$(MSBuildThisFileDirectory)..\FolderRewind\bin\$(InstallerPlatform)\Release\net10.0-windows10.0.19041.0\win-$(InstallerPlatform)\publish</PublishDir>
+    <PublishDir Condition="'$(PublishDir)'==''">$(MSBuildThisFileDirectory)..\src\FolderRewind\bin\$(InstallerPlatform)\Release\net10.0-windows10.0.19041.0\win-$(InstallerPlatform)\publish</PublishDir>
     <OutputName Condition="'$(OutputName)'==''">FolderRewind_$(ProductVersion)_$(InstallerPlatform)</OutputName>
     <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);ProductCode=$(ProductCode);PackageLanguage=$(PackageLanguage);NativeOutputDirectory=$(NativeOutputDirectory);PackageIdentifier=$(PackageIdentifier);PackageDisplayName=$(PackageDisplayName);InstallerRegistryKey=$(InstallerRegistryKey);UpgradeCode=$(UpgradeCode);EnableFaultInjection=$(EnableFaultInjection);ValidationId=$(ValidationId);ExpectedBundleFamily=$(ExpectedBundleFamily)</DefineConstants>
     <!-- Generated file components use registry key paths and explicit directory cleanup. -->
@@ -38,7 +38,7 @@
     <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
   </ItemGroup>
   <Target Name="ValidateFinalMsiMetadata" AfterTargets="Build">
-    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)..\.github\scripts\Repair-MsiMetadata.ps1&quot; -PackagePath &quot;$(TargetPath)&quot;" />
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)..\scripts\build\Repair-MsiMetadata.ps1&quot; -PackagePath &quot;$(TargetPath)&quot;" />
   </Target>
   <Target Name="RejectProductionFaultInjection" BeforeTargets="BeforeBuild">
     <Error Condition="'$(EnableFaultInjection)'=='1' and ('$(ValidationId)'=='' or '$(UpgradeCode)'=='{6BCE6B1A-ADA1-5399-91BD-238EBF552F6E}')" Text="Fault injection requires a separate validation identity." />

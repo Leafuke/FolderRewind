@@ -23,10 +23,10 @@
 
 ## 仓库与模块边界
 
-- `FolderRewind/`：WinUI 应用，主要关注 `Services`、`History`、`ViewModels`、`Views`、`Controls`。
-- `FolderRewind.Plugin.Abstractions/`：公开、BCL-only 的插件契约，不引入应用、WinUI 或 Minecraft 类型。
-- `FolderRewind.Plugin.Runtime/`：插件加载、激活、能力路由、调用生命周期和受控 Artifact 操作。
-- `FolderRewind.Tests/`、`FolderRewind.Plugin.Abstractions.Tests/`、`FolderRewind.Plugin.Runtime.Tests/`：对应验证工程。
+- `src/FolderRewind/`：WinUI 应用，主要关注 `Services`、`History`、`ViewModels`、`Views`、`Controls`。
+- `src/FolderRewind.Plugin.Abstractions/`：公开、BCL-only 的插件契约，不引入应用、WinUI 或 Minecraft 类型。
+- `src/FolderRewind.Plugin.Runtime/`：插件加载、激活、能力路由、调用生命周期和受控 Artifact 操作。
+- `tests/FolderRewind.Tests/`、`tests/FolderRewind.Plugin.Abstractions.Tests/`、`tests/FolderRewind.Plugin.Runtime.Tests/`：对应验证工程。
 - 本地可能存在 `FolderRewind-Plugin-Minecraft/`、`FolderRewind-Site/`、插件目录或模板目录等独立仓库。存在于本目录下不代表属于 Host 的 Git 仓库；跨仓库修改前分别检查其工作区和约定。
 - MineRewind 与 Host 独立构建，通过 Abstractions 包及精确的 `.frplugin` 产物集成；不要新增对 Host 应用项目或源码的插件编译依赖，也不要在插件包中捆绑 Host Abstractions DLL。
 - `docs` 下部分目录受 `.gitignore` 限制。需要交付文档时检查是否被忽略，明确本地保存与纳入版本控制的区别；不要为一份文档放开整个忽略目录。
@@ -39,7 +39,7 @@
 ## UI、代码与本地化
 
 - 遵循现有 C# 风格和 MVVM 组织方式。业务逻辑放在合适的 Service/领域层，ViewModel 管理呈现状态，`XAML.cs` 主要桥接 UI 事件。
-- 用户可见文本同步维护 `FolderRewind/Strings/zh-CN/Resources.resw` 与 `FolderRewind/Strings/en-US/Resources.resw`，避免硬编码业务文案。
+- 用户可见文本同步维护 `src/FolderRewind/Strings/zh-CN/Resources.resw` 与 `src/FolderRewind/Strings/en-US/Resources.resw`，避免硬编码业务文案。
 - 配置与通知优先复用 `ConfigService`、`NotificationService` 等已有入口，不另建并行实现。
 - 耗时 I/O 不阻塞 UI 线程，遵守现有取消和资源释放模式。
 
@@ -56,9 +56,9 @@ dotnet build .\FolderRewind.slnx -c Debug -p:Platform=x64 -p:GenerateAppxPackage
 按影响范围选择测试工程，可先用 `--filter` 定向验证：
 
 ```powershell
-dotnet test .\FolderRewind.Plugin.Abstractions.Tests\FolderRewind.Plugin.Abstractions.Tests.csproj -c Release
-dotnet test .\FolderRewind.Plugin.Runtime.Tests\FolderRewind.Plugin.Runtime.Tests.csproj -c Release
-dotnet test .\FolderRewind.Tests\FolderRewind.Tests.csproj -c Release
+dotnet test .\tests\FolderRewind.Plugin.Abstractions.Tests\FolderRewind.Plugin.Abstractions.Tests.csproj -c Release
+dotnet test .\tests\FolderRewind.Plugin.Runtime.Tests\FolderRewind.Plugin.Runtime.Tests.csproj -c Release
+dotnet test .\tests\FolderRewind.Tests\FolderRewind.Tests.csproj -c Release
 ```
 
 - 数据安全、公共契约和核心行为变化需要有意义的回归测试；避免只镜像实现的测试和无关测试扩张。

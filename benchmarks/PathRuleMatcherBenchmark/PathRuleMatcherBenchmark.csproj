@@ -9,6 +9,6 @@
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../FolderRewind.Core/FolderRewind.Core.csproj" />
+    <ProjectReference Include="../../src/FolderRewind.Core/FolderRewind.Core.csproj" />
   </ItemGroup>
 </Project>

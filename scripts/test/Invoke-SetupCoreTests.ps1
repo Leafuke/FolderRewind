@@ -11,19 +11,20 @@ $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath("$PSScriptRoot/../..")
 
 # Localization contract tests inspect WinUI metadata from the application restore.
+& "$PSScriptRoot/Test-RepositoryLayout.ps1" | Out-Host
 dotnet restore (Join-Path $root 'FolderRewind.slnx') -p:Platform=x64
 if ($LASTEXITCODE -ne 0) { throw 'Restore Host solution failed.' }
-$assetsPath = Join-Path $root 'FolderRewind/obj/project.assets.json'
+$assetsPath = Join-Path $root 'src/FolderRewind/obj/project.assets.json'
 if (-not (Test-Path -LiteralPath $assetsPath -PathType Leaf)) {
     throw "Missing application restore metadata: $assetsPath"
 }
 
 & "$PSScriptRoot/Initialize-CoreTestEnvironment.ps1"
 $projects = [ordered]@{
-    abstractions='FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj'
-    runtime='FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj'
-    host='FolderRewind.Tests/FolderRewind.Tests.csproj'
-    recovery='FolderRewind.Core.Recovery.Tests/FolderRewind.Core.Recovery.Tests.csproj'
+    abstractions='tests/FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj'
+    runtime='tests/FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj'
+    host='tests/FolderRewind.Tests/FolderRewind.Tests.csproj'
+    recovery='tests/FolderRewind.Core.Recovery.Tests/FolderRewind.Core.Recovery.Tests.csproj'
 }
 $timings = @()
 foreach ($suite in $projects.Keys) {

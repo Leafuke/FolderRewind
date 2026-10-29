@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <_FolderRewindRelativeProject>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)'))</_FolderRewindRelativeProject>
-    <FolderRewindOwnedProject Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(_FolderRewindRelativeProject)', '^(FolderRewind(?:[.]|[/\\]|$)|tools[/\\]|benchmarks[/\\])'))">true</FolderRewindOwnedProject>
+    <FolderRewindOwnedProject Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(_FolderRewindRelativeProject)', '^(src|tests|tools|benchmarks)[/\\]'))">true</FolderRewindOwnedProject>
   </PropertyGroup>
   <PropertyGroup Condition="'$(FolderRewindOwnedProject)' == 'true'">
     <FolderRewindRepositoryRoot>$(MSBuildThisFileDirectory)</FolderRewindRepositoryRoot>

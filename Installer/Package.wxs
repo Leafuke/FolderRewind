@@ -12,7 +12,7 @@
     <Property Id="ARPPRODUCTICON" Value="FolderRewindIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://folderrewind.top/" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Leafuke/FolderRewind/issues" />
-    <Icon Id="FolderRewindIcon" SourceFile="..\FolderRewind\Assets\MsiApp.ico" />
+    <Icon Id="FolderRewindIcon" SourceFile="..\src\FolderRewind\Assets\MsiApp.ico" />
     <Binary Id="InstallerNative" SourceFile="$(var.NativeOutputDirectory)\FolderRewind.BAFunctions.dll" />
     <CustomAction Id="PrepareShortcutIcons" BinaryRef="InstallerNative" DllEntry="PrepareShortcutIcons" Execute="immediate" Return="check" />
     <CustomAction Id="FinalizeShortcutIconsUser" BinaryRef="InstallerNative" DllEntry="FinalizeShortcutIcons" Execute="deferred" Impersonate="yes" Return="check" />

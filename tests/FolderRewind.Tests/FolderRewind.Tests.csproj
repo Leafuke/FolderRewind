@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <Platforms>AnyCPU</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+
+
+
+
+
+
+
+
+
+
+
+    <None Update="Fixtures\AppUpdate\*.json" CopyToOutputDirectory="PreserveNewest" />
+
+
+
+
+
+
+
+
+    <None Update="Fixtures\Legacy182\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\Legacy196\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+<ItemGroup>
+    <ProjectReference Include="../../src/FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="../../src/FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="ValveKeyValue" />
+  </ItemGroup>
+
+<ItemGroup>
+    <ProjectReference Include="../../src/FolderRewind.Core/FolderRewind.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FolderRewind.TestSupport/FolderRewind.TestSupport.csproj" />
+  </ItemGroup>
+  <Import Project="HostSourceLinks.props" />
+</Project>

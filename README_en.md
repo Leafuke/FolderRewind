@@ -1,7 +1,7 @@
 [中文](README.md) | **English**
 
 <p align="center">
-<img src="FolderRewind/Assets/StoreLogo.png" width="48px"/>
+<img src="src/FolderRewind/Assets/StoreLogo.png" width="48px"/>
 </p>
 
 <div align="center">
@@ -102,14 +102,14 @@ Open `FolderRewind.slnx` and select x64 or ARM64. The current project uses Windo
 
 ### Plugin Development
 
-Plugins reference the independent `FolderRewind.Plugin.Abstractions` contracts rather than the app or UI projects. The current contract package is **3.6.0**, targeting API **3.6**. See the [Plugin Development Guide](https://folderrewind.top/en/docs/plugins/overview), [repository v3 guide](docs/plugin-v3/README.md), and [SDK guide](FolderRewind.Plugin.Abstractions/README.md).
+Plugins reference the independent `FolderRewind.Plugin.Abstractions` contracts rather than the app or UI projects. The current contract package is **3.6.0**, targeting API **3.6**. See the [Plugin Development Guide](https://folderrewind.top/en/docs/plugins/overview), [repository v3 guide](docs/plugin-v3/README.md), and [SDK guide](src/FolderRewind.Plugin.Abstractions/README.md).
 
 
 ## Discussion
 
 If you are interested in discussing, you can join the QQ group.
 
-<img src="./FolderRewind/Assets/qq_group_light.jpg" width="240px" />
+<img src="./src/FolderRewind/Assets/qq_group_light.jpg" width="240px" />
 
 ## Acknowledgments
 
