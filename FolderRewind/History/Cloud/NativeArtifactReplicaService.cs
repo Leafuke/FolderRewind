@@ -114,7 +114,7 @@ public sealed class NativeArtifactReplicaService
                     ?? throw new InvalidDataException("Native source Version is missing.");
                 var descriptor = NativeArtifactStore.ReadObjectClosure(file, Root(representation),
                     representation.RepresentationSpecificMetadata["storageSha256"], configId, version.SourceId.Value);
-                return await NativeArtifactStore.AreObjectsAvailableAsync(descriptor, objects, token);
+                return await NativeArtifactStore.AreObjectsAvailableAsync(descriptor, objects, token, owner._store.ExistingPayloadPath);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException) { return false; }
             finally { HostArtifactWorkspace.DeleteOwnedDirectory(workspace); }

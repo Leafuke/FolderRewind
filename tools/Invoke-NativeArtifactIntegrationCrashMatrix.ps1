@@ -25,7 +25,7 @@ function Invoke-Fixture($request, [string]$file, [bool]$crash) {
 $stages = switch ($Matrix) {
     'Capture' { 'Prepared', 'PayloadsSealed', 'ArtifactGraphCommitted', 'HistoryPackCommitted', 'LocalStateApplied', 'Complete' }
     'Delta' { 'ArtifactGraphCommitted', 'HistoryPackCommitted' }
-    'Cloud' { 'CloudObject', 'CloudReceipt', 'CloudDescriptor', 'CloudManifest', 'CloudFacts' }
+    'Cloud' { 'CloudObject', 'CloudDescriptor', 'CloudManifest', 'CloudFacts' }
     'Migration' { 'MigrationPrepared', 'MigrationPayload' }
 }
 foreach ($stage in $stages) {

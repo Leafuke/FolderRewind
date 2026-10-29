@@ -131,7 +131,7 @@ namespace FolderRewind.Services
 
         private static IHistoryReplicaTransport CreateReplicaTransport(BackupConfig config)
             => new RcloneNativeHistoryTransport(RcloneExecutionScope.Current
-                ?? throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired")), config.Cloud.TimeoutSeconds);
+                ?? throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired")), config.Cloud.TimeoutSeconds, config.Cloud.VerifyAfterUpload);
 
         private sealed class UploadOnlyRetirementGuard : IHistoryReplicaRetirementGuard
         {

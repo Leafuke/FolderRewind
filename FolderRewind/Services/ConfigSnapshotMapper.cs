@@ -325,6 +325,7 @@ internal static class ConfigSnapshotMapper
         WritableEvidence = value.WritableEvidence,
         ReadableEvidence = value.ReadableEvidence,
         Enabled = value.Enabled,
+        VerifyAfterUpload = value.VerifyAfterUpload,
         CommandMode = value.CommandMode,
         TemplateKind = value.TemplateKind,
         ExecutablePath = value.ExecutablePath,

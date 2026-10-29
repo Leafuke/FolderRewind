@@ -220,11 +220,12 @@ public sealed class HistoryCloudBackupTests
             if (CancellationPoint == 1) await Barrier!.WaitAsync(token);
             _payloads[id] = Corrupt ? [0] : File.ReadAllBytes(path);
         }
-        public async Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token)
+        public async Task<HistoryReplicaCheck> VerifyRemoteAsync(HistoryReplicaManifest expected, string? localPath, CancellationToken token)
         {
             if (CancellationPoint == 2) await Barrier!.WaitAsync(token);
-            var bytes = _payloads[id];
-            return new HistoryReplicaVerification(true, bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)), "");
+            var bytes = _payloads[expected.ReplicaId];
+            return new(bytes.Length == expected.Size && StringComparer.OrdinalIgnoreCase.Equals(
+                Convert.ToHexString(SHA256.HashData(bytes)), expected.StorageSha256), HistoryReplicaCheckKind.Hash, "");
         }
         public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) { ManifestCount++; Manifests.TryAdd(manifest.ReplicaId, manifest); AfterManifest?.Invoke(); return Task.CompletedTask; }
         public Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId id, CancellationToken token) => Task.FromResult(HideManifests ? null : Manifests.GetValueOrDefault(id));

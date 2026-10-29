@@ -7,7 +7,10 @@ namespace FolderRewind.Plugin.Runtime.Artifacts;
 
 public interface INativeArtifactObjectTransport
 {
+    // Reuse follows the transport's configured policy; it need not be a fresh content hash check.
     Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token);
+    Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, string? localPath, CancellationToken token)
+        => HasVerifiedObjectAsync(key, size, sha256, token);
     Task UploadObjectAsync(string key, string path, long size, string sha256, ArtifactTransferBudget budget, CancellationToken token);
     Task DownloadObjectAsync(string key, string path, long expectedLength, ArtifactTransferBudget budget, CancellationToken token);
 }
@@ -17,6 +20,13 @@ public sealed record NativeArtifactObjectClosure(int Version, ArtifactId Root, I
 
 public sealed partial class NativeArtifactStore
 {
+    public string? ExistingPayloadPath(ArtifactLedgerEntry node)
+    {
+        var path = PayloadPath(node);
+        HostArtifactReadService.EnsureNoReparsePoints(Root, path);
+        return File.Exists(path) ? path : null;
+    }
+
     public static string CloudObjectKey(ArtifactLedgerEntry node)
         => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(node.ConfigId))).ToLowerInvariant()
             + "/" + node.StorageSha256.ToLowerInvariant() + ".7z";
@@ -78,9 +88,9 @@ public sealed partial class NativeArtifactStore
         {
             token.ThrowIfCancellationRequested(); var node = item.Node;
             var key = CloudObjectKey(node);
-            if (await transport.HasVerifiedObjectAsync(key, node.StorageSize, node.StorageSha256, token)) continue;
             var path = PayloadPath(node);
-            HostArtifactReadService.EnsureNoReparsePoints(Root, path);
+            if (await transport.HasVerifiedObjectAsync(key, node.StorageSize, node.StorageSha256,
+                ExistingPayloadPath(node), token)) continue;
             await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
             if (file.Length != node.StorageSize || !StringComparer.OrdinalIgnoreCase.Equals(
                 Convert.ToHexString(await SHA256.HashDataAsync(file, token)), node.StorageSha256))
@@ -104,10 +114,11 @@ public sealed partial class NativeArtifactStore
     }
 
     public static async Task<bool> AreObjectsAvailableAsync(NativeArtifactObjectClosure descriptor,
-        INativeArtifactObjectTransport transport, CancellationToken token)
+        INativeArtifactObjectTransport transport, CancellationToken token, Func<ArtifactLedgerEntry, string?>? localPath = null)
     {
         foreach (var item in descriptor.Objects)
-            if (!await transport.HasVerifiedObjectAsync(CloudObjectKey(item.Node), item.Node.StorageSize, item.Node.StorageSha256, token)) return false;
+            if (!await transport.HasVerifiedObjectAsync(CloudObjectKey(item.Node), item.Node.StorageSize, item.Node.StorageSha256,
+                localPath?.Invoke(item.Node), token)) return false;
         return true;
     }
 

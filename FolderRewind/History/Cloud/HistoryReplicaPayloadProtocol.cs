@@ -21,9 +21,9 @@ public class HistoryReplicaPayloadProtocol(Func<RepresentationId, CancellationTo
         IHistoryReplicaTransport transport, CancellationToken token)
     {
         if (representation.Kind == RepresentationKind.PluginArtifact) return false;
-        var verified = await transport.VerifyRemoteAsync(manifest, token).ConfigureAwait(false);
-        return verified.Success && verified.Size == manifest.Size
-            && StringComparer.OrdinalIgnoreCase.Equals(verified.StorageSha256, manifest.StorageSha256);
+        var path = await localPath(representation.RepresentationId, token).ConfigureAwait(false);
+        var verified = await transport.VerifyRemoteAsync(manifest, path, token).ConfigureAwait(false);
+        return verified.Success;
     }
 }
 

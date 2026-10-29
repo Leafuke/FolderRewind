@@ -67,13 +67,13 @@ public sealed class HistoryReplicaSyncService
             Observe("CloudDescriptor:before");
             await _transport.UploadAsync(replicaId, localPath, cancellationToken).ConfigureAwait(false);
             Observe("CloudDescriptor:after");
-            var verification = await _transport.VerifyRemoteAsync(intent, cancellationToken).ConfigureAwait(false);
-            if (!verification.Success || verification.Size != expectedSize || !StringComparer.OrdinalIgnoreCase.Equals(verification.StorageSha256, expectedHash))
-                throw new InvalidDataException("Uploaded replica does not match the local payload: " + verification.Diagnostic);
+            var verification = await _transport.VerifyRemoteAsync(intent, localPath, cancellationToken).ConfigureAwait(false);
+            if (!verification.Success)
+                throw new InvalidDataException("[cloud.payload-check-failed] " + verification.Diagnostic);
             var objectKey = HistoryRepositoryPaths.CreateReplicaObjectKey(replicaId);
             var manifest = new HistoryReplicaManifest(
                 representationId, replicaId, artifactRootId, objectKey,
-                verification.Size, verification.StorageSha256);
+                expectedSize, expectedHash);
             Observe("CloudManifest:before");
             await _transport.CommitManifestOnceAsync(manifest, cancellationToken).ConfigureAwait(false);
             Observe("CloudManifest:after");
@@ -83,10 +83,10 @@ public sealed class HistoryReplicaSyncService
 
             var replica = new StorageReplica(
                 replicaId, representationId, ReplicaProviderKind.Cloud, objectKey,
-                verification.Size, verification.StorageSha256, HistoryProvenance.Native("cloud-upload"));
+                expectedSize, expectedHash, HistoryProvenance.Native("cloud-upload"));
             var active = new ReplicaLifecycleUpdate(
                 ReplicaLifecycleUpdateId.New(), replicaId, [], ReplicaLifecycleState.Active,
-                DateTimeOffset.UtcNow, "Physical payload and manifest verified.");
+                DateTimeOffset.UtcNow, "Remote payload check: " + verification.Kind + "; manifest verified.");
             var existing = (await _history.Query.GetStorageReplicasAsync(representationId, cancellationToken).ConfigureAwait(false))
                 .SingleOrDefault(r => r.ReplicaId == replicaId);
             if (existing is null)

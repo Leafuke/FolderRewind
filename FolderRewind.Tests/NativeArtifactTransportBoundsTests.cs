@@ -21,7 +21,7 @@ public sealed class NativeArtifactTransportBoundsTests
     }
 
     [TestMethod]
-    public async Task RealRcloneUsesReceiptAndSizeForReuseButBoundsDownloadAndFreshReadback()
+    public async Task RealRcloneUsesExistenceForReuseWithoutReadbackButBoundsRestoreDownloads()
     {
         var executable = Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_RCLONE");
         if (string.IsNullOrEmpty(executable) || !File.Exists(executable)) Assert.Inconclusive("Set FOLDERREWIND_TEST_RCLONE.");
@@ -36,11 +36,11 @@ public sealed class NativeArtifactTransportBoundsTests
             Assert.IsFalse(await transport.HasVerifiedObjectAsync(key, 3, hash, default));
             var budget = new ArtifactTransferBudget(3);
             await transport.UploadObjectAsync(key, input, 3, hash, budget, default);
-            Assert.AreEqual(3L, budget.BytesRead);
+            Assert.AreEqual(0L, budget.BytesRead);
             Assert.IsTrue(await transport.HasVerifiedObjectAsync(key, 3, hash, default));
             var remote = Path.Combine(root, "repository", "_folderrewind", "artifact-objects", "config", "object.7z");
             await File.WriteAllBytesAsync(remote, [3, 2, 1]);
-            Assert.IsTrue(await transport.HasVerifiedObjectAsync(key, 3, hash, default), "Reuse is availability evidence; same-size damage needs explicit deep verification.");
+            Assert.IsTrue(await transport.HasVerifiedObjectAsync(key, 3, hash, default), "Verification is disabled; reuse checks existence.");
             await File.WriteAllBytesAsync(remote, [1, 2, 3, 4]);
             var output = Path.Combine(root, "output");
             await Assert.ThrowsExactlyAsync<InvalidDataException>(() => transport.DownloadObjectAsync(key, output, 3, new(3), default));
@@ -49,7 +49,7 @@ public sealed class NativeArtifactTransportBoundsTests
             await Assert.ThrowsAsync<IOException>(() => transport.DownloadObjectAsync(key, output, 4, new(4), default));
             Assert.AreEqual("keep", await File.ReadAllTextAsync(output));
             await File.WriteAllTextAsync(remote + ".verified.json", new string('x', 4097));
-            Assert.IsFalse(await transport.HasVerifiedObjectAsync(key, 4, hash, default));
+            Assert.IsTrue(await transport.HasVerifiedObjectAsync(key, 4, hash, default));
         }
         finally { Directory.Delete(root, true); }
     }

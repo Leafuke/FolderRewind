@@ -15,12 +15,13 @@ public sealed record HistoryReplicaManifest(
 
 public sealed record HistoryReplicaVerification(bool Success, long Size, string StorageSha256, string Diagnostic);
 
+public enum HistoryReplicaCheckKind { Existence, Size, Hash }
+public sealed record HistoryReplicaCheck(bool Success, HistoryReplicaCheckKind Kind, string Diagnostic);
+
 public interface IHistoryReplicaTransport
 {
     Task UploadAsync(ReplicaId replicaId, string localPath, CancellationToken cancellationToken);
-    Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId replicaId, CancellationToken cancellationToken);
-    Task<HistoryReplicaVerification> VerifyRemoteAsync(HistoryReplicaManifest expected, CancellationToken cancellationToken)
-        => VerifyRemoteAsync(expected.ReplicaId, cancellationToken);
+    Task<HistoryReplicaCheck> VerifyRemoteAsync(HistoryReplicaManifest expected, string? localPath, CancellationToken cancellationToken);
     Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken cancellationToken);
     Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId replicaId, CancellationToken cancellationToken);
     Task DownloadAsync(HistoryReplicaManifest manifest, string stagingPath, CancellationToken cancellationToken);

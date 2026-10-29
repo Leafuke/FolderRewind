@@ -59,13 +59,14 @@ public sealed class RcloneNativeHistoryTransportTests
     [TestMethod]
     public async Task ExistingArtifactConflictFailsVerificationWithoutReplacingRemoteBytes()
     {
+        var transport = new RcloneNativeHistoryTransport(_context, verifyAfterUpload: true);
         var input = Path.Combine(_root, "artifact");
         byte[] original = [1, 2, 3]; byte[] changed = [9, 8, 7];
         static string Hash(byte[] value) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(value));
         await File.WriteAllBytesAsync(input, original);
-        await Transport.UploadObjectAsync("config/artifact.7z", input, 3, Hash(original), new(3), default);
+        await transport.UploadObjectAsync("config/artifact.7z", input, 3, Hash(original), new(3), default);
         await File.WriteAllBytesAsync(input, changed);
-        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => Transport.UploadObjectAsync("config/artifact.7z", input, 3, Hash(changed), new(3), default));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => transport.UploadObjectAsync("config/artifact.7z", input, 3, Hash(changed), new(3), default));
         var output = Path.Combine(_root, "download");
         await Transport.DownloadObjectAsync("config/artifact.7z", output, 3, new(3), default);
         CollectionAssert.AreEqual(original, await File.ReadAllBytesAsync(output));

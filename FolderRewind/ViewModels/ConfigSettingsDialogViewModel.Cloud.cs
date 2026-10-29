@@ -33,6 +33,17 @@ namespace FolderRewind.ViewModels
             }
         }
 
+        public bool CloudVerifyAfterUpload
+        {
+            get => _cloud.VerifyAfterUpload;
+            set
+            {
+                if (_cloud.VerifyAfterUpload == value) return;
+                _cloud.VerifyAfterUpload = value;
+                OnPropertyChanged(nameof(CloudVerifyAfterUpload));
+            }
+        }
+
         public bool ShowCloudUploadAdvancedSettings => AutoUploadEnabled;
 
         public bool CanUseManualCloudActions => CloudSyncService.CanUseManualCloudActions(_config);

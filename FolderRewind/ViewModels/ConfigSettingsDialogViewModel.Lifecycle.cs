@@ -300,6 +300,7 @@ namespace FolderRewind.ViewModels
         private void RaiseCloudUiProperties()
         {
             OnPropertyChanged(nameof(AutoUploadEnabled));
+            OnPropertyChanged(nameof(CloudVerifyAfterUpload));
             OnPropertyChanged(nameof(ShowCloudUploadAdvancedSettings));
             OnPropertyChanged(nameof(CanUseManualCloudActions));
             OnPropertyChanged(nameof(IsLegacyCustomCommandMode));

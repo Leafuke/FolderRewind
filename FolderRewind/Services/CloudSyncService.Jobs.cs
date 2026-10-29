@@ -154,7 +154,7 @@ public static partial class CloudSyncService
         await using var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false);
         var job = runtime.CloudJobs.Read().Jobs.Single(j => j.JobId == jobId);
         if (job.Protection != CloudProtectionDisposition.Held) return;
-        if (JobCancellation.ContainsKey(jobId) || job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.SyncingMetadata)
+        if (JobCancellation.ContainsKey(jobId) || job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.Checking or CloudJobPhase.SyncingMetadata)
         {
             if (abandonProtection) throw new InvalidOperationException(I18n.GetString("CloudJob_RunningCannotRelease"));
             if (JobCancellation.TryGetValue(jobId, out var active)) active.Cancel();
@@ -239,11 +239,12 @@ public static partial class CloudSyncService
             job = job with { UploadIntents = [.. intents.Values], Phase = CloudJobPhase.Uploading };
             await UpdateCloudJobAsync(runtime, job).ConfigureAwait(false); // 稳定 ReplicaId 必须先于对应远端写入落盘。
             var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
-            var transport = new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds);
+            var transport = new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds, config.Cloud.VerifyAfterUpload);
             async Task ObservePhaseAsync(CloudJobPhase phase, CancellationToken ct)
             {
                 await using (var gate = await runtime.MutationGate.EnterAsync(ct).ConfigureAwait(false))
                 {
+                    if (job.Phase == phase) return;
                     job = job with { Phase = phase };
                     runtime.CloudJobs.Update(job);
                 }
@@ -300,7 +301,7 @@ public static partial class CloudSyncService
             await RunOnUIAsync(() =>
             {
                 task.IsCompleted = true; task.IsSuccess = result.Complete; task.IsIndeterminate = false;
-                task.Status = I18n.GetString(result.Complete ? "CloudSetup_UploadComplete" : result.Canceled ? "CloudJob_Phase_Canceled" : "CloudJob_ProtectedPending");
+                task.Status = I18n.GetString(result.Complete ? "CloudJob_Phase_Succeeded" : result.Canceled ? "CloudJob_Phase_Canceled" : "CloudJob_ProtectedPending");
                 task.ErrorMessage = result.Complete ? "" : result.Canceled ? I18n.GetString("Common_Canceled")
                     : CloudFailurePresentation.Message(CloudFailurePresentation.Kind("", failureDetail));
                 if (!result.Complete) task.Log += "\n" + failureDetail;

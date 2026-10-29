@@ -84,10 +84,8 @@ internal static partial class NativeArtifactAcceptance
         if (!(await CloudSyncService.UploadVersionClosureAsync(config, current)).Complete) throw new IOException("Second target failed.");
         var reused = await CloudSyncService.UploadVersionClosureAsync(config, current);
         if (!reused.Complete || reused.Items.Any(i => i.State != HistoryCloudItemState.Reused)) throw new IOException("Native availability reuse failed.");
-        var receipt = Directory.EnumerateFiles(Path.Combine(root, "cloud-b"), "*.verified.json", SearchOption.AllDirectories).First();
-        File.Delete(receipt);
-        if (!(await CloudSyncService.UploadVersionClosureAsync(config, current)).Complete || !File.Exists(receipt)) throw new IOException("Missing receipt was not repaired.");
-        var blob = receipt[..^".verified.json".Length]; File.Delete(blob);
+        var blob = Directory.EnumerateFiles(Path.Combine(root, "cloud-b", "_folderrewind", "artifact-objects"), "*.7z", SearchOption.AllDirectories).First();
+        File.Delete(blob);
         if (!(await CloudSyncService.UploadVersionClosureAsync(config, current)).Complete || !File.Exists(blob)) throw new IOException("Missing blob was not repaired.");
         var original = await File.ReadAllBytesAsync(blob); var damaged = (byte[])original.Clone(); damaged[0] ^= 1;
         await File.WriteAllBytesAsync(blob, damaged);

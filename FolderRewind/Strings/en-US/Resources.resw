@@ -6625,9 +6625,9 @@ Cloud switch: {2} → {3}</value>
   <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth connections require safe persistence of refreshed tokens. Copy the configuration into FolderRewind managed credentials first.</value></data>
   <data name="CloudJob_RunningCannotRelease" xml:space="preserve"><value>A cloud task is running. Payload protection cannot be abandoned yet.</value></data>
   <data name="CloudJob_WriteVerificationRequired" xml:space="preserve"><value>Verify write access to the current directory in the cloud connection wizard, then retry.</value></data>
-  <data name="CloudJob_TargetChanged" xml:space="preserve"><value>The cloud target changed. The previous task is paused and still protects local payloads.</value></data>
-  <data name="CloudJob_Uploading" xml:space="preserve"><value>Uploading the version and its dependencies; local payloads are protected</value></data>
-  <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>Cloud backup is incomplete. Local payloads remain protected; review cloud tasks and retry</value></data>
+  <data name="CloudJob_TargetChanged" xml:space="preserve"><value>The cloud target changed. The previous task is paused.</value></data>
+  <data name="CloudJob_Uploading" xml:space="preserve"><value>Uploading backup</value></data>
+  <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>Cloud backup is incomplete. Please retry.</value></data>
   <data name="OpenList_StartNotAuthorized" xml:space="preserve"><value>OpenList is unavailable and has no valid local start authorization.</value></data>
   <data name="OpenList_UnknownOwnership" xml:space="preserve"><value>OpenList instance ownership cannot be verified. Only external service observation is available.</value></data>
   <data name="OpenList_StartFailed" xml:space="preserve"><value>OpenList failed to start or exited.</value></data>
@@ -6707,6 +6707,11 @@ Attempts: {3}</value></data>
   <data name="CloudJob_Phase_Resolving" xml:space="preserve"><value>Resolving dependencies</value></data>
   <data name="CloudJob_Phase_Uploading" xml:space="preserve"><value>Uploading</value></data>
   <data name="CloudJob_Phase_Verifying" xml:space="preserve"><value>Verifying</value></data>
+  <data name="CloudJob_Phase_Checking" xml:space="preserve"><value>Checking remote files</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudVerifyAfterUpload.Header" xml:space="preserve"><value>Verify after upload</value></data>
+  <data name="ConfigSettingsDialog_CloudVerifyAfterUpload_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_CloudVerifyAfterUpload_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ConfigSettingsDialog_CloudVerifyAfterUpload_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Verify after upload</value></data>
   <data name="CloudJob_Phase_SyncingMetadata" xml:space="preserve"><value>Syncing metadata</value></data>
   <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>Cloud backup complete</value></data>
   <data name="CloudJob_Phase_RetryableFailure" xml:space="preserve"><value>Waiting to retry</value></data>

@@ -6625,9 +6625,9 @@ Pull Request：{1}</value>
   <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth 连接需要安全保存刷新的令牌。请先复制到 FolderRewind 受管凭据目录。</value></data>
   <data name="CloudJob_RunningCannotRelease" xml:space="preserve"><value>云任务正在执行，暂时不能放弃载荷保护。</value></data>
   <data name="CloudJob_WriteVerificationRequired" xml:space="preserve"><value>请在云连接向导中验证当前目录的写入权限后重试。</value></data>
-  <data name="CloudJob_TargetChanged" xml:space="preserve"><value>云目标已更改，旧任务已暂停并继续保护本地载荷。</value></data>
-  <data name="CloudJob_Uploading" xml:space="preserve"><value>正在上传版本与依赖；本地载荷受保护</value></data>
-  <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>云备份未完成；本地载荷仍受保护，请查看云任务并重试</value></data>
+  <data name="CloudJob_TargetChanged" xml:space="preserve"><value>云目标已更改，旧任务已暂停。</value></data>
+  <data name="CloudJob_Uploading" xml:space="preserve"><value>正在上传备份</value></data>
+  <data name="CloudJob_ProtectedPending" xml:space="preserve"><value>云备份未完成，请重试</value></data>
   <data name="OpenList_StartNotAuthorized" xml:space="preserve"><value>OpenList 未就绪且没有有效的本机启动授权。</value></data>
   <data name="OpenList_UnknownOwnership" xml:space="preserve"><value>无法核对 OpenList 实例归属，仅允许查看外部服务状态。</value></data>
   <data name="OpenList_StartFailed" xml:space="preserve"><value>OpenList 启动失败或进程已退出。</value></data>
@@ -6707,8 +6707,13 @@ Pull Request：{1}</value>
   <data name="CloudJob_Phase_Resolving" xml:space="preserve"><value>解析依赖</value></data>
   <data name="CloudJob_Phase_Uploading" xml:space="preserve"><value>上传中</value></data>
   <data name="CloudJob_Phase_Verifying" xml:space="preserve"><value>校验中</value></data>
+  <data name="CloudJob_Phase_Checking" xml:space="preserve"><value>检查远端文件</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudVerifyAfterUpload.Header" xml:space="preserve"><value>上传后校验</value></data>
+  <data name="ConfigSettingsDialog_CloudVerifyAfterUpload_CardInput.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ConfigSettingsDialog_CloudVerifyAfterUpload_CardInput.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ConfigSettingsDialog_CloudVerifyAfterUpload_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>上传后校验</value></data>
   <data name="CloudJob_Phase_SyncingMetadata" xml:space="preserve"><value>同步元数据</value></data>
-  <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>云备份完整完成</value></data>
+  <data name="CloudJob_Phase_Succeeded" xml:space="preserve"><value>云备份完成</value></data>
   <data name="CloudJob_Phase_RetryableFailure" xml:space="preserve"><value>等待退避重试</value></data>
   <data name="CloudJob_Phase_Paused" xml:space="preserve"><value>已暂停</value></data>
   <data name="CloudJob_Phase_NeedsAttention" xml:space="preserve"><value>需要处理</value></data>

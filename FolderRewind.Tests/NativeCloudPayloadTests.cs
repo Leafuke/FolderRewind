@@ -180,7 +180,7 @@ public sealed class NativeCloudPayloadTests
         var conf = Path.Combine(f.Root, "rclone.conf"); await File.WriteAllTextAsync(conf, "[test]\ntype = local\n");
         var remoteRoot = Path.Combine(f.Root, "remote");
         using var context = new RcloneExecutionContext(executable, conf, f.Root, "test:remote", Path.Combine(f.Root, "tasks"));
-        var transport = new RcloneNativeHistoryTransport(context, 30); var job = f.Job(context.RemoteRoot);
+        var transport = new RcloneNativeHistoryTransport(context, 30, verifyAfterUpload: true); var job = f.Job(context.RemoteRoot);
         var uploaded = await f.UploadAsync(job, transport);
         Assert.IsTrue(uploaded.Complete, JsonSerializer.Serialize(uploaded));
         Assert.AreEqual(HistoryCloudItemState.Reused, (await f.UploadAsync(job, transport)).Items.Single().State);
@@ -191,7 +191,7 @@ public sealed class NativeCloudPayloadTests
         Assert.AreEqual(HistoryReplicaOperationStatus.Succeeded, result.Status, result.Diagnostic);
         var payload = Path.Combine(remoteRoot, "_folderrewind", "replicas", manifest!.ReplicaId.ToString(), "payload");
         await using (var output = new FileStream(payload, FileMode.Append)) await output.WriteAsync(new byte[65536]);
-        Assert.IsFalse((await transport.VerifyRemoteAsync(manifest, default)).Success);
+        Assert.IsFalse((await transport.VerifyRemoteAsync(manifest, null, default)).Success);
     }
 
     private static HistoryMetadataSyncResult Metadata(bool success = true) => new(success ? HistoryMetadataSyncStatus.Succeeded : HistoryMetadataSyncStatus.Failed, 0, 0, [], [], success ? "" : "injected metadata failure");
@@ -299,8 +299,12 @@ public sealed class NativeCloudPayloadTests
         { await using var target = File.Create(path); await budget.CopyAsync(new MemoryStream(Objects[key]), target, expectedLength, token); }
         public Task UploadAsync(ReplicaId id, string path, CancellationToken token)
         { PayloadWrites++; Payloads[id] = File.ReadAllBytes(path); if (FailAt == "descriptor") throw new IOException("injected descriptor publication failure"); return Task.CompletedTask; }
-        public Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token)
-        { var bytes = Payloads[id]; return Task.FromResult(new HistoryReplicaVerification(true, bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)), "")); }
+        public Task<HistoryReplicaCheck> VerifyRemoteAsync(HistoryReplicaManifest expected, string? localPath, CancellationToken token)
+        {
+            var bytes = Payloads[expected.ReplicaId];
+            return Task.FromResult(new HistoryReplicaCheck(bytes.Length == expected.Size && StringComparer.OrdinalIgnoreCase.Equals(
+                Convert.ToHexString(SHA256.HashData(bytes)), expected.StorageSha256), HistoryReplicaCheckKind.Hash, ""));
+        }
         public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token)
         { Manifests.TryAdd(manifest.ReplicaId, manifest); if (FailAt == "manifest") throw new IOException("injected manifest publication failure"); return Task.CompletedTask; }
         public Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId id, CancellationToken token) => Task.FromResult(Manifests.GetValueOrDefault(id));

@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Cloud;
 
-public enum CloudJobPhase { Prepared, Pending, Resolving, Uploading, Verifying, SyncingMetadata, Succeeded, RetryableFailure, Paused, NeedsAttention, Canceled, Aborted }
+public enum CloudJobPhase { Prepared, Pending, Resolving, Uploading, Verifying, SyncingMetadata, Succeeded, RetryableFailure, Paused, NeedsAttention, Canceled, Aborted, Checking }
 public enum CloudProtectionDisposition { Held, Released, Abandoned }
 public sealed record CloudJobTarget(string ProfileId, string ProfileRevision, string BindingRevision, string RemoteRoot, string ConfigId,
     string CredentialTargetRevision = "", string DescriptorSha256 = "", string CredentialRevision = "", string ExecutionWorkingDirectory = "");
@@ -240,7 +240,7 @@ public sealed class HistoryCloudJobJournal(HistoryRuntime history)
                 if (journals.Any(t => t.TransactionId == j.TransactionId && t.Phase != HistoryTransactionPhase.Complete)) return j with { Phase = CloudJobPhase.NeedsAttention, Diagnostic = "cloud.intent-reconciliation-required" };
                 return j with { Phase = CloudJobPhase.Aborted, Protection = CloudProtectionDisposition.Released };
             }
-            return j.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.SyncingMetadata
+            return j.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.Checking or CloudJobPhase.SyncingMetadata
                 ? j with { Phase = CloudJobPhase.Pending } : j;
         }).ToImmutableArray();
         Save(document with { Jobs = jobs });

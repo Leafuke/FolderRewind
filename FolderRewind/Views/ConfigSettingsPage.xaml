@@ -523,6 +523,9 @@
                 <settings:SettingsCard x:Uid="SettingsCard_ConfigSettingsDialog_CloudEnabled" ContentAlignment="Right" HorizontalContentAlignment="Stretch" SizeChanged="OnSettingCardSizeChanged">
                     <ToggleSwitch x:Uid="ConfigSettingsDialog_CloudEnabled_CardInput" IsOn="{x:Bind ViewModel.AutoUploadEnabled, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudEnabled"/>
                 </settings:SettingsCard>
+                <settings:SettingsCard x:Uid="SettingsCard_ConfigSettingsDialog_CloudVerifyAfterUpload" ContentAlignment="Right" HorizontalContentAlignment="Stretch" SizeChanged="OnSettingCardSizeChanged">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_CloudVerifyAfterUpload_CardInput" IsOn="{x:Bind ViewModel.CloudVerifyAfterUpload, Mode=TwoWay}" AutomationProperties.AutomationId="ConfigSettingsDialog_CloudVerifyAfterUpload"/>
+                </settings:SettingsCard>
                 <Expander x:Uid="SettingsCard_CloudAdvanced" HorizontalAlignment="Stretch" Margin="0,12,0,0" Visibility="{x:Bind ViewModel.ShowCloudUploadAdvancedSettings, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                     <StackPanel Spacing="12">
                         <Grid ColumnSpacing="12">

@@ -197,6 +197,7 @@
     <Compile Include="..\FolderRewind\Services\RcloneNativeHistoryTransport.cs" Link="Source\RcloneNativeHistoryTransport.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneMigrationSnapshotTransport.cs" Link="Source\RcloneMigrationSnapshotTransport.cs" />
     <Compile Include="..\FolderRewind\Services\RcloneArtifactObjectTransport.cs" Link="Source\RcloneArtifactObjectTransport.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneRemotePayloadVerifier.cs" Link="Source\RcloneRemotePayloadVerifier.cs" />
     <Compile Include="..\FolderRewind\Services\ProcessArgumentTokenizer.cs" Link="Source\ProcessArgumentTokenizer.cs" />
     <Compile Include="..\FolderRewind\Services\ToolArchiveInstaller.cs" Link="Source\ToolArchiveInstaller.cs" />
     <Compile Include="..\FolderRewind\Services\ToolExecutableVerifier.cs" Link="Source\ToolExecutableVerifier.cs" />

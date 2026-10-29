@@ -38,6 +38,7 @@ namespace FolderRewind.Models
         public string WritableEvidence { get; set; } = "";
         public string ReadableEvidence { get; set; } = "";
         private bool _enabled;
+        private bool _verifyAfterUpload;
         private CloudCommandMode _commandMode = CloudCommandMode.Rclone;
         private CloudTemplateKind _templateKind = CloudTemplateKind.UploadCurrentArchive;
         private string _executablePath = "rclone.exe";
@@ -55,6 +56,8 @@ namespace FolderRewind.Models
         private string _lastErrorMessage = "";
 
         public bool Enabled { get => _enabled; set => SetProperty(ref _enabled, value); }
+
+        public bool VerifyAfterUpload { get => _verifyAfterUpload; set => SetProperty(ref _verifyAfterUpload, value); }
 
         public CloudCommandMode CommandMode { get => _commandMode; set => SetProperty(ref _commandMode, value); }
 

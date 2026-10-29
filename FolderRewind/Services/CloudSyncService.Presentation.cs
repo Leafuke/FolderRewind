@@ -18,7 +18,7 @@ public static partial class CloudSyncService
             var job = runtime.CloudJobs.Read().Jobs.Single(j => j.JobId == jobId);
             var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => runtime.ConfigId.Matches(c.Id));
             var success = job.Phase == CloudJobPhase.Succeeded;
-            var active = job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.SyncingMetadata;
+            var active = job.Phase is CloudJobPhase.Resolving or CloudJobPhase.Uploading or CloudJobPhase.Verifying or CloudJobPhase.Checking or CloudJobPhase.SyncingMetadata;
             var failed = job.Phase is CloudJobPhase.NeedsAttention or CloudJobPhase.RetryableFailure;
             var phase = I18n.GetString("CloudJob_Phase_" + job.Phase);
             var request = new InAppNotificationRequest
