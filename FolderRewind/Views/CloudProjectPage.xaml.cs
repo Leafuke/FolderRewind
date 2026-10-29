@@ -48,7 +48,19 @@ public sealed partial class CloudProjectPage : Page
         Automatic.IsEnabled = ViewModel.CanEdit; Bindings.Update(); _refreshing = false;
     }
     private async Task Run(Func<CancellationToken, Task> action) { await ViewModel.RunCheckAsync(action); if (_active) Refresh(); }
-    private void OnConnect(object s, RoutedEventArgs e) => NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ViewModel.ProjectId));
+    private void OnConnect(object s, RoutedEventArgs e)
+    {
+        if (ViewModel.NeedsReauthentication) { OnReauthenticate(s, e); return; }
+        NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ViewModel.ProjectId));
+    }
+    private void OnReauthenticate(object s, RoutedEventArgs e)
+    {
+        var id = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(p => p.Id == ViewModel.ProjectId)?.Cloud.ConnectionProfileId;
+        if (id is not null) NavigationService.NavigateTo("CloudSetup",
+            new CloudSetupNavigationParameter(ViewModel.ProjectId, ManageConnection: true, ProfileId: id, Reauthenticate: true));
+    }
+    private async void OnUpdateHistory(object s, RoutedEventArgs e) => await Run(ViewModel.UpdateProjectHistoryAsync);
+    private void OnHistory(object s, RoutedEventArgs e) => NavigationService.NavigateTo("History", ManagerNavigationParameter.ForConfig(ViewModel.ProjectId));
     private void OnEdit(object s, RoutedEventArgs e)
     {
         var id = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(p => p.Id == ViewModel.ProjectId)?.Cloud.ConnectionProfileId;

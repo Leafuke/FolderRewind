@@ -3,6 +3,7 @@ using FolderRewind.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,6 +42,8 @@ public sealed class CloudConnectionsViewModel : ViewModelBase
             var count = app.BackupConfigs.Count(p => p.Cloud.ConnectionProfileId is { } id && storageUsers.Contains(id));
             var detail = I18n.Format("CloudConnections_Detail", I18n.GetString(profile.Scope == CloudConnectionScope.Shared ? "CloudConnections_Shared" : "CloudConnections_Project"),
                 profile.RemoteName, string.Join(", ", direct), count);
+            if (profile.Access == CloudConnectionAccess.NeedsAuthentication || !File.Exists(profile.CredentialReference))
+                detail += "\n" + I18n.GetString("CloudReauth_Required");
             Connections.Add(new(profile.Id, profile.DisplayName, detail));
         }
         OnPropertyChanged(nameof(HasProjectSelection));

@@ -17,6 +17,7 @@ namespace FolderRewind.Services
         public static async Task<HistoryMetadataSyncResult> PullConfigurationHistoryAsync(BackupConfig config, CancellationToken token = default)
         {
             config = await PrepareConnectionAsync(config, token).ConfigureAwait(false);
+            using var dependency = await AcquireHistoryDependencyAsync(config, token).ConfigureAwait(false);
             using var connection = CaptureConnection(config);
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
             return await new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).PullAsync(token).ConfigureAwait(false);
@@ -36,6 +37,7 @@ namespace FolderRewind.Services
             try
             {
                 config = await PrepareConnectionAsync(config).ConfigureAwait(false);
+                using var dependency = await AcquireHistoryDependencyAsync(config, CancellationToken.None).ConfigureAwait(false);
                 using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                 var transport = CreateHistoryTransport(config);
@@ -167,6 +169,7 @@ namespace FolderRewind.Services
                 return (false, 0, 0, I18n.GetString("CloudSync_Notification_HistoryImportFailed"));
             if (allowUploads) RequireMigrationCloudPermission(config);
             config = await PrepareConnectionAsync(config).ConfigureAwait(false);
+            using var dependency = await AcquireHistoryDependencyAsync(config, CancellationToken.None).ConfigureAwait(false);
             using var connection = CaptureConnection(config);
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
             var service = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
@@ -174,8 +177,14 @@ namespace FolderRewind.Services
             var message = result.Succeeded
                 ? I18n.Format("CloudHistory_MetadataSynchronized", result.DownloadedPacks, result.UploadedPacks)
                 : result.Diagnostic;
+            if (result.Succeeded && (result.DivergentBranches.Length != 0 || result.BranchNameCollisions.Length != 0))
+                message += "\n" + I18n.Format("CloudHistory_Conflicts", result.DivergentBranches.Length, result.BranchNameCollisions.Length);
             return (result.Succeeded, result.DownloadedPacks, result.UploadedPacks, message);
         }
+
+        private static Task<IDisposable?> AcquireHistoryDependencyAsync(BackupConfig config, CancellationToken token)
+            => OpenListRuntimeService.AcquireForConnectionAsync(ConfigService.CurrentConfig.CloudConnections
+                .Any(p => p.Id == config.Cloud.ConnectionProfileId && p.DependsOnLocalOpenList), token);
 
         private static IHistoryMetadataTransport CreateHistoryTransport(BackupConfig config)
             => new RcloneNativeHistoryTransport(RcloneExecutionScope.Current

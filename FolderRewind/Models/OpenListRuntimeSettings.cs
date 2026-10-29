@@ -1,6 +1,7 @@
 namespace FolderRewind.Models;
 
 public enum OpenListOwnership { External, ManagedLocal }
+public enum OpenListEnvironmentChoice { None, ExistingLocal, NewLocal, External }
 
 public sealed class OpenListRuntimeSettings
 {

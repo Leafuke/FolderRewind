@@ -291,7 +291,7 @@ namespace FolderRewind.ViewModels
                 () => IsMinecraftPresetInstallIdle);
 
             StartCloudPresetCommand = new AsyncRelayCommand(
-                async () => { await StartCloudPresetAsync(); },
+                () => { OpenCloudPreset(); return Task.CompletedTask; },
                 () => IsCloudPresetIdle && SelectedCloudPresetOption != null);
 
             PurchaseSponsorCommand = new AsyncRelayCommand(

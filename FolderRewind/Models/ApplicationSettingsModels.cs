@@ -179,7 +179,8 @@ namespace FolderRewind.Models
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
         public string RcloneExecutablePath { get => _rcloneExecutablePath; set => SetProperty(ref _rcloneExecutablePath, value ?? string.Empty); }
-        public OpenListRuntimeSettings OpenListRuntime { get; set; } = new();
+        private OpenListRuntimeSettings _openListRuntime = new();
+        public OpenListRuntimeSettings OpenListRuntime { get => _openListRuntime; set => SetProperty(ref _openListRuntime, value ?? new()); }
         public string DefaultCloudRemoteBasePath { get => _defaultCloudRemoteBasePath; set => SetProperty(ref _defaultCloudRemoteBasePath, value ?? string.Empty); }
         public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
         public bool AutoDownloadMissingCloudBackupsBeforeRestore { get => _autoDownloadMissingCloudBackupsBeforeRestore; set => SetProperty(ref _autoDownloadMissingCloudBackupsBeforeRestore, value); }

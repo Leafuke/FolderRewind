@@ -16,7 +16,10 @@ namespace FolderRewind.Services;
 // Only provisions a fresh, private directory. It never starts a server or resets an existing account.
 internal static class OpenListInitializer
 {
-    internal static bool Supports(string version) => Regex.IsMatch(version, @"\bv?4\.2\.6\b")
+    internal const string SupportedVersion = "4.2.6";
+    internal static bool Supports(string version) => Regex.IsMatch(version,
+        @"^\s*(?:OpenList\s+|Version:\s*)v?" + Regex.Escape(SupportedVersion) + @"(?=\s|$|[-+])",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase)
         && version.Contains("OpenList", StringComparison.OrdinalIgnoreCase);
     internal static async Task VerifySupportedAsync(string executable, CancellationToken token)
     {

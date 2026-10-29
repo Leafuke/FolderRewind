@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
-internal enum CloudConnectionEditIntent { Create, Reuse, Edit }
+internal enum CloudConnectionEditIntent { Create, Reuse, Edit, Reauthenticate }
 internal enum CloudSetupSaveStage { None, Connection, Binding }
 internal sealed class CloudWizardFlow
 {
@@ -47,6 +47,11 @@ internal sealed class CloudSetupSaveSession
     {
         if (PersistenceUncertain) throw new InvalidOperationException("[cloud.save-uncertain]");
         ProfileId = Guid.NewGuid().ToString("N"); Expected = null; Intent = CloudConnectionEditIntent.Create;
+    }
+    internal void Reauthenticate(CloudConnectionProfile profile)
+    {
+        Select(profile, true);
+        Intent = CloudConnectionEditIntent.Reauthenticate;
     }
     internal void Saved(CloudConnectionProfile profile)
     {

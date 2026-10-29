@@ -399,20 +399,20 @@ namespace FolderRewind
             }
         }
 
-        internal static bool TryShowTrayNotification(string title, string message, NotificationSeverity severity)
+        internal static Task<NotificationSendStatus> TryShowTrayNotificationAsync(string title, string message,
+            NotificationSeverity severity, bool muteAudio, Func<bool> canSend)
         {
-            if (!NotificationService.IsNotificationEnabled || Current is not App app || _window?.DispatcherQueue == null)
+            if (Current is not App app || _window?.DispatcherQueue == null)
             {
-                return false;
+                return Task.FromResult(NotificationSendStatus.Unavailable);
             }
-
-            var generation = NotificationService.NotificationGeneration;
-            return _window.DispatcherQueue.TryEnqueue(() =>
+            return UiDispatcherService.RunOnUiAsync(() =>
             {
-                if (!NotificationService.IsNotificationEnabled || generation != NotificationService.NotificationGeneration) return;
+                if (!canSend()) return NotificationSendStatus.Canceled;
                 try
                 {
                     app.InitializeTrayIcon();
+                    if (app._trayIcon is null) return NotificationSendStatus.Unavailable;
                     var icon = severity switch
                     {
                         NotificationSeverity.Error => H.NotifyIcon.Core.NotificationIcon.Error,
@@ -420,11 +420,14 @@ namespace FolderRewind
                         _ => H.NotifyIcon.Core.NotificationIcon.Info
                     };
 
-                    app._trayIcon?.ShowNotification(title, message, icon);
+                    if (!canSend()) return NotificationSendStatus.Canceled;
+                    app._trayIcon.ShowNotification(title, message, icon, sound: !muteAudio, respectQuietTime: true);
+                    return NotificationSendStatus.Submitted;
                 }
                 catch (Exception ex)
                 {
                     LogService.Log(I18n.Format("Tray_InitFailed", ex.Message));
+                    return NotificationSendStatus.Failed;
                 }
             });
         }

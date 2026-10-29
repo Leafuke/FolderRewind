@@ -1,5 +1,7 @@
 # P3：Smart 文件变化筛选与语义增量
 
+> 2026-10-23 后继路线：P2/P3 已集成到1.9.x，保持默认关闭的实验入口和原性能失败记录。独立 [P4语义Merge](Semantic_Merge_P4.md) 开始实施；其准入依赖固定Exact输入、依赖保护和安全提交，不等待P3全部性能专项。下方历史复选框不代表当前实现均未完成；本次不改写既有验收数据。
+
 > 当前交付：用户已批准显式启用的实验性 P3 与手动 checkpoint 入口。原严格性能 Gate 的失败记录保留；本轮不运行 UI 自动测试，人工步骤见验收记录文末。
 
 实施基线：Host 4ee0efd、MineRewind b0812d3。分支 codex/native-artifact-incremental。

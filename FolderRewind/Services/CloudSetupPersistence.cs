@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
-internal sealed class CloudSetupPersistence : ICloudSetupPersistence
+internal sealed class CloudSetupPersistence(Action? validateProfileCommit = null) : ICloudSetupPersistence
 {
     public CloudConnectionProfile? FindProfile(string id) => ConfigService.CurrentConfig.CloudConnections.SingleOrDefault(p => p.Id == id);
     public async Task ConfirmPersistenceAsync(CancellationToken token)
@@ -16,7 +16,7 @@ internal sealed class CloudSetupPersistence : ICloudSetupPersistence
         if (!result.Success) throw new InvalidOperationException(result.ErrorMessage, result.Exception);
     }
     public Task SaveProfileAsync(CloudConnectionProfile profile, CloudConnectionProfile? expected, CancellationToken token)
-        => CloudConnectionCatalog.SaveProfileAsync(profile, expected?.ProfileRevision, token, expected);
+        => CloudConnectionCatalog.SaveProfileAsync(profile, expected?.ProfileRevision, token, expected, validateProfileCommit);
     public async Task BindProjectAsync(CloudSetupSaveRequest request, CancellationToken token)
     {
         var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(p => p.Id == request.ProjectId)

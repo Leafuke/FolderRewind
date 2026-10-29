@@ -31,6 +31,12 @@ public sealed partial class CloudConnectionsPage : Page
     private void OnConnectionActionsSizeChanged(object sender, SizeChangedEventArgs e)
     { if (sender is StackPanel panel) panel.Orientation = e.NewSize.Width < 640 ? Orientation.Vertical : Orientation.Horizontal; }
     private void OnSelected(object sender, SelectionChangedEventArgs e) => ViewModel.SelectedProfileId = ((sender as ListView)?.SelectedItem as CloudConnectionDisplay)?.Id;
+    private void OnConnectionContainerChanged(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.Item is not CloudConnectionDisplay connection) return;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(args.ItemContainer, connection.Name);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(args.ItemContainer, "CloudConnection_" + connection.Id);
+    }
     private void OnCreateShared(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ManageConnection: true));
     private void OnCreateProject(object sender, RoutedEventArgs e)
     {
@@ -39,6 +45,11 @@ public sealed partial class CloudConnectionsPage : Page
     private void OnEdit(object sender, RoutedEventArgs e)
     {
         if (ViewModel.SelectedProfileId is { } id) NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ManageConnection: true, ProfileId: id));
+    }
+    private void OnReauthenticate(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SelectedProfileId is { } id) NavigationService.NavigateTo("CloudSetup",
+            new CloudSetupNavigationParameter(ManageConnection: true, ProfileId: id, Reauthenticate: true));
     }
     private async void OnPromote(object sender, RoutedEventArgs e)
     {

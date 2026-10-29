@@ -22,30 +22,7 @@ namespace FolderRewind.Views.Settings
             Bindings.Update();
         }
 
-        private async void OnStartCloudPresetClick(object sender, RoutedEventArgs e)
-        {
-            var provider = ViewModel.SelectedCloudPresetOption;
-            if (provider == null)
-            {
-                await ShowSimpleMessageAsync(I18n.GetString("CloudOnboarding_NoProvider"));
-                return;
-            }
-
-            if (!await AppDialogService.Default.ConfirmAsync(
-                    I18n.GetString("CloudOnboarding_ConfirmTitle"),
-                    I18n.Format(
-                        "CloudOnboarding_ConfirmContent",
-                        provider.DisplayName,
-                        provider.Description),
-                    I18n.GetString("CloudOnboarding_ConfirmPrimary"),
-                    this.XamlRoot))
-            {
-                return;
-            }
-
-            await ViewModel.StartCloudPresetAsync();
-            Bindings.Update();
-        }
+        private void OnStartCloudPresetClick(object sender, RoutedEventArgs e) => ViewModel.OpenCloudPreset();
 
         private Task ShowSimpleMessageAsync(string message) =>
             AppDialogService.Default.ShowMessageAsync(

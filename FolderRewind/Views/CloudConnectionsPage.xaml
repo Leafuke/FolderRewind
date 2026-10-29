@@ -14,7 +14,7 @@
                 <Button x:Name="CreateProjectButton" Grid.Column="2" x:Uid="CloudConnections_CreateProject" Click="OnCreateProject" IsEnabled="{x:Bind ViewModel.HasProjectSelection, Mode=OneWay}" AutomationProperties.AutomationId="CloudCreateProject" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             </Grid>
         </StackPanel>
-        <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Connections, Mode=OneWay}" SelectionChanged="OnSelected" AutomationProperties.AutomationId="CloudConnectionCatalog">
+        <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Connections, Mode=OneWay}" SelectionChanged="OnSelected" ContainerContentChanging="OnConnectionContainerChanged" AutomationProperties.AutomationId="CloudConnectionCatalog">
             <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style></ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:CloudConnectionDisplay">
@@ -26,6 +26,7 @@
             <TextBlock Text="{x:Bind ViewModel.SelectedConnectionText, Mode=OneWay}" TextWrapping="Wrap"/>
             <StackPanel Orientation="Horizontal" Spacing="8" SizeChanged="OnConnectionActionsSizeChanged">
                 <Button x:Uid="CloudConnections_Edit" Click="OnEdit" IsEnabled="{x:Bind ViewModel.HasSelectedProfile, Mode=OneWay}" AutomationProperties.AutomationId="CloudEditConnection"/>
+                <Button x:Uid="CloudReauth_Action" Click="OnReauthenticate" IsEnabled="{x:Bind ViewModel.HasSelectedProfile, Mode=OneWay}" AutomationProperties.AutomationId="CloudReauthenticateConnection"/>
                 <Button x:Uid="CloudConnections_Promote" Click="OnPromote" IsEnabled="{x:Bind ViewModel.CanPromote, Mode=OneWay}" AutomationProperties.AutomationId="CloudPromoteConnection"/>
                 <Button x:Uid="CloudConnections_Delete" Click="OnDelete" IsEnabled="{x:Bind ViewModel.HasSelectedProfile, Mode=OneWay}" AutomationProperties.AutomationId="CloudDeleteConnection"/>
             </StackPanel>

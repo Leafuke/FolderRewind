@@ -1384,13 +1384,13 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Cloud backup starter preset</value>
   </data>
   <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
-    <value>Prepare rclone, plus OpenList for services such as Baidu Netdisk and Aliyun Drive. Reuse usable installed tools.</value>
+    <value>Choose a cloud service to configure tools, authentication, and the cloud directory in one wizard.</value>
   </data>
   <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
-    <value>Choose a cloud service to prepare its tools. Download rclone 1.75.1 and OpenList 4.2.6 when needed, matching your device, and save their paths. Configure the cloud connection afterwards.</value>
+    <value>Use an existing local OpenList environment, a NAS / external service, or create a local environment. The wizard prepares tools as needed and verifies the actual directory before saving.</value>
   </data>
   <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
-    <value>Start setup</value>
+    <value>Configure cloud connection</value>
   </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>Update</value>
@@ -3225,13 +3225,13 @@ Expected SHA-256:
     <value>Baidu Netdisk</value>
   </data>
   <data name="CloudOnboarding_Provider_BaiduDesc" xml:space="preserve">
-    <value>rclone does not support it directly, so this preset also prepares OpenList and bridges through WebDAV.</value>
+    <value>Connect through OpenList WebDAV using an existing local instance or a NAS / external service. Compatible tools are prepared only for a new local instance.</value>
   </data>
   <data name="CloudOnboarding_Provider_Aliyun" xml:space="preserve">
     <value>Aliyun Drive</value>
   </data>
   <data name="CloudOnboarding_Provider_AliyunDesc" xml:space="preserve">
-    <value>This preset also prepares OpenList and bridges it to rclone through WebDAV.</value>
+    <value>Connect through OpenList WebDAV using a local instance or a NAS / external service. Prepare compatible tools as needed for a new local instance.</value>
   </data>
   <data name="CloudOnboarding_Provider_OpenList" xml:space="preserve">
     <value>OpenList WebDAV</value>
@@ -3255,10 +3255,10 @@ Expected SHA-256:
     <value>Preparing the cloud backup starter preset...</value>
   </data>
   <data name="CloudOnboarding_Status_DownloadRclone" xml:space="preserve">
-    <value>Fetching and installing the latest rclone...</value>
+    <value>No reusable rclone was found. Downloading and verifying {0}...</value>
   </data>
   <data name="CloudOnboarding_Status_DownloadOpenList" xml:space="preserve">
-    <value>Fetching and installing the latest OpenList...</value>
+    <value>No OpenList compatible with fresh initialization was found. Downloading and verifying {0}...</value>
   </data>
   <data name="CloudOnboarding_Status_SaveSettings" xml:space="preserve">
     <value>Saving cloud backup tool paths...</value>
@@ -5433,7 +5433,7 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="OpenList_Data.Header" xml:space="preserve"><value>Data directory (separate from the executable version directory)</value></data>
   <data name="OpenList_Config.Header" xml:space="preserve"><value>Optional custom config file</value></data>
   <data name="OpenList_Save.Content" xml:space="preserve"><value>Save environment</value></data>
-  <data name="OpenList_Check.Content" xml:space="preserve"><value>Check service endpoint without starting it</value></data>
+  <data name="OpenList_Check.Content" xml:space="preserve"><value>Check environment and endpoint without starting the service</value></data>
   <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>Installation and startup guide</value></data>
   <data name="OpenList_AbsolutePaths" xml:space="preserve"><value>Use explicit absolute executable, working, data, and config paths.</value></data>
   <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList working, data, and configuration paths must not overlap backup sources, repositories, or FolderRewind configuration storage.</value></data>
@@ -7505,14 +7505,14 @@ Inspection and batch checking are separate. Decisions affect complete merge item
   <data name="CloudWizard_ChooseWebDav.Content" xml:space="preserve"><value>Connect an existing WebDAV service</value></data>
   <data name="CloudWizard_ChooseRclone.Content" xml:space="preserve"><value>Use rclone configuration (advanced: OneDrive, S3, and more)</value></data>
   <data name="CloudWizard_ChooseSaved.Content" xml:space="preserve"><value>Choose a saved cloud connection</value></data>
-  <data name="CloudWizard_EnvironmentHelp.Text" xml:space="preserve"><value>Confirm rclone is available. Continue with an existing tool or prepare it below.</value></data>
+  <data name="CloudWizard_EnvironmentHelp.Text" xml:space="preserve"><value>Preparation checks the rclone path entered here first, then saved and installed tools, and downloads only when needed. Continue directly if your existing tool is available.</value></data>
   <data name="CloudWizard_PrepareRclone.Content" xml:space="preserve"><value>Prepare rclone</value></data>
   <data name="CloudWizard_OpenListEnvironmentHelp.Text" xml:space="preserve"><value>External OpenList servers or NAS devices need no local setup. Only local instances need preparation and startup authorization.</value></data>
   <data name="CloudWizard_UseLocal.Content" xml:space="preserve"><value>Use configured local OpenList</value></data>
   <data name="CloudWizard_UseExternal.Content" xml:space="preserve"><value>Use an externally running service</value></data>
   <data name="CloudWizard_InitializeOpenList.Header" xml:space="preserve"><value>Prepare local OpenList</value></data>
-  <data name="CloudWizard_InitializationHelp.Text" xml:space="preserve"><value>Creates a new dedicated directory for OpenList 4.2.6. The administrator is admin. Set and remember the initial password; FR does not store it or reset existing instances.</value></data>
-  <data name="CloudWizard_PrepareOpenList.Content" xml:space="preserve"><value>Prepare rclone and OpenList tools</value></data>
+  <data name="CloudWizard_InitializationHelp.Text" xml:space="preserve"><value>Reuse compatible tools first, or download and verify OpenList 4.2.6 when needed. Initialization creates a new dedicated directory. The administrator is admin. Set and remember the initial password; FR does not store it or reset existing instances.</value></data>
+  <data name="CloudWizard_PrepareOpenList.Content" xml:space="preserve"><value>Check and prepare missing rclone / OpenList tools</value></data>
   <data name="CloudWizard_InitialPassword.Header" xml:space="preserve"><value>Initial administrator password</value></data>
   <data name="CloudWizard_Port.Header" xml:space="preserve"><value>Local loopback port</value></data>
   <data name="CloudWizard_Initialize.Content" xml:space="preserve"><value>Initialize new instance (without starting server)</value></data>
@@ -7783,4 +7783,51 @@ New backups {2} · Unchanged {3} · With warnings {4} · Failed {5}</value></dat
   <data name="FolderManager_BackupSelectedButton.ToolTipService.ToolTip" xml:space="preserve"><value>Back up the selected folder</value></data>
   <data name="FolderManager_HistoryButton.ToolTipService.ToolTip" xml:space="preserve"><value>View the selected folder's history</value></data>
   <data name="Onboarding_ProjectActions.ToolTipService.ToolTip" xml:space="preserve"><value>Further project setup</value></data>
+  <data name="OpenList_EditConflict" xml:space="preserve"><value>Another operation changed this OpenList environment. Your draft is preserved. Reload the saved environment before editing conflicting fields.</value></data>
+  <data name="OpenList_Reload.Content" xml:space="preserve"><value>Reload saved environment</value></data>
+  <data name="OpenList_ReloadConfirm" xml:space="preserve"><value>Discard the unsaved environment edits and load the current saved configuration?</value></data>
+  <data name="OpenList_RecognizeConfig.Content" xml:space="preserve"><value>Select a configuration and inspect environment</value></data>
+  <data name="OpenList_ConfigUnreadable" xml:space="preserve"><value>Cannot inspect this OpenList configuration. Select a valid config.json.</value></data>
+  <data name="OpenList_ConfigRecognized" xml:space="preserve"><value>Configuration read. Directories suggested for the standard data/config.json layout must match your startup arguments. Review and save; no program was executed or authorized to start.</value></data>
+  <data name="CloudEnvironment_Confirmed" xml:space="preserve"><value>Confirmed</value></data>
+  <data name="CloudEnvironment_Pending" xml:space="preserve"><value>Pending</value></data>
+  <data name="CloudEnvironment_Status" xml:space="preserve"><value>Program verification: {0}
+Fresh initialization compatibility (4.2.6): {1}
+Paths required for local process management: {2}
+Local startup authorization: {3}
+Service endpoint reachable: {4}
+Verify the WebDAV account and directory access in the cloud connection wizard.</value></data>
+  <data name="CloudWizard_NavigationFailed" xml:space="preserve"><value>Cannot open the cloud connection wizard. Please try again.</value></data>
+  <data name="CloudWizard_SelectEnvironment" xml:space="preserve"><value>Select an existing local, new local, or NAS / external OpenList service first.</value></data>
+  <data name="CloudWizard_SaveEnvironmentFirst" xml:space="preserve"><value>Review and save the local environment before continuing.</value></data>
+  <data name="CloudWizard_EnvironmentObserved" xml:space="preserve"><value>The local service endpoint responded. Configure the WebDAV account and verify the actual directory next.</value></data>
+  <data name="CloudWizard_OneDriveHelp" xml:space="preserve"><value>OneDrive: use rclone config to authorize your Microsoft account in the browser, then select the generated configuration and OneDrive remote, import its credentials, and verify the directory.</value></data>
+  <data name="CloudWizard_S3Help" xml:space="preserve"><value>S3: configure the provider, region, access credentials, and bucket in rclone, then select the configuration and remote and verify the bucket and directory.</value></data>
+  <data name="CloudEnvironment_Choice.Header" xml:space="preserve"><value>OpenList service location</value></data>
+  <data name="CloudEnvironment_Existing.Content" xml:space="preserve"><value>Use an existing local environment</value></data>
+  <data name="CloudEnvironment_New.Content" xml:space="preserve"><value>Create a local environment</value></data>
+  <data name="CloudEnvironment_External.Content" xml:space="preserve"><value>Use a NAS / external service</value></data>
+  <data name="CloudEnvironment_ExternalHelp.Text" xml:space="preserve"><value>Prepare only rclone. Enter the external OpenList WebDAV URL and account next; the local OpenList environment will not be installed, changed, or authorized to start.</value></data>
+  <data name="CloudReauth_Action.Content" xml:space="preserve"><value>Reauthenticate this connection</value></data>
+  <data name="CloudReauth_Required" xml:space="preserve"><value>Credentials are missing or authentication is required. Reconnect while keeping this connection and its project bindings.</value></data>
+  <data name="CloudReauth_Summary" xml:space="preserve"><value>Reauthenticate: {0}
+Affected projects: {1}</value></data>
+  <data name="CloudReauth_Help" xml:space="preserve"><value>Choose how to authenticate the original service. Connection identity and project bindings are retained and original repositories are checked. Verify and enable automatic uploads again afterwards.</value></data>
+  <data name="CloudReauth_HelpText.Text" xml:space="preserve"><value>Reauthentication preserves this connection and project directories. Existing history must match the original repository identity. Select the empty-directory option below only if this connection has never uploaded history.</value></data>
+  <data name="CloudReauth_AllowEmpty.Content" xml:space="preserve"><value>This connection has never uploaded history</value></data>
+  <data name="CloudReauth_CreateSeparate.Content" xml:space="preserve"><value>Create a separate connection instead</value></data>
+  <data name="CloudReauth_OriginalPathRequired" xml:space="preserve"><value>Reauthentication must keep the original project directory. Select it, or create a separate connection for another directory.</value></data>
+  <data name="CloudReauth_RepositoryMissing" xml:space="preserve"><value>The original project repository was not found here. Check the account, mount location, and original directory. Explicitly allow an empty directory only for a connection that has never uploaded history.</value></data>
+  <data name="CloudReauth_RepositoryMismatch" xml:space="preserve"><value>The cloud repository identity differs from the original project. It was not relinked. Check the service account and directory, or create a separate connection.</value></data>
+  <data name="CloudHistory_Update.Content" xml:space="preserve"><value>Update history from cloud</value></data>
+  <data name="CloudHistory_Open.Content" xml:space="preserve"><value>View history and resolve divergence</value></data>
+  <data name="CloudHistory_Updated" xml:space="preserve"><value>Imported {0} history packs from the cloud. Working files are unchanged. Check payload completeness and recoverability for each version on the history page.</value></data>
+  <data name="CloudHistory_Conflicts" xml:space="preserve"><value>History was merged, with {0} divergent branches and {1} name collisions. Review and resolve them on the history page.</value></data>
+  <data name="CloudHistory_SecondDeviceHelp.Text" xml:space="preserve"><value>Connect a second computer: import the original configuration to retain project and source identities, update local paths, reauthenticate the original connection, verify the same cloud directory, then update history and restore as needed. History synchronization does not automatically overwrite working files.</value></data>
+  <data name="CloudWizard_BridgePresetHelp" xml:space="preserve"><value>Selected service: {0}, accessed through OpenList WebDAV.</value></data>
+  <data name="OpenList_StopBeforeChange" xml:space="preserve"><value>Stop the current OpenList instance started by FR before changing its program, directories, endpoint, or startup authorization.</value></data>
+  <data name="CloudReauth_Import.Content" xml:space="preserve"><value>Copy and reauthenticate original connection</value></data>
+  <data name="CloudReauth_ImportHelp.Text" xml:space="preserve"><value>Copy the entire configuration, which may contain multiple accounts and dependencies, into private storage to reauthenticate the original connection. Its ID, name, scope, and project directories are preserved, and original repository identities are checked before saving. The source file is unchanged; OAuth copies do not synchronize automatically.</value></data>
+  <data name="CloudOnboarding_OpenListVersionSkipped" xml:space="preserve"><value>The OpenList version at {0} cannot initialize a new instance (requires {1}). Continuing the search for a compatible tool; this executable and existing instances are unchanged.</value></data>
+  <data name="CloudOnboarding_SettingsChanged" xml:space="preserve"><value>Another operation changed the tool paths or local environment during preparation. The newer settings were preserved. Check the current paths and retry; downloaded, verified tools can be reused.</value></data>
 </root>

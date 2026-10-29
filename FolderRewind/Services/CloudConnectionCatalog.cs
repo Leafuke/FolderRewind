@@ -88,7 +88,7 @@ internal static class CloudConnectionCatalog
     }
 
     internal static async Task SaveProfileAsync(CloudConnectionProfile profile, string? expectedRevision, CancellationToken token,
-        CloudConnectionProfile? expectedSnapshot = null)
+        CloudConnectionProfile? expectedSnapshot = null, Action? validateBeforeCommit = null)
     {
         var app = ConfigService.CurrentConfig;
         var existing = app.CloudConnections.SingleOrDefault(p => p.Id == profile.Id);
@@ -114,9 +114,15 @@ internal static class CloudConnectionCatalog
                 foreach (var project in projects) await CloudSyncService.CloseCloudAdmissionAsync(project, token);
             var originals = projects.Select(p => ConfigSnapshotMapper.Copy(p.Cloud)).ToArray();
             var index = existing is null ? app.CloudConnections.Count : app.CloudConnections.IndexOf(existing);
+            var applied = false;
             await ConfigEditTransaction.ApplyAsync(() =>
             {
+                if (!ReferenceEquals(app, ConfigService.CurrentConfig)
+                    || !ReferenceEquals(app.CloudConnections.SingleOrDefault(p => p.Id == profile.Id), existing))
+                    throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
+                validateBeforeCommit?.Invoke();
                 if (existing is null) app.CloudConnections.Add(profile); else app.CloudConnections[index] = profile;
+                applied = true;
                 foreach (var project in projects)
                 {
                     // 兼容字段随权威档案更新，避免随后编辑项目时把旧字段误转换成另一连接。
@@ -132,6 +138,8 @@ internal static class CloudConnectionCatalog
                 }
             }, () =>
             {
+                if (!applied || !ReferenceEquals(app, ConfigService.CurrentConfig)
+                    || !ReferenceEquals(app.CloudConnections.SingleOrDefault(p => p.Id == profile.Id), profile)) return;
                 if (existing is null) app.CloudConnections.Remove(profile); else app.CloudConnections[index] = existing;
                 for (var i = 0; i < projects.Length; i++) projects[i].Cloud = originals[i];
             }, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));

@@ -4,31 +4,34 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
     <toolkit:SettingsExpander x:Name="EnvironmentExpander" x:Uid="OpenList_Environment"
-                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                               AutomationProperties.AutomationId="OpenListEnvironmentExpander">
         <toolkit:SettingsExpander.HeaderIcon><FontIcon Glyph="&#xE753;"/></toolkit:SettingsExpander.HeaderIcon>
         <toolkit:SettingsExpander.Items>
             <toolkit:SettingsCard x:Uid="OpenList_Executable" SizeChanged="OnEnvironmentCardSizeChanged">
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <TextBox x:Name="Executable" x:Uid="OpenList_Executable_Input" HorizontalAlignment="Stretch" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListExecutable"/>
+                    <TextBox x:Name="Executable" x:Uid="OpenList_Executable_Input" HorizontalAlignment="Stretch" Text="{x:Bind ViewModel.ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListExecutable"/>
                     <Button Grid.Column="1" x:Uid="SettingsPage_BrowseButton" Click="OnPickExecutable" AutomationProperties.AutomationId="OpenListPickExecutable"/>
                 </Grid>
             </toolkit:SettingsCard>
             <toolkit:SettingsCard x:Uid="OpenList_ServiceUri" SizeChanged="OnEnvironmentCardSizeChanged">
-                <TextBox x:Name="ServiceUri" x:Uid="OpenList_ServiceUri_Input" HorizontalAlignment="Stretch" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListServiceUri"/>
+                <TextBox x:Name="ServiceUri" x:Uid="OpenList_ServiceUri_Input" HorizontalAlignment="Stretch" Text="{x:Bind ViewModel.ServiceBaseUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListServiceUri"/>
             </toolkit:SettingsCard>
             <toolkit:SettingsCard x:Uid="OpenList_Working" SizeChanged="OnEnvironmentCardSizeChanged">
-                <TextBox x:Name="Working" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListWorking"/>
+                <TextBox x:Name="Working" x:Uid="OpenList_Working_Input" Text="{x:Bind ViewModel.WorkingDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListWorking"/>
             </toolkit:SettingsCard>
             <toolkit:SettingsCard x:Uid="OpenList_Data" SizeChanged="OnEnvironmentCardSizeChanged">
-                <TextBox x:Name="Data" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListData"/>
+                <TextBox x:Name="Data" x:Uid="OpenList_Data_Input" Text="{x:Bind ViewModel.DataDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListData"/>
             </toolkit:SettingsCard>
             <toolkit:SettingsCard x:Uid="OpenList_Config" SizeChanged="OnEnvironmentCardSizeChanged">
-                <TextBox x:Name="ConfigFile" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListConfig"/>
+                <StackPanel Spacing="8">
+                    <TextBox x:Name="ConfigFile" x:Uid="OpenList_Config_Input" Text="{x:Bind ViewModel.ConfigFilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListConfig"/>
+                    <Button x:Uid="OpenList_RecognizeConfig" Click="OnPickConfiguration" AutomationProperties.AutomationId="OpenListRecognizeConfig"/>
+                </StackPanel>
             </toolkit:SettingsCard>
             <toolkit:SettingsCard x:Uid="OpenList_OnDemand" SizeChanged="OnEnvironmentCardSizeChanged">
-                <ToggleSwitch x:Name="OnDemand" AutomationProperties.AutomationId="OpenListOnDemand"/>
+                <ToggleSwitch x:Name="OnDemand" IsOn="{x:Bind ViewModel.AllowStartOnDemand, Mode=TwoWay}" AutomationProperties.AutomationId="OpenListOnDemand"/>
             </toolkit:SettingsCard>
         </toolkit:SettingsExpander.Items>
         <toolkit:SettingsExpander.ItemsFooter>
@@ -45,9 +48,10 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button x:Uid="OpenList_Check" Click="OnCheck" AutomationProperties.AutomationId="OpenListCheck"/>
                     <Button x:Uid="OpenList_Start" Click="OnStart" AutomationProperties.AutomationId="OpenListStart"/>
-                    <Button x:Name="StopButton" x:Uid="OpenList_Stop" Click="OnStop" IsEnabled="False" AutomationProperties.AutomationId="OpenListStop"/>
+                    <Button x:Name="StopButton" x:Uid="OpenList_Stop" Click="OnStop" IsEnabled="{x:Bind ViewModel.CanStop, Mode=OneWay}" AutomationProperties.AutomationId="OpenListStop"/>
                 </StackPanel>
-                <TextBlock x:Name="Result" Visibility="Collapsed" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.LiveSetting="Polite"/>
+                <Button x:Uid="OpenList_Reload" Click="OnReload" AutomationProperties.AutomationId="OpenListReload"/>
+                <TextBlock x:Name="Result" Text="{x:Bind ViewModel.Result, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="OpenListEnvironmentResult" AutomationProperties.LiveSetting="Polite"/>
             </StackPanel>
         </toolkit:SettingsExpander.ItemsFooter>
     </toolkit:SettingsExpander>

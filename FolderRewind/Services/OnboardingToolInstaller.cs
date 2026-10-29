@@ -22,11 +22,12 @@ internal static class OnboardingToolInstaller
         Func<OnboardingToolAsset, CancellationToken, Task<byte[]>> download,
         Func<string, string, CancellationToken, Task<string>> verify,
         Action<string>? progress, CancellationToken token,
-        Func<string, Architecture, OnboardingToolAsset>? resolveAsset = null)
+        Func<string, Architecture, OnboardingToolAsset>? resolveAsset = null, IEnumerable<string>? configuredAlternates = null)
     {
         var toolRoot = Path.GetFullPath(Path.Combine(toolsRoot, tool));
         var executableName = tool + ".exe";
-        var candidates = new[] { configuredPath }.Concat(ManagedCandidates(toolRoot, executableName)).Concat(systemCandidates);
+        var candidates = new[] { configuredPath }.Concat(configuredAlternates ?? [])
+            .Concat(ManagedCandidates(toolRoot, executableName)).Concat(systemCandidates);
         foreach (var candidate in candidates.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             token.ThrowIfCancellationRequested();
@@ -48,7 +49,7 @@ internal static class OnboardingToolInstaller
         }
 
         var asset = (resolveAsset ?? OnboardingToolAssets.Get)(tool, osArchitecture);
-        progress?.Invoke(I18n.GetString(tool == "rclone" ? "CloudOnboarding_Status_DownloadRclone" : "CloudOnboarding_Status_DownloadOpenList"));
+        progress?.Invoke(I18n.Format(tool == "rclone" ? "CloudOnboarding_Status_DownloadRclone" : "CloudOnboarding_Status_DownloadOpenList", asset.Version));
         var bytes = await download(asset, token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
         Directory.CreateDirectory(toolRoot);

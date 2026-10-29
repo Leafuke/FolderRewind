@@ -11,14 +11,34 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {
+    internal sealed record PreparedCloudTools(string RcloneExecutablePath, string OpenListExecutablePath);
+
     public static class CloudOnboardingService
     {
-        internal static async Task PrepareRuntimeToolsAsync(bool includeOpenList, IProgress<string>? progress, CancellationToken token)
+        internal static async Task<PreparedCloudTools> PrepareRuntimeToolsAsync(bool includeOpenList, IProgress<string>? progress,
+            CancellationToken token, string? preferredRclonePath = null)
         {
-            var rclone = await EnsureToolAsync("rclone", progress, token).ConfigureAwait(false);
-            var prepareNew = includeOpenList && !File.Exists(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime.ConfigFilePath);
-            var openList = prepareNew ? await EnsureToolAsync("openlist", progress, token, true).ConfigureAwait(false) : "";
-            await ApplyToolPathsAsync(rclone, openList, token).ConfigureAwait(false);
+            var settings = ConfigService.CurrentConfig.GlobalSettings;
+            var previousRclone = settings.RcloneExecutablePath;
+            var previousOpenList = ConfigSnapshotMapper.Copy(settings.OpenListRuntime);
+            var rclone = await EnsureToolAsync("rclone", preferredRclonePath?.Trim() ?? previousRclone,
+                [previousRclone], false, progress, token).ConfigureAwait(false);
+            var openList = "";
+            if (includeOpenList)
+            {
+                if (File.Exists(previousOpenList.ConfigFilePath))
+                {
+                    // An existing instance can use a different version. Verify and reuse its
+                    // executable without replacing it or applying the fresh initializer's limit.
+                    await ToolExecutableVerifier.VerifyAsync(previousOpenList.ExecutablePath, "openlist", token).ConfigureAwait(false);
+                    openList = previousOpenList.ExecutablePath;
+                    ReportPreparationProgress(progress, I18n.GetString("Onboarding_ComponentReused") + " " + openList);
+                }
+                else openList = await EnsureToolAsync("openlist", previousOpenList.ExecutablePath, [], true, progress, token).ConfigureAwait(false);
+            }
+            ReportPreparationProgress(progress, I18n.GetString("CloudOnboarding_Status_SaveSettings"));
+            await ApplyToolPathsAsync(rclone, openList, settings, previousRclone, previousOpenList, token).ConfigureAwait(false);
+            return new(rclone, openList);
         }
         public static IReadOnlyList<CloudOnboardingProviderOption> GetProviderOptions()
         {
@@ -49,22 +69,9 @@ namespace FolderRewind.Services
             {
                 progress?.Report(I18n.GetString("CloudOnboarding_Status_Start"));
 
-                var rclonePath = await EnsureToolAsync(
-                    "rclone",
-                    progress,
-                    ct).ConfigureAwait(false);
-
-                string openListPath = string.Empty;
-                if (provider.RequiresOpenList)
-                {
-                    openListPath = await EnsureToolAsync(
-                        "openlist",
-                        progress,
-                        ct).ConfigureAwait(false);
-                }
-
-                progress?.Report(I18n.GetString("CloudOnboarding_Status_SaveSettings"));
-                await ApplyToolPathsAsync(rclonePath, openListPath, ct).ConfigureAwait(false);
+                var prepared = await PrepareRuntimeToolsAsync(provider.RequiresOpenList, progress, ct).ConfigureAwait(false);
+                var rclonePath = prepared.RcloneExecutablePath;
+                var openListPath = prepared.OpenListExecutablePath;
 
                 var message = provider.RequiresOpenList
                     ? I18n.Format("CloudOnboarding_Success_WithOpenList", provider.DisplayName, rclonePath, openListPath, provider.SuggestedRemoteBasePath)
@@ -115,10 +122,9 @@ namespace FolderRewind.Services
             };
         }
 
-        private static Task<string> EnsureToolAsync(string tool, IProgress<string>? progress, CancellationToken ct, bool requirePinnedOpenList = false)
+        private static Task<string> EnsureToolAsync(string tool, string configuredPath, IEnumerable<string> configuredAlternates,
+            bool requirePinnedOpenList, IProgress<string>? progress, CancellationToken ct)
         {
-            var settings = ConfigService.CurrentConfig.GlobalSettings;
-            var configuredPath = tool == "rclone" ? settings.RcloneExecutablePath : settings.OpenListRuntime.ExecutablePath;
             return OnboardingToolInstaller.EnsureAsync(tool, configuredPath,
                 Path.Combine(ConfigService.ConfigDirectory, "tools"), RuntimeInformation.OSArchitecture,
                 OnboardingToolInstaller.PathCandidates(tool + ".exe", Environment.GetEnvironmentVariable("PATH"))
@@ -127,11 +133,18 @@ namespace FolderRewind.Services
                 async (path, name, token) =>
                 {
                     var version = await ToolExecutableVerifier.VerifyAsync(path, name, token).ConfigureAwait(false);
-                    if (requirePinnedOpenList) await OpenListInitializer.VerifySupportedAsync(path, token).ConfigureAwait(false);
+                    if (requirePinnedOpenList && !OpenListInitializer.Supports(version))
+                    {
+                        ReportPreparationProgress(progress, I18n.Format("CloudOnboarding_OpenListVersionSkipped", path, OpenListInitializer.SupportedVersion));
+                        throw new InvalidOperationException("[openlist.initialization-version]");
+                    }
                     return version;
                 },
-                message => { progress?.Report(message); LogService.LogInfo(message, nameof(CloudOnboardingService)); }, ct);
+                message => ReportPreparationProgress(progress, message), ct, configuredAlternates: configuredAlternates);
         }
+
+        private static void ReportPreparationProgress(IProgress<string>? progress, string message)
+        { progress?.Report(message); LogService.LogInfo(message, nameof(CloudOnboardingService)); }
 
         private static IEnumerable<string> AppPathCandidates(string executableName)
         {
@@ -150,19 +163,43 @@ namespace FolderRewind.Services
             return paths;
         }
 
-        private static Task ApplyToolPathsAsync(string rclonePath, string openListPath, CancellationToken token)
+        private static Task ApplyToolPathsAsync(string rclonePath, string openListPath, GlobalSettings settings,
+            string previousRclone, OpenListRuntimeSettings expectedOpenList, CancellationToken token)
             => UiDispatcherService.RunOnUiAsync(async () =>
             {
-                var settings = ConfigService.CurrentConfig.GlobalSettings;
-                var previousRclone = settings.RcloneExecutablePath;
+                token.ThrowIfCancellationRequested();
+                void RequireExpected()
+                {
+                    if (!ReferenceEquals(settings, ConfigService.CurrentConfig.GlobalSettings)
+                        || settings.RcloneExecutablePath != previousRclone
+                        || openListPath.Length != 0 && !OpenListEnvironmentEdits.SameSnapshot(settings.OpenListRuntime, expectedOpenList))
+                        throw new CloudSetupInputException("CloudOnboarding_SettingsChanged");
+                }
+                RequireExpected();
                 var openList = settings.OpenListRuntime;
-                var previousOpenList = openList.ExecutablePath;
+                var preparedOpenList = ConfigSnapshotMapper.Copy(openList);
+                if (openListPath.Length != 0 && preparedOpenList.ExecutablePath != openListPath)
+                {
+                    if (OpenListRuntimeService.OwnsCurrent) throw new CloudSetupInputException("OpenList_StopBeforeChange");
+                    preparedOpenList.ExecutablePath = openListPath;
+                    OpenListEnvironmentEdits.ClearAuthorization(preparedOpenList);
+                }
+                var changeRclone = previousRclone != rclonePath;
+                var changeOpenList = !OpenListEnvironmentEdits.SameSnapshot(openList, preparedOpenList);
+                if (!changeRclone && !changeOpenList) return;
+                var applied = false;
                 await ConfigEditTransaction.ApplyAsync(() =>
                     {
-                        settings.RcloneExecutablePath = rclonePath;
-                        if (openListPath.Length != 0) openList.ExecutablePath = openListPath;
+                        RequireExpected(); applied = true;
+                        if (changeRclone) settings.RcloneExecutablePath = rclonePath;
+                        if (changeOpenList) settings.OpenListRuntime = preparedOpenList;
                     },
-                    () => { settings.RcloneExecutablePath = previousRclone; openList.ExecutablePath = previousOpenList; },
+                    () =>
+                    {
+                        if (!applied || !ReferenceEquals(settings, ConfigService.CurrentConfig.GlobalSettings)) return;
+                        if (changeRclone && settings.RcloneExecutablePath == rclonePath) settings.RcloneExecutablePath = previousRclone;
+                        if (changeOpenList && ReferenceEquals(settings.OpenListRuntime, preparedOpenList)) settings.OpenListRuntime = openList;
+                    },
                     () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"), token);
             });
     }

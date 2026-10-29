@@ -24,6 +24,7 @@
             <converters:DoubleToOpacityBrushConverter x:Key="DoubleToOpacityBrushConverter"/>
             <converters:IntToStretchConverter x:Key="IntToStretchConverter"/>
             <converters:AutomationIdConverter x:Key="AutomationIdConverter"/>
+            <converters:FilterTargetIndexConverter x:Key="FilterTargetIndexConverter"/>
 
             <!-- ==================== 全局共享样式 ==================== -->
             

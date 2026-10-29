@@ -75,50 +75,13 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public async Task<CloudOnboardingResult> StartCloudPresetAsync()
+        public void OpenCloudPreset()
         {
-            if (IsCloudPresetRunning)
-            {
-                return new CloudOnboardingResult
-                {
-                    Success = false,
-                    Message = CloudPresetStatusText
-                };
-            }
-
             var provider = SelectedCloudPresetOption;
-            if (provider == null)
-            {
-                var message = I18n.GetString("CloudOnboarding_NoProvider");
-                CloudPresetStatusText = message;
-                NotificationService.ShowWarning(message, I18n.GetString("CloudOnboarding_Title"));
-                return new CloudOnboardingResult
-                {
-                    Success = false,
-                    Message = message
-                };
-            }
-
-            IsCloudPresetRunning = true;
-            CloudPresetStatusText = I18n.GetString("CloudOnboarding_Status_Start");
-
-            try
-            {
-                var progress = new Progress<string>(status =>
-                {
-                    CloudPresetStatusText = status;
-                });
-
-                var result = await CloudOnboardingService.InstallPresetAsync(provider, progress);
-                CloudPresetStatusText = result.Message;
-
-                OnPropertyChanged(nameof(Settings));
-                return result;
-            }
-            finally
-            {
-                IsCloudPresetRunning = false;
-            }
+            if (provider is null) { CloudPresetStatusText = I18n.GetString("CloudOnboarding_NoProvider"); return; }
+            CloudPresetStatusText = "";
+            if (!NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ManageConnection: true, PresetProviderId: provider.Id)))
+                CloudPresetStatusText = I18n.GetString("CloudWizard_NavigationFailed");
         }
 
         public void HandleKnotLinkToggled(bool isOn)

@@ -32,10 +32,15 @@ public sealed partial class CloudSetupPage : Page
         if (!_session.Initialized)
         {
             await vm.InitializeAsync(options.ConfigId, manageConnection: options.ManageConnection, profileId: options.ProfileId);
-            if (options.ProfileId is not null) { vm.ConnectionMethod = 2; vm.WizardStep = 4; }
+            if (options.ProfileId is not null)
+            {
+                if (options.Reauthenticate || vm.NeedsReauthentication) vm.BeginReauthentication();
+                else { vm.ConnectionMethod = 2; vm.WizardStep = 4; }
+            }
+            else vm.ApplyPreset(options.PresetProviderId);
             _session.Initialized = true;
         }
-        if (_active) { Editor.Attach(vm); Editor.Visibility = Visibility.Visible; RefreshResult(); }
+        if (_active) { vm.ActivateEnvironment(); Editor.Attach(vm); Editor.Visibility = Visibility.Visible; RefreshResult(); }
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     { _active = false; if (_session is not null) { _session.ViewModel.PropertyChanged -= OnChanged; _session.ViewModel.SuspendChecks(); } base.OnNavigatedFrom(e); }

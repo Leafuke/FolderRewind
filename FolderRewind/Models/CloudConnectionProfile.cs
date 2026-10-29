@@ -7,7 +7,8 @@ public enum CloudCredentialOwnership { ManagedCopy, ExternalReference }
 public enum CloudConnectionAccess { NeedsAuthentication, ConnectedUnverified, VerifiedReadable, VerifiedWritable }
 public enum CloudSetupIntent { Connect, ProjectStatus, Recover }
 public sealed record CloudSetupNavigationParameter(string ConfigId = "", bool ManageConnection = false, string? ProfileId = null,
-    CloudSetupIntent Intent = CloudSetupIntent.Connect, string? SessionId = null, string? JobId = null);
+    CloudSetupIntent Intent = CloudSetupIntent.Connect, string? SessionId = null, string? JobId = null,
+    string? PresetProviderId = null, bool Reauthenticate = false);
 
 // 连接可见性与实际凭据存储互相独立；Token 刷新不能修改目标语义修订。
 public sealed class CloudConnectionProfile

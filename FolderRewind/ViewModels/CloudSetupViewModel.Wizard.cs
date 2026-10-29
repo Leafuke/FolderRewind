@@ -16,18 +16,21 @@ public sealed partial class CloudSetupViewModel
     public int WizardStep { get => _flow.Step; set => _flow.Step = value; }
     public int ConnectionMethod { get => _flow.Method; set => _flow.Method = value; }
     public bool RecoveryMode { get => _flow.ReadOnly; set => _flow.ReadOnly = value; }
-    public string WebDavUrl { get; set; } = "";
-    public string WebDavUser { get; set; } = "";
+    private string _webDavUrl = "", _webDavUser = "";
+    public string WebDavUrl { get => _webDavUrl; set { if (SetProperty(ref _webDavUrl, value)) Invalidate(); } }
+    public string WebDavUser { get => _webDavUser; set { if (SetProperty(ref _webDavUser, value)) Invalidate(); } }
+    public void CredentialDraftChanged() => Invalidate();
     public bool RequestAutomaticUpload { get; set; }
     public bool RequestFirstUpload { get; set; }
     public string? ManualJobId { get; private set; }
     public string ManualJobStatus => Jobs.FirstOrDefault(j => j.JobId == ManualJobId)?.Summary ?? "";
     private readonly Dictionary<string, string> _manualJobs = [];
     private OpenListRuntimeSettings? _initializedOpenList;
+    private OpenListRuntimeSettings? _initializationBaseline;
     public bool IsConnectionManagement => _manageConnection;
     public string ProjectId => _config?.Id ?? "";
     public string ProjectName => ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == _config?.Id)?.Name ?? _config?.Name ?? "";
-    public bool CanEditProfile => _saveSession.Intent != CloudConnectionEditIntent.Reuse;
+    public bool CanEditProfile => _saveSession.Intent != CloudConnectionEditIntent.Reuse && !IsReauthenticating;
     public string LocationSummary => RemoteRoot;
     public string CurrentConnectionSummary => _config is null ? ConnectionName :
         ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == _config.Cloud.ConnectionProfileId)?.DisplayName ?? I18n.GetString("CloudWizard_NoConnection");
@@ -41,56 +44,81 @@ public sealed partial class CloudSetupViewModel
         if (IsBusy) return;
         if (_saveSession.PersistenceUncertain) { WizardStep = 4; Message = I18n.GetString("CloudWizard_SaveUncertain"); return; }
         if (method == 3) { _flow.Begin(method, File.Exists(Executable)); return; }
-        BeginNewConnection(); ConfigPath = ""; RemoteRoot = ""; DependsOnOpenList = false;
+        if (!IsReauthenticating) BeginNewConnection();
+        ConfigPath = ""; RemoteRoot = ""; DependsOnOpenList = false;
+        EnvironmentChoice = OpenListEnvironmentChoice.None;
         _flow.Begin(method, File.Exists(Executable));
+        Message = "";
     }
     public async Task PrepareToolsAsync(bool openList, CancellationToken token)
     {
-        await CloudOnboardingService.PrepareRuntimeToolsAsync(openList, new Progress<string>(value => Message = value), token);
-        Executable = ConfigService.CurrentConfig.GlobalSettings.RcloneExecutablePath;
+        if (openList && EnvironmentChoice != OpenListEnvironmentChoice.NewLocal)
+            throw new CloudSetupInputException("CloudWizard_SelectEnvironment");
+        if (openList && File.Exists(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime.ConfigFilePath))
+            throw new CloudSetupInputException("CloudWizard_OpenListExists");
+        var revision = _revision;
+        var preparing = true;
+        PreparedCloudTools prepared;
+        try
+        {
+            prepared = await CloudOnboardingService.PrepareRuntimeToolsAsync(openList, new Progress<string>(value =>
+            { if (preparing && !_disposed && revision == _revision) Message = value; }), token, Executable);
+        }
+        finally { preparing = false; }
+        if (_disposed || token.IsCancellationRequested) return;
+        Executable = prepared.RcloneExecutablePath;
+        OnPropertyChanged(nameof(LocalOpenListSummary));
+        Message = I18n.GetString("Onboarding_ToolsPrepared");
+        RecordCheck("cloud.tools-prepared", OnboardingCheckState.Unknown, Message);
     }
     public async Task InitializeOpenListAsync(string password, int port, CancellationToken token)
     {
+        if (EnvironmentChoice != OpenListEnvironmentChoice.NewLocal)
+            throw new CloudSetupInputException("CloudWizard_SelectEnvironment");
         var current = ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime;
-        if (File.Exists(current.ConfigFilePath)) throw new InvalidOperationException(I18n.GetString("CloudWizard_OpenListExists"));
+        if (File.Exists(current.ConfigFilePath)) throw new CloudSetupInputException("CloudWizard_OpenListExists");
         var protectedPaths = ConfigService.CurrentConfig.BackupConfigs.SelectMany(c => c.SourceFolders.Select(f => f.Path).Append(c.DestinationPath))
             .Where(p => !string.IsNullOrWhiteSpace(p)).Append(ConfigService.ConfigDirectory).ToArray();
+        _initializationBaseline = ConfigSnapshotMapper.Copy(current);
         _initializedOpenList = await OpenListInitializer.InitializeAsync(current.ExecutablePath,
             Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind-OpenList"), password, port, protectedPaths, token);
         WebDavUrl = _initializedOpenList.ServiceBaseUri.TrimEnd('/') + "/dav/";
+        OnPropertyChanged(nameof(LocalOpenListSummary));
         Message = I18n.GetString("CloudWizard_OpenListInitialized");
     }
-    public OpenListRuntimeSettings LocalOpenListDraft => ConfigSnapshotMapper.Copy(_initializedOpenList ?? ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime);
+    public OpenListRuntimeSettings LocalOpenListDraft => ConfigSnapshotMapper.Copy(
+        EnvironmentChoice == OpenListEnvironmentChoice.NewLocal && _initializedOpenList is not null
+            ? _initializedOpenList : LocalEnvironment.CurrentDraft);
     public string LocalOpenListSummary
     {
         get
         {
-            var draft = LocalOpenListDraft;
+            var draft = EnvironmentChoice == OpenListEnvironmentChoice.NewLocal && _initializedOpenList is not null
+                ? _initializedOpenList : LocalEnvironment.DisplayDraft;
             return string.IsNullOrWhiteSpace(draft.ExecutablePath) ? I18n.GetString("CloudWizard_OpenListNotReady")
                 : I18n.Format("CloudWizard_LocalEnvironment", draft.ExecutablePath, draft.ServiceBaseUri, draft.DataDirectory);
         }
     }
-    public async Task AuthorizeAndStartOpenListAsync(CancellationToken token)
+    public async Task AuthorizeAndStartOpenListAsync(OpenListRuntimeSettings draft, OpenListRuntimeSettings expected, CancellationToken token)
     {
-        var draft = LocalOpenListDraft;
-        await OpenListRuntimeService.AuthorizeAndStartAsync(draft, _initializedOpenList is not null, token);
-        _initializedOpenList = null; DependsOnOpenList = true;
+        if (EnvironmentChoice is not (OpenListEnvironmentChoice.NewLocal or OpenListEnvironmentChoice.ExistingLocal))
+            throw new CloudSetupInputException("CloudWizard_SelectEnvironment");
+        var initializing = EnvironmentChoice == OpenListEnvironmentChoice.NewLocal && _initializedOpenList is not null;
+        if (initializing && (_initializationBaseline is null || !OpenListEnvironmentEdits.SameSnapshot(expected, _initializationBaseline)))
+            throw new CloudSetupInputException("OpenList_EditConflict");
+        await OpenListRuntimeService.AuthorizeAndStartAsync(draft, initializing, token, expected);
+        if (initializing) _startedLocalEnvironment = ConfigSnapshotMapper.Copy(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime);
+        if (initializing) { _initializedOpenList = null; _initializationBaseline = null; }
+        DependsOnOpenList = true;
         WebDavUrl = draft.ServiceBaseUri.TrimEnd('/') + "/dav/";
+        OnPropertyChanged(nameof(LocalOpenListSummary));
         Message = I18n.GetString("OpenList_StartedNeedsWebDav");
     }
     public void UseLocalOpenList()
     {
-        var local = ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime;
-        if (string.IsNullOrWhiteSpace(local.ServiceBaseUri)) throw new InvalidOperationException(I18n.GetString("CloudWizard_OpenListNotReady"));
-        DependsOnOpenList = true; WebDavUrl = local.ServiceBaseUri.TrimEnd('/') + "/dav/";
+        EnvironmentChoice = OpenListEnvironmentChoice.ExistingLocal;
     }
-    public void UseExternalOpenList() { _initializedOpenList = null; DependsOnOpenList = false; WebDavUrl = ""; }
-    public void RequireEnvironmentReady()
-    {
-        if (!File.Exists(Executable)) throw RcloneConnectionDiagnostics.InvalidFailure("cloud.tool-unavailable", "CloudFailure_Tool");
-        if (ConnectionMethod == 0 && _initializedOpenList is not null)
-            throw new InvalidOperationException(I18n.GetString("CloudWizard_OpenListNotReady"));
-    }
+    public void UseExternalOpenList() => EnvironmentChoice = OpenListEnvironmentChoice.External;
     public async Task DetectConfigurationAsync(CancellationToken token)
     {
         if (!Path.IsPathFullyQualified(Executable) || !File.Exists(Executable)) throw RcloneConnectionDiagnostics.InvalidFailure("cloud.tool-unavailable", "CloudFailure_Tool");
