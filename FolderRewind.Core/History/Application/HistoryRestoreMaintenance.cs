@@ -76,7 +76,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
             }
             catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException)
             {
-                HistoryRestoreRecoveryDiagnostics.Report(_runtime.ConfigId, record?.TransactionId, "Preparing", false, null, error, "RecoveryBlocked");
+                HistoryRestoreRecoveryDiagnostics.Report(_runtime.ConfigId, record?.TransactionId, "Preparing", false, null, error, "RecoveryBlocked", _runtime.DiagnosticSink);
                 throw;
             }
         }
@@ -317,7 +317,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
             {
                 failures.Add(path + ": " + HistoryRestoreRecoveryDiagnostics.Describe(ex));
                 HistoryRestoreRecoveryDiagnostics.Report(_runtime.ConfigId, record?.TransactionId, "Cleaning", record?.Plan is not null,
-                    committedOutcome, ex, "MaintenancePreserved");
+                    committedOutcome, ex, "MaintenancePreserved", _runtime.DiagnosticSink);
             }
         }
         if (failures.Count > 0) _runtime.ReportMaintenance("Restore cleanup: " + string.Join("\n", failures));

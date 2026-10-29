@@ -130,7 +130,7 @@ internal sealed partial class HistoryRestoreTransactionJournalStore
                 catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException)
                 {
                     HistoryRestoreRecoveryDiagnostics.Report(_runtime.ConfigId, journal.TransactionId, journal.Phase.ToString(),
-                        journal.FileSystemPlan is not null, journal.CleanupCommitted, error, "RecoveryBlocked");
+                        journal.FileSystemPlan is not null, journal.CleanupCommitted, error, "RecoveryBlocked", _runtime.DiagnosticSink);
                     throw;
                 }
                 recovered = true;

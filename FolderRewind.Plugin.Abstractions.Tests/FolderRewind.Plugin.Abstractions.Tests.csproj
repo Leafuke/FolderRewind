@@ -13,7 +13,7 @@
     <PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="../FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="PublicApi.txt" CopyToOutputDirectory="PreserveNewest" />

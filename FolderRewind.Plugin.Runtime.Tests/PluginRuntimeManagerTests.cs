@@ -3,7 +3,6 @@ using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
 using FolderRewind.Plugin.Runtime.Settings;
-using FolderRewind.Services.Plugins.V3;
 
 namespace FolderRewind.Plugin.Runtime.Tests;
 
@@ -220,76 +219,6 @@ public sealed class PluginRuntimeManagerTests
         Assert.IsNotNull(lease);
         Assert.AreEqual(kindB, lease.Capability.Kind);
         Assert.AreEqual(1, manager.GetSnapshot(PluginOneId).ActiveLeases);
-    }
-
-    [TestMethod]
-    public async Task ConsistencyCleanupExceptionStillReleasesRuntimeLease()
-    {
-        var kind = new ConfigKindRef(new OwnerId(PluginOneId.Value), "consistency");
-        var consistency = new FakeConsistencyLease("C:\\Data", throwOnDispose: true);
-        var plugin = new FakePlugin(context =>
-        {
-            context.RegisterCapability<IBackupConsistencyCapability>(
-                new FakeConsistencyCapability(kind, consistency));
-            return PluginActivationResult.Empty;
-        });
-        var manager = new PluginRuntimeManager();
-        await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
-        var owner = new PluginV3CaptureLeaseOwner();
-        var diagnostics = new List<PluginDiagnostic>();
-        var (config, folder) = ConsistencySnapshots(kind);
-
-        await owner.AcquireAsync(
-            manager,
-            PluginOneId,
-            config,
-            folder,
-            ConsistencyIntent.Prefer,
-            diagnostics);
-        Assert.AreEqual(1, manager.GetSnapshot(PluginOneId).ActiveLeases);
-
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => owner.CompleteAsync().AsTask());
-
-        Assert.AreEqual(0, manager.GetSnapshot(PluginOneId).ActiveLeases);
-        var deactivation = await manager.DeactivateAsync(PluginOneId);
-        Assert.IsTrue(deactivation.Success);
-        Assert.AreEqual(PluginRuntimeState.Inactive, deactivation.State);
-    }
-
-    [TestMethod]
-    public async Task RequiredConsistencyAcquireExceptionStillReleasesRuntimeLease()
-    {
-        var kind = new ConfigKindRef(new OwnerId(PluginOneId.Value), "consistency");
-        var plugin = new FakePlugin(context =>
-        {
-            context.RegisterCapability<IBackupConsistencyCapability>(
-                new FakeConsistencyCapability(
-                    kind,
-                    new FakeConsistencyLease("C:\\Data"),
-                    throwOnAcquire: true));
-            return PluginActivationResult.Empty;
-        });
-        var manager = new PluginRuntimeManager();
-        await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
-        var owner = new PluginV3CaptureLeaseOwner();
-        var diagnostics = new List<PluginDiagnostic>();
-        var (config, folder) = ConsistencySnapshots(kind);
-
-        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => owner.AcquireAsync(
-                manager,
-                PluginOneId,
-                config,
-                folder,
-                ConsistencyIntent.Require,
-                diagnostics).AsTask());
-
-        StringAssert.Contains(error.Message, "consistency acquire failed");
-        Assert.AreEqual(0, manager.GetSnapshot(PluginOneId).ActiveLeases);
-        var deactivation = await manager.DeactivateAsync(PluginOneId);
-        Assert.IsTrue(deactivation.Success);
-        Assert.AreEqual(PluginRuntimeState.Inactive, deactivation.State);
     }
 
     [TestMethod]

@@ -149,7 +149,7 @@ internal sealed class HistoryRestorePreparationSession : IDisposable
         catch (Exception error)
         {
             Diagnostic = "Restore preparation requires recovery: " + HistoryRestoreRecoveryDiagnostics.Describe(error);
-            HistoryRestoreRecoveryDiagnostics.Report(_config, Journal.TransactionId, "Preparing", false, null, error, "RecoveryBlocked");
+            HistoryRestoreRecoveryDiagnostics.Report(_config, Journal.TransactionId, "Preparing", false, null, error, "RecoveryBlocked", _history.DiagnosticSink);
         }
     }
     public void Dispose()

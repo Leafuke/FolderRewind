@@ -38,9 +38,11 @@ public sealed class HistoryRuntime : IAsyncDisposable
     private bool _restoreCleanupRunning, _restoreCleanupRequested;
     private int _restoreCleanupGeneration;
 
-    public HistoryRuntime(FileHistoryRepository repository, HistoryPackCodec? codec = null)
+    public HistoryRuntime(FileHistoryRepository repository, HistoryPackCodec? codec = null,
+        Action<string, string>? diagnosticSink = null)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        DiagnosticSink = diagnosticSink;
         _codec = codec ?? new HistoryPackCodec();
         Index = new HistoryIndex(
             Path.Combine(repository.Paths.IndexRoot, "history-index.db"),
@@ -73,6 +75,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     }
 
     internal HistoryMigrationStateStore MigrationState { get; }
+    internal Action<string, string>? DiagnosticSink { get; }
     public HistoryConfigId ConfigId => Repository.ConfigId;
     public FileHistoryRepository Repository { get; }
     public HistoryIndex Index { get; }

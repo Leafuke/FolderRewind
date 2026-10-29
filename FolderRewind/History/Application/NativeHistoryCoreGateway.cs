@@ -20,7 +20,7 @@ namespace FolderRewind.History.Application;
 
 public static class NativeHistoryCoreGateway
 {
-    private static readonly HistoryRuntimeManager Runtimes = new();
+    private static readonly HistoryRuntimeManager Runtimes = new((detail, source) => LogService.LogWarning(detail, source));
     private static readonly ConcurrentDictionary<string, string> Failed = new(StringComparer.Ordinal);
 
     public static async Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)

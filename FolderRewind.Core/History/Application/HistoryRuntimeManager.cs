@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Application;
 
-public sealed class HistoryRuntimeManager : IAsyncDisposable
+public sealed class HistoryRuntimeManager(Action<string, string>? diagnosticSink = null) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, Lazy<Task<HistoryRuntime>>> _runtimes =
         new(StringComparer.Ordinal);
@@ -100,13 +100,13 @@ public sealed class HistoryRuntimeManager : IAsyncDisposable
         }
     }
 
-    private static async Task<HistoryRuntime> CreateRuntimeAsync(
+    private async Task<HistoryRuntime> CreateRuntimeAsync(
         HistoryConfigId configId,
         Func<HistoryConfigId, CancellationToken, Task<FileHistoryRepository>> repositoryFactory,
         CancellationToken cancellationToken)
     {
         var repository = await repositoryFactory(configId, cancellationToken).ConfigureAwait(false);
-        var runtime = new HistoryRuntime(repository);
+        var runtime = new HistoryRuntime(repository, diagnosticSink: diagnosticSink);
         try
         {
             await runtime.InitializeReadableAsync(cancellationToken).ConfigureAwait(false);

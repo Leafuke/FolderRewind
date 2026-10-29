@@ -29,7 +29,7 @@
     <EnabledXamlOptionalChanges Condition="'$(EnabledXamlOptionalChanges)'=='' and '$(FolderRewindEnableXaml231Optimizations)'=='true' and $([MSBuild]::VersionGreaterThanOrEquals('$(FolderRewindWindowsAppSdkVersion)', '2.3.1'))">$(FolderRewindXaml231OptionalChanges)</EnabledXamlOptionalChanges>
     <!-- 普通开发和 Store/侧载构建仍为打包应用；MSI 发布在工作流中显式传入 Msi。 -->
     <FolderRewindDistributionChannel Condition="'$(FolderRewindDistributionChannel)'==''">Packaged</FolderRewindDistributionChannel>
-    <SevenZipExecutable Condition="'$(SevenZipExecutable)'==''">$(MSBuildThisFileDirectory)..\7za.exe</SevenZipExecutable>
+    <SevenZipExecutable Condition="'$(SevenZipExecutable)'==''">$(FolderRewindRepositoryRoot)7za.exe</SevenZipExecutable>
   </PropertyGroup>
 
   <!--
@@ -161,7 +161,7 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
+    <ProjectReference Include="../FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
@@ -172,12 +172,12 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="$(FolderRewindWindowsAppSdkVersion)" />
     <!-- The metapackage is required by current WinUI controls, but these optional
          component assets are not used by FolderRewind and should not be deployed. -->
-    <PackageReference Include="Microsoft.WindowsAppSDK.AI" Version="2.6.4" ExcludeAssets="all" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" Version="2.6.4" ExcludeAssets="all" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="2.6.4" ExcludeAssets="all" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.Search" Version="2.6.4" ExcludeAssets="all" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.Widgets" Version="2.6.4" ExcludeAssets="all" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Windows.AI.MachineLearning" Version="2.5.96" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.AI" ExcludeAssets="all" PrivateAssets="all" Version="2.6.4" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" ExcludeAssets="all" PrivateAssets="all" Version="2.6.4" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" ExcludeAssets="all" PrivateAssets="all" Version="2.6.4" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Search" ExcludeAssets="all" PrivateAssets="all" Version="2.6.4" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Widgets" ExcludeAssets="all" PrivateAssets="all" Version="2.6.4" />
+    <PackageReference Include="Microsoft.Windows.AI.MachineLearning" ExcludeAssets="all" PrivateAssets="all" Version="2.5.96" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="DiffPlex" Version="1.9.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
@@ -236,4 +236,7 @@
     <PackageCertificatePassword Condition="'$(PackageCertificatePassword)'=='' and '$(SIDELOAD_CERT_PASSWORD)'!=''">$(SIDELOAD_CERT_PASSWORD)</PackageCertificatePassword>
     <PackageCertificateThumbprint>883C19BCC7CF69295C8CC4081629EC13FF18934A</PackageCertificateThumbprint>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FolderRewind.Core/FolderRewind.Core.csproj" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
+  </ItemGroup>
 </Project>

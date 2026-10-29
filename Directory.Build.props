@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <_FolderRewindRelativeProject>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)'))</_FolderRewindRelativeProject>
+    <FolderRewindOwnedProject Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(_FolderRewindRelativeProject)', '^(FolderRewind(?:[.]|[/\\]|$)|tools[/\\]|benchmarks[/\\])'))">true</FolderRewindOwnedProject>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FolderRewindOwnedProject)' == 'true'">
+    <FolderRewindRepositoryRoot>$(MSBuildThisFileDirectory)</FolderRewindRepositoryRoot>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings Condition="'$(MSBuildProjectName)' != 'FolderRewind'">enable</ImplicitUsings>
+    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)' == ''">2.6.4</FolderRewindWindowsAppSdkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FolderRewindOwnedProject)' == 'true' And '$(FolderRewindFaultInjection)' == 'true'">
+    <BaseOutputPath>$(FolderRewindRepositoryRoot)artifacts\build\fault-injection\$(MSBuildProjectName)\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(FolderRewindRepositoryRoot)artifacts\build\fault-injection\$(MSBuildProjectName)\obj\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

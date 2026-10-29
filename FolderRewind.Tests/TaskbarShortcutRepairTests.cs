@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[DoNotParallelize] // Shell property-store commits use external Windows services.
 public sealed class TaskbarShortcutRepairTests
 {
     [TestMethod]

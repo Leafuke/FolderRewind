@@ -37,12 +37,12 @@ internal static class HistoryRestoreRecoveryDiagnostics
         => $"Reason={Reason(error)}; Container={Clean(error.Data[ContainerKey])}; RelativePath={Clean(error.Data[MemberKey])}; {Clean(error.Message)}";
 
     internal static void Report(HistoryConfigId config, HistoryTransactionId? transaction, string phase,
-        bool hasPlan, bool? committed, Exception error, string action)
+        bool hasPlan, bool? committed, Exception error, string action, Action<string, string>? diagnosticSink = null)
     {
         var detail = $"[RestoreRecovery] Config={config}; Transaction={transaction}; Phase={phase}; Plan={hasPlan}; "
             + $"Committed={committed?.ToString() ?? "unknown"}; Action={action}; {Describe(error)}; HResult=0x{error.HResult:X8}";
         HistoryOperationDiagnostics.Current?.Observe("restore-recovery", detail);
-        LogService.LogWarning(detail, "RestoreRecovery");
+        diagnosticSink?.Invoke(detail, "RestoreRecovery");
     }
 
     private static string Clean(object? value) => (value?.ToString() ?? "unknown").Replace('\r', ' ').Replace('\n', ' ');

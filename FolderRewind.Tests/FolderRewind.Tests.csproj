@@ -1,116 +1,41 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <Compile Include="..\FolderRewind\Models\NotificationModels.cs" Link="Source\NotificationModels.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationContracts.cs" Link="Source\NotificationContracts.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationPolicy.cs" Link="Source\NotificationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationStore.cs" Link="Source\NotificationStore.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationCoordinator.cs" Link="Source\NotificationCoordinator.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationScheduler.cs" Link="Source\NotificationScheduler.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationActivation.cs" Link="Source\NotificationActivation.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationReadingSession.cs" Link="Source\NotificationReadingSession.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationContentFormatter.cs" Link="Source\NotificationContentFormatter.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationExecutionOrigins.cs" Link="Source\NotificationExecutionOrigins.cs" />
-    <Compile Include="..\FolderRewind\Services\CloudFailurePresentation.cs" Link="Source\CloudFailurePresentation.cs" />
-    <Compile Include="..\FolderRewind\Services\CloudConnectionObservationStore.cs" Link="Source\CloudConnectionObservationStore.cs" />
-    <Compile Include="..\FolderRewind\Services\CloudRepositoryDisplayService.cs" Link="Source\CloudRepositoryDisplayService.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationCorrelation.cs" Link="Source\NotificationCorrelation.cs" />
-    <Compile Include="..\FolderRewind\Services\DraftFileGeneration.cs" Link="Source\DraftFileGeneration.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationFailurePresentation.cs" Link="Source\MigrationFailurePresentation.cs" />
-    <Compile Include="..\FolderRewind\Services\ConfigDraftComparison.cs" Link="Source\ConfigDraftComparison.cs" />
-    <Compile Include="..\FolderRewind\Services\CloudSetupCoordinator.cs" Link="Source\CloudSetupCoordinator.cs" />
-    <Compile Include="..\FolderRewind\Services\OpenListInitializer.cs" Link="Source\OpenListInitializer.cs" />
-    <Compile Include="..\FolderRewind\Models\OpenListRuntimeSettings.cs" Link="Source\OpenListRuntimeSettings.cs" />
-    <Compile Include="..\FolderRewind\Services\BundledMineRewindPackage.cs" Link="Source\BundledMineRewindPackage.cs" />
-    <Compile Include="..\FolderRewind\Services\SourceScopeIntersection.cs" Link="Source\SourceScopeIntersection.cs" />
-    <Compile Include="..\FolderRewind\Services\SpatialWorkspaceIndex*.cs" Link="Source\SpatialWorkspaceIndex.cs" />
-    <Compile Include="..\FolderRewind\Services\SpatialSelectionGeometry.cs" Link="Source\SpatialSelectionGeometry.cs" />
-    <Compile Include="..\FolderRewind\Services\NativeRestoreCoordinationPolicy.cs" Link="Source\NativeRestoreCoordinationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\OperationDiagnosticFormatter.cs" Link="Source\OperationDiagnosticFormatter.cs" />
-    <Compile Include="..\FolderRewind\Models\BackupActivityModels.cs" Link="Source\BackupActivityModels.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreMaintenance.cs" Link="Source\HistoryRestoreMaintenance.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreRecoveryDiagnostics.cs" Link="Source\HistoryRestoreRecoveryDiagnostics.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.Inputs.cs" Link="Source\HistoryRestoreService.Inputs.cs" />
-    <Compile Include="..\FolderRewind\Services\HistoryRestoreOutcomePolicy.cs" Link="Source\HistoryRestoreOutcomePolicy.cs" />
-  </ItemGroup>
-  <PropertyGroup>
+<PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <DefineConstants>$(DefineConstants);FOLDERREWIND_PROTOCOL_TESTS</DefineConstants>
     <Platforms>AnyCPU</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\FolderRewind\Services\MigrationWorkflowModels.cs" Link="Source\MigrationWorkflowModels.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationHistoryStatusPolicy.cs" Link="Source\MigrationHistoryStatusPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationPresentationPolicy.cs" Link="Source\MigrationPresentationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\HistoryLoadFailurePolicy.cs" Link="Source\HistoryLoadFailurePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationWorkflowStore.cs" Link="Source\MigrationWorkflowStore.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationWorkflowRunner.cs" Link="Source\MigrationWorkflowRunner.cs" />
-    <Compile Include="..\FolderRewind\Services\HistoryOperationDiagnostics.cs" Link="Source\HistoryOperationDiagnostics.cs" />
-    <Compile Include="..\FolderRewind\Models\ArchiveSettingsModels.cs" Link="Source\ArchiveSettingsModels.cs" />
-    <Compile Include="..\FolderRewind\Models\ArchiveVerificationPolicy.cs" Link="Source\ArchiveVerificationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupArchiveVerificationPolicy.cs" Link="Source\BackupArchiveVerificationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\NativeSmartOwnerPlan.cs" Link="Source\NativeSmartOwnerPlan.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreWorkspacePlanner.cs" Link="Source\HistoryRestoreWorkspacePlanner.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreFileSystemPlan.cs" Link="Source\HistoryRestoreFileSystemPlan.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestorePreparationSession.cs" Link="Source\HistoryRestorePreparationSession.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreMutationPlanner.cs" Link="Source\HistoryRestoreMutationPlanner.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.TargetVolume.cs" Link="Source\HistoryRestoreService.TargetVolume.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryQuickRestoreExecution.cs" Link="Source\HistoryQuickRestoreExecution.cs" />
-    <Compile Include="..\FolderRewind\Models\CloudConnectionProfile.cs" Link="Source\CloudConnectionProfile.cs" />
-    <Compile Include="..\FolderRewind\Services\CloudConnectionResolver.cs" Link="Source\CloudConnectionResolver.cs" />
-    <Compile Include="..\FolderRewind\Services\CloudRemotePath.cs" Link="Source\CloudRemotePath.cs" />
-    <Compile Include="..\FolderRewind\Services\RcloneCredentialRefresh.cs" Link="Source\RcloneCredentialRefresh.cs" />
-    <Compile Include="..\FolderRewind\Services\OwnedCloudDependencyProcess.cs" Link="Source\OwnedCloudDependencyProcess.cs" />
-    <Compile Include="..\FolderRewind\Services\AppUpdatePolicy.cs" Link="Source\AppUpdatePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\AppUpdatePresentation.cs" Link="Source\AppUpdatePresentation.cs" />
-    <Compile Include="..\FolderRewind\Services\Plugins\GitHubReleaseMetadata.cs" Link="Source\GitHubReleaseMetadata.cs" />
+
+
+
+
+
+
+
+
+
+
+
     <None Update="Fixtures\AppUpdate\*.json" CopyToOutputDirectory="PreserveNewest" />
-    <Compile Include="..\FolderRewind\Services\LocalizedTextSelector.cs" Link="Source\LocalizedTextSelector.cs" />
-    <Compile Include="..\FolderRewind\Services\PreviewCameraStore.cs" Link="Source\PreviewCameraStore.cs" />
-    <Compile Include="..\FolderRewind\Services\SpatialPreviewViewport.cs" Link="Source\SpatialPreviewViewport.cs" />
-    <Compile Include="..\FolderRewind\Services\ConfigSnapshotCoordinator.cs" Link="Source\ConfigSnapshotCoordinator.cs" />
-    <Compile Include="..\FolderRewind\Services\MergeOperationService.cs" Link="Source\MergeOperationService.cs" />
-    <Compile Include="..\FolderRewind\Services\MergeOperationService.Decisions.cs" Link="Source\MergeOperationService.Decisions.cs" />
-    <Compile Include="..\FolderRewind\Services\RestorePreservePaths.cs" Link="Source\RestorePreservePaths.cs" />
-    <Compile Include="..\FolderRewind\Services\RestorePreservePreparation.cs" Link="Source\RestorePreservePreparation.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryPathPolicy.cs" Link="Source\DiscoveryPathPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\CollectionChangedSubscription.cs" Link="Source\CollectionChangedSubscription.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupOperationResult.cs" Link="Source\BackupOperationResult.cs" />
-    <Compile Include="..\FolderRewind\Services\ProcessWaitService.cs" Link="Source\ProcessWaitService.cs" />
+
+
+
+
+
+
+
+
     <None Update="Fixtures\Legacy182\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures\Legacy196\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Include="..\FolderRewind\Services\ShellShortcutIdentity.cs" Link="Source\ShellShortcutIdentity.cs" />
-    <Compile Include="..\FolderRewind\Services\TaskbarShortcutRepair.cs" Link="Source\TaskbarShortcutRepair.cs" />
-    <Compile Include="..\FolderRewind\Services\SingleInstanceCoordinator.cs" Link="Source\SingleInstanceCoordinator.cs" />
-    <Compile Include="..\FolderRewind\Services\ClassicStartupPolicy.cs" Link="Source\ClassicStartupPolicy.cs" />
-    <Compile Include="..\FolderRewind\Models\HistoryPresentationMode.cs" Link="Source\HistoryPresentationMode.cs" />
-    <Compile Include="..\FolderRewind\Services\HistoryPresentationPolicy.cs" Link="Source\HistoryPresentationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\ThemeSettingPolicy.cs" Link="Source\ThemeSettingPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\PluginStoreOperationController.cs" Link="Source\PluginStoreOperationController.cs" />
-    <Compile Include="..\FolderRewind\Services\LogPresentationController.cs" Link="Source\LogPresentationController.cs" />
-    <Compile Include="..\FolderRewind\Services\PersonalizationThemePolicy.cs" Link="Source\PersonalizationThemePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\SourceScopePreviewController.cs" Link="Source\SourceScopePreviewController.cs" />
-    <Compile Include="..\FolderRewind\Models\LogModels.cs" Link="Source\LogModels.cs" />
-    <Compile Include="..\FolderRewind\Services\SevenZipArchiveProcessBackend.cs" Link="Source\SevenZipArchiveProcessBackend.cs" />
-    <Compile Include="..\FolderRewind\Services\ConfigMutationProtection.cs" Link="Source\ConfigMutationProtection.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMergeService.cs" Link="Source\HistoryMergeService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMergeApplyService.cs" Link="History\Application\HistoryMergeApplyService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMergeCommitBuilder.cs" Link="Source\HistoryMergeCommitBuilder.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryCheckpointGraph.cs" Link="Source\HistoryCheckpointGraph.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMergePlanner.cs" Link="Source\HistoryMergePlanner.cs" />
-    <Compile Include="..\FolderRewind\History\Merge\*.cs" Link="Source\Merge\%(Filename)%(Extension)" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="..\FolderRewind\History\Application\HistoryExactWorkingStateProbe.cs" Link="Source\History\Application\HistoryExactWorkingStateProbe.cs" />
-    <ProjectReference Include="..\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj" />
-    <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
+<ItemGroup>
+    <ProjectReference Include="../FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="../FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -122,174 +47,11 @@
     <PackageReference Include="ValveKeyValue" Version="0.70.0.499" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Include="..\FolderRewind\Services\KnotLink\TcpClient.cs" Link="Source\KnotLinkSdk\TcpClient.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkInitializationState.cs" Link="Source\KnotLinkInitializationState.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkKeyValueCodec.cs" Link="Source\KnotLinkKeyValueCodec.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandParser.cs" Link="Source\KnotLinkCommandParser.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandRequest.cs" Link="Source\KnotLinkCommandRequest.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandContext.cs" Link="Source\KnotLinkCommandContext.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandMetadata.cs" Link="Source\KnotLinkCommandMetadata.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandValidationResult.cs" Link="Source\KnotLinkCommandValidationResult.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandValidator.cs" Link="Source\KnotLinkCommandValidator.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkBackupOverrides.cs" Link="Source\KnotLinkBackupOverrides.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkProtocolFormatter.cs" Link="Source\KnotLinkProtocolFormatter.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListModels.cs" Link="Source\KnotLinkFuncListModels.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListService.cs" Link="Source\KnotLinkFuncListService.cs" />
-    <Compile Include="..\FolderRewind\Services\PathRuleMatcher.cs" Link="Source\PathRuleMatcher.cs" />
-    <Compile Include="..\FolderRewind\Services\PathFilterPattern.cs" Link="Source\PathFilterPattern.cs" />
-    <Compile Include="..\FolderRewind\Services\RestoreWhitelistPreparation.cs" Link="Source\RestoreWhitelistPreparation.cs" />
-    <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\TemplateFormatPolicy.cs" Link="Source\TemplateFormatPolicy.cs" />
-    <Compile Include="..\FolderRewind\Models\DiscoveryModels.cs" Link="Source\DiscoveryModels.cs" />
-    <Compile Include="..\FolderRewind\Models\BackupSourceScopeModels.cs" Link="Source\BackupSourceScopeModels.cs" />
-    <Compile Include="..\FolderRewind\Models\PluginPersistenceModels.cs" Link="Source\PluginPersistenceModels.cs" />
-    <Compile Include="..\FolderRewind\Models\LudusaviIndexModels.cs" Link="Source\LudusaviIndexModels.cs" />
-    <Compile Include="..\FolderRewind\Models\SemanticStatus.cs" Link="Source\SemanticStatus.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryCandidateMerger.cs" Link="Source\DiscoveryCandidateMerger.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\BackupPresetApplicationPolicy.cs" Link="Source\BackupPresetApplicationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryDefinitionMatchPolicy.cs" Link="Source\DiscoveryDefinitionMatchPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryResourcePlanner.cs" Link="Source\DiscoveryResourcePlanner.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryDraftTransaction.cs" Link="Source\DiscoveryDraftTransaction.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryPresentationService.cs" Link="Source\DiscoveryPresentationService.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoverySetIdentityMatcher.cs" Link="Source\DiscoverySetIdentityMatcher.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryThreeWayReviewService.cs" Link="Source\DiscoveryThreeWayReviewService.cs" />
-    <Compile Include="..\FolderRewind\Services\OfficialPresetIndexMergePolicy.cs" Link="Source\OfficialPresetIndexMergePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupConfigurationHandoff.cs" Link="Source\BackupConfigurationHandoff.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupInvocationOptions.cs" Link="Source\BackupInvocationOptions.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\IGameDiscoveryProvider.cs" Link="Source\IGameDiscoveryProvider.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.cs" Link="Source\LudusaviManifestCompiler.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.Streaming.cs" Link="Source\LudusaviManifestCompiler.Streaming.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.cs" Link="Source\LudusaviManifestCacheService.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.Generation.cs" Link="Source\LudusaviManifestCacheService.Generation.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.Streaming.cs" Link="Source\LudusaviManifestCacheService.Streaming.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviGeneration.cs" Link="Source\LudusaviGeneration.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LauncherInstallationScanners.cs" Link="Source\LauncherInstallationScanners.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviPathExpressionResolver.cs" Link="Source\LudusaviPathExpressionResolver.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviDiscoveryProvider.cs" Link="Source\LudusaviDiscoveryProvider.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviDiscoveryProvider.Streaming.cs" Link="Source\LudusaviDiscoveryProvider.Streaming.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\PluginDiscoveryCandidateMapper.cs" Link="Source\PluginDiscoveryCandidateMapper.cs" />
-    <Compile Include="..\FolderRewind\Services\Discovery\PluginDiscoveryDefinitionPolicy.cs" Link="Source\PluginDiscoveryDefinitionPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupSourceFileEnumerator.cs" Link="Source\BackupSourceFileEnumerator.cs" />
-    <Compile Include="..\FolderRewind\Services\PreviewStoragePaths.cs" Link="Source\PreviewStoragePaths.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupSourceScopePatternSet.cs" Link="Source\BackupSourceScopePatternSet.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupSourceAvailabilityPolicy.cs" Link="Source\BackupSourceAvailabilityPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupSourceRootSafetyPolicy.cs" Link="Source\BackupSourceRootSafetyPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginBackupRequestResult.cs" Link="Source\PluginBackupRequestResult.cs" />
-    <Compile Include="..\FolderRewind\Services\Plugins\V3\NativeHistoryArtifactTransformPolicy.cs" Link="Source\NativeHistoryArtifactTransformPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\UserDisplayFormatter.cs" Link="Source\UserDisplayFormatter.cs" />
-    <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\SponsorBackgroundImageCachePolicy.cs" Link="Source\SponsorBackgroundImageCachePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\ArchiveCompressionPolicy.cs" Link="Source\ArchiveCompressionPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupArchiveTypePolicy.cs" Link="Source\BackupArchiveTypePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupFilterRulePolicy.cs" Link="Source\BackupFilterRulePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupStoragePathService.cs" Link="Source\BackupStoragePathService.cs" />
-    <Compile Include="..\FolderRewind\Services\NativeHistoryConfigurationOperationGate.cs" Link="Source\NativeHistoryConfigurationOperationGate.cs" />
-    <Compile Include="..\FolderRewind\Services\NativeHostMutationContext.cs" Link="Source\NativeHostMutationContext.cs" />
-    <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginV3CaptureLeaseOwner.cs" Link="Source\PluginV3CaptureLeaseOwner.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupPathOverlapPolicy.cs" Link="Source\BackupPathOverlapPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupPerformancePolicy.cs" Link="Source\BackupPerformancePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupTimingService.cs" Link="Source\BackupTimingService.cs" />
-    <Compile Include="..\FolderRewind\Services\RcloneExecutionContext.cs" Link="Source\RcloneExecutionContext.cs" />
-    <Compile Include="..\FolderRewind\Services\RcloneConnectionService.cs" Link="Source\RcloneConnectionService.cs" />
-    <Compile Include="..\FolderRewind\Services\RcloneNativeHistoryTransport.cs" Link="Source\RcloneNativeHistoryTransport.cs" />
-    <Compile Include="..\FolderRewind\Services\RcloneMigrationSnapshotTransport.cs" Link="Source\RcloneMigrationSnapshotTransport.cs" />
-    <Compile Include="..\FolderRewind\Services\RcloneArtifactObjectTransport.cs" Link="Source\RcloneArtifactObjectTransport.cs" />
-    <Compile Include="..\FolderRewind\Services\RcloneRemotePayloadVerifier.cs" Link="Source\RcloneRemotePayloadVerifier.cs" />
-    <Compile Include="..\FolderRewind\Services\ProcessArgumentTokenizer.cs" Link="Source\ProcessArgumentTokenizer.cs" />
-    <Compile Include="..\FolderRewind\Services\ToolArchiveInstaller.cs" Link="Source\ToolArchiveInstaller.cs" />
-    <Compile Include="..\FolderRewind\Services\ToolExecutableVerifier.cs" Link="Source\ToolExecutableVerifier.cs" />
-    <Compile Include="..\FolderRewind\Services\OnboardingRepairPolicy.cs" Link="Source\OnboardingRepairPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\OnboardingOperationBudgets.cs" Link="Source\OnboardingOperationBudgets.cs" />
-    <Compile Include="..\FolderRewind\Models\OnboardingModels.cs" Link="Source\OnboardingModels.cs" />
-    <Compile Include="..\FolderRewind\Services\SetupBackupPresentationPolicy.cs" Link="Source\SetupBackupPresentationPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\MainWindowSizePolicy.cs" Link="Source\MainWindowSizePolicy.cs" />
-    <Compile Include="..\FolderRewind\AppConstants.cs" Link="Source\AppConstants.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryVersionFileSelector.cs" Link="Source\HistoryVersionFileSelector.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryVersionExportService.cs" Link="Source\History\Application\HistoryVersionExportService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryArchiveRecoveryService.cs" Link="Source\History\Application\HistoryArchiveRecoveryService.cs" />
-    <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />
-    <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
-    <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
-    <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />
-    <Compile Include="..\FolderRewind\Services\ProtectedPasswordStore.cs" Link="Source\ProtectedPasswordStore.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryReplicaRecoveryService.cs" Link="Source\HistoryReplicaRecoveryService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationContinuationService.cs" Link="Source\HistoryMigrationContinuationService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleModels.cs" Link="Source\HistoryMigrationBundleModels.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.cs" Link="Source\HistoryMigrationBundleService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.Native.cs" Link="Source\HistoryMigrationBundleService.Native.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationBundleService.Payloads.cs" Link="Source\HistoryMigrationBundleService.Payloads.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationPathRebindPolicy.cs" Link="Source\MigrationPathRebindPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationBatchConfirmation.cs" Link="Source\MigrationBatchConfirmation.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationRecoveryPolicy.cs" Link="Source\MigrationRecoveryPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\MigrationSetupStateStore.cs" Link="Source\MigrationSetupStateStore.cs" />
-    <Compile Include="..\FolderRewind\Services\ConfigImportTransactionStore.cs" Link="Source\ConfigImportTransactionStore.cs" />
-    <Compile Include="..\FolderRewind\Services\DataMigrationStateStore.cs" Link="Source\DataMigrationStateStore.cs" />
-    <Compile Include="..\FolderRewind\Services\ConfigWriteCoordinator.cs" Link="Source\ConfigWriteCoordinator.cs" />
-    <Compile Include="..\FolderRewind\Services\BatchObservableCollection.cs" Link="Source\BatchObservableCollection.cs" />
-    <Compile Include="..\FolderRewind\Services\LatestRequestCoordinator.cs" Link="Source\LatestRequestCoordinator.cs" />
-    <Compile Include="..\FolderRewind\Services\AsyncPeriodicLoop.cs" Link="Source\AsyncPeriodicLoop.cs" />
-    <Compile Include="..\FolderRewind\Services\AsyncOperationQueue.cs" Link="Source\AsyncOperationQueue.cs" />
-    <Compile Include="..\FolderRewind\Services\HistoryInteractionContracts.cs" Link="Source\HistoryInteractionContracts.cs" />
-    <Compile Include="..\FolderRewind\Services\ConfigEditTransaction.cs" Link="Source\ConfigEditTransaction.cs" />
-    <Compile Include="..\FolderRewind\Services\AsyncCommandLifetime.cs" Link="Source\AsyncCommandLifetime.cs" />
-    <Compile Include="..\FolderRewind\Services\FolderScopeEditController.cs" Link="Source\FolderScopeEditController.cs" />
-    <Compile Include="..\FolderRewind\Services\StartupSequence.cs" Link="Source\StartupSequence.cs" />
-    <Compile Include="..\FolderRewind\Services\NotificationPresentationState.cs" Link="Source\NotificationPresentationState.cs" />
-    <Compile Include="..\FolderRewind\Services\WindowCloseController.cs" Link="Source\WindowCloseController.cs" />
-    <Compile Include="..\FolderRewind\Services\MiniBackupController.cs" Link="Source\MiniBackupController.cs" />
-    <Compile Include="..\FolderRewind\Services\KnotLinkSettingsPolicy.cs" Link="Source\KnotLinkSettingsPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\SettingsSaveController.cs" Link="Source\SettingsSaveController.cs" />
-    <Compile Include="..\FolderRewind\Services\IPluginSettingsActions.cs" Link="Source\IPluginSettingsActions.cs" />
-    <Compile Include="..\FolderRewind\Services\PluginSettingsCommandController.cs" Link="Source\PluginSettingsCommandController.cs" />
-    <Compile Include="..\FolderRewind\Services\PluginSettingsOutcomePolicy.cs" Link="Source\PluginSettingsOutcomePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\ChangeTrackingState.cs" Link="Source\ChangeTrackingState.cs" />
-    <Compile Include="..\FolderRewind\Models\MiniWindowState.cs" Link="Source\MiniWindowState.cs" />
-    <Compile Include="..\FolderRewind\Services\AutomationSchedulePolicy.cs" Link="Source\AutomationSchedulePolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\AutomationConditionStateTracker.cs" Link="Source\AutomationConditionStateTracker.cs" />
-    <Compile Include="..\FolderRewind\Services\CloudCommandSecurity.cs" Link="Source\CloudCommandSecurity.cs" />
-    <Compile Include="..\FolderRewind\Services\FolderRenameService.Planning.cs" Link="Source\FolderRenameService.Planning.cs" />
-    <Compile Include="..\FolderRewind\Services\FolderRenameService.Transaction.cs" Link="Source\FolderRenameService.Transaction.cs" />
-    <Compile Include="..\FolderRewind\Services\FolderRenameService.Moves.cs" Link="Source\FolderRenameService.Moves.cs" />
-    <Compile Include="..\FolderRewind\Services\RollingArchiveTransaction.cs" Link="Source\RollingArchiveTransaction.cs" />
-    <Compile Include="..\FolderRewind\Services\SevenZipArchiveListingParser.cs" Link="Source\SevenZipArchiveListingParser.cs" />
-    <Compile Include="..\FolderRewind\History\Domain\*.cs" Link="Source\History\Domain\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Storage\*.cs" Link="Source\History\Storage\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\LocalState\*.cs" Link="Source\History\LocalState\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Index\*.cs" Link="Source\History\Index\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMutationGate.cs" Link="Source\History\Application\HistoryMutationGate.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryChangeFeed.cs" Link="Source\History\Application\HistoryChangeFeed.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryQueryService.cs" Link="Source\History\Application\HistoryQueryService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRuntime.cs" Link="Source\History\Application\HistoryRuntime.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRuntimeManager.cs" Link="Source\History\Application\HistoryRuntimeManager.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryAssessmentService.cs" Link="Source\History\Application\HistoryAssessmentService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryPresentationQueryService.cs" Link="Source\History\Application\HistoryPresentationQueryService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryMigrationInitializationService.cs" Link="Source\History\Application\HistoryMigrationInitializationService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRepositoryBatchTransferService.cs" Link="Source\History\Application\HistoryRepositoryBatchTransferService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRepositoryTransferService.cs" Link="Source\History\Application\HistoryRepositoryTransferService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryCommitCoordinator.cs" Link="Source\History\Application\HistoryCommitCoordinator.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryBranchProjection.cs" Link="Source\History\Application\HistoryBranchProjection.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryCommandCommitter.cs" Link="Source\History\Application\HistoryCommandCommitter.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryBranchService.cs" Link="Source\History\Application\HistoryBranchService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryBranchReconciliationService.cs" Link="Source\History\Application\HistoryBranchReconciliationService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryAnnotationService.cs" Link="Source\History\Application\HistoryAnnotationService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\MaterializationPolicyService.cs" Link="Source\History\Application\MaterializationPolicyService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreModels.cs" Link="Source\History\Application\HistoryRestoreModels.cs" />
-    <Compile Include="..\FolderRewind\History\Application\FileSystemHistoryRestoreMutationBackend.cs" Link="Source\History\Application\FileSystemHistoryRestoreMutationBackend.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreTransactionJournal.cs" Link="Source\History\Application\HistoryRestoreTransactionJournal.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.cs" Link="Source\History\Application\HistoryRestoreService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryCheckoutService.cs" Link="Source\History\Application\HistoryCheckoutService.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryCheckoutPlanner.cs" Link="Source\History\Application\HistoryCheckoutPlanner.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryExactCheckpointAdmission.cs" Link="Source\History\Application\HistoryExactCheckpointAdmission.cs" />
-    <Compile Include="..\FolderRewind\History\Application\HistoryQuickRestoreResolver.cs" Link="Source\History\Application\HistoryQuickRestoreResolver.cs" />
-    <Compile Include="..\FolderRewind\History\Application\SafetySnapshotService.cs" Link="Source\History\Application\SafetySnapshotService.cs" />
-    <Compile Include="..\FolderRewind\History\Representation\*.cs" Link="Source\History\Representation\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Retention\*.cs" Link="Source\History\Retention\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Migration\*.cs" Link="Source\History\Migration\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Legacy\*.cs" Link="Source\History\Legacy\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Cloud\*.cs" Link="Source\History\Cloud\%(Filename)%(Extension)" />
-    <Compile Include="..\FolderRewind\History\Capture\*.cs" Link="Source\History\Capture\%(Filename)%(Extension)" />
+<ItemGroup>
+    <ProjectReference Include="../FolderRewind.Core/FolderRewind.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FolderRewind.TestSupport/FolderRewind.TestSupport.csproj" />
+  </ItemGroup>
+  <Import Project="HostSourceLinks.props" />
 </Project>

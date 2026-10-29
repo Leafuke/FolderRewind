@@ -27,15 +27,18 @@ public sealed class SourceCaptureInput : IDisposable
     private bool _preparedCopy, _preparedProtection, _preparedDirectories;
     private bool _automaticCopySelected;
     private bool _disposed;
+    private readonly Action<string>? _diagnosticSink;
 
     public SourceCaptureInput(string root, IReadOnlyDictionary<string, SourceCaptureFileState> files,
-        IEnumerable<string> directories, SourceCaptureBaseline? baseline, string boundaryFingerprint)
+        IEnumerable<string> directories, SourceCaptureBaseline? baseline, string boundaryFingerprint,
+        Action<string>? diagnosticSink = null)
     {
         OriginalRoot = Path.GetFullPath(root);
         Files = files.ToImmutableSortedDictionary(StringComparer.Ordinal);
         Directories = [.. directories.Order(StringComparer.Ordinal)];
         Baseline = baseline;
         BoundaryFingerprint = boundaryFingerprint;
+        _diagnosticSink = diagnosticSink;
     }
 
     public async Task<SourceCaptureReadLease> PrepareAsync(IEnumerable<string> paths, bool copy, bool protect,
@@ -85,7 +88,7 @@ public sealed class SourceCaptureInput : IDisposable
             HistoryOperationDiagnostics.Current?.Count("source-auto-copy-switches");
             HistoryOperationDiagnostics.Current?.Observe("source-auto-copy-path", error.SourcePath);
             HistoryOperationDiagnostics.Current?.Observe("source-auto-copy-error", error.NativeErrorCode.ToString()!);
-            LogService.Log($"[CaptureInput] phase=auto-copy; reason=file-sharing-conflict; nativeError={error.NativeErrorCode}; path={error.SourcePath}; source={OriginalRoot}");
+            _diagnosticSink?.Invoke($"[CaptureInput] phase=auto-copy; reason=file-sharing-conflict; nativeError={error.NativeErrorCode}; path={error.SourcePath}; source={OriginalRoot}");
             return await PrepareAsync(selected, copy: true, protect, temporaryRoot, token, includeDirectories).ConfigureAwait(false);
         }
     }

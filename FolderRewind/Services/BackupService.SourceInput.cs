@@ -29,7 +29,7 @@ public static partial class BackupService
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), states.Keys, token,
                 enforceLimits: NativeArtifactHostService.IsIncrementalPolicy(config), skipLinks: true,
                 includeDirectory: FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true));
-            return new(root, states, directories, baseline, boundary.Fingerprint);
+            return new(root, states, directories, baseline, boundary.Fingerprint, message => LogService.Log(message));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException)

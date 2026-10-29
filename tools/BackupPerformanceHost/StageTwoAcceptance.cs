@@ -16,12 +16,14 @@ namespace FolderRewind.PerformanceHost;
 // 生产服务的无窗口接线验收；不以模拟 Capture 回调代替 BackupService。
 internal static class StageTwoAcceptance
 {
+    private static Type HostType(string name)
+        => typeof(BackupService).Assembly.GetType(name) ?? typeof(HistoryRuntime).Assembly.GetType(name)
+            ?? throw new TypeLoadException(name);
     private static readonly Type Native = typeof(BackupService).Assembly.GetType("FolderRewind.Services.NativeHistoryApplicationService")!;
     private static readonly List<object> Results = [];
     internal static async Task RunRestoreCleanupAsync()
     {
         const BindingFlags instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        var assembly = typeof(BackupService).Assembly;
         foreach (var scenario in new[] { "materialize-failure", "legacy-197", "legacy-unproven" })
         {
             var (config, folder) = await CreateAsync("restore-cleanup-" + scenario, BackupMode.Full, BackupArchiveVerificationLevel.Strict);
@@ -34,7 +36,7 @@ internal static class StageTwoAcceptance
             string? container = null;
             if (scenario == "materialize-failure")
             {
-                var backendType = assembly.GetType("FolderRewind.Services.SevenZipHistoryArchiveBackend")!;
+                var backendType = HostType("FolderRewind.Services.SevenZipHistoryArchiveBackend");
                 var backend = (IArchiveRepresentationBackend)Activator.CreateInstance(backendType, instance, null, [config, true], null)!;
                 var handler = new FailedHostMaterializer(new CoreArchiveRepresentationHandler(backend));
                 var restore = new HistoryRestoreService(history, new RepresentationRuntime([handler]),
@@ -47,9 +49,9 @@ internal static class StageTwoAcceptance
             }
             else
             {
-                var storeType = assembly.GetType("FolderRewind.History.Application.HistoryRestoreTransactionJournalStore")!;
+                var storeType = HostType("FolderRewind.History.Application.HistoryRestoreTransactionJournalStore");
                 var store = Activator.CreateInstance(storeType, instance, null, [history, new FileSystemHistoryRestoreMutationBackend()], null)!;
-                var sessionType = assembly.GetType("FolderRewind.History.Application.HistoryRestorePreparationSession")!;
+                var sessionType = HostType("FolderRewind.History.Application.HistoryRestorePreparationSession");
                 using (var session = (IDisposable)Activator.CreateInstance(sessionType, instance, null,
                     [history, store, workspace, new[] { new HistoryRestoreSourceBinding(source, folder.Path) }, Array.Empty<string>(), null], null)!)
                 {
@@ -58,7 +60,7 @@ internal static class StageTwoAcceptance
                     var journal = sessionType.GetProperty("Journal", instance)!.GetValue(session)!;
                     var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
                     var json = JsonSerializer.SerializeToNode(journal, journal.GetType(), options)!;
-                    var planType = assembly.GetType("FolderRewind.History.Application.HistoryRestoreFileSystemPlanStore")!;
+                    var planType = HostType("FolderRewind.History.Application.HistoryRestoreFileSystemPlanStore");
                     var known = planType.GetMethod("CaptureTree", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [container])!;
                     json["workspaces"]![0]!["knownObjects"] = JsonSerializer.SerializeToNode(known, known.GetType(), options);
                     Directory.CreateDirectory(Path.Combine(staging, "region"));
@@ -129,7 +131,7 @@ internal static class StageTwoAcceptance
         var history = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var initialPackCount = (await history.Repository.ReadAllPacksAsync()).Count;
         const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        var gate = typeof(BackupService).Assembly.GetType("FolderRewind.Services.NativeHistoryConfigurationOperationGate")!;
+        var gate = HostType("FolderRewind.Services.NativeHistoryConfigurationOperationGate");
         var acquire = gate.GetMethod("EnterAsync", flags)!.Invoke(null, [config.Id, CancellationToken.None])!;
         var acquireTask = (Task)acquire.GetType().GetMethod("AsTask")!.Invoke(acquire, null)!;
         await acquireTask;
@@ -482,7 +484,7 @@ internal static class StageTwoAcceptance
         {
             var checkpoint = await history.Query.GetCheckpointAsync(id);
             Require(graph.Where(r => r.VersionId == checkpoint!.VersionId).All(r => r.Kind == RepresentationKind.CoreFull), "Protective Core capture must be self-contained Full.");
-            var planner = typeof(BackupService).Assembly.GetType("FolderRewind.History.Application.HistoryRestoreWorkspacePlanner")!;
+            var planner = HostType("FolderRewind.History.Application.HistoryRestoreWorkspacePlanner");
             var physical = (string)planner.GetMethod("ResolvePath", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [Root])!;
             var export = Path.Combine(physical, "snapshot-export-" + Guid.NewGuid().ToString("N"));
             await new HistoryVersionExportService(engine).ExportAsync(checkpoint!.VersionId, graph,

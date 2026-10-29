@@ -4,6 +4,16 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="FolderRewind.Core/FolderRewind.Core.csproj">
+    <Platform Solution="*|ARM64" Project="AnyCPU" />
+    <Platform Solution="*|x64" Project="AnyCPU" />
+    <Platform Solution="*|x86" Project="AnyCPU" />
+  </Project>
+  <Project Path="FolderRewind.TestSupport/FolderRewind.TestSupport.csproj">
+    <Platform Solution="*|ARM64" Project="AnyCPU" />
+    <Platform Solution="*|x64" Project="AnyCPU" />
+    <Platform Solution="*|x86" Project="AnyCPU" />
+  </Project>
   <Project Path="FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj">
     <Platform Solution="*|ARM64" Project="AnyCPU" />
     <Platform Solution="*|x64" Project="AnyCPU" />
