@@ -212,13 +212,23 @@ jobs:
           NUGET_PACKAGES: ${{ runner.temp }}/api-candidate-packages
         run: |
           $feed = [IO.Path]::GetFullPath('feed')
+          $packages = @(Get-ChildItem feed -Filter '*.nupkg' -File)
+          if ($packages.Count -ne 1) { throw 'Expected one verified API candidate.' }
+          $archive = [IO.Compression.ZipFile]::OpenRead($packages[0].FullName)
+          try {
+            $reader = [IO.StreamReader]::new(($archive.Entries | Where-Object FullName -Like '*.nuspec').Open())
+            try { [xml]$spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            $apiVersion = [string]$spec.SelectSingleNode('//*[local-name()="metadata"]').version
+          } finally { $archive.Dispose() }
           "<configuration><packageSources><clear/><add key='candidate' value='$feed'/><add key='nuget.org' value='https://api.nuget.org/v3/index.json'/></packageSources></configuration>" | Set-Content candidate.config
-          dotnet restore plugin/FolderRewind-Plugin-Minecraft.slnx -p:Platform=x64 --configfile candidate.config --no-http-cache
+          dotnet restore plugin/FolderRewind-Plugin-Minecraft.slnx -p:Platform=x64 "-p:PluginApiPackageVersion=$apiVersion" --configfile candidate.config --no-http-cache
           if ($LASTEXITCODE) { throw 'Candidate plugin restore failed.' }
-          dotnet build plugin/FolderRewind-Plugin-Minecraft.slnx -c Release -p:Platform=x64 --no-restore
+          dotnet build plugin/FolderRewind-Plugin-Minecraft.slnx -c Release -p:Platform=x64 "-p:PluginApiPackageVersion=$apiVersion" --no-restore
           if ($LASTEXITCODE) { throw 'Candidate plugin build failed.' }
-          dotnet test plugin/MineRewind.Tests/MineRewind.Tests.csproj -c Release -p:Platform=x64 --no-restore --no-build --logger trx --results-directory artifacts/plugin-tests
+          dotnet test plugin/MineRewind.Tests/MineRewind.Tests.csproj -c Release -p:Platform=x64 "-p:PluginApiPackageVersion=$apiVersion" --no-restore --no-build --logger trx --results-directory artifacts/plugin-tests
           if ($LASTEXITCODE) { throw 'Candidate plugin tests failed.' }
+          dotnet test plugin/MineRewind.World.Tests/MineRewind.World.Tests.csproj -c Release --no-restore --no-build --logger trx --results-directory artifacts/plugin-tests
+          if ($LASTEXITCODE) { throw 'Candidate World tests failed.' }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

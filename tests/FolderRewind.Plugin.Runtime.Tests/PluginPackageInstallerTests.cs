@@ -499,6 +499,7 @@ public sealed class PluginPackageInstallerTests
     private static string FixturePluginAssembly()
         => Path.Combine(
             FindRepositoryRoot(),
+            "tests",
             "FolderRewind.Plugin.Runtime.Tests",
             "Fixtures",
             "PluginOne",
@@ -510,6 +511,7 @@ public sealed class PluginPackageInstallerTests
     private static string RuntimeReferencingBridgeAssembly()
         => Path.Combine(
             FindRepositoryRoot(),
+            "tests",
             "FolderRewind.Plugin.Runtime.Tests",
             "Fixtures",
             "HostBridge",
@@ -521,6 +523,7 @@ public sealed class PluginPackageInstallerTests
     private static string FixturePluginBaseAssembly()
         => Path.Combine(
             FindRepositoryRoot(),
+            "tests",
             "FolderRewind.Plugin.Runtime.Tests",
             "Fixtures",
             "PluginBase",
@@ -566,7 +569,7 @@ public sealed class PluginPackageInstallerTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (Directory.Exists(Path.Combine(directory.FullName, "FolderRewind.Plugin.Runtime"))
+            if (Directory.Exists(Path.Combine(directory.FullName, "src", "FolderRewind.Plugin.Runtime"))
                 && Directory.Exists(Path.Combine(directory.FullName, "src", "FolderRewind")))
                 return directory.FullName;
             directory = directory.Parent;

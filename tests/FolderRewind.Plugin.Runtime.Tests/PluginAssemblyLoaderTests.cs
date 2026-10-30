@@ -179,6 +179,7 @@ public sealed class PluginAssemblyLoaderTests
     private static string FixtureOutput(string fixture)
         => Path.Combine(
             RepositoryRoot(),
+            "tests",
             "FolderRewind.Plugin.Runtime.Tests",
             "Fixtures",
             fixture,
