@@ -1,0 +1,242 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>FolderRewind</RootNamespace>
+    <Version>1.10.0.0</Version>
+    <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <!-- Every distribution enters the single-instance guard before constructing App. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <StartupObject>FolderRewind.Program</StartupObject>
+    <TieredPGO>true</TieredPGO>
+    <!--
+      Keep the Windows App SDK version and the 2.3.1 XAML performance opt-ins
+      overridable for the local A/B benchmark. Normal builds use 2.6.4 with
+      all four validated optional changes enabled on SDK 2.3.1 and later.
+      Keep the historical Xaml231 property names for benchmark compatibility.
+    -->
+    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)'==''">2.6.4</FolderRewindWindowsAppSdkVersion>
+    <FolderRewindEnableXaml231Optimizations Condition="'$(FolderRewindEnableXaml231Optimizations)'==''">true</FolderRewindEnableXaml231Optimizations>
+    <FolderRewindXaml231OptionalChanges>DeferContextFlyoutInit,IconNoGridOptimization,DefaultStyleOptimizations,OptimizeApplyStyles</FolderRewindXaml231OptionalChanges>
+    <EnabledXamlOptionalChanges Condition="'$(EnabledXamlOptionalChanges)'=='' and '$(FolderRewindEnableXaml231Optimizations)'=='true' and $([MSBuild]::VersionGreaterThanOrEquals('$(FolderRewindWindowsAppSdkVersion)', '2.3.1'))">$(FolderRewindXaml231OptionalChanges)</EnabledXamlOptionalChanges>
+    <!-- 普通开发和 Store/侧载构建仍为打包应用；MSI 发布在工作流中显式传入 Msi。 -->
+    <FolderRewindDistributionChannel Condition="'$(FolderRewindDistributionChannel)'==''">Packaged</FolderRewindDistributionChannel>
+    <SevenZipExecutable Condition="'$(SevenZipExecutable)'==''">$(FolderRewindRepositoryRoot)7za.exe</SevenZipExecutable>
+  </PropertyGroup>
+
+  <!--
+    MSI 是独立的未打包发行通道。自包含发布避免要求最终用户另行安装
+    .NET 或 Windows App SDK Runtime；EnableMsixTooling 保留以免影响既有 MSIX 流程。
+  -->
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);NATIVE_ARTIFACT_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
+    <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI</DefineConstants>
+    <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>
+    <WindowsPackageType>None</WindowsPackageType>
+    <AppxPackage>false</AppxPackage>
+    <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+    <PublishSingleFile>false</PublishSingleFile>
+    <DebugType>None</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <!-- dotnet CLI 默认 Platform=AnyCPU，但打包 WinUI3 不允许中性架构；这里将 AnyCPU 映射为 x64。 -->
+  <PropertyGroup Condition="'$(Platform)'=='' Or '$(Platform)'=='AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Platform)'=='x86'">
+    <PlatformTarget>x86</PlatformTarget>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Platform)'=='ARM64'">
+    <PlatformTarget>ARM64</PlatformTarget>
+    <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!--
+    CI 工作区通常不包含本地 VS 生成的 PublishProfiles 文件。
+    仅当对应 pubxml 存在时才注入 PublishProfile，避免 NETSDK1198。
+  -->
+  <PropertyGroup Condition="'$(PublishProfile)'=='' and Exists('$(MSBuildProjectDirectory)\Properties\PublishProfiles\win-$(Platform).pubxml')">
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\MsiApp.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="funcList.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\LICENSE.txt" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\LockScreenLogo.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png">
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\logo.ico">
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    <Content Include="Assets\Plugins\*.frplugin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Assets\Plugins\*.frplugin.sha256">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Assets\PluginPresets\minecraft-enhanced-experience.v1.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(SevenZipExecutable)" Link="7za.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
+    <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />
+    <Content Include="..\..\Installer\THIRD-PARTY-NOTICES.md" Link="Licenses\INSTALLER-NOTICES.md" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\Installer\LICENSE.WiX.txt" Link="Licenses\WiX.txt" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\Installer\LICENSE.7-Zip.txt" Link="Licenses\7-Zip.txt" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\*.jpg;Assets\*.jpeg" Exclude="@(Content)" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="Assets\*.png;Assets\*.jpg;Assets\*.jpeg;Assets\*.ico" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    WinUI creates a dependency-merged PRI in TargetDir during Build. The SDK's
+    publish split stage then emits a smaller app-only PRI, which cannot resolve
+    Microsoft.UI.Xaml/Themes/themeresources.xaml in an unpackaged build. Always
+    restore the merged index after Publish so local and CI MSI payloads behave alike.
+  -->
+  <Target Name="UseMergedResourceIndexForMsiPublish"
+          AfterTargets="Publish"
+          Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
+    <PropertyGroup>
+      <_MsiMergedPri>$(TargetDir)$(AssemblyName).pri</_MsiMergedPri>
+      <_MsiPublishedPri>$(PublishDir)$(AssemblyName).pri</_MsiPublishedPri>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_MsiMergedPri)')"
+           Text="The dependency-merged MSI resource index was not generated: $(_MsiMergedPri)" />
+    <Copy SourceFiles="$(_MsiMergedPri)"
+          DestinationFiles="$(_MsiPublishedPri)"
+          SkipUnchangedFiles="false" />
+  </Target>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <!-- The metapackage is required by current WinUI controls, but these optional
+         component assets are not used by FolderRewind and should not be deployed. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.AI" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Search" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Widgets" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Windows.AI.MachineLearning" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="DiffPlex" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="H.NotifyIcon.WinUI" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="ValveKeyValue" />
+  </ItemGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!-- Publish Properties -->
+  <PropertyGroup>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
+    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>False</GenerateTestArtifacts>
+    <AppxBundle>Auto</AppxBundle>
+    <AppxFilterOutUnusedLanguagesResourceFileMaps>false</AppxFilterOutUnusedLanguagesResourceFileMaps>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
+    <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      默认不在普通 build 时生成 MSIX，避免开发期每次编译都触发打包。
+      GitHub Actions 会显式覆盖这些属性来产出 GitHub 侧载版。
+    -->
+    <GenerateAppxPackageOnBuild Condition="'$(GenerateAppxPackageOnBuild)'==''">False</GenerateAppxPackageOnBuild>
+    <AppxPackageDir Condition="'$(AppxPackageDir)'==''">$(MSBuildProjectDirectory)\AppPackages\</AppxPackageDir>
+
+    <!--
+      本地开发默认继续使用 VS 维护的临时证书指纹；CI 则改为传入正式侧载证书文件。
+      这样可以避免 GitHub Actions 中写死 Thumbprint 与自有 PFX 冲突。
+    -->
+    <PackageCertificateThumbprint Condition="'$(PackageCertificateThumbprint)'=='' and '$(PackageCertificateKeyFile)'==''">F232CFF3EC52AB817F4827E579432F52D06440F0</PackageCertificateThumbprint>
+
+    <!--
+      侧载发布时优先使用外部注入的 PFX 与密码，证书文件和密码均不入库。
+      GitHub Actions 通过环境变量 SIDELOAD_CERT_PASSWORD 提供密码，再由这里接入 MSBuild。
+    -->
+    <PackageCertificatePassword Condition="'$(PackageCertificatePassword)'=='' and '$(SIDELOAD_CERT_PASSWORD)'!=''">$(SIDELOAD_CERT_PASSWORD)</PackageCertificatePassword>
+    <PackageCertificateThumbprint>883C19BCC7CF69295C8CC4081629EC13FF18934A</PackageCertificateThumbprint>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FolderRewind.Core/FolderRewind.Core.csproj" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
+  </ItemGroup>
+</Project>

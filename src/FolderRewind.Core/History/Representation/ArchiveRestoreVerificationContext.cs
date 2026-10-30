@@ -1,0 +1,192 @@
+using FolderRewind.History.Domain;
+using FolderRewind.History.Storage;
+using FolderRewind.Models;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace FolderRewind.History.Representation;
+
+internal interface IArchiveRestorePreflightBackend
+{
+    object InputPolicyIdentity { get; }
+    bool TryGetListing(string path, out Services.ArchiveSafeListing? listing);
+    ValueTask<PayloadVerificationResult> PreflightAsync(VersionRepresentation representation, string path,
+        bool fullContentTest, CancellationToken token);
+    ValueTask MaterializeRestoreAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging,
+        ArchiveRestoreVerificationContext context, CancellationToken token);
+    long EstimateMaterializationBytes(IReadOnlyList<ArchiveMaterializationInput> inputs, ArchiveRestoreVerificationContext context);
+}
+
+/// <summary>仅本次操作复用：先固定父目录和文件对象，再验证摘要/清单。生命周期覆盖全部必要读取。</summary>
+public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMode mode) : IDisposable
+{
+    private sealed record Input(VersionRepresentation Representation, string Path,
+        WindowsDirectoryReadLease Parents, FileStream Stream, object PolicyIdentity, PayloadVerificationResult Result,
+        Services.ArchiveSafeListing? Listing, IArchiveRestorePreflightBackend Backend);
+    private readonly Dictionary<RepresentationId, Input> _inputs = [];
+    private readonly Dictionary<string, IDisposable> _space = new(StringComparer.OrdinalIgnoreCase);
+    private sealed record OwnerPlanInput(RepresentationId Id, string Path, Services.ArchiveSafeListing Listing, object Policy);
+    private sealed record OwnerPlanEntry(string Marker, OwnerPlanInput[] Inputs, Services.NativeSmartOwnerPlan? Plan, string Fallback);
+    private readonly List<OwnerPlanEntry> _ownerPlans = [];
+    private sealed record ProtectedInput(VersionRepresentation Representation, object Policy, string Binding,
+        string[] Paths, IReadOnlyList<IDisposable> Guards, PayloadVerificationResult Result);
+    private readonly Dictionary<(object Owner, RepresentationId Id), ProtectedInput> _nativeInputs = [];
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private bool _disposed;
+    public RestoreArchivePreflightMode Mode { get; } = Enum.IsDefined(mode) ? mode : throw new ArgumentOutOfRangeException(nameof(mode));
+
+    internal async ValueTask<PayloadVerificationResult> VerifyProtectedNativeAsync(object owner,
+        VersionRepresentation representation, object policy, string binding, IEnumerable<string> paths,
+        Func<CancellationToken, ValueTask<PayloadVerificationResult>> verify, CancellationToken token,
+        Func<IDisposable>? acquireOwner = null)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var normalized = paths.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            var key = (owner, representation.RepresentationId);
+            if (_nativeInputs.TryGetValue(key, out var cached))
+            {
+                if (!Equivalent(cached.Representation, representation) || !Equals(cached.Policy, policy)
+                    || cached.Binding != binding || !cached.Paths.SequenceEqual(normalized, StringComparer.OrdinalIgnoreCase))
+                    throw new IOException("Native verification binding changed during the operation.");
+                Services.HistoryOperationDiagnostics.Current?.Count("native-verification-reuses");
+                return cached.Result;
+            }
+            var guards = new List<IDisposable>();
+            try
+            {
+                if (acquireOwner is not null) guards.Add(acquireOwner());
+                var parents = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var path in normalized)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (parents.Add(Path.GetDirectoryName(path)!)) guards.Add(new WindowsDirectoryReadLease(path));
+                    guards.Add(WindowsDirectoryReadLease.OpenPayload(path));
+                }
+                var result = await verify(token).ConfigureAwait(false);
+                _nativeInputs.Add(key, new(representation, policy, binding, normalized, guards, result));
+                Services.HistoryOperationDiagnostics.Current?.Count("native-protected-verifications");
+                return result;
+            }
+            catch { for (int i = guards.Count - 1; i >= 0; i--) guards[i].Dispose(); throw; }
+        }
+        finally { _gate.Release(); }
+    }
+    internal async ValueTask<PayloadVerificationResult> VerifyAsync(IArchiveRestorePreflightBackend backend,
+        VersionRepresentation representation, string path, CancellationToken token)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var absolute = Path.GetFullPath(path);
+            if (_inputs.TryGetValue(representation.RepresentationId, out var input))
+            {
+                if (!StringComparer.OrdinalIgnoreCase.Equals(input.Path, absolute) || !Equivalent(input.Representation, representation)
+                    || !Equals(input.PolicyIdentity, backend.InputPolicyIdentity))
+                    throw new IOException("Restore input binding changed during the operation.");
+                return input.Result;
+            }
+            var parents = new WindowsDirectoryReadLease(absolute);
+            FileStream? stream = null;
+            try
+            {
+                stream = WindowsDirectoryReadLease.OpenPayload(absolute);
+                // 保持同一对象的无写/无删除租约。大小与 mtime 不作为内容身份或摘要证据。
+                if (representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expected))
+                {
+                    using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("storage-hash");
+                    var actual = Convert.ToHexString(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false));
+                    Services.HistoryOperationDiagnostics.Current?.Count("storage-hash-bytes", stream.Length);
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(actual, expected)) throw new IOException("Restore storage hash mismatch.");
+                    stream.Position = 0;
+                }
+                var result = await backend.PreflightAsync(representation, absolute, Mode == RestoreArchivePreflightMode.Strict, token).ConfigureAwait(false);
+                backend.TryGetListing(absolute, out var listing);
+                _inputs.Add(representation.RepresentationId, new(representation, absolute, parents, stream, backend.InputPolicyIdentity, result, listing, backend));
+                return result;
+            }
+            catch { stream?.Dispose(); parents.Dispose(); throw; }
+        }
+        finally { _gate.Release(); }
+    }
+    private static bool Equivalent(VersionRepresentation a, VersionRepresentation b) =>
+        a.VersionId == b.VersionId && a.Kind == b.Kind && a.Format == b.Format && a.Fidelity == b.Fidelity
+        && a.LogicalSha256 == b.LogicalSha256 && a.StateFingerprint == b.StateFingerprint
+        && a.DependencyRepresentationIds.SequenceEqual(b.DependencyRepresentationIds)
+        && a.RepresentationSpecificMetadata.Count == b.RepresentationSpecificMetadata.Count
+        && a.RepresentationSpecificMetadata.All(p => b.RepresentationSpecificMetadata.TryGetValue(p.Key, out var v) && v == p.Value);
+    internal bool Protects(VersionRepresentation representation, string path)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _inputs.TryGetValue(representation.RepresentationId, out var held) && held.Result.Success
+            && Equivalent(held.Representation, representation)
+            && StringComparer.OrdinalIgnoreCase.Equals(held.Path, Path.GetFullPath(path));
+    }
+    internal Services.ArchiveSafeListing RequireListing(ArchiveMaterializationInput input)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_inputs.TryGetValue(input.Representation.RepresentationId, out var held) || !held.Result.Success
+            || held.Listing is null || !Equivalent(held.Representation, input.Representation)
+            || !StringComparer.OrdinalIgnoreCase.Equals(held.Path, Path.GetFullPath(input.LocalPath)))
+            throw new IOException("Materialization input has no protected safe listing.");
+        return held.Listing;
+    }
+    internal void ReserveMaterializationSpace(RepresentationId root, IReadOnlyList<VersionRepresentation> graph, string staging,
+        Plugin.Runtime.Artifacts.ArtifactSpaceBudget budget)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var path = Path.GetFullPath(staging);
+        if (_space.ContainsKey(path) || !_inputs.TryGetValue(root, out var input)) return; // Native 使用其既有 Artifact 预算。
+        var byId = graph.ToDictionary(r => r.RepresentationId);
+        var inputs = RepresentationRuntime.BuildDependencyFirstClosure(byId[root], byId)
+            .Select(r => new ArchiveMaterializationInput(r, _inputs.TryGetValue(r.RepresentationId, out var held)
+                ? held.Path : throw new IOException("Materialization budget has an unprotected dependency."))).ToArray();
+        long bytes = input.Backend.EstimateMaterializationBytes(inputs, this);
+        _space.Add(path, budget.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(path, bytes)));
+        Services.HistoryOperationDiagnostics.Current?.Count("restore-space-reserved", bytes);
+    }
+    internal Services.NativeSmartOwnerPlan? GetOwnerPlan(IReadOnlyList<ArchiveMaterializationInput> inputs,
+        string marker, out string fallback)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        // RequireListing checks the full immutable representation and protected path on every reuse.
+        var identities = inputs.Select(input => new OwnerPlanInput(input.Representation.RepresentationId,
+            Path.GetFullPath(input.LocalPath), RequireListing(input), _inputs[input.Representation.RepresentationId].PolicyIdentity)).ToArray();
+        foreach (var cached in _ownerPlans)
+        {
+            if (cached.Marker != marker || cached.Inputs.Length != identities.Length) continue;
+            if (!cached.Inputs.Zip(identities).All(pair => pair.First.Id == pair.Second.Id
+                && StringComparer.OrdinalIgnoreCase.Equals(pair.First.Path, pair.Second.Path)
+                && ReferenceEquals(pair.First.Listing, pair.Second.Listing) && Equals(pair.First.Policy, pair.Second.Policy))) continue;
+            Services.HistoryOperationDiagnostics.Current?.Count("smart-owner-plan-reuses");
+            fallback = cached.Fallback; return cached.Plan;
+        }
+        var plan = Services.NativeSmartOwnerPlanner.TryPlan(inputs, identities.Select(i => i.Listing).ToArray(), marker, out fallback);
+        _ownerPlans.Add(new(marker, identities, plan, fallback));
+        return plan;
+    }
+    internal bool HasMaterializationSpace(string staging) => _space.ContainsKey(Path.GetFullPath(staging));
+    internal void ReleaseMaterializationSpace(string staging)
+    {
+        if (_space.Remove(Path.GetFullPath(staging), out var reservation)) reservation.Dispose();
+    }
+    public void Dispose()
+    {
+        if (_disposed) return; _disposed = true;
+        foreach (var reservation in _space.Values) reservation.Dispose();
+        _space.Clear();
+        foreach (var input in _inputs.Values) { input.Stream.Dispose(); input.Parents.Dispose(); }
+        foreach (var input in _nativeInputs.Values)
+            for (int i = input.Guards.Count - 1; i >= 0; i--) input.Guards[i].Dispose();
+        _nativeInputs.Clear();
+        _inputs.Clear(); _ownerPlans.Clear(); _gate.Dispose();
+    }
+}

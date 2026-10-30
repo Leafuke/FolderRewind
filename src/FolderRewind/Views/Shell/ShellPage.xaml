@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FolderRewind.Views.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:FolderRewind.Controls"
+    KeyboardAcceleratorPlacementMode="Hidden">
+
+    <Grid x:Name="ShellRoot" SizeChanged="OnNotificationAreaSizeChanged">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <controls:AsyncFileImage Grid.RowSpan="2" ReloadVersion="{x:Bind ViewModel.SponsorBackgroundRevision, Mode=OneWay}"
+               SourcePath="{x:Bind ViewModel.SponsorBackgroundImagePath, Mode=OneWay}"
+               Stretch="{x:Bind ViewModel.SponsorBackgroundStretchIndex, Mode=OneWay, Converter={StaticResource IntToStretchConverter}}"
+               Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
+               Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+        <Border Grid.RowSpan="2"
+                Opacity="{x:Bind ViewModel.SponsorBackgroundOverlayOpacity, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <Border.Background>
+                <SolidColorBrush Color="{x:Bind ViewModel.SponsorBackgroundOverlayColor, Mode=OneWay}"/>
+            </Border.Background>
+        </Border>
+
+        <Grid Grid.Row="0" Height="44" ColumnDefinitions="*,Auto">
+        <Border x:Name="AppTitleBar"
+                Height="44"
+                Background="Transparent"
+            Padding="12,0,12,0"
+            xmlns:controls="using:FolderRewind.Controls"
+    KeyboardAcceleratorPlacementMode="Hidden">
+            <Grid ColumnSpacing="12" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <FontIcon Glyph="{x:Bind ViewModel.TitleIconGlyph, Mode=OneWay}" FontSize="16" Opacity="0.9" />
+                <TextBlock Grid.Column="1"
+                           Text="{x:Bind ViewModel.TitleText, Mode=OneWay}"
+                           Style="{StaticResource BodyStrongTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </Border>
+        <Border x:Name="CaptionButtonInset" Grid.Column="1"/>
+        </Grid>
+
+        <NavigationView x:Name="NavView" Grid.Row="1"
+                        Background="Transparent"
+                        x:Uid="ShellPage_Header"
+                        PaneDisplayMode="Auto"
+                        ExpandedModeThresholdWidth="1120"
+                        IsSettingsVisible="True" 
+                        OpenPaneLength="{x:Bind Settings.NavPaneWidth, Mode=OneWay}"
+                        IsBackButtonVisible="Visible"
+                        DisplayModeChanged="NavView_DisplayModeChanged"
+                        SelectionChanged="NavView_SelectionChanged"
+                        ItemInvoked="OnNotificationItemInvoked"
+                        Loaded="NavView_Loaded"
+                        PaneOpened="NavView_PaneOpened"
+                        PaneClosed="NavView_PaneClosed"
+                BackRequested="NavView_BackRequested"
+                xmlns:controls="using:FolderRewind.Controls"
+    KeyboardAcceleratorPlacementMode="Hidden">
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home"
+                                    AutomationProperties.AutomationId="NavHome">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Home"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Uid="ShellPage_NavManager" Tag="Manager"
+                                    AutomationProperties.AutomationId="NavManager">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Manage"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="TasksNavItem" x:Uid="ShellPage_NavTasks" Tag="Tasks"
+                                    AutomationProperties.AutomationId="NavTasks">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Copy"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge x:Name="TasksRunningInfoBadge" Visibility="Collapsed"/>
+                    </NavigationViewItem.InfoBadge>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Uid="ShellPage_NavHistory" Tag="History"
+                                    AutomationProperties.AutomationId="NavHistory">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Clock"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Uid="ShellPage_NavLogs" Tag="Logs"
+                                    AutomationProperties.AutomationId="NavLogs">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Library"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="NotificationBell" x:Uid="NotificationUI_NavEntry" SelectsOnInvoked="False"
+                    AutomationProperties.Name="{x:Bind NotificationCenter.ViewModel.BellName, Mode=OneWay, FallbackValue=''}"
+                    ToolTipService.ToolTip="{x:Bind NotificationCenter.ViewModel.BellName, Mode=OneWay, FallbackValue=''}"
+                    AutomationProperties.AutomationId="NotificationBell">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xEA8F;"/></NavigationViewItem.Icon>
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge Value="{x:Bind NotificationCenter.ViewModel.BadgeCount, Mode=OneWay, FallbackValue=0}"
+                            Visibility="{x:Bind NotificationCenter.ViewModel.HasBadge, Mode=OneWay, Converter={StaticResource BoolToVisConverter}, FallbackValue=Collapsed}"/>
+                    </NavigationViewItem.InfoBadge>
+                    <FlyoutBase.AttachedFlyout>
+                        <Flyout x:Name="NotificationFlyout" Placement="RightEdgeAlignedBottom" LightDismissOverlayMode="Off"
+                                Opened="OnNotificationFlyoutOpened" Closed="OnNotificationFlyoutClosed">
+                            <Flyout.FlyoutPresenterStyle>
+                                <Style TargetType="FlyoutPresenter" BasedOn="{StaticResource DefaultFlyoutPresenterStyle}">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="MinWidth" Value="0"/>
+                                    <Setter Property="MaxWidth" Value="420"/><Setter Property="MaxHeight" Value="560"/>
+                                    <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Disabled"/>
+                                    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                                    <Setter Property="ScrollViewer.VerticalScrollMode" Value="Disabled"/>
+                                    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+                                </Style>
+                            </Flyout.FlyoutPresenterStyle>
+                            <controls:NotificationCenterControl x:Name="NotificationCenter" Width="418" MaxHeight="558"
+                                CloseRequested="OnNotificationCloseRequested" KeyDown="OnNotificationKeyDown"/>
+                        </Flyout>
+                    </FlyoutBase.AttachedFlyout>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+
+            <Grid RowDefinitions="Auto,*">
+                <InfoBar x:Name="GlobalInfoBar" IsOpen="False" IsClosable="True" Margin="12,0,12,8" Closed="GlobalInfoBar_Closed"
+                         Visibility="{x:Bind GlobalInfoBar.IsOpen, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                         PointerEntered="GlobalInfoBar_PointerEntered" PointerExited="GlobalInfoBar_PointerExited"/>
+                <Frame x:Name="ContentFrame" Grid.Row="1" CacheSize="2" />
+            </Grid>
+        </NavigationView>
+        <controls:NotificationToastControl x:Name="NotificationToast" Grid.Row="1" Width="380" Margin="16"
+                                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Visibility="Collapsed"/>
+    </Grid>
+</Page>

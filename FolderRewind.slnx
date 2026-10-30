@@ -4,33 +4,43 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj">
+  <Project Path="src/FolderRewind.Core/FolderRewind.Core.csproj">
     <Platform Solution="*|ARM64" Project="AnyCPU" />
     <Platform Solution="*|x64" Project="AnyCPU" />
     <Platform Solution="*|x86" Project="AnyCPU" />
   </Project>
-  <Project Path="FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj">
+  <Project Path="tests/FolderRewind.TestSupport/FolderRewind.TestSupport.csproj">
     <Platform Solution="*|ARM64" Project="AnyCPU" />
     <Platform Solution="*|x64" Project="AnyCPU" />
     <Platform Solution="*|x86" Project="AnyCPU" />
   </Project>
-  <Project Path="FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj">
+  <Project Path="src/FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj">
     <Platform Solution="*|ARM64" Project="AnyCPU" />
     <Platform Solution="*|x64" Project="AnyCPU" />
     <Platform Solution="*|x86" Project="AnyCPU" />
   </Project>
-  <Project Path="FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj">
+  <Project Path="src/FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj">
     <Platform Solution="*|ARM64" Project="AnyCPU" />
     <Platform Solution="*|x64" Project="AnyCPU" />
     <Platform Solution="*|x86" Project="AnyCPU" />
   </Project>
-  <Project Path="FolderRewind/FolderRewind.csproj">
+  <Project Path="tests/FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj">
+    <Platform Solution="*|ARM64" Project="AnyCPU" />
+    <Platform Solution="*|x64" Project="AnyCPU" />
+    <Platform Solution="*|x86" Project="AnyCPU" />
+  </Project>
+  <Project Path="tests/FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj">
+    <Platform Solution="*|ARM64" Project="AnyCPU" />
+    <Platform Solution="*|x64" Project="AnyCPU" />
+    <Platform Solution="*|x86" Project="AnyCPU" />
+  </Project>
+  <Project Path="src/FolderRewind/FolderRewind.csproj">
     <Platform Solution="*|ARM64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
     <Deploy />
   </Project>
-  <Project Path="FolderRewind.Tests/FolderRewind.Tests.csproj">
+  <Project Path="tests/FolderRewind.Tests/FolderRewind.Tests.csproj">
     <Platform Solution="*|ARM64" Project="AnyCPU" />
     <Platform Solution="*|x64" Project="AnyCPU" />
     <Platform Solution="*|x86" Project="AnyCPU" />

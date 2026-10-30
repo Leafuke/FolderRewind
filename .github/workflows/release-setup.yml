@@ -33,8 +33,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $metadata = & ./.github/scripts/Get-SetupReleaseMetadata.ps1
-          $state = & ./.github/scripts/Test-SetupReleasePreflight.ps1 -Version $metadata.version -SourceRevision $env:GITHUB_SHA -DownloadDirectory artifacts/preflight
+          $metadata = & ./scripts/release/Get-SetupReleaseMetadata.ps1
+          $state = & ./scripts/test/Test-SetupReleasePreflight.ps1 -Version $metadata.version -SourceRevision $env:GITHUB_SHA -DownloadDirectory artifacts/preflight
           "version=$($metadata.version)" >> $env:GITHUB_OUTPUT
           "tag=$($metadata.tag)" >> $env:GITHUB_OUTPUT
           "title=$($metadata.title)" >> $env:GITHUB_OUTPUT
@@ -44,7 +44,13 @@ jobs:
           if ($state.alreadyPublished) {
             "Already published; verified tag, four assets and SHA-256. $($state.url)" >> $env:GITHUB_STEP_SUMMARY
           } else {
-            $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers @{'User-Agent'='FolderRewind-release'}
+            $headers = @{
+              'User-Agent' = 'FolderRewind-release'
+              'Accept' = 'application/vnd.github+json'
+            }
+            $token = if ($env:GH_TOKEN) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }
+            if ($token) { $headers['Authorization'] = "Bearer $token" }
+            $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers $headers
             "sevenzip=$($upstream.tag_name)" >> $env:GITHUB_OUTPUT
           }
 
@@ -59,14 +65,14 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-setup-${{ hashFiles('**/*.csproj', '**/*.wixproj', 'NuGet.Config') }}
           restore-keys: ${{ runner.os }}-nuget-setup-
-      - name: Run all three core test suites
-        run: ./.github/scripts/Invoke-SetupCoreTests.ps1
+      - name: Run production and isolated recovery test suites
+        run: ./scripts/test/Invoke-SetupCoreTests.ps1
       - name: Preserve core test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -96,7 +102,7 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -105,14 +111,15 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: artifacts/installer-native-api
-          key: ${{ runner.os }}-wix-native-${{ hashFiles('.github/scripts/Restore-InstallerNativeApi.ps1') }}
+          key: ${{ runner.os }}-wix-native-${{ hashFiles('scripts/build/Restore-InstallerNativeApi.ps1') }}
       - name: Publish once, package and verify production identity
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
           SEVENZIP_RELEASE: ${{ needs.preflight.outputs.sevenzip }}
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:TARGET_PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
+          ./scripts/build/Build-SetupCandidate.ps1 -Platform $env:TARGET_PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
       - name: Preserve validation diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -173,8 +180,8 @@ jobs:
           RELEASE_TITLE: ${{ needs.preflight.outputs.title }}
           RELEASE_NOTES: ${{ needs.preflight.outputs.notes }}
         run: |
-          ./.github/scripts/New-SetupReleaseReport.ps1 -CandidateDirectory artifacts/candidates -AssetsDirectory artifacts/public -TestResultsDirectory artifacts/core-tests -Version $env:RELEASE_VERSION -SourceRevision $env:GITHUB_SHA -RunId $env:GITHUB_RUN_ID -OutputPath artifacts/report/release-report.json
-          ./.github/scripts/Publish-ReleaseAssets.ps1 -Tag $env:RELEASE_TAG -ReleaseName $env:RELEASE_TITLE -AssetsDirectory artifacts/public -TargetCommit $env:GITHUB_SHA -Version $env:RELEASE_VERSION -ReleaseReport artifacts/report/release-report.json -RunId $env:GITHUB_RUN_ID -ReleaseNotesPath $env:RELEASE_NOTES -Finalize
+          ./scripts/release/New-SetupReleaseReport.ps1 -CandidateDirectory artifacts/candidates -AssetsDirectory artifacts/public -TestResultsDirectory artifacts/core-tests -Version $env:RELEASE_VERSION -SourceRevision $env:GITHUB_SHA -RunId $env:GITHUB_RUN_ID -OutputPath artifacts/report/release-report.json
+          ./scripts/release/Publish-ReleaseAssets.ps1 -Tag $env:RELEASE_TAG -ReleaseName $env:RELEASE_TITLE -AssetsDirectory artifacts/public -TargetCommit $env:GITHUB_SHA -Version $env:RELEASE_VERSION -ReleaseReport artifacts/report/release-report.json -RunId $env:GITHUB_RUN_ID -ReleaseNotesPath $env:RELEASE_NOTES -Finalize
           $recordJson = gh release view $env:RELEASE_TAG --json assets,isDraft,isPrerelease,targetCommitish,url
           if ($LASTEXITCODE) { throw 'Cannot record published release.' }
           $recordJson | Set-Content artifacts/report/release-record.json -Encoding utf8

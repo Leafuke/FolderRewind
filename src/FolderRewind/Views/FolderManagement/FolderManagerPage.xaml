@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FolderRewind.Views.FolderManagerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:FolderRewind.Models"
+    xmlns:converters="using:FolderRewind.Converters"
+    xmlns:controls="using:FolderRewind.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    NavigationCacheMode="Enabled">
+
+    <Page.Resources>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Both toolbar rows share columns so the comment field and action groups stay aligned. -->
+        <Grid x:Name="ManagerToolbar" Padding="24,12" RowSpacing="8" ColumnSpacing="8"
+              Background="{ThemeResource LayerFillColorAltBrush}"
+              BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
+              CornerRadius="{ThemeResource NavigationViewContentGridCornerRadius}"
+              SizeChanged="OnToolbarSizeChanged">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SelectionColumn" Width="240"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid x:Name="ProjectContext" Grid.ColumnSpan="2" ColumnSpacing="8" Margin="0,0,8,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel x:Name="ProjectLabel" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock x:Name="CurrentConfigLabel" x:Uid="FolderManager_CurrentConfig" VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+                <ComboBox x:Name="ConfigSelector" x:Uid="FolderManager_ConfigSelector" Grid.Column="1"
+                          MinWidth="0" MinHeight="32" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          ToolTipService.ToolTip="{x:Bind ViewModel.CurrentConfigDisplayName, Mode=OneWay}"
+                          AutomationProperties.AutomationId="FolderManagerConfigSelector"
+                          AutomationProperties.LabeledBy="{x:Bind CurrentConfigLabel, Mode=OneTime}"
+                          ItemsSource="{x:Bind ViewModel.ConfigsView, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.CurrentConfig, Mode=TwoWay}" DisplayMemberPath="Name"/>
+                <Button Grid.Column="2" x:Uid="Onboarding_ProjectActions" MinWidth="32" MinHeight="32" Padding="8,4"
+                        VerticalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanExecuteActions, Mode=OneWay}"
+                        AutomationProperties.AutomationId="ProjectOnboardingActions">
+                    <FontIcon Glyph="&#xE712;" FontSize="16"/>
+                    <Button.Flyout><MenuFlyout>
+                        <MenuFlyoutItem x:Uid="CloudSetup_Menu" Click="OnCloudSetup" AutomationProperties.AutomationId="ProjectCloudSetup"/>
+                        <MenuFlyoutItem x:Uid="MinecraftCheck_Open" Click="OnMinecraftIntegration" AutomationProperties.AutomationId="ProjectMinecraftIntegration"/>
+                        <MenuFlyoutItem x:Uid="Timing_Open" Click="OnViewTimings" AutomationProperties.AutomationId="ProjectViewTimings"/>
+                    </MenuFlyout></Button.Flyout>
+                </Button>
+                <Button Grid.Column="3" Command="{x:Bind ViewModel.ConfigSettingsCommand}"
+                        Style="{StaticResource TransparentIconButtonStyle}" Padding="8,4" MinWidth="32" MinHeight="32"
+                        VerticalAlignment="Stretch" AutomationProperties.AutomationId="FolderManagerConfigSettings"
+                        x:Uid="FolderManager_ConfigSettingsButton">
+                    <FontIcon Glyph="&#xE713;" FontSize="16"/>
+                </Button>
+            </Grid>
+
+            <Button x:Name="AddFolderButton" Grid.Column="2" HorizontalAlignment="Stretch" x:Uid="FolderManager_AddFolderButton" MinWidth="32" MinHeight="32"
+                    VerticalAlignment="Stretch" AutomationProperties.AutomationId="FolderManagerAddFolder"
+                    IsEnabled="{x:Bind ViewModel.CanExecuteActions, Mode=OneWay}">
+                <StackPanel x:Name="AddFolderContent" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE710;" FontSize="16"/>
+                    <TextBlock x:Name="AddFolderText" x:Uid="FolderManager_AddFolder" VerticalAlignment="Center"/>
+                    <FontIcon x:Name="AddFolderChevron" Glyph="&#xE70D;" FontSize="10"/>
+                </StackPanel>
+                <Button.Flyout><MenuFlyout>
+                    <MenuFlyoutItem x:Uid="FolderManager_AddSingleFolder" Icon="Folder" AutomationProperties.AutomationId="FolderManagerAddSingleFolder" Click="OnAddSingleFolderClick"/>
+                    <MenuFlyoutItem x:Uid="FolderManager_AddSubFolders" Icon="List" AutomationProperties.AutomationId="FolderManagerAddSubFolders" Click="OnAddSubFoldersClick"/>
+                    <MenuFlyoutSeparator/>
+                    <MenuFlyoutItem x:Uid="FolderManager_PluginDiscover" Icon="Find" AutomationProperties.AutomationId="FolderManagerPluginDiscover" Click="OnPluginDiscoverFoldersClick"/>
+                </MenuFlyout></Button.Flyout>
+            </Button>
+            <Button x:Name="BackupConfigButton" Grid.Column="3" HorizontalAlignment="Stretch" x:Uid="FolderManager_BackupConfigButton" MinWidth="32" MinHeight="32"
+                    VerticalAlignment="Stretch" AutomationProperties.AutomationId="FolderManagerBackupConfig"
+                    Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.BackupConfigCommand}">
+                <StackPanel x:Name="BackupConfigContent" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE896;" FontSize="16"/>
+                    <TextBlock x:Name="BackupConfigText" x:Uid="FolderManager_BackupAll" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <Border Grid.Row="1" Grid.ColumnSpan="4" Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+
+            <Grid x:Name="SelectedContext" Grid.Row="2" ColumnSpacing="8" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                <TextBlock x:Name="SelectedLabel" Grid.Column="1" x:Uid="FolderManager_SelectedAction"
+                           VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                <TextBlock x:Name="SelectedFolderName" Grid.Column="2" Text="{x:Bind ViewModel.SelectedFolderDisplayName, Mode=OneWay}"
+                           ToolTipService.ToolTip="{x:Bind ViewModel.SelectedFolderDisplayName, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </Grid>
+
+            <Grid x:Name="CommentLayout" Grid.Row="2" Grid.Column="1" ColumnSpacing="8" Margin="0,0,8,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid VerticalAlignment="Center">
+                    <TextBlock x:Name="BackupCommentLabel" x:Uid="FolderManager_BackupComment"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <FontIcon x:Name="CommentIcon" Glyph="&#xE70F;" FontSize="16" Visibility="Collapsed"
+                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </Grid>
+                <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder"
+                         MinWidth="0" MinHeight="32" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                         AutomationProperties.AutomationId="FolderManagerBackupComment"
+                         AutomationProperties.LabeledBy="{x:Bind BackupCommentLabel, Mode=OneTime}"
+                         Text="{x:Bind ViewModel.BackupComment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{x:Bind ViewModel.CanExecuteActions, Mode=OneWay}"/>
+            </Grid>
+
+            <Button x:Name="BackupSelectedButton" Grid.Row="2" Grid.Column="2" HorizontalAlignment="Stretch" x:Uid="FolderManager_BackupSelectedButton" MinWidth="32" MinHeight="32"
+                    VerticalAlignment="Stretch" AutomationProperties.AutomationId="FolderManagerBackupSelected"
+                    Command="{x:Bind ViewModel.BackupSelectedCommand}" Style="{StaticResource AccentButtonStyle}">
+                <StackPanel x:Name="BackupSelectedContent" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE898;" FontSize="16"/>
+                    <TextBlock x:Name="BackupSelectedText" x:Uid="FolderManager_BackupSelected" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="HistoryButton" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Stretch" x:Uid="FolderManager_HistoryButton" MinWidth="32" MinHeight="32"
+                    VerticalAlignment="Stretch" AutomationProperties.AutomationId="FolderManagerOpenHistory"
+                    IsEnabled="{x:Bind ViewModel.CanBackupSelected, Mode=OneWay}" Click="OnHistoryClick">
+                <StackPanel x:Name="HistoryContent" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE81C;" FontSize="16"/>
+                    <TextBlock x:Name="HistoryText" x:Uid="FolderManager_History" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- 文件夹列表 -->
+        <ListView x:Name="FolderList" Grid.Row="1" Padding="16,8,16,16" 
+                  AutomationProperties.AutomationId="FolderManagerFolderList"
+                  ContainerContentChanging="OnFolderContainerContentChanging"
+                  ItemsSource="{x:Bind ViewModel.CurrentFoldersView, Mode=OneWay}"
+                  SelectionMode="Single" 
+                  SelectedItem="{x:Bind ViewModel.SelectedFolderItem, Mode=TwoWay}">
+
+            <!-- 自定义选中样式：仅显示左侧强调色条，不显示整行灰色背景 -->
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Margin" Value="0,4"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <Grid x:Name="Root" Background="Transparent" CornerRadius="{StaticResource OverlayCornerRadius}">
+                                    <!-- 左侧选中指示条 -->
+                                    <Border x:Name="SelectionIndicator"
+                                            Width="3"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Height="28"
+                                            CornerRadius="1.5"
+                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                            Opacity="0"
+                                            Margin="4,0"/>
+
+                                    <ContentPresenter x:Name="ContentPresenter"
+                                                      Content="{TemplateBinding Content}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                      HorizontalAlignment="Stretch"
+                                                      VerticalAlignment="Stretch"
+                                                      Margin="4,0,0,0"/>
+
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal"/>
+                                            <VisualState x:Name="PointerOver">
+                                                <Storyboard>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="Pressed">
+                                                <Storyboard>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="Selected">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="1" Duration="0:0:0.2">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="PointerOverSelected">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="1" Duration="0:0:0.15"/>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="PressedSelected">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="1" Duration="0:0:0.15"/>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="models:ManagedFolder">
+                    <!-- 文件夹卡片：优化后的布局 -->
+                    <Grid Margin="8,6" Padding="14,12"
+                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                          BorderThickness="1"
+                          CornerRadius="{StaticResource OverlayCornerRadius}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 1. 封面图片区域 -->
+                        <Button Style="{StaticResource TransparentIconButtonStyle}" Padding="0" CornerRadius="{StaticResource OverlayCornerRadius}" Width="72" Height="72"
+                            AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerChangeCover}"
+                            Click="OnChangeIconClick" x:Uid="FolderManager_ChangeCover">
+                            <Grid CornerRadius="{StaticResource OverlayCornerRadius}">
+                                <!-- 默认图标（无图片时显示） -->
+                                <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="{StaticResource OverlayCornerRadius}">
+                                    <FontIcon Glyph="&#xE8B9;" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                </Border>
+                                <!-- 封面图片 -->
+                                <controls:AsyncFileImage DecodeDip="72" SourcePath="{x:Bind CoverImagePath, Mode=OneWay}" Stretch="UniformToFill"/>
+                            </Grid>
+                        </Button>
+
+                        <!-- 2. 信息区域 -->
+                        <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center" Spacing="3">
+                            <Grid HorizontalAlignment="Left" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="{x:Bind DisplayName, Mode=OneWay}"/>
+                                <Button Grid.Column="1" x:Uid="FolderManager_FavoriteToggle"
+                                        AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerToggleFavorite}"
+                                        Style="{StaticResource TransparentIconButtonStyle}" Padding="4" Click="OnFavoriteToggleClick">
+                                    <controls:FavoriteStatusPresenter IsFavorite="{x:Bind IsFavorite, Mode=OneWay}" />
+                                </Button>
+                            </Grid>
+
+                            <!-- 路径 -->
+                            <TextBlock Text="{x:Bind Path, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                       ToolTipService.ToolTip="{x:Bind Path, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                            <!-- 描述 -->
+                            <TextBox Text="{x:Bind Description, Mode=OneWay}"
+                                     x:Uid="FolderManager_AddDescription"
+                                     AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerDescription}"
+                                     BorderThickness="0" Background="Transparent" 
+                                     Padding="0" Margin="0,8,0,0"
+                                     MaxWidth="300"
+                                     HorizontalAlignment="Left"
+                                     KeyDown="OnDescriptionEditorKeyDown"
+                                     LostFocus="OnDescriptionEditorLostFocus"
+                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                            <!-- 状态与时间 -->
+                            <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,2,0,0">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <controls:SemanticStatusPresenter Status="{x:Bind ExecutionStatus, Mode=OneWay}" Text="{x:Bind StatusText, Mode=OneWay}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE823;" FontSize="11"
+                                              Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                    <TextBlock Text="{x:Bind LastBackupTimeDisplay, Mode=OneWay}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- 3. 操作菜单 -->
+                        <Button Grid.Column="2" x:Uid="FolderManager_MoreActions"
+                                AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerMoreActions}"
+                                Style="{StaticResource TransparentIconButtonStyle}" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE712;"/>
+                            <Button.Flyout>
+                                <MenuFlyout Opening="OnFolderActionsOpening">
+                                    <MenuFlyoutItem x:Uid="Preview_Open" Tag="SpatialPreview" Click="OnSpatialPreviewClick"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerPreview}"/>
+                                    <MenuFlyoutItem x:Uid="SpatialWorkspace_OpenScope" AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerSpatialScope}" Tag="SpatialScope" Click="OnSpatialScopeClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerOpenFolder}"
+                                                    Click="OnOpenFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_Details"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerDetails}"
+                                                    Click="OnShowFolderDetailsClick">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE946;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Uid="FolderManager_EditSourceScope" Icon="Filter"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerEditScope}"
+                                                    Click="OnEditSourceScopeClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_RenameFolder" Icon="Rename"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerRename}"
+                                                    Click="OnRenameFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerRescan}"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_MiniWindow"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerMiniWindow}"
+                                                    Click="OnOpenMiniWindowClick">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE8A7;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutSeparator/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_PinToTop"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerPinToTop}"
+                                                    Click="OnPinToTopClick">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE718;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerRemove}"
+                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}" Click="OnRemoveFolderClick"/>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</Page>

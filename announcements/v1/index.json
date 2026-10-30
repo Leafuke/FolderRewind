@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "restore-safety-snapshot-workaround-20261030",
+      "revision": "1",
+      "publishedAt": "2026-10-30T19:18:42+08:00",
+      "expiresAt": "2027-01-30T19:18:42+08:00",
+      "channels": ["Store", "Setup", "Sideload", "Developer", "Unknown"],
+      "kind": "criticalCompatibility",
+      "minVersion": "1.10.0.0",
+      "maxVersionExclusive": "1.10.1.0",
+      "locales": {
+        "zh-CN": {
+          "title": "1.10.0 临时提醒：请关闭还原前安全备份",
+          "summary": "请在“项目设置 → 还原”中暂时关闭“还原前自动备份”和“快速还原前的安全恢复点”。每次还原前，请先手动备份并确认成功。",
+          "body": "已确认 FolderRewind 1.10.0 在部分目录结构下，创建还原前安全备份可能发生路径错误，导致还原被中止。任务队列可能显示备份失败，Minecraft 联动也可能提示主程序拒绝还原请求。\n\n请打开受影响项目的“项目设置 → 还原”，关闭“还原前自动备份”；如果使用快速还原，也请关闭“快速还原前的安全恢复点”，然后保存设置。这两个选项相互独立。\n\n关闭后，软件不会自动保留还原前的独立恢复点。每次还原前，请先手动备份并确认成功，保留这份备份，以便需要时恢复还原前的数据。还原失败时的自动回滚仍保持开启。\n\n这是临时处理方式。修复版本发布后，请按该版本的更新说明重新开启上述选项。"
+        },
+        "en-US": {
+          "title": "Temporary notice for 1.10.0: disable pre-restore safety backups",
+          "summary": "Temporarily turn off “Backup before restore” and “Safety snapshot before Quick Restore” under Project settings → Restore. Create a manual backup and confirm it succeeds before each restore.",
+          "body": "FolderRewind 1.10.0 has a confirmed issue where some directory structures cause a path error while creating a pre-restore safety backup, blocking the restore. The task queue may show a failed backup, and the Minecraft integration may report that the host rejected the restore request.\n\nOpen Project settings → Restore for the affected project and turn off “Backup before restore”. If you use Quick Restore, also turn off “Safety snapshot before Quick Restore”, then save the settings. These two options are independent.\n\nWith these options disabled, the app will no longer automatically keep an independent recovery point of the state before restoration. Before each restore, create a manual backup, confirm it succeeds, and keep it so you can recover that state if needed. Automatic rollback on restore failure remains enabled.\n\nThis is a temporary workaround. Once a fixed version is released, follow its release instructions to re-enable these options."
+        }
+      }
+    }
+  ]
+}

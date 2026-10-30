@@ -1,0 +1,101 @@
+<UserControl x:Class="FolderRewind.Controls.NotificationCenterControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:FolderRewind.ViewModels" xmlns:controls="using:FolderRewind.Controls">
+    <UserControl.Resources>
+        <Style x:Key="QuietButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="Background" Value="{ThemeResource ControlFillColorTransparentBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlFillColorTransparentBrush}"/>
+            <Setter Property="Padding" Value="6"/><Setter Property="MinWidth" Value="32"/><Setter Property="MinHeight" Value="32"/>
+        </Style>
+    </UserControl.Resources>
+    <Grid x:Name="LayoutRoot" RowSpacing="8" Padding="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" SizeChanged="OnLayoutChanged">
+        <Grid x:Name="Header" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="4">
+            <Button x:Name="BackButton" x:Uid="NotificationUI_Back" Style="{StaticResource QuietButton}" Click="OnBack" AutomationProperties.AutomationId="NotificationCenterBack"
+                    Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"><FontIcon Glyph="&#xE72B;" FontSize="16"/></Button>
+            <TextBlock Grid.Column="1" x:Uid="NotificationCenter_Title" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" AutomationProperties.HeadingLevel="Level1"/>
+            <Button Grid.Column="2" x:Uid="NotificationUI_MarkAll" Style="{StaticResource QuietButton}" Command="{x:Bind ViewModel.MarkAllReadCommand}"
+                    IsEnabled="{x:Bind ViewModel.CanMarkAllRead, Mode=OneWay}" AutomationProperties.AutomationId="NotificationCenterMarkAllRead"><FontIcon Glyph="&#xE73A;" FontSize="16"/></Button>
+            <Button Grid.Column="3" x:Uid="NotificationUI_More" Style="{StaticResource QuietButton}" AutomationProperties.AutomationId="NotificationCenterMore">
+                <FontIcon Glyph="&#xE712;" FontSize="16"/>
+                <Button.Flyout><MenuFlyout>
+                    <ToggleMenuFlyoutItem x:Uid="NotificationUI_UnreadOnly" IsChecked="{x:Bind ViewModel.UnreadOnly, Mode=TwoWay}" AutomationProperties.AutomationId="NotificationCenterUnreadOnly"/>
+                    <MenuFlyoutItem x:Uid="NotificationUI_ClearRead" Command="{x:Bind ViewModel.ClearReadCommand}" IsEnabled="{x:Bind ViewModel.CanClear, Mode=OneWay}" AutomationProperties.AutomationId="NotificationCenterClearRead"/>
+                </MenuFlyout></Button.Flyout>
+            </Button>
+            <Button x:Name="CloseButton" Grid.Column="4" x:Uid="NotificationCenter_Close" Style="{StaticResource QuietButton}" Click="OnClose" AutomationProperties.AutomationId="NotificationCenterClose"><FontIcon Glyph="&#xE711;" FontSize="16"/></Button>
+        </Grid>
+        <Button x:Name="NewResults" Grid.Row="1" Content="{x:Bind ViewModel.NewResultsText, Mode=OneWay}" Command="{x:Bind ViewModel.ApplyNewResultsCommand}"
+                HorizontalAlignment="Stretch" AutomationProperties.AutomationId="NotificationCenterNewResults" AutomationProperties.LiveSetting="Polite"
+                Visibility="{x:Bind ViewModel.HasNewResults, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+        <SelectorBar x:Name="Filter" Grid.Row="2" SelectionChanged="OnFilterChanged" AutomationProperties.AutomationId="NotificationCenterFilter"
+                     Visibility="{x:Bind ViewModel.ShowList, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <SelectorBarItem x:Name="AllFilter" x:Uid="NotificationUI_All" AutomationProperties.AutomationId="NotificationCenterAll"/>
+            <SelectorBarItem x:Name="ImportantFilter" x:Uid="NotificationUI_Important" AutomationProperties.AutomationId="NotificationCenterImportant"/>
+        </SelectorBar>
+        <Grid Grid.Row="3">
+            <Grid Visibility="{x:Bind ViewModel.ShowList, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <ListView x:Name="Records" x:Uid="NotificationCenter_List" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" SelectionMode="None"
+                          MaxHeight="380" Loaded="OnRecordsLoaded" IsItemClickEnabled="True" ItemClick="OnItemClick"
+                          PointerEntered="OnReadingEntered" PointerExited="OnReadingExited" GotFocus="OnReadingFocus" LostFocus="OnReadingFocus"
+                          AutomationProperties.AutomationId="NotificationCenterList">
+                    <ListView.ItemContainerStyle><Style TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/>
+                    </Style></ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate><DataTemplate x:DataType="vm:NotificationItemViewModel">
+                        <Grid Padding="8,12" ColumnDefinitions="Auto,*" ColumnSpacing="12" AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}">
+                            <controls:NotificationStatusIcon Severity="{x:Bind Severity, Mode=OneWay}" VerticalAlignment="Top"/>
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <Ellipse Grid.Column="1" Width="6" Height="6" Fill="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center"
+                                             AutomationProperties.Name="{x:Bind ReadState, Mode=OneWay}" Visibility="{x:Bind Unread, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Timestamp, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind FullTimestamp, Mode=OneWay}"
+                                               Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </Grid>
+                                <TextBlock Text="{x:Bind Project, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind Project, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                           Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind HasProject, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                                <TextBlock Text="{x:Bind Message, Mode=OneWay}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <HyperlinkButton Content="{x:Bind ActionText, Mode=OneWay}" Tag="{x:Bind Id, Mode=OneWay}" Click="OnTarget" Padding="0,4" AutomationProperties.AutomationId="NotificationRecordTarget"
+                                                     Visibility="{x:Bind HasTarget, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                                    <HyperlinkButton x:Uid="NotificationUI_Details" Tag="{x:Bind Id, Mode=OneWay}" Click="OnDetails" Padding="0,4" AutomationProperties.AutomationId="NotificationRecordDetails"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate></ListView.ItemTemplate>
+                </ListView>
+                <TextBlock x:Uid="NotificationCenter_Empty" Padding="16,32" TextWrapping="Wrap" HorizontalAlignment="Center"
+                           Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+            </Grid>
+            <ScrollViewer x:Name="DetailsScroll" MaxHeight="400" HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <StackPanel Spacing="12" Padding="4,8">
+                    <TextBlock Text="{x:Bind ViewModel.DetailTitle, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="{x:Bind ViewModel.DetailProject, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="{x:Bind ViewModel.DetailTimestamp, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"/>
+                    <TextBlock Text="{x:Bind ViewModel.DetailText, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                    <Expander x:Uid="Product_TechnicalDetails" HorizontalAlignment="Stretch"
+                              Visibility="{x:Bind ViewModel.HasTechnicalDetails, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                              AutomationProperties.AutomationId="NotificationTechnicalDetails">
+                        <TextBlock Text="{x:Bind ViewModel.TechnicalDetails, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                    </Expander>
+                    <TextBlock Text="{x:Bind ViewModel.NavigationMessage, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                               Visibility="{x:Bind ViewModel.HasNavigationMessage, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                    <HyperlinkButton Content="{x:Bind ViewModel.TargetText, Mode=OneWay}" Command="{x:Bind ViewModel.OpenTargetCommand}" Padding="0,4" AutomationProperties.AutomationId="NotificationCenterOpenTarget"
+                                     Visibility="{x:Bind ViewModel.HasTarget, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                    <HyperlinkButton Content="{x:Bind ViewModel.RecommendationText, Mode=OneWay}" Command="{x:Bind ViewModel.OpenRecommendationCommand}" Padding="0,4"
+                                     AutomationProperties.AutomationId="NotificationRecommendation"
+                                     Visibility="{x:Bind ViewModel.HasRecommendation, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                    <HyperlinkButton x:Uid="NotificationCenter_OpenLogs" Command="{x:Bind ViewModel.OpenLogsCommand}" Padding="0,4" AutomationProperties.AutomationId="NotificationCenterOpenLogs"
+                                     Visibility="{x:Bind ViewModel.HasLogs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+        <TextBlock x:Name="PersistenceStatus" Grid.Row="5" Text="{x:Bind ViewModel.PersistenceMessage, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                   Visibility="{x:Bind ViewModel.HasPersistenceMessage, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+        <Grid x:Name="UndoRow" Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8" Visibility="{x:Bind ViewModel.CanUndo, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <TextBlock Text="{x:Bind ViewModel.UndoText, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite"/>
+            <HyperlinkButton Grid.Column="1" x:Uid="NotificationUI_Undo" Command="{x:Bind ViewModel.UndoClearCommand}" AutomationProperties.AutomationId="NotificationCenterUndo"/>
+        </Grid>
+    </Grid>
+</UserControl>

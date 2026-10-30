@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FolderRewind.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:settings="using:FolderRewind.Views.Settings"
+    xmlns:views="using:FolderRewind.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    NavigationCacheMode="Enabled">
+
+    <!-- All shared settings styles moved to Styles/SettingsStyles.xaml, merged in App.xaml -->
+
+    <Grid views:PageLayout.ResponsivePadding="True" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            x:Uid="SettingsPage_Title"
+            AutomationProperties.HeadingLevel="Level1"
+            Style="{StaticResource TitleTextBlockStyle}" />
+
+        <ScrollViewer x:Name="SettingsScrollViewer" Grid.Row="1" Padding="0,0,0,16" VerticalScrollBarVisibility="Auto">
+            <StackPanel HorizontalAlignment="Stretch" Spacing="{StaticResource SettingsCardSpacing}">
+                <StackPanel.ChildrenTransitions>
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <settings:PresetSettingsControl x:Name="PresetControl" />
+                <settings:CoreBehaviorControl x:Name="CoreBehaviorControl" />
+                <settings:AppearanceLayoutControl x:Name="AppearanceLayoutControl" />
+                <settings:RuntimeEnvControl x:Name="RuntimeEnvControl" />
+                <settings:DiagnosticsControl x:Name="DiagnosticsControl" />
+                <settings:DataManagementControl x:Name="DataManagementControl" />
+                <settings:PluginsKnotLinkControl x:Name="PluginsKnotLinkControl" />
+                <settings:AboutControl x:Name="AboutControl" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

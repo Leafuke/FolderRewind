@@ -1,0 +1,9 @@
+<UserControl x:Class="FolderRewind.Controls.NotificationStatusIcon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Width="28" Height="28" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="14" AutomationProperties.AccessibilityView="Raw">
+        <FontIcon x:Name="SuccessIcon" Glyph="&#xE73E;" FontSize="16" Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
+        <FontIcon x:Name="WarningIcon" Glyph="&#xE7BA;" FontSize="16" Foreground="{ThemeResource SystemFillColorCautionBrush}"/>
+        <FontIcon x:Name="ErrorIcon" Glyph="&#xEA39;" FontSize="16" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+        <FontIcon x:Name="InfoIcon" Glyph="&#xE946;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+    </Grid>
+</UserControl>

@@ -24,7 +24,7 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -33,22 +33,22 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: artifacts/installer-native-api
-          key: ${{ runner.os }}-wix-native-${{ hashFiles('.github/scripts/Restore-InstallerNativeApi.ps1') }}
+          key: ${{ runner.os }}-wix-native-${{ hashFiles('scripts/build/Restore-InstallerNativeApi.ps1') }}
       - name: Resolve diagnostic inputs
         env:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          $metadata = & ./.github/scripts/Get-SetupReleaseMetadata.ps1
+          $metadata = & ./scripts/release/Get-SetupReleaseMetadata.ps1
           "RELEASE_VERSION=$($metadata.version)" >> $env:GITHUB_ENV
           $upstream = Invoke-RestMethod https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest -Headers @{'User-Agent'='FolderRewind-diagnostics'}
           "SEVENZIP_RELEASE=$($upstream.tag_name)" >> $env:GITHUB_ENV
-          $payload = & ./.github/scripts/Stage-SevenZip.ps1 -Platform $env:TARGET_PLATFORM -ReleaseTag $upstream.tag_name | Select-Object -Last 1
+          $payload = & ./scripts/build/Stage-SevenZip.ps1 -Platform $env:TARGET_PLATFORM -ReleaseTag $upstream.tag_name | Select-Object -Last 1
           "SEVENZIP_PAYLOAD=$payload" >> $env:GITHUB_ENV
       - name: Build unsigned MSIX regression package
         env:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          dotnet build FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:TARGET_PLATFORM" -p:CETCompat=false `
+          dotnet build src/FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:TARGET_PLATFORM" -p:CETCompat=false `
             "-p:SevenZipExecutable=$env:SEVENZIP_PAYLOAD" -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxBundle=Never `
             -p:GenerateAppxPackageOnBuild=true -p:GenerateTestArtifacts=false -p:AppxSymbolPackageEnabled=false `
             -p:GenerateAppxSymbolPackage=false -p:DebugType=None -p:DebugSymbols=false `
@@ -60,13 +60,13 @@ jobs:
         env:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          dotnet clean FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:TARGET_PLATFORM" -p:FolderRewindDistributionChannel=Msi -p:GenerateAppxPackageOnBuild=false
+          dotnet clean src/FolderRewind/FolderRewind.csproj -c Release "-p:Platform=$env:TARGET_PLATFORM" -p:FolderRewindDistributionChannel=Msi -p:GenerateAppxPackageOnBuild=false
           if ($LASTEXITCODE) { throw 'Diagnostic cleanup failed.' }
       - name: Build diagnostic candidate
         env:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          ./.github/scripts/Build-SetupCandidate.ps1 -Platform $env:TARGET_PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
+          ./scripts/build/Build-SetupCandidate.ps1 -Platform $env:TARGET_PLATFORM -Version $env:RELEASE_VERSION -SevenZipRelease $env:SEVENZIP_RELEASE -RunId $env:GITHUB_RUN_ID
       - name: Ensure WinApp CLI for UI evidence
         if: matrix.platform == 'x64'
         run: |
@@ -78,15 +78,15 @@ jobs:
       - name: Validate isolated installation and rollback
         if: matrix.platform == 'x64'
         run: |
-          ./.github/scripts/Test-MsiInstallation.ps1 -MsiPath "artifacts/installer-packages/x64/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -PublishDirectory artifacts/msi-publish/x64 -ResultDirectory artifacts/msi-validation
+          ./scripts/test/Test-MsiInstallation.ps1 -MsiPath "artifacts/installer-packages/x64/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -PublishDirectory artifacts/msi-publish/x64 -ResultDirectory artifacts/msi-validation
       - name: Validate installation boundaries
         if: matrix.platform == 'x64'
         run: |
-          ./.github/scripts/Test-MsiBoundaries.ps1 -BaseMsi "artifacts/msi-validation/base-fixture/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -UpgradeMsi artifacts/msi-validation/upgrade-fixture/FolderRewind_99.99.99.0_x64.msi -ResultDirectory artifacts/msi-validation/boundaries
+          ./scripts/test/Test-MsiBoundaries.ps1 -BaseMsi "artifacts/msi-validation/base-fixture/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -UpgradeMsi artifacts/msi-validation/upgrade-fixture/FolderRewind_99.99.99.0_x64.msi -ResultDirectory artifacts/msi-validation/boundaries
       - name: Validate isolated Bundle lifecycle and fault injection
         if: matrix.platform == 'x64'
         run: |
-          ./.github/scripts/Test-MsiBundleInstallation.ps1 -FixtureMsi "artifacts/msi-validation/base-fixture/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -ResultDirectory artifacts/msi-validation/bundle -IncludeFailureProbe
+          ./scripts/test/Test-MsiBundleInstallation.ps1 -FixtureMsi "artifacts/msi-validation/base-fixture/FolderRewind_$($env:RELEASE_VERSION)_x64.msi" -ResultDirectory artifacts/msi-validation/bundle -IncludeFailureProbe
       - name: Preserve diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4

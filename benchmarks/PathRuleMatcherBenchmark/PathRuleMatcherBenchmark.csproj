@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\FolderRewind\Services\PathRuleMatcher.cs" Link="PathRuleMatcher.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/FolderRewind.Core/FolderRewind.Core.csproj" />
   </ItemGroup>
 </Project>

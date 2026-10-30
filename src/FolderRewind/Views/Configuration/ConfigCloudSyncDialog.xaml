@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FolderRewind.Views.ConfigCloudSyncDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Uid="ConfigCloudSyncDialog"
+    Loaded="OnLoaded"
+    Style="{StaticResource DefaultContentDialogStyle}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Spacing="16" MinWidth="460">
+        <TextBlock x:Uid="ConfigCloudSyncDialog_Description"
+                   Style="{StaticResource CaptionTextBlockStyle}"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                   TextWrapping="Wrap"/>
+
+        <Border Style="{StaticResource FilledCardStyle}"
+                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+            <StackPanel Spacing="8">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Uid="ConfigCloudSyncDialog_RemoteBasePathLabel" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.RemoteBasePath, Mode=OneWay}" TextWrapping="Wrap"/>
+                </Grid>
+
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Uid="ConfigCloudSyncDialog_ExecutableLabel" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.EffectiveExecutablePath, Mode=OneWay}" TextWrapping="Wrap"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Spacing="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Uid="ConfigCloudSyncDialog_AnalysisHeader" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                <Button Grid.Column="1"
+                        x:Uid="ConfigCloudSyncDialog_RefreshAnalysis"
+                        Click="OnRefreshAnalysisClick"
+                        IsEnabled="{x:Bind ViewModel.CanRefreshAnalysis, Mode=OneWay}"/>
+            </Grid>
+
+            <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                          Width="24"
+                          Height="24"
+                          HorizontalAlignment="Left"/>
+
+            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap"/>
+
+            <Border Style="{StaticResource OutlinedCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{x:Bind ViewModel.AnalysisSummary, Mode=OneWay}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{x:Bind ViewModel.AnalysisMatchedText, Mode=OneWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.AnalysisImportableText, Mode=OneWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.AnalysisUnmappedText, Mode=OneWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.AnalysisAmbiguousText, Mode=OneWay}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+            <TextBlock x:Uid="ConfigCloudSyncDialog_UploadHeader"
+                       Style="{StaticResource SubtitleTextBlockStyle}"/>
+            <TextBlock x:Uid="ConfigCloudSyncDialog_UploadDescription"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button x:Uid="ConfigCloudSyncDialog_UploadHistory"
+                    Click="OnUploadHistoryClick"
+                    IsEnabled="{x:Bind ViewModel.CanUploadHistory, Mode=OneWay}"/>
+            <Button x:Uid="ConfigCloudSyncDialog_DownloadSync"
+                    Click="OnDownloadSyncClick"
+                    IsEnabled="{x:Bind ViewModel.CanExecuteSync, Mode=OneWay}"/>
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

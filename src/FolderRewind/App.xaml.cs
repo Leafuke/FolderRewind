@@ -1,0 +1,725 @@
+using FolderRewind.Services;
+using FolderRewind.Services.Plugins;
+using H.NotifyIcon;
+using Microsoft.Windows.AppLifecycle;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.Graphics;
+
+namespace FolderRewind
+{
+    /// <summary>
+    /// 应用入口对象，负责生命周期与全局初始化编排。
+    /// </summary>
+    public partial class App : Application
+    {
+
+        #region 全局状态与共享入口
+
+        private static Window _window { get; set; } = null!;
+
+        private TaskbarIcon? _trayIcon;
+        private bool _trayRestorePending;
+        private readonly CancellationTokenSource _appLifetimeCancellation = new();
+        private Task _historyWarmupTask = Task.CompletedTask;
+        private Task _startupStateProbeTask = Task.CompletedTask;
+        internal static bool ForceExitRequested { get; private set; }
+
+        #endregion
+
+        #region 构造与全局异常捕获
+
+        /// <summary>
+        /// 应用构造函数：尽早建立全局异常日志通道。
+        /// </summary>
+        public App()
+        {
+            InitializeComponent();
+
+            // 尽量早地捕获“秒退无窗口”的异常（不依赖 XAML/Window 是否已初始化）
+            try
+            {
+                AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+                {
+                    try
+                    {
+                        var ex = e.ExceptionObject as Exception;
+                        LogService.Log(I18n.Format(
+                            "App_Log_AppDomainUnhandledException",
+                            ex?.Message ?? string.Empty,
+                            ex?.StackTrace ?? string.Empty));
+                    }
+                    catch { }
+                };
+
+                TaskScheduler.UnobservedTaskException += (_, e) =>
+                {
+                    try
+                    {
+                        LogService.Log(I18n.Format(
+                            "App_Log_TaskUnobservedException",
+                            e.Exception.Message,
+                            e.Exception.StackTrace ?? string.Empty));
+                    }
+                    catch { }
+                };
+            }
+            catch
+            {
+
+            }
+        }
+
+        #endregion
+
+        #region 应用生命周期
+
+        /// <summary>
+        /// 应用启动入口。
+        /// </summary>
+        /// <param name="args">启动参数。</param>
+        protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+        {
+            // 尽量提前挂载未处理异常处理器，避免初始化阶段直接崩溃而无日志
+            this.UnhandledException += App_UnhandledException;
+
+            ForceExitRequested = false;
+
+            try
+            {
+                Services.PluginRuntimeModeService.Initialize(Environment.GetCommandLineArgs());
+
+                // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
+                Services.ConfigService.Initialize();
+
+                if (Services.ConfigService.IsRecoveryMode)
+                {
+                    LaunchRecoveryCenter();
+                    return;
+                }
+
+                // 清理 Badge~
+                try
+                {
+                    Services.NotificationService.ClearBadge();
+                    Services.NotificationService.InitializeTaskBadgeTracking();
+                }
+                catch (Exception badgeEx)
+                {
+                    LogService.Log($"[App] Failed to clear startup badge: {badgeEx.Message}");
+                }
+
+                // 注册系统级 AppNotification 激活事件处理（仅在打包且支持时注册 COM 激活）
+                NotificationNavigationService.Initialize(RestoreWindowFromTray);
+                try
+                {
+                    if (Services.AppRuntimeInfo.IsPackaged && Microsoft.Windows.AppNotifications.AppNotificationManager.IsSupported())
+                    {
+                        Microsoft.Windows.AppNotifications.AppNotificationManager.Default.NotificationInvoked += OnAppNotificationInvoked;
+                        Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Register();
+                    }
+                }
+                catch (Exception notificationEx)
+                {
+                    LogService.Log($"[App] AppNotificationManager registration skipped or failed: {notificationEx.Message}");
+                }
+
+                LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
+                LogService.MarkSessionStart();
+
+                I18n.SetLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
+                Services.SponsorService.InitializeFromCache();
+
+                Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig.GlobalSettings);
+                _window = new MainWindow();
+                // 两个服务在启动时只注入一次，后续页面统一从这里取窗口与 UI 调度入口。
+                MainWindowService.Initialize(_window);
+                UiDispatcherService.Initialize(_window.DispatcherQueue);
+                AccessibilityThemeService.Initialize();
+                _window.Closed += OnMainWindowClosed;
+                ApplyWindowPreferences(_window);
+                Services.ThemeService.ApplyThemeToWindow(_window);
+                Services.ThemeService.ApplyPersonalizationToWindow(_window);
+                UpdateWindowTitle();
+                // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
+                _window.Activate();
+                StartupTimingService.Mark("Window activated");
+                ConfigService.StartRcloneCredentialMigrations();
+                Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
+
+                StartHistoryWarmup();
+
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+                {
+                    await Services.SponsorService.RefreshLicenseAsync(false, allowDowngrade: false);
+                });
+
+                // 静默启动只在“系统启动任务”场景生效，普通手动启动不隐藏窗口。
+                var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                var shouldSilentStart = startupSettings?.RunOnStartup == true
+                    && startupSettings.SilentStartup
+                    && IsStartupTaskLaunch();
+
+                if (shouldSilentStart && _window is MainWindow mainWindow)
+                {
+                    // 提高优先级，尽量在用户看到窗口前完成隐藏。
+                    _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High, () =>
+                    {
+                        mainWindow.HideToTray();
+                    });
+                }
+
+                // 插件包恢复和离线迁移在后台执行；UI 线程只负责启动入口。
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                {
+                    try
+                    {
+                        PluginService.Initialize();
+                    }
+                    catch (Exception pluginEx)
+                    {
+                        LogService.Log(I18n.Format("App_Log_PluginInitException", pluginEx.Message));
+                    }
+
+                    // 注册 Mini 窗口全局热键处理器
+                    try
+                    {
+                        Services.MiniWindowService.RegisterHotkey();
+                    }
+                    catch (Exception miniEx)
+                    {
+                        LogService.Log(I18n.Format("MiniWindow_Log_HotkeyRegisterFailed", miniEx.Message));
+                    }
+                });
+
+                if (startupSettings != null)
+                {
+                    // 启动项状态探测走后台，不阻塞首屏渲染；仅在探测到偏差时回写配置。
+                    _startupStateProbeTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var probe = await Services.StartupService.TryGetStartupEnabledAsync();
+                            if (probe.success && startupSettings.RunOnStartup != probe.enabled)
+                            {
+                                var saveResult = await Services.ConfigService.UpdateAndSaveAsync(config =>
+                                {
+                                    config.GlobalSettings.RunOnStartup = probe.enabled;
+                                });
+                                if (!saveResult.Success)
+                                {
+                                    LogService.LogWarning(
+                                        $"[Startup] Failed to persist startup-task state: {saveResult.ErrorMessage}",
+                                        nameof(App));
+                                }
+                            }
+                        }
+                        catch { }
+                    });
+                }
+
+                // 托盘与自动化都放到窗口激活后再排队，避免拉长首屏时间。
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, InitializeTrayIcon);
+
+                _window.DispatcherQueue.TryEnqueue(
+                    Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                    StartAutomation);
+
+                // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                        if (settings is { EnableKnotLink: true, AutoStartKnotLinkServer: true }
+                            && !KnotLinkServerManagerService.IsServerProcessRunning())
+                        {
+                            if (KnotLinkServerManagerService.TryStartServer())
+                            {
+                                var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost)
+                                    ? "127.0.0.1"
+                                    : settings.KnotLinkHost;
+                                await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
+                            }
+                        }
+
+                        await KnotLinkService.InitializeAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception knotEx)
+                    {
+                        LogService.Log(I18n.Format("App_Log_KnotLinkInitException", knotEx.Message));
+                    }
+                });
+
+                LogService.Log(I18n.GetString("App_Log_OnLaunchedEnd"));
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format(
+                    "App_Log_Fatal",
+                    ex.Message,
+                    ex.StackTrace ?? string.Empty));
+            }
+        }
+
+        private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+        {
+            e.Handled = true; // 防止直接崩溃
+            System.Diagnostics.Debug.WriteLine($"[App UnhandledException] {e.Exception.Message}\n{e.Exception.StackTrace}");
+            // 写入自定义日志文件
+            LogService.Log(I18n.Format(
+                "App_Log_UnhandledException",
+                e.Exception.Message,
+                e.Exception.StackTrace ?? string.Empty));
+        }
+
+        #endregion
+
+        #region 语言与窗口标题
+
+        public static void UpdateWindowTitle()
+        {
+            if (_window == null) return;
+
+            var title = GetLocalizedWindowTitle();
+            _window.Title = title;
+            _window.AppWindow.Title = title;
+        }
+
+        private static string GetLocalizedWindowTitle()
+        {
+            var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+            if (Services.SponsorService.IsUnlocked && !string.IsNullOrWhiteSpace(settings?.SponsorTitleText))
+            {
+                return settings.SponsorTitleText.Trim();
+            }
+
+            return Services.I18n.Format("App_WindowTitle");
+        }
+
+        private static bool IsStartupTaskLaunch()
+        {
+            if (Services.AppRuntimeInfo.IsMsiDistribution)
+            {
+                return Environment.GetCommandLineArgs()
+                    .Any(argument => string.Equals(argument, Services.StartupService.ClassicStartupArgument, StringComparison.OrdinalIgnoreCase));
+            }
+
+            try
+            {
+                var activatedArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+                return activatedArgs?.Kind == ExtendedActivationKind.StartupTask;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region 主窗口偏好应用
+
+        private static void ApplyWindowPreferences(Window window)
+        {
+            if (window == null) return;
+
+            var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings == null) return;
+
+            // 配置可被手动编辑，这里做一次保护性收敛，避免出现极端尺寸导致窗口异常。
+
+            try
+            {
+                var appWindow = window.AppWindow;
+                if (appWindow != null)
+                {
+                    MainWindowService.ApplySize(window, settings.StartupWidth, settings.StartupHeight);
+                }
+            }
+            catch
+            {
+
+            }
+
+        }
+
+        #endregion
+
+        #region 托盘图标与命令
+
+        private void InitializeTrayIcon()
+        {
+            if (_trayIcon != null) return;
+
+            AttachTrayCommandHandlers();
+
+            try
+            {
+                _trayIcon = Resources["TrayIcon"] as TaskbarIcon;
+                // 后台仍需执行备份、还原等任务，避免托盘初始化降低整个进程的调度优先级。
+                _trayIcon?.ForceCreate(enablesEfficiencyMode: false);
+
+                if (_trayIcon != null)
+                {
+                    _trayIcon.ToolTipText = I18n.GetString("Tray_ToolTip");
+
+                    if (_trayIcon.ContextFlyout is MenuFlyout flyout)
+                    {
+                        var items = flyout.Items;
+                        if (items.Count >= 1 && items[0] is MenuFlyoutItem showHideItem)
+                        {
+                            showHideItem.Text = I18n.GetString("Tray_ShowHide");
+                        }
+
+                        if (items.Count >= 3 && items[2] is MenuFlyoutItem exitItem)
+                        {
+                            exitItem.Text = I18n.GetString("Tray_Exit");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("Tray_InitFailed", ex.Message));
+            }
+        }
+
+        internal static Task<NotificationSendStatus> TryShowTrayNotificationAsync(string title, string message,
+            NotificationSeverity severity, bool muteAudio, Func<bool> canSend)
+        {
+            if (Current is not App app || _window?.DispatcherQueue == null)
+            {
+                return Task.FromResult(NotificationSendStatus.Unavailable);
+            }
+            return UiDispatcherService.RunOnUiAsync(() =>
+            {
+                if (!canSend()) return NotificationSendStatus.Canceled;
+                try
+                {
+                    app.InitializeTrayIcon();
+                    if (app._trayIcon is null) return NotificationSendStatus.Unavailable;
+                    var icon = severity switch
+                    {
+                        NotificationSeverity.Error => H.NotifyIcon.Core.NotificationIcon.Error,
+                        NotificationSeverity.Warning => H.NotifyIcon.Core.NotificationIcon.Warning,
+                        _ => H.NotifyIcon.Core.NotificationIcon.Info
+                    };
+
+                    if (!canSend()) return NotificationSendStatus.Canceled;
+                    app._trayIcon.ShowNotification(title, message, icon, sound: !muteAudio, respectQuietTime: true);
+                    return NotificationSendStatus.Submitted;
+                }
+                catch (Exception ex)
+                {
+                    LogService.Log(I18n.Format("Tray_InitFailed", ex.Message));
+                    return NotificationSendStatus.Failed;
+                }
+            });
+        }
+
+        private void AttachTrayCommandHandlers()
+        {
+            if (Resources["ShowHideWindowCommand"] is XamlUICommand showHide)
+            {
+                showHide.ExecuteRequested -= OnShowHideWindowCommandExecuteRequested;
+                showHide.ExecuteRequested += OnShowHideWindowCommandExecuteRequested;
+            }
+
+            if (Resources["QuitCommand"] is XamlUICommand quit)
+            {
+                quit.ExecuteRequested -= OnQuitCommandExecuteRequested;
+                quit.ExecuteRequested += OnQuitCommandExecuteRequested;
+            }
+        }
+
+        private void OnShowHideWindowCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
+        {
+            ToggleWindowVisibility();
+        }
+
+        private void ToggleWindowVisibility()
+        {
+            var window = _window;
+            var appWindow = window?.AppWindow;
+            var dispatcherQueue = window?.DispatcherQueue;
+            if (appWindow == null || dispatcherQueue == null) return;
+
+            try
+            {
+                if (appWindow.IsVisible)
+                {
+                    _trayRestorePending = false;
+                    appWindow.Hide();
+                    return;
+                }
+
+                // 托盘菜单/Explorer 仍可能处于激活状态；把恢复动作排到当前
+                // 回调之后，再显式请求激活，避免窗口仅显示但停留在后台层级。
+                if (_trayRestorePending)
+                {
+                    return;
+                }
+
+                _trayRestorePending = true;
+                if (!dispatcherQueue.TryEnqueue(
+                        Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
+                        RestoreWindowFromTray))
+                {
+                    _trayRestorePending = false;
+                    LogService.Log(I18n.Format(
+                        "Tray_ToggleFailed",
+                        "Failed to enqueue tray window restore."));
+                }
+            }
+            catch (Exception ex)
+            {
+                _trayRestorePending = false;
+                LogService.Log(I18n.Format("Tray_ToggleFailed", ex.Message));
+            }
+        }
+
+        private void LaunchRecoveryCenter()
+        {
+            I18n.SetLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
+            LogService.MarkSessionStart();
+
+            _window = new Views.RecoveryCenterWindow();
+            MainWindowService.Initialize(_window);
+            UiDispatcherService.Initialize(_window.DispatcherQueue);
+            AccessibilityThemeService.Initialize();
+            _window.Closed += OnMainWindowClosed;
+            Services.ThemeService.ApplyThemeToWindow(_window);
+            _window.Title = I18n.GetString("RecoveryCenter_WindowTitle");
+            _window.AppWindow.Title = _window.Title;
+            _window.AppWindow.Resize(new SizeInt32(900, 680));
+            WindowIconHelper.ApplyBeforeShow(_window);
+            _window.Activate();
+            Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
+        }
+
+        private void RestoreWindowFromTray()
+        {
+            try
+            {
+                var window = _window;
+                var appWindow = window?.AppWindow;
+                if (window == null || appWindow == null)
+                {
+                    return;
+                }
+
+                appWindow.Show(true);
+                window.Activate();
+                NativeWindowActivationService.TryActivate(window);
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("Tray_ToggleFailed", ex.Message));
+            }
+            finally
+            {
+                _trayRestorePending = false;
+            }
+        }
+
+        private void OnAppNotificationInvoked(
+            Microsoft.Windows.AppNotifications.AppNotificationManager sender,
+            Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs args)
+        {
+            NotificationNavigationService.QueueActivation(args.Arguments);
+        }
+
+        private async void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
+        {
+            try { await ExitApplicationAsync(); }
+            catch (Exception error) { LogService.LogError("Could not finish shutting down.", nameof(App), error); NotificationService.ShowError(error.Message); }
+        }
+
+        private static Task? _exitTask;
+        internal static bool IsShuttingDown => _exitTask != null && !_exitTask.IsCompleted;
+        internal static Task ExitApplicationAsync(bool restartSafeMode = false) => _exitTask ??= ExitCoreAsync(restartSafeMode);
+
+        private static async Task ExitCoreAsync(bool restartSafeMode)
+        {
+            if (Current is not App app) return;
+            var root = _window?.Content as Control;
+            if (root != null) root.IsEnabled = false;
+            Program.Instance?.SetClosing(true);
+            var automationWasRunning = Services.AutomationService.IsRunning;
+            try
+            {
+                await Services.AutomationService.StopAsync();
+                Services.MergeOperationService.BeginShutdown();
+                var deadline = DateTime.UtcNow.AddSeconds(30);
+                while (BackupService.ActiveTasks.Any(task => !task.IsCompleted) || Services.MergeOperationService.ActiveTasks.Length != 0)
+                {
+                    if (DateTime.UtcNow >= deadline)
+                        throw new InvalidOperationException("请等待当前任务完成后退出或重启。 / Wait for active tasks before exiting or restarting.");
+                    await Task.Delay(100);
+                }
+                await Services.CloudSyncService.DrainForExitAsync();
+                await Services.KnotLinkService.ShutdownAsync();
+                await app.StopHistoryWarmupAsync();
+                await app._startupStateProbeTask;
+                await ConfigService.StopRcloneCredentialMigrationsAsync();
+                await ConfigService.SealForExitAsync();
+            }
+            catch (Exception error)
+            {
+                if (root != null) root.IsEnabled = true;
+                Program.Instance?.SetClosing(false);
+                Services.MergeOperationService.CancelShutdown();
+                Services.CloudSyncService.ResumeAfterExitFailure();
+                if (automationWasRunning)
+                {
+                    try { await Services.AutomationService.StartAsync(TimeProvider.System, runStartupBackups: false); }
+                    catch (Exception resumeError) { LogService.LogError("Automation could not resume after exit failure.", nameof(App), resumeError); }
+                }
+                _exitTask = null;
+                NotificationService.ShowError(error.Message);
+                throw;
+            }
+            Program.RestartSafeModeOnExit = restartSafeMode;
+            // 标记强制退出，避免被 MainWindow 的“最小化到托盘”拦截逻辑再次兜回去。
+            ForceExitRequested = true;
+
+            // 关闭所有 Mini 窗口并释放 FileSystemWatcher
+            try { Services.MiniWindowService.CloseAll(); } catch { }
+
+            app.CleanupTrayIcon();
+            app.CleanupAppNotifications();
+
+            await LogService.StopAsync();
+            _window?.Close();
+            app.Exit();
+        }
+
+        private async void OnMainWindowClosed(object sender, WindowEventArgs args)
+        {
+            AccessibilityThemeService.Shutdown();
+            await StopAutomationAsync();
+            await StopHistoryWarmupAsync();
+            try { Services.MainWindowService.CloseSponsorWindow(); } catch { }
+            // 主窗口关闭时清理 Mini 窗口
+            try { Services.MiniWindowService.CloseAll(); } catch { }
+            CleanupTrayIcon();
+            CleanupAppNotifications();
+        }
+
+        private void StartAutomation()
+        {
+            _ = StartAutomationObservedAsync();
+        }
+
+        private static async Task StartAutomationObservedAsync()
+        {
+            try
+            {
+                await Services.AutomationService.StartAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[Startup] Automation service failed to start: {ex.Message}",
+                    nameof(App),
+                    ex);
+            }
+        }
+
+        private static async Task StopAutomationAsync()
+        {
+            try
+            {
+                await Services.AutomationService.StopAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[Shutdown] Automation service failed to stop: {ex.Message}",
+                    nameof(App),
+                    ex);
+            }
+        }
+
+        private void StartHistoryWarmup()
+        {
+            var configs = Services.ConfigService.CurrentConfig.BackupConfigs
+                .Where(config => config is not null)
+                .ToArray();
+            _historyWarmupTask = WarmHistoryRuntimesAsync(configs, _appLifetimeCancellation.Token);
+        }
+
+        private static async Task WarmHistoryRuntimesAsync(
+            IReadOnlyList<Models.BackupConfig> configs,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Run(
+                    () => FolderRewind.History.Application.NativeHistoryCoreGateway.InitializeAsync(
+                        Services.ConfigService.CurrentConfig,
+                        Services.ConfigService.ConfigDirectory,
+                        cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
+                StartupTimingService.Mark("History warmup completed");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[Startup] Native History warmup failed: {ex.Message}",
+                    nameof(App),
+                    ex);
+            }
+        }
+
+        private async Task StopHistoryWarmupAsync()
+        {
+            if (!_appLifetimeCancellation.IsCancellationRequested)
+            {
+                _appLifetimeCancellation.Cancel();
+            }
+
+            try
+            {
+                await _historyWarmupTask.ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        private void CleanupTrayIcon()
+        {
+            _trayIcon?.Dispose();
+            _trayIcon = null;
+        }
+
+        private void CleanupAppNotifications()
+        {
+            try
+            {
+                if (Microsoft.Windows.AppNotifications.AppNotificationManager.IsSupported())
+                {
+                    Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Unregister();
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        #endregion
+
+    }
+}
+

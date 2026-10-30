@@ -1,0 +1,58 @@
+<UserControl
+    x:Class="FolderRewind.Views.Settings.OpenListEnvironmentControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
+    <toolkit:SettingsExpander x:Name="EnvironmentExpander" x:Uid="OpenList_Environment"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                              AutomationProperties.AutomationId="OpenListEnvironmentExpander">
+        <toolkit:SettingsExpander.HeaderIcon><FontIcon Glyph="&#xE753;"/></toolkit:SettingsExpander.HeaderIcon>
+        <toolkit:SettingsExpander.Items>
+            <toolkit:SettingsCard x:Uid="OpenList_Executable" SizeChanged="OnEnvironmentCardSizeChanged">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBox x:Name="Executable" x:Uid="OpenList_Executable_Input" HorizontalAlignment="Stretch" Text="{x:Bind ViewModel.ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListExecutable"/>
+                    <Button Grid.Column="1" x:Uid="SettingsPage_BrowseButton" Click="OnPickExecutable" AutomationProperties.AutomationId="OpenListPickExecutable"/>
+                </Grid>
+            </toolkit:SettingsCard>
+            <toolkit:SettingsCard x:Uid="OpenList_ServiceUri" SizeChanged="OnEnvironmentCardSizeChanged">
+                <TextBox x:Name="ServiceUri" x:Uid="OpenList_ServiceUri_Input" HorizontalAlignment="Stretch" Text="{x:Bind ViewModel.ServiceBaseUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListServiceUri"/>
+            </toolkit:SettingsCard>
+            <toolkit:SettingsCard x:Uid="OpenList_Working" SizeChanged="OnEnvironmentCardSizeChanged">
+                <TextBox x:Name="Working" x:Uid="OpenList_Working_Input" Text="{x:Bind ViewModel.WorkingDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListWorking"/>
+            </toolkit:SettingsCard>
+            <toolkit:SettingsCard x:Uid="OpenList_Data" SizeChanged="OnEnvironmentCardSizeChanged">
+                <TextBox x:Name="Data" x:Uid="OpenList_Data_Input" Text="{x:Bind ViewModel.DataDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListData"/>
+            </toolkit:SettingsCard>
+            <toolkit:SettingsCard x:Uid="OpenList_Config" SizeChanged="OnEnvironmentCardSizeChanged">
+                <StackPanel Spacing="8">
+                    <TextBox x:Name="ConfigFile" x:Uid="OpenList_Config_Input" Text="{x:Bind ViewModel.ConfigFilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="OpenListConfig"/>
+                    <Button x:Uid="OpenList_RecognizeConfig" Click="OnPickConfiguration" AutomationProperties.AutomationId="OpenListRecognizeConfig"/>
+                </StackPanel>
+            </toolkit:SettingsCard>
+            <toolkit:SettingsCard x:Uid="OpenList_OnDemand" SizeChanged="OnEnvironmentCardSizeChanged">
+                <ToggleSwitch x:Name="OnDemand" IsOn="{x:Bind ViewModel.AllowStartOnDemand, Mode=TwoWay}" AutomationProperties.AutomationId="OpenListOnDemand"/>
+            </toolkit:SettingsCard>
+        </toolkit:SettingsExpander.Items>
+        <toolkit:SettingsExpander.ItemsFooter>
+            <StackPanel Spacing="8" Padding="16,12,16,16">
+                <Grid ColumnSpacing="8" SizeChanged="OnActionsSizeChanged">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Uid="OpenList_Save" Click="OnSave" AutomationProperties.AutomationId="OpenListSave"/>
+                        <Button x:Uid="CloudSetup_OpenManagement" Click="OnOpenManagement" AutomationProperties.AutomationId="OpenListOpenManagement"/>
+                    </StackPanel>
+                    <HyperlinkButton x:Name="ManualGuide" Grid.Column="1" x:Uid="OpenList_ManualGuide" NavigateUri="https://doc.oplist.org/guide/installation/manual" AutomationProperties.AutomationId="OpenListManualGuide"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Uid="OpenList_Check" Click="OnCheck" AutomationProperties.AutomationId="OpenListCheck"/>
+                    <Button x:Uid="OpenList_Start" Click="OnStart" AutomationProperties.AutomationId="OpenListStart"/>
+                    <Button x:Name="StopButton" x:Uid="OpenList_Stop" Click="OnStop" IsEnabled="{x:Bind ViewModel.CanStop, Mode=OneWay}" AutomationProperties.AutomationId="OpenListStop"/>
+                </StackPanel>
+                <Button x:Uid="OpenList_Reload" Click="OnReload" AutomationProperties.AutomationId="OpenListReload"/>
+                <TextBlock x:Name="Result" Text="{x:Bind ViewModel.Result, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="OpenListEnvironmentResult" AutomationProperties.LiveSetting="Polite"/>
+            </StackPanel>
+        </toolkit:SettingsExpander.ItemsFooter>
+    </toolkit:SettingsExpander>
+</UserControl>

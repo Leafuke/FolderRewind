@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "GlobalSettings": {
+    "Language": "zh-CN",
+    "RcloneExecutablePath": "C:\\Legacy196\\rclone.exe",
+    "OpenListRuntime": {
+      "ExecutablePath": "C:\\Legacy196\\openlist.exe",
+      "ServiceBaseUri": "http://127.0.0.1:5244",
+      "AllowStartOnDemand": false
+    },
+    "Plugins": {
+      "EnabledIntent": {},
+      "TypedSettings": {}
+    }
+  },
+  "BackupConfigs": [
+    {
+      "Id": "19619619-6196-4196-8196-196196196196",
+      "Name": "Legacy196 fixture",
+      "DestinationPath": "C:\\Backups\\Legacy196",
+      "SourceFolders": [
+        {
+          "Id": "11111111-1111-4111-8111-111111111111",
+          "Path": "C:\\Games\\Legacy196",
+          "DisplayName": "source"
+        }
+      ],
+      "Cloud": {
+        "Enabled": true,
+        "CommandMode": 0,
+        "RemoteBasePath": "old_remote:/Original/FolderRewind",
+        "RcloneConfigPath": "C:\\Legacy196\\rclone.conf",
+        "ExecutablePath": "rclone.exe",
+        "TimeoutSeconds": 600,
+        "RetryCount": 2,
+        "SyncHistoryAfterUpload": true
+      },
+      "Kind": {
+        "OwnerId": "folderrewind.core",
+        "KindId": "default"
+      }
+    }
+  ],
+  "Templates": []
+}
