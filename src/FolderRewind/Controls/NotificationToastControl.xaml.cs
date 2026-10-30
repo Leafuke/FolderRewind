@@ -12,6 +12,11 @@ public sealed partial class NotificationToastControl : UserControl
     public event Action? CloseRequested;
     public event Action? ActionRequested;
     public NotificationToastControl() => InitializeComponent();
+    internal void SetShadowReceiver(UIElement receiver)
+    {
+        ToastShadow.Receivers.Clear();
+        ToastShadow.Receivers.Add(receiver);
+    }
     protected override AutomationPeer OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this);
     internal void Render(NotificationEvent item, string actionText, bool hasAction, bool announce)
     {

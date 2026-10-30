@@ -13,8 +13,7 @@ public sealed partial class ShellPage
     private string? _pendingDetailsId;
     private void InitializeNotificationCenter()
     {
-        var shadow = new Microsoft.UI.Xaml.Media.ThemeShadow(); shadow.Receivers.Add(NavView);
-        NotificationToast.Shadow = shadow; NotificationToast.Translation = new System.Numerics.Vector3(0, 0, 32);
+        NotificationToast.SetShadowReceiver(NavView);
         NotificationCenter.ViewModel.Activate();
         NotificationCenter.ViewModel.Navigated += OnNotificationNavigated;
         NotificationNavigationService.DetailsRequested += OnNotificationDetailsRequested;
