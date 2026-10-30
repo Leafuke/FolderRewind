@@ -14,17 +14,17 @@
     <SelfContained>true</SelfContained>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
-    <ApplicationManifest>..\..\FolderRewind\app.manifest</ApplicationManifest>
+    <ApplicationManifest>../../src/FolderRewind/app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer" Version="0.7.0" PrivateAssets="all" />
-    <Compile Include="..\..\FolderRewind\Services\AppUpdatePolicy.cs" Link="AppUpdatePolicy.cs" />
-    <Compile Include="..\..\FolderRewind\Services\AppUpdatePresentation.cs" Link="AppUpdatePresentation.cs" />
-    <Compile Include="..\..\FolderRewind\Services\Plugins\GitHubReleaseMetadata.cs" Link="GitHubReleaseMetadata.cs" />
-    <None Include="..\..\FolderRewind.Tests\Fixtures\AppUpdate\v1.9.6.json" Link="Fixtures\v1.9.6.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\FolderRewind\Strings\zh-CN\Resources.resw" Link="Fixtures\zh-CN.resw" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\FolderRewind\Strings\en-US\Resources.resw" Link="Fixtures\en-US.resw" CopyToOutputDirectory="PreserveNewest" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" VersionOverride="2.6.4" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer" PrivateAssets="all" />
+    <Compile Include="../../src/FolderRewind/Services/Updates/AppUpdatePolicy.cs" Link="AppUpdatePolicy.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Updates/AppUpdatePresentation.cs" Link="AppUpdatePresentation.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Plugins/GitHubReleaseMetadata.cs" Link="GitHubReleaseMetadata.cs" />
+    <None Include="../../tests/FolderRewind.Tests/Fixtures/AppUpdate/v1.9.6.json" Link="Fixtures\v1.9.6.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/FolderRewind/Strings/zh-CN/Resources.resw" Link="Fixtures\zh-CN.resw" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/FolderRewind/Strings/en-US/Resources.resw" Link="Fixtures\en-US.resw" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,168 @@
+<Page x:Class="FolderRewind.Views.SpatialWorkspacePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:FolderRewind.ViewModels" xmlns:controls="using:FolderRewind.Controls">
+    <Page.Resources>
+        <DataTemplate x:Key="ChoiceTemplate" x:DataType="vm:SpatialWorkspaceChoice"><TextBlock Text="{x:Bind Name, Mode=OneTime}" TextTrimming="CharacterEllipsis"/></DataTemplate>
+            <Style x:Key="WorkspaceMapButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/><Setter Property="MinWidth" Value="32"/>
+        </Style>
+        <Style x:Key="WorkspaceListItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="8,4"/>
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+    </Page.Resources>
+    <Grid Padding="12,0" RowSpacing="0">
+        <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+        <Grid ColumnSpacing="8" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Button x:Uid="SpatialWorkspace2_Back" Click="OnBack" AutomationProperties.AutomationId="SpatialWorkspace_Back"/>
+            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+            <ComboBox Grid.Column="2" x:Name="Worlds" Width="152" ItemsSource="{x:Bind ViewModel.Worlds, Mode=OneTime}" ItemTemplate="{StaticResource ChoiceTemplate}" SelectionChanged="OnWorldChanged" AutomationProperties.AutomationId="SpatialWorkspace_World" x:Uid="SpatialWorkspace2_World"/>
+            <ComboBox Grid.Column="3" x:Name="Layers" Width="120" ItemsSource="{x:Bind ViewModel.Layers, Mode=OneTime}" ItemTemplate="{StaticResource ChoiceTemplate}" SelectionChanged="OnLayerChanged" AutomationProperties.AutomationId="SpatialWorkspace_Layer" x:Uid="SpatialWorkspace2_Layer"/>
+            <Button Grid.Column="4" x:Uid="SpatialWorkspace2_View" AutomationProperties.AutomationId="SpatialWorkspace2_View">
+                <Button.Flyout><Flyout><StackPanel Width="280" Spacing="12">
+                    <ComboBox x:Name="CompactWorlds" x:Uid="SpatialWorkspace2_WorldOptions" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Worlds, Mode=OneTime}" ItemTemplate="{StaticResource ChoiceTemplate}" SelectionChanged="OnWorldChanged" AutomationProperties.AutomationId="CompactWorlds"/>
+                    <ComboBox x:Name="Modes" x:Uid="SpatialWorkspace_Mode" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Modes, Mode=OneTime}" ItemTemplate="{StaticResource ChoiceTemplate}" SelectionChanged="OnModeChanged" AutomationProperties.AutomationId="Modes"/>
+                    <NumberBox x:Name="HeightInput" IsEnabled="{x:Bind ViewModel.CanChangeHeight, Mode=OneWay}" SpinButtonPlacementMode="Compact" ValueChanged="OnHeightChanged" AutomationProperties.AutomationId="SpatialWorkspace_Height"/>
+                    <TextBlock Text="{x:Bind ViewModel.ModeLegend, Mode=OneWay}" TextWrapping="Wrap" FontSize="12"/>
+                    <TextBlock Text="{x:Bind ViewModel.PolicyDescription, Mode=OneWay}" TextWrapping="Wrap" FontSize="12"/>
+                    <TextBlock Text="{x:Bind ViewModel.CategoryBreakdown, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/><TextBlock Text="{x:Bind ViewModel.MapStatus, Mode=OneWay}" TextWrapping="Wrap" FontSize="12"/>
+                    <TextBlock x:Uid="SpatialWorkspace2_Help" TextWrapping="Wrap" FontSize="12"/>
+                </StackPanel></Flyout></Button.Flyout>
+            </Button>
+            <Button Grid.Column="5" x:Uid="SpatialWorkspace2_List" Click="OnToggleList" AutomationProperties.AutomationId="SpatialWorkspace_List"/>
+        </Grid>
+        <SplitView Grid.Row="1" x:Name="Workspace" IsPaneOpen="True" DisplayMode="Inline" OpenPaneLength="320" PaneBackground="Transparent">
+            <SplitView.Pane>
+                <!-- Opaque backing keeps the themed card fill from showing the map through an overlay pane. -->
+                <Border Style="{StaticResource StandardCardStyle}" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                        Padding="0" Margin="0,0,8,0">
+                <Grid x:Name="SidePanel" RowSpacing="8" Padding="12"
+                      Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="{ThemeResource OverlayCornerRadius}">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Spacing="6">
+                        <TextBox x:Uid="SpatialWorkspace2_Search" Text="{x:Bind ViewModel.Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="OnSearch" AutomationProperties.AutomationId="SpatialWorkspace_Search"/>
+                        <ComboBox x:Name="CategoryFilter" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Categories, Mode=OneTime}" ItemTemplate="{StaticResource ChoiceTemplate}" SelectionChanged="OnCategory" Visibility="{x:Bind ViewModel.HasSpatialIndex, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" x:Uid="SpatialWorkspace2_Category" AutomationProperties.AutomationId="CategoryFilter"/>
+                        <ComboBox x:Name="Filter" HorizontalAlignment="Stretch" SelectionChanged="OnFilter" x:Uid="SpatialWorkspace2_Filter" AutomationProperties.AutomationId="Filter"/>
+                        <TextBlock Text="{x:Bind ViewModel.CategorySummary, Mode=OneWay}" Visibility="{x:Bind ViewModel.HasCategorySummary, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" TextWrapping="Wrap" MaxHeight="48" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock x:Uid="SpatialWorkspace2_AllHeights" Visibility="{x:Bind ViewModel.IsCompare, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" FontSize="12"/>
+                    </StackPanel>
+                    <ListView Grid.Row="1" x:Name="Changes" ItemsSource="{x:Bind ViewModel.Items, Mode=OneTime}" SelectionMode="Single" ItemContainerStyle="{StaticResource WorkspaceListItemStyle}" Background="Transparent" IsItemClickEnabled="True" ItemClick="OnItemClick" DoubleTapped="OnItemDoubleTapped" ContainerContentChanging="OnItemContainer" AutomationProperties.AutomationId="SpatialWorkspace_Changes" x:Uid="SpatialWorkspace2_Changes">
+                        <ListView.ItemTemplate><DataTemplate x:DataType="vm:SpatialWorkspaceItem">
+                            <Grid ColumnSpacing="8" AutomationProperties.Name="{x:Bind AutomationName, Mode=OneTime}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <CheckBox MinWidth="0" Width="24" MinHeight="24" Padding="0" VerticalAlignment="Center" IsChecked="{x:Bind IsChecked, Mode=OneWay}" Visibility="{x:Bind CanCheck, Converter={StaticResource BoolToVisConverter}}" Click="OnCheckItem" Tag="{x:Bind}" AutomationProperties.Name="{x:Bind AutomationName, Mode=OneTime}" AutomationProperties.AutomationId="{x:Bind SelectionAutomationId, Mode=OneTime}"/>
+                                <StackPanel Grid.Column="1" Spacing="2"><TextBlock Text="{x:Bind Title, Mode=OneTime}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{x:Bind Secondary, Mode=OneTime}" TextTrimming="CharacterEllipsis" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+                            </Grid>
+                        </DataTemplate></ListView.ItemTemplate>
+                    </ListView>
+                    <StackPanel Grid.Row="2" Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="6"><Button x:Uid="SpatialWorkspace_PreviousPage" Click="OnPreviousPage" AutomationProperties.AutomationId="SpatialWorkspace_PreviousPage"/><Button x:Uid="SpatialWorkspace_NextPage" Click="OnNextPage" IsEnabled="{x:Bind ViewModel.CanNextPage, Mode=OneWay}" AutomationProperties.AutomationId="SpatialWorkspace_NextPage"/></StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.Counts, Mode=OneWay}" FontSize="12"/>
+                        <Expander x:Name="DetailsExpander" x:Uid="SpatialWorkspace2_Details" HorizontalAlignment="Stretch" Visibility="{x:Bind ViewModel.HasDetails, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <ScrollViewer x:Name="DetailsScroll" MaxHeight="240"><StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="6"><Button x:Uid="SpatialWorkspace2_Locate" Click="OnLocateSelected" IsEnabled="{x:Bind ViewModel.CanLocate, Mode=OneWay}" AutomationProperties.AutomationId="SpatialWorkspace2_Locate"/><Button x:Uid="SpatialWorkspace2_ZoomHere" Click="OnZoomSelected" IsEnabled="{x:Bind ViewModel.CanLocate, Mode=OneWay}" AutomationProperties.AutomationId="SpatialWorkspace2_ZoomHere"/></StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Details, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                            </StackPanel></ScrollViewer>
+                        </Expander>
+                    </StackPanel>
+                    <StackPanel Grid.Row="3" Spacing="6">
+                        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsMerge, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <CheckBox x:Uid="SpatialWorkspace_BatchOnlyUnresolved" AutomationProperties.AutomationId="SpatialWorkspace_BatchOnlyUnresolved" IsChecked="{x:Bind ViewModel.BatchOnlyUnresolved, Mode=OneWay}" Click="OnBatchScope"/>
+                            <TextBlock Text="{x:Bind ViewModel.SelectionFeedback, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Visibility="{x:Bind ViewModel.HasSelectionFeedback, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                            <ToggleButton x:Name="SelectionTool" x:Uid="SpatialWorkspace2_BoxSelect" Click="OnSelectionTool" AutomationProperties.AutomationId="SelectionTool"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" Visibility="{x:Bind ViewModel.IsScope, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <ToggleButton x:Name="ScopeAdd" x:Uid="SpatialWorkspace2_AddArea" Tag="add" Click="OnScopeTool" AutomationProperties.AutomationId="ScopeAdd"/>
+                            <ToggleButton x:Name="ScopeRemove" x:Uid="SpatialWorkspace2_RemoveArea" Tag="remove" Click="OnScopeTool" AutomationProperties.AutomationId="ScopeRemove"/>
+                            <Button x:Uid="SpatialWorkspace2_Pan" Click="OnPan" AutomationProperties.AutomationId="SpatialWorkspace2_Pan"/>
+                        </StackPanel>
+                        <Button x:Name="CoordinateButton" x:Uid="SpatialWorkspace2_Coordinates" AutomationProperties.AutomationId="CoordinateButton">
+                            <Button.Flyout><Flyout><StackPanel Spacing="8" Width="280">
+                                <NumberBox x:Name="SelectionX1" Value="0" AutomationProperties.AutomationId="SelectionX1"/><NumberBox x:Name="SelectionY1" Value="0" AutomationProperties.AutomationId="SelectionY1"/>
+                                <NumberBox x:Name="SelectionX2" Value="16" AutomationProperties.AutomationId="SelectionX2"/><NumberBox x:Name="SelectionY2" Value="16" AutomationProperties.AutomationId="SelectionY2"/>
+                                <Button x:Uid="SpatialWorkspace_SelectCoordinates" Click="OnSelectCoordinates" AutomationProperties.AutomationId="SpatialWorkspace_SelectCoordinates"/><Button x:Uid="SpatialWorkspace_RemoveCoordinates" Click="OnRemoveCoordinates" AutomationProperties.AutomationId="SpatialWorkspace_RemoveCoordinates"/>
+                            </StackPanel></Flyout></Button.Flyout>
+                        </Button>
+            <CommandBar DefaultLabelPosition="Right" Visibility="{x:Bind ViewModel.IsMerge, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <AppBarButton x:Uid="SpatialWorkspace_UseOurs" AutomationProperties.AutomationId="SpatialWorkspace_UseOurs" Tag="Ours" Click="OnDecide" IsEnabled="{x:Bind ViewModel.CanDecide, Mode=OneWay}"/>
+                <AppBarButton x:Uid="SpatialWorkspace_UseTheirs" AutomationProperties.AutomationId="SpatialWorkspace_UseTheirs" Tag="Theirs" Click="OnDecide" IsEnabled="{x:Bind ViewModel.CanDecide, Mode=OneWay}"/>
+                <AppBarButton x:Uid="SpatialWorkspace_UseBase" AutomationProperties.AutomationId="SpatialWorkspace_UseBase" Tag="Base" Click="OnDecide" IsEnabled="{x:Bind ViewModel.CanDecide, Mode=OneWay}"/>
+                <AppBarButton x:Uid="SpatialWorkspace_Delete" AutomationProperties.AutomationId="SpatialWorkspace_Delete" Tag="Delete" Click="OnDecide" IsEnabled="{x:Bind ViewModel.CanDecide, Mode=OneWay}"/>
+                <AppBarButton x:Uid="SpatialWorkspace_ResetDecision" AutomationProperties.AutomationId="SpatialWorkspace_ResetDecision" Click="OnResetDecision" IsEnabled="{x:Bind ViewModel.CanDecide, Mode=OneWay}"/>
+                <CommandBar.SecondaryCommands>
+                    <AppBarButton x:Uid="SpatialWorkspace_Undo" AutomationProperties.AutomationId="SpatialWorkspace_Undo" Click="OnUndo" IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"/>
+                    <AppBarButton x:Uid="SpatialWorkspace_NextConflict" AutomationProperties.AutomationId="SpatialWorkspace_NextConflict" Click="OnNextConflict"/>
+                    <AppBarButton x:Uid="SpatialWorkspace_Generate" AutomationProperties.AutomationId="SpatialWorkspace_Generate" Click="OnGenerate" IsEnabled="{x:Bind ViewModel.CanGenerate, Mode=OneWay}"/>
+                    <AppBarButton x:Uid="SpatialWorkspace_ReturnReview" AutomationProperties.AutomationId="SpatialWorkspace_ReturnReview" Click="OnBack"/>
+                </CommandBar.SecondaryCommands>
+            </CommandBar>
+            <CommandBar DefaultLabelPosition="Right" Visibility="{x:Bind ViewModel.IsScope, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <AppBarButton x:Uid="SpatialWorkspace_PreviewScope" AutomationProperties.AutomationId="SpatialWorkspace_PreviewScope" Click="OnPreviewScope" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"/>
+                <AppBarButton x:Uid="SpatialWorkspace_SaveScope" AutomationProperties.AutomationId="SpatialWorkspace_SaveScope" Click="OnSaveScope" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"/>
+                <CommandBar.SecondaryCommands>
+                    <AppBarButton x:Uid="SpatialWorkspace_InheritScope" AutomationProperties.AutomationId="SpatialWorkspace_InheritScope" Click="OnInheritScope" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"/>
+                    <AppBarButton x:Uid="SpatialWorkspace_FullScope" AutomationProperties.AutomationId="SpatialWorkspace_FullScope" Click="OnFullScope" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"/>
+                </CommandBar.SecondaryCommands>
+            </CommandBar>
+
+                    </StackPanel>
+                </Grid>
+                </Border>
+            </SplitView.Pane>
+            <Grid>
+                <Grid x:Name="Maps" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition x:Name="LeftColumn" Width="*"/><ColumnDefinition x:Name="RightColumn" Width="*"/></Grid.ColumnDefinitions>
+                    <Grid x:Name="LeftPane" Grid.Column="0" RowSpacing="4">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Grid ColumnSpacing="6" Margin="0,0,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="{x:Bind ViewModel.LeftLabel, Mode=OneWay}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" x:Name="LeftInput" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Inputs, Mode=OneTime}" ItemTemplate="{StaticResource ChoiceTemplate}" SelectionChanged="OnInputChanged" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="SpatialWorkspace_Left"/>
+                        </Grid>
+                        <Border Grid.Row="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}">
+                            <Grid><controls:SpatialPreviewCanvas x:Name="LeftMap" Background="{ThemeResource LayerFillColorAltBrush}" FlowDirection="LeftToRight"/>
+                                <TextBlock x:Name="LeftEmpty" x:Uid="SpatialWorkspace_NoLayer" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"/></Grid>
+                        </Border>
+                    </Grid>
+                    <Grid x:Name="RightPane" Grid.Column="1" RowSpacing="4">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Grid ColumnSpacing="6" Margin="0,0,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="{x:Bind ViewModel.RightLabel, Mode=OneWay}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" x:Name="RightInput" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Inputs, Mode=OneTime}" ItemTemplate="{StaticResource ChoiceTemplate}" SelectionChanged="OnInputChanged" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="SpatialWorkspace_Right"/>
+                        </Grid>
+                        <Border Grid.Row="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}">
+                            <Grid><controls:SpatialPreviewCanvas x:Name="RightMap" Background="{ThemeResource LayerFillColorAltBrush}" FlowDirection="LeftToRight"/>
+                                <TextBlock x:Name="RightEmpty" x:Uid="SpatialWorkspace_NoLayer" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"/></Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+                <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,48,10,0" MaxWidth="300" Padding="6,3" CornerRadius="{ThemeResource ControlCornerRadius}" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" IsHitTestVisible="False" Visibility="{x:Bind ViewModel.CanLocate, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{x:Bind ViewModel.FocusLabel, Mode=OneWay}" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                </Border>
+                <ProgressBar Height="2" VerticalAlignment="Top" IsIndeterminate="True" IsHitTestVisible="False" Visibility="{x:Bind ViewModel.HasActivity, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Padding="4" CornerRadius="{ThemeResource OverlayCornerRadius}" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button Style="{StaticResource WorkspaceMapButtonStyle}" x:Name="SwapInputs" x:Uid="SpatialWorkspace2_Swap" Click="OnSwap" AutomationProperties.AutomationId="SwapInputs"/>
+                    <Button Style="{StaticResource WorkspaceMapButtonStyle}" x:Name="SingleSide" x:Uid="SpatialWorkspace2_SwitchSide" Click="OnSwitchSide" AutomationProperties.AutomationId="SingleSide"/>
+                    <Button Style="{StaticResource WorkspaceMapButtonStyle}" x:Name="BackCamera" x:Uid="SpatialWorkspace2_BackCamera" Click="OnBackCamera" IsEnabled="False" AutomationProperties.AutomationId="BackCamera"/>
+                    <Button Style="{StaticResource WorkspaceMapButtonStyle}" x:Uid="SpatialWorkspace2_ZoomOut" Click="OnZoomOut" AutomationProperties.AutomationId="SpatialWorkspace2_ZoomOut"/>
+                    <Button Style="{StaticResource WorkspaceMapButtonStyle}" x:Uid="SpatialWorkspace2_ZoomIn" Click="OnZoomIn" AutomationProperties.AutomationId="SpatialWorkspace2_ZoomIn"/>
+                    <Button Style="{StaticResource WorkspaceMapButtonStyle}" x:Uid="SpatialWorkspace2_Fit" Click="OnFit" AutomationProperties.AutomationId="SpatialWorkspace_Fit"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </SplitView>
+        <Grid Grid.Row="2" ColumnSpacing="10" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Button Padding="0" BorderThickness="0" Background="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" AutomationProperties.AutomationId="SpatialWorkspace_Action29">
+                <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                <Button.Flyout><Flyout><StackPanel Width="320" Spacing="8"><TextBlock Text="{x:Bind ViewModel.Error, Mode=OneWay}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind ViewModel.MapStatus, Mode=OneWay}" TextWrapping="Wrap"/><Button x:Uid="SpatialWorkspace_ReturnHistoryDownload" Visibility="{x:Bind ViewModel.NeedsDownload, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Click="OnBack" AutomationProperties.AutomationId="SpatialWorkspace_ReturnHistoryDownload"/></StackPanel></Flyout></Button.Flyout>
+            </Button>
+            <TextBlock Grid.Column="1" x:Name="Coordinates" FontSize="12" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"><Rectangle x:Name="ScaleLine" Height="2" Fill="{ThemeResource TextFillColorPrimaryBrush}"/><TextBlock x:Name="ScaleText" FontSize="12"/></StackPanel>
+            <Button Grid.Column="3" x:Uid="SpatialWorkspace2_Stop" Padding="6,0" MinHeight="24" Click="OnCancel" Visibility="{x:Bind ViewModel.CanCancel, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.AutomationId="SpatialWorkspace2_Stop"/>
+        </Grid>
+    </Grid>
+</Page>

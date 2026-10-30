@@ -16,12 +16,14 @@ namespace FolderRewind.PerformanceHost;
 // 生产服务的无窗口接线验收；不以模拟 Capture 回调代替 BackupService。
 internal static class StageTwoAcceptance
 {
+    private static Type HostType(string name)
+        => typeof(BackupService).Assembly.GetType(name) ?? typeof(HistoryRuntime).Assembly.GetType(name)
+            ?? throw new TypeLoadException(name);
     private static readonly Type Native = typeof(BackupService).Assembly.GetType("FolderRewind.Services.NativeHistoryApplicationService")!;
     private static readonly List<object> Results = [];
     internal static async Task RunRestoreCleanupAsync()
     {
         const BindingFlags instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        var assembly = typeof(BackupService).Assembly;
         foreach (var scenario in new[] { "materialize-failure", "legacy-197", "legacy-unproven" })
         {
             var (config, folder) = await CreateAsync("restore-cleanup-" + scenario, BackupMode.Full, BackupArchiveVerificationLevel.Strict);
@@ -34,7 +36,7 @@ internal static class StageTwoAcceptance
             string? container = null;
             if (scenario == "materialize-failure")
             {
-                var backendType = assembly.GetType("FolderRewind.Services.SevenZipHistoryArchiveBackend")!;
+                var backendType = HostType("FolderRewind.Services.SevenZipHistoryArchiveBackend");
                 var backend = (IArchiveRepresentationBackend)Activator.CreateInstance(backendType, instance, null, [config, true], null)!;
                 var handler = new FailedHostMaterializer(new CoreArchiveRepresentationHandler(backend));
                 var restore = new HistoryRestoreService(history, new RepresentationRuntime([handler]),
@@ -47,9 +49,9 @@ internal static class StageTwoAcceptance
             }
             else
             {
-                var storeType = assembly.GetType("FolderRewind.History.Application.HistoryRestoreTransactionJournalStore")!;
+                var storeType = HostType("FolderRewind.History.Application.HistoryRestoreTransactionJournalStore");
                 var store = Activator.CreateInstance(storeType, instance, null, [history, new FileSystemHistoryRestoreMutationBackend()], null)!;
-                var sessionType = assembly.GetType("FolderRewind.History.Application.HistoryRestorePreparationSession")!;
+                var sessionType = HostType("FolderRewind.History.Application.HistoryRestorePreparationSession");
                 using (var session = (IDisposable)Activator.CreateInstance(sessionType, instance, null,
                     [history, store, workspace, new[] { new HistoryRestoreSourceBinding(source, folder.Path) }, Array.Empty<string>(), null], null)!)
                 {
@@ -58,7 +60,7 @@ internal static class StageTwoAcceptance
                     var journal = sessionType.GetProperty("Journal", instance)!.GetValue(session)!;
                     var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
                     var json = JsonSerializer.SerializeToNode(journal, journal.GetType(), options)!;
-                    var planType = assembly.GetType("FolderRewind.History.Application.HistoryRestoreFileSystemPlanStore")!;
+                    var planType = HostType("FolderRewind.History.Application.HistoryRestoreFileSystemPlanStore");
                     var known = planType.GetMethod("CaptureTree", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [container])!;
                     json["workspaces"]![0]!["knownObjects"] = JsonSerializer.SerializeToNode(known, known.GetType(), options);
                     Directory.CreateDirectory(Path.Combine(staging, "region"));
@@ -118,8 +120,55 @@ internal static class StageTwoAcceptance
         await VerifyBoundSnapshotFiltersAsync();
         await VerifySmartChainTargetAsync();
         await VerifyBatchAsync();
+        await VerifyMetadataOperationFenceAsync();
         await File.WriteAllTextAsync(Path.Combine(Root, "host-stage2.json"), JsonSerializer.Serialize(new
         { source = "real BackupService / Restore / Checkout", ui = "not executed", results = Results }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static async Task VerifyMetadataOperationFenceAsync()
+    {
+        var (config, folder) = await CreateAsync("metadata-operation-fence", BackupMode.Smart, BackupArchiveVerificationLevel.Strict);
+        var history = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var initialPackCount = (await history.Repository.ReadAllPacksAsync()).Count;
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var gate = HostType("FolderRewind.Services.NativeHistoryConfigurationOperationGate");
+        var acquire = gate.GetMethod("EnterAsync", flags)!.Invoke(null, [config.Id, CancellationToken.None])!;
+        var acquireTask = (Task)acquire.GetType().GetMethod("AsTask")!.Invoke(acquire, null)!;
+        await acquireTask;
+        var lease = (IAsyncDisposable)acquireTask.GetType().GetProperty("Result")!.GetValue(acquireTask)!;
+        var pending = FolderRewind.History.Storage.HistoryTransactionJournal.Prepared(HistoryTransactionId.New(), PackId.New());
+        var commit = typeof(NativeHistoryCoreGateway).GetMethod("CommitBackupInsideOperationAsync", flags)!;
+        var arguments = commit.GetParameters().Select(p => p.HasDefaultValue ? p.DefaultValue : null).ToArray();
+        arguments[0] = history; arguments[1] = lease;
+        var source = new SourceId(Guid.Parse(folder.Id));
+        arguments[2] = new HistoryConfigSnapshot(history.ConfigId,
+            [new HistoryConfigSourceSnapshot(source, new(folder.DisplayName, folder.Path))]);
+        arguments[3] = new[] { FolderRewind.History.Capture.SourceCaptureResult.NoChanges(source, CaptureScope.FullSource) };
+        arguments[4] = BackupInvocationKind.Internal; arguments[5] = DateTimeOffset.UtcNow;
+        try
+        {
+            history.Repository.Journals.Save(pending);
+            bool blocked = false;
+            try { await (Task)commit.Invoke(null, arguments)!; }
+            catch (InvalidOperationException error) when (error.Message.Contains("incomplete history commit", StringComparison.Ordinal)) { blocked = true; }
+            Require(blocked && (await history.Repository.ReadAllPacksAsync()).Count == initialPackCount,
+                "Operation runtime reuse bypassed a newly pending journal before commit.");
+            await history.Repository.Journals.RecoverAsync((_, _) => throw new InvalidOperationException("Absent pack must not commit."),
+                (_, _) => Task.CompletedTask);
+        }
+        finally { await lease.DisposeAsync(); }
+        bool releasedBlocked = false;
+        try { await (Task)commit.Invoke(null, arguments)!; }
+        catch (InvalidOperationException error) when (error.Message.Contains("active operation lease", StringComparison.Ordinal)) { releasedBlocked = true; }
+        Require(releasedBlocked, "Released configuration operation lease was accepted.");
+        var noChanges = await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal());
+        Require(noChanges.IsSuccessful && !noChanges.CreatedNewArchive, "Unchanged source was not reused after recovery.");
+        File.Move(Path.Combine(folder.Path, "keep.txt"), Path.Combine(folder.Path, "KEEP.txt"));
+        Require((await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal())).CreatedNewArchive,
+            "Case-only rename lost the existing Ordinal-baseline capture behavior.");
+        await RecordAsync(new { scenario = "metadata-operation-fence", pendingJournalBlocked = true,
+            releasedLeaseBlocked = true, noChangesPreserved = true, caseRenameCaptured = true });
+        await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
     }
 
     private static async Task VerifyArchiveListingAttributesAsync(BackupMode mode, BackupArchiveVerificationLevel grade, string format)
@@ -265,7 +314,7 @@ internal static class StageTwoAcceptance
         Directory.CreateSymbolicLink(Path.Combine(folder.Path, "cache"), outside);
         File.WriteAllText(Path.Combine(folder.Path, "missing-from-backup.txt"), "current player contents");
         File.WriteAllText(Path.Combine(folder.Path, "keep.txt"), "current changed existing file");
-        config.Filters.RestoreWhitelist.Add("missing-from-backup.txt"); config.Archive.BackupBeforeRestore = false;
+        config.Filters.RestoreWhitelist.Add(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy("missing-from-backup.txt")); config.Archive.BackupBeforeRestore = false;
         await SaveAsync();
         var measured = await MeasureAsync(history, "preserve", () => InvokeAsync<HistoryRestoreResult>("RestoreVersionAsync", config, folder,
             baseline, BackupService.RestoreMode.Clean, CancellationToken.None));
@@ -403,8 +452,8 @@ internal static class StageTwoAcceptance
             config.Archive.Method = archiveFormat == "zip" ? "Deflate" : "LZMA2";
         }
         config.Archive.RestorePreflightMode = grade == BackupArchiveVerificationLevel.Strict ? RestoreArchivePreflightMode.Strict : RestoreArchivePreflightMode.Balanced;
-        if (excludeCache) config.Filters.Blacklist.Add("cache");
-        if (absoluteExclusion) config.Filters.Blacklist.Add(Path.Combine(source, "cache"));
+        if (excludeCache) config.Filters.Blacklist.Add(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy("cache"));
+        if (absoluteExclusion) config.Filters.Blacklist.Add(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy(Path.Combine(source, "cache")));
         ConfigService.CurrentConfig.BackupConfigs.Add(config); await SaveAsync();
         Require((await BackupService.BackupFolderAsync(config, folder, BackupInvocationOptions.ForInternal())).CreatedNewArchive, "Initial real Host backup failed.");
         return (config, folder);
@@ -435,7 +484,7 @@ internal static class StageTwoAcceptance
         {
             var checkpoint = await history.Query.GetCheckpointAsync(id);
             Require(graph.Where(r => r.VersionId == checkpoint!.VersionId).All(r => r.Kind == RepresentationKind.CoreFull), "Protective Core capture must be self-contained Full.");
-            var planner = typeof(BackupService).Assembly.GetType("FolderRewind.History.Application.HistoryRestoreWorkspacePlanner")!;
+            var planner = HostType("FolderRewind.History.Application.HistoryRestoreWorkspacePlanner");
             var physical = (string)planner.GetMethod("ResolvePath", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [Root])!;
             var export = Path.Combine(physical, "snapshot-export-" + Guid.NewGuid().ToString("N"));
             await new HistoryVersionExportService(engine).ExportAsync(checkpoint!.VersionId, graph,

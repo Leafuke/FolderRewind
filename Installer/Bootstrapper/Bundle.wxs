@@ -1,5 +1,5 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
-  <Bundle Name="$(var.BundleDisplayName)" Manufacturer="Leafuke" Version="$(var.ProductVersion)" UpgradeCode="$(var.BundleUpgradeCode)" IconSourceFile="..\..\FolderRewind\Assets\MsiApp.ico" AboutUrl="https://folderrewind.top/" HelpUrl="https://github.com/Leafuke/FolderRewind/issues">
+  <Bundle Name="$(var.BundleDisplayName)" Manufacturer="Leafuke" Version="$(var.ProductVersion)" UpgradeCode="$(var.BundleUpgradeCode)" IconSourceFile="..\..\src\FolderRewind\Assets\MsiApp.ico" AboutUrl="https://folderrewind.top/" HelpUrl="https://github.com/Leafuke/FolderRewind/issues">
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication Theme="hyperlinkLicense" ThemeFile="Theme.xml" LicenseUrl="LICENSE.txt" LocalizationFile="Localization\en-US.wxl" LogoFile="..\Assets\Logo.png" />
       <Payload SourceFile="$(var.NativeOutputDirectory)\FolderRewind.BAFunctions.dll" bal:BAFunctions="yes" />

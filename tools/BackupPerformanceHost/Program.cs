@@ -25,8 +25,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+#if !FOLDERREWIND_BENCHMARK_ONLY
+        if (BackupFailureAcceptance.RunArchiveChild(args)) return;
+#endif
         Root = Path.GetFullPath(args[0]);
-        if (Directory.Exists(Root)) throw new InvalidOperationException("Benchmark requires a new isolated state directory.");
+        bool restoreExisting = Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_SERVICE_PROBE") == "native-restore"
+            && File.Exists(Path.Combine(Root, "restore-benchmark-owner.json"));
+        if (Directory.Exists(Root) && !restoreExisting) throw new InvalidOperationException("Benchmark requires a new isolated state directory.");
         MiB = args.Length > 1 ? int.Parse(args[1]) : 8;
         Policy = args.Length > 2 ? args[2] : "Balanced";
         Quick = args.Length > 3 && args[3] == "quick";
@@ -64,6 +69,23 @@ internal static class Program
                 ConfigService.Initialize();
                 var exe = Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z") ?? throw new InvalidOperationException("7-Zip path required.");
                 ConfigService.CurrentConfig.GlobalSettings.SevenZipPath = exe;
+#if !FOLDERREWIND_BENCHMARK_ONLY
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_HARDENING_ACCEPTANCE") == "backup")
+                {
+                    await BackupFailureAcceptance.RunAsync();
+                    Environment.Exit(0); return;
+                }
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_HARDENING_ACCEPTANCE") == "commit")
+                {
+                    await CommitFailureAcceptance.RunAsync();
+                    Environment.Exit(0); return;
+                }
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_CAPTURE_INPUT_ACCEPTANCE") == "1")
+                {
+                    await CaptureInputAcceptance.RunAsync();
+                    Environment.Exit(0); return;
+                }
+#endif
                 if (Acceptance || RestoreCleanupAcceptance || RestoreCoordinationAcceptanceMode)
                 {
 #if FOLDERREWIND_BENCHMARK_ONLY
@@ -75,6 +97,18 @@ internal static class Program
                     Environment.Exit(0);
                     return;
 #endif
+                }
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_RESTORE_SERVICE_PROBE") is { } restoreProbe)
+                {
+                    await RunRestoreServiceProbeAsync(restoreProbe);
+                    Environment.Exit(0);
+                    return;
+                }
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_ANALYSIS_PROBE") is { } probe)
+                {
+                    await RunAnalysisProbeAsync(probe);
+                    Environment.Exit(0);
+                    return;
                 }
                 var source = Path.Combine(Root, "source"); Directory.CreateDirectory(source);
                 var block = new byte[1024 * 1024]; var random = new Random(719);

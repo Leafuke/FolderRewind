@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWinUI>true</UseWinUI>
-    <ApplicationManifest>../../FolderRewind/app.manifest</ApplicationManifest>
+    <ApplicationManifest>../../src/FolderRewind/app.manifest</ApplicationManifest>
     <WindowsPackageType>None</WindowsPackageType>
     <SelfContained>true</SelfContained>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
@@ -16,15 +16,20 @@
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <StartupObject>FolderRewind.PerformanceHost.Program</StartupObject>
     <RootNamespace>FolderRewind.PerformanceHost</RootNamespace>
-    <FolderRewindHostProject Condition="'$(FolderRewindHostProject)'==''">../../FolderRewind/FolderRewind.csproj</FolderRewindHostProject>
+    <FolderRewindHostProject Condition="'$(FolderRewindHostProject)'==''">../../src/FolderRewind/FolderRewind.csproj</FolderRewindHostProject>
   </PropertyGroup>
   <!-- Historical hosts can run the unchanged benchmark without stage-two-only service APIs. -->
   <PropertyGroup Condition="'$(FolderRewindBenchmarkOnly)'=='true'">
     <DefineConstants>$(DefineConstants);FOLDERREWIND_BENCHMARK_ONLY</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../benchmarks/performance/CoreSmartAnalysisProbe.cs" Link="AnalysisProbe.cs" />
+    <Compile Include="../../benchmarks/performance/RestoreServiceAnalysisProbe.cs" Link="RestoreAnalysisProbe.cs" />
     <Compile Remove="StageTwoAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
     <Compile Remove="RestoreCoordinationAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
+    <Compile Remove="CaptureInputAcceptance*.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
+    <Compile Remove="CommitFailureAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
+    <Compile Remove="BackupFailureAcceptance.cs" Condition="'$(FolderRewindBenchmarkOnly)'=='true'" />
     <Page Remove="BenchApplication.xaml" />
     <ApplicationDefinition Include="BenchApplication.xaml" />
     <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />

@@ -1,0 +1,84 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using FolderRewind.Plugin.Runtime.Artifacts;
+
+namespace FolderRewind.History.Capture;
+
+/// <summary>Host-owned directory inventory from the same stable view as the file witness.</summary>
+public static class SourceDirectorySnapshot
+{
+    public static ImmutableArray<string> Read(string root, Func<string, bool> include,
+        IEnumerable<string> files, CancellationToken token, bool enforceLimits = true, bool skipLinks = false,
+        Func<string, bool>? includeDirectory = null, Func<string, bool>? mayDescend = null)
+    {
+        var directories = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>(); pending.Push(root);
+        while (pending.TryPop(out var directory))
+        {
+            token.ThrowIfCancellationRequested();
+            foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos())
+            {
+                if (Services.PreviewStoragePaths.IsReserved(entry.FullName)) continue;
+                var attributes = entry.Attributes;
+                if ((attributes & FileAttributes.Directory) == 0)
+                {
+                    if (!skipLinks && (attributes & FileAttributes.ReparsePoint) != 0)
+                        throw new IOException("A stable Native source cannot contain filesystem links.");
+                    continue;
+                }
+                var relative = Path.GetRelativePath(root, entry.FullName).Replace('\\', '/');
+                var included = (includeDirectory ?? include)(relative);
+                var descend = mayDescend?.Invoke(relative) ?? true;
+                if (!included && !descend) continue;
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    if (skipLinks) continue;
+                    throw new IOException("A stable Native source cannot contain filesystem links.");
+                }
+                if (descend) pending.Push(entry.FullName);
+                if (included) Add(relative);
+            }
+        }
+        foreach (var file in files) AddParents(file);
+        return [.. directories.Order(StringComparer.Ordinal)];
+
+        void Add(string path)
+        {
+            directories.Add(ArtifactPathRules.NormalizeRelativePath(path));
+            AddParents(path);
+            if (enforceLimits && directories.Count > ArtifactTransformLimits.Default.MaximumFiles)
+                throw new InvalidDataException("Native directory inventory exceeds its entry budget.");
+        }
+        void AddParents(string path)
+        {
+            while (path.LastIndexOf('/') is var separator && separator >= 0)
+            { path = path[..separator]; directories.Add(ArtifactPathRules.NormalizeRelativePath(path)); }
+            if (enforceLimits && directories.Count > ArtifactTransformLimits.Default.MaximumFiles)
+                throw new InvalidDataException("Native directory inventory exceeds its entry budget.");
+        }
+    }
+
+    public static void Validate(IReadOnlyList<string> directories, IEnumerable<string> filePaths, bool enforceLimits = true)
+    {
+        var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in filePaths)
+            if (file != ArtifactPathRules.NormalizeRelativePath(file) || !files.Add(file))
+                throw new InvalidDataException("Native file inventory is ambiguous.");
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (enforceLimits && directories.Count + files.Count > ArtifactTransformLimits.Default.MaximumFiles)
+            throw new InvalidDataException("Native logical tree exceeds its entry budget.");
+        foreach (var directory in directories)
+            if (directory != ArtifactPathRules.NormalizeRelativePath(directory) || !paths.Add(directory) || files.Contains(directory))
+                throw new InvalidDataException("Native directory inventory is ambiguous.");
+        foreach (var entry in directories.Concat(files))
+        {
+            var parent = entry;
+            while (parent.LastIndexOf('/') is var separator && separator >= 0)
+            { parent = parent[..separator]; if (!paths.Contains(parent)) throw new InvalidDataException("Native logical tree is missing a parent directory."); }
+        }
+    }
+}

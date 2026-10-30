@@ -1,0 +1,304 @@
+using FolderRewind.Services;
+using FolderRewind.Services.Hotkeys;
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using System;
+using Windows.UI;
+using Windows.UI.ViewManagement;
+
+namespace FolderRewind
+{
+    /// <summary>
+    /// 主窗口：承载壳层页面、标题栏和关闭行为控制。
+    /// </summary>
+    public sealed partial class MainWindow : Window
+    {
+        #region 常量与状态
+
+
+        #endregion
+
+        #region 构造与初始化
+
+        private WindowCloseController? _closeController;
+        private FrameworkElement? _themeRoot;
+        private WindowSizeLimits? _appliedSizeLimits;
+
+        private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
+        {
+            if (App.ForceExitRequested) { args.Cancel = false; return; }
+            if (App.IsShuttingDown) { args.Cancel = true; return; }
+            _closeController ??= WindowCloseService.Create(() => (Content as FrameworkElement)?.XamlRoot, HideToTray,
+                StartGracefulExit);
+            var cancel = _closeController.HandleClosing(false);
+            args.Cancel = true;
+            if (!cancel) StartGracefulExit();
+            TaskObserver.Observe(_closeController.PendingTask, nameof(MainWindow));
+        }
+
+        private void StartGracefulExit() => TaskObserver.Observe(ExitAndResetCloseAsync(), nameof(MainWindow));
+        private async System.Threading.Tasks.Task ExitAndResetCloseAsync()
+        {
+            try { await App.ExitApplicationAsync(); }
+            finally { if (!App.ForceExitRequested) _closeController = null; }
+        }
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            WindowIconHelper.ApplyBeforeShow(this);
+
+            // 等窗口真正激活后再做依赖句柄的初始化（热键/图标等）。
+            Activated += MainWindow_Activated;
+            AppWindow.Changed += OnWindowGeometryChanged;
+
+            // 用 Shell 的 XAML 区域接管标题栏，后面再动态同步左右 inset。
+            ExtendsContentIntoTitleBar = true;
+            if (ShellRoot?.AppTitleBarElement != null)
+            {
+                SetTitleBar(ShellRoot.AppTitleBarElement);
+            }
+
+            ThemeService.ThemeChanged += ThemeService_ThemeChanged;
+            _themeRoot = Content as FrameworkElement;
+            if (_themeRoot is not null)
+            {
+                _themeRoot.ActualThemeChanged += Root_ActualThemeChanged;
+            }
+
+            // 先应用当前主题，再刷标题栏按钮色，避免首次显示时色彩闪一下。
+            ThemeService.ApplyThemeToWindow(this);
+            ThemeService.ApplyPersonalizationToWindow(this);
+
+            InitializeIntegratedTitleBar();
+            UpdateTitleBar();
+
+            // 窗口关闭时清理 KnotLink 服务
+            Closed += MainWindow_Closed;
+
+            try
+            {
+                AppWindow.Closing += AppWindow_Closing;
+            }
+            catch
+            {
+            }
+        }
+
+        #endregion
+
+        #region 窗口激活与最小尺寸
+
+        private async void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
+        {
+            // 这个事件会多次触发，这里只需要第一次（句柄和可视树已就绪）。
+            Activated -= MainWindow_Activated;
+
+            ApplyMinimumWindowSize();
+            if (ShellRoot.XamlRoot is { } root) root.Changed += OnXamlRootChanged;
+
+            try
+            {
+                HotkeyManager.Initialize(this, ShellRoot);
+            }
+            catch
+            {
+            }
+
+            await WindowIconHelper.TryApplyAsync(this);
+        }
+
+        private void ApplyMinimumWindowSize()
+        {
+            try
+            {
+                if (AppWindow?.Presenter is OverlappedPresenter presenter)
+                {
+                    var limits = MainWindowService.GetSizeLimits(this);
+                    if (_appliedSizeLimits == limits) return;
+                    _appliedSizeLimits = limits;
+                    presenter.PreferredMinimumWidth = limits.MinimumWidth;
+                    presenter.PreferredMinimumHeight = limits.MinimumHeight;
+                    if (presenter.State == OverlappedPresenterState.Restored)
+                        MainWindowService.ApplySize(this, AppWindow.Size.Width, AppWindow.Size.Height);
+                    MainWindowService.NotifySizeLimitsChanged();
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void OnWindowGeometryChanged(AppWindow sender, AppWindowChangedEventArgs args)
+        {
+            if (args.DidPositionChange || args.DidPresenterChange) ApplyMinimumWindowSize();
+        }
+
+        private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => ApplyMinimumWindowSize();
+
+        #endregion
+
+        #region 关闭行为控制
+
+        private void MainWindow_Closed(object sender, WindowEventArgs args)
+        {
+            ThemeService.ThemeChanged -= ThemeService_ThemeChanged;
+            Activated -= MainWindow_Activated;
+            AppWindow.Changed -= OnWindowGeometryChanged;
+            if (ShellRoot.XamlRoot is { } root) root.Changed -= OnXamlRootChanged;
+            if (_themeRoot is not null)
+            {
+                _themeRoot.ActualThemeChanged -= Root_ActualThemeChanged;
+                _themeRoot = null;
+            }
+            // 关闭 KnotLink 服务，释放网络资源。
+            // 异步关停且不等待：若此刻后台正在连接不可达主机，同步等待会把窗口关闭卡住；
+            // 进程退出前来不及释放的连接由操作系统统一回收。
+            try
+            {
+                TaskObserver.Observe(KnotLinkService.ShutdownAsync(), nameof(MainWindow));
+            }
+            catch
+            {
+                // 忽略关闭时的异常
+            }
+        }
+
+        #endregion
+
+        #region 主题与标题栏
+
+
+
+
+
+        internal void HideToTray()
+        {
+            try
+            {
+                AppWindow?.Hide();
+            }
+            catch
+            {
+            }
+        }
+
+        internal void RefreshShellVisuals(bool forceBackgroundImageReload = false)
+        {
+            if (ShellRoot is not null) TaskObserver.Observe(ShellRoot.ViewModel.RefreshVisualsAsync(forceBackgroundImageReload), nameof(MainWindow));
+        }
+
+        private void ThemeService_ThemeChanged(ElementTheme theme)
+        {
+            ThemeService.ApplyThemeToWindow(this);
+            ThemeService.ApplyPersonalizationToWindow(this);
+            UpdateTitleBar();
+        }
+
+        private void Root_ActualThemeChanged(FrameworkElement sender, object args)
+        {
+            UpdateTitleBar();
+            RefreshShellVisuals();
+        }
+
+        private void InitializeIntegratedTitleBar()
+        {
+            var titleBar = AppWindow.TitleBar;
+            if (titleBar == null)
+            {
+                return;
+            }
+
+            titleBar.ExtendsContentIntoTitleBar = true;
+
+            // 某些 SDK 组合下拿不到 LayoutMetricsChanged，这里退一步用 SizeChanged 同步 inset。
+            SizeChanged += (_, __) => UpdateTitleBarLayout();
+            UpdateTitleBarLayout();
+        }
+
+        private void UpdateTitleBarLayout()
+        {
+            if (AppWindow.TitleBar == null)
+            {
+                return;
+            }
+
+            // 预留系统标题栏按钮区域，避免覆盖自定义标题栏内容。
+            if (ShellRoot?.AppTitleBarElement != null)
+            {
+                var scale = MainWindowService.GetWindowScale(this);
+                ShellRoot.SetTitleBarInsets(AppWindow.TitleBar.LeftInset / scale, AppWindow.TitleBar.RightInset / scale);
+            }
+        }
+
+        private static Color WithAlpha(Color color, byte alpha)
+        {
+            return Color.FromArgb(alpha, color.R, color.G, color.B);
+        }
+
+        private void UpdateTitleBar()
+        {
+            if (AppWindow.TitleBar != null)
+            {
+                var titleBar = AppWindow.TitleBar;
+
+                if (AccessibilityThemeService.IsHighContrast)
+                {
+                    var colors = new UISettings();
+                    var text = colors.UIElementColor(UIElementType.WindowText);
+                    var background = colors.UIElementColor(UIElementType.Window);
+                    var inactive = colors.UIElementColor(UIElementType.GrayText);
+                    var highlight = colors.UIElementColor(UIElementType.Highlight);
+                    var highlightText = colors.UIElementColor(UIElementType.HighlightText);
+                    titleBar.BackgroundColor = background;
+                    titleBar.ForegroundColor = text;
+                    titleBar.InactiveBackgroundColor = background;
+                    titleBar.InactiveForegroundColor = inactive;
+                    titleBar.ButtonBackgroundColor = background;
+                    titleBar.ButtonForegroundColor = text;
+                    titleBar.ButtonInactiveBackgroundColor = background;
+                    titleBar.ButtonInactiveForegroundColor = inactive;
+                    titleBar.ButtonHoverBackgroundColor = highlight;
+                    titleBar.ButtonHoverForegroundColor = highlightText;
+                    titleBar.ButtonPressedBackgroundColor = highlight;
+                    titleBar.ButtonPressedForegroundColor = highlightText;
+                    return;
+                }
+
+                // 背景保持透明，让 Mica 透出来，只调整前景与按钮态颜色。
+                bool isDark = _themeRoot?.ActualTheme == ElementTheme.Dark;
+
+                // 显式指定亮/暗主题配色，保证 Win10/Win11 下表现一致。
+                var foreground = isDark ? Colors.White : Colors.Black;
+                var inactiveForeground = WithAlpha(foreground, 153);
+
+                // 悬停/按下采用轻量叠色，避免破坏 Mica 的通透感。
+                var hoverBackground = isDark
+                    ? WithAlpha(Colors.White, 26)
+                    : WithAlpha(Colors.Black, 18);
+                var pressedBackground = isDark
+                    ? WithAlpha(Colors.White, 44)
+                    : WithAlpha(Colors.Black, 34);
+
+                titleBar.BackgroundColor = Colors.Transparent;
+                titleBar.ForegroundColor = foreground;
+                titleBar.InactiveBackgroundColor = Colors.Transparent;
+                titleBar.InactiveForegroundColor = inactiveForeground;
+
+                titleBar.ButtonBackgroundColor = Colors.Transparent;
+                titleBar.ButtonForegroundColor = foreground;
+                titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+                titleBar.ButtonInactiveForegroundColor = inactiveForeground;
+
+                titleBar.ButtonHoverBackgroundColor = hoverBackground;
+                titleBar.ButtonHoverForegroundColor = foreground;
+                titleBar.ButtonPressedBackgroundColor = pressedBackground;
+                titleBar.ButtonPressedForegroundColor = foreground;
+            }
+        }
+
+        #endregion
+    }
+}

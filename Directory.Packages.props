@@ -1,0 +1,29 @@
+<Project>
+  <!-- Parent-directory discovery must not opt independent nested repositories into Host policy. -->
+  <PropertyGroup Condition="'$(FolderRewindOwnedProject)' == 'true'">
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(FolderRewindOwnedProject)' == 'true'">
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+    <PackageVersion Include="DiffPlex" Version="1.9.0" />
+    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.4.1" />
+    <PackageVersion Include="MSTest.TestAdapter" Version="4.0.2" />
+    <PackageVersion Include="MSTest.TestFramework" Version="4.0.2" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageVersion Include="Microsoft.Windows.AI.MachineLearning" Version="2.5.96" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools.WinUIAnalyzer" Version="0.7.1" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="$(FolderRewindWindowsAppSdkVersion)" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.AI" Version="2.6.4" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.DWrite" Version="2.6.4" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.ML" Version="2.6.4" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.Search" Version="2.6.4" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK.Widgets" Version="2.6.4" />
+    <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <PackageVersion Include="ValveKeyValue" Version="0.70.0.499" />
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+</Project>

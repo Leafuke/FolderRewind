@@ -1,0 +1,13 @@
+<Page SizeChanged="OnPageSizeChanged" x:Class="FolderRewind.Views.CloudSetupPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:FolderRewind.Controls">
+ <ScrollViewer AutomationProperties.AutomationId="CloudSetupPageScroll" Padding="24"><StackPanel x:Name="ContentLayout" Spacing="16" MaxWidth="860" HorizontalAlignment="Stretch">
+  <TextBlock x:Uid="CloudWizard_Title" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
+  <controls:CloudConnectionEditor x:Name="Editor" Visibility="Collapsed" Confirmed="OnConfirmed"/>
+  <StackPanel x:Name="ResultPanel" Spacing="12" Visibility="Collapsed">
+   <TextBlock x:Uid="CloudWizard_ConnectionSavedText" TextWrapping="Wrap"/>
+   <TextBlock x:Name="ResultText" TextWrapping="Wrap"/>
+   <Button x:Uid="CloudWizard_OpenProject" Click="OnProject"/>
+   <Button x:Uid="CloudWizard_Finish" Click="OnFinish"/>
+  </StackPanel>
+  <Button x:Uid="CloudWizard_Cancel" Click="OnCancel"/>
+ </StackPanel></ScrollViewer>
+</Page>

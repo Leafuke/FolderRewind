@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\FolderRewind.Tests\FolderRewind.Tests.csproj" />
+    <ProjectReference Include="../../tests/FolderRewind.TestSupport/FolderRewind.TestSupport.csproj" />
   </ItemGroup>
+  <Target Name="RequireFaultInjectionBuild" BeforeTargets="CoreCompile">
+    <Error Condition="'$(FolderRewindFaultInjection)' != 'true'" Text="Build the recovery probe with -p:FolderRewindFaultInjection=true." />
+  </Target>
 </Project>

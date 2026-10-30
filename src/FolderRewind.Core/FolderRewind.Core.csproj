@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <DefineConstants Condition="'$(FolderRewindFaultInjection)' == 'true'">$(DefineConstants);FOLDERREWIND_PROTOCOL_TESTS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FolderRewind.Plugin.Runtime/FolderRewind.Plugin.Runtime.csproj" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+</Project>
