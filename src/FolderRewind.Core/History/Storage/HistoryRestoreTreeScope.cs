@@ -32,8 +32,9 @@ internal sealed class HistoryRestoreTreeScope
     internal bool MayDescend(string relative)
     {
         if (_scope is not null && !_scope.MayContainDescendant(relative)) return false;
-        return _binding.Boundary.FilterMode != EffectiveBoundaryFilterMode.Blacklist
-            || !_filter.ExcludesWholeSubtree(Path.Combine(_binding.ComparisonRoot, relative));
+        var full = Path.Combine(_binding.ComparisonRoot, relative);
+        return _binding.Boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist
+            ? _filter.MayContainDescendant(full) : !_filter.ExcludesWholeSubtree(full);
     }
     internal IEnumerable<RestoreTreeEntry> Enumerate(string root, bool includeExcluded = false)
     {

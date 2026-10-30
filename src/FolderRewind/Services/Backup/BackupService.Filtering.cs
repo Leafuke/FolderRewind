@@ -175,6 +175,10 @@ namespace FolderRewind.Services
             return filters.BackupFilterMode == BackupFilterMode.Whitelist ? matched : !matched;
         }
 
+        private static bool MayDescendForBackup(string relative, string root, FilterSettings? filters, PathRuleMatcher? matcher)
+            => filters is null || matcher is null || (filters.BackupFilterMode == BackupFilterMode.Whitelist
+                ? matcher.MayContainDescendant(Path.Combine(root, relative)) : !matcher.ExcludesWholeSubtree(Path.Combine(root, relative)));
+
         /// <summary>
         /// 过滤文件列表，按当前备份过滤模式保留实际应进入归档的文件。
         /// </summary>
@@ -204,7 +208,8 @@ namespace FolderRewind.Services
             return BackupSourceFileEnumerator.Enumerate(
                     path,
                     selection,
-                    file => ShouldIncludeInBackup(file, filters, matcher))
+                    file => ShouldIncludeInBackup(file, filters, matcher),
+                    mayDescend: relative => MayDescendForBackup(relative, path, filters, matcher))
                 .Select(file => file.RelativePath)
                 .ToList();
         }
@@ -235,7 +240,8 @@ namespace FolderRewind.Services
                          path,
                          selection,
                          candidate => historical is null ? ShouldIncludeInBackup(candidate, filters, matcher)
-                             : historical.Includes(Path.GetRelativePath(path, candidate).Replace('\\', '/')), cancellationToken, requireComplete: true))
+                             : historical.Includes(Path.GetRelativePath(path, candidate).Replace('\\', '/')), cancellationToken, requireComplete: true,
+                         mayDescend: relative => historical?.MayDescend(relative) ?? MayDescendForBackup(relative, path, filters, matcher)))
             {
                 if (!result.TryAdd(file.RelativePath, new SourceCaptureFileState(file.Size, file.LastWriteTimeUtc)))
                     throw new System.IO.InvalidDataException("Capture input contains ambiguous file paths: " + file.RelativePath);

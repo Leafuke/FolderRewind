@@ -2,6 +2,7 @@ using FolderRewind.History.Application;
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
+using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
@@ -112,7 +113,8 @@ public static partial class BackupService
                     ? SourceDirectorySnapshot.Read(folder.Path,
                         FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(historicalBinding),
                         currentStates.Keys, cancellationToken, skipLinks: true,
-                        includeDirectory: FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(historicalBinding, isDirectory: true))
+                        includeDirectory: FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(historicalBinding, isDirectory: true),
+                        mayDescend: new HistoryRestoreTreeScope(historicalBinding).MayDescend)
                     : ImmutableArray<string>.Empty;
                 if (local.Representation.Kind == RepresentationKind.PluginArtifact)
                     SourceDirectorySnapshot.Validate(directories, currentStates.Keys);

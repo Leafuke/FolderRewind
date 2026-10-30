@@ -13,26 +13,34 @@ public static class SourceDirectorySnapshot
 {
     public static ImmutableArray<string> Read(string root, Func<string, bool> include,
         IEnumerable<string> files, CancellationToken token, bool enforceLimits = true, bool skipLinks = false,
-        Func<string, bool>? includeDirectory = null)
+        Func<string, bool>? includeDirectory = null, Func<string, bool>? mayDescend = null)
     {
         var directories = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Stack<string>(); pending.Push(root);
         while (pending.TryPop(out var directory))
         {
             token.ThrowIfCancellationRequested();
-            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos())
             {
-                if (Services.PreviewStoragePaths.IsReserved(entry)) continue;
-                var attributes = File.GetAttributes(entry);
+                if (Services.PreviewStoragePaths.IsReserved(entry.FullName)) continue;
+                var attributes = entry.Attributes;
+                if ((attributes & FileAttributes.Directory) == 0)
+                {
+                    if (!skipLinks && (attributes & FileAttributes.ReparsePoint) != 0)
+                        throw new IOException("A stable Native source cannot contain filesystem links.");
+                    continue;
+                }
+                var relative = Path.GetRelativePath(root, entry.FullName).Replace('\\', '/');
+                var included = (includeDirectory ?? include)(relative);
+                var descend = mayDescend?.Invoke(relative) ?? true;
+                if (!included && !descend) continue;
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
                 {
                     if (skipLinks) continue;
                     throw new IOException("A stable Native source cannot contain filesystem links.");
                 }
-                if ((attributes & FileAttributes.Directory) == 0) continue;
-                pending.Push(entry);
-                var relative = Path.GetRelativePath(root, entry).Replace('\\', '/');
-                if ((includeDirectory ?? include)(relative)) Add(relative);
+                if (descend) pending.Push(entry.FullName);
+                if (included) Add(relative);
             }
         }
         foreach (var file in files) AddParents(file);

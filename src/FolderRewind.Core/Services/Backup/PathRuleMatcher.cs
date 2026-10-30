@@ -213,6 +213,30 @@ internal sealed class PathRuleMatcher
             || MatchesTyped(relative, isDirectory: true, directoriesOnly: true);
     }
 
+    // A whitelist can prune only anchored paths whose fixed prefix cannot reach this subtree.
+    // Legacy segment matching, name rules and regexes can still match at any depth.
+    internal bool MayContainDescendant(string directory)
+    {
+        if (_literalRules.Count != 0 || _wildcardRules.Count != 0 || _regexRules.Count != 0
+            || _fileNames.Count != 0 || _directoryNames.Count != 0) return true;
+        var relative = TryGetRelativePath(_backupSourceRoot, NormalizeFullPath(directory));
+        if (relative is "" or ".") return _filePaths.Count != 0 || _directoryPaths.Count != 0 || _typedPatterns.Count != 0;
+        if (_filePaths.Any(path => path.StartsWith(relative + "/", StringComparison.OrdinalIgnoreCase))) return true;
+        if (_directoryPaths.Any(path => Overlaps(path, relative))) return true;
+        foreach (var (pattern, _) in _typedPatterns)
+        {
+            if (pattern.NameOnly || pattern.IsRegex) return true;
+            var wildcard = pattern.Pattern.IndexOfAny(['*', '?']);
+            var separator = pattern.Pattern.LastIndexOf('/', wildcard);
+            if (separator < 0 || Overlaps(pattern.Pattern[..separator], relative)) return true;
+        }
+        return false;
+
+        static bool Overlaps(string first, string second) => first.Equals(second, StringComparison.OrdinalIgnoreCase)
+            || first.StartsWith(second + "/", StringComparison.OrdinalIgnoreCase)
+            || second.StartsWith(first + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
         /// <summary>
         /// 判断候选路径是否命中任一规则，按字面量 → 通配符 → 正则的顺序匹配。
         /// 候选先换算为相对源根的路径再参与匹配；正则规则的执行带 250ms 超时

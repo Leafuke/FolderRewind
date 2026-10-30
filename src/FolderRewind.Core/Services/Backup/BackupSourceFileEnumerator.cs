@@ -31,14 +31,16 @@ public static class BackupSourceFileEnumerator
         string sourceRoot,
         BackupSourceScope? sourceScope,
         Func<string, bool>? additionalFilter = null,
-        CancellationToken cancellationToken = default)
-        => EnumerateUnordered(sourceRoot, sourceScope, additionalFilter, cancellationToken)
+        CancellationToken cancellationToken = default,
+        Func<string, bool>? mayDescend = null)
+        => EnumerateUnordered(sourceRoot, sourceScope, additionalFilter, cancellationToken, mayDescend: mayDescend)
             .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase).ToList();
 
     // Capture builds a dictionary and does not need an intermediate sorted list.
     internal static IEnumerable<BackupSourceFile> EnumerateUnordered(
         string sourceRoot, BackupSourceScope? sourceScope,
-        Func<string, bool>? additionalFilter = null, CancellationToken cancellationToken = default, bool requireComplete = false)
+        Func<string, bool>? additionalFilter = null, CancellationToken cancellationToken = default, bool requireComplete = false,
+        Func<string, bool>? mayDescend = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceRoot);
         cancellationToken.ThrowIfCancellationRequested();
@@ -79,7 +81,15 @@ public static class BackupSourceFileEnumerator
         }, options)
         {
             ShouldIncludePredicate = (ref FileSystemEntry entry) => !entry.IsDirectory,
-            ShouldRecursePredicate = (ref FileSystemEntry entry) => !entry.FileName.Equals(PreviewStoragePaths.DirectoryName.AsSpan(), StringComparison.OrdinalIgnoreCase)
+            ShouldRecursePredicate = (ref FileSystemEntry entry) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (entry.FileName.Equals(PreviewStoragePaths.DirectoryName.AsSpan(), StringComparison.OrdinalIgnoreCase)) return false;
+                var relative = Path.GetRelativePath(root, entry.ToFullPath()).Replace('\\', '/');
+                // Prove exclusion before opening the child directory; in-scope failures remain strict.
+                return (includePatterns is null || includePatterns.MayContainDescendant(relative))
+                    && (mayDescend?.Invoke(relative) ?? true);
+            }
         };
         foreach (var file in files)
         {

@@ -1,6 +1,7 @@
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Application;
+using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using FolderRewind.Plugin.Runtime.Artifacts;
 using FolderRewind.Services.Plugins.V3;
@@ -25,10 +26,12 @@ public static partial class BackupService
             var states = ScanDirectory(root, config.Filters, originalSourcePath: folder.Path,
                 selection: folder.SourceScope, cancellationToken: token);
             var binding = new HistoryRestoreSourceBinding(source, root, boundary) { LogicalDirectory = folder.Path };
+            var scope = new HistoryRestoreTreeScope(binding);
             var directories = SourceDirectorySnapshot.Read(root,
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), states.Keys, token,
                 enforceLimits: NativeArtifactHostService.IsIncrementalPolicy(config), skipLinks: true,
-                includeDirectory: FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true));
+                includeDirectory: FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true),
+                mayDescend: scope.MayDescend);
             return new(root, states, directories, baseline, boundary.Fingerprint, message => LogService.Log(message));
         }
         catch (OperationCanceledException) { throw; }
