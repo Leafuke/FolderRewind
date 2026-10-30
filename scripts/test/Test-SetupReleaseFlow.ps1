@@ -39,7 +39,7 @@ $testRoot = Join-Path $root 'tests'
 foreach ($suite in @('abstractions','runtime','host','recovery')) {
     $directory = Join-Path $testRoot $suite
     [void][IO.Directory]::CreateDirectory($directory)
-    '<TestRun><ResultSummary outcome="Completed"><Counters total="2" passed="2" /></ResultSummary></TestRun>' | Set-Content (Join-Path $directory 'tests.trx')
+    '<TestRun><ResultSummary outcome="Completed"><Counters total="2" passed="2" /></ResultSummary></TestRun>' | Set-Content (Join-Path $directory 'core-tests.trx')
 }
 $reportPath = Join-Path $root 'release-report.json'
 $newArguments = @{CandidateDirectory=(Join-Path $root 'candidate');AssetsDirectory=$public;TestResultsDirectory=$testRoot;Version=$version;SourceRevision=$revision;RunId=$run;OutputPath=$reportPath}
@@ -81,10 +81,10 @@ Expect-Rejected 'reject-duplicate-checks' { & "$PSScriptRoot/Test-SetupReleaseRe
 $report = $original | ConvertFrom-Json -AsHashtable; Save-Report
 foreach ($xml in @('<TestRun><ResultSummary outcome="Completed"><Counters total="0" passed="0" /></ResultSummary></TestRun>',
                    '<TestRun><ResultSummary outcome="Completed"><Counters total="2" passed="1" notExecuted="1" /></ResultSummary></TestRun>')) {
-    $xml | Set-Content (Join-Path $testRoot 'host/tests.trx')
+    $xml | Set-Content (Join-Path $testRoot 'host/core-tests.trx')
     Expect-Rejected 'reject-empty-or-skipped-trx' { & "$PSScriptRoot/../release/New-SetupReleaseReport.ps1" @newArguments }
 }
-'<TestRun><ResultSummary outcome="Completed"><Counters total="2" passed="2" /></ResultSummary></TestRun>' | Set-Content (Join-Path $testRoot 'host/tests.trx')
+'<TestRun><ResultSummary outcome="Completed"><Counters total="2" passed="2" /></ResultSummary></TestRun>' | Set-Content (Join-Path $testRoot 'host/core-tests.trx')
 
 # All GitHub operations are mocked; never upload or contact an account.
 $global:FolderRewindReleaseFlowMock = @{exists=$false;draft=$false;tag=$false;commit=$revision;target=$revision;assets=@();mutations=0;calls=0;failUpload=$false;failList=$false;corruptDownload=$false;generated=$false}
