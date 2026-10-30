@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Plugin.Runtime.Artifacts;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -51,9 +52,10 @@ namespace FolderRewind.Services
                         while (parent.LastIndexOf('/') is var separator && separator >= 0)
                         { parent = parent[..separator]; nonempty.Add(parent); }
                     }
+                    // Captured paths use '/'; physical volume paths require native separators for filesystem access.
                     var empty = (capturedDirectories ?? Array.Empty<string>()).Where(directory =>
                         !nonempty.Contains(directory)
-                        && !Directory.EnumerateFileSystemEntries(Path.Combine(sourceDir, directory)).Any());
+                        && !Directory.EnumerateFileSystemEntries(ArtifactPathRules.ResolveUnderRoot(sourceDir, directory)).Any());
                     var special = CompileFileTypeWildcardPatterns((fileTypeExclusions ?? Array.Empty<FileTypeRule>()).Select(rule => rule.Pattern));
                     File.WriteAllLines(generatedWhitelistListFile,
                         capturedPaths.Where(path => !MatchesAnyFileTypePattern(path, special)).Concat(empty), new UTF8Encoding(false));
