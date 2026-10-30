@@ -5,6 +5,7 @@
 - [领域术语](domain.md)：概念、身份与职责含义。
 - [架构决策](adr/)：仍有效的选择、取舍及替代关系；保留编号。
 - [历史完整性与恢复](specifications/history-integrity.md)：持久化权威、事务和恢复边界；Source 分支以 ADR 0007 为准。
+- [产品消息协议 v1](specifications/product-messages-v1.md)：公告身份、适用范围、阅读状态与更新渠道边界。
 - [Native Artifact Envelope v1](specifications/native-artifact-envelope-v1.md)：版本化数据格式。
 - [受保护备份](specifications/protected-backups.md)：Pin、完整性与完成回执。
 - [还原强保留](specifications/restore-preserve-paths.md)：范围、编码与暂存事务约束。

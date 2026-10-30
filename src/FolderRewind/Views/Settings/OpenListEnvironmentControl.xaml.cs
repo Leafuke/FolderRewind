@@ -16,14 +16,22 @@ public sealed partial class OpenListEnvironmentControl : UserControl
     public OpenListEnvironmentControl()
     {
         InitializeComponent();
-        Loaded += (_, _) =>
-        {
-            if (_lifetime.IsCancellationRequested) { _lifetime.Dispose(); _lifetime = new(); }
-            ViewModel.Activate();
-            if (_bringIntoViewPending)
-            { _bringIntoViewPending = false; DispatcherQueue.TryEnqueue(() => { if (IsLoaded) EnvironmentExpander.StartBringIntoView(); }); }
-        };
-        Unloaded += (_, _) => { _lifetime.Cancel(); ViewModel.Deactivate(); };
+        Loaded += (_, _) => ActivatePresentation();
+        Unloaded += (_, _) => DeactivatePresentation();
+    }
+    internal void ActivatePresentation()
+    {
+        if (_lifetime.IsCancellationRequested) { _lifetime.Dispose(); _lifetime = new(); }
+        ViewModel.Activate();
+        Bindings.Update();
+        if (_bringIntoViewPending)
+        { _bringIntoViewPending = false; DispatcherQueue.TryEnqueue(() => { if (IsLoaded) EnvironmentExpander.StartBringIntoView(); }); }
+    }
+    internal void DeactivatePresentation()
+    {
+        _lifetime.Cancel();
+        ViewModel.Deactivate();
+        Bindings.StopTracking();
     }
     public void ShowRepairTarget()
     {

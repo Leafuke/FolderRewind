@@ -136,6 +136,7 @@ namespace FolderRewind
                 I18n.SetLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
                 Services.SponsorService.InitializeFromCache();
 
+                Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig.GlobalSettings);
                 _window = new MainWindow();
                 // 两个服务在启动时只注入一次，后续页面统一从这里取窗口与 UI 调度入口。
                 MainWindowService.Initialize(_window);
@@ -173,15 +174,6 @@ namespace FolderRewind
                         mainWindow.HideToTray();
                     });
                 }
-
-                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
-                {
-                    var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
-                    if (settings != null)
-                    {
-                        Services.TypographyService.ApplyTypography(settings);
-                    }
-                });
 
                 // 插件包恢复和离线迁移在后台执行；UI 线程只负责启动入口。
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>

@@ -83,7 +83,7 @@ public sealed partial class NotificationCenterControl : UserControl
     private void UpdateProtection() { if (_opened) ViewModel.SetReadingProtection(_pointer || _keyboard || (_scroll?.VerticalOffset ?? 0) > 1); }
     private void OnLayoutChanged(object sender, SizeChangedEventArgs e)
     {
-        var chrome = Header.ActualHeight + NewResults.ActualHeight + Filter.ActualHeight + UndoRow.ActualHeight + 56;
+        var chrome = Header.ActualHeight + NewResults.ActualHeight + Filter.ActualHeight + UndoRow.ActualHeight + PersistenceStatus.ActualHeight + 56;
         var available = Math.Max(48, MaxHeight - chrome);
         if (double.IsInfinity(available)) available = 380;
         if (Math.Abs(Records.MaxHeight - available) > 1) Records.MaxHeight = DetailsScroll.MaxHeight = available;

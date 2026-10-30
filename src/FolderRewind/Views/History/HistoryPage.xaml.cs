@@ -1,4 +1,4 @@
-﻿using FolderRewind.History.Application;
+using FolderRewind.History.Application;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
@@ -185,6 +185,7 @@ public sealed partial class HistoryPage : Page
     {
         _legacyNoticeActive = true;
         base.OnNavigatedTo(e);
+        Bindings.Update();
 
         if (e.Parameter is NotificationNavigationParameter notification)
         {
@@ -237,6 +238,7 @@ public sealed partial class HistoryPage : Page
         _legacyNoticeActive = false;
         ResetLegacyMigrationNotice();
         ViewModel.Suspend();
+        Bindings.StopTracking();
         base.OnNavigatedFrom(e);
     }
 

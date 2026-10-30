@@ -111,8 +111,10 @@ namespace FolderRewind.Services
             public string FolderPath { get; init; } = string.Empty;
             public string FolderName { get; init; } = string.Empty;
             public string ErrorMessage { get; init; } = string.Empty;
+            public string ErrorSummary { get; init; } = string.Empty;
             public OperationOutcome OperationOutcome { get; set; } = OperationOutcome.Failed;
             public SourceCaptureResult? CaptureResult { get; init; }
+            public IReadOnlyList<PluginDiagnostic> ErrorDiagnostics { get; init; } = [];
             public IReadOnlyList<PluginDiagnostic> WarningDiagnostics { get; set; } = [];
             public IReadOnlyList<string> WarningCodes => WarningDiagnostics.Select(item => item.Code).Distinct(StringComparer.Ordinal).ToArray();
             internal HashSet<string> PublishedWarningIdentities { get; } = new(StringComparer.Ordinal);
@@ -358,6 +360,7 @@ namespace FolderRewind.Services
                 Log($"[PluginV3] {message}", LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
@@ -381,6 +384,7 @@ namespace FolderRewind.Services
                 Log($"[Filter] Backup filter validation failed: {filterValidationError}", LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Task_Failed");
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
@@ -398,6 +402,7 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_DestinationNotSet"), LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Folder_TargetNotSet");
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
@@ -425,6 +430,7 @@ namespace FolderRewind.Services
                 Log(invalidFolderNameMessage, LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Task_Failed");
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
@@ -451,6 +457,7 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_SourceDestinationOverlap", overlap.SourcePath, overlap.TargetPath), LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Task_Failed");
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
@@ -493,6 +500,7 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Folder_SourceNotFound");
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
@@ -511,7 +519,7 @@ namespace FolderRewind.Services
             if (!Directory.Exists(backupSubDir)) Directory.CreateDirectory(backupSubDir);
 
             Log(I18n.Format("BackupService_Log_ProcessingFolder", folder.DisplayName), LogLevel.Info);
-            await RunOnUIAsync(() => folder.StatusText = I18n.Format("BackupService_Folder_BackupInProgress"));
+            await RunOnUIAsync(() => { folder.ExecutionStatus = SemanticStatus.Neutral; folder.StatusText = I18n.Format("BackupService_Folder_BackupInProgress"); });
 
             BroadcastBackupEvent(configIndex, config, folder, "backup_started");
 
@@ -610,6 +618,7 @@ namespace FolderRewind.Services
                 await RunOnUIAsync(() =>
                 {
                     task.Status = I18n.Format("BackupService_Task_Processing");
+                    folder.ExecutionStatus = SemanticStatus.Neutral;
                     folder.StatusText = I18n.Format("BackupService_Folder_BackupRunning");
                 });
 
@@ -821,7 +830,7 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(
                     folder,
                     BackupSourceExecutionStatus.Failed,
-                    errorMessage: task.ErrorMessage,
+                    errorMessage: task.ErrorMessage, userFacingError: false,
                     captureResult: captureResult,
                     operationOutcome: canceled ? OperationOutcome.Canceled : OperationOutcome.Failed,
                     warningDiagnostics: operationDiagnostics,
@@ -856,13 +865,16 @@ namespace FolderRewind.Services
             OperationOutcome? operationOutcome = null,
             string? generatedFileName = null,
             BackupTask? task = null,
-            IEnumerable<PluginDiagnostic>? warningDiagnostics = null) => new()
+            IEnumerable<PluginDiagnostic>? warningDiagnostics = null,
+            IEnumerable<PluginDiagnostic>? errorDiagnostics = null, bool userFacingError = true) => new()
         {
             Status = status,
             FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
             FolderPath = folder.Path ?? string.Empty,
             FolderName = folder.DisplayName ?? string.Empty,
             ErrorMessage = errorMessage ?? string.Empty,
+            ErrorSummary = userFacingError ? errorMessage ?? string.Empty : I18n.GetString("OperationDiagnostic_Unknown"),
+            ErrorDiagnostics = OperationDiagnosticFormatter.CaptureErrors((errorDiagnostics ?? []).Concat(warningDiagnostics ?? []), captureResult?.Diagnostics ?? []),
             CaptureResult = captureResult,
             WarningDiagnostics = OperationDiagnosticFormatter.CaptureWarnings(warningDiagnostics ?? [], captureResult?.Diagnostics ?? []),
             OperationOutcome = operationOutcome ?? PluginBackupRequestResult.FromSource(status).Outcome,

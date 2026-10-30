@@ -21,14 +21,17 @@ namespace FolderRewind.ViewModels
         public bool StartupStateKnown { get => _startupStateKnown; private set => SetProperty(ref _startupStateKnown, value); }
         public async Task RefreshStartupStatusAsync()
         {
+            var generation = _presentationGeneration;
             try
             {
                 var state = await StartupService.GetStartupStateAsync();
+                if (!_active || generation != _presentationGeneration) return;
                 StartupStateKnown = true;
                 StartupStatusDescription = state == StartupTaskState.DisabledByUser ? I18n.GetString("Startup_DisabledByUser") : I18n.GetString("SettingsPage_RunOnStartupDesc.Text");
             }
             catch
             {
+                if (!_active || generation != _presentationGeneration) return;
                 StartupStateKnown = false;
                 StartupStatusDescription = I18n.GetString("Startup_StateUnknown");
             }
@@ -270,22 +273,12 @@ namespace FolderRewind.ViewModels
                 nameof(StartupHeightMaximum), nameof(StartupWidth), nameof(StartupHeight) }) OnPropertyChanged(property);
         }
 
-        public void HandleFontFamilyChanged(string selectedFontFamily)
-        {
-            if (string.IsNullOrWhiteSpace(selectedFontFamily))
-            {
-                return;
-            }
-
-            Settings.FontFamily = selectedFontFamily;
-            TypographyService.ApplyTypography(Settings);
-            _isDirty = true;
-        }
-
         public void HandleFontSizeChanged(double newSize)
         {
+            if (!double.IsFinite(newSize)) return;
             Settings.BaseFontSize = Math.Clamp(newSize, 12, 20);
-            TypographyService.ApplyTypography(Settings);
+            // Apply before the next window is constructed. Updating resource values does
+            // not reliably refresh already materialized WinUI control templates.
             _isDirty = true;
         }
 

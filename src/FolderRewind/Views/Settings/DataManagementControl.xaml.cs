@@ -15,6 +15,51 @@ namespace FolderRewind.Views.Settings
 {
     public sealed partial class DataManagementControl : UserControl
     {
+        private readonly SettingsPresentationLifetime _presentation = new();
+        internal DeferredSettingsSection TemplatesSection { get; } = new();
+        internal DeferredSettingsSection MigrationSection { get; } = new();
+
+        private void UpdatePresentationBindings() => _presentation.UpdateBindings(Bindings.Update);
+
+        internal void DeactivatePresentation()
+        {
+            _presentation.Deactivate();
+            OnMigrationUnloaded(this, new RoutedEventArgs());
+            Bindings.StopTracking();
+        }
+
+        private void EnsureSection(DeferredSettingsSection section, SettingsSection kind)
+        {
+            if (!_presentation.IsActive) return;
+            System.Threading.Tasks.Task? initialization = null;
+            _presentation.UpdateBindings(() =>
+            {
+                initialization = ViewModel.InitializeSectionAsync(kind);
+                section.Create();
+                Bindings.Update();
+                ApplyDeferredCardStyles();
+            });
+            if (kind == SettingsSection.Migration) OnMigrationLoaded(this, new RoutedEventArgs());
+            TaskObserver.Observe(initialization ?? System.Threading.Tasks.Task.CompletedTask, nameof(DataManagementControl));
+        }
+
+
+        private void ApplyDeferredCardStyles()
+        {
+            SettingsDeferredContent.ApplyCardStyles(MigrationBody, MigrationExpander);
+            SettingsDeferredContent.ApplyCardStyles(TemplatesBody, TemplatesExpander);
+        }
+
+        private void RefreshCreatedSections()
+        {
+            if (TemplatesSection.IsCreated) EnsureSection(TemplatesSection, SettingsSection.Templates);
+            if (MigrationSection.IsCreated) EnsureSection(MigrationSection, SettingsSection.Migration);
+        }
+
+        private void OnTemplatesExpanded(object? sender, object e) => EnsureSection(TemplatesSection, SettingsSection.Templates);
+
+        private void OnMigrationExpanded(object? sender, object e) => EnsureSection(MigrationSection, SettingsSection.Migration);
+
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
 
         public MigrationViewModel Migration { get; } = new();
@@ -29,19 +74,22 @@ namespace FolderRewind.Views.Settings
         public DataManagementControl()
         {
             this.InitializeComponent();
-            Loaded += OnMigrationLoaded;
-            MigrationStatusBar.Closed += (_, _) => Migration.HasReport = false;
+            Unloaded += (_, _) => DeactivatePresentation();
         }
 
         public void SetViewModel(SettingsPageViewModel viewModel)
         {
             ViewModel = viewModel;
+            _presentation.Activate();
+            UpdatePresentationBindings();
+            RefreshCreatedSections();
         }
 
         private void OnExportConfigClick(object sender, RoutedEventArgs e)
             => OpenMigration(new(MigrationWizardMode.Export, DataMigrationScope.Configuration));
         private async void OnExportTemplateClick(object sender, RoutedEventArgs e)
         {
+            var generation = _presentation.Generation;
             try
             {
                 var templates = BackupPresetService.GetTemplates()
@@ -97,6 +145,7 @@ namespace FolderRewind.Views.Settings
                     },
                     $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}",
                     MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+                if (!_presentation.IsCurrent(generation)) return;
                 if (string.IsNullOrWhiteSpace(filePath)) return;
 
                 var ok = BackupPresetService.ExportTemplate(selectedTemplate.Id, filePath, out var message);
@@ -112,6 +161,7 @@ namespace FolderRewind.Views.Settings
         private bool _isImportingTemplate;
         private async void OnImportTemplateClick(object sender, RoutedEventArgs e)
         {
+            var generation = _presentation.Generation;
             if (_isImportingTemplate) return;
             _isImportingTemplate = true;
             try
@@ -121,6 +171,7 @@ namespace FolderRewind.Views.Settings
                     "FolderRewind.Settings.DataManagement.ImportTemplate",
                     new[] { ".json" },
                     MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+                if (!_presentation.IsCurrent(generation)) return;
                 if (string.IsNullOrWhiteSpace(filePath)) return;
 
                 if (!File.Exists(filePath))
@@ -189,6 +240,7 @@ namespace FolderRewind.Views.Settings
 
         private async void OnBrowseOfficialTemplatesClick(object sender, RoutedEventArgs e)
         {
+            var generation = _presentation.Generation;
             var item = await OfficialTemplateDialogService.PickTemplateAsync(
                 this.XamlRoot,
                 I18n.GetString("OfficialTemplates_BrowseTitle"));
@@ -245,9 +297,13 @@ namespace FolderRewind.Views.Settings
             return string.IsNullOrWhiteSpace(sanitized) ? "template" : sanitized;
         }
 
+        private void OnMigrationStatusClosed(InfoBar sender, InfoBarClosedEventArgs args) => Migration.HasReport = false;
+
         private void ShowInfoBar(string message, InfoBarSeverity severity)
         {
+            if (!_presentation.IsActive) return;
             Migration.HasReport = true;
+            _presentation.UpdateBindings(() => { MigrationSection.Create(); Bindings.Update(); ApplyDeferredCardStyles(); });
             MigrationStatusBar.Message = message;
             MigrationStatusBar.Severity = severity;
             MigrationStatusBar.IsOpen = true;

@@ -73,6 +73,7 @@ namespace FolderRewind.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            Bindings.Update();
 
             ViewModel.Activate();
 
@@ -133,6 +134,7 @@ namespace FolderRewind.Views
             }
 
             ViewModel.Deactivate();
+            Bindings.StopTracking();
         }
 
         private void HotkeyManager_Invoked(object? sender, HotkeyInvokedEventArgs e)

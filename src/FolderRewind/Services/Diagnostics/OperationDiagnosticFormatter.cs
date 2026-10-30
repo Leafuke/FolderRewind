@@ -38,6 +38,12 @@ internal static class OperationDiagnosticFormatter
         return Snapshot(originals.Concat(projected));
     }
 
+    internal static IReadOnlyList<PluginDiagnostic> CaptureErrors(IEnumerable<PluginDiagnostic> plugin,
+        IEnumerable<HistoryDiagnostic> history) => Snapshot(plugin.Where(d => d.Severity == DiagnosticSeverity.Error)
+            .Concat(history.Where(d => d.Severity == HistoryDiagnosticSeverity.Error)
+                .Select(d => new PluginDiagnostic(d.Code, DiagnosticSeverity.Error, "Capture", "folderrewind.core",
+                    new Dictionary<string, string> { ["message"] = d.Message }))));
+
     internal static string Identity(PluginDiagnostic diagnostic)
     {
         var key = new StringBuilder();
@@ -65,6 +71,7 @@ internal static class OperationDiagnosticFormatter
             "minerewind.consistency_coordination_failed" => "OperationDiagnostic_ConsistencyCoordinationFailed",
             "minerewind.snapshot_fallback" => "OperationDiagnostic_SnapshotFallback",
             "minerewind.snapshot_links_skipped" => "OperationDiagnostic_SnapshotLinksSkipped",
+            "plugin.backup_raw_fallback_requires_complete_full" => "OperationDiagnostic_RawFallbackBlocked",
             "plugin.backup_consistency_fallback" => "OperationDiagnostic_ConsistencyFallback",
             "plugin.backup_consistency_cleanup_failed" => "OperationDiagnostic_ConsistencyCleanupFailed",
             "backup.file_too_small" => "OperationDiagnostic_BackupFileTooSmall",
@@ -76,7 +83,7 @@ internal static class OperationDiagnosticFormatter
             "backup.warning_unspecified" => "OperationDiagnostic_BackupWarningUnspecified",
             _ => null
         };
-        return key is null ? I18n.GetString("OperationDiagnostic_Unknown") + $" ({diagnostic.Owner}: {diagnostic.Code})"
+        return key is null ? I18n.GetString("OperationDiagnostic_Unknown")
             : diagnostic.Code == "minerewind.world_lock_probe_failed"
                 ? I18n.Format(key, diagnostic.Arguments.GetValueOrDefault("path", "session.lock")) : I18n.GetString(key);
     }
@@ -98,7 +105,7 @@ internal static class OperationDiagnosticFormatter
     {
         var sections = new List<string>();
         void Add(string key, string text) { if (!string.IsNullOrWhiteSpace(text)) sections.Add(I18n.GetString(key) + Environment.NewLine + text); }
-        Add("BackupTasks_DetailsErrors", task.ErrorMessage);
+        Add("BackupTasks_DetailsErrors", task.ErrorDiagnostics.Count > 0 ? Details(task.ErrorDiagnostics) : task.ErrorMessage);
         Add("BackupTasks_DetailsWarnings", Details(task.WarningDiagnostics));
         Add("BackupTasks_DetailsLog", task.Log);
         return string.Join(Environment.NewLine + Environment.NewLine, sections);

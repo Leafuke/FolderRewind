@@ -10,7 +10,15 @@ public sealed partial class SettingsPageViewModel
 
     public int ThemeIndex { get => Settings.ThemeIndex; set => SetSetting(Settings.ThemeIndex, value, item => Settings.ThemeIndex = item); }
     public int CompletionSoundIndex { get => Settings.CompletionSoundIndex; set => SetSetting(Settings.CompletionSoundIndex, value, item => Settings.CompletionSoundIndex = item); }
-    public double BaseFontSize { get => Settings.BaseFontSize; set => SetSetting(Settings.BaseFontSize, value, item => Settings.BaseFontSize = item); }
+    public double BaseFontSize
+    {
+        get => Settings.BaseFontSize;
+        set
+        {
+            if (double.IsFinite(value))
+                SetSetting(Settings.BaseFontSize, Math.Clamp(value, 12, 20), item => Settings.BaseFontSize = item);
+        }
+    }
     public bool UseHistoryStatusColors { get => Settings.UseHistoryStatusColors; set => SetSetting(Settings.UseHistoryStatusColors, value, item => Settings.UseHistoryStatusColors = item); }
     public double NavPaneWidth { get => Settings.NavPaneWidth; set => SetSetting(Settings.NavPaneWidth, value, item => Settings.NavPaneWidth = item); }
     public double StartupWidth { get => Services.MainWindowService.NormalizeSize(Settings.StartupWidth, Settings.StartupHeight).Width; set => SetSetting(Settings.StartupWidth, value, item => Settings.StartupWidth = item); }

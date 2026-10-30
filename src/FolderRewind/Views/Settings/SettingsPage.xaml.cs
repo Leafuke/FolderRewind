@@ -1,151 +1,98 @@
-using CommunityToolkit.WinUI.Controls;
-using FolderRewind.ViewModels;
 using FolderRewind.Services;
+using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
-using System.Collections.Generic;
-using System.ComponentModel;
+using Microsoft.UI.Xaml.Navigation;
 
-namespace FolderRewind.Views
+namespace FolderRewind.Views;
+
+public sealed partial class SettingsPage : Page
 {
-    public sealed partial class SettingsPage : Page
+    private readonly SettingsPageViewModel _viewModel = new();
+    private string? _pendingRepairTarget;
+    private FolderRewind.Models.ProductSettingsNavigationParameter? _pendingProductTarget;
+    private bool _active;
+
+    public SettingsPage()
     {
-        private readonly SettingsPageViewModel _viewModel = new();
-
-        // SettingsExpander lazy loading
-        private readonly HashSet<SettingsExpander> _expanderContentCreated = new();
-        private readonly Dictionary<SettingsExpander, long> _expanderCallbackTokens = new();
-        private bool _expanderLazyLoadInitialized;
-        private string? _pendingRepairTarget;
-        private bool _active;
-
-        public SettingsPage()
+        InitializeComponent();
+        Loaded += (_, _) =>
         {
-            this.InitializeComponent();
+            if (!_active) return;
+            ActivatePresentation();
+            ApplyPendingRepairTarget();
+        };
+        Unloaded += (_, _) => DeactivatePresentation();
+    }
 
-            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+    private void ActivatePresentation()
+    {
+        _viewModel.Activate();
+        PresetControl.SetViewModel(_viewModel);
+        CoreBehaviorControl.SetViewModel(_viewModel);
+        AppearanceLayoutControl.SetViewModel(_viewModel);
+        RuntimeEnvControl.SetViewModel(_viewModel);
+        DiagnosticsControl.SetViewModel(_viewModel);
+        DataManagementControl.SetViewModel(_viewModel);
+        PluginsKnotLinkControl.SetViewModel(_viewModel);
+        AboutControl.SetViewModel(_viewModel);
+    }
 
-            Unloaded -= OnSettingsPageUnloaded;
-            Unloaded += OnSettingsPageUnloaded;
+    private void DeactivatePresentation()
+    {
+        _active = false;
+        PresetControl.DeactivatePresentation();
+        CoreBehaviorControl.DeactivatePresentation();
+        AppearanceLayoutControl.DeactivatePresentation();
+        RuntimeEnvControl.DeactivatePresentation();
+        DiagnosticsControl.DeactivatePresentation();
+        DataManagementControl.DeactivatePresentation();
+        PluginsKnotLinkControl.DeactivatePresentation();
+        AboutControl.DeactivatePresentation();
+        _viewModel.Deactivate();
+        _viewModel.SaveIfDirty();
+    }
 
-            Loaded += async (_, _) =>
-            {
-                _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-                _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-                // Inject ViewModel into all child controls
-                PresetControl.SetViewModel(_viewModel);
-                CoreBehaviorControl.SetViewModel(_viewModel);
-                AppearanceLayoutControl.SetViewModel(_viewModel);
-                RuntimeEnvControl.SetViewModel(_viewModel);
-                DiagnosticsControl.SetViewModel(_viewModel);
-                DataManagementControl.SetViewModel(_viewModel);
-                PluginsKnotLinkControl.SetViewModel(_viewModel);
-                AboutControl.SetViewModel(_viewModel);
-
-                await _viewModel.InitializeAsync();
-                if (!_active) return;
-                InitializeExpanderLazyLoading();
-                ApplyPendingRepairTarget();
-            };
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        _active = true;
+        _pendingRepairTarget = e.Parameter as string;
+        _pendingProductTarget = e.Parameter as FolderRewind.Models.ProductSettingsNavigationParameter;
+        if (IsLoaded)
+        {
+            ActivatePresentation();
+            DispatcherQueue.TryEnqueue(ApplyPendingRepairTarget);
         }
+    }
 
-        private void InitializeExpanderLazyLoading()
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        DeactivatePresentation();
+        base.OnNavigatedFrom(e);
+    }
+
+    internal void ShowProductTarget(FolderRewind.Models.ProductSettingsNavigationParameter target)
+    {
+        _active = true;
+        _pendingProductTarget = target;
+        ActivatePresentation();
+        DispatcherQueue.TryEnqueue(ApplyPendingRepairTarget);
+    }
+
+    private void ApplyPendingRepairTarget()
+    {
+        if (!_active) return;
+        if (_pendingProductTarget is { } product)
+        { _pendingProductTarget = null; AboutControl.ShowProductTarget(product); }
+        var target = _pendingRepairTarget;
+        _pendingRepairTarget = null;
+        switch (target)
         {
-            if (_expanderLazyLoadInitialized) return;
-            if (SettingsScrollViewer is null) return;
-            _expanderLazyLoadInitialized = true;
-
-            var expanders = FindAllSettingsExpanders(SettingsScrollViewer);
-            foreach (var expander in expanders)
-            {
-                var token = expander.RegisterPropertyChangedCallback(
-                    SettingsExpander.IsExpandedProperty,
-                    OnExpanderIsExpandedChanged);
-                _expanderCallbackTokens[expander] = token;
-            }
-        }
-
-        private static List<SettingsExpander> FindAllSettingsExpanders(DependencyObject parent)
-        {
-            var result = new List<SettingsExpander>();
-            var count = VisualTreeHelper.GetChildrenCount(parent);
-            for (int i = 0; i < count; i++)
-            {
-                var child = VisualTreeHelper.GetChild(parent, i);
-                if (child is SettingsExpander expander)
-                {
-                    result.Add(expander);
-                }
-                result.AddRange(FindAllSettingsExpanders(child));
-            }
-            return result;
-        }
-
-        private void OnExpanderIsExpandedChanged(DependencyObject sender, DependencyProperty dp)
-        {
-            if (sender is not SettingsExpander expander) return;
-            if (!expander.IsExpanded) return;
-            if (_expanderContentCreated.Contains(expander)) return;
-
-            _expanderContentCreated.Add(expander);
-            // Phase 2 will add actual content creation here
-        }
-
-        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            // ViewModel changes are handled by individual UserControls' own x:Bind.
-            // Page-level Bindings.Update() is not needed since the page XAML has no x:Bind.
-        }
-
-        private void OnSettingsPageUnloaded(object sender, RoutedEventArgs e)
-        {
-            _viewModel.SaveIfDirty();
-
-            foreach (var (expander, token) in _expanderCallbackTokens)
-            {
-                try
-                {
-                    expander.UnregisterPropertyChangedCallback(
-                        SettingsExpander.IsExpandedProperty, token);
-                }
-                catch { }
-            }
-            _expanderCallbackTokens.Clear();
-            _expanderLazyLoadInitialized = false;
-            _expanderContentCreated.Clear();
-
-            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-            _viewModel.Deactivate();
-        }
-
-        protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
-        {
-            base.OnNavigatedTo(e);
-            _active = true;
-            _viewModel.OnNavigatedTo();
-            _pendingRepairTarget = e.Parameter as string;
-            if (IsLoaded) DispatcherQueue.TryEnqueue(ApplyPendingRepairTarget);
-        }
-
-        protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
-        {
-            _active = false;
-            _viewModel.SaveIfDirty();
-            _viewModel.Deactivate();
-            base.OnNavigatedFrom(e);
-        }
-
-        private void ApplyPendingRepairTarget()
-        {
-            var target = _pendingRepairTarget; _pendingRepairTarget = null;
-            switch (target)
-            {
-                case NavigationService.SettingsOpenListTarget: RuntimeEnvControl.ShowOpenList(); break;
-                case NavigationService.SettingsPluginsTarget: PluginsKnotLinkControl.ShowRepairTarget(false); break;
-                case NavigationService.SettingsKnotLinkTarget: PluginsKnotLinkControl.ShowRepairTarget(true); break;
-                case NavigationService.SettingsMinecraftPresetTarget: PresetControl.StartBringIntoView(); break;
-            }
+            case NavigationService.SettingsOpenListTarget: RuntimeEnvControl.ShowOpenList(); break;
+            case NavigationService.SettingsPluginsTarget: PluginsKnotLinkControl.ShowRepairTarget(false); break;
+            case NavigationService.SettingsKnotLinkTarget: PluginsKnotLinkControl.ShowRepairTarget(true); break;
+            case NavigationService.SettingsMinecraftPresetTarget: PresetControl.ShowPresets(); break;
         }
     }
 }

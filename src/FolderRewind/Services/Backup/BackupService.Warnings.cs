@@ -34,6 +34,7 @@ public static partial class BackupService
                 if (outcome.Task is not { } task) return;
                 task.WarningDiagnostics = diagnostics;
                 if (task.IsCompleted && task.IsSuccess)
+                    folder.ExecutionStatus = SemanticStatus.Warning;
                     folder.StatusText = task.Status = diagnostics.FirstOrDefault(item => item.Code == "backup.history_recovery_required")?
                         .Arguments.GetValueOrDefault("message") ?? I18n.GetString("BackupService_Task_CompletedWithWarnings");
             });

@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:settings="using:FolderRewind.Views.Settings"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -11,7 +12,9 @@
         <!-- 关于 -->
         <TextBlock x:Uid="SettingsPage_Section_About" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
-        <toolkit:SettingsExpander Margin="0,0,0,24" IsExpanded="False" x:Uid="SettingsPage_AboutExpander" AutomationProperties.AutomationId="SettingsPage_AboutExpander">
+        <settings:ProductMessagesControl x:Name="ProductMessages"/>
+
+        <toolkit:SettingsExpander Expanded="OnAboutExpanded" x:Name="AboutExpander" Margin="0,0,0,24" IsExpanded="False" x:Uid="SettingsPage_AboutExpander" AutomationProperties.AutomationId="SettingsPage_AboutExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_About" AutomationProperties.AutomationId="SettingsAboutHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -23,15 +26,19 @@
             </toolkit:SettingsExpander.HeaderIcon>
             <TextBlock Text="{x:Bind ViewModel.AppVersion, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
             <toolkit:SettingsExpander.Items>
-                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Repository" AutomationProperties.AutomationId="SettingsAboutRepository" NavigateUri="https://github.com/Leafuke/FolderRewind" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Sponsors" AutomationProperties.AutomationId="SettingsAboutSponsors" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/docs/SPONSORS.md" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Bilibili" AutomationProperties.AutomationId="SettingsAboutBilibili" NavigateUri="https://space.bilibili.com/545429962" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Privacy" AutomationProperties.AutomationId="SettingsAboutPrivacy" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/PRIVACY.md" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" AutomationProperties.AutomationId="SettingsAboutKnotLink" NavigateUri="https://github.com/KnotLink-Protocol/KnotLinkService"/>
-                    </StackPanel>
-                </toolkit:SettingsCard>
+                <Grid Style="{StaticResource SettingsDeferredItemsHostStyle}">
+                    <StackPanel x:Name="AboutBody" x:Load="{x:Bind AboutSection.IsCreated, Mode=OneWay}">
+                        <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <HyperlinkButton x:Uid="SettingsPage_About_Link_Repository" AutomationProperties.AutomationId="SettingsAboutRepository" NavigateUri="https://github.com/Leafuke/FolderRewind" />
+                                <HyperlinkButton x:Uid="SettingsPage_About_Link_Sponsors" AutomationProperties.AutomationId="SettingsAboutSponsors" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/docs/SPONSORS.md" />
+                                <HyperlinkButton x:Uid="SettingsPage_About_Link_Bilibili" AutomationProperties.AutomationId="SettingsAboutBilibili" NavigateUri="https://space.bilibili.com/545429962" />
+                                <HyperlinkButton x:Uid="SettingsPage_About_Link_Privacy" AutomationProperties.AutomationId="SettingsAboutPrivacy" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/PRIVACY.md" />
+                                <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" AutomationProperties.AutomationId="SettingsAboutKnotLink" NavigateUri="https://github.com/KnotLink-Protocol/KnotLinkService"/>
+                            </StackPanel>
+                        </toolkit:SettingsCard>
+                            </StackPanel>
+                </Grid>
             </toolkit:SettingsExpander.Items>
         </toolkit:SettingsExpander>
         <StackPanel Orientation="Horizontal" Spacing="4">

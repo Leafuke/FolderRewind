@@ -173,6 +173,7 @@ namespace FolderRewind.Models
         public double StartupWidth { get => _startupWidth; set => SetProperty(ref _startupWidth, value); }
         public double StartupHeight { get => _startupHeight; set => SetProperty(ref _startupHeight, value); }
         public double NavPaneWidth { get => _navPaneWidth; set => SetProperty(ref _navPaneWidth, value); }
+        // Legacy serialized preference: retained for configuration round-trips, no longer rendered.
         public string FontFamily { get => _fontFamily; set => SetProperty(ref _fontFamily, value); }
         public double BaseFontSize { get => _baseFontSize; set => SetProperty(ref _baseFontSize, value); }
         public string HomeSortMode { get => _homeSortMode; set => SetProperty(ref _homeSortMode, value); }
@@ -328,6 +329,8 @@ namespace FolderRewind.Models
         /// <summary>
         /// 是否接收公告通知。
         /// </summary>
+        public Dictionary<string, ProductMessageState> ProductMessageStates { get; set; } = new(StringComparer.Ordinal);
+
         public bool EnableNotices { get => _enableNotices; set => SetProperty(ref _enableNotices, value); }
 
         /// <summary>

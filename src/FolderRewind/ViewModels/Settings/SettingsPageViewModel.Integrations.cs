@@ -123,12 +123,17 @@ namespace FolderRewind.ViewModels
 
         public void RefreshKnotLinkServerInfo()
         {
-            KnotLinkServerInstalled = KnotLinkServerManagerService.IsServerInstalled();
-            KnotLinkServerRunning = KnotLinkServerManagerService.IsServerProcessRunning();
+            ApplyKnotLinkServerInfo(KnotLinkServerManagerService.IsServerInstalled(),
+                KnotLinkServerManagerService.IsServerProcessRunning(), KnotLinkServerManagerService.GetServerVersion());
+        }
+
+        private void ApplyKnotLinkServerInfo(bool installed, bool running, string? version)
+        {
+            KnotLinkServerInstalled = installed;
+            KnotLinkServerRunning = running;
 
             if (KnotLinkServerInstalled)
             {
-                var version = KnotLinkServerManagerService.GetServerVersion();
                 KnotLinkServerVersionText = version ?? I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
             }
             else

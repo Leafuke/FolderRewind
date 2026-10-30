@@ -23,6 +23,7 @@ namespace FolderRewind.Models
         private bool _isSuccess;
         private string _iconGlyph = "\uE8B7";
         private IReadOnlyList<PluginDiagnostic> _warningDiagnostics = [];
+        [JsonIgnore] public IReadOnlyList<PluginDiagnostic> ErrorDiagnostics { get; set; } = [];
 
         [JsonIgnore]
         public IReadOnlyList<PluginDiagnostic> WarningDiagnostics

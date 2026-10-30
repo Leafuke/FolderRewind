@@ -80,6 +80,8 @@ internal static class ConfigSnapshotMapper
         FileSizeWarningThresholdKB = value.FileSizeWarningThresholdKB,
         EnableNotices = value.EnableNotices,
         NoticeLastSeenVersion = value.NoticeLastSeenVersion,
+        ProductMessageStates = value.ProductMessageStates?.Where(p => p.Value is not null)
+            .ToDictionary(p => p.Key, p => p.Value.Copy(), StringComparer.Ordinal) ?? new(StringComparer.Ordinal),
         EnableUpdateReminder = value.EnableUpdateReminder,
         AppUpdatePreferredSource = value.AppUpdatePreferredSource,
         AppUpdateAutoFallback = value.AppUpdateAutoFallback,

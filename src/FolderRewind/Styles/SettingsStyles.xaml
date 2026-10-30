@@ -4,6 +4,9 @@
 
     <!-- ===== Settings Page Shared Resources ===== -->
 
+    <!-- Prevent SettingsExpander's SettingsCard style from being assigned to a deferred host. -->
+    <Style x:Key="SettingsDeferredItemsHostStyle" TargetType="Grid" />
+
     <x:Double x:Key="SettingsCardSpacing">8</x:Double>
     <x:Double x:Key="SettingsActionControlWidth">180</x:Double>
     <x:Double x:Key="SettingsNumericControlWidth">180</x:Double>
@@ -20,8 +23,8 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <Style x:Key="SettingsSelectorStyle" TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
-        <Setter Property="Width" Value="{StaticResource SettingsActionControlWidth}" />
         <Setter Property="MinWidth" Value="{StaticResource SettingsActionControlWidth}" />
+        <Setter Property="MaxWidth" Value="{StaticResource SettingsPathControlWidth}" />
         <Setter Property="HorizontalAlignment" Value="Right" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />

@@ -14,19 +14,20 @@ namespace FolderRewind.ViewModels
 {
     public sealed partial class SettingsPageViewModel : ViewModelBase, IDisposable
     {
-        private bool _initialized;
         private bool _active;
+        private int _presentationGeneration;
+        private bool _appearanceOptionsInitialized;
+        private readonly HashSet<SettingsSection> _initializedSections = new();
+        private readonly HashSet<SettingsSection> _initializingSections = new();
         private bool _pluginsRefreshed;
-        private bool _pluginsRefreshing;
-        private bool _fontFamiliesLoading;
+        private Task? _pluginsRefreshTask;
+        private int _pluginsRefreshGeneration;
         private bool _isMinecraftPresetInstallRunning;
         private bool _isCloudPresetRunning;
         private bool _isSponsorOperationRunning;
         private string _minecraftPresetStatusText = string.Empty;
         private string _cloudPresetStatusText = string.Empty;
         private CloudOnboardingProviderOption? _selectedCloudPresetOption;
-        private static readonly object FontCacheLock = new();
-        private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
         private SemanticStatus _knotLinkStatus = SemanticStatus.Neutral;
@@ -67,7 +68,6 @@ namespace FolderRewind.ViewModels
 
         public ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins => PluginService.InstalledPlugins;
 
-        public ObservableCollection<string> FontFamilies { get; } = new();
 
         public ObservableCollection<string> SponsorAccentPresets { get; } = new();
 
@@ -312,35 +312,13 @@ namespace FolderRewind.ViewModels
             PreviewCompletionSoundCommand = new RelayCommand(PreviewCompletionSound);
             ClearCustomCompletionSoundCommand = new AsyncRelayCommand(ClearCustomCompletionSoundAsync, () => SponsorService.IsUnlocked);
 
-            RefreshCloudPresetOptions();
-            RefreshSponsorOptionLists();
-        }
-
-        public async Task InitializeAsync()
-        {
-            Activate();
-            if (_initialized)
-            {
-                return;
-            }
-
-            // 仅做一次的初始化：加载静态数据并挂事件。
-            _initialized = true;
-
-            EnsureFontFamiliesLoaded();
-            RefreshHotkeyBindingsView();
-            UpdateKnotLinkStatus();
-            RefreshKnotLinkServerInfo();
-            RefreshCoreValidationState();
-            RefreshSponsorState();
-
-            await RefreshStartupStatusAsync();
         }
 
         public void Activate()
         {
             if (_active) return;
             _active = true;
+            _presentationGeneration++;
             ObserveBindableSettings();
             try
             {
@@ -367,20 +345,17 @@ namespace FolderRewind.ViewModels
         {
             if (!_active) return;
             _active = false;
+            _presentationGeneration++;
+            _initializedSections.Clear();
+            _initializingSections.Clear();
+            _pluginsRefreshed = false;
+            _pluginsRefreshTask = null;
             StopObservingBindableSettings();
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             MainWindowService.SizeLimitsChanged -= RefreshWindowSizeBounds;
             SponsorService.StateChanged -= SponsorService_StateChanged;
             SponsorService.StatusChanged -= SponsorService_StateChanged;
             HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
-        }
-
-        public void OnNavigatedTo()
-        {
-            Activate();
-            TaskObserver.Observe(RefreshStartupStatusAsync(), nameof(SettingsPageViewModel));
-            UpdateKnotLinkStatus();
-            RefreshKnotLinkServerInfo();
         }
 
         public void SaveIfDirty()
@@ -404,18 +379,22 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public async Task EnsurePluginsRefreshedAsync()
+        public Task EnsurePluginsRefreshedAsync()
         {
-            if (_pluginsRefreshed || _pluginsRefreshing)
-            {
-                return;
-            }
+            if (!_active || _pluginsRefreshed) return Task.CompletedTask;
+            if (_pluginsRefreshTask is not null && _pluginsRefreshGeneration == _presentationGeneration)
+                return _pluginsRefreshTask;
+            _pluginsRefreshGeneration = _presentationGeneration;
+            return _pluginsRefreshTask = RefreshPluginsForPresentationAsync(_presentationGeneration);
+        }
 
-            _pluginsRefreshing = true;
+        private async Task RefreshPluginsForPresentationAsync(int generation)
+        {
             try
             {
                 // 先让出当前帧，避免在展开动画开始前同步阻塞 UI。
                 await Task.Yield();
+                if (!_active || generation != _presentationGeneration) return;
 
                 PluginService.RefreshRuntimeUi();
                 _pluginsRefreshed = true;
@@ -428,7 +407,65 @@ namespace FolderRewind.ViewModels
             }
             finally
             {
-                _pluginsRefreshing = false;
+                if (generation == _presentationGeneration) _pluginsRefreshTask = null;
+            }
+        }
+
+
+        internal async Task InitializeSectionAsync(SettingsSection section)
+        {
+            if (!_active || _initializedSections.Contains(section) || !_initializingSections.Add(section)) return;
+            var generation = _presentationGeneration;
+            try
+            {
+                switch (section)
+                {
+                    case SettingsSection.Presets:
+                        RefreshCloudPresetOptions();
+                        break;
+                    case SettingsSection.CoreBehavior:
+                        await RefreshStartupStatusAsync();
+                        if (!StartupStateKnown) return;
+                        break;
+                    case SettingsSection.Hotkeys:
+                        RefreshHotkeyBindingsView();
+                        break;
+                    case SettingsSection.Appearance:
+                    case SettingsSection.Sponsor:
+                        if (!_appearanceOptionsInitialized)
+                        {
+                            RefreshSponsorOptionLists();
+                            _appearanceOptionsInitialized = true;
+                        }
+                        RefreshSponsorState();
+                        break;
+                    case SettingsSection.CoreValidation:
+                        RefreshCoreValidationState();
+                        break;
+                    case SettingsSection.Plugins:
+                        await EnsurePluginsRefreshedAsync();
+                        break;
+                    case SettingsSection.KnotLink:
+                        UpdateKnotLinkStatus();
+                        var server = await Task.Run(() => (
+                            Installed: KnotLinkServerManagerService.IsServerInstalled(),
+                            Running: KnotLinkServerManagerService.IsServerProcessRunning(),
+                            Version: KnotLinkServerManagerService.GetServerVersion()));
+                        if (!_active || generation != _presentationGeneration) return;
+                        ApplyKnotLinkServerInfo(server.Installed, server.Running, server.Version);
+                        break;
+                }
+                if (_active && generation == _presentationGeneration) _initializedSections.Add(section);
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                if (_active && generation == _presentationGeneration)
+                    NotificationService.ShowError(error.Message);
+                throw;
+            }
+            finally
+            {
+                if (generation == _presentationGeneration) _initializingSections.Remove(section);
             }
         }
 

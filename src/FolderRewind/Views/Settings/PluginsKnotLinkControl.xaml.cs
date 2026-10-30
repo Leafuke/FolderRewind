@@ -8,11 +8,61 @@ namespace FolderRewind.Views.Settings;
 
 public sealed partial class PluginsKnotLinkControl : UserControl
 {
+    private readonly SettingsPresentationLifetime _presentation = new();
+    internal DeferredSettingsSection PluginsSection { get; } = new();
+    internal DeferredSettingsSection KnotLinkSection { get; } = new();
+    internal DeferredSettingsSection CommandsSection { get; } = new();
+
+    private void UpdatePresentationBindings() => _presentation.UpdateBindings(Bindings.Update);
+
+    internal void DeactivatePresentation()
+    {
+        _presentation.Deactivate();
+        _commands?.Deactivate();
+        Bindings.StopTracking();
+    }
+
+    private void EnsureSection(DeferredSettingsSection section, SettingsSection kind)
+    {
+        if (!_presentation.IsActive) return;
+        System.Threading.Tasks.Task? initialization = null;
+        _presentation.UpdateBindings(() =>
+        {
+            initialization = ViewModel.InitializeSectionAsync(kind);
+            section.Create();
+            Bindings.Update();
+            ApplyDeferredCardStyles();
+        });
+        TaskObserver.Observe(initialization ?? System.Threading.Tasks.Task.CompletedTask, nameof(PluginsKnotLinkControl));
+    }
+
+
+    private void ApplyDeferredCardStyles()
+    {
+        SettingsDeferredContent.ApplyCardStyles(CommandsBody, CommandsExpander);
+        SettingsDeferredContent.ApplyCardStyles(KnotLinkBody, KnotLinkExpander);
+        SettingsDeferredContent.ApplyCardStyles(PluginsBody, PluginsExpander);
+    }
+
+    private void RefreshCreatedSections()
+    {
+        if (PluginsSection.IsCreated) EnsureSection(PluginsSection, SettingsSection.Plugins);
+        if (KnotLinkSection.IsCreated) EnsureSection(KnotLinkSection, SettingsSection.KnotLink);
+        if (CommandsSection.IsCreated) EnsureSection(CommandsSection, SettingsSection.KnotLink);
+    }
+
+    private void OnPluginsExpanded(object? sender, object e) => EnsureSection(PluginsSection, SettingsSection.Plugins);
+
+    private void OnKnotLinkExpanded(object? sender, object e) => EnsureSection(KnotLinkSection, SettingsSection.KnotLink);
+
+    private void OnCommandsExpanded(object? sender, object e) => EnsureSection(CommandsSection, SettingsSection.KnotLink);
+
     public SettingsPageViewModel ViewModel { get; private set; } = null!;
     private PluginsKnotLinkViewModel? _commands;
     private bool _bindingsApplied;
     public void ShowRepairTarget(bool knotLink)
     {
+        EnsureSection(knotLink ? KnotLinkSection : PluginsSection, knotLink ? SettingsSection.KnotLink : SettingsSection.Plugins);
         var target = knotLink ? KnotLinkExpander : PluginsExpander;
         target.IsExpanded = true;
         target.StartBringIntoView();
@@ -21,35 +71,46 @@ public sealed partial class PluginsKnotLinkControl : UserControl
     public PluginsKnotLinkControl()
     {
         InitializeComponent();
-        Loaded += (_, _) => _commands?.Activate();
-        Unloaded += (_, _) => _commands?.Deactivate();
+        Unloaded += (_, _) => DeactivatePresentation();
     }
 
     public void SetViewModel(SettingsPageViewModel viewModel)
     {
         _bindingsApplied = false;
+        if (ReferenceEquals(ViewModel, viewModel) && _commands is not null)
+        {
+            _presentation.Activate();
+            _commands.Activate();
+            UpdatePresentationBindings();
+            RefreshCreatedSections();
+            _bindingsApplied = true;
+            return;
+        }
         if (_commands is not null)
         {
             _commands.PropertyChanged -= OnCommandStateChanged;
             _commands.Dispose();
         }
         ViewModel = viewModel;
+        _presentation.Activate();
         _commands = new PluginsKnotLinkViewModel(new PluginSettingsActions(viewModel, () => XamlRoot));
         _commands.PropertyChanged += OnCommandStateChanged;
         IsEnabled = true;
-        Bindings.Update();
+        UpdatePresentationBindings();
         _bindingsApplied = true;
+        RefreshCreatedSections();
     }
 
     private void OnCommandStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (!_presentation.CanEdit) return;
         if (e.PropertyName == nameof(PluginsKnotLinkViewModel.IsBusy))
         {
             IsEnabled = _commands?.IsBusy != true;
-            if (IsEnabled)
+            if (IsEnabled && _presentation.IsActive)
             {
                 _bindingsApplied = false;
-                Bindings.Update();
+                UpdatePresentationBindings();
                 _bindingsApplied = true;
             }
         }
@@ -146,24 +207,26 @@ public sealed partial class PluginsKnotLinkControl : UserControl
         Execute(PluginSettingsAction.KnotLinkUpdateServer);
     }
 
-    private void OnPluginsExpanderExpanded(object? sender, object e)
-        => Execute(PluginSettingsAction.RefreshOnExpand);
 
     private void OnPluginEnabledToggled(object sender, RoutedEventArgs e)
     {
+        if (!_presentation.CanEdit) return;
         if (sender is not ToggleSwitch { DataContext: InstalledPluginInfo plugin } toggle || plugin.IsEnabled == toggle.IsOn) return;
         Execute(PluginSettingsAction.SetPluginEnabled, new PluginEnabledEdit(plugin.Id, toggle.IsOn));
     }
     private void OnPluginsAutoCheckUpdatesToggled(object sender, RoutedEventArgs e)
     {
+        if (!_presentation.CanEdit) return;
         if (_bindingsApplied && sender is ToggleSwitch toggle) ViewModel.HandlePluginsAutoCheckUpdatesToggled(toggle.IsOn);
     }
     private void OnKnotLinkToggled(object sender, RoutedEventArgs e)
     {
+        if (!_presentation.CanEdit) return;
         if (_bindingsApplied && sender is ToggleSwitch toggle) Execute(PluginSettingsAction.ToggleKnotLink, toggle.IsOn);
     }
     private void OnKnotLinkAutoStartToggled(object sender, RoutedEventArgs e)
     {
+        if (!_presentation.CanEdit) return;
         if (_bindingsApplied && sender is ToggleSwitch toggle) ViewModel.HandleKnotLinkAutoStartToggled(toggle.IsOn);
     }
 }

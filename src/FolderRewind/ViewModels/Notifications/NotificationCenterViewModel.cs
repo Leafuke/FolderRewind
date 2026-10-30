@@ -51,11 +51,24 @@ public sealed partial class NotificationCenterViewModel : ViewModelBase, IDispos
     public string DetailTitle => _selected is null ? "" : NotificationContentFormatter.Title(_selected.Content, _selected.Title, I18n.GetString);
     public string DetailProject => _selected?.Content?.ProjectName ?? "";
     public string DetailTimestamp => _selected is null ? "" : UserDisplayFormatter.LongDateTime(_selected.UpdatedUtc.LocalDateTime);
+    public bool HasRecommendation => NotificationNavigationService.IsTargetAvailable(_selected?.Content?.RecommendedTarget);
+    public string RecommendationText => I18n.GetString(NotificationContentFormatter.ActionResource(_selected?.Content?.RecommendedTarget));
+    [RelayCommand] private void OpenRecommendation()
+    {
+        if (_selected?.Content?.RecommendedTarget is not { } target) return;
+        var result = NotificationNavigationService.TryOpen(target);
+        if (result == NotificationNavigationService.NavigationStatus.Available) Navigated?.Invoke();
+        else { _navigationMessage = NotificationNavigationService.Explain(result); OnPropertyChanged(string.Empty); }
+    }
+    public string TechnicalDetails => _selected?.TechnicalDetails ?? "";
+    public bool HasTechnicalDetails => TechnicalDetails.Length > 0;
+    public string PersistenceMessage => ProductMessageService.PersistenceError;
+    public bool HasPersistenceMessage => PersistenceMessage.Length > 0;
     public string DetailText => _selected is null ? "" : NotificationContentFormatter.Summary(_selected.Content, _selected.Message, I18n.GetString, true)
         + Environment.NewLine + Environment.NewLine + _selected.Details;
     public string TargetText => I18n.GetString(NotificationContentFormatter.ActionResource(_selected?.Target));
     public string NavigationMessage => _navigationMessage.Length > 0 ? _navigationMessage
-        : _selected?.Target is { Kind: not NotificationTargetKind.None } && !HasTarget ? I18n.GetString("NotificationCenter_TargetUnavailable") : "";
+        : _selected?.Target is { Kind: not NotificationTargetKind.None } && !HasTarget ? NotificationNavigationService.Explain(NotificationNavigationService.Availability(_selected.Target)) : "";
     public bool HasNavigationMessage => NavigationMessage.Length > 0;
     public bool CanClear => NotificationCenterService.HasRead;
     public bool CanMarkAllRead => NotificationCenterService.UnreadCount > 0;
@@ -65,7 +78,7 @@ public sealed partial class NotificationCenterViewModel : ViewModelBase, IDispos
     public void Activate()
     {
         if (_active) return;
-        _active = true; NotificationCenterService.Changed += OnChanged; NotificationService.SettingsChanged += OnChanged;
+        _active = true; NotificationCenterService.Changed += OnChanged; NotificationService.SettingsChanged += OnChanged; ProductMessageService.Changed += OnChanged;
         Refresh();
     }
     public void Open()
@@ -119,9 +132,9 @@ public sealed partial class NotificationCenterViewModel : ViewModelBase, IDispos
     {
         if (_selected is not { Target: { } target } selected) return;
         NotificationCenterService.MarkRead(selected.Id, selected.Revision);
-        if (NotificationNavigationService.Open(target)) Navigated?.Invoke();
-        else { _navigationMessage = I18n.GetString(NotificationNavigationService.IsTargetAvailable(target)
-            ? "NotificationUI_NavigationCanceled" : "NotificationCenter_TargetUnavailable"); OnPropertyChanged(string.Empty); }
+        var result = NotificationNavigationService.TryOpen(target);
+        if (result == NotificationNavigationService.NavigationStatus.Available) Navigated?.Invoke();
+        else { _navigationMessage = NotificationNavigationService.Explain(result); OnPropertyChanged(string.Empty); }
     }
     [RelayCommand] private void OpenLogs()
     {
@@ -133,5 +146,5 @@ public sealed partial class NotificationCenterViewModel : ViewModelBase, IDispos
     public void CloseDetails()
     { _selected = null; _navigationMessage = ""; _reading.SetProtection(_interactionProtected); SyncItems(); }
     public void Dispose()
-    { _active = false; NotificationCenterService.Changed -= OnChanged; NotificationService.SettingsChanged -= OnChanged; }
+    { _active = false; NotificationCenterService.Changed -= OnChanged; NotificationService.SettingsChanged -= OnChanged; ProductMessageService.Changed -= OnChanged; }
 }

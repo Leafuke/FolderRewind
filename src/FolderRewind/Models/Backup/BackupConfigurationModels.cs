@@ -239,7 +239,10 @@ namespace FolderRewind.Models
         public string LastBackupTimeDisplay =>
             UserDisplayFormatter.PersistedLocalDateTime(LastBackupTime, "yyyy/MM/dd HH:mm");
 
-        [JsonIgnore] // 运行时状态，不需要存Json
+        private SemanticStatus _executionStatus = SemanticStatus.Neutral;
+        [JsonIgnore] public SemanticStatus ExecutionStatus { get => _executionStatus; set => SetProperty(ref _executionStatus, value); }
+
+        [JsonIgnore]
         public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value ?? string.Empty); }
 
         public string CoverImagePath { get => _coverImagePath; set => SetProperty(ref _coverImagePath, value ?? string.Empty); }

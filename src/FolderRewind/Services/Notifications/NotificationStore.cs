@@ -29,12 +29,15 @@ internal sealed class NotificationStore(TimeProvider clock, int capacity = 200)
             var now = clock.GetUtcNow();
             _accepted[item.Id] = (item.ResultKey, item.Target, item.Revision, clock.GetTimestamp());
             _records[item.Id] = new(item.Id, item.Title, item.Message, item.Details, item.Severity,
-                previous?.CreatedUtc ?? now, now, false, item.ResultKey, item.Target,
-                item.Category == NotificationCategory.Cancellation ? NotificationImportance.Info : item.Importance, item.Revision, item.Content);
+                previous?.CreatedUtc ?? item.Product?.PublishedUtc ?? now, item.Product?.PublishedUtc ?? now,
+                item.RestoreReadState ?? false, item.ResultKey, item.Target,
+                item.Category == NotificationCategory.Cancellation ? NotificationImportance.Info : item.Importance, item.Revision, item.Content, item.Product, item.TechnicalDetails);
             Bound();
             return true;
         }
     }
+    public bool Remove(string id)
+    { lock (_sync) { _accepted.Remove(id); return _records.Remove(id); } }
     public bool MarkRead(string id, string? revision = null)
     {
         lock (_sync)

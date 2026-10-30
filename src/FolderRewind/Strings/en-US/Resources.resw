@@ -271,7 +271,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Startup behavior and close window behavior</value>
   </data>
   <data name="SettingsPage_PersonalizationSectionDesc.Text" xml:space="preserve">
-    <value>Language, theme, fonts, and layout</value>
+    <value>Language, theme, text size, and layout settings</value>
   </data>
   <data name="SettingsPage_EnvironmentSectionDesc.Text" xml:space="preserve">
     <value>External tools and dependencies</value>
@@ -387,17 +387,11 @@ Duplicate folder names are blocked within the same backup project so different d
   <data name="SettingsPage_ThemeSystem.Content" xml:space="preserve">
     <value>Use system setting</value>
   </data>
-  <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
-    <value>App font</value>
-  </data>
-  <data name="SettingsPage_FontFamilyDesc.Text" xml:space="preserve">
-    <value>Applies to most UI text</value>
-  </data>
   <data name="SettingsPage_FontSize.Text" xml:space="preserve">
-    <value>Base font size</value>
+    <value>Base control text size</value>
   </data>
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
-    <value>12–20 pt, affects text-heavy areas</value>
+    <value>12–20. Takes effect after restarting the app. Adjusts controls using the base text size; headings and other fixed-size text keep their sizes.</value>
   </data>
   <data name="SettingsPage_Sponsor.Text" xml:space="preserve">
     <value>Sponsor edition</value>
@@ -7835,4 +7829,53 @@ Affected projects: {1}</value></data>
   <data name="CloudReauth_ImportHelp.Text" xml:space="preserve"><value>Copy the entire configuration, which may contain multiple accounts and dependencies, into private storage to reauthenticate the original connection. Its ID, name, scope, and project directories are preserved, and original repository identities are checked before saving. The source file is unchanged; OAuth copies do not synchronize automatically.</value></data>
   <data name="CloudOnboarding_OpenListVersionSkipped" xml:space="preserve"><value>The OpenList version at {0} cannot initialize a new instance (requires {1}). Continuing the search for a compatible tool; this executable and existing instances are unchanged.</value></data>
   <data name="CloudOnboarding_SettingsChanged" xml:space="preserve"><value>Another operation changed the tool paths or local environment during preparation. The newer settings were preserved. Check the current paths and retry; downloaded, verified tools can be reused.</value></data>
+  <data name="Product_ViewAnnouncement" xml:space="preserve"><value>Read announcement</value></data>
+  <data name="Product_ViewUpdate" xml:space="preserve"><value>View update</value></data>
+  <data name="Product_UpdateTitle" xml:space="preserve"><value>New version published</value></data>
+  <data name="Product_UpdateSummary" xml:space="preserve"><value>Current v{0}, new version v{1}</value></data>
+  <data name="Product_CurrentVersion" xml:space="preserve"><value>Current version: {0} · Installation channel: {1}</value></data>
+  <data name="Product_Channel_Store" xml:space="preserve"><value>Microsoft Store</value></data>
+  <data name="Product_Channel_Setup" xml:space="preserve"><value>Setup installer</value></data>
+  <data name="Product_Channel_Sideload" xml:space="preserve"><value>Sideload</value></data>
+  <data name="Product_Channel_Developer" xml:space="preserve"><value>Development</value></data>
+  <data name="Product_Channel_Unknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Product_UpdateStatus_NotChecked" xml:space="preserve"><value>Not checked; cached information may be outdated</value></data>
+  <data name="Product_UpdateStatus_Checking" xml:space="preserve"><value>Checking for updates…</value></data>
+  <data name="Product_UpdateStatus_UpToDate" xml:space="preserve"><value>You have the latest stable version</value></data>
+  <data name="Product_UpdateStatus_Available" xml:space="preserve"><value>A new version is published. Check the available update channel.</value></data>
+  <data name="Product_UpdateStatus_Failed" xml:space="preserve"><value>Check failed. You can retry. Cached content is not a successful check.</value></data>
+  <data name="Product_LastCheck" xml:space="preserve"><value>Last successful fetch: {0}</value></data>
+  <data name="Product_StateSaveFailed" xml:space="preserve"><value>Your choice applies to this session, but could not be saved and may not survive a restart.</value></data>
+  <data name="Product_NoticeCheckFailed" xml:space="preserve"><value>Could not refresh announcements. You can retry or read valid cached announcements.</value></data>
+  <data name="Product_Archived" xml:space="preserve"><value>Archived</value></data>
+  <data name="Product_Ignored" xml:space="preserve"><value>This version is ignored; you can still update here.</value></data>
+  <data name="Product_SnoozedUntil" xml:space="preserve"><value>Reminder deferred until the app is active after {0}</value></data>
+  <data name="Product_NoticeUnavailable" xml:space="preserve"><value>This announcement has expired, was withdrawn, or is unavailable</value></data>
+  <data name="Product_ExternalOpened" xml:space="preserve"><value>External destination opened. The installed version will be checked on the next launch.</value></data>
+  <data name="Product_ExternalFailed" xml:space="preserve"><value>Could not open the external destination. Retry or use the alternative link.</value></data>
+  <data name="Product_CheckConfiguration" xml:space="preserve"><value>Check project settings</value></data>
+  <data name="Product_HistoryCreated" xml:space="preserve"><value>This operation committed a history version.</value></data>
+  <data name="Product_HistoryNotCreated" xml:space="preserve"><value>This operation did not create a new history version. Existing history has not thereby been deleted.</value></data>
+  <data name="OperationDiagnostic_RawFallbackBlocked" xml:space="preserve"><value>The required plugin capability is unavailable, and the current backup mode or scope does not permit a raw-file fallback. Check the plugin and project settings.</value></data>
+  <data name="NotificationNavigation_NoHistoryCreated" xml:space="preserve"><value>No history version was created by this operation. Its result summary remains available here.</value></data>
+  <data name="NotificationNavigation_ProjectMissing" xml:space="preserve"><value>The associated project no longer exists. The result summary is still available.</value></data>
+  <data name="NotificationNavigation_SourceMissing" xml:space="preserve"><value>The associated source is no longer in the project. The result summary is still available.</value></data>
+  <data name="NotificationNavigation_HistoryUnavailable" xml:space="preserve"><value>The history is unavailable. It may have been cleaned up or may be inaccessible; check the History page.</value></data>
+  <data name="NotificationNavigation_TaskUnavailable" xml:space="preserve"><value>The task is no longer in this session’s task list. Its result summary remains available.</value></data>
+  <data name="NotificationNavigation_Canceled" xml:space="preserve"><value>Navigation was not completed, possibly because of unsaved changes. You can continue reading this summary.</value></data>
+  <data name="NotificationNavigation_Unavailable" xml:space="preserve"><value>The associated destination is unavailable. The result summary remains available.</value></data>
+  <data name="Product_TechnicalDetails.Header" xml:space="preserve"><value>Technical details</value></data>
+  <data name="Product_UpdateSection.Header" xml:space="preserve"><value>Version and updates</value></data>
+  <data name="Product_NoticesSection.Header" xml:space="preserve"><value>Announcements</value></data>
+  <data name="Product_CheckUpdates.Content" xml:space="preserve"><value>Check for updates</value></data>
+  <data name="Product_Fallback.Content" xml:space="preserve"><value>Open alternative official destination</value></data>
+  <data name="Product_ReminderOptions.Content" xml:space="preserve"><value>Reminder options</value></data>
+  <data name="Product_Snooze.Text" xml:space="preserve"><value>Remind me in 7 days</value></data>
+  <data name="Product_Ignore.Text" xml:space="preserve"><value>Ignore this version</value></data>
+  <data name="Product_Restore.Text" xml:space="preserve"><value>Restore visibility</value></data>
+  <data name="Product_Archive.Text" xml:space="preserve"><value>Archive announcement</value></data>
+  <data name="Product_RefreshNotices.Content" xml:space="preserve"><value>Refresh announcements</value></data>
+  <data name="Product_ShowArchived.Content" xml:space="preserve"><value>Show archived announcements</value></data>
+  <data name="Product_NoNotices.Text" xml:space="preserve"><value>No applicable announcements.</value></data>
+  <data name="Product_HistoryUncertain" xml:space="preserve"><value>The history commit outcome is uncertain. Recovery checks must finish first.</value></data>
 </root>

@@ -71,8 +71,8 @@ public static partial class BackupService
                 if (_failures.TryGetValue(folder.Id, out var previous) && previous == detail) return;
                 _failures[folder.Id] = detail;
                 Publish(I18n.Format("NotificationCenter_BatchRunningFailure", _name, _failures.Count, _total),
-                    string.Join(Environment.NewLine, _failures.Values), NotificationSeverity.Error, NotificationImportance.Error,
-                    "failure:" + _failures.Count + ":" + detail, false, result: NotificationResultKind.Failed);
+                    I18n.GetString("OperationDiagnostic_Unknown"), NotificationSeverity.Error, NotificationImportance.Error,
+                    "failure:" + _failures.Count + ":" + detail, false, result: NotificationResultKind.Failed, technical: string.Join(Environment.NewLine, _failures.Values));
             }
             catch (Exception error) { System.Diagnostics.Debug.WriteLine($"[BackupNotification] {error}"); }
         }
@@ -81,7 +81,7 @@ public static partial class BackupService
         {
             try
             {
-                _target = _target with { RunId = result.CommittedBatch?.Run.RunId.ToString() };
+                _target = _target with { RunId = result.CommittedBatch?.Run.RunId.ToString(), HistoryCreated = result.CommittedBatch is not null ? true : result.HistoryRecoveryRequired ? null : false };
                 if (NotificationOperationScope.Current is { } operation) operation.Target = _target;
                 var canceled = result.Outcome == OperationOutcome.Canceled;
                 var failed = result.Outcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.RecoveryRequired;
@@ -97,12 +97,21 @@ public static partial class BackupService
                     : failed ? "Failed" : warning ? "Warning" : result.Outcome == OperationOutcome.NoChanges ? "NoChanges" : "Success";
                 var message = I18n.Format("NotificationCenter_BatchSummary", _name, I18n.GetString("NotificationCenter_Result_" + statusKey),
                     succeeded, unchanged, warnings, failures);
-                var details = string.Join(Environment.NewLine, result.SourceOutcomes.Select(o =>
-                    o.FolderName + ": " + I18n.GetString("NotificationCenter_Result_" + (!committed ? statusKey
-                        : o.Status == BackupSourceExecutionStatus.Reused ? "NoChanges"
-                        : o.Status == BackupSourceExecutionStatus.NewArchive ? o.WarningDiagnostics.Count > 0 ? "Warning" : "Success" : "Failed"))
-                    + " " + o.ErrorMessage + " " + OperationDiagnosticFormatter.Summary(o.WarningDiagnostics)));
-                details += Environment.NewLine + (result.RecoveryMessage ?? result.Diagnostic ?? "");
+                var errors = OperationDiagnosticFormatter.Snapshot(result.SourceOutcomes.SelectMany(o => o.ErrorDiagnostics));
+                var reasons = result.SourceOutcomes.Select(o => o.FolderName + ": "
+                    + (o.ErrorDiagnostics.Count > 0 ? OperationDiagnosticFormatter.Summary(o.ErrorDiagnostics)
+                        : !string.IsNullOrWhiteSpace(o.ErrorMessage) ? o.ErrorSummary
+                        : OperationDiagnosticFormatter.Summary(o.WarningDiagnostics))).Where(t => !t.EndsWith(": ")).ToArray();
+                var impact = I18n.GetString(committed ? "Product_HistoryCreated" : result.HistoryRecoveryRequired ? "Product_HistoryUncertain" : "Product_HistoryNotCreated");
+                if (result.HistoryRecoveryRequired) impact += Environment.NewLine + I18n.GetString("OperationDiagnostic_BackupHistoryRecovery");
+                var details = string.Join(Environment.NewLine, reasons) + Environment.NewLine + impact;
+                var technical = string.Join(Environment.NewLine, result.SourceOutcomes.Select(o =>
+                    o.FolderName + ": " + o.ErrorMessage + Environment.NewLine
+                    + string.Join(Environment.NewLine, o.ErrorDiagnostics.Concat(o.WarningDiagnostics).Select(OperationDiagnosticFormatter.Technical))))
+                    + Environment.NewLine + (result.Diagnostic ?? result.RecoveryMessage ?? "")
+                    + Environment.NewLine + "operation=" + _target.OperationId;
+                var recommendation = errors.Any(e => e.Code.StartsWith("plugin.", StringComparison.Ordinal))
+                    ? new NotificationTarget(NotificationTargetKind.Configuration, ConfigId: _target.ConfigId) : null;
                 Publish(message, details, canceled ? NotificationSeverity.Informational : failed || result.HistoryRecoveryRequired ? NotificationSeverity.Error
                         : warning ? NotificationSeverity.Warning : NotificationSeverity.Success,
                     failed || result.HistoryRecoveryRequired ? NotificationImportance.Error : warning ? NotificationImportance.Important : NotificationImportance.Info,
@@ -111,14 +120,16 @@ public static partial class BackupService
                     canceled ? NotificationResultKind.Canceled : result.HistoryRecoveryRequired ? NotificationResultKind.RecoveryRequired
                         : failed ? NotificationResultKind.Failed : warning ? NotificationResultKind.Warning
                         : result.Outcome == OperationOutcome.NoChanges ? NotificationResultKind.NoChanges : NotificationResultKind.Success,
-                    new(succeeded, unchanged, warnings, failures));
+                    _total == 1 ? null : new(succeeded, unchanged, warnings, failures), technical, recommendation,
+                    reasons.FirstOrDefault() ?? I18n.GetString("NotificationCenter_Result_" + statusKey));
             }
             catch (Exception error) { LogService.LogError("Could not publish backup result.", nameof(BackupService), error); }
         }
 
         private void Publish(string message, string details, NotificationSeverity severity, NotificationImportance importance,
             string resultKey, bool? sound, NotificationCategory category = NotificationCategory.BusinessResult,
-            NotificationResultKind result = NotificationResultKind.Unknown, NotificationStatistics? statistics = null)
+            NotificationResultKind result = NotificationResultKind.Unknown, NotificationStatistics? statistics = null,
+            string technical = "", NotificationTarget? recommendation = null, string summary = "")
         {
             try
             {
@@ -126,9 +137,9 @@ public static partial class BackupService
                 {
                     RecordId = "operation:" + _target.OperationId, Target = _target, KeepInCenter = true, AlertOnce = true,
                     Category = category, Source = "backup",
-                    Content = new(NotificationOperationKind.Backup, _trigger, result, _name, _objectName, statistics),
+                    Content = new(NotificationOperationKind.Backup, _trigger, result, _name, _objectName, statistics, summary, recommendation),
                     Correlation = new("operation:" + _target.OperationId, _target.OperationId!, _started, DateTimeOffset.UtcNow),
-                    Title = I18n.GetString("NotificationCenter_BackupTitle"), Message = message, Details = details,
+                    Title = I18n.GetString("NotificationCenter_BackupTitle"), Message = message, Details = details, TechnicalDetails = technical,
                     ResultKey = resultKey, Severity = severity,
                     CompletionSoundSuccess = sound
                 }, importance);

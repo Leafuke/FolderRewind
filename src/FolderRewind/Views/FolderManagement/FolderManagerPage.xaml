@@ -299,11 +299,7 @@
                             <!-- 状态与时间 -->
                             <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,2,0,0">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <FontIcon Glyph="&#xE73E;" FontSize="12"
-                                              Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
-                                    <TextBlock Text="{x:Bind StatusText, Mode=OneWay}"
-                                               Style="{StaticResource CaptionTextBlockStyle}"
-                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                    <controls:SemanticStatusPresenter Status="{x:Bind ExecutionStatus, Mode=OneWay}" Text="{x:Bind StatusText, Mode=OneWay}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <FontIcon Glyph="&#xE823;" FontSize="11"

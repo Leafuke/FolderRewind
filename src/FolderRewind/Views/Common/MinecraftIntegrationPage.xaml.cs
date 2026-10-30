@@ -29,7 +29,9 @@ public sealed partial class MinecraftIntegrationPage : Page
         var request = e.Parameter as ManagerNavigationParameter;
         _config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == request?.ConfigId);
         _source = _config?.SourceFolders.FirstOrDefault(f => f.Path == request?.FolderPath);
-        WorldPicker.ItemsSource = _config?.SourceFolders.Select(f => f.DisplayName).ToArray();
+        // Equal string items can create a cyclic WinUI automation peer chain (#11226).
+        // Keep each source's reference identity even when display names are the same.
+        WorldPicker.ItemsSource = _config?.SourceFolders.ToArray();
         WorldPicker.SelectedIndex = _source is null ? -1 : _config!.SourceFolders.IndexOf(_source);
         SourceContext.Text = _config?.Name ?? I18n.GetString("MinecraftCheck_SelectSource");
         WorldCard.Description = _source?.Path ?? string.Empty;

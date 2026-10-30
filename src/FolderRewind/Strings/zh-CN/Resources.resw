@@ -271,7 +271,7 @@
     <value>影响应用启动行为与窗口关闭方式</value>
   </data>
   <data name="SettingsPage_PersonalizationSectionDesc.Text" xml:space="preserve">
-    <value>语言、主题、字体与布局等显示设置</value>
+    <value>语言、主题、字号与布局等显示设置</value>
   </data>
   <data name="SettingsPage_EnvironmentSectionDesc.Text" xml:space="preserve">
     <value>外部工具与依赖项配置</value>
@@ -387,17 +387,11 @@
   <data name="SettingsPage_ThemeSystem.Content" xml:space="preserve">
     <value>跟随系统</value>
   </data>
-  <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
-    <value>界面字体</value>
-  </data>
-  <data name="SettingsPage_FontFamilyDesc.Text" xml:space="preserve">
-    <value>应用于大部分界面文字</value>
-  </data>
   <data name="SettingsPage_FontSize.Text" xml:space="preserve">
-    <value>基础字号</value>
+    <value>基础控件字号</value>
   </data>
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
-    <value>12–20 pt，影响大部分界面文字</value>
+    <value>12–20，重启应用后生效。调整采用基础字号的控件；标题等固定字号区域保持不变。</value>
   </data>
   <data name="SettingsPage_Sponsor.Text" xml:space="preserve">
     <value>赞助者版本</value>
@@ -7835,4 +7829,53 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="CloudReauth_ImportHelp.Text" xml:space="preserve"><value>将整份配置（可能含多个账户及依赖）复制到私有目录，用于重新认证原连接。保留原连接 ID、名称、范围及项目目录；保存前核对原仓库身份。原文件不会修改，OAuth 副本不会自动同步。</value></data>
   <data name="CloudOnboarding_OpenListVersionSkipped" xml:space="preserve"><value>{0} 的 OpenList 版本不适用于新建初始化（仅支持 {1}），将继续查找兼容程序；该程序和已有实例保持原样。</value></data>
   <data name="CloudOnboarding_SettingsChanged" xml:space="preserve"><value>准备程序期间，工具路径或本机环境已被其他操作修改。已保留最新设置，请检查当前路径后重试；已下载并校验的程序可供下次复用。</value></data>
+  <data name="Product_ViewAnnouncement" xml:space="preserve"><value>查看公告</value></data>
+  <data name="Product_ViewUpdate" xml:space="preserve"><value>查看更新</value></data>
+  <data name="Product_UpdateTitle" xml:space="preserve"><value>发现新版本</value></data>
+  <data name="Product_UpdateSummary" xml:space="preserve"><value>当前 v{0}，新版本 v{1}</value></data>
+  <data name="Product_CurrentVersion" xml:space="preserve"><value>当前版本：{0} · 安装渠道：{1}</value></data>
+  <data name="Product_Channel_Store" xml:space="preserve"><value>Microsoft Store</value></data>
+  <data name="Product_Channel_Setup" xml:space="preserve"><value>安装程序</value></data>
+  <data name="Product_Channel_Sideload" xml:space="preserve"><value>侧载安装</value></data>
+  <data name="Product_Channel_Developer" xml:space="preserve"><value>开发版本</value></data>
+  <data name="Product_Channel_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="Product_UpdateStatus_NotChecked" xml:space="preserve"><value>尚未检查；缓存内容仅供参考</value></data>
+  <data name="Product_UpdateStatus_Checking" xml:space="preserve"><value>正在检查更新…</value></data>
+  <data name="Product_UpdateStatus_UpToDate" xml:space="preserve"><value>当前已是最新稳定版本</value></data>
+  <data name="Product_UpdateStatus_Available" xml:space="preserve"><value>发现新版本，请查看适用的更新渠道</value></data>
+  <data name="Product_UpdateStatus_Failed" xml:space="preserve"><value>检查失败，可以重试。缓存内容不代表本次检查成功。</value></data>
+  <data name="Product_LastCheck" xml:space="preserve"><value>上次成功获取：{0}</value></data>
+  <data name="Product_StateSaveFailed" xml:space="preserve"><value>本次会话的选择已生效，但保存失败；重启后可能不会保留。</value></data>
+  <data name="Product_NoticeCheckFailed" xml:space="preserve"><value>公告刷新失败，可重试。已缓存且仍有效的公告仍可阅读。</value></data>
+  <data name="Product_Archived" xml:space="preserve"><value>已归档</value></data>
+  <data name="Product_Ignored" xml:space="preserve"><value>已忽略此版本；仍可从此处更新</value></data>
+  <data name="Product_SnoozedUntil" xml:space="preserve"><value>将在 {0} 之后进入应用时再次提醒</value></data>
+  <data name="Product_NoticeUnavailable" xml:space="preserve"><value>此公告已过期、被撤回或当前不可用</value></data>
+  <data name="Product_ExternalOpened" xml:space="preserve"><value>已打开外部入口。更新是否完成将在下次启动时确认。</value></data>
+  <data name="Product_ExternalFailed" xml:space="preserve"><value>无法打开外部入口。请重试或使用备用入口。</value></data>
+  <data name="Product_CheckConfiguration" xml:space="preserve"><value>检查项目配置</value></data>
+  <data name="Product_HistoryCreated" xml:space="preserve"><value>本次操作已提交历史版本。</value></data>
+  <data name="Product_HistoryNotCreated" xml:space="preserve"><value>本次操作未创建新的历史版本，不代表已有历史被删除。</value></data>
+  <data name="OperationDiagnostic_RawFallbackBlocked" xml:space="preserve"><value>插件能力当前不可用，且此备份模式或范围不允许回退为原始文件备份。请检查插件状态与项目配置。</value></data>
+  <data name="NotificationNavigation_NoHistoryCreated" xml:space="preserve"><value>本次未生成可打开的历史版本，结果摘要仍保留在这里。</value></data>
+  <data name="NotificationNavigation_ProjectMissing" xml:space="preserve"><value>关联项目已不存在，结果摘要仍可查看。</value></data>
+  <data name="NotificationNavigation_SourceMissing" xml:space="preserve"><value>关联来源已不在项目中，结果摘要仍可查看。</value></data>
+  <data name="NotificationNavigation_HistoryUnavailable" xml:space="preserve"><value>暂时无法打开对应历史。它可能已清理或当前不可访问，请在历史页面确认。</value></data>
+  <data name="NotificationNavigation_TaskUnavailable" xml:space="preserve"><value>该任务已不在本次运行的任务列表中，结果摘要仍可查看。</value></data>
+  <data name="NotificationNavigation_Canceled" xml:space="preserve"><value>导航未完成，可能被未保存的修改阻止；可继续查看当前摘要。</value></data>
+  <data name="NotificationNavigation_Unavailable" xml:space="preserve"><value>当前无法打开关联目标，结果摘要仍可查看。</value></data>
+  <data name="Product_TechnicalDetails.Header" xml:space="preserve"><value>技术详情</value></data>
+  <data name="Product_UpdateSection.Header" xml:space="preserve"><value>版本与更新</value></data>
+  <data name="Product_NoticesSection.Header" xml:space="preserve"><value>公告</value></data>
+  <data name="Product_CheckUpdates.Content" xml:space="preserve"><value>检查更新</value></data>
+  <data name="Product_Fallback.Content" xml:space="preserve"><value>打开备用官方入口</value></data>
+  <data name="Product_ReminderOptions.Content" xml:space="preserve"><value>提醒选项</value></data>
+  <data name="Product_Snooze.Text" xml:space="preserve"><value>7 天后提醒</value></data>
+  <data name="Product_Ignore.Text" xml:space="preserve"><value>忽略此版本</value></data>
+  <data name="Product_Restore.Text" xml:space="preserve"><value>恢复显示</value></data>
+  <data name="Product_Archive.Text" xml:space="preserve"><value>归档公告</value></data>
+  <data name="Product_RefreshNotices.Content" xml:space="preserve"><value>刷新公告</value></data>
+  <data name="Product_ShowArchived.Content" xml:space="preserve"><value>显示已归档公告</value></data>
+  <data name="Product_NoNotices.Text" xml:space="preserve"><value>暂无适用的公告。</value></data>
+  <data name="Product_HistoryUncertain" xml:space="preserve"><value>历史提交结果尚未确定，需要先完成恢复检查。</value></data>
 </root>

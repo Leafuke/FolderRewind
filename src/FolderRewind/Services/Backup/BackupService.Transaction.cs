@@ -178,11 +178,13 @@ public static partial class BackupService
                     ? $"The v3 plugin policy could not resolve effective boundary for folder '{folder.DisplayName}'."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
-                        : ExperimentalArtifactPolicyService.Describe(diagnostic);
+                        : diagnostic.Code.StartsWith("plugin.", StringComparison.Ordinal)
+                            ? OperationDiagnosticFormatter.Describe(diagnostic) : ExperimentalArtifactPolicyService.Describe(diagnostic);
                 Log($"[PluginV3] {message}", LogLevel.Error);
 
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                 });
 
@@ -202,7 +204,7 @@ public static partial class BackupService
                     folder,
                     BackupSourceExecutionStatus.Failed,
                     errorMessage: message,
-                    operationOutcome: OperationOutcome.Blocked);
+                    operationOutcome: OperationOutcome.Blocked, errorDiagnostics: resolution.Diagnostics);
 
                 return new BackupTransactionExecutionResult
                 {
@@ -224,11 +226,13 @@ public static partial class BackupService
                     ? $"The v3 plugin policy blocked backup capture for '{folder.DisplayName}'."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
-                        : ExperimentalArtifactPolicyService.Describe(diagnostic);
+                        : diagnostic.Code.StartsWith("plugin.", StringComparison.Ordinal)
+                            ? OperationDiagnosticFormatter.Describe(diagnostic) : ExperimentalArtifactPolicyService.Describe(diagnostic);
                 Log($"[PluginV3] {message}", LogLevel.Error);
 
                 await RunOnUIAsync(() =>
                 {
+                    folder.ExecutionStatus = SemanticStatus.Error;
                     folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                 });
 
@@ -247,7 +251,7 @@ public static partial class BackupService
                     folder,
                     BackupSourceExecutionStatus.Failed,
                     errorMessage: message,
-                    operationOutcome: OperationOutcome.Blocked);
+                    operationOutcome: OperationOutcome.Blocked, errorDiagnostics: resolution.Diagnostics);
 
                 return new BackupTransactionExecutionResult
                 {
@@ -356,7 +360,7 @@ public static partial class BackupService
                 {
                     await RunOnUIAsync(() =>
                     {
-                        foreach (var folder in requestedFolders) folder.StatusText = message;
+                        foreach (var folder in requestedFolders) { folder.ExecutionStatus = SemanticStatus.Error; folder.StatusText = message; }
                         foreach (var task in sourceOutcomes.Select(item => item.Task).OfType<BackupTask>())
                         {
                             task.Status = message; task.ErrorMessage = message;
@@ -675,7 +679,8 @@ public static partial class BackupService
                             task.IsCompleted = true;
                             task.IsIndeterminate = false;
                             task.IsSuccess = false;
-                            task.ErrorMessage = outcome.ErrorMessage;
+                            task.ErrorMessage = outcome.ErrorMessage; task.ErrorDiagnostics = outcome.ErrorDiagnostics;
+                            folder.ExecutionStatus = SemanticStatus.Error;
                             folder.StatusText = unavailableMessage;
                         });
                     }
@@ -732,6 +737,7 @@ public static partial class BackupService
                             task.IsCompleted = true;
                             task.IsIndeterminate = false;
                             task.IsSuccess = true;
+                            folder.ExecutionStatus = warningStatus is null ? SemanticStatus.Success : SemanticStatus.Warning;
                             folder.StatusText = warningStatus ?? I18n.Format("BackupService_Folder_BackupCompleted");
                             folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
@@ -740,6 +746,7 @@ public static partial class BackupService
                     {
                         await RunOnUIAsync(() =>
                         {
+                            folder.ExecutionStatus = warningStatus is null ? SemanticStatus.Success : SemanticStatus.Warning;
                             folder.StatusText = warningStatus ?? I18n.Format("BackupService_Folder_BackupCompleted");
                             folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
@@ -775,6 +782,7 @@ public static partial class BackupService
                             task.IsCompleted = true;
                             task.IsIndeterminate = false;
                             task.IsSuccess = true;
+                            folder.ExecutionStatus = warningStatus is null ? SemanticStatus.Success : SemanticStatus.Warning;
                             folder.StatusText = warningStatus ?? I18n.Format("BackupService_Task_NoChanges");
                         });
                     }
@@ -782,6 +790,7 @@ public static partial class BackupService
                     {
                         await RunOnUIAsync(() =>
                         {
+                            folder.ExecutionStatus = warningStatus is null ? SemanticStatus.Success : SemanticStatus.Warning;
                             folder.StatusText = warningStatus ?? I18n.Format("BackupService_Task_NoChanges");
                         });
                     }
@@ -797,7 +806,8 @@ public static partial class BackupService
                             task.IsCompleted = true;
                             task.IsIndeterminate = false;
                             task.IsSuccess = false;
-                            task.ErrorMessage = outcome.ErrorMessage;
+                            task.ErrorMessage = outcome.ErrorMessage; task.ErrorDiagnostics = outcome.ErrorDiagnostics;
+                            folder.ExecutionStatus = SemanticStatus.Error;
                             folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                         });
                     }
@@ -805,6 +815,7 @@ public static partial class BackupService
                     {
                         await RunOnUIAsync(() =>
                         {
+                            folder.ExecutionStatus = SemanticStatus.Error;
                             folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                         });
                     }
@@ -868,6 +879,7 @@ public static partial class BackupService
                     task.IsIndeterminate = false;
                     task.IsSuccess = false;
                     task.ErrorMessage = canceledMessage;
+                    folder.ExecutionStatus = SemanticStatus.Neutral;
                     folder.StatusText = canceledMessage;
                 });
                 await PublishSourceWarningsAsync(config, folder, sourceOutcomes[i]).ConfigureAwait(false);
@@ -919,6 +931,7 @@ public static partial class BackupService
                 task.IsIndeterminate = false;
                 task.IsSuccess = false;
                 task.ErrorMessage = errorMessage;
+                folder.ExecutionStatus = SemanticStatus.Error;
                 folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
             });
         }
@@ -926,6 +939,7 @@ public static partial class BackupService
         {
             await RunOnUIAsync(() =>
             {
+                folder.ExecutionStatus = SemanticStatus.Error;
                 folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
             });
         }

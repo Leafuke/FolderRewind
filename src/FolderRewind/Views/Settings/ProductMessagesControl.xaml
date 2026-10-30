@@ -1,0 +1,75 @@
+<UserControl x:Class="FolderRewind.Views.Settings.ProductMessagesControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:vm="using:FolderRewind.ViewModels">
+    <StackPanel Spacing="8">
+        <TextBlock Text="{x:Bind ViewModel.PersistenceMessage, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+        <toolkit:SettingsExpander x:Name="UpdateExpander" x:Uid="Product_UpdateSection" Expanded="OnUpdateExpanded"
+                                  Description="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}" AutomationProperties.AutomationId="ProductUpdateSection">
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <StackPanel x:Name="UpdateBody" x:Load="{x:Bind UpdateSection.IsCreated, Mode=OneWay}" Spacing="12">
+                        <TextBlock Text="{x:Bind ViewModel.CurrentVersion, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                        <TextBlock Text="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.AutomationId="ProductUpdateStatus"/>
+                        <TextBlock Text="{x:Bind ViewModel.LastCheck, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                        <Button x:Uid="Product_CheckUpdates" Command="{x:Bind ViewModel.CheckUpdateCommand}" IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}" AutomationProperties.AutomationId="ProductCheckUpdates"/>
+                        <ProgressBar IsIndeterminate="True" Visibility="{x:Bind ViewModel.Busy, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                        <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasUpdate, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="{x:Bind ViewModel.UpdateSummary, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind ViewModel.UpdateHint, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.AutomationId="ProductUpdateChannelHint"/>
+                            <Button Content="{x:Bind ViewModel.UpdateAction, Mode=OneWay}" Command="{x:Bind ViewModel.OpenUpdateCommand}" AutomationProperties.AutomationId="ProductOpenUpdate"/>
+                            <TextBlock Text="{x:Bind ViewModel.ActionMessage, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+                            <HyperlinkButton x:Uid="Product_Fallback" Command="{x:Bind ViewModel.OpenFallbackCommand}" AutomationProperties.AutomationId="ProductUpdateFallback"/>
+                            <TextBlock Text="{x:Bind ViewModel.UpdateChoice, Mode=OneWay}" TextWrapping="Wrap"/>
+                            <Button x:Uid="Product_ReminderOptions" AutomationProperties.AutomationId="ProductUpdateOptions">
+                                <Button.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Product_Snooze" Command="{x:Bind ViewModel.UpdateChoiceCommand}" CommandParameter="snooze" AutomationProperties.AutomationId="ProductUpdateSnooze"/>
+                                    <MenuFlyoutItem x:Uid="Product_Ignore" Command="{x:Bind ViewModel.UpdateChoiceCommand}" CommandParameter="ignore" AutomationProperties.AutomationId="ProductUpdateIgnore"/>
+                                    <MenuFlyoutItem x:Uid="Product_Restore" Command="{x:Bind ViewModel.UpdateChoiceCommand}" CommandParameter="restore" AutomationProperties.AutomationId="ProductUpdateRestore"/>
+                                </MenuFlyout></Button.Flyout>
+                            </Button>
+                            <TextBlock Text="{x:Bind ViewModel.UpdateBody, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True" AutomationProperties.AutomationId="ProductUpdateNotes"/>
+                        </StackPanel>
+                    </StackPanel>
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+        <toolkit:SettingsExpander x:Name="NoticesExpander" x:Uid="Product_NoticesSection" Expanded="OnNoticesExpanded" AutomationProperties.AutomationId="ProductNoticesSection">
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <StackPanel x:Name="NoticesBody" x:Load="{x:Bind NoticesSection.IsCreated, Mode=OneWay}" Spacing="12">
+                        <Button x:Uid="Product_RefreshNotices" Command="{x:Bind ViewModel.RefreshNoticesCommand}" IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}" AutomationProperties.AutomationId="ProductRefreshNotices"/>
+                        <TextBlock Text="{x:Bind ViewModel.NoticeStatus, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+                        <CheckBox x:Uid="Product_ShowArchived" IsChecked="{x:Bind ViewModel.ShowArchived, Mode=TwoWay}" AutomationProperties.AutomationId="ProductShowArchived"/>
+                        <TextBlock x:Uid="Product_NoNotices" TextWrapping="Wrap" Visibility="{x:Bind ViewModel.NoNotices, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                        <ListView ItemsSource="{x:Bind ViewModel.Notices, Mode=OneTime}" MaxHeight="320" SelectionMode="None" IsItemClickEnabled="True" ItemClick="OnNoticeClick" AutomationProperties.AutomationId="ProductNoticesList">
+                            <ListView.ItemTemplate><DataTemplate x:DataType="vm:AnnouncementItemViewModel">
+                                <StackPanel Spacing="4" Padding="4,8" AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}">
+                                    <TextBlock Text="{x:Bind Title, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="{x:Bind Summary, Mode=OneWay}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{x:Bind Published, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                    <TextBlock Text="{x:Bind StateText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                </StackPanel>
+                            </DataTemplate></ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="NoticeTitle" Text="{x:Bind ViewModel.NoticeTitle, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource SubtitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level2"/>
+                        <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasSelectedNotice, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="{x:Bind ViewModel.NoticePublished, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind ViewModel.NoticeSummary, Mode=OneWay}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{x:Bind ViewModel.NoticeChoice, Mode=OneWay}" TextWrapping="Wrap"/>
+                            <Button x:Uid="Product_ReminderOptions" AutomationProperties.AutomationId="ProductNoticeOptions">
+                                <Button.Flyout><MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="Product_Snooze" Command="{x:Bind ViewModel.NoticeChoiceCommand}" CommandParameter="snooze" AutomationProperties.AutomationId="ProductNoticeSnooze"/>
+                                    <MenuFlyoutItem x:Uid="Product_Archive" Command="{x:Bind ViewModel.NoticeChoiceCommand}" CommandParameter="archive" AutomationProperties.AutomationId="ProductNoticeArchive"/>
+                                    <MenuFlyoutItem x:Uid="Product_Restore" Command="{x:Bind ViewModel.NoticeChoiceCommand}" CommandParameter="restore" AutomationProperties.AutomationId="ProductNoticeRestore"/>
+                                </MenuFlyout></Button.Flyout>
+                            </Button>
+                            <TextBlock Text="{x:Bind ViewModel.NoticeBody, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True" AutomationProperties.AutomationId="ProductNoticeBody"/>
+                        </StackPanel>
+                    </StackPanel>
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+    </StackPanel>
+</UserControl>

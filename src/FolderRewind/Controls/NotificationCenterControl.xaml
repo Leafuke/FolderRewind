@@ -8,7 +8,7 @@
             <Setter Property="Padding" Value="6"/><Setter Property="MinWidth" Value="32"/><Setter Property="MinHeight" Value="32"/>
         </Style>
     </UserControl.Resources>
-    <Grid x:Name="LayoutRoot" RowSpacing="8" Padding="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto" SizeChanged="OnLayoutChanged">
+    <Grid x:Name="LayoutRoot" RowSpacing="8" Padding="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" SizeChanged="OnLayoutChanged">
         <Grid x:Name="Header" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="4">
             <Button x:Name="BackButton" x:Uid="NotificationUI_Back" Style="{StaticResource QuietButton}" Click="OnBack" AutomationProperties.AutomationId="NotificationCenterBack"
                     Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"><FontIcon Glyph="&#xE72B;" FontSize="16"/></Button>
@@ -74,15 +74,25 @@
                     <TextBlock Text="{x:Bind ViewModel.DetailProject, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock Text="{x:Bind ViewModel.DetailTimestamp, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind ViewModel.DetailText, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                    <Expander x:Uid="Product_TechnicalDetails" HorizontalAlignment="Stretch"
+                              Visibility="{x:Bind ViewModel.HasTechnicalDetails, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                              AutomationProperties.AutomationId="NotificationTechnicalDetails">
+                        <TextBlock Text="{x:Bind ViewModel.TechnicalDetails, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                    </Expander>
                     <TextBlock Text="{x:Bind ViewModel.NavigationMessage, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                Visibility="{x:Bind ViewModel.HasNavigationMessage, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                     <HyperlinkButton Content="{x:Bind ViewModel.TargetText, Mode=OneWay}" Command="{x:Bind ViewModel.OpenTargetCommand}" Padding="0,4" AutomationProperties.AutomationId="NotificationCenterOpenTarget"
                                      Visibility="{x:Bind ViewModel.HasTarget, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                    <HyperlinkButton Content="{x:Bind ViewModel.RecommendationText, Mode=OneWay}" Command="{x:Bind ViewModel.OpenRecommendationCommand}" Padding="0,4"
+                                     AutomationProperties.AutomationId="NotificationRecommendation"
+                                     Visibility="{x:Bind ViewModel.HasRecommendation, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                     <HyperlinkButton x:Uid="NotificationCenter_OpenLogs" Command="{x:Bind ViewModel.OpenLogsCommand}" Padding="0,4" AutomationProperties.AutomationId="NotificationCenterOpenLogs"
                                      Visibility="{x:Bind ViewModel.HasLogs, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
+        <TextBlock x:Name="PersistenceStatus" Grid.Row="5" Text="{x:Bind ViewModel.PersistenceMessage, Mode=OneWay}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                   Visibility="{x:Bind ViewModel.HasPersistenceMessage, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
         <Grid x:Name="UndoRow" Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8" Visibility="{x:Bind ViewModel.CanUndo, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <TextBlock Text="{x:Bind ViewModel.UndoText, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite"/>
             <HyperlinkButton Grid.Column="1" x:Uid="NotificationUI_Undo" Command="{x:Bind ViewModel.UndoClearCommand}" AutomationProperties.AutomationId="NotificationCenterUndo"/>

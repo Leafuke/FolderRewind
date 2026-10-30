@@ -126,6 +126,7 @@
     <Compile Include="../../src/FolderRewind/Services/History/HistoryInteractionContracts.cs" Link="Host/Services/History/HistoryInteractionContracts.cs" />
     <Compile Include="../../src/FolderRewind/Services/Configuration/ConfigEditTransaction.cs" Link="Host/Services/Configuration/ConfigEditTransaction.cs" />
     <Compile Include="../../src/FolderRewind/Services/Common/AsyncCommandLifetime.cs" Link="Host/Services/Common/AsyncCommandLifetime.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Settings/SettingsPresentationLifetime.cs" Link="Host/Services/Settings/SettingsPresentationLifetime.cs" />
     <Compile Include="../../src/FolderRewind/Services/FolderManagement/FolderScopeEditController.cs" Link="Host/Services/FolderManagement/FolderScopeEditController.cs" />
     <Compile Include="../../src/FolderRewind/Services/Shell/StartupSequence.cs" Link="Host/Services/Shell/StartupSequence.cs" />
     <Compile Include="../../src/FolderRewind/Services/Notifications/NotificationPresentationState.cs" Link="Host/Services/Notifications/NotificationPresentationState.cs" />

@@ -22,14 +22,15 @@ public sealed partial class DataManagementControl
     { if (_migrationLoaded) TaskObserver.Observe(RefreshWorkflowOverviewAsync(), nameof(DataManagementControl)); });
     private async Task RefreshWorkflowOverviewAsync()
     {
+        var generation = _presentation.Generation;
         try
         {
             var pending = await MigrationWorkflowCoordinator.PendingAsync();
-            if (!_migrationLoaded) return;
+            if (!_migrationLoaded || !_presentation.IsCurrent(generation)) return;
             Migration.HasPending = pending.Length > 0;
             Migration.Summary = I18n.GetString(pending.Length > 0 ? "MigrationWizard_OverviewPending" : "MigrationWizard_OverviewReady");
         }
         catch (Exception error)
-        { if (_migrationLoaded) ShowInfoBar(CloudCommandSecurity.Redact(error.Message), InfoBarSeverity.Error); }
+        { if (_migrationLoaded && _presentation.IsCurrent(generation)) ShowInfoBar(CloudCommandSecurity.Redact(error.Message), InfoBarSeverity.Error); }
     }
 }

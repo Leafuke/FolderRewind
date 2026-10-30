@@ -3,26 +3,69 @@ using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
-using System.Collections.Specialized;
-using System.Linq;
 
 namespace FolderRewind.Views.Settings
 {
     public sealed partial class AppearanceLayoutControl : UserControl
     {
+        private readonly SettingsPresentationLifetime _presentation = new();
+        internal DeferredSettingsSection AppearanceSection { get; } = new();
+        internal DeferredSettingsSection SponsorSection { get; } = new();
+
+        private void UpdatePresentationBindings() => _presentation.UpdateBindings(Bindings.Update);
+
+        internal void DeactivatePresentation()
+        {
+            _presentation.Deactivate();
+            Bindings.StopTracking();
+        }
+
+        private void EnsureSection(DeferredSettingsSection section, SettingsSection kind)
+        {
+            if (!_presentation.IsActive) return;
+            System.Threading.Tasks.Task? initialization = null;
+            _presentation.UpdateBindings(() =>
+            {
+                initialization = ViewModel.InitializeSectionAsync(kind);
+                section.Create();
+                Bindings.Update();
+                ApplyDeferredCardStyles();
+                if (LanguageCombo is not null) LanguageCombo.SelectedIndex = ViewModel.GetLanguageSelectedIndex();
+            });
+            TaskObserver.Observe(initialization ?? System.Threading.Tasks.Task.CompletedTask, nameof(AppearanceLayoutControl));
+        }
+
+
+        private void ApplyDeferredCardStyles()
+        {
+            SettingsDeferredContent.ApplyCardStyles(SponsorBody, SponsorExpander);
+            SettingsDeferredContent.ApplyCardStyles(AppearanceBody, AppearanceExpander);
+        }
+
+        private void RefreshCreatedSections()
+        {
+            if (AppearanceSection.IsCreated) EnsureSection(AppearanceSection, SettingsSection.Appearance);
+            if (SponsorSection.IsCreated) EnsureSection(SponsorSection, SettingsSection.Sponsor);
+        }
+
+        private void OnAppearanceExpanded(object? sender, object e) => EnsureSection(AppearanceSection, SettingsSection.Appearance);
+
+        private void OnSponsorExpanded(object? sender, object e) => EnsureSection(SponsorSection, SettingsSection.Sponsor);
+
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
 
         private bool _isInitializingLanguage;
-        private bool _isInitializingFont;
 
         public AppearanceLayoutControl()
         {
             this.InitializeComponent();
+            Unloaded += (_, _) => DeactivatePresentation();
         }
 
         public void SetViewModel(SettingsPageViewModel viewModel)
         {
             ViewModel = viewModel;
+            _presentation.Activate();
 
             // Initialize language combo
             _isInitializingLanguage = true;
@@ -38,71 +81,13 @@ namespace FolderRewind.Views.Settings
                 _isInitializingLanguage = false;
             }
 
-            // Initialize font family and size
-            _isInitializingFont = true;
-            try
-            {
-                SyncFontFamilySelection();
-                if (FontSizeBox != null)
-                {
-                    FontSizeBox.Value = ViewModel.Settings.BaseFontSize;
-                }
-            }
-            finally
-            {
-                _isInitializingFont = false;
-            }
-
-            // Subscribe to font families changes
-            ViewModel.FontFamilies.CollectionChanged += OnFontFamiliesCollectionChanged;
-
-            Bindings.Update();
-        }
-
-        private void SyncFontFamilySelection()
-        {
-            if (FontFamilyCombo == null)
-            {
-                return;
-            }
-
-            var current = ViewModel.FontFamilies.FirstOrDefault(
-                f => string.Equals(f, ViewModel.Settings.FontFamily, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                FontFamilyCombo.SelectedItem = current;
-                return;
-            }
-
-            if (!string.IsNullOrWhiteSpace(ViewModel.Settings.FontFamily))
-            {
-                FontFamilyCombo.SelectedItem = ViewModel.Settings.FontFamily;
-                return;
-            }
-
-            FontFamilyCombo.SelectedItem = ViewModel.FontFamilies.FirstOrDefault();
-        }
-
-        private void OnFontFamiliesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            if (FontFamilyCombo == null || _isInitializingFont)
-            {
-                return;
-            }
-
-            _isInitializingFont = true;
-            try
-            {
-                SyncFontFamilySelection();
-            }
-            finally
-            {
-                _isInitializingFont = false;
-            }
+            UpdatePresentationBindings();
+            RefreshCreatedSections();
         }
 
         private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (_isInitializingLanguage) return;
 
             if (sender is ComboBox cb)
@@ -113,6 +98,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb)
             {
                 ViewModel.HandleThemeChanged(cb.SelectedIndex);
@@ -121,6 +107,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnSponsorAccentChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb)
             {
                 ViewModel.HandleSponsorAccentChanged(cb.SelectedIndex);
@@ -129,6 +116,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnSponsorBackdropChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb)
             {
                 ViewModel.HandleSponsorBackdropChanged(cb.SelectedIndex);
@@ -137,6 +125,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnSponsorTitleTextChanged(object sender, TextChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is TextBox tb)
             {
                 ViewModel.HandleSponsorTitleTextChanged(tb.Text);
@@ -145,6 +134,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnSponsorTitleIconChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb && cb.SelectedItem is string glyph)
             {
                 ViewModel.HandleSponsorTitleIconChanged(glyph);
@@ -153,6 +143,7 @@ namespace FolderRewind.Views.Settings
 
         private async void OnChooseSponsorBackgroundClick(object sender, RoutedEventArgs e)
         {
+            var generation = _presentation.Generation;
             try
             {
                 var filePath = await MainWindowService.PickFilePathAsync(
@@ -160,13 +151,14 @@ namespace FolderRewind.Views.Settings
                     "FolderRewind.Settings.Appearance.SponsorBackground",
                     new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" },
                     MainWindowService.SuggestedPickerLocation.PicturesLibrary);
+                if (!_presentation.IsCurrent(generation)) return;
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
                     return;
                 }
 
                 await ViewModel.ApplySponsorBackgroundImageAsync(filePath);
-                Bindings.Update();
+                if (_presentation.IsCurrent(generation)) UpdatePresentationBindings();
             }
             catch (Exception ex)
             {
@@ -177,6 +169,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnSponsorBackgroundEnabledToggled(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleSponsorBackgroundEnabledToggled(ts.IsOn);
@@ -185,6 +178,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnSponsorBackgroundStretchChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb)
             {
                 ViewModel.HandleSponsorBackgroundStretchChanged(cb.SelectedIndex);
@@ -193,16 +187,19 @@ namespace FolderRewind.Views.Settings
 
         private void OnSponsorBackgroundImageOpacityChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             ViewModel.HandleSponsorBackgroundImageOpacityChanged(e.NewValue);
         }
 
         private void OnSponsorBackgroundOverlayOpacityChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             ViewModel.HandleSponsorBackgroundOverlayOpacityChanged(e.NewValue);
         }
 
         private void OnCompletionSoundChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb)
             {
                 ViewModel.HandleCompletionSoundChanged(cb.SelectedIndex);
@@ -211,6 +208,7 @@ namespace FolderRewind.Views.Settings
 
         private async void OnChooseCustomCompletionSoundClick(object sender, RoutedEventArgs e)
         {
+            var generation = _presentation.Generation;
             try
             {
                 var filePath = await MainWindowService.PickFilePathAsync(
@@ -218,13 +216,14 @@ namespace FolderRewind.Views.Settings
                     "FolderRewind.Settings.Appearance.CompletionSound",
                     new[] { ".wav", ".mp3", ".m4a", ".aac", ".wma", ".flac" },
                     MainWindowService.SuggestedPickerLocation.MusicLibrary);
+                if (!_presentation.IsCurrent(generation)) return;
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
                     return;
                 }
 
                 await ViewModel.ApplyCustomCompletionSoundAsync(filePath);
-                Bindings.Update();
+                if (_presentation.IsCurrent(generation)) UpdatePresentationBindings();
             }
             catch (Exception ex)
             {
@@ -233,25 +232,16 @@ namespace FolderRewind.Views.Settings
             }
         }
 
-        private void OnFontFamilyChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_isInitializingFont) return;
-
-            if (sender is ComboBox cb && cb.SelectedItem is string selected)
-            {
-                ViewModel.HandleFontFamilyChanged(selected);
-            }
-        }
-
         private void OnFontSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
-            if (_isInitializingFont) return;
+            if (!_presentation.CanEdit) return;
 
             ViewModel.HandleFontSizeChanged(e.NewValue);
         }
 
         private void OnHistoryColorsToggled(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleHistoryColorsToggled(ts.IsOn);
@@ -260,6 +250,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnStartupSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (ReferenceEquals(sender, StartupWidthBox))
             {
                 ViewModel.HandleStartupSizeChanged(isWidth: true, newValue: e.NewValue);

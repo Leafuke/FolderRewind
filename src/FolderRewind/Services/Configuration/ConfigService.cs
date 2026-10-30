@@ -263,7 +263,6 @@ namespace FolderRewind.Services
 
             try
             {
-                settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
                 var (startupWidth, startupHeight) = GetRecommendedStartupWindowSize();
                 settings.StartupWidth = startupWidth;
                 settings.StartupHeight = startupHeight;
@@ -1073,10 +1072,6 @@ namespace FolderRewind.Services
                 settings.SilentStartup = false;
             }
 
-            if (string.IsNullOrWhiteSpace(settings.FontFamily))
-            {
-                settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
-            }
 
             if (string.IsNullOrWhiteSpace(settings.SevenZipPath))
             {

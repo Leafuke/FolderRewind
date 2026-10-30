@@ -115,17 +115,27 @@ namespace FolderRewind.ViewModels
 
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)
         {
-            EnqueueOnUiThread(RefreshHotkeyBindingsView);
+            if (!_active || !_initializedSections.Contains(SettingsSection.Hotkeys)) return;
+            EnqueuePresentationUpdate(RefreshHotkeyBindingsView);
         }
 
         private void CoreFeatureValidationService_StateChanged()
         {
-            EnqueueOnUiThread(RefreshCoreValidationState);
+            EnqueuePresentationUpdate(RefreshCoreValidationState);
         }
 
         private void SponsorService_StateChanged()
         {
-            EnqueueOnUiThread(RefreshSponsorState);
+            EnqueuePresentationUpdate(RefreshSponsorState);
+        }
+
+        private void EnqueuePresentationUpdate(Action update)
+        {
+            var generation = _presentationGeneration;
+            EnqueueOnUiThread(() =>
+            {
+                if (_active && generation == _presentationGeneration) update();
+            });
         }
     }
 }

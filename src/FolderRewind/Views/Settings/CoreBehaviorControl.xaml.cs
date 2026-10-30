@@ -12,22 +12,75 @@ namespace FolderRewind.Views.Settings
 {
     public sealed partial class CoreBehaviorControl : UserControl
     {
+        private readonly SettingsPresentationLifetime _presentation = new();
+        internal DeferredSettingsSection BehaviorSection { get; } = new();
+        internal DeferredSettingsSection NotificationsSection { get; } = new();
+        internal DeferredSettingsSection HotkeysSection { get; } = new();
+
+        private void UpdatePresentationBindings() => _presentation.UpdateBindings(Bindings.Update);
+
+        internal void DeactivatePresentation()
+        {
+            _presentation.Deactivate();
+            Bindings.StopTracking();
+        }
+
+        private void EnsureSection(DeferredSettingsSection section, SettingsSection kind)
+        {
+            if (!_presentation.IsActive) return;
+            System.Threading.Tasks.Task? initialization = null;
+            _presentation.UpdateBindings(() =>
+            {
+                initialization = ViewModel.InitializeSectionAsync(kind);
+                section.Create();
+                Bindings.Update();
+                ApplyDeferredCardStyles();
+            });
+            TaskObserver.Observe(initialization ?? System.Threading.Tasks.Task.CompletedTask, nameof(CoreBehaviorControl));
+        }
+
+
+        private void ApplyDeferredCardStyles()
+        {
+            SettingsDeferredContent.ApplyCardStyles(HotkeysBody, HotkeysExpander);
+            SettingsDeferredContent.ApplyCardStyles(NotificationsBody, NotificationsExpander);
+            SettingsDeferredContent.ApplyCardStyles(BehaviorBody, BehaviorExpander);
+        }
+
+        private void RefreshCreatedSections()
+        {
+            if (BehaviorSection.IsCreated) EnsureSection(BehaviorSection, SettingsSection.CoreBehavior);
+            if (NotificationsSection.IsCreated) EnsureSection(NotificationsSection, SettingsSection.Notifications);
+            if (HotkeysSection.IsCreated) EnsureSection(HotkeysSection, SettingsSection.Hotkeys);
+        }
+
+        private void OnBehaviorExpanded(object? sender, object e) => EnsureSection(BehaviorSection, SettingsSection.CoreBehavior);
+
+        private void OnNotificationsExpanded(object? sender, object e) => EnsureSection(NotificationsSection, SettingsSection.Notifications);
+
+        private void OnHotkeysExpanded(object? sender, object e) => EnsureSection(HotkeysSection, SettingsSection.Hotkeys);
+
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
         private bool _handlingStartupToggle;
 
         public CoreBehaviorControl()
         {
             this.InitializeComponent();
+            Unloaded += (_, _) => DeactivatePresentation();
         }
 
         public void SetViewModel(SettingsPageViewModel viewModel)
         {
             ViewModel = viewModel;
-            Bindings.Update();
+            _presentation.Activate();
+            UpdatePresentationBindings();
+            RefreshCreatedSections();
         }
 
         private async void OnRunOnStartupToggled(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
+            var generation = _presentation.Generation;
             if (sender is ToggleSwitch ts)
             {
                 var desired = ts.IsOn;
@@ -36,6 +89,7 @@ namespace FolderRewind.Views.Settings
                 try
                 {
                     var result = await ViewModel.HandleRunOnStartupToggledAsync(desired);
+                    if (!_presentation.IsCurrent(generation)) return;
                     if (!result.Success && desired)
                     {
                         ts.IsOn = false;
@@ -70,6 +124,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnSilentStartupToggled(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ToggleSwitch ts)
             {
                 ts.IsOn = ViewModel.HandleSilentStartupToggled(ts.IsOn);
@@ -82,6 +137,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb)
             {
                 ViewModel.HandleCloseBehaviorSelectionChanged(cb.SelectedIndex);
@@ -90,6 +146,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnNotificationsToggled(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleNotificationsToggled(ts.IsOn);
@@ -98,6 +155,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnToastLevelChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ComboBox cb)
             {
                 ViewModel.HandleToastLevelChanged(cb.SelectedIndex);
@@ -106,6 +164,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnNoticesToggled(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleNoticesToggled(ts.IsOn);
@@ -114,6 +173,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnUpdateReminderToggled(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleUpdateReminderToggled(ts.IsOn);
@@ -122,6 +182,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnFileSizeWarningThresholdChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             ViewModel.HandleFileSizeWarningThresholdChanged(e.NewValue);
         }
 

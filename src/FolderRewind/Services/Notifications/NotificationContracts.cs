@@ -12,7 +12,7 @@ namespace FolderRewind.Services;
 public enum NotificationSeverity { Informational, Success, Warning, Error }
 public enum ToastNotificationLevel { Off = 0, ErrorOnly = 1, ImportantAndAbove = 2, All = 3 }
 public enum NotificationImportance { Info, Important, Error }
-public enum NotificationCategory { Transient, BusinessResult, Attention, Progress, Announcement, Cancellation }
+public enum NotificationCategory { Transient, BusinessResult, Attention, Progress, Announcement, Cancellation, AppUpdate }
 
 /// <summary>Compatibility input only. Never retained by the store or presentation queue.</summary>
 public sealed class InAppNotificationRequest
@@ -22,6 +22,10 @@ public sealed class InAppNotificationRequest
     public NotificationTarget? Target { get; set; }
     public NotificationCategory? Category { get; set; }
     public NotificationContent? Content { get; set; }
+    public ProductMessageReference? Product { get; set; }
+    public bool SuppressAlert { get; set; }
+    public bool? RestoreReadState { get; set; }
+    public string? TechnicalDetails { get; set; }
     public string? FailureCode { get; set; }
     public string? Source { get; set; }
     public bool KeepInCenter { get; set; }
@@ -47,7 +51,8 @@ internal sealed record NotificationEvent(
     bool KeepInCenter, bool AlertOnce, int AutoCloseMs, bool? CompletionSoundSuccess,
     string FailureKey, string? ActionText, Action? TransientAction,
     IReadOnlyDictionary<string, string> Arguments, Uri? Logo = null, string? Group = null, bool SystemOnly = false,
-    NotificationContent? Content = null)
+    NotificationContent? Content = null, ProductMessageReference? Product = null,
+    bool SuppressAlert = false, bool? RestoreReadState = null, string TechnicalDetails = "")
 {
     public string GroupKey => Correlation?.Group ?? Id;
     public bool IsPersistent => AutoCloseMs <= 0;
@@ -66,15 +71,16 @@ internal sealed record NotificationEvent(
             : request.AutoCloseMs == 0 ? NotificationCategory.Announcement : NotificationCategory.Transient);
         var keep = request.KeepInCenter || category is NotificationCategory.BusinessResult or NotificationCategory.Attention or NotificationCategory.Cancellation;
         if (category == NotificationCategory.Progress) keep = false;
-        var target = request.Target ?? context;
+        var target = request.Product is null ? request.Target ?? context : request.Target;
         var id = request.RecordId ?? recordIdOverride ?? (target?.OperationId is { } operation ? "operation:" + operation : Guid.NewGuid().ToString("N"));
-        if (keep) target = (target ?? new(NotificationTargetKind.None)) with { OperationId = target?.OperationId ?? id };
+        if (keep && request.Product is null) target = (target ?? new(NotificationTargetKind.None)) with { OperationId = target?.OperationId ?? id };
         var title = Normalize(request.Title, 512);
         var message = Normalize(request.Message, 2048);
         var details = Normalize(string.IsNullOrWhiteSpace(request.Details) ? request.Message : request.Details, 8192);
+        var technical = Normalize(request.TechnicalDetails, 16384);
         var content = request.Content is { } supplied ? supplied with
         { ProjectName = Normalize(supplied.ProjectName, 256), ObjectName = Normalize(supplied.ObjectName, 256), Summary = Normalize(supplied.Summary, 512) } : null;
-        var key = Hash($"{category}|{request.Severity}|{level}|{content}|" + (request.ResultKey ?? title + "\n" + message + "\n" + details));
+        var key = Hash($"{category}|{request.Severity}|{level}|{content}|{technical}|" + (request.ResultKey ?? title + "\n" + message + "\n" + details));
         var failure = $"{request.Source ?? category.ToString()}|{target?.ConfigId ?? "global"}|"
             + (request.FailureCode ?? Hash(details));
         return new(id, Guid.NewGuid().ToString("N"), title, message, details, key, category, request.Severity, level,
@@ -82,7 +88,8 @@ internal sealed record NotificationEvent(
             request.AutoCloseMs < 0 ? DefaultDuration(request.Severity) : request.AutoCloseMs,
             request.CompletionSoundSuccess, failure, Normalize(request.ActionText, 128),
             request.Action, new ReadOnlyDictionary<string, string>(arguments?.ToDictionary(p => p.Key, p => p.Value)
-                ?? new Dictionary<string, string>()), logo, group, systemOnly, content);
+                ?? new Dictionary<string, string>()), logo, group, systemOnly, content, request.Product,
+            request.SuppressAlert, request.RestoreReadState, technical);
     }
 
     public static int DefaultDuration(NotificationSeverity severity) => severity switch

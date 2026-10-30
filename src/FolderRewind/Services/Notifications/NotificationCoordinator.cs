@@ -18,6 +18,7 @@ internal sealed class NotificationCoordinator
     private readonly NotificationDeliveryLedger _ledger;
     public NotificationStore Store { get; }
     public event Action? Changed;
+    public event Action<NotificationEvent>? Delivered;
     public event Action<NotificationBannerRequest>? BannerRequested;
 
     public NotificationCoordinator(TimeProvider clock, Func<NotificationEnvironment> environment,
@@ -110,7 +111,7 @@ internal sealed class NotificationCoordinator
             // Freeze the audio choice for this event so a setting change cannot cause both sounds.
             var status = await _system.SendAsync(item, muteAudio, Guard).ConfigureAwait(false);
             if (status == NotificationSendStatus.Submitted)
-                lock (_sync) _ledger.Submitted(item, NotificationChannel.System);
+                { lock (_sync) _ledger.Submitted(item, NotificationChannel.System); Delivered?.Invoke(item); }
             return status;
         }
         catch (Exception error)
@@ -148,9 +149,13 @@ internal sealed class NotificationCoordinator
         lock (_sync)
         {
             _lastBannerRevision = request.Event.Revision;
-            if (!request.QuietUpdate && !request.Resume) _ledger.Submitted(request.Event, NotificationChannel.Banner);
+            if (!request.QuietUpdate && !request.Resume)
+            { _ledger.Submitted(request.Event, NotificationChannel.Banner); Delivered?.Invoke(request.Event); }
         }
     }
+    public void CancelPresentation(string id) { lock (_sync) _revisions.Remove(id); }
+    public void Retire(string id)
+    { lock (_sync) { _revisions.Remove(id); Store.Remove(id); } Notify(Changed); }
     public void MarkRead(string id, string? revision = null) { if (Store.MarkRead(id, revision)) Notify(Changed); }
     public void MarkAllRead() { Store.MarkAllRead(); Notify(Changed); }
     public void ClearRead() { Store.ClearRead(); Notify(Changed); }

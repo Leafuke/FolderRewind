@@ -32,9 +32,12 @@ internal static class NotificationContentFormatter
     }
     public static string ActionResource(NotificationTarget? target) => target?.Kind switch
     {
+        NotificationTargetKind.AnnouncementDetails => "Product_ViewAnnouncement",
+        NotificationTargetKind.ApplicationUpdate => "Product_ViewUpdate",
         NotificationTargetKind.Tasks => "NotificationUI_ViewTasks",
         NotificationTargetKind.History => "NotificationUI_ViewHistory",
         NotificationTargetKind.CloudProject => "NotificationUI_ViewCloud",
+        NotificationTargetKind.Configuration => "Product_CheckConfiguration",
         NotificationTargetKind.Logs => "NotificationCenter_OpenLogs.Content",
         _ => "NotificationCenter_OpenTarget.Content"
     };

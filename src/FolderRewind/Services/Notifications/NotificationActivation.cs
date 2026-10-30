@@ -50,7 +50,8 @@ internal static class NotificationActivationRouter
         {
             if (kind == NotificationTargetKind.None && LegacyPage(args) is { } page) return openLegacy(page);
             string? Read(string key) => args.GetValueOrDefault(key) is { Length: > 0 and <= 128 } value ? value : null;
-            return open(new(kind, Read("operation"), Read("config"), Read("folder"), Read("task"), Read("run"), Read("version"), Read("job")));
+            return open(new(kind, Read("operation"), Read("config"), Read("folder"), Read("task"), Read("run"), Read("version"), Read("job"), Read("product"),
+                bool.TryParse(Read("historyCreated"), out var created) ? created : null));
         }
         if (LegacyPage(args) is { } legacy) return openLegacy(legacy);
         unavailable();

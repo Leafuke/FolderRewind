@@ -10,12 +10,13 @@ internal static class NotificationPolicy
     {
         if (environment.Suppressed) return default;
         var record = item.KeepInCenter && item.Category != NotificationCategory.Progress;
-        if (!environment.Enabled || item.Category == NotificationCategory.Progress) return new(record, false, false, false, false);
+        if (!environment.Enabled || item.SuppressAlert || item.Category == NotificationCategory.Progress) return new(record, false, false, false, false);
         var automaticSuccess = item.Content is { Trigger: Models.NotificationTrigger.Automatic,
             Result: Models.NotificationResultKind.Success or Models.NotificationResultKind.NoChanges }
             && item.Importance == NotificationImportance.Info && item.Severity is NotificationSeverity.Success or NotificationSeverity.Informational;
         if (automaticSuccess) return new(record, false, false, false, false);
-        var eligible = item.Category is NotificationCategory.BusinessResult or NotificationCategory.Attention;
+        var eligible = item.Category is NotificationCategory.BusinessResult or NotificationCategory.Attention
+            || item.Product is not null && item.Category == NotificationCategory.Announcement && item.Importance >= NotificationImportance.Important;
         var threshold = environment.ToastLevel switch
         {
             ToastNotificationLevel.All => true,

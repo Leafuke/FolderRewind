@@ -10,6 +10,49 @@ namespace FolderRewind.Views.Settings
 {
     public sealed partial class DiagnosticsControl : UserControl
     {
+        private readonly SettingsPresentationLifetime _presentation = new();
+        internal DeferredSettingsSection CoreValidationSection { get; } = new();
+        internal DeferredSettingsSection DiagnosticsSection { get; } = new();
+
+        private void UpdatePresentationBindings() => _presentation.UpdateBindings(Bindings.Update);
+
+        internal void DeactivatePresentation()
+        {
+            _presentation.Deactivate();
+            Bindings.StopTracking();
+        }
+
+        private void EnsureSection(DeferredSettingsSection section, SettingsSection kind)
+        {
+            if (!_presentation.IsActive) return;
+            System.Threading.Tasks.Task? initialization = null;
+            _presentation.UpdateBindings(() =>
+            {
+                initialization = ViewModel.InitializeSectionAsync(kind);
+                section.Create();
+                Bindings.Update();
+                ApplyDeferredCardStyles();
+            });
+            TaskObserver.Observe(initialization ?? System.Threading.Tasks.Task.CompletedTask, nameof(DiagnosticsControl));
+        }
+
+
+        private void ApplyDeferredCardStyles()
+        {
+            SettingsDeferredContent.ApplyCardStyles(DiagnosticsBody, DiagnosticsExpander);
+            SettingsDeferredContent.ApplyCardStyles(CoreValidationBody, CoreValidationExpander);
+        }
+
+        private void RefreshCreatedSections()
+        {
+            if (CoreValidationSection.IsCreated) EnsureSection(CoreValidationSection, SettingsSection.CoreValidation);
+            if (DiagnosticsSection.IsCreated) EnsureSection(DiagnosticsSection, SettingsSection.Diagnostics);
+        }
+
+        private void OnCoreValidationExpanded(object? sender, object e) => EnsureSection(CoreValidationSection, SettingsSection.CoreValidation);
+
+        private void OnDiagnosticsExpanded(object? sender, object e) => EnsureSection(DiagnosticsSection, SettingsSection.Diagnostics);
+
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
         public string ConfigFilePath => ConfigService.ConfigFilePath;
         private void OnConfigActionsSizeChanged(object sender, SizeChangedEventArgs e)
@@ -24,16 +67,20 @@ namespace FolderRewind.Views.Settings
         public DiagnosticsControl()
         {
             this.InitializeComponent();
+            Unloaded += (_, _) => DeactivatePresentation();
         }
 
         public void SetViewModel(SettingsPageViewModel viewModel)
         {
             ViewModel = viewModel;
-            Bindings.Update();
+            _presentation.Activate();
+            UpdatePresentationBindings();
+            RefreshCreatedSections();
         }
 
         private async void OnRunCoreValidationClick(object sender, RoutedEventArgs e)
         {
+            var generation = _presentation.Generation;
             if (CoreFeatureValidationService.IsRunning)
             {
                 await ShowSimpleMessageAsync(I18n.GetString("CoreValidation_AlreadyRunning"));
@@ -41,6 +88,7 @@ namespace FolderRewind.Views.Settings
             }
 
             var report = await CoreFeatureValidationService.RunValidationAsync(false);
+            if (!_presentation.IsCurrent(generation)) return;
             OnCoreValidationStateChanged();
             await ShowTextDialogAsync(I18n.GetString("CoreValidation_Report_Title"), report.ToDisplayText());
         }
@@ -59,11 +107,13 @@ namespace FolderRewind.Views.Settings
 
         private void OnCoreValidationStateChanged()
         {
+            if (!_presentation.CanEdit) return;
             ViewModel.RefreshCoreValidationState();
         }
 
         private void OnLoggingChanged(object sender, RoutedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleLoggingChanged(ts.IsOn);
@@ -72,11 +122,13 @@ namespace FolderRewind.Views.Settings
 
         private void OnLogSizeChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             ViewModel.HandleLogSizeChanged(e.NewValue);
         }
 
         private void OnRetentionChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
+            if (!_presentation.CanEdit) return;
             ViewModel.HandleRetentionChanged(e.NewValue);
         }
 

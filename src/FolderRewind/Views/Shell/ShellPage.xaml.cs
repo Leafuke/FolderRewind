@@ -153,6 +153,13 @@ namespace FolderRewind.Views
 
             if (pageType != null)
             {
+                if (ContentFrame.SourcePageType == pageType && ContentFrame.Content is SettingsPage settingsPage
+                    && parameter is FolderRewind.Models.ProductSettingsNavigationParameter productTarget)
+                {
+                    settingsPage.ShowProductTarget(productTarget);
+                    UpdateNavSelection(pageTag); UpdatePageHeader(pageTag);
+                    return true;
+                }
                 if (ContentFrame.SourcePageType == pageType && parameter == null)
                 {
                     // 同页重复点击时不重建页面，只纠正导航栏选中态和标题。
