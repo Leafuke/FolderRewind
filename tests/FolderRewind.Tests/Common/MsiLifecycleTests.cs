@@ -6,6 +6,7 @@ using System.Text;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("WindowsIntegration")]
 public sealed class MsiLifecycleTests
 {
     [TestMethod]

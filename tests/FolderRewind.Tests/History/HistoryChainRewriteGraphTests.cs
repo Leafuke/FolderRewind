@@ -7,6 +7,7 @@ using FolderRewind.History.Cloud;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class HistoryChainRewriteGraphTests
 {
     [TestMethod]

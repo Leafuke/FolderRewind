@@ -7,6 +7,7 @@ using FolderRewind.Services;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("Recovery")]
 [DoNotParallelize]
 public sealed class HistoryRestoreFlowEvidenceTests
 {

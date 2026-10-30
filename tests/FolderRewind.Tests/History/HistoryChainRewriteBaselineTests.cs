@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class HistoryChainRewriteBaselineTests
 {
     [TestMethod]

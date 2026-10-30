@@ -4,6 +4,7 @@ using FolderRewind.History.Retention;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class HistoryChainRewriteTests
 {
     [TestMethod]

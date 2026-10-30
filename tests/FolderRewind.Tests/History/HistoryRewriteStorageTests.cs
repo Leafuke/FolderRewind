@@ -8,6 +8,7 @@ using System.Text.Json;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class HistoryRewriteStorageTests
 {
     [TestMethod]

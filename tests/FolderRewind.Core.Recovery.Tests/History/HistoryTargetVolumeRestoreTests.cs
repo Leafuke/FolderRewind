@@ -9,6 +9,7 @@ using FolderRewind.Plugin.Abstractions;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("Recovery")]
 [DoNotParallelize]
 public sealed class HistoryTargetVolumeRestoreTests
 {

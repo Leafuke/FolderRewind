@@ -3,6 +3,7 @@ using FolderRewind.History.Storage;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("WindowsIntegration")]
 public sealed class WindowsRestoreFileSystemTests
 {
     [TestMethod]

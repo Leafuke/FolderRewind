@@ -4,6 +4,7 @@ using System.Text;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 [DoNotParallelize]
 public sealed class HistoryRestoreProtocolCrashTests
 {

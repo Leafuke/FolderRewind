@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("Recovery")]
 [DoNotParallelize]
 public sealed class HistoryRestoreCompatibilityTests
 {

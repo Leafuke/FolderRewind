@@ -8,6 +8,7 @@ using System.IO.Compression;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class HistoryChainRewriteCostTests
 {
     [TestMethod]

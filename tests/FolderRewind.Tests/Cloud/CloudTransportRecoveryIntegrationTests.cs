@@ -8,6 +8,7 @@ using FolderRewind.Services;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class CloudTransportRecoveryIntegrationTests
 {
     [TestMethod]

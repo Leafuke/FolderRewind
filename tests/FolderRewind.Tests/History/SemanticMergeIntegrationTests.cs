@@ -16,6 +16,7 @@ using System.Text.Json;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 [DoNotParallelize]
 public sealed class SemanticMergeIntegrationTests
 {

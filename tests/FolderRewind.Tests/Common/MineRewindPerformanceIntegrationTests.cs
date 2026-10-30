@@ -12,6 +12,7 @@ using FolderRewind.Services;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 [DoNotParallelize]
 public sealed class MineRewindPerformanceIntegrationTests
 {

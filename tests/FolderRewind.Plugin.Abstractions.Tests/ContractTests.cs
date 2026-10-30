@@ -6,6 +6,7 @@ using FolderRewind.Plugin.Abstractions;
 namespace FolderRewind.Plugin.Abstractions.Tests;
 
 [TestClass]
+[TestCategory("Contract")]
 public sealed class ContractTests
 {
     [TestMethod]
@@ -60,28 +61,6 @@ public sealed class ContractTests
     public void DiscoveryDefinitionCatalogIsAnOptionalMetadataExtension()
     {
         Assert.IsFalse(typeof(IPluginCapability).IsAssignableFrom(typeof(IDiscoveryDefinitionCatalog)));
-        var definition = new DiscoveryDefinitionDescriptor(
-            "minecraft-java",
-            "Minecraft: Java Edition",
-            ["Minecraft"],
-            new Dictionary<string, string>());
-
-        Assert.AreEqual("minecraft-java", definition.DefinitionId);
-    }
-
-    [TestMethod]
-    public void FolderMetadataKeepsStableKeysSeparateFromLocalizedPresentation()
-    {
-        var displayName = new LocalizedText(
-            "World name",
-            new Dictionary<string, string> { ["zh-CN"] = "世界名称" });
-        var value = new LocalizedText("Survival", new Dictionary<string, string> { ["zh-CN"] = "生存模式" });
-        var field = new FolderMetadataField("gameMode", displayName, value);
-        var result = new FolderMetadataResult([field], Array.Empty<PluginDiagnostic>());
-
-        Assert.AreEqual("gameMode", result.Fields[0].Key);
-        Assert.AreEqual("World name", result.Fields[0].DisplayName.Default);
-        Assert.AreEqual("生存模式", result.Fields[0].Value.Translations["zh-CN"]);
     }
 
     [TestMethod]

@@ -8,6 +8,7 @@ using System.Text.Json;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 [DoNotParallelize] // Real child-process/database ownership checks run apart from other machine integration tests.
 public sealed class OpenListInitializerTests
 {

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FolderRewind.Plugin.Abstractions;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
@@ -46,7 +47,7 @@ public sealed class RealWorldPerformanceBenchmarkTests
             File.SetAttributes(destination, File.GetAttributes(file));
         }
         reads.Validate();
-        var expected = await MergeTreeManifest.ReadAsync(source, include, default);
+        var expected = await MergeTreeManifest.ReadAsync(source, include, default, includeDirectory);
         var actual = await MergeTreeManifest.ReadAsync(snapshot, _ => true, default);
         Assert.AreEqual(expected.Digest, actual.Digest);
         var sizes = Directory.GetFiles(snapshot, "*", SearchOption.AllDirectories).Select(path => new FileInfo(path).Length).ToArray();
@@ -61,10 +62,13 @@ public sealed class RealWorldPerformanceBenchmarkTests
         var output = Environment.GetEnvironmentVariable("FOLDERREWIND_BENCHMARK_OUTPUT");
         if (string.IsNullOrEmpty(snapshot) || string.IsNullOrEmpty(output)) Assert.Inconclusive("Real world benchmark opt-in required.");
         using var metadata = JsonDocument.Parse(File.ReadAllText(snapshot + ".metadata.json"));
-        var rules = metadata.RootElement.GetProperty("rules").EnumerateArray().Select(value => value.GetString()!).ToArray();
-        var boundary = new EffectiveSourceBoundarySnapshot(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, rules, false);
+        var rules = metadata.RootElement.GetProperty("rules").Deserialize<PathFilterRule[]>()
+            ?? throw new InvalidDataException("Benchmark metadata must contain filter rules.");
+        var boundary = EffectiveSourceBoundarySnapshot.CreateTyped(EffectiveBoundaryScopeMode.All, [], EffectiveBoundaryFilterMode.Blacklist, rules, false);
         await using var f = new HistoryChainRewriteFixture(); await f.InitializeAsync();
         var node = await f.AddAsync(null, dir => {
+            foreach (var directory in Directory.EnumerateDirectories(snapshot, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(Path.Combine(dir, Path.GetRelativePath(snapshot, directory)));
             foreach (var file in Directory.EnumerateFiles(snapshot, "*", SearchOption.AllDirectories))
             { var destination = Path.Combine(dir, Path.GetRelativePath(snapshot, file)); Directory.CreateDirectory(Path.GetDirectoryName(destination)!); File.Copy(file, destination); }
         }, boundary: boundary);
@@ -88,7 +92,8 @@ public sealed class RealWorldPerformanceBenchmarkTests
                 (await f.History.WorkspaceStore.LoadAsync()).Value!, mode);
             Assert.IsTrue(result.Succeeded, result.Diagnostic);
             var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(f.Source, target, boundary));
-            var actual = await MergeTreeManifest.ReadAsync(target, path => include(path) && path != "stale.txt", default);
+            var includeDirectory = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(f.Source, target, boundary), isDirectory: true);
+            var actual = await MergeTreeManifest.ReadAsync(target, path => include(path) && path != "stale.txt", default, includeDirectory);
             var expected = await MergeTreeManifest.ReadAsync(node.StateDirectory, _ => true, default);
             Assert.AreEqual(expected.Digest, actual.Digest);
             Assert.AreEqual(mode == HistoryRestoreApplyMode.Overwrite, File.Exists(Path.Combine(target, "stale.txt")));

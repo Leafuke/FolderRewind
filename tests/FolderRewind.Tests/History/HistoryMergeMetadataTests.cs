@@ -9,6 +9,7 @@ using System.Text.Json;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class HistoryMergeMetadataTests
 {
     private static VersionMetadataSnapshot Snapshot(SourceVersion version)

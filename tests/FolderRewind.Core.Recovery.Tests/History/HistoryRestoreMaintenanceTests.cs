@@ -7,6 +7,7 @@ using System.Text.Json;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("Recovery")]
 [DoNotParallelize]
 public sealed class HistoryRestoreMaintenanceTests
 {

@@ -6,6 +6,8 @@ using FolderRewind.History.LocalState;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
+[DoNotParallelize] // Exercises Windows directory moves immediately after real archive extraction.
 public sealed class HistoryMergeArchiveTests
 {
     [TestMethod]

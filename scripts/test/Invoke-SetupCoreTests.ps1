@@ -10,6 +10,13 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath("$PSScriptRoot/../..")
 
+# Invalidate only this entry point's previous reports before any prerequisite can fail.
+# Other diagnostic TRX files remain available but are not release acceptance inputs.
+foreach ($suite in @('abstractions','runtime','host','recovery')) {
+    $report = Join-Path $ResultsDirectory "$suite/core-tests.trx"
+    if (Test-Path -LiteralPath $report -PathType Leaf) { Remove-Item -LiteralPath $report }
+}
+
 # Localization contract tests inspect WinUI metadata from the application restore.
 & "$PSScriptRoot/Test-RepositoryLayout.ps1" | Out-Host
 dotnet restore (Join-Path $root 'FolderRewind.slnx') -p:Platform=x64
@@ -31,7 +38,7 @@ foreach ($suite in $projects.Keys) {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $filter = if ($suite -eq 'host') { @('--filter', 'TestCategory!=PerformanceBenchmark') } else { @() }
     $variant = @(if ($suite -eq 'recovery') { '-p:FolderRewindFaultInjection=true' })
-    dotnet test $projects[$suite] -c Release @filter @variant --logger trx --results-directory (Join-Path $ResultsDirectory $suite) --blame-hang-timeout 2m --blame-hang-dump-type none
+    dotnet test $projects[$suite] -c Release @filter @variant --logger "trx;LogFileName=core-tests.trx" --results-directory (Join-Path $ResultsDirectory $suite) --blame-hang-timeout 2m --blame-hang-dump-type none
     if ($LASTEXITCODE) { throw "Core test suite failed: $suite" }
     $timings += @{suite=$suite;seconds=[math]::Round($timer.Elapsed.TotalSeconds,2)}
 }

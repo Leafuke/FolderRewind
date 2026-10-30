@@ -8,7 +8,7 @@ try {
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$files = @(Get-ChildItem -LiteralPath $Directory -Filter '*.trx' -Recurse -File)
+$files = @(Get-ChildItem -LiteralPath $Directory -Filter 'core-tests.trx' -Recurse -File)
 if ($files.Count -ne 4) { throw 'Expected exactly four complete core test reports.' }
 foreach ($suite in @('abstractions','runtime','host','recovery')) {
     $match = @($files | Where-Object { $_.Directory.Name -ceq $suite })

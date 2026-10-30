@@ -6,6 +6,7 @@ using FolderRewind.History.Storage;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("Recovery")]
 public sealed class HistoryWorkspaceRepairTests
 {
     private string _root = null!;

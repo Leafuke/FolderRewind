@@ -8,17 +8,20 @@ namespace FolderRewind.Tests;
 public sealed class NativeRestoreCoordinationPolicyTests
 {
     [TestMethod]
-    [DataRow(OperationOutcome.Blocked)]
-    [DataRow(OperationOutcome.Failed)]
-    [DataRow(OperationOutcome.Canceled)]
-    public void ExpectedPreMutationStopsPreserveTheReportedReason(OperationOutcome outcome)
+    [DataRow(OperationOutcome.Blocked, "thirdparty.world_busy", "OperationDiagnostic_Unknown")]
+    [DataRow(OperationOutcome.Blocked, "minerewind.restore_world_still_occupied", "OperationDiagnostic_RestoreWorldOccupied")]
+    [DataRow(OperationOutcome.Failed, "thirdparty.world_busy", "OperationDiagnostic_Unknown")]
+    [DataRow(OperationOutcome.Failed, "minerewind.restore_world_still_occupied", "OperationDiagnostic_RestoreWorldOccupied")]
+    [DataRow(OperationOutcome.Canceled, "thirdparty.world_busy", "OperationDiagnostic_Unknown")]
+    [DataRow(OperationOutcome.Canceled, "minerewind.restore_world_still_occupied", "OperationDiagnostic_RestoreWorldOccupied")]
+    public void ExpectedPreMutationStopsUseSafeLocalizedSummary(OperationOutcome outcome, string code, string resourceKey)
     {
-        var diagnostic = new PluginDiagnostic("thirdparty.world_busy", DiagnosticSeverity.Error, "RestoreCoordinator",
+        var diagnostic = new PluginDiagnostic(code, DiagnosticSeverity.Error, "RestoreCoordinator",
             "test.plugin", new Dictionary<string, string> { ["path"] = "world" });
         var result = NativeRestoreCoordinationPolicy.Resolve(false, null, new(outcome, [diagnostic]));
         Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, result.Status);
-        StringAssert.Contains(result.Diagnostic, "thirdparty.world_busy");
-        StringAssert.Contains(result.Diagnostic, "test.plugin");
+        StringAssert.StartsWith(result.Diagnostic, resourceKey);
+        Assert.DoesNotContain("test.plugin", result.Diagnostic);
         Assert.IsFalse(result.WorkspaceUpdated);
         Assert.IsEmpty(result.AppliedSources);
     }

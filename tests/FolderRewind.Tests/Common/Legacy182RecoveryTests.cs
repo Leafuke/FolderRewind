@@ -13,6 +13,7 @@ using System.Text.Json;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class Legacy182RecoveryTests
 {
     private string _root = null!;

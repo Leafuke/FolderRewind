@@ -6,6 +6,7 @@ using FolderRewind.History.Storage;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class HistoryCleanupCoordinatorTests
 {
     [TestMethod]

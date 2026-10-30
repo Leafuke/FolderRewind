@@ -5,6 +5,7 @@ using FolderRewind.Services;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class RcloneNativeHistoryTransportTests
 {
     private string _root = null!;

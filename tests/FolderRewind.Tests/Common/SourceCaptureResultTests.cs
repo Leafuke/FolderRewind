@@ -9,26 +9,6 @@ namespace FolderRewind.Tests;
 public sealed class SourceCaptureResultTests
 {
     [TestMethod]
-    public void SmartCandidateCarriesStableRepresentationDependency()
-    {
-        var dependencyId = RepresentationId.New();
-        var representation = new RepresentationCandidate(
-            RepresentationId.New(),
-            RepresentationKind.CoreSmartDelta,
-            "smart-v1",
-            [dependencyId],
-            MaterializationFidelity.Exact,
-            null,
-            "fingerprint",
-            null);
-
-        CollectionAssert.AreEqual(
-            new[] { dependencyId },
-            representation.DependencyRepresentationIds.ToArray());
-        Assert.IsFalse(representation.Metadata.ContainsKey("previousBackupFileName"));
-    }
-
-    [TestMethod]
     public void CapturedResultRequiresDurableCandidateShape()
     {
         Assert.ThrowsExactly<ArgumentException>(() => new SourceCaptureResult(

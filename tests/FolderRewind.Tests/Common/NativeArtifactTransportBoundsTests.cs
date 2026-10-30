@@ -6,6 +6,7 @@ using FolderRewind.Plugin.Runtime.Artifacts;
 namespace FolderRewind.Tests;
 
 [TestClass]
+[TestCategory("ExternalTool")]
 public sealed class NativeArtifactTransportBoundsTests
 {
     [TestMethod]
