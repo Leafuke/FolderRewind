@@ -56,14 +56,53 @@ public sealed class NativeArtifactTransportBoundsTests
     }
 
     [TestMethod]
+    [DoNotParallelize]
     public async Task ProcessOutputLimitKillsTheWriterInsteadOfWaitingForTheTimeout()
     {
+        var parent = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "FolderRewind-output-limit-tests"));
+        var root = Path.GetFullPath(Path.Combine(parent, Guid.NewGuid().ToString("N")));
+        Assert.IsTrue(root.StartsWith(parent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+        Directory.CreateDirectory(root);
+        var ready = Path.Combine(root, "ready");
+        var gate = Path.Combine(root, "go");
+        static string Quote(string path) => "'" + path.Replace("'", "''", StringComparison.Ordinal) + "'";
         var start = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
             "WindowsPowerShell", "v1.0", "powershell.exe"))
         { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var argument in new[] { "-NoProfile", "-NonInteractive", "-Command", "$s = 'x' * 8192; while ($true) { [Console]::Error.Write($s) }" }) start.ArgumentList.Add(argument);
-        var watch = Stopwatch.StartNew();
-        await Assert.ThrowsAsync<IOException>(() => RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(30), default));
-        Assert.IsLessThan(15d, watch.Elapsed.TotalSeconds);
+        var command = $"$ErrorActionPreference = 'Stop'; [IO.File]::WriteAllText({Quote(ready + ".tmp")}, $PID.ToString()); "
+            + $"[IO.File]::Move({Quote(ready + ".tmp")}, {Quote(ready)}); "
+            + $"while (-not [IO.File]::Exists({Quote(gate)})) {{ Start-Sleep -Milliseconds 10 }}; "
+            + "$s = 'x' * 8192; while ($true) { [Console]::Error.Write($s) }";
+        foreach (var argument in new[] { "-NoProfile", "-NonInteractive", "-Command", command }) start.ArgumentList.Add(argument);
+        using var cancellation = new CancellationTokenSource();
+        Task<string>? run = null;
+        try
+        {
+            var startup = Stopwatch.StartNew();
+            run = RcloneConnectionService.RunAsync(start, TimeSpan.FromMinutes(2), cancellation.Token);
+            while (!File.Exists(ready))
+            {
+                if (run.IsCompleted) { await run; Assert.Fail("Writer exited before reporting readiness."); }
+                Assert.IsLessThan(60d, startup.Elapsed.TotalSeconds, "PowerShell did not report readiness.");
+                await Task.Delay(20);
+            }
+            startup.Stop();
+            using var writer = Process.GetProcessById(int.Parse(await File.ReadAllTextAsync(ready), System.Globalization.CultureInfo.InvariantCulture));
+            var termination = Stopwatch.StartNew();
+            await File.WriteAllTextAsync(gate, "go");
+            var error = await Assert.ThrowsExactlyAsync<IOException>(() => run);
+            termination.Stop();
+            Console.WriteLine($"Output-limit writer PID={writer.Id}; startup={startup.Elapsed.TotalMilliseconds:F0}ms; termination={termination.Elapsed.TotalMilliseconds:F0}ms");
+            Assert.AreEqual(I18n.GetString("CloudSetup_OutputTruncated"), error.Message);
+            Assert.IsTrue(writer.HasExited, "The writer must be reaped before RunAsync completes.");
+            Assert.IsLessThan(15d, termination.Elapsed.TotalSeconds);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            if (run is not null) { try { await run; } catch { /* Observe after cancellation and wait for process cleanup. */ } }
+            Directory.Delete(root, recursive: true);
+        }
+        Assert.IsFalse(Directory.Exists(root), "The readiness fixture must be cleaned up.");
     }
 }
