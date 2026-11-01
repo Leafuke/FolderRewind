@@ -6096,7 +6096,7 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>Decisions have changed; the previous batch can no longer be undone.</value></data>
   <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>Reanalyzed: retained {0} decisions; {1} decisions invalidated.</value></data>
   <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>Automatic</value></data>
-  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} items checked</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} items selected</value></data>
   <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>Use</value></data>
   <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>Use deletion</value></data>
   <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>Loading preview…</value></data>
@@ -6143,7 +6143,27 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>File-level base previews are unavailable for scope or source conflicts.</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>Return to backup history and keep this merge</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Back to history · Your merge is kept</value></data>
-  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>These actions affect only checked items, not all search results.</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>These actions affect all selected items, including items not yet loaded by scrolling. Saved decisions can be undone; files change only after you review and apply the merge.</value></data>
+  <data name="MergeWorkspace_Rules.Content" xml:space="preserve"><value>Merge rules</value></data>
+  <data name="MergeWorkspace_Rules.AutomationProperties.Name" xml:space="preserve"><value>Read the complete rules for the current merge method</value></data>
+  <data name="MergeWorkspace_SelectAll.Content" xml:space="preserve"><value>Select results</value></data>
+  <data name="MergeWorkspace_SelectAll.AutomationProperties.Name" xml:space="preserve"><value>Select all actionable results matching the current search and filter, including unloaded items</value></data>
+  <data name="MergeWorkspace_Deselect.Content" xml:space="preserve"><value>Deselect</value></data>
+  <data name="MergeWorkspace_Deselect.AutomationProperties.Name" xml:space="preserve"><value>Clear the selection or cancel selecting all results</value></data>
+  <data name="MergeWorkspace_SelectionHelp.AutomationProperties.Name" xml:space="preserve"><value>Show selection keyboard shortcuts</value></data>
+  <data name="MergeWorkspace_SelectionHelp.ToolTipService.ToolTip" xml:space="preserve"><value>Selection shortcuts</value></data>
+  <data name="MergeWorkspace_SelectionHelpText.Text" xml:space="preserve"><value>Click: select and preview one item
+Ctrl + click: add or remove an item
+Shift + click / Up or Down: select a range
+Ctrl + A: select all actionable matching results, including unloaded items
+Esc: clear selection
+Enter: open preview or batch actions in a narrow window
+Changing the search or filter clears the selection. Shortcuts apply only within the file list.</value></data>
+  <data name="MergeWorkspace_SelectingAll.Text" xml:space="preserve"><value>Collecting all matching results…</value></data>
+  <data name="MergeWorkspace_OpenBatch.Content" xml:space="preserve"><value>Process selected items</value></data>
+  <data name="MergeWorkspace_MoreChoices.Content" xml:space="preserve"><value>More actions</value></data>
+  <data name="MergeWorkspace_UnsupportedChoices" xml:space="preserve"><value>Unavailable: {0}. Some selected items do not support these decisions. Adjust the selection to continue.</value></data>
+  <data name="MergeWorkspace_NoDecisionsToClear" xml:space="preserve"><value>Clear decision is unavailable: the selected items have no saved manual decisions.</value></data>
   <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>Return to current merge</value></data>
   <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>Clear decision</value></data>
   <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>Find the merged version and protection snapshots in history.</value></data>

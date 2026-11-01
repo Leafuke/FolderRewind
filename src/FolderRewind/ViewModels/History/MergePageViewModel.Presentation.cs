@@ -15,10 +15,14 @@ public sealed partial class MergePageViewModel
         || State.Result is not null && !ShowCompletion
         || State.Session?.State is MergeSessionState.Preparing or MergeSessionState.Applying or MergeSessionState.Stale or MergeSessionState.Abandoned);
     public bool ShowDetails => SelectedChange is not null;
-    public bool ShowEmptyDetails => !ShowDetails;
+    public bool ShowEmptyDetails => SelectionCount == 0;
     public bool ShowEmptyList => Changes.Count == 0;
-    public bool ShowBatchActions => CheckedCount > 0;
-    public bool ShowFileActions => CheckedCount == 0 && SelectedChange is { CanCheck: true };
+    public bool ShowBatchActions => SelectionCount > 1;
+    public bool ShowFileActions => SelectedChange is { CanCheck: true };
+    public bool ShowImportAction => SelectedChange is { IsAutomatic: false, Conflict.CanImportFile: true, Conflict.SemanticSubject: null };
+    public bool HasComparisonLines => SelectedChange?.Conflict.SemanticSubject is null && (OursLines.Count > 0 || TheirsLines.Count > 0);
+    public bool HasOursInfo => !string.IsNullOrEmpty(OursInfo);
+    public bool HasTheirsInfo => !string.IsNullOrEmpty(TheirsInfo);
     public bool ShowSaveStatus => HasSession && !ShowSetup && !ShowCompletion;
     public bool HasSourceWarning => !string.IsNullOrEmpty(SourceAvailability);
     public bool HasPreviewNotice => !string.IsNullOrEmpty(PreviewNotice);
@@ -35,6 +39,6 @@ public sealed partial class MergePageViewModel
     public string EmptyDetailTitle => I18n.GetString(_total == 0 ? "MergeWorkspace_NoChanges" : "MergeWorkspace_SelectFile");
     public string EmptyDetailHint => State.Session?.State == MergeSessionState.Ready
         ? I18n.GetString("MergeWorkspace_ReadyHint") : I18n.GetString("MergeWorkspace_SelectFileHint");
-    public void BeginNewMerge() { if (CanStartNew) { _choosingSource = true; if (Operations is { } operations) LoadMethods(operations.Config); Notify(); } }
+    public void BeginNewMerge() { if (CanStartNew) { ClearSelection(); _choosingSource = true; if (Operations is { } operations) LoadMethods(operations.Config); Notify(); } }
     public void CancelNewMerge() { _choosingSource = false; Notify(); }
 }

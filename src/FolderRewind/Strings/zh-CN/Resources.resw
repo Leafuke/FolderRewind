@@ -6096,7 +6096,7 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>决定已变化，无法撤销旧的一批处理。</value></data>
   <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>重新分析：保留 {0} 项决定，{1} 项决定已失效。</value></data>
   <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>自动处理</value></data>
-  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>已勾选 {0} 项</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>已选择 {0} 项</value></data>
   <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>采用</value></data>
   <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>采用删除</value></data>
   <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>正在读取预览…</value></data>
@@ -6143,7 +6143,27 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>此类范围或来源冲突不提供文件级共同基点预览。</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>返回备份历史，保留合并任务</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>返回历史 · 任务将保留</value></data>
-  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>以下操作仅应用于勾选项，不会影响全部搜索结果。</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>以下操作应用于所有选中项，包括尚未滚动加载的项。决定保存后可撤销；实际文件仅在审阅并应用后修改。</value></data>
+  <data name="MergeWorkspace_Rules.Content" xml:space="preserve"><value>规则说明</value></data>
+  <data name="MergeWorkspace_Rules.AutomationProperties.Name" xml:space="preserve"><value>查看当前合并方式的完整规则</value></data>
+  <data name="MergeWorkspace_SelectAll.Content" xml:space="preserve"><value>全选结果</value></data>
+  <data name="MergeWorkspace_SelectAll.AutomationProperties.Name" xml:space="preserve"><value>全选当前搜索与筛选结果中的可处理项，包括尚未加载的项</value></data>
+  <data name="MergeWorkspace_Deselect.Content" xml:space="preserve"><value>取消选择</value></data>
+  <data name="MergeWorkspace_Deselect.AutomationProperties.Name" xml:space="preserve"><value>清空选择或取消正在进行的全选</value></data>
+  <data name="MergeWorkspace_SelectionHelp.AutomationProperties.Name" xml:space="preserve"><value>查看选择快捷键说明</value></data>
+  <data name="MergeWorkspace_SelectionHelp.ToolTipService.ToolTip" xml:space="preserve"><value>选择快捷键</value></data>
+  <data name="MergeWorkspace_SelectionHelpText.Text" xml:space="preserve"><value>单击：只选择这一项并预览
+Ctrl + 单击：增加或移除选择
+Shift + 单击 / ↑↓：连续选择
+Ctrl + A：全选当前结果中的可处理项，包含尚未加载的项
+Esc：取消选择
+Enter：在窄窗口中打开预览或批量操作
+修改搜索或显示范围会清空选择。快捷键仅在文件列表内生效。</value></data>
+  <data name="MergeWorkspace_SelectingAll.Text" xml:space="preserve"><value>正在收集全部筛选结果…</value></data>
+  <data name="MergeWorkspace_OpenBatch.Content" xml:space="preserve"><value>处理所选项目</value></data>
+  <data name="MergeWorkspace_MoreChoices.Content" xml:space="preserve"><value>更多操作</value></data>
+  <data name="MergeWorkspace_UnsupportedChoices" xml:space="preserve"><value>不可用：{0}。部分所选项目不支持这些决定，请调整选择后重试。</value></data>
+  <data name="MergeWorkspace_NoDecisionsToClear" xml:space="preserve"><value>清除决定不可用：所选项目没有已保存的人工决定。</value></data>
   <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>返回当前任务</value></data>
   <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>清除决定</value></data>
   <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>可在历史中查看合并版本与保护快照。</value></data>
