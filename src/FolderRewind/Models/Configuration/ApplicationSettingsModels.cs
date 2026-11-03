@@ -96,6 +96,11 @@ namespace FolderRewind.Models
         private HistoryViewMode _lastHistoryViewMode = HistoryViewMode.PerSource;
         private HistoryPresentationMode _lastHistoryPresentationMode = HistoryPresentationMode.Normal;
         private int _sponsorAccentColorIndex = 0;
+        private SponsorNavigationAnimationKind _sponsorNavigationAnimation;
+        private string _sponsorThemeId = "";
+        private SponsorBackgroundKind _sponsorBackgroundKind;
+        private string _sponsorActiveSchemeId = "";
+        private ObservableCollection<SponsorAppearanceScheme> _sponsorAppearanceSchemes = new();
         private int _sponsorBackdropIndex = 0;
         private string _sponsorTitleText = "";
         private string _sponsorTitleIconGlyph = IconCatalog.DefaultConfigIconGlyph;
@@ -191,6 +196,18 @@ namespace FolderRewind.Models
         /// </summary>
         public int SponsorAccentColorIndex { get => _sponsorAccentColorIndex; set => SetProperty(ref _sponsorAccentColorIndex, value); }
 
+        /// <summary>主内容页转场偏好；None 保留现有无动画行为。</summary>
+        public SponsorNavigationAnimationKind SponsorNavigationAnimation { get => _sponsorNavigationAnimation; set => SetProperty(ref _sponsorNavigationAnimation, value); }
+
+        public string SponsorThemeId { get => _sponsorThemeId; set => SetProperty(ref _sponsorThemeId, value ?? string.Empty); }
+        public SponsorBackgroundKind SponsorBackgroundKind { get => _sponsorBackgroundKind; set => SetProperty(ref _sponsorBackgroundKind, value); }
+        public string SponsorActiveSchemeId { get => _sponsorActiveSchemeId; set => SetProperty(ref _sponsorActiveSchemeId, value ?? string.Empty); }
+        public ObservableCollection<SponsorAppearanceScheme> SponsorAppearanceSchemes
+        {
+            get => _sponsorAppearanceSchemes;
+            set => SetProperty(ref _sponsorAppearanceSchemes, value ?? new());
+        }
+
         /// <summary>
         /// 赞助版窗口材质：0=Mica，1=Acrylic。
         /// </summary>
@@ -207,7 +224,7 @@ namespace FolderRewind.Models
         public string SponsorTitleIconGlyph { get => _sponsorTitleIconGlyph; set => SetProperty(ref _sponsorTitleIconGlyph, value ?? IconCatalog.DefaultConfigIconGlyph); }
 
         /// <summary>
-        /// 赞助版背景图片总开关。未解锁赞助版时运行时会忽略它，避免旧配置影响免费版体验。
+        /// 赞助版背景总开关，作用于当前图片或主题渐变。未解锁时只忽略呈现，不删除偏好。
         /// </summary>
         public bool SponsorBackgroundEnabled { get => _sponsorBackgroundEnabled; set => SetProperty(ref _sponsorBackgroundEnabled, value); }
 

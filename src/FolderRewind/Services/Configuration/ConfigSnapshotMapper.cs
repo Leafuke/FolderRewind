@@ -51,6 +51,12 @@ internal static class ConfigSnapshotMapper
         LastHistoryPresentationMode = value.LastHistoryPresentationMode,
         LastHistoryViewMode = value.LastHistoryViewMode,
         SponsorAccentColorIndex = value.SponsorAccentColorIndex,
+        SponsorNavigationAnimation = value.SponsorNavigationAnimation,
+        SponsorThemeId = value.SponsorThemeId,
+        SponsorBackgroundKind = value.SponsorBackgroundKind,
+        SponsorActiveSchemeId = value.SponsorActiveSchemeId,
+        SponsorAppearanceSchemes = new ObservableCollection<SponsorAppearanceScheme>(value.SponsorAppearanceSchemes
+            .Select(scheme => scheme with { Appearance = scheme.Appearance with { } })),
         SponsorBackdropIndex = value.SponsorBackdropIndex,
         SponsorTitleText = value.SponsorTitleText,
         SponsorTitleIconGlyph = value.SponsorTitleIconGlyph,

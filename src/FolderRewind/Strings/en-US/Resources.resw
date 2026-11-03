@@ -412,13 +412,13 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Sponsor-Exclusive Personalization</value>
   </data>
   <data name="SettingsPage_SponsorPersonalizationDesc.Text" xml:space="preserve">
-    <value>After sponsoring, unlock custom accent colors, backgrounds, title bar, and more</value>
+    <value>Expand to explore themes, personal appearance schemes, page transitions, and more. Sponsor Edition unlocks customization</value>
   </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>Sponsor perks are locked</value>
   </data>
   <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
-    <value>Purchase or restore Sponsor Edition to use these appearance perks.</value>
+    <value>Expand the list below to explore the features. Purchase or restore Sponsor Edition to use them.</value>
   </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>Theme color</value>
@@ -457,10 +457,10 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Clear background</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
-    <value>Enable background image</value>
+    <value>Show background</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
-    <value>Turning this off keeps the selected image for later.</value>
+    <value>Show the selected image or theme gradient. Turning this off keeps your appearance settings.</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
     <value>Background fit</value>
@@ -469,10 +469,10 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Choose whether the image fills, fits, or stretches across the window.</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
-    <value>Image opacity</value>
+    <value>Background opacity</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
-    <value>Lower the image presence so app content stays clear.</value>
+    <value>Adjust the image or theme gradient opacity to keep app content clear.</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
     <value>Background overlay</value>
@@ -7912,4 +7912,40 @@ Affected projects: {1}</value></data>
   <data name="History_BackupType_SemanticFull" xml:space="preserve"><value>Semantic full</value></data>
   <data name="History_BackupType_SemanticSmart" xml:space="preserve"><value>Semantic incremental (Smart)</value></data>
   <data name="History_BackupType_Semantic" xml:space="preserve"><value>Semantic backup</value></data>
+  <data name="Appearance_Themes.Text" xml:space="preserve"><value>Themes</value></data>
+  <data name="Appearance_ThemesDescription.Text" xml:space="preserve"><value>Apply coordinated colors, material and a static gradient, keeping your custom title and icon.</value></data>
+  <data name="Appearance_Schemes.Text" xml:space="preserve"><value>Personal appearance schemes</value></data>
+  <data name="Appearance_SchemesDescription.Text" xml:space="preserve"><value>Save an appearance and select a scheme to switch. Adjustments do not automatically update saved schemes.</value></data>
+  <data name="Appearance_Theme_paper" xml:space="preserve"><value>Paper</value></data>
+  <data name="Appearance_Theme_forest" xml:space="preserve"><value>Forest</value></data>
+  <data name="Appearance_Theme_night" xml:space="preserve"><value>Night Flight</value></data>
+  <data name="Appearance_SaveCurrent" xml:space="preserve"><value>Save current appearance</value></data>
+  <data name="Appearance_SaveAs" xml:space="preserve"><value>Save as</value></data>
+  <data name="Appearance_Update.Content" xml:space="preserve"><value>Update scheme</value></data>
+  <data name="Appearance_More.Content" xml:space="preserve"><value>More</value></data>
+  <data name="Appearance_RenameItem.Text" xml:space="preserve"><value>Rename</value></data>
+  <data name="Appearance_DeleteItem.Text" xml:space="preserve"><value>Delete scheme</value></data>
+  <data name="Appearance_Rename" xml:space="preserve"><value>Rename appearance scheme</value></data>
+  <data name="Appearance_Delete" xml:space="preserve"><value>Delete appearance scheme</value></data>
+  <data name="Appearance_DeleteConfirm" xml:space="preserve"><value>Delete “{0}”? Your current appearance and image files will be kept.</value></data>
+  <data name="Appearance_Name" xml:space="preserve"><value>Scheme name</value></data>
+  <data name="Appearance_CurrentCustom" xml:space="preserve"><value>Current: Custom appearance</value></data>
+  <data name="Appearance_CurrentScheme" xml:space="preserve"><value>Current: {0}</value></data>
+  <data name="Appearance_CurrentModified" xml:space="preserve"><value>Current: {0} (modified, scheme not updated)</value></data>
+  <data name="Appearance_SaveFailed" xml:space="preserve"><value>Could not save the appearance scheme.</value></data>
+  <data name="Appearance_OperationFailed" xml:space="preserve"><value>Appearance scheme operation failed: {0}</value></data>
+  <data name="Appearance_Error_Locked" xml:space="preserve"><value>Sponsor Edition is locked. Refresh purchase status and try again.</value></data>
+  <data name="Appearance_Error_NameRequired" xml:space="preserve"><value>Enter a scheme name.</value></data>
+  <data name="Appearance_Error_DuplicateName" xml:space="preserve"><value>A scheme with this name already exists. Choose another name.</value></data>
+  <data name="Appearance_Error_MissingScheme" xml:space="preserve"><value>This scheme no longer exists. Select another scheme.</value></data>
+  <data name="Appearance_Error_UnknownTheme" xml:space="preserve"><value>This theme is not recognized. Select another theme.</value></data>
+  <data name="Appearance_Error_Busy" xml:space="preserve"><value>Appearance is being saved. Try again shortly.</value></data>
+  <data name="Appearance_ThemeSelector.PlaceholderText" xml:space="preserve"><value>Select a theme</value></data>
+  <data name="Appearance_SchemeSelector.PlaceholderText" xml:space="preserve"><value>Select a saved scheme</value></data>
+  <data name="Sponsor_NavigationAnimation.Text" xml:space="preserve"><value>Page transitions</value></data>
+  <data name="Sponsor_NavigationAnimationDescription.Text" xml:space="preserve"><value>Applies on the next page change and is saved with personal appearance schemes. Respects Windows animation settings</value></data>
+  <data name="Sponsor_NavigationAnimation_None" xml:space="preserve"><value>None</value></data>
+  <data name="Sponsor_NavigationAnimation_Entrance" xml:space="preserve"><value>Gentle entrance</value></data>
+  <data name="Sponsor_NavigationAnimation_Slide" xml:space="preserve"><value>Horizontal slide</value></data>
+  <data name="Sponsor_NavigationAnimation_DrillIn" xml:space="preserve"><value>Zoom</value></data>
 </root>

@@ -412,13 +412,13 @@
     <value>赞助者专属个性化</value>
   </data>
   <data name="SettingsPage_SponsorPersonalizationDesc.Text" xml:space="preserve">
-    <value>赞助解锁后，可自定义主题色、背景、标题栏等外观设置</value>
+    <value>展开查看主题、个人外观方案、页面切换动画等功能，赞助解锁后即可自定义</value>
   </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>尚未解锁</value>
   </data>
   <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
-    <value>购买或恢复赞助者版本后即可使用这些外观功能。</value>
+    <value>可展开下方列表查看功能；购买或恢复赞助者版本后即可使用。</value>
   </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>主题颜色</value>
@@ -457,10 +457,10 @@
     <value>清除背景</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
-    <value>启用背景图片</value>
+    <value>显示背景</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
-    <value>临时关闭时会保留已选择的图片</value>
+    <value>控制当前图片或主题渐变；关闭后保留外观设置</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
     <value>背景显示方式</value>
@@ -469,10 +469,10 @@
     <value>根据图片比例选择填充、完整显示或拉伸</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
-    <value>图片透明度</value>
+    <value>背景透明度</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
-    <value>降低图片存在感，让界面内容更清楚</value>
+    <value>调整图片或主题渐变的透明度，让界面内容更清楚</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
     <value>背景遮罩强度</value>
@@ -7912,4 +7912,40 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="History_BackupType_SemanticFull" xml:space="preserve"><value>语义完整（Full）</value></data>
   <data name="History_BackupType_SemanticSmart" xml:space="preserve"><value>语义增量（Semantic Smart）</value></data>
   <data name="History_BackupType_Semantic" xml:space="preserve"><value>语义备份（Semantic）</value></data>
+  <data name="Appearance_Themes.Text" xml:space="preserve"><value>成套主题</value></data>
+  <data name="Appearance_ThemesDescription.Text" xml:space="preserve"><value>选择后立即应用配色、材质和静态渐变，保留自定义标题与图标</value></data>
+  <data name="Appearance_Schemes.Text" xml:space="preserve"><value>个人外观方案</value></data>
+  <data name="Appearance_SchemesDescription.Text" xml:space="preserve"><value>保存喜欢的外观，选择方案即可切换。微调不会自动更新已保存方案</value></data>
+  <data name="Appearance_Theme_paper" xml:space="preserve"><value>纸张</value></data>
+  <data name="Appearance_Theme_forest" xml:space="preserve"><value>森林</value></data>
+  <data name="Appearance_Theme_night" xml:space="preserve"><value>夜航</value></data>
+  <data name="Appearance_SaveCurrent" xml:space="preserve"><value>保存当前外观</value></data>
+  <data name="Appearance_SaveAs" xml:space="preserve"><value>另存为</value></data>
+  <data name="Appearance_Update.Content" xml:space="preserve"><value>更新方案</value></data>
+  <data name="Appearance_More.Content" xml:space="preserve"><value>更多</value></data>
+  <data name="Appearance_RenameItem.Text" xml:space="preserve"><value>重命名</value></data>
+  <data name="Appearance_DeleteItem.Text" xml:space="preserve"><value>删除方案</value></data>
+  <data name="Appearance_Rename" xml:space="preserve"><value>重命名外观方案</value></data>
+  <data name="Appearance_Delete" xml:space="preserve"><value>删除外观方案</value></data>
+  <data name="Appearance_DeleteConfirm" xml:space="preserve"><value>删除“{0}”？当前外观和图片文件会保留。</value></data>
+  <data name="Appearance_Name" xml:space="preserve"><value>方案名称</value></data>
+  <data name="Appearance_CurrentCustom" xml:space="preserve"><value>当前：自定义外观</value></data>
+  <data name="Appearance_CurrentScheme" xml:space="preserve"><value>当前：{0}</value></data>
+  <data name="Appearance_CurrentModified" xml:space="preserve"><value>当前：{0}（已修改，尚未更新方案）</value></data>
+  <data name="Appearance_SaveFailed" xml:space="preserve"><value>无法保存外观方案</value></data>
+  <data name="Appearance_OperationFailed" xml:space="preserve"><value>外观方案操作失败：{0}</value></data>
+  <data name="Appearance_Error_Locked" xml:space="preserve"><value>赞助授权尚未解锁，请刷新购买状态后重试。</value></data>
+  <data name="Appearance_Error_NameRequired" xml:space="preserve"><value>请输入方案名称。</value></data>
+  <data name="Appearance_Error_DuplicateName" xml:space="preserve"><value>已有同名方案，请使用其他名称。</value></data>
+  <data name="Appearance_Error_MissingScheme" xml:space="preserve"><value>该方案已不存在，请重新选择。</value></data>
+  <data name="Appearance_Error_UnknownTheme" xml:space="preserve"><value>无法识别该主题，请重新选择。</value></data>
+  <data name="Appearance_Error_Busy" xml:space="preserve"><value>正在保存外观，请稍后重试。</value></data>
+  <data name="Appearance_ThemeSelector.PlaceholderText" xml:space="preserve"><value>选择主题</value></data>
+  <data name="Appearance_SchemeSelector.PlaceholderText" xml:space="preserve"><value>选择已保存的方案</value></data>
+  <data name="Sponsor_NavigationAnimation.Text" xml:space="preserve"><value>页面切换动画</value></data>
+  <data name="Sponsor_NavigationAnimationDescription.Text" xml:space="preserve"><value>从下次页面切换起生效，随个人外观方案保存。遵循 Windows 动画设置</value></data>
+  <data name="Sponsor_NavigationAnimation_None" xml:space="preserve"><value>无动画</value></data>
+  <data name="Sponsor_NavigationAnimation_Entrance" xml:space="preserve"><value>轻柔进入</value></data>
+  <data name="Sponsor_NavigationAnimation_Slide" xml:space="preserve"><value>横向滑动</value></data>
+  <data name="Sponsor_NavigationAnimation_DrillIn" xml:space="preserve"><value>缩放</value></data>
 </root>

@@ -12,6 +12,15 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <Border Grid.RowSpan="2" IsHitTestVisible="False" Background="{ThemeResource SponsorPaperBackgroundBrush}"
+                Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsSponsorPaperBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+        <Border Grid.RowSpan="2" IsHitTestVisible="False" Background="{ThemeResource SponsorForestBackgroundBrush}"
+                Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsSponsorForestBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+        <Border Grid.RowSpan="2" IsHitTestVisible="False" Background="{ThemeResource SponsorNightBackgroundBrush}"
+                Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsSponsorNightBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
         <controls:AsyncFileImage Grid.RowSpan="2" ReloadVersion="{x:Bind ViewModel.SponsorBackgroundRevision, Mode=OneWay}"
                SourcePath="{x:Bind ViewModel.SponsorBackgroundImagePath, Mode=OneWay}"
                Stretch="{x:Bind ViewModel.SponsorBackgroundStretchIndex, Mode=OneWay, Converter={StaticResource IntToStretchConverter}}"
@@ -19,7 +28,8 @@
                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
         <Border Grid.RowSpan="2"
                 Opacity="{x:Bind ViewModel.SponsorBackgroundOverlayOpacity, Mode=OneWay}"
-                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                IsHitTestVisible="False"
+                Visibility="{x:Bind ViewModel.IsAnySponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <Border.Background>
                 <SolidColorBrush Color="{x:Bind ViewModel.SponsorBackgroundOverlayColor, Mode=OneWay}"/>
             </Border.Background>

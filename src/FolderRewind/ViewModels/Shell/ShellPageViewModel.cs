@@ -32,6 +32,19 @@ namespace FolderRewind.ViewModels
 
         public bool IsSponsorBackgroundVisible => _isSponsorBackgroundVisible;
 
+        public bool IsSponsorPaperBackgroundVisible => ShowThemeBackground("paper");
+        public bool IsSponsorForestBackgroundVisible => ShowThemeBackground("forest");
+        public bool IsSponsorNightBackgroundVisible => ShowThemeBackground("night");
+        public bool IsAnySponsorBackgroundVisible => IsSponsorBackgroundVisible || IsSponsorPaperBackgroundVisible
+            || IsSponsorForestBackgroundVisible || IsSponsorNightBackgroundVisible;
+
+        private static bool ShowThemeBackground(string themeId)
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            return settings?.SponsorThemeId == themeId && SponsorAppearancePolicy.ShowGradient(themeId,
+                settings.SponsorBackgroundKind, settings.SponsorBackgroundEnabled, SponsorService.IsUnlocked, AccessibilityThemeService.IsHighContrast);
+        }
+
         public string? SponsorBackgroundImagePath => _sponsorBackgroundImagePath;
         public int SponsorBackgroundRevision => _backgroundLoadVersion;
 
@@ -69,6 +82,10 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(SponsorBackgroundOpacity));
             OnPropertyChanged(nameof(SponsorBackgroundOverlayColor));
             OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacity));
+            OnPropertyChanged(nameof(IsSponsorPaperBackgroundVisible));
+            OnPropertyChanged(nameof(IsSponsorForestBackgroundVisible));
+            OnPropertyChanged(nameof(IsSponsorNightBackgroundVisible));
+            OnPropertyChanged(nameof(IsAnySponsorBackgroundVisible));
 
             await RefreshBackgroundImageAsync(forceBackgroundImageReload);
         }
@@ -199,7 +216,7 @@ namespace FolderRewind.ViewModels
 
             return new SponsorBackgroundImageState(
                 path,
-                appearance.BackgroundEnabled,
+                appearance.BackgroundEnabled && settings?.SponsorBackgroundKind == Models.SponsorBackgroundKind.Image,
                 SponsorService.IsUnlocked,
                 fileExists);
         }
@@ -220,6 +237,7 @@ namespace FolderRewind.ViewModels
             if (visibilityChanged)
             {
                 OnPropertyChanged(nameof(IsSponsorBackgroundVisible));
+                OnPropertyChanged(nameof(IsAnySponsorBackgroundVisible));
             }
         }
 

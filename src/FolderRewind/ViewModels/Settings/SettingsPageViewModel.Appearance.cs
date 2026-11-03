@@ -25,7 +25,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleSponsorAccentChanged(int selectedIndex)
         {
-            if (!SponsorService.IsUnlocked)
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning)
             {
                 return;
             }
@@ -37,7 +37,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleSponsorBackdropChanged(int selectedIndex)
         {
-            if (!SponsorService.IsUnlocked)
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning)
             {
                 return;
             }
@@ -47,9 +47,21 @@ namespace FolderRewind.ViewModels
             MainWindowService.ApplySponsorVisuals();
         }
 
+        public int SponsorNavigationAnimationIndex => (int)NavigationAnimationPolicy.Normalize(Settings.SponsorNavigationAnimation);
+
+        public void HandleSponsorNavigationAnimationChanged(int selectedIndex)
+        {
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning || selectedIndex < 0
+                || !Enum.IsDefined((SponsorNavigationAnimationKind)selectedIndex)) return;
+            var value = (SponsorNavigationAnimationKind)selectedIndex;
+            if (Settings.SponsorNavigationAnimation == value) return;
+            Settings.SponsorNavigationAnimation = value;
+            _isDirty = true;
+        }
+
         public void HandleSponsorTitleTextChanged(string? titleText)
         {
-            if (!SponsorService.IsUnlocked)
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning)
             {
                 return;
             }
@@ -61,7 +73,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleSponsorTitleIconChanged(string? glyph)
         {
-            if (!SponsorService.IsUnlocked || string.IsNullOrWhiteSpace(glyph))
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning || string.IsNullOrWhiteSpace(glyph))
             {
                 return;
             }
@@ -73,7 +85,7 @@ namespace FolderRewind.ViewModels
 
         public async Task ApplySponsorBackgroundImageAsync(string path)
         {
-            if (!SponsorService.IsUnlocked)
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning)
             {
                 return;
             }
@@ -94,7 +106,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleSponsorBackgroundEnabledToggled(bool isOn)
         {
-            if (!SponsorService.IsUnlocked)
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning)
             {
                 return;
             }
@@ -106,7 +118,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleSponsorBackgroundStretchChanged(int selectedIndex)
         {
-            if (!SponsorService.IsUnlocked)
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning)
             {
                 return;
             }
@@ -118,7 +130,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleSponsorBackgroundImageOpacityChanged(double newValue)
         {
-            if (!SponsorService.IsUnlocked || double.IsNaN(newValue))
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning || double.IsNaN(newValue))
             {
                 return;
             }
@@ -131,7 +143,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleSponsorBackgroundOverlayOpacityChanged(double newValue)
         {
-            if (!SponsorService.IsUnlocked || double.IsNaN(newValue))
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning || double.IsNaN(newValue))
             {
                 return;
             }
@@ -155,7 +167,7 @@ namespace FolderRewind.ViewModels
 
         public async Task ApplyCustomCompletionSoundAsync(string path)
         {
-            if (!SponsorService.IsUnlocked)
+            if (!SponsorService.IsUnlocked || _isAppearanceOperationRunning)
             {
                 return;
             }
@@ -186,6 +198,9 @@ namespace FolderRewind.ViewModels
 
         private void RefreshSponsorOptionLists()
         {
+            BuiltinAppearanceThemeNames.Clear();
+            foreach (var theme in SponsorAppearancePolicy.Themes)
+                BuiltinAppearanceThemeNames.Add(I18n.GetString("Appearance_Theme_" + theme.Id));
             SponsorAccentPresets.Clear();
             for (var i = 0; i < ThemeService.SponsorAccentPresetCount; i++)
             {
@@ -195,6 +210,10 @@ namespace FolderRewind.ViewModels
             SponsorBackdropPresets.Clear();
             SponsorBackdropPresets.Add(ThemeService.GetBackdropName(0));
             SponsorBackdropPresets.Add(ThemeService.GetBackdropName(1));
+
+            SponsorNavigationAnimationPresets.Clear();
+            foreach (var animation in Enum.GetValues<SponsorNavigationAnimationKind>())
+                SponsorNavigationAnimationPresets.Add(I18n.GetString("Sponsor_NavigationAnimation_" + animation));
 
             SponsorTitleIconGlyphs.Clear();
             foreach (var glyph in IconCatalog.TitleIconGlyphs)
@@ -212,6 +231,7 @@ namespace FolderRewind.ViewModels
             {
                 CompletionSoundPresets.Add(CompletionSoundService.GetPresetName(i));
             }
+            RefreshAppearanceSchemeState();
         }
 
 
