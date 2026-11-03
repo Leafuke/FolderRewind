@@ -7898,4 +7898,18 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="Product_ShowArchived.Content" xml:space="preserve"><value>显示已归档公告</value></data>
   <data name="Product_NoNotices.Text" xml:space="preserve"><value>暂无适用的公告。</value></data>
   <data name="Product_HistoryUncertain" xml:space="preserve"><value>历史提交结果尚未确定，需要先完成恢复检查。</value></data>
+  <data name="History_Size_AddedLabel" xml:space="preserve"><value>存储大小</value></data>
+  <data name="History_Size_ContentLabel" xml:space="preserve"><value>版本内容大小</value></data>
+  <data name="History_Size_DependencyLabel" xml:space="preserve"><value>恢复依赖大小</value></data>
+  <data name="History_Size_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="History_Size_Loading" xml:space="preserve"><value>读取中…</value></data>
+  <data name="History_Size_Open.ToolTipService.ToolTip" xml:space="preserve"><value>备份信息</value></data>
+  <data name="History_Size_BackupTypeLabel" xml:space="preserve"><value>备份类型</value></data>
+  <data name="History_BackupType_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="History_BackupType_Full" xml:space="preserve"><value>完整（Full）</value></data>
+  <data name="History_BackupType_Smart" xml:space="preserve"><value>普通增量（Smart）</value></data>
+  <data name="History_BackupType_Rolling" xml:space="preserve"><value>滚动（Rolling）</value></data>
+  <data name="History_BackupType_SemanticFull" xml:space="preserve"><value>语义完整（Full）</value></data>
+  <data name="History_BackupType_SemanticSmart" xml:space="preserve"><value>语义增量（Semantic Smart）</value></data>
+  <data name="History_BackupType_Semantic" xml:space="preserve"><value>语义备份（Semantic）</value></data>
 </root>

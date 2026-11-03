@@ -434,6 +434,8 @@ public sealed class NativeArtifactReadLease(IReadOnlyList<BackupArtifactSnapshot
     { try { if (Read is IAsyncDisposable disposable) await disposable.DisposeAsync(); if (temporary.Length != 0) NativeArtifactStore.DeleteDirectory(temporary); } finally { held.Dispose(); } }
 }
 
+public sealed record NativeArtifactStorageStatistics(long AddedStoredBytes, long RootStoredBytes, long RestoreDependencyBytes);
+
 public sealed class PreparedNativeArtifact : IAsyncDisposable
 {
     private readonly NativeArtifactStore _store;
@@ -452,6 +454,7 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
     public NativeArtifactReadLease? BaselineRead => _baselineRead;
     public PluginOperationLease Operation => _lease;
     public bool RequiresFullVerification { get; }
+    public NativeArtifactStorageStatistics? StorageStatistics { get; private set; }
     private bool _historyOwnsIntent;
     public NativeArtifactPending TransferPendingOwnership() { _historyOwnsIntent = true; return Intent; }
     internal PreparedNativeArtifact(NativeArtifactStore store, PluginRuntimeManager runtime, ConfigSnapshot config,
@@ -473,6 +476,19 @@ public sealed class PreparedNativeArtifact : IAsyncDisposable
         await _store.SavePendingAsync(Intent = Intent with { Phase = "PayloadsSealed" }, token);
         await _store.Ledger.CommitAsync(_before, Ledger, Intent.Id, _staging, _facts, token);
         await _store.SavePendingAsync(Intent = Intent with { Phase = "ArtifactGraphCommitted" }, token);
+        var reachable = NativeArtifactClosureLimits.Validate(Ledger, Intent.Root).Reachable;
+        var added = _facts.Values.Select(f => f.ArtifactId).ToHashSet();
+        long addedBytes = 0, rootBytes = 0, closureBytes = 0;
+        foreach (var node in Ledger.Artifacts.Where(node => reachable.Contains(node.ArtifactId)))
+        {
+            token.ThrowIfCancellationRequested();
+            var envelope = Path.Combine(Path.GetDirectoryName(_store.PayloadPath(node))!, "envelope.json");
+            var bytes = checked(node.StorageSize + new FileInfo(envelope).Length);
+            closureBytes = checked(closureBytes + bytes);
+            if (added.Contains(node.ArtifactId)) addedBytes = checked(addedBytes + bytes);
+            if (node.ArtifactId == Intent.Root) rootBytes = bytes;
+        }
+        StorageStatistics = new(addedBytes, rootBytes, closureBytes);
     }
     public Task<NativeArtifactReadLease> OpenAsync(CancellationToken token)
         => _store.OpenWithoutGateAsync(Ledger, Intent.Root, new NativeArtifactStore.ActionLease(() => { }), token);

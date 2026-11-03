@@ -508,6 +508,18 @@ public sealed class HistoryIndex : IDisposable
                 [],
                 cancellationToken);
 
+    public Task<IReadOnlyList<VersionMetadataSnapshot>> GetBackupSizeSnapshotsAsync(
+        SourceId? sourceId = null, CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<VersionMetadataSnapshot>(
+            "SELECT m.PayloadJson FROM VersionMetadataSnapshots m JOIN Versions v ON v.VersionId = m.VersionId "
+                + "WHERE m.ProducerPluginId = $producer AND m.SchemaId = $schema AND m.SchemaVersion = $version"
+                + (sourceId is null ? string.Empty : " AND v.SourceId = $source"),
+            sourceId is { } source
+                ? [("$producer", BackupSizeMetadata.ProducerId), ("$schema", BackupSizeMetadata.SchemaId),
+                    ("$version", BackupSizeMetadata.SchemaVersion), ("$source", source.ToString())]
+                : [("$producer", BackupSizeMetadata.ProducerId), ("$schema", BackupSizeMetadata.SchemaId),
+                    ("$version", BackupSizeMetadata.SchemaVersion)], cancellationToken);
+
     public Task<IReadOnlyList<StorageReplica>> GetStorageReplicasAsync(
         RepresentationId representationId,
         CancellationToken cancellationToken = default)

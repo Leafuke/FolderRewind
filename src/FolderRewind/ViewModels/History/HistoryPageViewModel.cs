@@ -62,6 +62,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         if (_presentationMode == mode) return;
         _presentationMode = mode;
         _branchAssessmentRequests.CancelCurrent();
+        _sizeRequests.CancelCurrent();
         CancelWorkingComparison();
         if (!IsAdvancedHistory) SelectedBranch = Branches.FirstOrDefault(branch => branch.IsActive);
         OnPropertyChanged(nameof(IsAdvancedHistory));
@@ -262,6 +263,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         MigrationWorkflowCoordinator.Changed += OnMigrationWorkflowChanged;
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
+        _sizeRequests.CancelCurrent();
         CancelWorkingComparison();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
@@ -340,6 +342,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _selectionRequests.CancelCurrent();
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
+        _sizeRequests.CancelCurrent();
         CancelWorkingComparison();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
@@ -402,6 +405,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     {
         if (!_isActive) return;
         using var request = _refreshRequests.Begin(cancellationToken);
+        _sizeRequests.CancelCurrent();
         var token = request.Token;
         var selectedBranchId = SelectedBranch?.BranchId;
         var config = _currentConfig;
@@ -1233,7 +1237,7 @@ public sealed class NativeHistoryVersionViewItem(
 {
     private readonly bool _hasLocalFile = summary.LocalPath is not null && File.Exists(summary.LocalPath);
     private readonly bool _isLocalPayloadMissing = summary.IsLocalPayloadMissing;
-    private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
+    public BackupSizeViewModel Sizes { get; } = new(summary.SizeStatistics, summary.BackupType);
     private SemanticStatus _readinessStatus = migrationPending ? SemanticStatus.Info : MapReadiness(summary.Readiness);
 
     private bool _isAdvanced;
@@ -1270,7 +1274,6 @@ public sealed class NativeHistoryVersionViewItem(
         1 => I18n.GetString("History_Branch_CreateFromHereHint"),
         _ => I18n.GetString("History_Branch_CreateUnavailableAmbiguousCheckpoint")
     };
-    public string FileSizeDisplay => _fileSizeDisplay;
     public string BranchDisplay => string.Join(" · ", summary.BranchIds
         .Select(branchId => branchNames?.GetValueOrDefault(branchId))
         .Where(name => !string.IsNullOrWhiteSpace(name)));
@@ -1313,22 +1316,6 @@ public sealed class NativeHistoryVersionViewItem(
         _ => SemanticStatus.Error
     };
 
-    private static string GetFileSizeDisplay(string? localPath)
-    {
-        if (string.IsNullOrWhiteSpace(localPath) || !File.Exists(localPath)) return string.Empty;
-        try
-        {
-            var bytes = new FileInfo(localPath).Length;
-            if (bytes < 1024) return $"{UserDisplayFormatter.Number(bytes)} B";
-            if (bytes < 1024L * 1024) return $"{UserDisplayFormatter.Number(bytes / 1024d, 1)} KB";
-            if (bytes < 1024L * 1024 * 1024) return $"{UserDisplayFormatter.Number(bytes / 1024d / 1024d, 1)} MB";
-            return $"{UserDisplayFormatter.Number(bytes / 1024d / 1024d / 1024d, 2)} GB";
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return string.Empty;
-        }
-    }
 }
 
 public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<SourceId, string>? sourceNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
@@ -1345,7 +1332,7 @@ public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<So
     public bool CanRestore => summary.Sources.Any(s => s.VersionId is not null && s.Outcome is BackupRunSourceOutcome.Captured or BackupRunSourceOutcome.Reused);
     public bool HasPartialBackup => summary.HasPartialCapture;
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
-    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(summary.RunId, item, sourceNames?.GetValueOrDefault(item.SourceId), summary.HistoricalBranchNames?.GetValueOrDefault(item.BranchUpdateId ?? default), summary.BranchableCheckpointIds?.Contains(item.CheckpointId ?? default) == true)).ToArray();
+    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(summary.RunId, item, sourceNames?.GetValueOrDefault(item.SourceId), summary.HistoricalBranchNames?.GetValueOrDefault(item.BranchUpdateId ?? default), summary.BranchableCheckpointIds?.Contains(item.CheckpointId ?? default) == true, summary.SourceSizeStatistics?.GetValueOrDefault(item.SourceId))).ToArray();
 
     internal static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
     {
@@ -1357,12 +1344,16 @@ public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<So
     };
 }
 
-public sealed class BackupRunSourceViewItem(RunId runId, BackupRunSourceResult result, string? sourceName = null, string? branchName = null, bool canCreateBranch = false)
+public sealed class BackupRunSourceViewItem(RunId runId, BackupRunSourceResult result, string? sourceName = null, string? branchName = null, bool canCreateBranch = false,
+    HistorySourceSizeSummary? sizeSummary = null)
     : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
     private bool _isAdvanced;
     public bool IsAdvanced { get => _isAdvanced; set => SetProperty(ref _isAdvanced, value); }
     public RunId RunId => runId;
+    public string AutomationIdentity => $"{runId}_{result.SourceId}";
+    public RepresentationId? RepresentationId => sizeSummary?.RepresentationId;
+    public BackupSizeViewModel Sizes { get; } = new(sizeSummary?.Statistics, sizeSummary?.BackupType ?? HistoryBackupType.Unknown);
     public SourceId SourceId => result.SourceId;
     public VersionId? VersionId => result.VersionId;
     public CheckpointId? CheckpointId => result.CheckpointId;

@@ -17,6 +17,33 @@ public sealed class NativeArtifactStoreTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
+    public async Task SealedStatisticsCountPhysicalEnvelopesAndOnlyNewNodesWhenReusingPacks(bool encrypted)
+    {
+        using var fixture = new Fixture();
+        NativeArtifactStorageStatistics? firstSizes = null;
+        var (store, root) = await fixture.CaptureAsync(diamond: true, encrypted: encrypted,
+            observe: prepared => firstSizes = prepared.StorageStatistics);
+        var original = (await store.Ledger.LoadAsync()).Artifacts.ToDictionary(n => n.ArtifactId);
+        long Bytes(ArtifactLedgerEntry node) => new FileInfo(store.PayloadPath(node)).Length
+            + new FileInfo(Path.Combine(Path.GetDirectoryName(store.PayloadPath(node))!, "envelope.json")).Length;
+        Assert.IsNotNull(firstSizes);
+        Assert.AreEqual(original.Values.Sum(Bytes), firstSizes.AddedStoredBytes);
+        Assert.AreEqual(firstSizes.AddedStoredBytes, firstSizes.RestoreDependencyBytes);
+        Assert.AreEqual(Bytes(original[root]), firstSizes.RootStoredBytes);
+        NativeArtifactStorageStatistics? nextSizes = null;
+        var (_, nextRoot) = await fixture.CaptureAsync(baseRoot: root, encrypted: encrypted,
+            observe: prepared => nextSizes = prepared.StorageStatistics);
+        var graph = await store.Ledger.LoadAsync();
+        var closure = NativeArtifactClosureLimits.Validate(graph, nextRoot).Reachable;
+        Assert.IsNotNull(nextSizes);
+        Assert.AreEqual(graph.Artifacts.Where(n => !original.ContainsKey(n.ArtifactId)).Sum(Bytes), nextSizes.AddedStoredBytes);
+        Assert.AreEqual(graph.Artifacts.Where(n => closure.Contains(n.ArtifactId)).Sum(Bytes), nextSizes.RestoreDependencyBytes);
+        Assert.IsGreaterThan(nextSizes.AddedStoredBytes, nextSizes.RestoreDependencyBytes);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
     public async Task PrepareCleanupFailureReleasesStoreAndOnlyOwnedOperation(bool borrowed)
     {
         using var fixture = new Fixture();
@@ -449,7 +476,8 @@ public sealed class NativeArtifactStoreTests
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
             string? storageRoot = null, string configId = "config", bool validatePrepared = false, ZipCodec? suppliedCodec = null, bool transferPendingOwnership = false, bool borrowedOperation = false, bool discardPrepared = false,
-            GraphPlugin? suppliedPlugin = null, bool expectPrepareFailure = false)
+            GraphPlugin? suppliedPlugin = null, bool expectPrepareFailure = false, bool encrypted = false,
+            ArtifactId? baseRoot = null, Action<PreparedNativeArtifact>? observe = null)
         {
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
@@ -460,8 +488,8 @@ public sealed class NativeArtifactStoreTests
                 [HostServiceKind.ArtifactRead, HostServiceKind.ArtifactTransformStaging, HostServiceKind.RestoreMaterializationWorkspace],
                 [PluginCapabilityKind.BackupArtifactTransformer, PluginCapabilityKind.RestoreMaterializer],
                 [new(Format, 1, 1, new("full", new Dictionary<string,string>()))],
-                [new(new(Id, "full"), [Kind], [CoreCaptureMode.Full], [ArtifactCompleteness.Complete],
-                    JsonDocument.Parse("{\"type\":\"object\"}").RootElement.Clone(), [ArtifactTransformFailureBehavior.RequireTransform])],
+                [new(new(Id, "full"), [Kind], [CoreCaptureMode.Full, CoreCaptureMode.Smart], [ArtifactCompleteness.Complete, ArtifactCompleteness.Partial],
+                    JsonDocument.Parse("{\"type\":\"object\"}").RootElement.Clone(), [ArtifactTransformFailureBehavior.RequireTransform]) { SupportsIncrementalInput = true }],
                 [new(Strategy, [new(Format, 1, 1)], [ArtifactCompleteness.Complete], [RestoreMode.Clean])], false);
             var config = new ConfigSnapshot(configId, new("revision"), Kind, "world", [Folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
             var result = await runtime.ActivateAsync(new(Id, () => suppliedPlugin ?? new GraphPlugin(diamond), new(Id, new Dictionary<string, JsonElement>()), [config], new Host(), new ActivationStore(), manifest));
@@ -487,11 +515,14 @@ public sealed class NativeArtifactStoreTests
                 return (store, default);
             }
             var prepared = await store.PrepareAsync(runtime, config, Folder, Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), source,
-                new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), false, default, operation: operation);
+                new(new(Id, "full"), new Dictionary<string, JsonElement>(), ArtifactTransformFailureBehavior.RequireTransform), encrypted, default,
+                incrementalInput: baseRoot is { } baseline ? new ArtifactIncrementalInput(Guid.NewGuid(), ArtifactCaptureInputKind.ChangesOnly,
+                    "boundary", "size-mtime-v1", "version", "representation", baseline, [], [], [], false) : null, operation: operation);
             var capturedRoot = prepared.Intent.Root;
             await using (prepared)
             {
             await prepared.SealAndCommitGraphAsync(default);
+            observe?.Invoke(prepared);
             if (discardPrepared) { await prepared.DiscardUncommittedAsync(default); return (store, capturedRoot); }
             if (transferPendingOwnership) prepared.TransferPendingOwnership();
             if (validatePrepared)
@@ -540,6 +571,15 @@ public sealed class NativeArtifactStoreTests
                 var unfinished = await request.Staging.CreateArtifactAsync(default);
                 HeldStream = await request.Staging.OpenWriteAsync(unfinished.Staging, "open.txt", default);
                 throw new IOException("injected transform failure");
+            }
+            if (request.IncrementalInput is { Kind: ArtifactCaptureInputKind.ChangesOnly })
+            {
+                var previousPack = request.ReadableArtifacts.Single(a => a.Dependencies.Count == 0).ArtifactId;
+                var next = await request.Staging.CreateArtifactAsync(default);
+                await using (var stream = await request.Staging.OpenWriteAsync(next.Staging, "root.txt", default))
+                    await stream.WriteAsync("new root bytes"u8.ToArray());
+                return new(OperationOutcome.Success, new(request.ExpectedGraphRevision,
+                    [new(next.ArtifactId, next.Staging, Format, 1, Strategy, ArtifactCompleteness.Complete, CoreCaptureMode.Smart, [previousPack])], next.ArtifactId), []);
             }
             var dependency = await request.Staging.CreateArtifactAsync(default);
             var root = await request.Staging.CreateArtifactAsync(default);

@@ -260,7 +260,9 @@ public sealed record SourceCaptureResult
             ExpectedMaterializationPolicyTipIds,
             BaselineCandidate,
             EffectiveSourceBoundary,
-            candidates) { ReservedVersionId = ReservedVersionId, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
+            VersionMetadataCandidates.Where(item => BackupSizeMetadata.IsCaptureStatistics(item.ProducerPluginId, item.SchemaId))
+                .Concat(candidates.Where(item => !BackupSizeMetadata.IsCaptureStatistics(item.ProducerPluginId, item.SchemaId))))
+        { ReservedVersionId = ReservedVersionId, CommitParticipant = CommitParticipant, ConcurrencyFence = ConcurrencyFence };
 
     // Backup UI 只消费这些便捷投影；Native coordinator 仍以上面的结构化字段为准。
     public bool Success => Outcome is SourceCaptureOutcome.Captured

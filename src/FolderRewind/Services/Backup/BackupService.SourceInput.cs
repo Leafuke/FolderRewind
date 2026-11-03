@@ -71,7 +71,8 @@ public static partial class BackupService
             try
             {
                 var metadata = await history.Query.GetVersionMetadataSnapshotsAsync(baseline.BaseVersionId, token).ConfigureAwait(false);
-                return result.WithVersionMetadata(metadata.Select(m => new VersionMetadataCandidate(
+                return result.WithVersionMetadata(metadata.Where(m => !History.Domain.BackupSizeMetadata.IsCaptureStatistics(m.ProducerPluginId, m.SchemaId))
+                    .Select(m => new VersionMetadataCandidate(
                     m.ProducerPluginId, m.SchemaId, m.SchemaVersion, m.Payload)), []);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }

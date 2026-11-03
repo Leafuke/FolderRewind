@@ -144,7 +144,8 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                     ?? throw new InvalidDataException("Reusable archive is unavailable.");
                 replacement = new(step.ReplacementId, step.Original.VersionId, step.Original.Kind, step.Original.Format,
                     parent is { } rp ? [rp] : [], MaterializationFidelity.Exact, step.Original.LogicalSha256,
-                    step.Original.StateFingerprint, step.Original.RepresentationSpecificMetadata);
+                    step.Original.StateFingerprint, step.Original.RepresentationSpecificMetadata
+                        .SetItem(BackupSizeMetadata.StoredBytesKey, BackupSizeMetadata.FormatBytes(new FileInfo(path).Length)));
             }
             else
             {
@@ -164,6 +165,7 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
                     || !File.Exists(path) || new FileInfo(path).Length != payload.Size)
                     throw new InvalidDataException("Rewrite backend produced an invalid durable payload.");
                 var metadata = payload.Metadata.SetItem("fileName", Path.GetFileName(path))
+                    .SetItem(BackupSizeMetadata.StoredBytesKey, BackupSizeMetadata.FormatBytes(payload.Size))
                     .SetItem("storageSha256", await HistoryChainRewriteJournalStore.HashAsync(path, token).ConfigureAwait(false));
                 if (!full)
                 {

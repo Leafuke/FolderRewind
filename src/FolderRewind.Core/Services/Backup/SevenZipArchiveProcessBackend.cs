@@ -304,8 +304,9 @@ internal class SevenZipArchiveProcessBackend(Func<string?> executablePath, Func<
             var result = await RunAsync("a", path, outputDirectory: null,
                 workingDirectory: materializedDirectory, cancellationToken).ConfigureAwait(false);
             if (!result.Success) throw new InvalidDataException(result.Diagnostic);
-            return new("7z", path, new FileInfo(path).Length, null, version.StateFingerprint,
-                ImmutableDictionary<string, string>.Empty);
+            var storedBytes = new FileInfo(path).Length;
+            return new("7z", path, storedBytes, null, version.StateFingerprint,
+                ImmutableDictionary<string, string>.Empty.Add(BackupSizeMetadata.StoredBytesKey, BackupSizeMetadata.FormatBytes(storedBytes)));
         }
         finally
         {

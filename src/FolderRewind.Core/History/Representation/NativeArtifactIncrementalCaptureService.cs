@@ -101,6 +101,9 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
             finally { if (oldView is not null) await oldView.DisposeAsync(); }
             var stored = prepared.Ledger.Artifacts.Single(n => n.ArtifactId == node.ArtifactId);
             var path = store.PayloadPath(stored); var fingerprint = document.Fingerprint();
+            var sizes = prepared.StorageStatistics ?? throw new InvalidOperationException("Sealed Artifact storage statistics are missing.");
+            var backupType = plan.Input.Kind == ArtifactCaptureInputKind.Full || plan.Input.Checkpoint || prepared.RequiresFullVerification
+                ? HistoryBackupType.SemanticFull : HistoryBackupType.SemanticSmart;
             var reachable = NativeArtifactClosureLimits.Validate(prepared.Ledger, node.ArtifactId).Reachable;
             var closureStorageBytes = prepared.Ledger.Artifacts.Where(a => reachable.Contains(a.ArtifactId))
                 .Sum(a => a.StorageSize + NativeArtifactClosureLimits.MaximumEnvelopeBytes);
@@ -111,6 +114,9 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 ["storageSha256"] = stored.StorageSha256, ["nativeArtifactEnvelope"] = "1", ["incrementalEvidence"] = "2", ["nativeArtifactContractVersion"] = "2",
                 ["captureEvidenceSha256"] = Convert.ToHexString(SHA256.HashData(evidenceBytes)),
                 ["nativeClosureStorageBytes"] = closureStorageBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                [BackupSizeMetadata.StoredBytesKey] = BackupSizeMetadata.FormatBytes(sizes.RootStoredBytes),
+                [BackupSizeMetadata.NativeClosureBytesKey] = BackupSizeMetadata.FormatBytes(sizes.RestoreDependencyBytes),
+                [HistoryBackupTypePolicy.MetadataKey] = backupType.ToString(),
                 ["fileName"] = System.IO.Path.GetFileName(path), ["stateFingerprint"] = fingerprint
             };
             var candidate = new RepresentationCandidate(representation, RepresentationKind.PluginArtifact, node.Format.FormatId,
@@ -125,7 +131,8 @@ public sealed class NativeArtifactIncrementalCaptureService(PluginRuntimeManager
                 plan.Baseline?.BaseVersionId, null, prepared.Diagnostics.Select(d =>
                     new HistoryDiagnostic(d.Code, d.Severity == DiagnosticSeverity.Error ? HistoryDiagnosticSeverity.Error : HistoryDiagnosticSeverity.Warning,
                         d.Code + ": " + JsonSerializer.Serialize(d.Arguments))), [],
-                baselineCandidate, boundary, [])
+                baselineCandidate, boundary, [new VersionMetadataCandidate(BackupSizeMetadata.ProducerId, BackupSizeMetadata.SchemaId,
+                    BackupSizeMetadata.SchemaVersion, BackupSizeMetadata.CapturePayload(sizes.AddedStoredBytes, document.Files.Sum(file => file.Length), backupType))])
             { ReservedVersionId = version, CommitParticipant = new NativeArtifactCaptureCommitParticipant(store, prepared.TransferPendingOwnership()) };
         }
         catch { await prepared.DiscardUncommittedAsync(CancellationToken.None); throw; }

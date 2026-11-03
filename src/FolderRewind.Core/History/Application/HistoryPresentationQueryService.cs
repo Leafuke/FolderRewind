@@ -45,7 +45,11 @@ public sealed record TimelineEntrySummary(
     int BranchableCheckpointCount,
     SourceVersionCreationKind CreationKind = SourceVersionCreationKind.Capture,
     CheckpointId? CheckpointId = null, bool IsLocalPayloadMissing = false,
-    HistoricalBoundaryConfidence BoundaryConfidence = HistoricalBoundaryConfidence.Known);
+    HistoricalBoundaryConfidence BoundaryConfidence = HistoricalBoundaryConfidence.Known,
+    BackupSizeStatistics? SizeStatistics = null, HistoryBackupType BackupType = HistoryBackupType.Unknown);
+
+public sealed record HistorySourceSizeSummary(RepresentationId? RepresentationId, BackupSizeStatistics Statistics,
+    HistoryBackupType BackupType = HistoryBackupType.Unknown);
 
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
@@ -63,7 +67,8 @@ public sealed record RunSummary(
     bool HasPartialCapture,
     ImmutableArray<BackupRunSourceResult> Sources,
     ImmutableArray<BranchId> BranchIds,
-    IReadOnlyDictionary<BranchUpdateId, string>? HistoricalBranchNames = null, IReadOnlySet<CheckpointId>? BranchableCheckpointIds = null);
+    IReadOnlyDictionary<BranchUpdateId, string>? HistoricalBranchNames = null, IReadOnlySet<CheckpointId>? BranchableCheckpointIds = null,
+    IReadOnlyDictionary<SourceId, HistorySourceSizeSummary>? SourceSizeStatistics = null);
 
 public sealed record BranchSummary(
     BranchId BranchId,
@@ -171,6 +176,9 @@ public sealed class HistoryPresentationQueryService
             ? await _runtime.Index.ReadSourceFactsAsync<ReplicaLifecycleUpdate>(sourceForlifecycle, cancellationToken).ConfigureAwait(false)
             : await _runtime.Query.GetAllReplicaLifecycleUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var catalog = (await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        var sizeSnapshots = referencesOnly ? [] : await _runtime.Index.GetBackupSizeSnapshotsAsync(sourceId, cancellationToken).ConfigureAwait(false);
+        var captureSizes = sizeSnapshots.ToDictionary(item => item.VersionId, BackupSizeMetadata.ReadCapture);
+        var captureSizeSnapshots = sizeSnapshots.ToDictionary(item => item.VersionId);
         var workspace = referencesOnly ? null : (await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var safetySnapshots = referencesOnly ? [] : await _runtime.Query.GetSafetySnapshotProjectionsAsync(
             activeOnly: true,
@@ -218,6 +226,33 @@ public sealed class HistoryPresentationQueryService
             visiting.Remove(representation.RepresentationId);
             return availability[key] = complete;
         }
+        var versionSizes = new Dictionary<VersionId, HistorySourceSizeSummary>();
+        HistorySourceSizeSummary VersionSizes(VersionId id)
+        {
+            if (versionSizes.TryGetValue(id, out var cached)) return cached;
+            var candidates = representationGroups.GetValueOrDefault(id) ?? [];
+            var state = Assess(candidates, localPaths, MaterializationPolicyProjection.Project(id, policyGroups[id]), Exists,
+                (representation, remote) => Available(representation, remote, new HashSet<RepresentationId>()));
+            var captured = captureSizes.GetValueOrDefault(id) ?? BackupSizeStatistics.Unknown;
+            var added = versionMap.TryGetValue(id, out var version) && version.CreationKind == SourceVersionCreationKind.Capture
+                ? captured.AddedStoredBytes ?? LocalArchiveSize(state.Representation) : null;
+            return versionSizes[id] = new(state.Representation?.RepresentationId,
+                new(added, captured.LogicalContentBytes, BackupSizeMetadata.DependencyBytes(state.Representation, representationMap)),
+                HistoryBackupTypePolicy.Resolve(captureSizeSnapshots.GetValueOrDefault(id), state.Representation));
+        }
+        long? LocalArchiveSize(VersionRepresentation? representation)
+        {
+            if (representation?.Kind is not (RepresentationKind.CoreFull or RepresentationKind.CoreSmartDelta
+                or RepresentationKind.CoreRolling or RepresentationKind.LegacyArchive)) return null;
+            // Display-only fallback for old archives; never publish the current length as a capture fact.
+            foreach (var path in localPaths[representation.RepresentationId])
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try { return new FileInfo(path).Length; }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
+            }
+            return null;
+        }
         var timeline = new List<TimelineEntrySummary>();
         foreach (var checkpoint in checkpoints.Where(c => byRun != true && c.CreationKind != CheckpointCreationKind.SafetySnapshot
                      && (sourceId is null || c.SourceId == sourceId)))
@@ -239,6 +274,10 @@ public sealed class HistoryPresentationQueryService
                 ?? selected?.RepresentationSpecificMetadata.GetValueOrDefault("legacyFileName")
                 ?? (localPath is null ? null : Path.GetFileName(localPath));
             var admission = HistoryExactCheckpointAdmission.Evaluate(checkpoint, versionMap, representationMap);
+            var sizes = referencesOnly ? BackupSizeStatistics.Unknown : VersionSizes(version.VersionId).Statistics;
+            if (checkpoint.CreationKind == CheckpointCreationKind.Capture && checkpoint.CreatedByRunId is not null
+                && checkpoint.CreatedByRunId != version.CreatedByRunId)
+                sizes = new(0, sizes.LogicalContentBytes, sizes.RestoreDependencyBytes);
             timeline.Add(new(
                 version.VersionId, selected?.RepresentationId, version.SourceId, checkpoint.CreatedAtUtc,
                 version.SourceDescriptorSnapshot.DisplayName, fileName, localPath,
@@ -250,7 +289,8 @@ public sealed class HistoryPresentationQueryService
                 admission.IsReady ? checkpoint.CheckpointId : null,
                 admission.IsReady ? 1 : 0, checkpoint.CreationKind == CheckpointCreationKind.Merge ? SourceVersionCreationKind.Merge : version.CreationKind, checkpoint.CheckpointId,
                 reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any()
-                && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists), version.BoundaryConfidence));
+                && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists), version.BoundaryConfidence, sizes,
+                referencesOnly ? HistoryBackupType.Unknown : VersionSizes(version.VersionId).BackupType));
         }
 
         if (referencesOnly)
@@ -280,9 +320,18 @@ public sealed class HistoryPresentationQueryService
             var branchIds = run.SourceResults.Where(r => r.BranchUpdateId is not null)
                 .Select(r => branchMap.GetValueOrDefault(r.BranchUpdateId!.Value)?.BranchId)
                 .OfType<BranchId>().Distinct().ToImmutableArray();
+            var sourceSizes = run.SourceResults.ToDictionary(item => item.SourceId, item =>
+            {
+                var summary = item.VersionId is { } id ? VersionSizes(id) : new HistorySourceSizeSummary(null, BackupSizeStatistics.Unknown);
+                var sizes = summary.Statistics;
+                return summary with { Statistics = new(
+                    item.Outcome is BackupRunSourceOutcome.Reused or BackupRunSourceOutcome.CarriedForward ? 0
+                        : item.Outcome == BackupRunSourceOutcome.Captured ? sizes.AddedStoredBytes : null,
+                    sizes.LogicalContentBytes, sizes.RestoreDependencyBytes) };
+            });
             return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome,
                 projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
-                hasPartialCapture, run.SourceResults, branchIds, historicalBranchNames, branchableIds);
+                hasPartialCapture, run.SourceResults, branchIds, historicalBranchNames, branchableIds, sourceSizes);
         }).ToImmutableArray();
         var branchSummaries = branchProjection.Branches.Where(branch => !branch.IsDeleted && (sourceId is null || branch.Tips[0].SourceId == sourceId)).Select(branch =>
         {

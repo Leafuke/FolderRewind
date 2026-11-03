@@ -12,6 +12,22 @@
     NavigationCacheMode="Enabled" SizeChanged="OnHistoryPageSizeChanged">
 
     <Page.Resources>
+        <DataTemplate x:Key="HistorySizeDetailsTemplate" x:DataType="vm:BackupSizeViewModel">
+            <StackPanel MinWidth="240" MaxWidth="360" AutomationProperties.AutomationId="HistorySizeDetails">
+                <Grid ColumnSpacing="24" RowSpacing="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="{x:Bind BackupTypeLabel, Mode=OneTime}" TextWrapping="Wrap"/>
+                    <TextBlock Grid.Column="1" Text="{x:Bind BackupTypeDisplay, Mode=OneWay}" TextWrapping="Wrap" MaxWidth="240" HorizontalAlignment="Right" AutomationProperties.AutomationId="HistoryBackupType"/>
+                    <TextBlock Grid.Row="1" Text="{x:Bind AddedLabel, Mode=OneTime}" TextWrapping="Wrap"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind AddedDisplay, Mode=OneWay}" HorizontalAlignment="Right" AutomationProperties.AutomationId="HistorySizeAdded"/>
+                    <TextBlock Grid.Row="2" Text="{x:Bind ContentLabel, Mode=OneTime}" TextWrapping="Wrap"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ContentDisplay, Mode=OneWay}" HorizontalAlignment="Right" AutomationProperties.AutomationId="HistorySizeContent"/>
+                    <TextBlock Grid.Row="3" Text="{x:Bind DependencyLabel, Mode=OneTime}" TextWrapping="Wrap"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind DependencyDisplay, Mode=OneWay}" HorizontalAlignment="Right" AutomationProperties.AutomationId="HistorySizeDependencies"/>
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
         <Style x:Key="HistoryTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="TextWrapping" Value="NoWrap"/>
@@ -311,9 +327,12 @@
                                 <StackPanel VerticalAlignment="Center" Spacing="4" MinWidth="0">
                                     <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{StaticResource HistoryTitleStyle}" ToolTipService.ToolTip="{x:Bind Message, Mode=OneTime}"/>
                                     <Grid Tag="HistoryMetadata" ColumnSpacing="8" RowSpacing="4">
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Tag="HistorySize" Text="{x:Bind FileSizeDisplay, Mode=OneTime}" Style="{StaticResource HistoryMetadataStyle}"/>
+                                        <Button Tag="{x:Bind Mode=OneTime}" x:Uid="History_Size_Open" Click="OnShowSizeDetailsClick" Background="Transparent" BorderThickness="0" Padding="0" MinHeight="24"
+                                                AutomationProperties.AutomationId="{x:Bind AutomationIdentity, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistorySizeOpen}">
+                                            <TextBlock Text="{x:Bind Sizes.ListDisplay, Mode=OneWay}" Style="{StaticResource HistoryMetadataStyle}"/>
+                                        </Button>
                                         <Grid Grid.Column="1" Tag="HistoryReadiness" HorizontalAlignment="Left" ColumnSpacing="8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                             <controls:SemanticStatusPresenter Text="{x:Bind ReadinessText, Mode=OneTime}" TextSize="14" Status="{x:Bind ReadinessStatus, Mode=OneWay}" Glyph="{x:Bind ReadinessGlyph, Mode=OneWay}"/>
@@ -434,6 +453,11 @@
                                             <TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                             <TextBlock Text="{x:Bind StatusText, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                             <TextBlock Text="{x:Bind VersionDisplay, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <Button Tag="{x:Bind Mode=OneTime}" x:Uid="History_Size_Open" Click="OnShowSizeDetailsClick" Background="Transparent" BorderThickness="0" Padding="0" MinHeight="24"
+                                                    HorizontalAlignment="Left" Visibility="{x:Bind CanRestore, Converter={StaticResource BoolToVisConverter}}"
+                                                    AutomationProperties.AutomationId="{x:Bind AutomationIdentity, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunSourceSize}">
+                                                <TextBlock Text="{x:Bind Sizes.ListDisplay, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            </Button>
                                             <TextBlock Text="{x:Bind BranchDisplay, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                                             <TextBlock Text="{x:Bind Detail, Mode=OneTime}" TextWrapping="Wrap"/>
                                             <StackPanel Orientation="Horizontal" Spacing="8">
