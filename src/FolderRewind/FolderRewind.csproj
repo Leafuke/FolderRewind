@@ -19,11 +19,11 @@
     <TieredPGO>true</TieredPGO>
     <!--
       Keep the Windows App SDK version and the 2.3.1 XAML performance opt-ins
-      overridable for the local A/B benchmark. Normal builds use 2.6.4 with
+      overridable for the local A/B benchmark. Normal builds use 2.6.5 with
       all four validated optional changes enabled on SDK 2.3.1 and later.
       Keep the historical Xaml231 property names for benchmark compatibility.
     -->
-    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)'==''">2.6.4</FolderRewindWindowsAppSdkVersion>
+    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)'==''">2.6.5</FolderRewindWindowsAppSdkVersion>
     <FolderRewindEnableXaml231Optimizations Condition="'$(FolderRewindEnableXaml231Optimizations)'==''">true</FolderRewindEnableXaml231Optimizations>
     <FolderRewindXaml231OptionalChanges>DeferContextFlyoutInit,IconNoGridOptimization,DefaultStyleOptimizations,OptimizeApplyStyles</FolderRewindXaml231OptionalChanges>
     <EnabledXamlOptionalChanges Condition="'$(EnabledXamlOptionalChanges)'=='' and '$(FolderRewindEnableXaml231Optimizations)'=='true' and $([MSBuild]::VersionGreaterThanOrEquals('$(FolderRewindWindowsAppSdkVersion)', '2.3.1'))">$(FolderRewindXaml231OptionalChanges)</EnabledXamlOptionalChanges>
