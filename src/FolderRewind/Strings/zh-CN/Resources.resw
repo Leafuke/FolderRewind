@@ -7858,7 +7858,7 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="Product_Channel_Setup" xml:space="preserve"><value>安装程序</value></data>
   <data name="Product_Channel_Sideload" xml:space="preserve"><value>侧载安装</value></data>
   <data name="Product_Channel_Developer" xml:space="preserve"><value>开发版本</value></data>
-  <data name="Product_Channel_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="Product_Channel_Unknown" xml:space="preserve"><value>未识别</value></data>
   <data name="Product_UpdateStatus_NotChecked" xml:space="preserve"><value>尚未检查；缓存内容仅供参考</value></data>
   <data name="Product_UpdateStatus_Checking" xml:space="preserve"><value>正在检查更新…</value></data>
   <data name="Product_UpdateStatus_UpToDate" xml:space="preserve"><value>当前已是最新稳定版本</value></data>
@@ -7948,4 +7948,56 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="Sponsor_NavigationAnimation_Entrance" xml:space="preserve"><value>轻柔进入</value></data>
   <data name="Sponsor_NavigationAnimation_Slide" xml:space="preserve"><value>横向滑动</value></data>
   <data name="Sponsor_NavigationAnimation_DrillIn" xml:space="preserve"><value>缩放</value></data>
+  <data name="Product_UpdateHeading.Text" xml:space="preserve"><value>版本与更新</value></data>
+  <data name="Product_NoticesHeading.Text" xml:space="preserve"><value>公告</value></data>
+  <data name="Product_VersionLabel" xml:space="preserve"><value>当前版本 {0}</value></data>
+  <data name="Product_InstallationMethod" xml:space="preserve"><value>安装方式：{0}</value></data>
+  <data name="Product_UnknownInstallationHint" xml:space="preserve"><value>未识别安装方式，更新时将打开官方发布页面。</value></data>
+  <data name="Product_UpdateTarget" xml:space="preserve"><value>可更新至 v{0}</value></data>
+  <data name="Product_ReleasePage.Content" xml:space="preserve"><value>发行说明</value></data>
+  <data name="Product_UpdateDetails.Header" xml:space="preserve"><value>更新说明与提醒选项</value></data>
+  <data name="Product_CurrentNotices.Text" xml:space="preserve"><value>当前公告</value></data>
+  <data name="Product_ArchivedNotices.Text" xml:space="preserve"><value>已归档</value></data>
+  <data name="Product_CriticalNotice" xml:space="preserve"><value>重要兼容性提醒</value></data>
+  <data name="Product_AppliesToCurrentVersion" xml:space="preserve"><value>适用于当前版本</value></data>
+  <data name="Product_NoticeMetadata" xml:space="preserve"><value>发布于 {0} · {1}</value></data>
+  <data name="Product_ViewSteps" xml:space="preserve"><value>查看处理步骤</value></data>
+  <data name="Product_ViewDetails" xml:space="preserve"><value>查看详情</value></data>
+  <data name="Product_CollapseNotice" xml:space="preserve"><value>收起详情</value></data>
+  <data name="Product_CancelSnooze.Text" xml:space="preserve"><value>取消暂缓提醒</value></data>
+  <data name="Product_RestoreUpdate.Text" xml:space="preserve"><value>重新启用此版本提醒</value></data>
+  <data name="Product_Unarchive.Text" xml:space="preserve"><value>取消归档</value></data>
+  <data name="Product_NoticeCount" xml:space="preserve"><value>{0} 条适用 · 含 {1} 条重要提醒</value></data>
+  <data name="Product_NoticesLastCheck" xml:space="preserve"><value>上次成功刷新：{0}</value></data>
+  <data name="Product_NoticesLoading" xml:space="preserve"><value>正在获取公告…</value></data>
+  <data name="Product_NoticesFailedNoCache" xml:space="preserve"><value>无法获取公告，且没有有效缓存。请刷新重试。</value></data>
+  <data name="Product_NoticesCached" xml:space="preserve"><value>正在显示有效缓存；本次会话尚未成功刷新公告。</value></data>
+  <data name="Product_NoticesNotChecked" xml:space="preserve"><value>尚未获取公告，可点击“刷新公告”获取。</value></data>
+  <data name="Product_NoArchivedNotices" xml:space="preserve"><value>暂无已归档的适用公告。</value></data>
+  <data name="Product_AllNoticesArchived" xml:space="preserve"><value>当前适用的公告均已归档，可切换至“已归档”查看。</value></data>
+  <data name="Product_NoApplicableNotices" xml:space="preserve"><value>当前版本暂无适用公告。</value></data>
+  <data name="Product_NoApplicableCachedNotices" xml:space="preserve"><value>有效缓存中没有适用于当前版本的公告，可刷新获取最新结果。</value></data>
+  <data name="Product_WaitForNotices" xml:space="preserve"><value>正在刷新公告，请等待当前刷新完成。</value></data>
+  <data name="Product_WaitForUpdates" xml:space="preserve"><value>正在检查更新或保存刷新结果，请稍候。</value></data>
+  <data name="Product_UnknownInstallationMethod" xml:space="preserve"><value>安装方式：未识别（从官方发布页更新）</value></data>
+  <data name="Product_VersionSummary" xml:space="preserve"><value>v{0} · {1}</value></data>
+  <data name="Product_UpdateSectionName" xml:space="preserve"><value>版本与更新</value></data>
+  <data name="Product_NoticesSectionName" xml:space="preserve"><value>公告</value></data>
+  <data name="Product_UpdateShort_NotChecked" xml:space="preserve"><value>尚未检查更新</value></data>
+  <data name="Product_UpdateShort_Checking" xml:space="preserve"><value>正在检查更新…</value></data>
+  <data name="Product_UpdateShort_UpToDate" xml:space="preserve"><value>已是最新稳定版</value></data>
+  <data name="Product_UpdateShort_Available" xml:space="preserve"><value>发现新版本</value></data>
+  <data name="Product_UpdateShort_Failed" xml:space="preserve"><value>检查失败，可重试</value></data>
+  <data name="Product_NoticesHeaderDefault" xml:space="preserve"><value>查看公告与兼容性提醒</value></data>
+  <data name="Product_NoticesHeaderFailedCache" xml:space="preserve"><value>刷新失败，可阅读缓存公告</value></data>
+  <data name="Product_NoticesHeaderFailed" xml:space="preserve"><value>获取失败，请重试</value></data>
+  <data name="Product_ApplicableNoticeCount" xml:space="preserve"><value>{0} 条适用公告</value></data>
+  <data name="Product_ArchivedNoticeCount" xml:space="preserve"><value>{0} 条已归档公告</value></data>
+  <data name="Product_ViewArchivedNotices" xml:space="preserve"><value>查看已归档公告（{0}）</value></data>
+  <data name="Product_BackToCurrentNotices" xml:space="preserve"><value>返回当前公告</value></data>
+  <data name="Product_ImportantNoticeSummary" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Product_ArchivedListHeading.Text" xml:space="preserve"><value>已归档公告</value></data>
+  <data name="Product_ReleaseNotesDetails.Header" xml:space="preserve"><value>更新说明</value></data>
+  <data name="Product_ReleaseNotesOpenFailed" xml:space="preserve"><value>无法打开发行说明，请稍后重试。</value></data>
+  <data name="Product_CachedUpdateTarget" xml:space="preserve"><value>缓存提示可更新至 v{0}</value></data>
 </root>

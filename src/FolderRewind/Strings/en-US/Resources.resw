@@ -7858,7 +7858,7 @@ Affected projects: {1}</value></data>
   <data name="Product_Channel_Setup" xml:space="preserve"><value>Setup installer</value></data>
   <data name="Product_Channel_Sideload" xml:space="preserve"><value>Sideload</value></data>
   <data name="Product_Channel_Developer" xml:space="preserve"><value>Development</value></data>
-  <data name="Product_Channel_Unknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Product_Channel_Unknown" xml:space="preserve"><value>Not recognized</value></data>
   <data name="Product_UpdateStatus_NotChecked" xml:space="preserve"><value>Not checked; cached information may be outdated</value></data>
   <data name="Product_UpdateStatus_Checking" xml:space="preserve"><value>Checking for updates…</value></data>
   <data name="Product_UpdateStatus_UpToDate" xml:space="preserve"><value>You have the latest stable version</value></data>
@@ -7948,4 +7948,56 @@ Affected projects: {1}</value></data>
   <data name="Sponsor_NavigationAnimation_Entrance" xml:space="preserve"><value>Gentle entrance</value></data>
   <data name="Sponsor_NavigationAnimation_Slide" xml:space="preserve"><value>Horizontal slide</value></data>
   <data name="Sponsor_NavigationAnimation_DrillIn" xml:space="preserve"><value>Zoom</value></data>
+  <data name="Product_UpdateHeading.Text" xml:space="preserve"><value>Version and updates</value></data>
+  <data name="Product_NoticesHeading.Text" xml:space="preserve"><value>Announcements</value></data>
+  <data name="Product_VersionLabel" xml:space="preserve"><value>Current version {0}</value></data>
+  <data name="Product_InstallationMethod" xml:space="preserve"><value>Installation method: {0}</value></data>
+  <data name="Product_UnknownInstallationHint" xml:space="preserve"><value>Installation method was not recognized. Updates open the official release page.</value></data>
+  <data name="Product_UpdateTarget" xml:space="preserve"><value>Update available: v{0}</value></data>
+  <data name="Product_ReleasePage.Content" xml:space="preserve"><value>Release notes</value></data>
+  <data name="Product_UpdateDetails.Header" xml:space="preserve"><value>Release notes and reminder options</value></data>
+  <data name="Product_CurrentNotices.Text" xml:space="preserve"><value>Current</value></data>
+  <data name="Product_ArchivedNotices.Text" xml:space="preserve"><value>Archived</value></data>
+  <data name="Product_CriticalNotice" xml:space="preserve"><value>Important compatibility notice</value></data>
+  <data name="Product_AppliesToCurrentVersion" xml:space="preserve"><value>Applies to your current version</value></data>
+  <data name="Product_NoticeMetadata" xml:space="preserve"><value>Published {0} · {1}</value></data>
+  <data name="Product_ViewSteps" xml:space="preserve"><value>View workaround steps</value></data>
+  <data name="Product_ViewDetails" xml:space="preserve"><value>View details</value></data>
+  <data name="Product_CollapseNotice" xml:space="preserve"><value>Collapse details</value></data>
+  <data name="Product_CancelSnooze.Text" xml:space="preserve"><value>Cancel reminder deferral</value></data>
+  <data name="Product_RestoreUpdate.Text" xml:space="preserve"><value>Re-enable reminders for this version</value></data>
+  <data name="Product_Unarchive.Text" xml:space="preserve"><value>Unarchive announcement</value></data>
+  <data name="Product_NoticeCount" xml:space="preserve"><value>{0} applicable · {1} important</value></data>
+  <data name="Product_NoticesLastCheck" xml:space="preserve"><value>Last successful refresh: {0}</value></data>
+  <data name="Product_NoticesLoading" xml:space="preserve"><value>Fetching announcements…</value></data>
+  <data name="Product_NoticesFailedNoCache" xml:space="preserve"><value>Could not fetch announcements and no valid cache is available. Refresh to retry.</value></data>
+  <data name="Product_NoticesCached" xml:space="preserve"><value>Showing valid cached announcements. They have not been refreshed successfully in this session.</value></data>
+  <data name="Product_NoticesNotChecked" xml:space="preserve"><value>Announcements have not been fetched. Select Refresh announcements to fetch them.</value></data>
+  <data name="Product_NoArchivedNotices" xml:space="preserve"><value>No applicable archived announcements.</value></data>
+  <data name="Product_AllNoticesArchived" xml:space="preserve"><value>All applicable announcements are archived. Select Archived to view them.</value></data>
+  <data name="Product_NoApplicableNotices" xml:space="preserve"><value>No announcements apply to your current version.</value></data>
+  <data name="Product_NoApplicableCachedNotices" xml:space="preserve"><value>The valid cache contains no announcements for your current version. Refresh for the latest result.</value></data>
+  <data name="Product_WaitForNotices" xml:space="preserve"><value>Announcements are refreshing. Wait for the refresh to finish.</value></data>
+  <data name="Product_WaitForUpdates" xml:space="preserve"><value>Checking updates or saving refresh results. Please wait.</value></data>
+  <data name="Product_UnknownInstallationMethod" xml:space="preserve"><value>Installation method: not recognized (updates via the official release page)</value></data>
+  <data name="Product_VersionSummary" xml:space="preserve"><value>v{0} · {1}</value></data>
+  <data name="Product_UpdateSectionName" xml:space="preserve"><value>Version and updates</value></data>
+  <data name="Product_NoticesSectionName" xml:space="preserve"><value>Announcements</value></data>
+  <data name="Product_UpdateShort_NotChecked" xml:space="preserve"><value>Updates not checked</value></data>
+  <data name="Product_UpdateShort_Checking" xml:space="preserve"><value>Checking for updates…</value></data>
+  <data name="Product_UpdateShort_UpToDate" xml:space="preserve"><value>Up to date</value></data>
+  <data name="Product_UpdateShort_Available" xml:space="preserve"><value>Update available</value></data>
+  <data name="Product_UpdateShort_Failed" xml:space="preserve"><value>Check failed. Try again</value></data>
+  <data name="Product_NoticesHeaderDefault" xml:space="preserve"><value>Announcements and compatibility notices</value></data>
+  <data name="Product_NoticesHeaderFailedCache" xml:space="preserve"><value>Refresh failed. Cached announcements are available</value></data>
+  <data name="Product_NoticesHeaderFailed" xml:space="preserve"><value>Could not fetch announcements. Try again</value></data>
+  <data name="Product_ApplicableNoticeCount" xml:space="preserve"><value>{0} applicable announcements</value></data>
+  <data name="Product_ArchivedNoticeCount" xml:space="preserve"><value>{0} archived announcements</value></data>
+  <data name="Product_ViewArchivedNotices" xml:space="preserve"><value>View archived announcements ({0})</value></data>
+  <data name="Product_BackToCurrentNotices" xml:space="preserve"><value>Back to current announcements</value></data>
+  <data name="Product_ImportantNoticeSummary" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Product_ArchivedListHeading.Text" xml:space="preserve"><value>Archived announcements</value></data>
+  <data name="Product_ReleaseNotesDetails.Header" xml:space="preserve"><value>Release notes</value></data>
+  <data name="Product_ReleaseNotesOpenFailed" xml:space="preserve"><value>Could not open release notes. Please try again.</value></data>
+  <data name="Product_CachedUpdateTarget" xml:space="preserve"><value>Cached update: v{0}</value></data>
 </root>

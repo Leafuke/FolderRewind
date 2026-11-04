@@ -18,10 +18,17 @@ internal static class NoticeService
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
     internal static AnnouncementDocument Document { get; private set; } = new() { SchemaVersion = 1 };
     internal static DateTimeOffset FetchedUtc { get; private set; }
-    internal static bool LastCheckFailed { get; private set; }
+    internal enum CheckStatus { NotChecked, Checking, Succeeded, Failed }
+    internal static CheckStatus Status { get; private set; }
+    internal static bool LastCheckFailed => Status == CheckStatus.Failed;
+    internal static bool HasValidCache => FetchedUtc != default && DateTimeOffset.UtcNow - FetchedUtc <= TimeSpan.FromDays(30);
+    internal static event Action? Changed;
 
     internal static async Task CheckAsync(CancellationToken ct)
     {
+        var previous = Status;
+        Status = CheckStatus.Checking;
+        NotificationCoordinator.Notify(Changed);
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, IndexUrl);
@@ -33,14 +40,15 @@ internal static class NoticeService
             var bytes = await ReadBoundedAsync(input, ct);
             var document = JsonSerializer.Deserialize(bytes, ProductMessageJsonContext.Default.AnnouncementDocument);
             if (!Validate(document)) throw new InvalidDataException("Invalid announcement index.");
-            Document = document!; FetchedUtc = DateTimeOffset.UtcNow; LastCheckFailed = false;
+            Document = document!; FetchedUtc = DateTimeOffset.UtcNow; Status = CheckStatus.Succeeded;
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { Status = previous; throw; }
         catch (Exception error)
         {
-            LastCheckFailed = true;
+            Status = CheckStatus.Failed;
             LogService.LogError("Announcement refresh failed; retaining valid cached content.", nameof(NoticeService), error);
         }
+        finally { NotificationCoordinator.Notify(Changed); }
     }
 
     internal static async Task<byte[]> ReadBoundedAsync(Stream input, CancellationToken ct)
@@ -91,7 +99,7 @@ internal static class NoticeService
         var now = DateTimeOffset.UtcNow;
         var version = AppRuntimeInfo.GetApplicationVersion();
         var channel = AppDistributionService.GetCurrentChannel().ToString();
-        if (version is null || now - FetchedUtc > TimeSpan.FromDays(30)) return [];
+        if (version is null || !HasValidCache) return [];
         return Document.Items.Where(i => i.PublishedAt <= now && i.ExpiresAt > now && i.Channels.Contains(channel)
             && (i.MinVersion is null || version >= Normalize(i.MinVersion))
             && (i.MaxVersionExclusive is null || version < Normalize(i.MaxVersionExclusive)))
