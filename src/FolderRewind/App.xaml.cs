@@ -137,6 +137,7 @@ namespace FolderRewind
                 Services.SponsorService.InitializeFromCache();
 
                 Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig.GlobalSettings);
+                Services.ThemeService.ApplyAccentPreferences();
                 _window = new MainWindow();
                 // 两个服务在启动时只注入一次，后续页面统一从这里取窗口与 UI 调度入口。
                 MainWindowService.Initialize(_window);
