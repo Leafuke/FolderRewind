@@ -438,7 +438,8 @@ public sealed partial class HistoryPageViewModel
                 return false;
             }
 
-            var result = RepairMissingSource(missing, path.Trim(), expectedRevision);
+            var result = await RepairMissingSourceAsync(missing, path.Trim(), expectedRevision, cancellationToken);
+            if (!_isActive || cancellationToken.IsCancellationRequested) return false;
             if (!result.Succeeded)
             {
                 ShowInteractionWarning(result.Diagnostic);
@@ -476,7 +477,8 @@ public sealed partial class HistoryPageViewModel
             return false;
         }
 
-        var result = RepairHistoricalBoundary(mismatch, expectedRevision);
+        var result = await RepairHistoricalBoundaryAsync(mismatch, expectedRevision, cancellationToken);
+        if (!_isActive || cancellationToken.IsCancellationRequested) return false;
         if (!result.Succeeded)
         {
             ShowInteractionWarning(result.Diagnostic);

@@ -1680,6 +1680,10 @@ Keys use letters, digits, and underscores only. Values must be percent-encoded. 
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] Failed to save config: {0}</value>
   </data>
+  <data name="Config_SaveFailureTitle" xml:space="preserve"><value>Configuration not saved</value></data>
+  <data name="Config_SaveFailureMessage" xml:space="preserve"><value>The configuration could not be saved. Review the details, resolve the problem, and save again.</value></data>
+  <data name="Config_SourceIdInvalid" xml:space="preserve"><value>A source identifier is invalid or empty. Repair its binding and save again. Saving will not change historical source identifiers automatically.</value></data>
+  <data name="Config_SourceIdDuplicate" xml:space="preserve"><value>Multiple sources share an identifier. Resolve the binding conflict and save again. Saving will not change historical source identifiers automatically.</value></data>
   <data name="Config_OpenConfigDirFailed" xml:space="preserve">
     <value>[Config] Failed to open config directory: {0}</value>
   </data>

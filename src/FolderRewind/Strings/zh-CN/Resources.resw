@@ -1680,6 +1680,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] 配置保存失败：{0}</value>
   </data>
+  <data name="Config_SaveFailureTitle" xml:space="preserve"><value>配置未保存</value></data>
+  <data name="Config_SaveFailureMessage" xml:space="preserve"><value>无法保存配置。请查看详情，解决问题后重新保存。</value></data>
+  <data name="Config_SourceIdInvalid" xml:space="preserve"><value>来源标识无效或为空，配置未保存。请修复来源关联后重试；保存不会自动更改历史来源标识。</value></data>
+  <data name="Config_SourceIdDuplicate" xml:space="preserve"><value>多个来源使用了同一标识，配置未保存。请解决来源关联冲突后重试；保存不会自动更改历史来源标识。</value></data>
   <data name="Config_OpenConfigDirFailed" xml:space="preserve">
     <value>[Config] 无法打开配置目录：{0}</value>
   </data>

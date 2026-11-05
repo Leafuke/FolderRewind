@@ -885,28 +885,30 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             branch.Tips[0].UpdateId).ConfigureAwait(false);
     }
 
-    internal HistoryConfigurationRepairResult RepairMissingSource(
+    internal Task<HistoryConfigurationRepairResult> RepairMissingSourceAsync(
         MissingHistoricalSource missing,
         string confirmedPath,
-        string expectedConfigRevision)
+        string expectedConfigRevision,
+        CancellationToken cancellationToken = default)
         => _currentConfig is null
-            ? new(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected.")
-            : HistorySourceBindingRepairService.RestoreMissingBinding(
+            ? Task.FromResult(new HistoryConfigurationRepairResult(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected."))
+            : HistorySourceBindingRepairService.RestoreMissingBindingAsync(
                 _currentConfig,
                 missing,
                 confirmedPath,
-                expectedConfigRevision);
+                expectedConfigRevision, cancellationToken);
 
-    internal HistoryConfigurationRepairResult RepairHistoricalBoundary(
+    internal Task<HistoryConfigurationRepairResult> RepairHistoricalBoundaryAsync(
         HistorySourceBoundaryMismatch mismatch,
-        string expectedConfigRevision)
+        string expectedConfigRevision,
+        CancellationToken cancellationToken = default)
         => _currentConfig is null
-            ? new(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected.")
-            : HistorySourceBindingRepairService.RestoreHistoricalBoundary(
+            ? Task.FromResult(new HistoryConfigurationRepairResult(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected."))
+            : HistorySourceBindingRepairService.RestoreHistoricalBoundaryAsync(
                 _currentConfig,
                 mismatch,
                 expectedConfigRevision,
-                acceptConfigWideFilterImpact: true);
+                acceptConfigWideFilterImpact: true, cancellationToken);
 
     public string? CurrentConfigRevision => _currentConfig?.ConfigRevision;
 
