@@ -168,8 +168,12 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
 
     internal static async Task<string> HashAsync(string path, CancellationToken token)
     {
+        using var timing = HistoryOperationDiagnostics.Current?.Measure("retention-storage-hash");
+        HistoryOperationDiagnostics.Current?.Count("retention-storage-hash-calls");
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
-        return Convert.ToHexString(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false));
+        var digest = Convert.ToHexString(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false));
+        HistoryOperationDiagnostics.Current?.Count("retention-storage-hash-bytes", stream.Position);
+        return digest;
     }
 
     internal void CleanupOwnedTree(string path)
@@ -183,6 +187,15 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
 
     internal void CleanupOperationTree(HistoryTransactionId id, bool payloads)
         => CleanupOperationTree(id, payloads, BackupRoot);
+
+    internal void CleanupWorkSubtree(HistoryTransactionId id, string path)
+    {
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        var work = Path.TrimEndingDirectorySeparator(Path.GetFullPath(WorkRoot(id)));
+        if (StringComparer.OrdinalIgnoreCase.Equals(full, work) || !HistoryRewriteStoragePaths.IsWithin(full, work))
+            throw new InvalidDataException("Rewrite cleanup escapes its owned work directory.");
+        DeleteTree(full);
+    }
 
     private void CleanupOperationTree(HistoryTransactionId id, bool payloads, string? destination)
     {
