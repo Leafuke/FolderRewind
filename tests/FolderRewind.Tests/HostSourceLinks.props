@@ -27,7 +27,6 @@
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Presentation.cs" Link="Host/Services/History/SpatialWorkspaceIndex.Presentation.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Snapshot.cs" Link="Host/Services/History/SpatialWorkspaceIndex.Snapshot.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialPresentationRefreshCoordinator.cs" Link="Host/Services/History/SpatialPresentationRefreshCoordinator.cs" />
-    <Compile Include="../../src/FolderRewind/Services/History/SqliteReadCancellation.cs" Link="Host/Services/History/SqliteReadCancellation.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobScheduler.cs" Link="Host/Services/Cloud/CloudJobScheduler.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobTaskRegistry.cs" Link="Host/Services/Cloud/CloudJobTaskRegistry.cs" />
     <Compile Include="../../src/FolderRewind/Services/Backup/BackupTaskCollection.cs" Link="Host/Services/Backup/BackupTaskCollection.cs" />
