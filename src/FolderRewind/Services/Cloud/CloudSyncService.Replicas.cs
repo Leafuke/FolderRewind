@@ -23,7 +23,12 @@ namespace FolderRewind.Services
         internal static async Task DrainForExitAsync()
         {
             Task[] active;
-            lock (AutomaticSyncLock) { _automaticSyncStopping = true; active = CloudWorkers.Values.ToArray(); }
+            lock (AutomaticSyncLock)
+            {
+                _automaticSyncStopping = true;
+                active = CloudWorkers.Values.Select(worker => worker.Task).ToArray();
+                foreach (var worker in CloudWorkers.Values) worker.Wake.Set();
+            }
             await Task.WhenAll(active).WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
             if (!await CommandSemaphore.WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false))
                 throw new TimeoutException("Wait for active cloud transfers before restarting.");
@@ -64,6 +69,7 @@ namespace FolderRewind.Services
                 await using (var gate = await runtime.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false))
                     job = runtime.CloudJobs.RegisterManual(pack, FreezeTarget(config), [representationId]);
                 var result = await ExecuteCloudJobAsync(runtime, job, cancellationToken, localPath).ConfigureAwait(false);
+                if (!result.Complete) ResumeCloudJobs(config);
                 return result.Complete;
             }
             catch (Exception ex)

@@ -64,14 +64,17 @@ namespace FolderRewind.ViewModels
         private bool _currentFoldersRefreshPending;
 
         public event Action? PendingFolderSelectionRequested;
+        internal event Action? CurrentFoldersViewRefreshing;
+        internal event Action? CurrentFoldersViewRefreshed;
+        private string? _foldersViewConfigId;
 
         public ObservableCollection<BackupConfig> Configs =>
             ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
 
         // WinUI + MSIX Trim 下，使用 object 投影视图可规避部分泛型集合绑定异常。
-        public ObservableCollection<object> ConfigsView { get; } = new();
+        public BatchObservableCollection<object> ConfigsView { get; } = new();
 
-        public ObservableCollection<object> CurrentFoldersView { get; } = new();
+        public BatchObservableCollection<object> CurrentFoldersView { get; } = new();
 
         public GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
 
@@ -689,7 +692,7 @@ namespace FolderRewind.ViewModels
             _refreshingConfigs = true;
             try
             {
-                SynchronizeView(ConfigsView, Configs.Cast<object>().ToArray());
+                ConfigsView.Synchronize(Configs.Cast<object>());
             }
             finally { _refreshingConfigs = false; }
             OnPropertyChanged(nameof(CurrentConfig));
@@ -697,29 +700,23 @@ namespace FolderRewind.ViewModels
 
         public void RefreshCurrentFoldersView()
         {
+            var configId = CurrentConfig?.Id;
+            var desired = CurrentConfig?.SourceFolders.Cast<object>() ?? Enumerable.Empty<object>();
+            var preserveViewport = configId is not null && configId == _foldersViewConfigId
+                && !CurrentFoldersView.SequenceEqual(desired);
+            if (preserveViewport) CurrentFoldersViewRefreshing?.Invoke();
             _refreshingFolders = true;
             try
             {
-                var desired = CurrentConfig?.SourceFolders.Cast<object>().ToArray() ?? Array.Empty<object>();
-                SynchronizeView(CurrentFoldersView, desired);
+                CurrentFoldersView.Synchronize(desired);
                 _context.RefreshSelection();
+                _foldersViewConfigId = configId;
             }
             finally { _refreshingFolders = false; }
             NotifySelectionChanged();
             OnPropertyChanged(nameof(HasFolders));
             OnPropertyChanged(nameof(IsEmpty));
-        }
-
-        private static void SynchronizeView(ObservableCollection<object> view, object[] desired)
-        {
-            for (var i = 0; i < desired.Length; i++)
-            {
-                if (i < view.Count && ReferenceEquals(view[i], desired[i])) continue;
-                var previous = view.IndexOf(desired[i]);
-                if (previous >= 0) view.Move(previous, i);
-                else view.Insert(i, desired[i]);
-            }
-            while (view.Count > desired.Length) view.RemoveAt(view.Count - 1);
+            if (preserveViewport) CurrentFoldersViewRefreshed?.Invoke();
         }
 
         private void PersistManagerSelection(string? configId, string? folderPath)

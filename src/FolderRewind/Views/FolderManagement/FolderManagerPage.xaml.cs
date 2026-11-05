@@ -6,8 +6,12 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Collections.Specialized;
+using System.Linq;
+using System.Threading.Tasks;
 using Windows.System;
 
 namespace FolderRewind.Views
@@ -16,6 +20,12 @@ namespace FolderRewind.Views
     {
         public FolderManagerPageViewModel ViewModel { get; }
         private bool? _compactToolbar;
+        private bool _pageActive;
+        private long _viewportRevision;
+        private FolderViewportAnchor? _folderViewportAnchor;
+        private bool _folderResetObserved;
+        private BackupConfig? _observedConfig;
+        private sealed record FolderViewportAnchor(string ConfigId, string FolderId, double Top);
         private void OnToolbarSizeChanged(object sender, SizeChangedEventArgs e)
         {
             var compact = e.NewSize.Width < 1000;
@@ -47,6 +57,24 @@ namespace FolderRewind.Views
             this.InitializeComponent();
 
             ViewModel.PendingFolderSelectionRequested += TryApplyPendingSelection;
+            ViewModel.CurrentFoldersViewRefreshing += CaptureFolderViewport;
+            ViewModel.CurrentFoldersViewRefreshed += RestoreFolderViewportAfterRefresh;
+            ViewModel.CurrentFoldersView.CollectionChanged += OnFolderProjectionChanged;
+            ViewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ViewModel.CurrentConfig) &&
+                    !ReferenceEquals(_observedConfig, ViewModel.CurrentConfig))
+                {
+                    _observedConfig = ViewModel.CurrentConfig;
+                    _viewportRevision++;
+                }
+            };
+            FolderList.AddHandler(UIElement.PointerPressedEvent,
+                new PointerEventHandler((_, _) => _viewportRevision++), handledEventsToo: true);
+            FolderList.AddHandler(UIElement.PointerWheelChangedEvent,
+                new PointerEventHandler((_, _) => _viewportRevision++), handledEventsToo: true);
+            FolderList.AddHandler(UIElement.KeyDownEvent,
+                new KeyEventHandler((_, _) => _viewportRevision++), handledEventsToo: true);
             Loaded += (_, __) => TryApplyPendingSelection();
         }
 
@@ -73,6 +101,7 @@ namespace FolderRewind.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            _pageActive = true;
             Bindings.Update();
 
             ViewModel.Activate();
@@ -124,6 +153,9 @@ namespace FolderRewind.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            _pageActive = false;
+            _viewportRevision++;
+            _folderViewportAnchor = null;
 
             try
             {
@@ -183,6 +215,8 @@ namespace FolderRewind.Views
                 return;
             }
 
+            _viewportRevision++;
+
             if (ViewModel.CurrentConfig?.SourceFolders == null || FolderList == null)
             {
                 return;
@@ -193,6 +227,70 @@ namespace FolderRewind.Views
                 if (ViewModel.ApplyPendingSelection(request) && ViewModel.SelectedFolderItem is { } target)
                     FolderList.ScrollIntoView(target);
             });
+        }
+
+        private void CaptureFolderViewport()
+        {
+            _viewportRevision++;
+            _folderViewportAnchor = null;
+            _folderResetObserved = false;
+            if (!_pageActive || ViewModel.CurrentConfig is not { } config ||
+                FolderList.ItemsPanelRoot is not ItemsStackPanel panel ||
+                FindScrollViewer(FolderList) is not { } scroll) return;
+            var index = panel.FirstVisibleIndex;
+            if (index < 0 || index >= ViewModel.CurrentFoldersView.Count ||
+                ViewModel.CurrentFoldersView[index] is not ManagedFolder folder ||
+                FolderList.ContainerFromIndex(index) is not FrameworkElement container) return;
+            var top = container.TransformToVisual(scroll).TransformPoint(new Windows.Foundation.Point()).Y;
+            _folderViewportAnchor = new(config.Id, folder.Id, top);
+        }
+
+        private void OnFolderProjectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (_folderViewportAnchor is not null && e.Action == NotifyCollectionChangedAction.Reset)
+                _folderResetObserved = true;
+        }
+
+        private void RestoreFolderViewportAfterRefresh()
+        {
+            var anchor = _folderViewportAnchor;
+            _folderViewportAnchor = null;
+            if (!_folderResetObserved || anchor is null) return;
+            var revision = _viewportRevision;
+            _ = DispatcherQueue.TryEnqueue(() => TaskObserver.Observe(
+                RestoreFolderViewportAsync(anchor, revision), nameof(FolderManagerPage)));
+        }
+
+        private async Task RestoreFolderViewportAsync(FolderViewportAnchor anchor, long revision)
+        {
+            if (!CanRestoreViewport(anchor, revision)) return;
+            var folder = ViewModel.CurrentFoldersView.OfType<ManagedFolder>()
+                .FirstOrDefault(item => string.Equals(item.Id, anchor.FolderId, StringComparison.OrdinalIgnoreCase));
+            if (folder is null) return;
+            FolderList.ScrollIntoView(folder, ScrollIntoViewAlignment.Leading);
+            // A virtualized item may be realized on a later layout pass.
+            for (var attempt = 0; attempt < 8; attempt++)
+            {
+                await Task.Delay(25);
+                if (!CanRestoreViewport(anchor, revision)) return;
+                if (FolderList.ContainerFromItem(folder) is not FrameworkElement container ||
+                    FindScrollViewer(FolderList) is not { } scroll) continue;
+                var top = container.TransformToVisual(scroll).TransformPoint(new Windows.Foundation.Point()).Y;
+                var offset = Math.Clamp(scroll.VerticalOffset + top - anchor.Top, 0, scroll.ScrollableHeight);
+                scroll.ChangeView(null, offset, null, disableAnimation: true);
+                return;
+            }
+        }
+
+        private bool CanRestoreViewport(FolderViewportAnchor anchor, long revision) =>
+            _pageActive && _viewportRevision == revision && ViewModel.CurrentConfig?.Id == anchor.ConfigId;
+
+        private static ScrollViewer? FindScrollViewer(DependencyObject root)
+        {
+            if (root is ScrollViewer scroll) return scroll;
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+                if (FindScrollViewer(VisualTreeHelper.GetChild(root, i)) is { } child) return child;
+            return null;
         }
 
         private ManagedFolder? GetActionFolder(object sender)

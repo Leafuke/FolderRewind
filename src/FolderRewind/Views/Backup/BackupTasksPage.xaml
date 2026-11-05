@@ -70,7 +70,7 @@
 
                             <!-- Row 1: 进度条 - 支持不确定模式（脉冲动画）和确定模式（实际百分比） -->
                             <ProgressBar Grid.Row="1" 
-                                         IsIndeterminate="{x:Bind IsIndeterminate, Mode=OneWay}"
+                                         IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
                                          Value="{x:Bind Progress, Mode=OneWay}" 
                                          Maximum="100" 
                                          Margin="0,12,0,0" Height="4" CornerRadius="4"/>

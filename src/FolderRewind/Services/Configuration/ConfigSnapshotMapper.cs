@@ -102,7 +102,10 @@ internal static class ConfigSnapshotMapper
         SchemaExtensions = value.SchemaExtensions is null ? null! : value.SchemaExtensions.ToDictionary(pair0 => pair0.Key, pair0 => pair0.Value.Clone(), value.SchemaExtensions.Comparer),
     };
 
-    public static BackupConfig Copy(BackupConfig? value) => value is null ? null! : new BackupConfig
+    public static BackupConfig Copy(BackupConfig? value)
+        => value is null ? null! : Copy(value, I18n.Format("FolderManager_Status"));
+
+    private static BackupConfig Copy(BackupConfig value, string defaultFolderStatus) => new BackupConfig
     {
         Id = value.Id,
         Name = value.Name,
@@ -119,7 +122,7 @@ internal static class ConfigSnapshotMapper
         IsEncrypted = value.IsEncrypted,
         DiscoveryOrigin = Copy(value.DiscoveryOrigin),
         IconGlyph = value.IconGlyph,
-        SourceFolders = value.SourceFolders is null ? null! : new ObservableCollection<ManagedFolder>(value.SourceFolders.Select(item0 => Copy(item0))),
+        SourceFolders = value.SourceFolders is null ? null! : new ObservableCollection<ManagedFolder>(value.SourceFolders.Select(item0 => Copy(item0, defaultFolderStatus))),
         Archive = Copy(value.Archive),
         Automation = Copy(value.Automation),
         Filters = Copy(value.Filters),
@@ -246,14 +249,17 @@ internal static class ConfigSnapshotMapper
         ManifestRevision = value.ManifestRevision,
     };
 
-    public static ManagedFolder Copy(ManagedFolder? value) => value is null ? null! : new ManagedFolder
+    public static ManagedFolder Copy(ManagedFolder? value)
+        => value is null ? null! : Copy(value, I18n.Format("FolderManager_Status"));
+
+    private static ManagedFolder Copy(ManagedFolder? value, string defaultStatus)
+        => value is null ? null! : new ManagedFolder(defaultStatus, value.LastBackupTime)
     {
         Id = value.Id,
         Path = value.Path,
         DisplayName = value.DisplayName,
         Description = value.Description,
         IsFavorite = value.IsFavorite,
-        LastBackupTime = value.LastBackupTime,
         CoverImagePath = value.CoverImagePath,
         SourceScope = Copy(value.SourceScope),
         BackupScopeOverride = value.BackupScopeOverride is null ? null : Copy(value.BackupScopeOverride),

@@ -58,7 +58,7 @@ namespace FolderRewind.Models
             get => _isCompleted;
             set
             {
-                SetProperty(ref _isCompleted, value);
+                if (SetProperty(ref _isCompleted, value)) OnPropertyChanged(nameof(IsProgressIndeterminate));
                 OnPropertyChanged(nameof(StatusSemantic));
                 OnPropertyChanged(nameof(StatusGlyph));
                 OnPropertyChanged(nameof(HasDetails));
@@ -81,7 +81,11 @@ namespace FolderRewind.Models
             get => _isIndeterminate;
             set
             {
-                if (SetProperty(ref _isIndeterminate, value)) OnPropertyChanged(nameof(ProgressText));
+                if (SetProperty(ref _isIndeterminate, value))
+                {
+                    OnPropertyChanged(nameof(ProgressText));
+                    OnPropertyChanged(nameof(IsProgressIndeterminate));
+                }
             }
         }
         public bool IsSuccess
@@ -95,6 +99,9 @@ namespace FolderRewind.Models
             }
         }
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value ?? string.Empty); }
+
+        [JsonIgnore]
+        public bool IsProgressIndeterminate => IsIndeterminate && !IsCompleted;
 
         [JsonIgnore]
         public string ProgressText => IsIndeterminate ? string.Empty : $"{Progress:F0}%";

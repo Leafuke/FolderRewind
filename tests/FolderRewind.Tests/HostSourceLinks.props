@@ -24,6 +24,9 @@
     <Compile Include="../../src/FolderRewind/Services/Backup/SourceScopeIntersection.cs" Link="Host/Services/Backup/SourceScopeIntersection.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.cs" Link="Host/Services/History/SpatialWorkspaceIndex.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Presentation.cs" Link="Host/Services/History/SpatialWorkspaceIndex.Presentation.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobScheduler.cs" Link="Host/Services/Cloud/CloudJobScheduler.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobTaskRegistry.cs" Link="Host/Services/Cloud/CloudJobTaskRegistry.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Backup/BackupTaskCollection.cs" Link="Host/Services/Backup/BackupTaskCollection.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/HistorySourceBindingRepairService.cs" Link="Host/Services/History/HistorySourceBindingRepairService.cs" />
     <Compile Include="../../src/FolderRewind/Services/Configuration/ConfigPersistencePolicy.cs" Link="Host/Services/Configuration/ConfigPersistencePolicy.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialSelectionGeometry.cs" Link="Host/Services/History/SpatialSelectionGeometry.cs" />

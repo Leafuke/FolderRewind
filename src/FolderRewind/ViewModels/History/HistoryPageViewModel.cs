@@ -989,8 +989,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(CurrentBranchDisplay));
         OnPropertyChanged(nameof(HasBranchDivergence));
-        foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
-        foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
+        foreach (var item in presentation.Versions) item.IsAdvanced = IsAdvancedHistory;
+        foreach (var item in presentation.Runs) item.IsAdvanced = IsAdvancedHistory;
         NotifyBranchSelectionChanged();
         if (append)
         {
@@ -1003,7 +1003,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             FilteredRuns.ReplaceAll(_allRuns);
         }
         IsEmpty = IsGroupedRunView ? FilteredRuns.Count == 0 : FilteredHistory.Count == 0;
-        UpdateSemanticStatusPreferences(_allVersions);
+        UpdateSemanticStatusPreferences(presentation.Versions);
         NotifyContextChanged();
         _ = AssessSelectedBranchAsync();
     }

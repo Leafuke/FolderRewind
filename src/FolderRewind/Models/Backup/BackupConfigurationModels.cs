@@ -184,12 +184,22 @@ namespace FolderRewind.Models
         private string _path = "";
         private string _displayName = "";
         private string _description = "";
-        private string _statusText = I18n.Format("FolderManager_Status");
-        private string _lastBackupTime = I18n.Format("FolderManager_NeverBackedUp");
+        private string _statusText;
+        private string _lastBackupTime;
         private bool _isFavorite;
         private string _coverImagePath = ""; // 对应封面图片路径
         private BackupSourceScope _sourceScope = new();
         private BackupScopeSettings? _backupScopeOverride;
+
+        public ManagedFolder() : this(I18n.Format("FolderManager_Status"), I18n.Format("FolderManager_NeverBackedUp"))
+        {
+        }
+
+        internal ManagedFolder(string statusText, string lastBackupTime)
+        {
+            _statusText = statusText;
+            _lastBackupTime = lastBackupTime;
+        }
 
         /// <summary>Null inherits configuration scope; an explicit empty setting disables that plugin scope for this Source.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
