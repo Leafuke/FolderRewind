@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <Platforms>AnyCPU</Platforms>
+    <DefineConstants>$(DefineConstants);UI_ACCEPTANCE_CRITERIA_TEST</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

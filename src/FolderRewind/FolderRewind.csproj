@@ -39,6 +39,25 @@
   <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true'">
     <DefineConstants>$(DefineConstants);NATIVE_ARTIFACT_ACCEPTANCE</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(FolderManagerUiAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);FOLDER_MANAGER_UI_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(PerformancePostRunAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);PERFORMANCE_POST_RUN_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(PerformanceUiProfiling)'=='true'">
+    <DefineConstants>$(DefineConstants);PERFORMANCE_UI_PROFILING</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(SpatialWorkspaceUiAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);SPATIAL_WORKSPACE_UI_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FolderRewindFaultInjection)'=='true' and '$(NativeArtifactAcceptance)'=='true' and '$(ConfigurationRepairAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);CONFIGURATION_REPAIR_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ValidateConfigurationRepairAcceptance" BeforeTargets="PrepareForBuild"
+          Condition="'$(ConfigurationRepairAcceptance)'=='true' and ('$(FolderRewindFaultInjection)'!='true' or '$(NativeArtifactAcceptance)'!='true')">
+    <Error Text="Configuration repair acceptance requires both FolderRewindFaultInjection=true and NativeArtifactAcceptance=true." />
+  </Target>
   <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
     <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI</DefineConstants>
     <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>

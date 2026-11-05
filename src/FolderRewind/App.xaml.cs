@@ -97,6 +97,18 @@ namespace FolderRewind
 
                 // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
+#if CONFIGURATION_REPAIR_ACCEPTANCE
+                Services.Development.ConfigurationRepairAcceptance.Prepare();
+#endif
+#if NATIVE_ARTIFACT_ACCEPTANCE
+                Services.Development.PerformanceUiAcceptance.Prepare();
+#endif
+#if FOLDER_MANAGER_UI_ACCEPTANCE
+                Services.Development.FolderManagerUiAcceptance.Prepare();
+#endif
+#if SPATIAL_WORKSPACE_UI_ACCEPTANCE
+                Services.Development.SpatialWorkspaceUiAcceptance.Prepare();
+#endif
 
                 if (Services.ConfigService.IsRecoveryMode)
                 {
@@ -150,7 +162,22 @@ namespace FolderRewind
                 UpdateWindowTitle();
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
+#if CONFIGURATION_REPAIR_ACCEPTANCE
+                Services.Development.ConfigurationRepairAcceptance.Start(_window);
+#endif
                 StartupTimingService.Mark("Window activated");
+#if NATIVE_ARTIFACT_ACCEPTANCE
+                Services.Development.PerformanceUiAcceptance.Start(_window);
+#endif
+#if FOLDER_MANAGER_UI_ACCEPTANCE
+                Services.Development.FolderManagerUiAcceptance.Start(_window);
+#endif
+#if PERFORMANCE_POST_RUN_ACCEPTANCE
+                Services.Development.PerformanceUiPostRunAcceptance.Start(_window);
+#endif
+#if SPATIAL_WORKSPACE_UI_ACCEPTANCE
+                Services.Development.SpatialWorkspaceUiAcceptance.Start(_window);
+#endif
                 ConfigService.StartRcloneCredentialMigrations();
                 Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));
 

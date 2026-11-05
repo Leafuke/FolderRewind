@@ -33,6 +33,7 @@
     <Compile Include="../../src/FolderRewind/Services/Backup/BackupTaskCollection.cs" Link="Host/Services/Backup/BackupTaskCollection.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/HistorySourceBindingRepairService.cs" Link="Host/Services/History/HistorySourceBindingRepairService.cs" />
     <Compile Include="../../src/FolderRewind/Services/Configuration/ConfigPersistencePolicy.cs" Link="Host/Services/Configuration/ConfigPersistencePolicy.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Development/UiAcceptanceCriteria.cs" Link="Host/Services/Development/UiAcceptanceCriteria.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialSelectionGeometry.cs" Link="Host/Services/History/SpatialSelectionGeometry.cs" />
     <Compile Include="../../src/FolderRewind/Services/Common/NativeRestoreCoordinationPolicy.cs" Link="Host/Services/Common/NativeRestoreCoordinationPolicy.cs" />
     <Compile Include="../../src/FolderRewind/Services/Diagnostics/OperationDiagnosticFormatter.cs" Link="Host/Services/Diagnostics/OperationDiagnosticFormatter.cs" />

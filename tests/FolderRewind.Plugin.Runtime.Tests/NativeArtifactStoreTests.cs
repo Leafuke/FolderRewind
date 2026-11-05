@@ -7,7 +7,7 @@ using FolderRewind.Plugin.Runtime.Artifacts;
 namespace FolderRewind.Plugin.Runtime.Tests;
 
 [TestClass]
-public sealed class NativeArtifactStoreTests
+public sealed partial class NativeArtifactStoreTests
 {
     private static readonly PluginId Id = new("com.example.native");
     private static readonly ArtifactFormatRef Format = new(new(Id.Value), "full");
@@ -472,6 +472,7 @@ public sealed class NativeArtifactStoreTests
 
     private sealed class Fixture : IDisposable
     {
+        public PluginRuntimeManager? Runtime { get; private set; }
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "NativeArtifactTests", Guid.NewGuid().ToString("N"));
         public FolderSnapshot Folder { get; } = new(Guid.NewGuid(), "unused", "world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         public async Task<(NativeArtifactStore Store, ArtifactId Root)> CaptureAsync(bool complete = true, bool diamond = false,
@@ -482,7 +483,7 @@ public sealed class NativeArtifactStoreTests
             Directory.CreateDirectory(Root);
             var source = Path.Combine(Root, "primary"); Directory.CreateDirectory(source);
             File.WriteAllText(Path.Combine(source, "input"), "input bytes");
-            var runtime = new PluginRuntimeManager();
+            var runtime = Runtime = new PluginRuntimeManager();
             var manifest = new PluginManifestContract(Id, "1.0.0", PluginApiVersion.HostVersion, "unused.dll", "Unused",
                 new("test", new Dictionary<string,string>()), new("test", new Dictionary<string,string>()), [], "unused.json",
                 [HostServiceKind.ArtifactRead, HostServiceKind.ArtifactTransformStaging, HostServiceKind.RestoreMaterializationWorkspace],
@@ -623,6 +624,8 @@ public sealed class NativeArtifactStoreTests
     }
     private sealed class ZipCodec(int concurrency = 1) : IConcurrentArtifactEnvelopeCodec, IBoundedArtifactEnvelopeCodec
     {
+        private int _packs;
+        public int Packs => _packs;
         private int _unpacks;
         public int Unpacks => _unpacks;
         public int MaximumConcurrency => concurrency;
@@ -638,7 +641,10 @@ public sealed class NativeArtifactStoreTests
             finally { Interlocked.Decrement(ref Workers); }
         }
         public Task PackAsync(string source, string payload, bool encrypted, CancellationToken token)
-            => Work(() => ZipFile.CreateFromDirectory(source, payload), token);
+        {
+            Interlocked.Increment(ref _packs);
+            return Work(() => ZipFile.CreateFromDirectory(source, payload), token);
+        }
         public Task UnpackAsync(string payload, string target, bool encrypted, long maximumBytes, ArtifactExtractionBudget budget, CancellationToken token)
         {
             using var zip = ZipFile.OpenRead(payload);
