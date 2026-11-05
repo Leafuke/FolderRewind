@@ -38,7 +38,8 @@ public sealed record HistoryReplicaObservation(
 
 public sealed class HistoryIndex : IDisposable
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
+    private const string BranchParentIndex = "CREATE INDEX IX_BranchUpdateParents_Parent ON BranchUpdateParents(ParentUpdateId, UpdateId)";
     private static readonly JsonSerializerOptions PayloadJsonOptions = new(JsonSerializerDefaults.Web);
     private const string Schema = """
         PRAGMA foreign_keys = OFF;
@@ -74,6 +75,7 @@ public sealed class HistoryIndex : IDisposable
         CREATE INDEX IX_Checkpoints_Source ON Checkpoints(SourceId, CreatedAtUtc);
         CREATE INDEX IX_BranchUpdates_Source ON BranchUpdates(SourceId, Name);
         CREATE INDEX IX_BranchUpdates_Branch ON BranchUpdates(BranchId, CreatedAtUtc);
+        CREATE INDEX IX_BranchUpdateParents_Parent ON BranchUpdateParents(ParentUpdateId, UpdateId);
         """;
 
     private readonly string _indexPath;
@@ -88,6 +90,55 @@ public sealed class HistoryIndex : IDisposable
     }
 
     public string IndexPath => _indexPath;
+
+    // The caller first matches the pack inventory under the repository gate. Only a
+    // known schema-3 cache is upgraded; other versions are rebuilt from immutable packs.
+    internal async Task<bool> EnsureCurrentSchemaAsync(CancellationToken token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            using var connection = OpenExisting();
+            using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA user_version";
+            var version = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+            if (version == CurrentSchemaVersion) return true;
+            if (version != 3) return false;
+            token.ThrowIfCancellationRequested();
+            using var transaction = connection.BeginTransaction();
+            command.Transaction = transaction;
+            version = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+            if (version == CurrentSchemaVersion) return true;
+            if (version != 3) return false;
+
+            command.CommandText = "SELECT name,sql FROM sqlite_master WHERE sql IS NOT NULL";
+            var definitions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            using (var reader = command.ExecuteReader())
+                while (reader.Read()) definitions.Add(reader.GetString(0), NormalizeSql(reader.GetString(1)));
+            foreach (var statement in Schema.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var sql = NormalizeSql(statement);
+                if (!sql.StartsWith("CREATE ", StringComparison.Ordinal) || sql == NormalizeSql(BranchParentIndex)) continue;
+                var name = sql.Split(' ')[2].Split('(')[0];
+                if (!definitions.TryGetValue(name, out var actual) || actual != sql) return false;
+            }
+            command.CommandText = "PRAGMA integrity_check";
+            if (!StringComparer.Ordinal.Equals(Convert.ToString(command.ExecuteScalar(), CultureInfo.InvariantCulture), "ok")) return false;
+            token.ThrowIfCancellationRequested();
+            command.CommandText = BranchParentIndex;
+            await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            command.CommandText = $"PRAGMA user_version = {CurrentSchemaVersion}";
+            await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            transaction.Commit();
+            return true;
+        }
+        finally { _gate.Release(); }
+
+        static string NormalizeSql(string sql)
+            => string.Join(' ', sql.Trim().TrimEnd(';').Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
 
     public async Task RebuildAsync(
         IReadOnlyList<HistoryPackReadResult> packs,

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
+using System.Threading;
 
 namespace FolderRewind.History.Domain;
 
@@ -61,27 +62,51 @@ public static class BackupSizeMetadata
 
     /// <summary>Only immutable storage facts are used here; browsing must never open backup content.</summary>
     public static long? DependencyBytes(VersionRepresentation? root, IReadOnlyDictionary<RepresentationId, VersionRepresentation> graph)
+        => DependencyBytes(root, graph, CancellationToken.None);
+
+    internal static long? DependencyBytes(VersionRepresentation? root,
+        IReadOnlyDictionary<RepresentationId, VersionRepresentation> graph, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         if (root is null) return null;
         var visited = new HashSet<RepresentationId>();
         var visiting = new HashSet<RepresentationId>();
+        var pending = new Stack<(VersionRepresentation Node, int NextDependency)>();
+        pending.Push((root, -1));
         long total = 0;
-        try { return Visit(root) ? total : null; }
-        catch (OverflowException) { return null; }
-
-        bool Visit(VersionRepresentation node)
+        try
         {
-            if (visited.Contains(node.RepresentationId)) return true;
-            if (!visiting.Add(node.RepresentationId)) return false;
-            var bytes = ReadBytes(node.RepresentationSpecificMetadata,
-                node.Kind == RepresentationKind.PluginArtifact ? NativeClosureBytesKey : StoredBytesKey);
-            if (bytes is null) return false;
-            total = checked(total + bytes.Value);
-            foreach (var id in node.DependencyRepresentationIds)
-                if (!graph.TryGetValue(id, out var dependency) || !Visit(dependency)) return false;
-            visiting.Remove(node.RepresentationId);
-            visited.Add(node.RepresentationId);
-            return true;
+            while (pending.TryPop(out var frame))
+            {
+                token.ThrowIfCancellationRequested();
+                var (node, next) = frame;
+                if (next == -1)
+                {
+                    if (visited.Contains(node.RepresentationId)) continue;
+                    if (!visiting.Add(node.RepresentationId)) return null;
+                    var bytes = ReadBytes(node.RepresentationSpecificMetadata,
+                        node.Kind == RepresentationKind.PluginArtifact ? NativeClosureBytesKey : StoredBytesKey);
+                    if (bytes is null) return null;
+                    // Count each object once for this root, including shared ancestors.
+                    // Subtree totals cannot be summed safely across a diamond.
+                    total = checked(total + bytes.Value);
+                    next = 0;
+                }
+                if (next == node.DependencyRepresentationIds.Length)
+                {
+                    visiting.Remove(node.RepresentationId);
+                    visited.Add(node.RepresentationId);
+                    continue;
+                }
+                var found = graph.TryGetValue(node.DependencyRepresentationIds[next], out var dependency);
+                token.ThrowIfCancellationRequested();
+                if (!found) return null;
+                pending.Push((node, next + 1));
+                pending.Push((dependency!, -1));
+            }
+            token.ThrowIfCancellationRequested();
+            return total;
         }
+        catch (OverflowException) { token.ThrowIfCancellationRequested(); return null; }
     }
 }

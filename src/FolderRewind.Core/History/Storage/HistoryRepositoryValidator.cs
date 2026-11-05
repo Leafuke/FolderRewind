@@ -15,11 +15,15 @@ public sealed class HistoryRepositoryValidator
     public void Validate(
         HistoryConfigId configId,
         IEnumerable<HistoryPackReadResult> packs)
+        => Validate(configId, packs, null);
+
+    internal void Validate(HistoryConfigId configId, IEnumerable<HistoryPackReadResult> packs,
+        HistoryPackReadSession? session)
     {
         var objectMap = BuildObjectMap(packs);
         var known = objectMap.Values
             .Where(item => HistoryObjectKinds.IsKnown(item.Kind) && item.SchemaVersion == 1)
-            .Select(_codec.DeserializeKnown)
+            .Select(item => session is null ? _codec.DeserializeKnown(item) : session.DeserializeKnown(item, _codec))
             .ToArray();
 
         var versions = known.OfType<SourceVersion>().ToDictionary(item => item.VersionId);
@@ -330,27 +334,34 @@ public sealed class HistoryRepositoryValidator
         var map = nodes.ToDictionary(getId);
         var visiting = new HashSet<TId>();
         var visited = new HashSet<TId>();
-        foreach (var id in map.Keys)
+        var pending = new Stack<(TId Id, IEnumerator<TId> Parents)>();
+        try
         {
-            Visit(id);
-        }
-
-        void Visit(TId id)
-        {
-            if (visited.Contains(id)) return;
-            if (!visiting.Add(id))
+            foreach (var id in map.Keys)
             {
-                throw Invalid($"{graphName} graph contains a cycle at '{id}'.");
+                if (visited.Contains(id)) continue;
+                visiting.Add(id);
+                pending.Push((id, getParents(map[id]).GetEnumerator()));
+                while (pending.TryPeek(out var current))
+                {
+                    if (!current.Parents.MoveNext())
+                    {
+                        pending.Pop().Parents.Dispose();
+                        visiting.Remove(current.Id);
+                        visited.Add(current.Id);
+                        continue;
+                    }
+                    var parent = current.Parents.Current;
+                    if (visited.Contains(parent)) continue;
+                    if (!visiting.Add(parent))
+                        throw Invalid($"{graphName} graph contains a cycle at '{parent}'.");
+                    // Keep the active path on the heap: real backup histories can have
+                    // thousands of ancestors, independently of the thread's stack size.
+                    pending.Push((parent, getParents(map[parent]).GetEnumerator()));
+                }
             }
-
-            foreach (var parent in getParents(map[id]))
-            {
-                Visit(parent);
-            }
-
-            visiting.Remove(id);
-            visited.Add(id);
         }
+        finally { while (pending.TryPop(out var current)) current.Parents.Dispose(); }
     }
 
     private static HistoryRepositoryValidationException Invalid(string message) => new(message);
