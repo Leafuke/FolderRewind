@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>FolderRewind.Tests</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../src/FolderRewind.Core/FolderRewind.Core.csproj" />
+    <Compile Include="../../../tests/FolderRewind.Tests/History/MergeDecisionIndexFixture.cs" Link="Fixture/MergeDecisionIndexFixture.cs" />
+    <Compile Include="../../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.cs" Link="Host/SpatialWorkspaceIndex.cs" />
+    <Compile Include="../../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Presentation.cs" Link="Host/SpatialWorkspaceIndex.Presentation.cs" />
+    <Compile Include="../../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Snapshot.cs" Link="Host/SpatialWorkspaceIndex.Snapshot.cs" />
+    <Compile Include="../../../src/FolderRewind/Services/History/SpatialIndexDiagnostics.cs" Link="Host/SpatialIndexDiagnostics.cs" />
+    <Compile Include="../../../src/FolderRewind/Services/History/SpatialMergeIndexBuilder.cs" Link="Host/SpatialMergeIndexBuilder.cs" />
+    <Compile Include="../../../src/FolderRewind/Services/History/SpatialMergeIndexUpdater.cs" Link="Host/SpatialMergeIndexUpdater.cs" />
+    <Compile Include="../../../src/FolderRewind/Services/History/SpatialMergeRows.cs" Link="Host/SpatialMergeRows.cs" />
+  </ItemGroup>
+</Project>

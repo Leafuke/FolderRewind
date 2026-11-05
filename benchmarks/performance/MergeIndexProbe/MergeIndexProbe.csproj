@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Existing Core friend assembly; the probe references formal Core, never linked Core sources. -->
+    <AssemblyName>FolderRewind.Tests</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SourceRoot Condition="'$(SourceRoot)'==''">$(MSBuildThisFileDirectory)..\..\..</SourceRoot>
+    <DefineConstants Condition="'$(MergeSnapshot)'=='true'">$(DefineConstants);MERGE_SNAPSHOT</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(SourceRoot)\src\FolderRewind.Core\FolderRewind.Core.csproj" />
+    <Compile Include="$(SourceRoot)\src\FolderRewind\Services\History\SpatialWorkspaceIndex.cs" Link="Host/SpatialWorkspaceIndex.cs" />
+    <Compile Include="$(SourceRoot)\src\FolderRewind\Services\History\SpatialWorkspaceIndex.Presentation.cs" Link="Host/SpatialWorkspaceIndex.Presentation.cs" />
+    <Compile Include="$(SourceRoot)\src\FolderRewind\Services\History\SpatialWorkspaceIndex.Snapshot.cs" Link="Host/SpatialWorkspaceIndex.Snapshot.cs" />
+    <Compile Include="$(SourceRoot)\src\FolderRewind\Services\History\SpatialIndexDiagnostics.cs" Link="Host/SpatialIndexDiagnostics.cs" />
+    <Compile Include="$(SourceRoot)\src\FolderRewind\Services\History\SqliteReadCancellation.cs" Link="Host/SqliteReadCancellation.cs" Condition="Exists('$(SourceRoot)\src\FolderRewind\Services\History\SqliteReadCancellation.cs')" />
+    <Compile Include="$(SourceRoot)\src\FolderRewind\Services\History\SpatialMergeIndexBuilder.cs" Link="Host/SpatialMergeIndexBuilder.cs" Condition="'$(MergeSnapshot)'=='true'" />
+  </ItemGroup>
+</Project>
