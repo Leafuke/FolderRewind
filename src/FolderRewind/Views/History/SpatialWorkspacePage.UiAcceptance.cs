@@ -16,6 +16,8 @@ namespace FolderRewind.Views;
 public sealed partial class SpatialWorkspacePage
 {
     internal bool UiAcceptanceOverlayDrained => !_overlayLoading && !_overlayPending && !_overlayTimer.IsEnabled;
+    internal object UiAcceptanceMapActivity() => new { left = LeftMap.UiAcceptanceActivity(), right = RightMap.UiAcceptanceActivity(),
+        ViewModel.HasActivity, ViewModel.IsBusy };
     internal UiOverlayObservation CaptureUiAcceptanceOverlays()
         => new(_active, UiAcceptanceOverlayDrained, ViewModel.World?.Id, ViewModel.Layer?.Id,
             ViewModel.CaptureUiAcceptanceOverlayRows(), LeftMap.CaptureUiAcceptanceOverlays(), RightMap.CaptureUiAcceptanceOverlays());

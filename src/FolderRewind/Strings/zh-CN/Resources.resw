@@ -8004,4 +8004,11 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="Product_ReleaseNotesDetails.Header" xml:space="preserve"><value>更新说明</value></data>
   <data name="Product_ReleaseNotesOpenFailed" xml:space="preserve"><value>无法打开发行说明，请稍后重试。</value></data>
   <data name="Product_CachedUpdateTarget" xml:space="preserve"><value>缓存提示可更新至 v{0}</value></data>
+  <data name="MergeProgress_PreparingHistory" xml:space="preserve"><value>准备历史版本</value></data>
+  <data name="MergeProgress_AnalyzingWorld" xml:space="preserve"><value>分析世界</value></data>
+  <data name="MergeProgress_OrganizingResults" xml:space="preserve"><value>整理结果</value></data>
+  <data name="MergeProgress_InitializingVisualization" xml:space="preserve"><value>初始化可视化</value></data>
+  <data name="MergeProgress_Count" xml:space="preserve"><value>{0} · {1} / {2}</value></data>
+  <data name="MergeProgress_ReadFiles" xml:space="preserve"><value>{0} · 已打开 {1} 个文件</value></data>
+  <data name="MergeProgress_Items" xml:space="preserve"><value>{0} · {1} 项</value></data>
 </root>

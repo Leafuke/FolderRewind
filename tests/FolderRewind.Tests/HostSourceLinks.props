@@ -26,6 +26,12 @@
     <Compile Include="../../src/FolderRewind/Services/History/SpatialIndexDiagnostics.cs" Link="Host/Services/History/SpatialIndexDiagnostics.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Presentation.cs" Link="Host/Services/History/SpatialWorkspaceIndex.Presentation.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Snapshot.cs" Link="Host/Services/History/SpatialWorkspaceIndex.Snapshot.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialMergeIndexBuilder.cs" Link="Host/Services/History/SpatialMergeIndexBuilder.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialMergeIndexUpdater.cs" Link="Host/Services/History/SpatialMergeIndexUpdater.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceStorage.cs" Link="Host/Services/History/SpatialWorkspaceStorage.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialMergeRows.cs" Link="Host/Services/History/SpatialMergeRows.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialIndexReadLifetime.cs" Link="Host/Services/History/SpatialIndexReadLifetime.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/MergeProgressPresentation.cs" Link="Host/Services/History/MergeProgressPresentation.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialPresentationRefreshCoordinator.cs" Link="Host/Services/History/SpatialPresentationRefreshCoordinator.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobScheduler.cs" Link="Host/Services/Cloud/CloudJobScheduler.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobTaskRegistry.cs" Link="Host/Services/Cloud/CloudJobTaskRegistry.cs" />

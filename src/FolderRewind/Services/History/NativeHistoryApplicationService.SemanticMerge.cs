@@ -12,8 +12,9 @@ internal static partial class NativeHistoryApplicationService
 {
     internal static SemanticMergeEngine? MergeEngine(HistoryRuntime runtime, SemanticMergeBinding? binding)
         => binding is null ? null : new(runtime.MergeSessions, binding, new PluginV3SemanticMerge());
-    internal static HistoryMergeService MergeCore(HistoryRuntime runtime, HistoryRestoreService restore, MergeSession? session)
-        => new(runtime, restore, semantic: MergeEngine(runtime, session?.Plan.SemanticProvider));
+    internal static HistoryMergeService MergeCore(HistoryRuntime runtime, HistoryRestoreService restore, MergeSession? session,
+        Action<MergePreparationProgress>? progress = null)
+        => new(runtime, restore, semantic: MergeEngine(runtime, session?.Plan.SemanticProvider)) { Progress = progress };
     internal static bool MergeBindingCurrent(MergeSession session)
         => session.Plan.SemanticProvider is { } binding ? PluginV3SemanticMerge.Matches(binding)
             : session.Plan.ProviderVersion == MergeProviderDescriptor.GenericIdentity && session.Plan.PolicyVersion == MergeProviderDescriptor.GenericPolicyIdentity;

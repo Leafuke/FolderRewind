@@ -26,14 +26,15 @@ internal sealed partial class MergeOperationService
     }
     public Task ClearAsync(IReadOnlyList<string> ids) => Run(MergeOperationStage.Saving, _ =>
     {
-        var session = RequireSession(); var before = ReadPrevious(session, ids);
+        var original = RequireSession(); var session = original; var before = ReadPrevious(session, ids);
         session = Runtime!.MergeSessions.SetResolutions(session, ids.Distinct().ToDictionary(id => id, _ => (MergeResolution?)null));
-        Remember(session, before); SetSession(session, true); Refresh(); return Task.CompletedTask;
+        Remember(session, before); SetSession(session, true, new(original, session, before.Keys.ToImmutableArray())); Refresh(); return Task.CompletedTask;
     });
     public Task UndoAsync() => Run(MergeOperationStage.Saving, _ =>
     {
         if (!CanUndo || _undo is not { } undo) throw new InvalidOperationException(I18n.GetString("MergeWorkspace_UndoExpired"));
-        SetSession(Runtime!.MergeSessions.SetResolutions(RequireSession(), undo.Values), true); _undo = null;
+        var original = RequireSession(); var session = Runtime!.MergeSessions.SetResolutions(original, undo.Values);
+        SetSession(session, true, new(original, session, undo.Values.Keys.ToImmutableArray())); _undo = null;
         Refresh(); return Task.CompletedTask;
     });
 

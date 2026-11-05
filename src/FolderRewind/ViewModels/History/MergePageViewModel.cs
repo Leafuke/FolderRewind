@@ -93,7 +93,7 @@ public sealed partial class MergePageViewModel : ViewModelBase
     public string Direction => State.Session is { } s ? $"{s.Plan.Theirs.Name} → {s.Plan.Ours.Name}" : $"{SelectedBranch?.Name ?? "—"} → {_targetName}";
     public string OursLabel => State.Session?.Plan.Ours.Name ?? _targetName;
     public string TheirsLabel => State.Session?.Plan.Theirs.Name ?? SelectedBranch?.Name ?? "—";
-    public string Status => IsBusy ? I18n.GetString("MergeWorkspace_Stage_" + State.Stage)
+    public string Status => IsBusy ? State.Progress is { } progress ? MergeProgressPresentation.Text(progress) : I18n.GetString("MergeWorkspace_Stage_" + State.Stage)
         : State.Result is { } result ? I18n.GetString("Merge_Result_" + result.Status)
         : State.Notice is { } notice ? I18n.GetString(notice)
         : State.Session is { } session ? I18n.GetString("Merge_State_" + session.State) : I18n.GetString("MergeWorkspace_ChooseSource");

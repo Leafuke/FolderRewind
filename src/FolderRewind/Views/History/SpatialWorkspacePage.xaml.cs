@@ -49,6 +49,7 @@ public sealed partial class SpatialWorkspacePage : Page
         AutomationProperties.SetAutomationId(RightMap, "SpatialWorkspace_RightMap");
         ViewModel.MapsChanged += UpdateMaps; ViewModel.ChoicesChanged += UpdateChoices;
         ViewModel.OverlayChanged += QueueOverlays; ViewModel.LocateRequested += Locate;
+        ViewModel.IndexChanging += InvalidateOverlays;
         LeftMap.SelectionRequested += Select; RightMap.SelectionRequested += Select;
         LeftMap.CameraChanged += (x, y, scale) => Camera(LeftMap, RightMap, x, y, scale);
         RightMap.CameraChanged += (x, y, scale) => Camera(RightMap, LeftMap, x, y, scale);
@@ -56,8 +57,8 @@ public sealed partial class SpatialWorkspacePage : Page
         LeftMap.OverlayInvoked += Overlay; RightMap.OverlayInvoked += Overlay;
         LeftMap.CursorChanged += Position; RightMap.CursorChanged += Position;
         LeftMap.ScaleChanged += UpdateScale; RightMap.ScaleChanged += UpdateScale;
-        LeftMap.ActivityChanged += (loading, refining) => ViewModel.SetMapActivity(true, loading, refining);
-        RightMap.ActivityChanged += (loading, refining) => ViewModel.SetMapActivity(false, loading, refining);
+        LeftMap.ActivityChanged += (loading, hasWarnings) => ViewModel.SetMapActivity(true, loading, hasWarnings);
+        RightMap.ActivityChanged += (loading, hasWarnings) => ViewModel.SetMapActivity(false, loading, hasWarnings);
         LeftMap.StatusChanged += text => ViewModel.SetMapStatus(true, text);
         RightMap.StatusChanged += text => ViewModel.SetMapStatus(false, text);
         _overlayTimer.Tick += async (_, _) =>
@@ -73,6 +74,9 @@ public sealed partial class SpatialWorkspacePage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
+#if SPATIAL_WORKSPACE_UI_ACCEPTANCE
+        Services.Development.MergeWorkspaceUiAcceptance.ObserveSpatial(this);
+#endif
         if (e.Parameter is SpatialWorkspaceNavigationParameter navigation) await ViewModel.InitializeAsync(navigation);
         if (_active) { UpdateChoices(); UpdateMaps(); Resize(); }
     }
@@ -80,6 +84,7 @@ public sealed partial class SpatialWorkspacePage : Page
     {
         _active = false; InvalidateOverlays(); _overlayPending = false; _overlayTimer.Stop(); _searchTimer.Stop();
         ViewModel.MapsChanged -= UpdateMaps; ViewModel.ChoicesChanged -= UpdateChoices; ViewModel.OverlayChanged -= QueueOverlays; ViewModel.LocateRequested -= Locate;
+        ViewModel.IndexChanging -= InvalidateOverlays;
         LeftMap.NavigationEnabled = RightMap.NavigationEnabled = false;
         LeftMap.Clear(); RightMap.Clear(); TaskObserver.Observe(DisposeWorkspaceAsync(), "Spatial workspace disposal"); base.OnNavigatedFrom(e);
     }

@@ -91,8 +91,12 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
     public bool IsScanning { get; private set; }
     public bool HasActivity => IsBusy || IsScanning || _leftRendering || _rightRendering;
     public string MapStatus => string.Join(" · ", new[] { _leftMapStatus, _rightMapStatus }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct());
-    internal void SetMapActivity(bool left, bool loading, bool refining)
-    { if (left) _leftRendering = loading || refining; else _rightRendering = loading || refining; OnPropertyChanged(nameof(HasActivity)); }
+    internal void SetMapActivity(bool left, bool loading, bool hasWarnings)
+    {
+        // Canvas loading already includes pending refinements. Diagnostics remain in MapStatus.
+        if (left) _leftRendering = loading; else _rightRendering = loading;
+        OnPropertyChanged(nameof(HasActivity));
+    }
     internal void SetMapStatus(bool left, string text)
     { if (left) _leftMapStatus = text; else _rightMapStatus = text; OnPropertyChanged(nameof(MapStatus)); }
     public bool CanCancel => IsBusy || IsScanning;
@@ -103,9 +107,9 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
     { _viewState.Cameras[key] = new(x, y, scale); }
     public bool IsScope => _navigation?.Mode == SpatialWorkspaceMode.Scope;
     public bool IsMerge => _navigation?.Mode == SpatialWorkspaceMode.Merge;
-    public bool CanEdit => !IsBusy && _active && (!IsMerge || Operations?.Snapshot.Session?.Plan.Revision == _indexedPlan);
+    public bool CanEdit => !IsBusy && _active && (!IsMerge || IndexMatches(Operations?.Snapshot.Session));
     public bool CanDecide => CanEdit && _mergeProviderAvailable && Operations?.Snapshot is { IsBusy: false, IsSaved: true, Session.State: MergeSessionState.Ready or MergeSessionState.Resolving }
-        && Operations.Snapshot.Session!.Plan.Revision == _indexedPlan;
+        && IndexMatches(Operations.Snapshot.Session);
     public bool CanGenerate => CanDecide && Operations?.Snapshot.Session?.State == MergeSessionState.Ready;
     public bool CanUndo => CanDecide && Operations?.CanUndo == true;
     internal SpatialPreviewHeight? HeightRange => CurrentLayer()?.ViewModes.FirstOrDefault(m => m.Id == Mode?.Id)?.Height ?? CurrentLayer()?.Height;
@@ -133,8 +137,10 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
             _viewState = await Task.Run(() => SpatialWorkspaceViewStateStore.Load(_viewStatePath), token);
             Search = _viewState.Search; Filter = _viewState.PresentationVersion < 2 && IsMerge ? "Unresolved" : _viewState.Filter; Height = _viewState.Height;
             OnPropertyChanged(nameof(Search));
-            _storage = await OwnedPluginTemporaryStorage.CreateAsync(NativeHistoryApplicationService.RequirePreviewRoot(_config, runtime.Repository.Paths.RepositoryRoot), token);
-            var indexRoot = await _storage.CreateDirectoryAsync(token); _index = new(Path.Combine(indexRoot, "spatial.db"));
+            var protectedRoots = ConfigService.CurrentConfig.BackupConfigs.SelectMany(c => c.SourceFolders.Select(f => f.Path))
+                .Append(ConfigService.ConfigDirectory).Append(runtime.Repository.Paths.RepositoryRoot).Where(path => !string.IsNullOrWhiteSpace(path));
+            _storage = await SpatialWorkspaceStorage.CreateAsync(NativeHistoryApplicationService.RequirePreviewRoot(_config, runtime.Repository.Paths.RepositoryRoot), protectedRoots, token);
+            var indexRoot = await _storage.CreateDirectoryAsync(token); _mergeIndexRoot = indexRoot; _index = new(Path.Combine(indexRoot, "spatial.db"));
             if (IsScope)
             {
                 _scopeDraft = new(original); Inputs.Add(new("live", I18n.GetString("SpatialWorkspace_Live")));
@@ -145,15 +151,16 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
                 Operations = MergeOperationService.Get(original, new(navigation.FolderId));
                 await Operations.LoadAsync(navigation.SessionId);
                 if (Operations.Snapshot.Session is not { } session) throw new InvalidOperationException(I18n.GetString("SpatialWorkspace_NoSession"));
-                _indexedPlan = session.Plan.Revision;
                 var policy = PluginV3SemanticMerge.Options(_config).FirstOrDefault(o => o.Binding == session.Plan.SemanticProvider);
                 _mergeProviderAvailable = policy is not null;
                 if (!_mergeProviderAvailable) Error = Status = I18n.GetString("SpatialWorkspace_OldMergePolicy");
                 PolicyDescription = policy is null ? I18n.GetString("Merge_SemanticUnavailable") : policy.Name + " · " + policy.Description;
                 OnPropertyChanged(nameof(PolicyDescription));
                 Inputs.Add(new("ours", session.Plan.Ours.Name)); Inputs.Add(new("theirs", session.Plan.Theirs.Name)); Inputs.Add(new("base", I18n.GetString("SpatialWorkspace_Base")));
-                await RefreshMergeIndexAsync(token);
                 Operations.Tracker.Changed += OnOperationChanged;
+                if (session.State == MergeSessionState.Preparing)
+                    Status = Operations.Snapshot.Progress is { } pending ? MergeProgressPresentation.Text(pending) : I18n.GetString("MergeProgress_PreparingHistory");
+                else await RefreshMergeIndexAsync(token);
             }
             else
             {
@@ -169,6 +176,7 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
             if (_viewState.Layer is { } layer) Layer = new(layer, layer);
             if (_viewState.Mode is { } mode) Mode = new(mode, mode);
             ChoicesChanged?.Invoke();
+            if (IsMerge && !IndexMatches(Operations?.Snapshot.Session)) return;
             await OpenPanesAsync(token);
             if (IsScope) LoadScopeSelection();
             if (IsMerge) SetCategories(new([]));
@@ -254,24 +262,31 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
         var completion = _operationCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellation = _operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         IsBusy = true; Error = ""; NeedsDownload = false; Status = I18n.GetString("SpatialWorkspace_Preparing"); Notify();
-        try { await action(cancellation.Token); if (_active && Status == I18n.GetString("SpatialWorkspace_Preparing")) Status = I18n.GetString("SpatialWorkspace_Ready_" + _navigation.Mode); }
+        try { await action(cancellation.Token); if (_active && (Status == I18n.GetString("SpatialWorkspace_Preparing") || _mergeProgressStatus)) Status = I18n.GetString("SpatialWorkspace_Ready_" + _navigation.Mode); }
         catch (OperationCanceledException) { if (_active) Status = I18n.GetString("SpatialWorkspace_Canceled"); }
         catch (Exception ex) { if (_active) { NeedsDownload = ex is HistoricalPreviewUnavailableException { RequiresDownload: true }; Error = ex.Message; Status = I18n.GetString("SpatialWorkspace_Failed"); } LogService.LogWarning(ex.ToString(), "SpatialWorkspace"); }
-        finally { _operationCancellation = null; IsBusy = false; if (_active) Notify(); completion.TrySetResult(); }
+        finally { _operationCancellation = null; IsBusy = false; _mergeProgressStatus = false; if (_active) Notify(); completion.TrySetResult(); if (_mergeRefreshPending) RequestMergeIndexRefresh(); }
     }
     private void OnOperationChanged() => EnqueueOnUiThread(() =>
     {
         if (!_active) return;
-        if (Operations!.Snapshot.Session?.Plan.Revision != _indexedPlan)
-        { Error = I18n.GetString("SpatialWorkspace_PlanExpired"); TaskObserver.Observe(ClosePanesAsync(), "Spatial plan invalidation"); Notify(); return; }
+        if (Operations!.Snapshot.Progress is { } progress) { Status = MergeProgressPresentation.Text(progress); Notify(); }
+        if (!SameRevision(_buildingMergeSession, Operations.Snapshot.Session)) _mergeBuildCancellation?.Cancel();
+        if (_mergeIndexBuild is not null && Operations!.Snapshot.Session?.Plan.Revision != _indexedPlan)
+        {
+            Error = I18n.GetString("SpatialWorkspace_PlanExpired");
+            if (LeftSession is not null || RightSession is not null) TaskObserver.Observe(ClosePanesAsync(), "Spatial plan invalidation");
+        }
         if (Operations!.Review is null && _inputs.Remove("result") && (Left?.Id == "result" || Right?.Id == "result"))
         { Error = I18n.GetString("SpatialWorkspace_ResultExpired"); TaskObserver.Observe(ClosePanesAsync(), "Spatial result invalidation"); }
-        Notify();
+        RequestMergeIndexRefresh(); Notify();
     });
     public ValueTask DisposeAsync() => new(_disposeTask ??= DisposeCoreAsync());
     private async Task DisposeCoreAsync()
     {
         _active = false; InvalidateRows(); _lifetime.Cancel();
+        _mergeBuildCancellation?.Cancel(); RaiseIndexChanging();
+        await _indexReads.StopAsync();
         if (_rowRefresh is not null) await _rowRefresh.DisposeAsync();
         if (_operationCompletion is { } pending) await pending.Task;
         if (_viewStatePath is { } statePath)
@@ -281,7 +296,9 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
         }
         if (Operations is not null) Operations.Tracker.Changed -= OnOperationChanged;
         await StopComparisonAsync(); await ClosePanesAsync();
-        if (_index is { } index) await Task.Run(index.Dispose);
+        if (_mergeIndexBuild is { } built) await Task.Run(built.Dispose);
+        else if (_index is { } index) await Task.Run(index.Dispose);
+        await _indexReads.DisposeAsync();
         foreach (var input in _ownedInputs) await input.DisposeAsync();
         if (_storage is not null) await _storage.DeleteAsync(); _lifetime.Dispose();
     }

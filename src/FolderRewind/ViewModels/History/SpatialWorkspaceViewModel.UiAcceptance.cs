@@ -1,5 +1,6 @@
 #if SPATIAL_WORKSPACE_UI_ACCEPTANCE
 using FolderRewind.Models;
+using FolderRewind.History.LocalState;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Artifacts;
 using FolderRewind.Services;
@@ -10,6 +11,10 @@ using System.Linq;
 using System.Threading.Tasks;
 
 namespace FolderRewind.ViewModels;
+
+internal sealed record UiDecisionRow(string Id, string AutomationId, string Status, bool Checked, bool CanChooseOurs);
+internal sealed record UiDecisionSnapshot(object Index, object Build, string Directory, Guid Session, Guid Plan,
+    long Revision, long IndexedRevision, long Generation, string Counts, string Summary, string[] Selected, UiDecisionRow[] Rows);
 
 // Acceptance-only presentation input. This never bypasses production history materialization.
 // The fixture supplies its own private trees and reports no history/backup/restore coverage.
@@ -49,6 +54,24 @@ public sealed partial class SpatialWorkspaceViewModel
             .Select(target => target!).ToArray();
     internal int UiAcceptanceIndexedCount() => _index!.Counts().Total;
     internal bool UiAcceptanceIndexDisposed => _index?.IsDisposed == true;
+    internal UiDecisionSnapshot UiAcceptanceDecisionSnapshot()
+    {
+        var index = _index ?? throw new InvalidOperationException("No published index.");
+        var build = _mergeIndexBuild ?? throw new InvalidOperationException("No published merge build.");
+        var session = Operations?.Snapshot.Session ?? throw new InvalidOperationException("No merge session.");
+        var rows = Items.Select(item =>
+        {
+            var conflict = Operations!.Runtime!.MergeSessions.GetConflict(session, item.Id).Conflict;
+            return new UiDecisionRow(item.Id, item.SelectionAutomationId, item.Row.Status, item.IsChecked,
+                item.CanCheck && item.Row.MemberIds.Length == 1 && conflict.SemanticSubject is { } subject
+                    && MergeSessionStore.SemanticChoiceAllowed(subject, MergeResolutionChoice.Ours));
+        }).ToArray();
+        return new(index, build, build.DirectoryPath, session.Id, session.Plan.Revision, session.Revision,
+            _indexedRevision, _mergeIndexGeneration, Counts, CategorySummary, index.Selected(), rows);
+    }
+    internal (bool Published, bool RootExists) UiAcceptanceMergeRelease()
+        => (_indexedSession != Guid.Empty || _mergeIndexBuild is not null,
+            _mergeIndexRoot is not null && System.IO.Directory.Exists(_mergeIndexRoot));
     internal UiOverlaySourceRow[] CaptureUiAcceptanceOverlayRows()
         => Items.Select(item => item.Row).Select(row => new UiOverlaySourceRow(row.Id, row.Status,
             row.Components.ToArray(), row.Components.Select(CategoryName).ToArray(),

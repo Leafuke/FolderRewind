@@ -57,19 +57,29 @@ internal sealed partial class SpatialWorkspaceIndex(string path, SpatialIndexDia
     internal void Clear()
     { lock (_gate) { using var c = Command("DELETE FROM selection; DELETE FROM locations; DELETE FROM rows; DELETE FROM components"); Executed(c).ExecuteNonQuery(); _metadataBytes = 0; _rowCount = 0; _mutationVersion++; } }
     internal void Put(IEnumerable<SpatialWorkspaceRow> rows, bool allowReplace = true)
+        => PutCore(rows, allowReplace, requireExisting: false, clearSelection: false, null, default);
+    internal void UpdateMergeRows(IEnumerable<SpatialWorkspaceRow> rows, int expectedRowCount, Action validate,
+        System.Threading.CancellationToken token = default)
+        => PutCore(rows, allowReplace: true, requireExisting: true, clearSelection: true, validate, token, expectedRowCount);
+    private void PutCore(IEnumerable<SpatialWorkspaceRow> rows, bool allowReplace, bool requireExisting, bool clearSelection,
+        Action? validate, System.Threading.CancellationToken token, int? expectedRowCount = null)
     {
-        using (EnterOperation("put"))
+        using (EnterOperation(requireExisting ? "merge-update" : "put", token))
         {
+            if (expectedRowCount is { } expected && _rowCount != expected)
+                throw new InvalidDataException("Merge spatial index row count changed.");
             using var tx = Db.BeginTransaction();
             var charged = _metadataBytes; var rowCount = _rowCount;
             foreach (var row in rows)
             {
+                token.ThrowIfCancellationRequested();
                 string data;
                 using (Measure("put.serialize")) data = JsonSerializer.Serialize(row);
                 using var writePhase = Measure("put.write-row");
                 if (data.Length > 65536 || row.Locations.Count > 128) throw new InvalidDataException("Spatial item budget exceeded.");
                 var bytes = Encoding.UTF8.GetByteCount(data) + row.Title.Length * 3L + row.Locations.Count * 256L + row.Id.Length * 4L;
                 using var previous = Command("SELECT bytes FROM rows WHERE id=$i", ("$i", row.Id)); var prior = Executed(previous).ExecuteScalar();
+                if (requireExisting && prior is null) throw new InvalidDataException("Merge spatial item is missing.");
                 if (!allowReplace && prior is not null) throw new InvalidDataException("Duplicate spatial comparison identity.");
                 charged += bytes - (prior is null ? 0 : Convert.ToInt64(prior)); if (prior is null) rowCount++;
                 if (charged > 256L * 1024 * 1024 || rowCount > 1_000_000) throw new IOException("Spatial index budget exceeded.");
@@ -85,6 +95,10 @@ internal sealed partial class SpatialWorkspaceIndex(string path, SpatialIndexDia
                     using var location = Command("INSERT INTO locations VALUES($i,$w,$l,$x,$y,$xx,$yy)", ("$i", row.Id), ("$w", l.WorldId), ("$l", l.LayerId), ("$x", l.Bounds?.MinX), ("$y", l.Bounds?.MinY), ("$xx", l.Bounds?.MaxX), ("$yy", l.Bounds?.MaxY)); Executed(location).ExecuteNonQuery();
                 }
             }
+            if (clearSelection) { using var clear = Command("DELETE FROM selection"); Executed(clear).ExecuteNonQuery(); }
+            token.ThrowIfCancellationRequested();
+            validate?.Invoke();
+            token.ThrowIfCancellationRequested();
             tx.Commit(); _metadataBytes = charged; _rowCount = rowCount; _mutationVersion++;
         }
     }

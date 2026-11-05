@@ -1,5 +1,6 @@
 using FolderRewind.Controls;
 using FolderRewind.History.LocalState;
+using FolderRewind.History.Merge;
 using FolderRewind.Models;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Services;
@@ -33,6 +34,7 @@ public sealed partial class SpatialWorkspaceViewModel
     private void StartComparison()
     {
         if (LeftSession is null || RightSession is null) return;
+        var index = _index!;
         var stateNames = Enum.GetValues<SpatialChangeKind>().ToDictionary(k => k, k => I18n.GetString("SpatialWorkspace_State_" + k));
         var initial = new SpatialComparisonRequest(Guid.NewGuid(), LeftSession.Source, RightSession.Source, null, 500)
         { InitialPriority = World is null ? null : new SpatialSubjectLocation(World.Id, Layer?.Id, _visibleBounds) };
@@ -49,7 +51,7 @@ public sealed partial class SpatialWorkspaceViewModel
                 await foreach (var page in PluginV3SpatialComparison.ReadAsync(initial, token))
                 {
                     total += page.Changes.Count;
-                    _index!.Put(page.Changes.Select(c => new SpatialWorkspaceRow(c.Id, PluginV3SpatialPreview.Localize(c.Name),
+                    index.Put(page.Changes.Select(c => new SpatialWorkspaceRow(c.Id, PluginV3SpatialPreview.Localize(c.Name),
                         PluginV3SpatialPreview.Localize(c.Description) + " · " + stateNames[c.Kind] + "\n" + string.Join(" · ", c.Components.Select(id => description.Categories.FirstOrDefault(k => k.Id == id) is { } category ? PluginV3SpatialPreview.Localize(category.Name) : id)), c.Kind.ToString(), false, c.Location is null ? [] : new[] { c.Location }) { Components = c.Components.ToArray(), SourcePaths = c.SourcePaths.ToArray() }), allowReplace: false);
                     Volatile.Write(ref _scanProgress, new(cancellation, page.ScannedFiles, total));
                     if (Interlocked.Exchange(ref _scanRefreshQueued, 1) == 0) EnqueueOnUiThread(() =>
@@ -85,36 +87,16 @@ public sealed partial class SpatialWorkspaceViewModel
     public async Task CancelComparisonAsync()
     {
         _scanCompleted = false;
+        _canceledMergeSession = Operations?.Snapshot.Session; _mergeRefreshPending = false;
         _operationCancellation?.Cancel(); Operations?.Tracker.Stop(); await StopComparisonAsync();
         if (!_active) return;
-        await ReloadRowsAsync(); Status = I18n.GetString("SpatialWorkspace_PartialScan"); Notify();
+        await ReloadRowsAsync(); Status = I18n.GetString(IsMerge ? "SpatialWorkspace_Canceled" : "SpatialWorkspace_PartialScan"); Notify();
     }
     private static SpatialWorkspaceRow MergeRow(MergeChangeItem item)
-    {
-        var subject = item.Conflict.SemanticSubject;
-        var status = subject?.IsBlocked == true ? "Blocked" : subject is { IsAutomatic: true, CanOverrideAutomatic: false } ? "Locked"
-            : item.Resolution is null ? "Unresolved" : item.Resolution.Choice == MergeResolutionChoice.Automatic ? "Automatic" : "Resolved";
-        return new(item.Id, subject is null ? item.Path : PluginV3SpatialPreview.Localize(subject.DisplayName), subject is null ? item.Description : PluginV3SpatialPreview.Localize(subject.Description) + "\n" + item.Description, status,
-            subject is not null && item.CanCheck, subject?.SpatialLocations ?? []);
-    }
-    private async Task RefreshMergeIndexAsync(CancellationToken token)
-    {
-        var session = Operations!.Snapshot.Session!; var store = Operations.Runtime!.MergeSessions;
-        await Task.Run(() =>
-        {
-            _index!.Clear();
-            for (var offset = 0; ; offset += 1000)
-            {
-                token.ThrowIfCancellationRequested();
-                var page = store.QuerySemanticChanges(session, "", "All", offset, 1000);
-                _index.Put(page.Rows.Select(r => MergeRow(new(r.Conflict, r.Resolution, r.Automatic))));
-                if (page.Rows.Count < 1000) break;
-            }
-        }, token);
-    }
+        => SpatialMergeRows.Create(new(item.Conflict, item.Resolution, item.IsAutomatic), PluginV3SpatialPreview.Localize, I18n.GetString);
     public Task ReloadRowsAsync(bool reset = false)
     {
-        if (_index is null || !_active || IsScope) return Task.CompletedTask;
+        if (_index is null || !_active || IsScope || _replacingIndex) return Task.CompletedTask;
         if (reset) _offset = 0;
         ++_rowsRevision;
         return QueueRowsRefresh(true);
@@ -122,7 +104,7 @@ public sealed partial class SpatialWorkspaceViewModel
     private void InvalidateRows() { ++_rowsRevision; _rowRefresh?.CancelPending(); }
     private Task QueueRowsRefresh(bool immediate)
     {
-        if (_index is null || !_active || IsScope) return Task.CompletedTask;
+        if (_index is null || !_active || IsScope || _replacingIndex) return Task.CompletedTask;
         _rowRefresh ??= new(ReadRowsAsync);
         return _rowRefresh.RequestAsync(new(_index, CurrentQuery(), _offset, IsMerge, Category == "$default", _rowsRevision), immediate);
     }
@@ -139,7 +121,7 @@ public sealed partial class SpatialWorkspaceViewModel
                 var published = false;
                 try
                 {
-                if (!_active || token.IsCancellationRequested || request.Revision != _rowsRevision) return;
+                if (!_active || token.IsCancellationRequested || request.Revision != _rowsRevision || !ReferenceEquals(request.Index, _index)) return;
                 var selected = SelectedItem;
                 ((BatchObservableCollection<SpatialWorkspaceItem>)Items).ReplaceAll(result.Rows.Take(100).Select(Item));
                 if (selected is not null) SelectedItem = Items.FirstOrDefault(i => i.Id == selected.Id) ?? selected;
@@ -187,7 +169,8 @@ public sealed partial class SpatialWorkspaceViewModel
     public async Task CheckItemAsync(SpatialWorkspaceItem item, bool value)
     {
         if (!IsMerge || !CanDecide || !item.CanCheck) return;
-        await Task.Run(() => _index!.ToggleItem(item.Id, value)); await ReloadRowsAsync();
+        var result = await AccessIndexAsync((index, _, _) => { index.ToggleItem(item.Id, value); return true; });
+        if (IsCurrent(result, requireRowsRevision: false)) await ReloadRowsAsync();
     }
     public async Task SelectAreaAsync(SpatialPreviewBounds bounds, bool additive, bool remove)
     {
@@ -197,7 +180,9 @@ public sealed partial class SpatialWorkspaceViewModel
         {
             if (!CanDecide) return;
             var query = CurrentQuery(); var onlyUnresolved = BatchOnlyUnresolved;
-            var summary = await Task.Run(() => _index!.SelectArea(query, bounds, additive, remove, onlyUnresolved));
+            var result = await AccessIndexAsync((index, _, _) => index.SelectArea(query, bounds, additive, remove, onlyUnresolved));
+            if (!IsCurrent(result, requireRowsRevision: false)) return;
+            var summary = result!.Value;
             SelectionFeedback = I18n.Format("SpatialWorkspace_AreaSummary", summary.Unresolved, summary.Decided, summary.Locked)
                 + "\n" + I18n.GetString(remove ? "SpatialWorkspace_AreaRemoved" : onlyUnresolved ? "SpatialWorkspace_OnlyUnresolvedHint" : "SpatialWorkspace_IncludeDecidedHint");
         }
@@ -208,9 +193,10 @@ public sealed partial class SpatialWorkspaceViewModel
     internal async Task<IReadOnlyList<SpatialOverlayRegion>> OverlaysAsync(SpatialPreviewBounds bounds, double scale,
         CancellationToken cancellationToken)
     {
-        if (World is null || Layer is null || _index is null || !_active) return [];
+        if (World is null || Layer is null || _index is null || !_active || _replacingIndex) return [];
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);
-        var token = cancellation.Token;
+        using var readLease = _indexReads.Enter(cancellation.Token);
+        var token = readLease.Token;
         token.ThrowIfCancellationRequested();
         var index = _index;
         var world = World.Id; var layer = Layer.Id;
@@ -235,49 +221,61 @@ public sealed partial class SpatialWorkspaceViewModel
     }
     internal async Task<SpatialDecisionSelection?> CaptureDecisionAsync()
     {
-        if (!IsMerge || !CanDecide) return null;
-        var session = Operations!.Snapshot.Session!;
-        return await Task.Run(() =>
+        if (!IsMerge || !CanDecide || Operations is not { } operations) return null;
+        var result = await AccessIndexAsync((index, captured, token) =>
         {
-            var ids = _index!.Selected();
-            var conflicts = ids.Select(id => Operations.Runtime!.MergeSessions.GetConflict(session, id)).ToArray();
+            var session = captured!; var ids = index.Selected();
+            var conflicts = ids.Select(id =>
+            {
+                token.ThrowIfCancellationRequested();
+                return operations.Runtime!.MergeSessions.GetConflict(session, id);
+            }).ToArray();
             return ids.Length == 0 ? null : new SpatialDecisionSelection(session.Id, session.Plan.Revision, session.Revision, ids,
                 conflicts.Any(c => c.Conflict.SemanticSubject?.SpatialLocations.Any(l => l.Bounds is null) == true),
                 conflicts.Count(c => c.Resolution is not null));
         });
+        return IsCurrent(result) ? result!.Value : null;
     }
-    internal Task DecideAsync(MergeResolutionChoice? choice, SpatialDecisionSelection? expected = null) => RunAsync(async token =>
+    internal Task DecideAsync(MergeResolutionChoice? choice, SpatialDecisionSelection? expected = null) => !CanDecide ? Task.CompletedTask : RunAsync(async token =>
     {
-        var session = Operations!.Snapshot.Session!;
-        var ids = await Task.Run(() => _index!.Selected(), token);
+        if (Operations is not { } operations) return;
+        var selection = await AccessIndexAsync((index, session, _) => (Ids: index.Selected(), Session: session!), token);
+        if (!IsCurrent(selection)) return;
+        var (ids, session) = selection!.Value;
         using var provider = session.Plan.SemanticProvider is { } binding ? await new PluginV3SemanticMerge().AcquireAsync(binding, token) : null;
+        RequireSelectionCurrent();
         if (expected is not null && (expected.SessionId != session.Id || expected.PlanRevision != session.Plan.Revision || expected.Revision != session.Revision || !ids.SequenceEqual(expected.Ids)))
             throw new InvalidOperationException(I18n.GetString("SpatialWorkspace_SelectionChanged"));
         if (ids.Length == 0) return;
-        if (choice is null) await Operations.ClearAsync(ids);
+        if (choice is null)
+        {
+            RequireSelectionCurrent();
+            await operations.ClearAsync(ids);
+        }
         else
         {
             var decisions = await Task.Run(() => ids.Select(id =>
             {
-                var item = Operations.Runtime!.MergeSessions.GetConflict(session, id).Conflict;
+                token.ThrowIfCancellationRequested();
+                var item = operations.Runtime!.MergeSessions.GetConflict(session, id).Conflict;
                 if (item.SemanticSubject is not { } subject || !MergeSessionStore.SemanticChoiceAllowed(subject, choice.Value))
                     throw new InvalidOperationException(I18n.GetString("SpatialWorkspace_ChoiceUnavailable"));
                 return new MergeResolution(session.Plan.Revision, id, item.InputSignature, choice.Value);
             }).ToArray(), token);
-            await Operations.ResolveAsync(decisions);
+            RequireSelectionCurrent();
+            await operations.ResolveAsync(decisions);
         }
-        if (Operations.Snapshot.Error is { Length: > 0 } error) throw new InvalidOperationException(error);
-        var current = Operations.Snapshot.Session!;
-        await Task.Run(() => _index!.Put(ids.Select(id =>
-        {
-            var item = Operations.Runtime!.MergeSessions.GetConflict(current, id);
-            return MergeRow(new(item.Conflict, item.Resolution, item.Resolution?.Choice == MergeResolutionChoice.Automatic));
-        })), token);
-        await Task.Run(() => _index!.ClearSelection(), token);
+        if (operations.Snapshot.Error is { Length: > 0 } error) throw new InvalidOperationException(error);
+        await SynchronizeMergeIndexAsync(token);
         SelectionFeedback = I18n.Format("SpatialWorkspace_DecisionsApplied", ids.Length);
         await ReloadRowsAsync();
+        void RequireSelectionCurrent()
+        {
+            token.ThrowIfCancellationRequested();
+            if (!IsCurrent(selection)) throw new InvalidOperationException(I18n.GetString("SpatialWorkspace_SelectionChanged"));
+        }
     });
-    public Task UndoAsync() => RunAsync(async token => { await Operations!.UndoAsync(); await RefreshMergeIndexAsync(token); await ReloadRowsAsync(); });
+    public Task UndoAsync() => RunAsync(async token => { await Operations!.UndoAsync(); await SynchronizeMergeIndexAsync(token); await ReloadRowsAsync(); });
     public Task GenerateResultAsync() => RunAsync(async token =>
     {
         await ClosePanesAsync(); _inputs.Remove("result");
@@ -290,10 +288,16 @@ public sealed partial class SpatialWorkspaceViewModel
     });
     public async Task NextUnresolvedAsync()
     {
-        if (Operations?.Snapshot.Session is not { } session) return;
-        var id = await Task.Run(() => Operations.Runtime!.MergeSessions.NextSemanticConflict(session, "", SelectedItem?.Id));
-        if (id is null) return;
-        var row = Operations.Runtime!.MergeSessions.GetConflict(session, id);
+        if (!CanDecide) return;
+        var after = SelectedItem?.Id;
+        var result = await AccessIndexAsync<(MergeConflict Conflict, MergeResolution? Resolution)?>((_, captured, token) =>
+        {
+            var session = captured!;
+            var id = Operations!.Runtime!.MergeSessions.NextSemanticConflict(session, "", after);
+            token.ThrowIfCancellationRequested();
+            return id is null ? null : Operations.Runtime.MergeSessions.GetConflict(session, id);
+        });
+        if (!IsCurrent(result) || result!.Value is not { } row) return;
         await SelectItemAsync(new(MergeRow(new(row.Conflict, row.Resolution))), false);
         LocateSelected();
     }

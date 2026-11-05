@@ -107,7 +107,9 @@ namespace FolderRewind
                 Services.Development.FolderManagerUiAcceptance.Prepare();
 #endif
 #if SPATIAL_WORKSPACE_UI_ACCEPTANCE
-                Services.Development.SpatialWorkspaceUiAcceptance.Prepare();
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_MERGE_UI") == "1")
+                    Services.Development.MergeWorkspaceUiAcceptance.Prepare();
+                else Services.Development.SpatialWorkspaceUiAcceptance.Prepare();
 #endif
 
                 if (Services.ConfigService.IsRecoveryMode)
@@ -176,7 +178,9 @@ namespace FolderRewind
                 Services.Development.PerformanceUiPostRunAcceptance.Start(_window);
 #endif
 #if SPATIAL_WORKSPACE_UI_ACCEPTANCE
-                Services.Development.SpatialWorkspaceUiAcceptance.Start(_window);
+                if (Environment.GetEnvironmentVariable("FOLDERREWIND_MERGE_UI") == "1")
+                    Services.Development.MergeWorkspaceUiAcceptance.Start(_window);
+                else Services.Development.SpatialWorkspaceUiAcceptance.Start(_window);
 #endif
                 ConfigService.StartRcloneCredentialMigrations();
                 Program.Instance?.SetReady(() => _window.DispatcherQueue.TryEnqueue(RestoreWindowFromTray));

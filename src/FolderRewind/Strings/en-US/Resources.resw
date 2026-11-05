@@ -8004,4 +8004,11 @@ Affected projects: {1}</value></data>
   <data name="Product_ReleaseNotesDetails.Header" xml:space="preserve"><value>Release notes</value></data>
   <data name="Product_ReleaseNotesOpenFailed" xml:space="preserve"><value>Could not open release notes. Please try again.</value></data>
   <data name="Product_CachedUpdateTarget" xml:space="preserve"><value>Cached update: v{0}</value></data>
+  <data name="MergeProgress_PreparingHistory" xml:space="preserve"><value>Preparing historical versions</value></data>
+  <data name="MergeProgress_AnalyzingWorld" xml:space="preserve"><value>Analyzing world</value></data>
+  <data name="MergeProgress_OrganizingResults" xml:space="preserve"><value>Organizing results</value></data>
+  <data name="MergeProgress_InitializingVisualization" xml:space="preserve"><value>Initializing visualization</value></data>
+  <data name="MergeProgress_Count" xml:space="preserve"><value>{0} · {1} / {2}</value></data>
+  <data name="MergeProgress_ReadFiles" xml:space="preserve"><value>{0} · Opened {1} files</value></data>
+  <data name="MergeProgress_Items" xml:space="preserve"><value>{0} · {1} items</value></data>
 </root>
