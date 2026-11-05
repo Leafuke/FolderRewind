@@ -52,6 +52,7 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
     private readonly CancellationTokenSource _lifetime = new();
     private CancellationTokenSource? _scanCancellation;
     private Task _scan = Task.CompletedTask;
+    private Task? _disposeTask;
     private bool _active = true;
     private TaskCompletionSource? _operationCompletion;
     private CancellationTokenSource? _operationCancellation;
@@ -70,7 +71,7 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
     public ObservableCollection<SpatialWorkspaceChoice> Worlds { get; } = [];
     public ObservableCollection<SpatialWorkspaceChoice> Layers { get; } = [];
     public ObservableCollection<SpatialWorkspaceChoice> Modes { get; } = [];
-    public ObservableCollection<SpatialWorkspaceItem> Items { get; } = [];
+    public ObservableCollection<SpatialWorkspaceItem> Items { get; } = new BatchObservableCollection<SpatialWorkspaceItem>();
     public SpatialWorkspaceChoice? Left { get; set; }
     public SpatialWorkspaceChoice? Right { get; set; }
     public SpatialWorkspaceChoice? World { get; set; }
@@ -177,6 +178,7 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
     }
     public Task ChangeInputsAsync() => RunAsync(async token =>
     {
+        InvalidateRows();
         await StopComparisonAsync(); await ClosePanesAsync();
         if (!IsMerge)
         {
@@ -188,7 +190,7 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
         if (!IsScope && !IsMerge) StartComparison();
         await ReloadRowsAsync();
     });
-    public Task ChangeWorldAsync() => RunAsync(async token => { await ClosePanesAsync(); await OpenPanesAsync(token); await ReloadRowsAsync(true); });
+    public Task ChangeWorldAsync() => RunAsync(async token => { InvalidateRows(); await ClosePanesAsync(); await OpenPanesAsync(token); await ReloadRowsAsync(true); });
     public void ChangeLayer()
     {
         var layer = CurrentLayer(); var prior = Mode?.Id; Modes.Clear();
@@ -266,9 +268,11 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
         { Error = I18n.GetString("SpatialWorkspace_ResultExpired"); TaskObserver.Observe(ClosePanesAsync(), "Spatial result invalidation"); }
         Notify();
     });
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync() => new(_disposeTask ??= DisposeCoreAsync());
+    private async Task DisposeCoreAsync()
     {
-        _active = false; _lifetime.Cancel();
+        _active = false; InvalidateRows(); _lifetime.Cancel();
+        if (_rowRefresh is not null) await _rowRefresh.DisposeAsync();
         if (_operationCompletion is { } pending) await pending.Task;
         if (_viewStatePath is { } statePath)
         {
@@ -276,7 +280,8 @@ public sealed partial class SpatialWorkspaceViewModel : ViewModelBase, IAsyncDis
             try { await Task.Run(() => SpatialWorkspaceViewStateStore.Save(statePath, state)); } catch (Exception ex) { LogService.LogWarning(ex.ToString(), "Spatial view state"); }
         }
         if (Operations is not null) Operations.Tracker.Changed -= OnOperationChanged;
-        await StopComparisonAsync(); await ClosePanesAsync(); _index?.Dispose();
+        await StopComparisonAsync(); await ClosePanesAsync();
+        if (_index is { } index) await Task.Run(index.Dispose);
         foreach (var input in _ownedInputs) await input.DisposeAsync();
         if (_storage is not null) await _storage.DeleteAsync(); _lifetime.Dispose();
     }

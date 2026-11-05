@@ -6,6 +6,7 @@ using FolderRewind.Services;
 using FolderRewind.Services.Plugins.V3;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,19 @@ internal sealed record SpatialDecisionSelection(Guid SessionId, Guid PlanRevisio
 
 public sealed partial class SpatialWorkspaceViewModel
 {
+    private sealed record RowRequest(SpatialWorkspaceIndex Index, SpatialWorkspaceQuery Query, int Offset,
+        bool Merge, bool DefaultCategory, long Revision);
+    private sealed record ScanProgress(CancellationTokenSource Scan, long Files, long Changes);
+    private SpatialPresentationRefreshCoordinator<RowRequest>? _rowRefresh;
+    private ScanProgress? _scanProgress;
+    private int _scanRefreshQueued;
+    private bool _scanHasRequestedRows;
+    private bool _scanCompleted;
+    private long _rowsPublishedRevision;
+    private long _lastOverlayReadVersion;
+    internal long LastOverlayReadVersion => _lastOverlayReadVersion;
+    internal SpatialIndexDiagnostics? SpatialDiagnostics => _index?.Diagnostics;
+
     private void StartComparison()
     {
         if (LeftSession is null || RightSession is null) return;
@@ -23,7 +37,8 @@ public sealed partial class SpatialWorkspaceViewModel
         var initial = new SpatialComparisonRequest(Guid.NewGuid(), LeftSession.Source, RightSession.Source, null, 500)
         { InitialPriority = World is null ? null : new SpatialSubjectLocation(World.Id, Layer?.Id, _visibleBounds) };
         _scanCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-        var cancellation = _scanCancellation; var token = cancellation.Token; IsScanning = true;
+        var cancellation = _scanCancellation; var token = cancellation.Token; IsScanning = true; _scanHasRequestedRows = false; _scanCompleted = false;
+        Volatile.Write(ref _scanProgress, new(cancellation, 0, 0));
         _scan = Task.Run(async () =>
         {
             try
@@ -36,13 +51,26 @@ public sealed partial class SpatialWorkspaceViewModel
                     total += page.Changes.Count;
                     _index!.Put(page.Changes.Select(c => new SpatialWorkspaceRow(c.Id, PluginV3SpatialPreview.Localize(c.Name),
                         PluginV3SpatialPreview.Localize(c.Description) + " · " + stateNames[c.Kind] + "\n" + string.Join(" · ", c.Components.Select(id => description.Categories.FirstOrDefault(k => k.Id == id) is { } category ? PluginV3SpatialPreview.Localize(category.Name) : id)), c.Kind.ToString(), false, c.Location is null ? [] : new[] { c.Location }) { Components = c.Components.ToArray(), SourcePaths = c.SourcePaths.ToArray() }), allowReplace: false);
-                    await UiDispatcherService.RunOnUiAsync(async () =>
+                    Volatile.Write(ref _scanProgress, new(cancellation, page.ScannedFiles, total));
+                    if (Interlocked.Exchange(ref _scanRefreshQueued, 1) == 0) EnqueueOnUiThread(() =>
                     {
-                        if (!_active || token.IsCancellationRequested) return;
-                        Status = I18n.Format("SpatialWorkspace_Scanning", page.ScannedFiles, total); await ReloadRowsAsync();
+                        Interlocked.Exchange(ref _scanRefreshQueued, 0);
+                        var progress = Volatile.Read(ref _scanProgress);
+                        if (!_active || progress is null || progress.Scan.IsCancellationRequested
+                            || !ReferenceEquals(progress.Scan, _scanCancellation)) return;
+                        var first = !_scanHasRequestedRows; _scanHasRequestedRows = true;
+                        TaskObserver.Observe(QueueRowsRefresh(first), "Spatial scan rows");
                     });
                 }
-                EnqueueOnUiThread(() => { if (_active && !token.IsCancellationRequested) { Status = I18n.GetString("SpatialWorkspace_Complete"); Notify(); } });
+                await UiDispatcherService.RunOnUiAsync(async () =>
+                {
+                    if (!_active || token.IsCancellationRequested) return;
+                    _scanCompleted = true;
+                    await ReloadRowsAsync();
+                    if (_rowRefresh is not null) await _rowRefresh.DrainAsync(token);
+                    if (_active && !token.IsCancellationRequested && _rowsPublishedRevision == _rowsRevision)
+                    { Status = I18n.GetString("SpatialWorkspace_Complete"); Notify(); }
+                });
             }
             catch (OperationCanceledException) { }
             catch (Exception ex) { EnqueueOnUiThread(() => { if (_active) { Error = ex.Message; Status = I18n.GetString("SpatialWorkspace_Failed"); Notify(); } }); }
@@ -55,7 +83,12 @@ public sealed partial class SpatialWorkspaceViewModel
         _scanCancellation?.Dispose(); _scanCancellation = null; IsScanning = false;
     }
     public async Task CancelComparisonAsync()
-    { _operationCancellation?.Cancel(); Operations?.Tracker.Stop(); await StopComparisonAsync(); Status = I18n.GetString("SpatialWorkspace_PartialScan"); Notify(); }
+    {
+        _scanCompleted = false;
+        _operationCancellation?.Cancel(); Operations?.Tracker.Stop(); await StopComparisonAsync();
+        if (!_active) return;
+        await ReloadRowsAsync(); Status = I18n.GetString("SpatialWorkspace_PartialScan"); Notify();
+    }
     private static SpatialWorkspaceRow MergeRow(MergeChangeItem item)
     {
         var subject = item.Conflict.SemanticSubject;
@@ -79,23 +112,68 @@ public sealed partial class SpatialWorkspaceViewModel
             }
         }, token);
     }
-    public async Task ReloadRowsAsync(bool reset = false)
+    public Task ReloadRowsAsync(bool reset = false)
     {
-        if (_index is null || !_active || _index.IsDisposed || IsScope) return;
+        if (_index is null || !_active || IsScope) return Task.CompletedTask;
         if (reset) _offset = 0;
-        var query = CurrentQuery(); var offset = _offset; var revision = ++_rowsRevision;
-        var result = await Task.Run(() => (_index.Query(query, offset, 101), _index.Count(query), _index.Counts(), _index.CategoryCounts(query), _index.WholeDomainCount(query), _index.Count(query with { Categories = null }), IsMerge ? new[] { "Automatic", "Resolved", "Unresolved", "Locked", "Blocked" }.Select(status => _index.Count(query with { Status = status })).ToArray() : Array.Empty<int>()));
-        if (!_active || revision != _rowsRevision) return;
-        Items.Clear(); foreach (var row in result.Item1.Take(100)) Items.Add(Item(row));
-        CanNextPage = result.Item1.Count > 100;
-        Counts = IsMerge ? I18n.Format("SpatialWorkspace_MergeCounts", result.Item2, result.Item3.Selected, offset / 100 + 1)
-            : I18n.Format("SpatialWorkspace_CompareCounts", result.Item2, offset / 100 + 1);
-        if (result.Item5 > 0) Counts += " · " + I18n.Format("SpatialWorkspace_WholeDomainCount", result.Item5);
-        CategoryBreakdown = string.Join(" · ", result.Item4.Select(c => CategoryName(c.Key) + " " + c.Value));
-        CategorySummary = IsMerge ? I18n.Format("SpatialWorkspace_MergeSummary", result.Item7[0], result.Item7[1], result.Item7[2])
-            + (result.Item7[3] + result.Item7[4] > 0 ? "\n" + I18n.Format("SpatialWorkspace_LockedSummary", result.Item7[3] + result.Item7[4]) : "")
-            : Category == "$default" && result.Item6 > result.Item2 ? I18n.Format("SpatialWorkspace_HiddenRuntimeChanges", result.Item6 - result.Item2) : "";
-        Notify(); OverlayChanged?.Invoke();
+        ++_rowsRevision;
+        return QueueRowsRefresh(true);
+    }
+    private void InvalidateRows() { ++_rowsRevision; _rowRefresh?.CancelPending(); }
+    private Task QueueRowsRefresh(bool immediate)
+    {
+        if (_index is null || !_active || IsScope) return Task.CompletedTask;
+        _rowRefresh ??= new(ReadRowsAsync);
+        return _rowRefresh.RequestAsync(new(_index, CurrentQuery(), _offset, IsMerge, Category == "$default", _rowsRevision), immediate);
+    }
+    private async Task ReadRowsAsync(RowRequest request, CancellationToken token)
+    {
+        try
+        {
+            var result = await Task.Run(() => request.Index.ReadPresentation(request.Query, request.Offset, request.Merge, token), token).ConfigureAwait(false);
+            var diagnostics = request.Index.Diagnostics;
+            var queuedAt = diagnostics is null ? 0 : Stopwatch.GetTimestamp();
+            await UiDispatcherService.RunOnUiAsync(() =>
+            {
+                var startedAt = diagnostics is null ? 0 : Stopwatch.GetTimestamp();
+                var published = false;
+                try
+                {
+                if (!_active || token.IsCancellationRequested || request.Revision != _rowsRevision) return;
+                var selected = SelectedItem;
+                ((BatchObservableCollection<SpatialWorkspaceItem>)Items).ReplaceAll(result.Rows.Take(100).Select(Item));
+                if (selected is not null) SelectedItem = Items.FirstOrDefault(i => i.Id == selected.Id) ?? selected;
+                CanNextPage = result.Rows.Count > 100;
+                Counts = request.Merge ? I18n.Format("SpatialWorkspace_MergeCounts", result.Total, result.Global.Selected, request.Offset / 100 + 1)
+                    : I18n.Format("SpatialWorkspace_CompareCounts", result.Total, request.Offset / 100 + 1);
+                if (result.WholeDomain > 0) Counts += " · " + I18n.Format("SpatialWorkspace_WholeDomainCount", result.WholeDomain);
+                CategoryBreakdown = string.Join(" · ", result.Categories.Select(c => CategoryName(c.Key) + " " + c.Value));
+                CategorySummary = request.Merge ? I18n.Format("SpatialWorkspace_MergeSummary", result.MergeCounts[0], result.MergeCounts[1], result.MergeCounts[2])
+                    + (result.MergeCounts[3] + result.MergeCounts[4] > 0 ? "\n" + I18n.Format("SpatialWorkspace_LockedSummary", result.MergeCounts[3] + result.MergeCounts[4]) : "")
+                    : request.DefaultCategory && result.UnfilteredTotal > result.Total ? I18n.Format("SpatialWorkspace_HiddenRuntimeChanges", result.UnfilteredTotal - result.Total) : "";
+                var progress = Volatile.Read(ref _scanProgress);
+                if (progress is not null && ReferenceEquals(progress.Scan, _scanCancellation) && !progress.Scan.IsCancellationRequested)
+                {
+                    if (_scanCompleted && result.Global.Total == progress.Changes) Status = I18n.GetString("SpatialWorkspace_Complete");
+                    else if (IsScanning) Status = I18n.Format("SpatialWorkspace_Scanning", progress.Files, progress.Changes);
+                }
+                _rowsPublishedRevision = request.Revision;
+                Notify(); OverlayChanged?.Invoke();
+                published = true;
+                }
+                finally { diagnostics?.RecordUi(request.Revision, result.IndexVersion, queuedAt, startedAt, published); }
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception error)
+        {
+            await UiDispatcherService.RunOnUiAsync(() =>
+            {
+                if (!_active || token.IsCancellationRequested || request.Revision != _rowsRevision) return;
+                Error = error.Message; Status = I18n.GetString("SpatialWorkspace_Failed"); Notify();
+            }).ConfigureAwait(false);
+            throw;
+        }
     }
     public Task PageAsync(int direction) { _offset = Math.Max(0, _offset + direction * 100); return ReloadRowsAsync(); }
     public Task SelectItemAsync(SpatialWorkspaceItem item, bool additive)
@@ -125,18 +203,31 @@ public sealed partial class SpatialWorkspaceViewModel
         }
         await ReloadRowsAsync();
     }
-    public async Task<IReadOnlyList<SpatialOverlayRegion>> OverlaysAsync(SpatialPreviewBounds bounds, double scale)
+    public Task<IReadOnlyList<SpatialOverlayRegion>> OverlaysAsync(SpatialPreviewBounds bounds, double scale)
+        => OverlaysAsync(bounds, scale, CancellationToken.None);
+    internal async Task<IReadOnlyList<SpatialOverlayRegion>> OverlaysAsync(SpatialPreviewBounds bounds, double scale,
+        CancellationToken cancellationToken)
     {
         if (World is null || Layer is null || _index is null || !_active) return [];
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);
+        var token = cancellation.Token;
+        token.ThrowIfCancellationRequested();
+        var index = _index;
         var world = World.Id; var layer = Layer.Id;
         if (IsScope) return _scopeSelections.Select((s, i) => (Selection: s, Id: "scope-" + i)).Where(p => p.Selection.WorldId == world && p.Selection.LayerId == layer)
             .Select(p => new SpatialOverlayRegion(p.Selection.Bounds, "Selected") { Ids = [p.Id], Highlighted = SelectedItem?.Id == p.Id }).ToArray();
         var query = CurrentQuery(); var grid = CurrentLayer()?.MinorGridSize ?? 1;
         var focused = SelectedItem?.Row;
         var selected = focused is null ? [] : focused.MemberIds.Length == 0 ? new[] { focused.Id } : focused.MemberIds;
-        var overlays = await Task.Run(() => _index.Overlays(query, bounds, scale, grid)
-            .Select(r => new SpatialOverlayRegion(r.Bounds, r.Status, r.Count) { Aggregate = r.Aggregate, States = r.States ?? [],
-                Ids = r.Ids ?? [], Components = (r.Components ?? []).Select(CategoryName).ToArray(), Checked = r.Checked, Highlighted = (r.Ids ?? []).Intersect(selected).Any() }).ToList());
+        var read = await Task.Run(() =>
+        {
+            var regions = index.Overlays(query, bounds, scale, grid, out var version, token)
+                .Select(r => new SpatialOverlayRegion(r.Bounds, r.Status, r.Count) { Aggregate = r.Aggregate, States = r.States ?? [],
+                    Ids = r.Ids ?? [], Components = (r.Components ?? []).Select(CategoryName).ToArray(), Checked = r.Checked, Highlighted = (r.Ids ?? []).Intersect(selected).Any() }).ToList();
+            return (Overlays: regions, Version: version);
+        }, token);
+        token.ThrowIfCancellationRequested();
+        var overlays = read.Overlays; _lastOverlayReadVersion = read.Version;
         if (focused is not null && !overlays.Any(o => o.Highlighted))
             overlays.AddRange(focused.Locations.Where(l => l.WorldId == world && (l.LayerId is null || l.LayerId == layer) && l.Bounds is not null)
                 .Select(l => new SpatialOverlayRegion(l.Bounds!, focused.Status) { Highlighted = true, Ids = selected, States = focused.States }));

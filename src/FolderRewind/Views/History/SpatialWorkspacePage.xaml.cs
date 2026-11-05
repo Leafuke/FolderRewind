@@ -18,6 +18,8 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using FolderRewind.Services.Plugins.V3;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 
 namespace FolderRewind.Views;
 
@@ -28,6 +30,11 @@ public sealed partial class SpatialWorkspacePage : Page
     private string? _cameraKey;
     private bool _cameraInitialized;
     private long _overlayGeneration;
+    private CancellationTokenSource? _overlayCancellation;
+    private Task _overlayWork = Task.CompletedTask;
+    private readonly record struct OverlayView(string? World, string? Layer, string Search, string Filter,
+        string Category, string? Focus, SpatialPreviewBounds Bounds, double Scale);
+    private OverlayView? _overlayView;
     private (string? World, string? Layer, double X, double Y, double Scale)? _beforeLocation;
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(180) };
@@ -53,7 +60,12 @@ public sealed partial class SpatialWorkspacePage : Page
         RightMap.ActivityChanged += (loading, refining) => ViewModel.SetMapActivity(false, loading, refining);
         LeftMap.StatusChanged += text => ViewModel.SetMapStatus(true, text);
         RightMap.StatusChanged += text => ViewModel.SetMapStatus(false, text);
-        _overlayTimer.Tick += async (_, _) => { _overlayTimer.Stop(); await UpdateOverlaysAsync(); };
+        _overlayTimer.Tick += async (_, _) =>
+        {
+            _overlayTimer.Stop();
+            if (_overlayLoading) { _overlayPending = true; return; }
+            await (_overlayWork = UpdateOverlaysAsync());
+        };
         _searchTimer.Tick += async (_, _) => { _searchTimer.Stop(); await GuardAsync(() => ViewModel.ReloadRowsAsync(true)); };
         SizeChanged += (_, _) => { Resize(); InitializeCamera(); };
         SidePanel.SizeChanged += (_, _) => DetailsScroll.MaxHeight = Math.Max(40, SidePanel.ActualHeight * .4 - 48);
@@ -66,10 +78,16 @@ public sealed partial class SpatialWorkspacePage : Page
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
-        _active = false; _overlayGeneration++; _overlayTimer.Stop(); _searchTimer.Stop();
+        _active = false; InvalidateOverlays(); _overlayPending = false; _overlayTimer.Stop(); _searchTimer.Stop();
         ViewModel.MapsChanged -= UpdateMaps; ViewModel.ChoicesChanged -= UpdateChoices; ViewModel.OverlayChanged -= QueueOverlays; ViewModel.LocateRequested -= Locate;
         LeftMap.NavigationEnabled = RightMap.NavigationEnabled = false;
-        LeftMap.Clear(); RightMap.Clear(); TaskObserver.Observe(ViewModel.DisposeAsync().AsTask(), "Spatial workspace disposal"); base.OnNavigatedFrom(e);
+        LeftMap.Clear(); RightMap.Clear(); TaskObserver.Observe(DisposeWorkspaceAsync(), "Spatial workspace disposal"); base.OnNavigatedFrom(e);
+    }
+    private async Task DisposeWorkspaceAsync()
+    {
+        var disposal = ViewModel.DisposeAsync().AsTask();
+        await _overlayWork;
+        await disposal;
     }
     private void UpdateChoices()
     {
@@ -100,7 +118,7 @@ public sealed partial class SpatialWorkspacePage : Page
     private void UpdateMaps()
     {
         if (!_active) return;
-        _overlayGeneration++;
+        InvalidateOverlays();
         if (_cameraKey != ViewModel.CameraKey && (ViewModel.LeftSession is not null || ViewModel.RightSession is not null))
         {
             if (_cameraKey is not null && _cameraInitialized) { var camera = VisibleMap.Camera; ViewModel.RememberCamera(_cameraKey, camera.X, camera.Y, camera.Scale); }
@@ -149,18 +167,41 @@ public sealed partial class SpatialWorkspacePage : Page
     }
     private void UpdateScale(double units, double pixels)
     { ScaleLine.Width = Math.Min(120, pixels); ScaleText.Text = units + " " + ((ViewModel.LeftDescription?.DistanceUnit ?? ViewModel.RightDescription?.DistanceUnit) is { } unit ? PluginV3SpatialPreview.Localize(unit) : ""); }
-    private void QueueOverlays() { if (_active && !_overlayTimer.IsEnabled) _overlayTimer.Start(); }
+    private void InvalidateOverlays() { _overlayGeneration++; _overlayCancellation?.Cancel(); }
+    private void QueueOverlays()
+    {
+        if (!_active) return;
+        var view = new OverlayView(ViewModel.World?.Id, ViewModel.Layer?.Id, ViewModel.Search, ViewModel.Filter,
+            ViewModel.Category, ViewModel.SelectedItem?.Id, VisibleMap.VisibleBounds, VisibleMap.Camera.Scale);
+        if (_overlayView != view) { _overlayView = view; InvalidateOverlays(); }
+        if (!_overlayTimer.IsEnabled) _overlayTimer.Start();
+    }
     private async Task UpdateOverlaysAsync()
     {
         if (_overlayLoading) { _overlayPending = true; return; }
-        _overlayLoading = true; var generation = ++_overlayGeneration;
+        if (!_active) return;
+        _overlayLoading = true; var generation = _overlayGeneration;
+        using var cancellation = _overlayCancellation = new();
         try
         {
-            var overlays = await ViewModel.OverlaysAsync(VisibleMap.VisibleBounds, VisibleMap.Camera.Scale);
-            if (_active && generation == _overlayGeneration) { LeftMap.SetOverlays(overlays); RightMap.SetOverlays(overlays); }
+            var overlays = await ViewModel.OverlaysAsync(VisibleMap.VisibleBounds, VisibleMap.Camera.Scale, cancellation.Token);
+            var diagnostics = ViewModel.SpatialDiagnostics;
+            var startedAt = diagnostics is null ? 0 : Stopwatch.GetTimestamp();
+            var published = false;
+            try
+            {
+                if (_active && !cancellation.IsCancellationRequested && generation == _overlayGeneration)
+                { LeftMap.SetOverlays(overlays); RightMap.SetOverlays(overlays); published = true; }
+            }
+            finally { diagnostics?.RecordOverlayUi(generation, ViewModel.LastOverlayReadVersion, startedAt, published); }
         }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (Exception ex) { if (_active) Details(ex.Message); }
-        finally { _overlayLoading = false; if (_overlayPending) { _overlayPending = false; QueueOverlays(); } }
+        finally
+        {
+            _overlayCancellation = null; _overlayLoading = false;
+            if (_overlayPending) { _overlayPending = false; QueueOverlays(); }
+        }
     }
     private async void Select(SpatialPreviewBounds bounds, bool additive, bool remove) => await GuardAsync(() => ViewModel.SelectAreaAsync(bounds, ViewModel.IsScope || additive, ScopeRemove.IsChecked == true || remove));
     private async Task GuardAsync(Func<Task> action)
@@ -226,11 +267,11 @@ public sealed partial class SpatialWorkspacePage : Page
     { if (_binding || !_active || Modes.SelectedItem is null) return; ViewModel.Mode = Modes.SelectedItem as SpatialWorkspaceChoice; ViewModel.ChangeMode(); }
     private void OnHeightChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
     { if (_binding || !_active || !double.IsFinite(args.NewValue)) return; ViewModel.Height = args.NewValue; UpdateMaps(); }
-    private void OnSearch(object sender, TextChangedEventArgs e) { if (_active) { _searchTimer.Stop(); _searchTimer.Start(); } }
+    private void OnSearch(object sender, TextChangedEventArgs e) { if (_active) { InvalidateOverlays(); _searchTimer.Stop(); _searchTimer.Start(); } }
     private async void OnFilter(object sender, SelectionChangedEventArgs e)
-    { if (!_active || _binding || Filter.SelectedItem is null) return; ViewModel.Filter = (Filter.SelectedItem as SpatialWorkspaceChoice)?.Id ?? ""; await GuardAsync(() => ViewModel.ReloadRowsAsync(true)); }
+    { if (!_active || _binding || Filter.SelectedItem is null) return; ViewModel.Filter = (Filter.SelectedItem as SpatialWorkspaceChoice)?.Id ?? ""; QueueOverlays(); await GuardAsync(() => ViewModel.ReloadRowsAsync(true)); }
     private async void OnCategory(object sender, SelectionChangedEventArgs e)
-    { if (!_active || _binding || CategoryFilter.SelectedItem is null) return; ViewModel.Category = (CategoryFilter.SelectedItem as SpatialWorkspaceChoice)?.Id ?? "$all"; await GuardAsync(() => ViewModel.ReloadRowsAsync(true)); }
+    { if (!_active || _binding || CategoryFilter.SelectedItem is null) return; ViewModel.Category = (CategoryFilter.SelectedItem as SpatialWorkspaceChoice)?.Id ?? "$all"; QueueOverlays(); await GuardAsync(() => ViewModel.ReloadRowsAsync(true)); }
     private async void OnItemClick(object sender, ItemClickEventArgs e)
     { if (e.ClickedItem is SpatialWorkspaceItem item) { await ViewModel.SelectItemAsync(item, false); DetailsExpander.IsExpanded = true; } }
     private void OnItemContainer(ListViewBase sender, ContainerContentChangingEventArgs args)
