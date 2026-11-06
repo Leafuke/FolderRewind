@@ -40,10 +40,12 @@ public static class VerifiedArchiveCaptureFactory
         if (!File.Exists(absolutePath))
             throw new FileNotFoundException("Verified capture payload is missing.", absolutePath);
 
+        var storedBytes = new FileInfo(absolutePath).Length;
         var representationId = RepresentationId.New();
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["fileName"] = Path.GetFileName(absolutePath)
+            ["fileName"] = Path.GetFileName(absolutePath),
+            [BackupSizeMetadata.StoredBytesKey] = BackupSizeMetadata.FormatBytes(storedBytes)
         };
         var deleted = deletedFiles?.Where(item => !string.IsNullOrWhiteSpace(item)).ToArray() ?? [];
         if (captureVerificationLevel is not null)
@@ -65,6 +67,7 @@ public static class VerifiedArchiveCaptureFactory
             logicalSha256: null,
             stateFingerprint,
             metadata);
+        var backupType = HistoryBackupTypePolicy.FromKind(kind);
         var localReplica = new LocalReplicaCandidate(
             LocalReplicaId.New(),
             representationId,
@@ -74,7 +77,7 @@ public static class VerifiedArchiveCaptureFactory
         var payload = new CapturePayloadCandidate(
             absolutePath,
             CapturePayloadState.VerifiedFinal,
-            new FileInfo(absolutePath).Length,
+            storedBytes,
             ExpectedStorageSha256: null);
         var nextBaselineStates = captureScope == CaptureScope.PartialSource && baseline is not null
             ? MergePartialState(baseline.FileStates, currentStates, deleted)
@@ -100,7 +103,9 @@ public static class VerifiedArchiveCaptureFactory
                 baseline?.Revision ?? SourceCaptureBaselineCache.MissingRevision,
                 absolutePath,
                 consecutiveSmartCaptures,
-                nextBaselineStates));
+                nextBaselineStates),
+            versionMetadataCandidates: [new VersionMetadataCandidate(BackupSizeMetadata.ProducerId, BackupSizeMetadata.SchemaId,
+                BackupSizeMetadata.SchemaVersion, BackupSizeMetadata.CapturePayload(storedBytes, nextBaselineStates.Values.Sum(file => file.Size), backupType))]);
     }
 
     private static ImmutableSortedDictionary<string, SourceCaptureFileState> MergePartialState(

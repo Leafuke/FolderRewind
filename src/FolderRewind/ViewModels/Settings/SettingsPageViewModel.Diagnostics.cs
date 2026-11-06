@@ -26,6 +26,7 @@ namespace FolderRewind.ViewModels
 
         public void RefreshSponsorState()
         {
+            RefreshAppearanceSchemeState();
             OnPropertyChanged(nameof(IsSponsorUnlocked));
             OnPropertyChanged(nameof(IsSponsorLocked));
             OnPropertyChanged(nameof(SponsorStatusText));

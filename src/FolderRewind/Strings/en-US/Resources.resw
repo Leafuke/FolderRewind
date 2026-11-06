@@ -412,13 +412,13 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Sponsor-Exclusive Personalization</value>
   </data>
   <data name="SettingsPage_SponsorPersonalizationDesc.Text" xml:space="preserve">
-    <value>After sponsoring, unlock custom accent colors, backgrounds, title bar, and more</value>
+    <value>Expand to explore themes, personal appearance schemes, page transitions, and more. Sponsor Edition unlocks customization</value>
   </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>Sponsor perks are locked</value>
   </data>
   <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
-    <value>Purchase or restore Sponsor Edition to use these appearance perks.</value>
+    <value>Expand the list below to explore the features. Purchase or restore Sponsor Edition to use them.</value>
   </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>Theme color</value>
@@ -457,10 +457,10 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Clear background</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
-    <value>Enable background image</value>
+    <value>Show background</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
-    <value>Turning this off keeps the selected image for later.</value>
+    <value>Show the selected image or theme gradient. Turning this off keeps your appearance settings.</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
     <value>Background fit</value>
@@ -469,10 +469,10 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Choose whether the image fills, fits, or stretches across the window.</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
-    <value>Image opacity</value>
+    <value>Background opacity</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
-    <value>Lower the image presence so app content stays clear.</value>
+    <value>Adjust the image or theme gradient opacity to keep app content clear.</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
     <value>Background overlay</value>
@@ -1680,6 +1680,10 @@ Keys use letters, digits, and underscores only. Values must be percent-encoded. 
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] Failed to save config: {0}</value>
   </data>
+  <data name="Config_SaveFailureTitle" xml:space="preserve"><value>Configuration not saved</value></data>
+  <data name="Config_SaveFailureMessage" xml:space="preserve"><value>The configuration could not be saved. Review the details, resolve the problem, and save again.</value></data>
+  <data name="Config_SourceIdInvalid" xml:space="preserve"><value>A source identifier is invalid or empty. Repair its binding and save again. Saving will not change historical source identifiers automatically.</value></data>
+  <data name="Config_SourceIdDuplicate" xml:space="preserve"><value>Multiple sources share an identifier. Resolve the binding conflict and save again. Saving will not change historical source identifiers automatically.</value></data>
   <data name="Config_OpenConfigDirFailed" xml:space="preserve">
     <value>[Config] Failed to open config directory: {0}</value>
   </data>
@@ -6096,7 +6100,7 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>Decisions have changed; the previous batch can no longer be undone.</value></data>
   <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>Reanalyzed: retained {0} decisions; {1} decisions invalidated.</value></data>
   <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>Automatic</value></data>
-  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} items checked</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>{0} items selected</value></data>
   <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>Use</value></data>
   <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>Use deletion</value></data>
   <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>Loading preview…</value></data>
@@ -6143,7 +6147,27 @@ Confirm to commit deletion, or cancel to keep the original backups.</value></dat
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>File-level base previews are unavailable for scope or source conflicts.</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>Return to backup history and keep this merge</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>Back to history · Your merge is kept</value></data>
-  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>These actions affect only checked items, not all search results.</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>These actions affect all selected items, including items not yet loaded by scrolling. Saved decisions can be undone; files change only after you review and apply the merge.</value></data>
+  <data name="MergeWorkspace_Rules.Content" xml:space="preserve"><value>Merge rules</value></data>
+  <data name="MergeWorkspace_Rules.AutomationProperties.Name" xml:space="preserve"><value>Read the complete rules for the current merge method</value></data>
+  <data name="MergeWorkspace_SelectAll.Content" xml:space="preserve"><value>Select results</value></data>
+  <data name="MergeWorkspace_SelectAll.AutomationProperties.Name" xml:space="preserve"><value>Select all actionable results matching the current search and filter, including unloaded items</value></data>
+  <data name="MergeWorkspace_Deselect.Content" xml:space="preserve"><value>Deselect</value></data>
+  <data name="MergeWorkspace_Deselect.AutomationProperties.Name" xml:space="preserve"><value>Clear the selection or cancel selecting all results</value></data>
+  <data name="MergeWorkspace_SelectionHelp.AutomationProperties.Name" xml:space="preserve"><value>Show selection keyboard shortcuts</value></data>
+  <data name="MergeWorkspace_SelectionHelp.ToolTipService.ToolTip" xml:space="preserve"><value>Selection shortcuts</value></data>
+  <data name="MergeWorkspace_SelectionHelpText.Text" xml:space="preserve"><value>Click: select and preview one item
+Ctrl + click: add or remove an item
+Shift + click / Up or Down: select a range
+Ctrl + A: select all actionable matching results, including unloaded items
+Esc: clear selection
+Enter: open preview or batch actions in a narrow window
+Changing the search or filter clears the selection. Shortcuts apply only within the file list.</value></data>
+  <data name="MergeWorkspace_SelectingAll.Text" xml:space="preserve"><value>Collecting all matching results…</value></data>
+  <data name="MergeWorkspace_OpenBatch.Content" xml:space="preserve"><value>Process selected items</value></data>
+  <data name="MergeWorkspace_MoreChoices.Content" xml:space="preserve"><value>More actions</value></data>
+  <data name="MergeWorkspace_UnsupportedChoices" xml:space="preserve"><value>Unavailable: {0}. Some selected items do not support these decisions. Adjust the selection to continue.</value></data>
+  <data name="MergeWorkspace_NoDecisionsToClear" xml:space="preserve"><value>Clear decision is unavailable: the selected items have no saved manual decisions.</value></data>
   <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>Return to current merge</value></data>
   <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>Clear decision</value></data>
   <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>Find the merged version and protection snapshots in history.</value></data>
@@ -6616,6 +6640,17 @@ Cloud switch: {2} → {3}</value>
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>Preview root mapping</value></data>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>The legacy custom upload command has not been converted to Native History cloud backup. Convert it explicitly in the connection wizard before enabling uploads.</value></data>
   <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>Authentication refresh evidence cannot be merged safely. Keep the credential snapshots and authorize again; new calls using these credentials are paused.</value></data>
+  <data name="CloudConnection_PathUnsafe" xml:space="preserve"><value>The credential or task path contains an unsupported reparse point. This call is paused. Check the diagnostics to locate the directory, then set up access again.</value></data>
+  <data name="CloudConnection_HardlinkUnsafe" xml:space="preserve"><value>The credential file has multiple hard links and cannot be used. Create a connection or reauthenticate to generate independent credentials. The original files and evidence will be kept.</value></data>
+  <data name="CloudConnection_MetadataUnavailable" xml:space="preserve"><value>The credential file's security information could not be read reliably. This call is paused. Diagnostics include the query result; check the connection or reauthenticate.</value></data>
+  <data name="CloudConnection_ConfigInvalid" xml:space="preserve"><value>The rclone configuration has duplicate entries, missing required fields, or an unsupported format. Correct it or import another configuration.</value></data>
+  <data name="CloudConnection_EvidenceInvalid" xml:space="preserve"><value>Credential evidence is damaged or uses an unsupported format. The files have been kept and these credentials are paused. Please reauthenticate.</value></data>
+  <data name="CloudConnection_SnapshotUnattributed" xml:space="preserve"><value>An old credential snapshot has no reliable owner. Its files have been kept and existing credentials are paused. Create a connection or reauthenticate to generate independent credentials.</value></data>
+  <data name="CloudConnection_ProfileMissing" xml:space="preserve"><value>The original cloud connection is missing or cannot be uniquely identified. Return to the connection list or create a connection. The project's existing binding will not change automatically.</value></data>
+  <data name="CloudConnection_InitializationFailed" xml:space="preserve"><value>The cloud connection page could not be opened. Go back and retry, then check the application log for diagnostics.</value></data>
+  <data name="CloudConnection_StartNew.Content" xml:space="preserve"><value>Create a connection</value></data>
+  <data name="CloudConnection_Return.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="CloudConnection_Rebuild.Content" xml:space="preserve"><value>Set up access again</value></data>
   <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth connections require safe persistence of refreshed tokens. Copy the configuration into FolderRewind managed credentials first.</value></data>
   <data name="CloudJob_RunningCannotRelease" xml:space="preserve"><value>A cloud task is running. Payload protection cannot be abandoned yet.</value></data>
   <data name="CloudJob_WriteVerificationRequired" xml:space="preserve"><value>Verify write access to the current directory in the cloud connection wizard, then retry.</value></data>
@@ -7838,7 +7873,7 @@ Affected projects: {1}</value></data>
   <data name="Product_Channel_Setup" xml:space="preserve"><value>Setup installer</value></data>
   <data name="Product_Channel_Sideload" xml:space="preserve"><value>Sideload</value></data>
   <data name="Product_Channel_Developer" xml:space="preserve"><value>Development</value></data>
-  <data name="Product_Channel_Unknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Product_Channel_Unknown" xml:space="preserve"><value>Not recognized</value></data>
   <data name="Product_UpdateStatus_NotChecked" xml:space="preserve"><value>Not checked; cached information may be outdated</value></data>
   <data name="Product_UpdateStatus_Checking" xml:space="preserve"><value>Checking for updates…</value></data>
   <data name="Product_UpdateStatus_UpToDate" xml:space="preserve"><value>You have the latest stable version</value></data>
@@ -7878,4 +7913,113 @@ Affected projects: {1}</value></data>
   <data name="Product_ShowArchived.Content" xml:space="preserve"><value>Show archived announcements</value></data>
   <data name="Product_NoNotices.Text" xml:space="preserve"><value>No applicable announcements.</value></data>
   <data name="Product_HistoryUncertain" xml:space="preserve"><value>The history commit outcome is uncertain. Recovery checks must finish first.</value></data>
+  <data name="History_Size_AddedLabel" xml:space="preserve"><value>Stored size</value></data>
+  <data name="History_Size_ContentLabel" xml:space="preserve"><value>Version content</value></data>
+  <data name="History_Size_DependencyLabel" xml:space="preserve"><value>Restore dependencies</value></data>
+  <data name="History_Size_Unknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="History_Size_Loading" xml:space="preserve"><value>Loading…</value></data>
+  <data name="History_Size_Open.ToolTipService.ToolTip" xml:space="preserve"><value>Backup information</value></data>
+  <data name="History_Size_BackupTypeLabel" xml:space="preserve"><value>Backup type</value></data>
+  <data name="History_BackupType_Unknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="History_BackupType_Full" xml:space="preserve"><value>Full</value></data>
+  <data name="History_BackupType_Smart" xml:space="preserve"><value>Incremental (Smart)</value></data>
+  <data name="History_BackupType_Rolling" xml:space="preserve"><value>Rolling</value></data>
+  <data name="History_BackupType_SemanticFull" xml:space="preserve"><value>Semantic full</value></data>
+  <data name="History_BackupType_SemanticSmart" xml:space="preserve"><value>Semantic incremental (Smart)</value></data>
+  <data name="History_BackupType_Semantic" xml:space="preserve"><value>Semantic backup</value></data>
+  <data name="Appearance_Themes.Text" xml:space="preserve"><value>Themes</value></data>
+  <data name="Appearance_ThemesDescription.Text" xml:space="preserve"><value>Apply coordinated colors, material and a static gradient, keeping your custom title and icon.</value></data>
+  <data name="Appearance_Schemes.Text" xml:space="preserve"><value>Personal appearance schemes</value></data>
+  <data name="Appearance_SchemesDescription.Text" xml:space="preserve"><value>Save an appearance and select a scheme to switch. Adjustments do not automatically update saved schemes.</value></data>
+  <data name="Appearance_Theme_paper" xml:space="preserve"><value>Paper</value></data>
+  <data name="Appearance_Theme_forest" xml:space="preserve"><value>Forest</value></data>
+  <data name="Appearance_Theme_night" xml:space="preserve"><value>Night Flight</value></data>
+  <data name="Appearance_SaveCurrent" xml:space="preserve"><value>Save current appearance</value></data>
+  <data name="Appearance_SaveAs" xml:space="preserve"><value>Save as</value></data>
+  <data name="Appearance_Update.Content" xml:space="preserve"><value>Update scheme</value></data>
+  <data name="Appearance_More.Content" xml:space="preserve"><value>More</value></data>
+  <data name="Appearance_RenameItem.Text" xml:space="preserve"><value>Rename</value></data>
+  <data name="Appearance_DeleteItem.Text" xml:space="preserve"><value>Delete scheme</value></data>
+  <data name="Appearance_Rename" xml:space="preserve"><value>Rename appearance scheme</value></data>
+  <data name="Appearance_Delete" xml:space="preserve"><value>Delete appearance scheme</value></data>
+  <data name="Appearance_DeleteConfirm" xml:space="preserve"><value>Delete “{0}”? Your current appearance and image files will be kept.</value></data>
+  <data name="Appearance_Name" xml:space="preserve"><value>Scheme name</value></data>
+  <data name="Appearance_CurrentCustom" xml:space="preserve"><value>Current: Custom appearance</value></data>
+  <data name="Appearance_CurrentScheme" xml:space="preserve"><value>Current: {0}</value></data>
+  <data name="Appearance_CurrentModified" xml:space="preserve"><value>Current: {0} (modified, scheme not updated)</value></data>
+  <data name="Appearance_SaveFailed" xml:space="preserve"><value>Could not save the appearance scheme.</value></data>
+  <data name="Appearance_OperationFailed" xml:space="preserve"><value>Appearance scheme operation failed: {0}</value></data>
+  <data name="Appearance_Error_Locked" xml:space="preserve"><value>Sponsor Edition is locked. Refresh purchase status and try again.</value></data>
+  <data name="Appearance_Error_NameRequired" xml:space="preserve"><value>Enter a scheme name.</value></data>
+  <data name="Appearance_Error_DuplicateName" xml:space="preserve"><value>A scheme with this name already exists. Choose another name.</value></data>
+  <data name="Appearance_Error_MissingScheme" xml:space="preserve"><value>This scheme no longer exists. Select another scheme.</value></data>
+  <data name="Appearance_Error_UnknownTheme" xml:space="preserve"><value>This theme is not recognized. Select another theme.</value></data>
+  <data name="Appearance_Error_Busy" xml:space="preserve"><value>Appearance is being saved. Try again shortly.</value></data>
+  <data name="Appearance_ThemeSelector.PlaceholderText" xml:space="preserve"><value>Select a theme</value></data>
+  <data name="Appearance_SchemeSelector.PlaceholderText" xml:space="preserve"><value>Select a saved scheme</value></data>
+  <data name="Sponsor_NavigationAnimation.Text" xml:space="preserve"><value>Page transitions</value></data>
+  <data name="Sponsor_NavigationAnimationDescription.Text" xml:space="preserve"><value>Applies on the next page change and is saved with personal appearance schemes. Respects Windows animation settings</value></data>
+  <data name="Sponsor_NavigationAnimation_None" xml:space="preserve"><value>None</value></data>
+  <data name="Sponsor_NavigationAnimation_Entrance" xml:space="preserve"><value>Gentle entrance</value></data>
+  <data name="Sponsor_NavigationAnimation_Slide" xml:space="preserve"><value>Horizontal slide</value></data>
+  <data name="Sponsor_NavigationAnimation_DrillIn" xml:space="preserve"><value>Zoom</value></data>
+  <data name="Product_UpdateHeading.Text" xml:space="preserve"><value>Version and updates</value></data>
+  <data name="Product_NoticesHeading.Text" xml:space="preserve"><value>Announcements</value></data>
+  <data name="Product_VersionLabel" xml:space="preserve"><value>Current version {0}</value></data>
+  <data name="Product_InstallationMethod" xml:space="preserve"><value>Installation method: {0}</value></data>
+  <data name="Product_UnknownInstallationHint" xml:space="preserve"><value>Installation method was not recognized. Updates open the official release page.</value></data>
+  <data name="Product_UpdateTarget" xml:space="preserve"><value>Update available: v{0}</value></data>
+  <data name="Product_ReleasePage.Content" xml:space="preserve"><value>Release notes</value></data>
+  <data name="Product_UpdateDetails.Header" xml:space="preserve"><value>Release notes and reminder options</value></data>
+  <data name="Product_CurrentNotices.Text" xml:space="preserve"><value>Current</value></data>
+  <data name="Product_ArchivedNotices.Text" xml:space="preserve"><value>Archived</value></data>
+  <data name="Product_CriticalNotice" xml:space="preserve"><value>Important compatibility notice</value></data>
+  <data name="Product_AppliesToCurrentVersion" xml:space="preserve"><value>Applies to your current version</value></data>
+  <data name="Product_NoticeMetadata" xml:space="preserve"><value>Published {0} · {1}</value></data>
+  <data name="Product_ViewSteps" xml:space="preserve"><value>View workaround steps</value></data>
+  <data name="Product_ViewDetails" xml:space="preserve"><value>View details</value></data>
+  <data name="Product_CollapseNotice" xml:space="preserve"><value>Collapse details</value></data>
+  <data name="Product_CancelSnooze.Text" xml:space="preserve"><value>Cancel reminder deferral</value></data>
+  <data name="Product_RestoreUpdate.Text" xml:space="preserve"><value>Re-enable reminders for this version</value></data>
+  <data name="Product_Unarchive.Text" xml:space="preserve"><value>Unarchive announcement</value></data>
+  <data name="Product_NoticeCount" xml:space="preserve"><value>{0} applicable · {1} important</value></data>
+  <data name="Product_NoticesLastCheck" xml:space="preserve"><value>Last successful refresh: {0}</value></data>
+  <data name="Product_NoticesLoading" xml:space="preserve"><value>Fetching announcements…</value></data>
+  <data name="Product_NoticesFailedNoCache" xml:space="preserve"><value>Could not fetch announcements and no valid cache is available. Refresh to retry.</value></data>
+  <data name="Product_NoticesCached" xml:space="preserve"><value>Showing valid cached announcements. They have not been refreshed successfully in this session.</value></data>
+  <data name="Product_NoticesNotChecked" xml:space="preserve"><value>Announcements have not been fetched. Select Refresh announcements to fetch them.</value></data>
+  <data name="Product_NoArchivedNotices" xml:space="preserve"><value>No applicable archived announcements.</value></data>
+  <data name="Product_AllNoticesArchived" xml:space="preserve"><value>All applicable announcements are archived. Select Archived to view them.</value></data>
+  <data name="Product_NoApplicableNotices" xml:space="preserve"><value>No announcements apply to your current version.</value></data>
+  <data name="Product_NoApplicableCachedNotices" xml:space="preserve"><value>The valid cache contains no announcements for your current version. Refresh for the latest result.</value></data>
+  <data name="Product_WaitForNotices" xml:space="preserve"><value>Announcements are refreshing. Wait for the refresh to finish.</value></data>
+  <data name="Product_WaitForUpdates" xml:space="preserve"><value>Checking updates or saving refresh results. Please wait.</value></data>
+  <data name="Product_UnknownInstallationMethod" xml:space="preserve"><value>Installation method: not recognized (updates via the official release page)</value></data>
+  <data name="Product_VersionSummary" xml:space="preserve"><value>v{0} · {1}</value></data>
+  <data name="Product_UpdateSectionName" xml:space="preserve"><value>Version and updates</value></data>
+  <data name="Product_NoticesSectionName" xml:space="preserve"><value>Announcements</value></data>
+  <data name="Product_UpdateShort_NotChecked" xml:space="preserve"><value>Updates not checked</value></data>
+  <data name="Product_UpdateShort_Checking" xml:space="preserve"><value>Checking for updates…</value></data>
+  <data name="Product_UpdateShort_UpToDate" xml:space="preserve"><value>Up to date</value></data>
+  <data name="Product_UpdateShort_Available" xml:space="preserve"><value>Update available</value></data>
+  <data name="Product_UpdateShort_Failed" xml:space="preserve"><value>Check failed. Try again</value></data>
+  <data name="Product_NoticesHeaderDefault" xml:space="preserve"><value>Announcements and compatibility notices</value></data>
+  <data name="Product_NoticesHeaderFailedCache" xml:space="preserve"><value>Refresh failed. Cached announcements are available</value></data>
+  <data name="Product_NoticesHeaderFailed" xml:space="preserve"><value>Could not fetch announcements. Try again</value></data>
+  <data name="Product_ApplicableNoticeCount" xml:space="preserve"><value>{0} applicable announcements</value></data>
+  <data name="Product_ArchivedNoticeCount" xml:space="preserve"><value>{0} archived announcements</value></data>
+  <data name="Product_ViewArchivedNotices" xml:space="preserve"><value>View archived announcements ({0})</value></data>
+  <data name="Product_BackToCurrentNotices" xml:space="preserve"><value>Back to current announcements</value></data>
+  <data name="Product_ImportantNoticeSummary" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Product_ArchivedListHeading.Text" xml:space="preserve"><value>Archived announcements</value></data>
+  <data name="Product_ReleaseNotesDetails.Header" xml:space="preserve"><value>Release notes</value></data>
+  <data name="Product_ReleaseNotesOpenFailed" xml:space="preserve"><value>Could not open release notes. Please try again.</value></data>
+  <data name="Product_CachedUpdateTarget" xml:space="preserve"><value>Cached update: v{0}</value></data>
+  <data name="MergeProgress_PreparingHistory" xml:space="preserve"><value>Preparing historical versions</value></data>
+  <data name="MergeProgress_AnalyzingWorld" xml:space="preserve"><value>Analyzing world</value></data>
+  <data name="MergeProgress_OrganizingResults" xml:space="preserve"><value>Organizing results</value></data>
+  <data name="MergeProgress_InitializingVisualization" xml:space="preserve"><value>Initializing visualization</value></data>
+  <data name="MergeProgress_Count" xml:space="preserve"><value>{0} · {1} / {2}</value></data>
+  <data name="MergeProgress_ReadFiles" xml:space="preserve"><value>{0} · Opened {1} files</value></data>
+  <data name="MergeProgress_Items" xml:space="preserve"><value>{0} · {1} items</value></data>
 </root>

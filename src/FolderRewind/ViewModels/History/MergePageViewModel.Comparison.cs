@@ -6,7 +6,6 @@ using FolderRewind.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,9 +31,8 @@ public sealed partial class MergePageViewModel
     public string DecisionText => SelectedChange?.Description ?? "";
     public ObservableCollection<MergeDiffLine> OursLines { get; } = [];
     public ObservableCollection<MergeDiffLine> TheirsLines { get; } = [];
-    public int CheckedCount => Changes.Count(c => c.IsChecked && c.CanCheck);
-    public string SelectionLabel => string.Format(I18n.GetString("MergeWorkspace_SelectedCount"), CheckedCount);
-    public bool CanAdopt => CanResolve && (CheckedCount > 0 || SelectedChange is { CanCheck: true });
+    public string SelectionLabel => string.Format(I18n.GetString("MergeWorkspace_SelectedCount"), SelectionCount);
+    public bool CanAdopt => CanResolve && SelectionCount > 0 && _selectionRevision == CurrentSelectionRevision && _selection.Values.All(c => c.CanCheck);
     private static bool Allows(MergeChangeItem row, MergeResolutionChoice choice) => row.Conflict.SemanticSubject is { } subject
         ? MergeSessionStore.SemanticChoiceAllowed(subject, choice)
         : choice is MergeResolutionChoice.Ours or MergeResolutionChoice.Theirs || !row.Conflict.Subject.Paths.IsEmpty && choice is MergeResolutionChoice.Base or MergeResolutionChoice.Delete;
@@ -45,25 +43,20 @@ public sealed partial class MergePageViewModel
     public bool CanDelete => CanChoose(MergeResolutionChoice.Delete);
     public bool CanClear => CanAdopt && SelectedDecisions().Any(c => c.Resolution is not null);
     public bool CanUndo => CanResolve && Operations?.CanUndo == true;
-    public bool CanNext => !IsBusy && _unresolved > 0;
+    public bool CanNext => IsListAvailable && _unresolved > 0;
     public string RecomputeSummary => Operations?.RecomputeSummary ?? "";
     public string AdoptOursLabel => I18n.GetString("MergeWorkspace_Adopt") + " " + OursLabel;
-    public string AdoptTheirsLabel => CheckedCount == 0 && SelectedChange is { IsAutomatic: false, Conflict: var c }
+    public string AdoptTheirsLabel => SelectedChange is { IsAutomatic: false, Conflict: var c }
         && c.SemanticSubject is null && c.Theirs.IsEmpty && c.TheirsDirectories.IsEmpty
         ? I18n.GetString("MergeWorkspace_AdoptDeletion") : I18n.GetString("MergeWorkspace_Adopt") + " " + TheirsLabel;
-    private MergeChangeItem[] SelectedDecisions()
-    {
-        var rows = Changes.Where(c => c.IsChecked && c.CanCheck).ToArray();
-        return rows.Length == 0 && SelectedChange is { CanCheck: true } row ? [row] : rows;
-    }
-    private void AddRow(MergeConflict conflict, MergeResolution? resolution, bool automatic, bool isChecked = false)
-    {
-        var row = new MergeChangeItem(conflict, resolution, automatic) { IsChecked = isChecked };
-        row.PropertyChanged += OnRowChanged; Changes.Add(row);
-    }
-    private void OnRowChanged(object? sender, PropertyChangedEventArgs e) { if (e.PropertyName == nameof(MergeChangeItem.IsChecked)) Notify(); }
+    private MergeChangeItem[] SelectedDecisions() => _selection.Values.Where(c => c.CanCheck).ToArray();
+    private void AddRow(MergeConflict conflict, MergeResolution? resolution, bool automatic)
+        => Changes.Add(new(conflict, resolution, automatic));
     private void FilterChanged()
     {
+        ++_loadGeneration; _filterPending = true; IsLoadingChanges = false;
+        _loadedRevision = null;
+        ClearSelection();
         ViewState = ViewState with { Search = Search, Filter = Filter };
         if (!_active) return;
         // Reload is generation-checked so earlier searches never replace newer results.
@@ -78,7 +71,7 @@ public sealed partial class MergePageViewModel
     }
     public async Task LoadMoreAsync()
     {
-        if (_loadingMore || !_active || IsBusy || Changes.Count >= _matching || State.Session is not { } session || Operations is null) return;
+        if (_loadingMore || !_active || !IsListAvailable || Changes.Count >= _matching || State.Session is not { } session || Operations is null) return;
         _loadingMore = true; var generation = _loadGeneration; var offset = Changes.Count;
         var search = Search; var filter = Filter;
         try
@@ -86,33 +79,48 @@ public sealed partial class MergePageViewModel
             var page = await Task.Run(() => Operations.QueryChanges(session, search, filter, offset, 100));
             if (!_active || generation != _loadGeneration || session.Revision != State.Session?.Revision) return;
             foreach (var row in page.Rows) AddRow(row.Conflict, row.Resolution, row.Automatic);
-            _matching = page.Matching; Notify();
+            _matching = page.Matching; Notify(); SelectionUpdated?.Invoke();
         }
         catch (Exception ex) { ReportError(ex); }
         finally { _loadingMore = false; }
     }
-    public Task ClearAsync() => Operations is null ? Task.CompletedTask : ExecuteAsync(() => Operations.ClearAsync(SelectedDecisions().Select(c => c.Id).ToArray()));
+    public Task ClearAsync()
+    {
+        if (!CanClear || Operations is null) return Task.CompletedTask;
+        var ids = SelectedDecisions().Select(c => c.Id).ToArray();
+        return SaveDecisionsAsync(() => Operations.ClearAsync(ids));
+    }
     public async Task NextAsync()
     {
-        if (Operations?.Runtime is not { } runtime || State.Session is not { } session) return;
+        if (!CanNext || Operations?.Runtime is not { } runtime || State.Session is not { } session) return;
+        var revision = CurrentSelectionRevision;
+        var search = Search; var selectedId = SelectedChange?.Id;
         var currentPath = SelectedChange?.Path ?? "";
         var next = await Task.Run(() =>
         {
-            if (session.Plan.SemanticProvider is not null) return runtime.MergeSessions.NextSemanticConflict(session, Search, SelectedChange?.Id);
-            var candidates = runtime.MergeSessions.ConflictIndex(session, Search).Where(c => !c.Resolved)
+            if (session.Plan.SemanticProvider is not null) return runtime.MergeSessions.NextSemanticConflict(session, search, selectedId);
+            var candidates = runtime.MergeSessions.ConflictIndex(session, search).Where(c => !c.Resolved)
                 .OrderBy(c => c.Path, StringComparer.Ordinal).ToArray();
             return candidates.FirstOrDefault(c => StringComparer.Ordinal.Compare(c.Path, currentPath) > 0).Id ?? candidates.FirstOrDefault().Id;
         });
-        if (next is null || !_active) return;
-        _filter = "Unresolved"; await ReloadChangesAsync();
-        while (_active && Changes.All(c => c.Id != next) && Changes.Count < _matching) await LoadMoreAsync();
-        SelectedChange = Changes.FirstOrDefault(c => c.Id == next); ContentChanged?.Invoke(); Notify();
+        if (next is null || !_active || revision != CurrentSelectionRevision || search != Search) return;
+        ClearSelection(); _filter = "Unresolved";
+        ViewState = ViewState with { Filter = _filter };
+        await ReloadChangesAsync();
+        while (_active && IsListAvailable && revision == CurrentSelectionRevision && Changes.All(c => c.Id != next) && Changes.Count < _matching)
+        {
+            var previousCount = Changes.Count;
+            await LoadMoreAsync();
+            if (Changes.Count == previousCount) break;
+        }
+        if (!_active || revision != CurrentSelectionRevision || search != Search || Filter != "Unresolved") return;
+        SelectOnly(Changes.FirstOrDefault(c => c.Id == next)); ContentChanged?.Invoke(); Notify();
     }
     partial void CancelPreview() { _preview?.Cancel(); _preview?.Dispose(); _preview = null; }
     partial void SelectionChanged()
     {
         CancelPreview(); Notify();
-        if (!_active || IsBusy || SelectedChange is null) return;
+        if (!_active || !IsListAvailable || SelectedChange is null) return;
         _preview = new(); var token = _preview.Token; var row = SelectedChange;
         TaskObserver.Observe(LoadPreviewAsync(row, token), "Merge preview");
     }
@@ -120,11 +128,11 @@ public sealed partial class MergePageViewModel
     {
         try
         {
-            OursLines.Clear(); TheirsLines.Clear(); BaseText = ""; PreviewNotice = I18n.GetString("MergeWorkspace_PreviewLoading"); Notify();
+            OursLines.Clear(); TheirsLines.Clear(); BaseText = ""; OursInfo = ""; TheirsInfo = "";
+            PreviewNotice = I18n.GetString("MergeWorkspace_PreviewLoading"); Notify();
             var conflict = row.Conflict;
             if (conflict.SemanticSubject is { } subject)
             {
-                OursInfo = OursLabel; TheirsInfo = TheirsLabel;
                 PreviewNotice = I18n.PickBest(subject.Description.Translations, subject.Description.Default) ?? subject.Description.Default;
                 Notify(); return;
             }
@@ -145,11 +153,12 @@ public sealed partial class MergePageViewModel
                 .Select(side => MergeFilePreview.ReadAsync(side.GetValueOrDefault(pathKey), token)));
             token.ThrowIfCancellationRequested();
             var left = previews[0]; var right = previews[1];
-            static string Info(MergeFilePreview p) => I18n.GetString("MergeWorkspace_Preview_" + p.Kind) + $" · {p.Length:N0} B · {p.EncodingName}";
+            static string Info(MergeFilePreview p) => I18n.GetString("MergeWorkspace_Preview_" + p.Kind) + $" · {p.Length:N0} B"
+                + (string.IsNullOrEmpty(p.EncodingName) ? "" : " · " + p.EncodingName);
             OursInfo = Info(left); TheirsInfo = Info(right); BaseText = Info(previews[2]) + "\n" + previews[2].Text;
             PreviewNotice = I18n.GetString(row.IsAutomatic ? "MergeWorkspace_AutomaticNotice" : right.Kind == MergePreviewKind.Missing || left.Kind == MergePreviewKind.Missing
                 ? "MergeWorkspace_DeletionNotice" : "MergeWorkspace_WholeFileNotice");
-            if (left.CanCompare && right.CanCompare)
+            if (left.CanCompare && right.CanCompare && (left.Text.Length > 0 || right.Text.Length > 0))
             {
                 var diff = await Task.Run(() => new SideBySideDiffBuilder(new DiffPlex.Differ()).BuildDiffModel(left.Text, right.Text, false), token);
                 token.ThrowIfCancellationRequested();
@@ -160,8 +169,14 @@ public sealed partial class MergePageViewModel
             }
             else
             {
-                var i = 0; foreach (var line in left.Text.Split('\n')) OursLines.Add(new((++i).ToString(), "", line));
-                i = 0; foreach (var line in right.Text.Split('\n')) TheirsLines.Add(new((++i).ToString(), "", line));
+                if (left.Text.Length > 0)
+                {
+                    var i = 0; foreach (var line in left.Text.Split('\n')) OursLines.Add(new((++i).ToString(), "", line));
+                }
+                if (right.Text.Length > 0)
+                {
+                    var i = 0; foreach (var line in right.Text.Split('\n')) TheirsLines.Add(new((++i).ToString(), "", line));
+                }
             }
             Notify();
         }

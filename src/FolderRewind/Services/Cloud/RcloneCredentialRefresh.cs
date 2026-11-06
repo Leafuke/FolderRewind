@@ -16,13 +16,13 @@ using System.Threading.Tasks;
 namespace FolderRewind.Services;
 
 // 凭据门闩只在命令执行层获取；不能持有 History/配置变更锁等待网络。
-internal sealed class RcloneCredentialRefresh : IAsyncDisposable
+internal sealed partial class RcloneCredentialRefresh : IAsyncDisposable
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, string> AcceptedRevisions = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, bool> UnsettledSources = new(StringComparer.OrdinalIgnoreCase);
     internal static bool MustPreserveOwnedCredentials(string source)
-        => UnsettledSources.ContainsKey(source) || File.Exists(LedgerPath(source));
+        => UnsettledSources.ContainsKey(source) || File.Exists(LedgerPath(source)) || RcloneCredentialStore.HasTrackedEvidence(source);
     private readonly RcloneExecutionContext _context;
     private readonly SemaphoreSlim _gate;
     private readonly FileStream _fileLock;
@@ -34,8 +34,12 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
     internal static async Task PrepareStoreAsync(string source, string root, bool managed, CancellationToken token)
     {
         source = Path.GetFullPath(source); root = Path.GetFullPath(root);
-        RejectReparsePoints(source); RejectHardLinks(source); RejectReparsePoints(root);
-        RcloneExecutionContext.CreatePrivateDirectory(root);
+        RcloneCredentialStore.Track(source, root, managed);
+        try
+        {
+            await Task.Run(() => { RejectReparsePoints(source); RejectHardLinks(source); RejectReparsePoints(root); RcloneExecutionContext.CreatePrivateDirectory(root); }, token).ConfigureAwait(false);
+        }
+        catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.PrepareStore, source); throw; }
         var gate = Gates.GetOrAdd(source, _ => new(1, 1));
         await gate.WaitAsync(token).ConfigureAwait(false);
         FileStream? fileLock = null;
@@ -49,6 +53,7 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
             }
             await RecoverAsync(root, source, "", token, managed).ConfigureAwait(false);
         }
+        catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.PrepareStore, source); throw; }
         finally { fileLock?.Dispose(); gate.Release(); }
     }
 
@@ -70,14 +75,14 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         {
             if (File.Exists(Path.Combine(context.TaskDirectory, "attempt.json"))) throw Conflict();
             // 实际文件路径共用跨进程门闩。外部 OAuth 不允许更新；受管目录不接受重解析点别名。
-            var lockPath = StorageLockPath(path, context.TaskRoot, context.AllowTokenWriteback);
+            var lockPath = StorageLockPath(path, context.SharedTaskRoot, context.AllowTokenWriteback);
             while (fileLock is null)
             {
                 token.ThrowIfCancellationRequested();
                 try { fileLock = new(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
                 catch (IOException) { await Task.Delay(100, token).ConfigureAwait(false); }
             }
-            await RecoverAsync(context.TaskRoot, path, context.TaskDirectory, token, context.AllowTokenWriteback).ConfigureAwait(false);
+            await RecoverAsync(context.SharedTaskRoot, path, context.TaskDirectory, token, context.AllowTokenWriteback).ConfigureAwait(false);
             var source = RcloneExecutionContext.ReadConfigurationBytes(path);
             var revision = Hash(source);
             if (context.AllowedTokenSections.Length != 0) RequireTrustedSource(path, source);
@@ -96,7 +101,7 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
             await lease.SaveAsync(token).ConfigureAwait(false);
             return lease;
         }
-        catch { fileLock?.Dispose(); gate.Release(); throw; }
+        catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.Begin, path); fileLock?.Dispose(); gate.Release(); throw; }
     }
 
     internal async Task StartingAsync(CancellationToken token)
@@ -107,6 +112,16 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         await SaveAsync(token).ConfigureAwait(false);
     }
     internal async Task CompleteAsync(bool interrupted = false)
+    {
+        try { await CompleteCoreAsync(interrupted).ConfigureAwait(false); }
+        catch (JsonException)
+        {
+            var error = EvidenceInvalid(_context.ConfigPath);
+            RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.Complete, _context.ConfigPath); throw error;
+        }
+        catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.Complete, _context.ConfigPath); throw; }
+    }
+    private async Task CompleteCoreAsync(bool interrupted)
     {
         // 子进程已结束之后的 finally 必须处理刷新，即使命令失败或被取消也不丢新 Token。
         _attempt = _attempt with { Phase = interrupted && _attempt.TokenSections.Length != 0 ? "Interrupted" : "Exited" };
@@ -133,13 +148,14 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         // Missing payload after acquiring the lock proves there are no unique bytes to recover.
         if (!File.Exists(Path.Combine(directory, "rclone.conf"))) return;
         var registration = Path.Combine(directory, "snapshot.json");
-        if (!File.Exists(registration) || new FileInfo(registration).Length > 65536) throw Conflict();
+        if (!File.Exists(registration)) throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.UnattributedSnapshot, CredentialFailureStage.Recover, source);
         RejectReparsePoints(registration);
-        var recorded = JsonSerializer.Deserialize(File.ReadAllBytes(registration), CredentialRefreshJsonContext.Default.CredentialSnapshotRegistration);
-        if (recorded is null || recorded.Version != 1) throw Conflict();
+        var recorded = JsonSerializer.Deserialize(RcloneCredentialStore.ReadMetadata(registration), CredentialRefreshJsonContext.Default.CredentialSnapshotRegistration);
+        if (recorded is null || recorded.Version != 1 || recorded.SourceRevision is not { Length: 64 }
+            || !recorded.SourceRevision.All(Uri.IsHexDigit)) throw EvidenceInvalid(source);
         if (!StringComparer.OrdinalIgnoreCase.Equals(recorded.SourcePath, source)) return;
         var snapshot = Path.Combine(directory, "rclone.conf");
-        RejectReparsePoints(snapshot);
+        RejectReparsePoints(snapshot); RejectHardLinks(snapshot);
         var bytes = RcloneExecutionContext.ReadConfigurationBytes(snapshot);
         var current = RcloneExecutionContext.ReadConfigurationBytes(source);
         // No Attempt means no command can be running: Begin persists it before starting a child.
@@ -151,61 +167,100 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         File.Delete(registration);
     }
 
-    internal static async Task RecoverAsync(string root, string sourcePath, string currentDirectory, CancellationToken token, bool allowWriteback = true)
+    internal static Task RecoverAsync(string root, string sourcePath, string currentDirectory, CancellationToken token, bool allowWriteback = true)
+        => Task.Run(() => Recover(root, sourcePath, currentDirectory, token, allowWriteback), token);
+    private static void Recover(string root, string sourcePath, string currentDirectory, CancellationToken token, bool allowWriteback)
     {
-        var directories = Directory.EnumerateDirectories(root, "task-*").Take(1001).ToArray();
-        if (directories.Length > 1000) throw Conflict();
-        foreach (var directory in directories)
+        _ = RcloneCredentialStore.HasFreshOrigin(sourcePath, allowWriteback);
+        var unattributedLegacy = false;
+        foreach (var (directory, legacy) in RcloneCredentialStore.Enumerate(root, sourcePath))
         {
             token.ThrowIfCancellationRequested();
-            if (directory == currentDirectory) continue;
-            RejectReparsePoints(directory);
-            var attemptPath = Path.Combine(directory, "attempt.json");
-            if (!File.Exists(attemptPath))
+            if (StringComparer.OrdinalIgnoreCase.Equals(directory, currentDirectory)) continue;
+            var owner = RcloneCredentialStore.Owner(directory);
+            if (owner is not null && !StringComparer.OrdinalIgnoreCase.Equals(owner, sourcePath))
             {
-                // 不可识别的遗留凭据快照可能是唯一的新 Token，不能用过期清理抹掉它。
-                if (File.Exists(Path.Combine(directory, "rclone.conf")) && File.Exists(Path.Combine(directory, "ownership.lock")))
+                if (legacy) continue;
+                throw EvidenceInvalid(sourcePath);
+            }
+            if (owner is null)
+            {
+                var unsafeDirectory = (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0;
+                if (!unsafeDirectory && !File.Exists(Path.Combine(directory, "rclone.conf")) && !File.Exists(Path.Combine(directory, "attempt.json"))) continue;
+                if (legacy) { unattributedLegacy = true; continue; }
+                throw RcloneConnectionDiagnostics.CredentialFailure(legacy ? CredentialFailureReason.UnattributedSnapshot : CredentialFailureReason.InvalidEvidence,
+                    CredentialFailureStage.Recover, sourcePath);
+            }
+            try
+            {
+                RejectReparsePoints(directory);
+                var attemptPath = Path.Combine(directory, "attempt.json");
+                if (!File.Exists(attemptPath))
                 {
-                    FileStream ownership;
+                    if (File.Exists(Path.Combine(directory, "rclone.conf")))
+                    {
+                        var marker = Path.Combine(directory, "ownership.lock");
+                        if (!File.Exists(marker)) throw EvidenceInvalid(sourcePath);
+                        RejectReparsePoints(marker);
+                        FileStream ownership;
+                        try
+                        {
+                            ownership = new FileStream(marker, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                        }
+                        catch (IOException error)
+                        {
+                            if (!File.Exists(Path.Combine(directory, "rclone.conf")) || (error.HResult & 0xffff) is 32 or 33) continue;
+                            throw;
+                        }
+                        using (ownership)
+                        {
+                            if (OperatingSystem.IsWindows()) RequireSingleLink(marker, InspectFile(ownership.SafeFileHandle));
+                            RecoverIdleSnapshot(directory, sourcePath);
+                        }
+                    }
+                    continue;
+                }
+                RejectReparsePoints(attemptPath); RejectHardLinks(attemptPath);
+                var attempt = JsonSerializer.Deserialize(RcloneCredentialStore.ReadMetadata(attemptPath),
+                    CredentialRefreshJsonContext.Default.CredentialRefreshAttempt) ?? throw EvidenceInvalid(sourcePath);
+                if (attempt.Version != 1 || attempt.SourceRevision is not { Length: 64 } || attempt.TokenSections is null
+                    || attempt.TokenSections.Length > 100 || !Path.IsPathFullyQualified(attempt.ExecutablePath)
+                    || attempt.Phase is not ("Prepared" or "Starting" or "Running" or "Interrupted" or "Exited")) throw EvidenceInvalid(sourcePath);
+                if (attempt.Phase is "Starting" or "Interrupted") throw Conflict();
+                if (attempt.Phase == "Running")
+                {
+                    if (attempt.ProcessId is not { } pid || pid <= 0 || attempt.StartedUtcTicks is not { } ticks) throw EvidenceInvalid(sourcePath);
                     try
                     {
-                        ownership = new FileStream(Path.Combine(directory, "ownership.lock"), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                        using var process = Process.GetProcessById(pid);
+                        // PID 复用不能证明旧子进程已退出；进程仍存在时停止新刷新者。
+                        if (!process.HasExited && process.StartTime.ToUniversalTime().Ticks == ticks) throw Conflict();
                     }
-                    catch (IOException) { continue; } // 同进程的待执行上下文仍持有独占归属句柄。
-                    using (ownership) RecoverIdleSnapshot(directory, sourcePath);
+                    catch (ArgumentException) { }
                 }
-                continue;
+                var recovered = Merge(attempt, directory, allowWriteback);
+                AcceptedRevisions[sourcePath] = Hash(recovered);
+                File.Delete(attemptPath); File.Delete(Path.Combine(directory, "source.conf"));
+                File.Delete(Path.Combine(directory, "rclone.conf"));
+                File.Delete(Path.Combine(directory, "snapshot.json"));
+                UnsettledSources.TryRemove(sourcePath, out _);
+                // 保留快照目录给正常清理；这里只处理明确的刷新证据。
             }
-            if (new FileInfo(attemptPath).Length > 65536) throw Conflict();
-            var attempt = JsonSerializer.Deserialize(await File.ReadAllBytesAsync(attemptPath, token).ConfigureAwait(false),
-                CredentialRefreshJsonContext.Default.CredentialRefreshAttempt) ?? throw Conflict();
-            if (!StringComparer.OrdinalIgnoreCase.Equals(attempt.SourcePath, sourcePath)) continue;
-            if (attempt.Version != 1 || attempt.Phase is "Starting" or "Interrupted") throw Conflict();
-            if (attempt.Phase == "Running")
-            {
-                if (attempt.ProcessId is not { } pid || attempt.StartedUtcTicks is not { } ticks) throw Conflict();
-                try
-                {
-                    using var process = Process.GetProcessById(pid);
-                    // PID 复用不能证明旧子进程已退出；进程仍存在时停止新刷新者。
-                    if (!process.HasExited && process.StartTime.ToUniversalTime().Ticks == ticks) throw Conflict();
-                }
-                catch (ArgumentException) { }
-            }
-            var recovered = Merge(attempt, directory, allowWriteback);
-            AcceptedRevisions[sourcePath] = Hash(recovered);
-            File.Delete(attemptPath); File.Delete(Path.Combine(directory, "source.conf"));
-            File.Delete(Path.Combine(directory, "rclone.conf"));
-            File.Delete(Path.Combine(directory, "snapshot.json"));
-            UnsettledSources.TryRemove(sourcePath, out _);
-            // 保留快照目录给正常清理；这里只处理明确的刷新证据。
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+            { throw EvidenceInvalid(sourcePath); }
+            catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.Recover, sourcePath); throw; }
         }
+        // Replay may complete a ledger interrupted after source writeback. Use the recovered revision here.
+        if (unattributedLegacy && !RcloneCredentialStore.HasFreshOrigin(sourcePath, allowWriteback))
+            throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.UnattributedSnapshot, CredentialFailureStage.Recover, sourcePath);
     }
 
     private static byte[] Merge(CredentialRefreshAttempt attempt, string directory, bool allowWriteback)
     {
+        foreach (var file in new[] { Path.Combine(directory, "source.conf"), Path.Combine(directory, "rclone.conf"), attempt.SourcePath })
+        { RejectReparsePoints(file); RejectHardLinks(file); }
         var original = RcloneExecutionContext.ReadConfigurationBytes(Path.Combine(directory, "source.conf"));
-        if (Hash(original) != attempt.SourceRevision) throw Conflict();
+        if (Hash(original) != attempt.SourceRevision) throw EvidenceInvalid(attempt.SourcePath);
         var refreshed = RcloneExecutionContext.ReadConfigurationBytes(Path.Combine(directory, "rclone.conf"));
         var current = RcloneExecutionContext.ReadConfigurationBytes(attempt.SourcePath);
         if (attempt.TokenSections.Length != 0) RequireTrustedSource(attempt.SourcePath, original, requireCurrent: false);
@@ -233,34 +288,45 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
     }
 
     private static string LedgerPath(string source) => source + ".folderrewind-revisions.json";
-    internal static bool HasPendingEvidence(string root, string source)
+    internal static bool HasPendingEvidence(string root, string source, bool managed = false)
     {
         if (!Directory.Exists(root)) return false;
-        var directories = Directory.EnumerateDirectories(root, "task-*").Take(1001).ToArray();
-        if (directories.Length > 1000) return true;
-        foreach (var directory in directories) RejectReparsePoints(directory);
-        if (directories.Any(d => !File.Exists(Path.Combine(d, "attempt.json")) && File.Exists(Path.Combine(d, "rclone.conf")))) return true;
-        var files = directories.Select(d => Path.Combine(d, "attempt.json")).Where(File.Exists).ToArray();
-        if (files.Length > 1000) return true;
-        foreach (var file in files)
+        try
         {
-            RejectReparsePoints(file);
-            if (new FileInfo(file).Length > 65536) return true;
-            var attempt = JsonSerializer.Deserialize(File.ReadAllBytes(file), CredentialRefreshJsonContext.Default.CredentialRefreshAttempt);
-            if (attempt is null || StringComparer.OrdinalIgnoreCase.Equals(attempt.SourcePath, source)) return true;
+            var fresh = RcloneCredentialStore.HasFreshOrigin(source, managed);
+            foreach (var (directory, legacy) in RcloneCredentialStore.Enumerate(root, source))
+            {
+                var owner = RcloneCredentialStore.Owner(directory);
+                if (owner is not null && !StringComparer.OrdinalIgnoreCase.Equals(owner, Path.GetFullPath(source))) { if (legacy) continue; return true; }
+                if (owner is null && legacy && fresh) continue;
+                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0
+                    || File.Exists(Path.Combine(directory, "attempt.json")) || File.Exists(Path.Combine(directory, "rclone.conf"))) return true;
+            }
+            return false;
         }
-        return false;
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException) { return true; }
     }
     private static CredentialRevisionLedger? ReadLedger(string source)
     {
         var path = LedgerPath(source);
         if (!File.Exists(path)) return null;
         RejectReparsePoints(path);
-        if (new FileInfo(path).Length > 128 * 1024) throw Conflict();
-        var ledger = JsonSerializer.Deserialize(File.ReadAllBytes(path), CredentialRefreshJsonContext.Default.CredentialRevisionLedger) ?? throw Conflict();
-        if (ledger.Version != 1 || ledger.Revisions is null || ledger.Revisions.Length == 0 || ledger.Revisions.Length > 1000
-            || ledger.Revisions.Any(r => r.Length != 64) || ledger.Revisions[^1] != ledger.CurrentRevision) throw Conflict();
+        RejectHardLinks(path);
+        var ledger = ReadRevisionLedger(path, source);
+        if (ledger.Version != 1 || ledger.CurrentRevision is not { Length: 64 } || ledger.TargetRevision is not { Length: 64 }
+            || ledger.Revisions is null || ledger.Revisions.Length == 0 || ledger.Revisions.Length > 1000
+            || ledger.Revisions.Any(r => r is not { Length: 64 }) || ledger.Revisions[^1] != ledger.CurrentRevision) throw EvidenceInvalid(source);
         return ledger;
+    }
+    private static CredentialRevisionLedger ReadRevisionLedger(string path, string source)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            if (stream.Length > 128 * 1024) throw EvidenceInvalid(source);
+            return JsonSerializer.Deserialize(stream, CredentialRefreshJsonContext.Default.CredentialRevisionLedger) ?? throw EvidenceInvalid(source);
+        }
+        catch (JsonException) { throw EvidenceInvalid(source); }
     }
     internal static bool AcceptsFrozenRevision(string source, string frozenRevision, byte[] current)
     {
@@ -318,7 +384,7 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
         var result = new List<string>();
         while (visited.Add(remote) && visited.Count <= 100)
         {
-            if (!values.TryGetValue(remote + "\0type", out var type)) throw Conflict();
+            if (!values.TryGetValue(remote + "\0type", out var type)) throw ConfigurationInvalid();
             if (values.ContainsKey(remote + "\0token"))
             {
                 if (type is not ("drive" or "onedrive" or "box" or "dropbox" or "pcloud" or "yandex" or "google photos"))
@@ -326,11 +392,11 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
                 result.Add(remote);
             }
             if (type is not ("alias" or "crypt")) return result.ToArray();
-            if (!values.TryGetValue(remote + "\0remote", out var wrapped)) throw Conflict();
+            if (!values.TryGetValue(remote + "\0remote", out var wrapped)) throw ConfigurationInvalid();
             if (!wrapped.Contains(':')) return result.ToArray();
             remote = CloudRemotePath.Split(wrapped).Remote;
         }
-        throw Conflict();
+        throw ConfigurationInvalid();
     }
     internal static bool TokenOnlyDifference(byte[] original, byte[] refreshed, string[] sections)
     {
@@ -351,25 +417,52 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
     private static Dictionary<string, string> Parse(byte[] content)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal); string? section = null;
+        var lineNumber = 0;
         foreach (var raw in Encoding.UTF8.GetString(content).TrimStart('\uFEFF').Split('\n'))
         {
+            lineNumber++;
             var line = raw.Trim(); if (line.Length == 0 || line[0] is '#' or ';') continue;
             if (line.StartsWith('[') && line.EndsWith(']')) { section = line[1..^1]; continue; }
             var equals = line.IndexOf('=');
-            if (section is null || equals <= 0 || !values.TryAdd(section + "\0" + line[..equals].Trim(), line[(equals + 1)..].Trim())) throw Conflict();
+            if (section is null || equals <= 0 || !values.TryAdd(section + "\0" + line[..equals].Trim(), line[(equals + 1)..].Trim())) throw ConfigurationInvalid(lineNumber);
         }
         return values;
     }
     internal static void RejectReparsePoints(string path)
     {
-        for (string? current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
-            if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) throw Conflict();
+        var depth = 0;
+        for (string? current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current), depth++)
+            if (File.Exists(current) || Directory.Exists(current))
+            {
+                var attributes = File.GetAttributes(current);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.ReparsePoint, CredentialFailureStage.ValidatePath,
+                        path, depth, (int)attributes);
+            }
     }
     internal static void RejectHardLinks(string path)
     {
         if (!OperatingSystem.IsWindows()) return;
+        RequireSingleLink(path, InspectFile(path));
+    }
+    internal static void RequireSingleLink(string path, CredentialFileInformation information)
+    {
+        if (!information.Succeeded || information.LinkCount == 0)
+            throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.MetadataUnavailable, CredentialFailureStage.InspectFile,
+                path, links: information.Succeeded ? information.LinkCount : null, win32: information.Win32Error);
+        if (information.LinkCount != 1)
+            throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.MultipleLinks, CredentialFailureStage.InspectFile, path, links: information.LinkCount);
+    }
+    private static CredentialFileInformation InspectFile(string path)
+    {
         using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        if (!GetFileInformationByHandle(handle, out var info) || info.NumberOfLinks != 1) throw Conflict();
+        return InspectFile(handle);
+    }
+    private static CredentialFileInformation InspectFile(SafeFileHandle handle)
+    {
+        var succeeded = GetFileInformationByHandle(handle, out var info);
+        var error = Marshal.GetLastWin32Error();
+        return new(succeeded, info.NumberOfLinks, succeeded ? 0 : error);
     }
     [StructLayout(LayoutKind.Sequential)]
     private struct FileInformation
@@ -385,7 +478,11 @@ internal sealed class RcloneCredentialRefresh : IAsyncDisposable
     internal static string TargetRevision(byte[] bytes)
         => Hash(Encoding.UTF8.GetBytes(string.Join("\n", Parse(bytes).Where(p => !p.Key.EndsWith("\0token", StringComparison.Ordinal))
             .OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + "=" + p.Value))));
-    private static InvalidOperationException Conflict() => RcloneConnectionDiagnostics.InvalidFailure("connection.refresh-conflict", "CloudConnection_RefreshConflict");
+    private static InvalidOperationException Conflict() => RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.RefreshConflict, CredentialFailureStage.Merge);
+    private static InvalidOperationException EvidenceInvalid(string source)
+        => RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.InvalidEvidence, CredentialFailureStage.Recover, source);
+    private static InvalidOperationException ConfigurationInvalid(int? line = null)
+        => RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.InvalidConfiguration, CredentialFailureStage.ParseConfiguration, line: line);
     public ValueTask DisposeAsync()
     {
         // 未完成的证据与快照必须保留，供下一次访问前回放或诊断。
@@ -401,4 +498,5 @@ internal sealed record CredentialSnapshotRegistration(int Version, string Source
 [JsonSerializable(typeof(CredentialRefreshAttempt))]
 [JsonSerializable(typeof(CredentialRevisionLedger))]
 [JsonSerializable(typeof(CredentialSnapshotRegistration))]
+[JsonSerializable(typeof(CredentialOrigin))]
 internal partial class CredentialRefreshJsonContext : JsonSerializerContext;

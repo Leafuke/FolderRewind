@@ -39,6 +39,7 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
     public RestoreArchivePreflightMode Mode { get; } = Enum.IsDefined(mode) ? mode : throw new ArgumentOutOfRangeException(nameof(mode));
+    internal bool UseRestoreMaterialization { get; init; } = true;
 
     internal async ValueTask<PayloadVerificationResult> VerifyProtectedNativeAsync(object owner,
         VersionRepresentation representation, object policy, string binding, IEnumerable<string> paths,
@@ -92,6 +93,7 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
                 if (!StringComparer.OrdinalIgnoreCase.Equals(input.Path, absolute) || !Equivalent(input.Representation, representation)
                     || !Equals(input.PolicyIdentity, backend.InputPolicyIdentity))
                     throw new IOException("Restore input binding changed during the operation.");
+                Services.HistoryOperationDiagnostics.Current?.Count("archive-verification-reuses");
                 return input.Result;
             }
             var parents = new WindowsDirectoryReadLease(absolute);
@@ -103,12 +105,20 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
                 if (representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expected))
                 {
                     using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("storage-hash");
+                    Services.HistoryOperationDiagnostics.Current?.Count("storage-hash-calls");
                     var actual = Convert.ToHexString(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false));
                     Services.HistoryOperationDiagnostics.Current?.Count("storage-hash-bytes", stream.Length);
                     if (!StringComparer.OrdinalIgnoreCase.Equals(actual, expected)) throw new IOException("Restore storage hash mismatch.");
                     stream.Position = 0;
                 }
                 var result = await backend.PreflightAsync(representation, absolute, Mode == RestoreArchivePreflightMode.Strict, token).ConfigureAwait(false);
+                if (!result.Success && !UseRestoreMaterialization)
+                {
+                    // Retention may try another replica of the same representation.
+                    // A rejected payload supplies no reusable integrity evidence.
+                    stream.Dispose(); parents.Dispose();
+                    return result;
+                }
                 backend.TryGetListing(absolute, out var listing);
                 _inputs.Add(representation.RepresentationId, new(representation, absolute, parents, stream, backend.InputPolicyIdentity, result, listing, backend));
                 return result;
@@ -152,6 +162,34 @@ public sealed class ArchiveRestoreVerificationContext(RestoreArchivePreflightMod
         long bytes = input.Backend.EstimateMaterializationBytes(inputs, this);
         _space.Add(path, budget.Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(path, bytes)));
         Services.HistoryOperationDiagnostics.Current?.Count("restore-space-reserved", bytes);
+    }
+    internal IDisposable? ReserveLegacyMaterializationSpace(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging,
+        Plugin.Runtime.Artifacts.ArtifactSpaceBudget? budget = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        // Custom backends without protected listings retain their existing capacity policy.
+        if (inputs.Count == 0 || inputs.Any(input => !_inputs.TryGetValue(input.Representation.RepresentationId, out var held)
+            || held.Listing is null)) return null;
+        long bytes = 0;
+        foreach (var input in inputs)
+        {
+            var listing = RequireListing(input);
+            var directories = new HashSet<string>(listing.Directories, StringComparer.Ordinal);
+            foreach (var entry in listing.Directories.Concat(listing.Files.Keys))
+            {
+                var parent = entry;
+                while (parent.LastIndexOf('/') is var separator && separator >= 0)
+                { parent = parent[..separator]; directories.Add(parent); }
+            }
+            // The original extraction overlays every archive. Summing all entries is a
+            // conservative write bound; never assume an unverified compression ratio.
+            bytes = checked(bytes + listing.Files.Values.Sum(file => file.Size)
+                + (listing.Files.Count + (long)directories.Count + 1) * 4096L);
+        }
+        var reservation = (budget ?? Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared)
+            .Reserve(new Plugin.Runtime.Artifacts.ArtifactSpaceRequest(staging, bytes));
+        Services.HistoryOperationDiagnostics.Current?.Count("retention-materialization-reserved-bytes", bytes);
+        return reservation;
     }
     internal Services.NativeSmartOwnerPlan? GetOwnerPlan(IReadOnlyList<ArchiveMaterializationInput> inputs,
         string marker, out string fallback)

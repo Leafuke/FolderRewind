@@ -20,19 +20,21 @@ public sealed class SemanticMergeEngine(MergeSessionStore store, SemanticMergeBi
     internal ValueTask<SemanticMergeInvocation> AcquireAsync(CancellationToken token) => resolver.AcquireAsync(Binding, token);
 
     internal async Task<MergeFileProposal> AnalyzeAsync(MergeSession session, HistoryMergeSourcePlan source,
-        MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t, IHistoryMergeProvider generic, CancellationToken token)
+        MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t, IHistoryMergeProvider generic, CancellationToken token,
+        MergePreparationReporter? progress = null)
     {
         RequireBinding(session);
         using var invocation = await resolver.AcquireAsync(Binding, token).ConfigureAwait(false);
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(token, invocation.Context.PluginLifetime);
         token = lifetime.Token;
         using var views = new InputViews(store.SessionDirectory(session.Id), source, b, o, t, token);
-        var request = Request(session, source, b, o, t, views);
+        var request = Request(session, source, b, o, t, views, progress);
         var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(source.SourceId,
             store.SessionDirectory(session.Id), source.Ours!.EffectiveSourceBoundary) { LogicalDirectory = source.Ours.SourceDescriptorSnapshot.PathHint });
         using var writer = new SemanticMergePlanWriter(store, session, source.SourceId, b, o, t, include, token);
         var diagnostics = RequireSuccess(await Task.Run(async () => await invocation.Provider.AnalyzeAsync(request, writer,
             invocation.Context with { OperationCancellation = token }).ConfigureAwait(false), token).ConfigureAwait(false));
+        progress?.Report(MergePreparationStage.OrganizingResults);
         var owned = await writer.CompleteAsync().ConfigureAwait(false);
         MergeTreeManifest Unclaimed(MergeTreeManifest tree) => MergeTreeManifest.Create(tree.Files.Where(p => !owned.Contains(p.Key)), tree.Directories);
         var remainingBase = Unclaimed(b); var remainingOurs = Unclaimed(o); var remainingTheirs = Unclaimed(t);
@@ -114,8 +116,9 @@ public sealed class SemanticMergeEngine(MergeSessionStore store, SemanticMergeBi
         return JsonSerializer.Deserialize<PluginDiagnostic[]>(bytes)!.ToImmutableArray();
     }
     private MergeAnalysisRequest Request(MergeSession session, HistoryMergeSourcePlan source,
-        MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t, InputViews views)
+        MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t, InputViews views, MergePreparationReporter? progress = null)
     {
+        var reads = progress is null ? null : new AnalysisReadProgress(progress);
         MergeVersionInput Input(CheckpointSource? identity, MergeTreeManifest tree, IMergeSourceView view)
         {
             if (identity?.VersionId is not { } version || tree.InputRepresentationId is not { } representation)
@@ -124,7 +127,7 @@ public sealed class SemanticMergeEngine(MergeSessionStore store, SemanticMergeBi
             return new(version.ToString(), representation.ToString(), tree.Digest,
                 new(boundary.SchemaVersion, (MergeBoundaryScope)boundary.ScopeMode, boundary.ScopeRules,
                     (MergeBoundaryFilter)boundary.FilterMode, boundary.FilterRules, boundary.UseRegex, boundary.Fingerprint)
-                    { TypedFilterRules = boundary.Rules }, view);
+                    { TypedFilterRules = boundary.Rules }, reads is null ? view : new ProgressSourceView(view, reads));
         }
         return new(session.Id, session.Plan.Revision, source.SourceId.Value, Binding.Kind, Binding.PolicyId, Binding.PolicyVersion,
             Input(source.Base, b, views.Base), Input(source.Ours, o, views.Ours), Input(source.Theirs, t, views.Theirs), MergeLimits.Default);
@@ -158,6 +161,24 @@ public sealed class SemanticMergeEngine(MergeSessionStore store, SemanticMergeBi
         public void Dispose() { Base.Dispose(); Ours.Dispose(); Theirs.Dispose(); }
     }
 
+    private sealed class AnalysisReadProgress(MergePreparationReporter reporter)
+    {
+        private long _opened;
+        internal void Opened() => reporter.Report(MergePreparationStage.AnalyzingWorld, Interlocked.Increment(ref _opened));
+    }
+    private sealed class ProgressSourceView(IMergeSourceView inner, AnalysisReadProgress progress) : IMergeSourceView
+    {
+        private readonly HashSet<string> _opened = new(StringComparer.Ordinal);
+        public ValueTask<MergeInputPage> ReadPageAsync(string? cursor, int count, CancellationToken token) => inner.ReadPageAsync(cursor, count, token);
+        public ValueTask<MergePathCoverage> InspectPathAsync(string path, CancellationToken token) => inner.InspectPathAsync(path, token);
+        public ValueTask<MergeCoverageResult> CheckCoverageAsync(MergeCoverageQuery query, CancellationToken token) => inner.CheckCoverageAsync(query, token);
+        public async ValueTask<Stream> OpenReadAsync(string path, CancellationToken token)
+        {
+            var stream = await inner.OpenReadAsync(path, token).ConfigureAwait(false);
+            lock (_opened) if (_opened.Add(path)) progress.Opened();
+            return stream;
+        }
+    }
     private sealed class DecisionReader(MergeSessionStore store, MergeSession session, SourceId source, string group, CancellationToken token)
         : IMergeDecisionReader, IDisposable
     {

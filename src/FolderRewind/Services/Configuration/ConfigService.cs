@@ -280,12 +280,10 @@ namespace FolderRewind.Services
 
         private static System.Collections.ObjectModel.ObservableCollection<string> NormalizeStrings(
             System.Collections.ObjectModel.ObservableCollection<string>? values, bool paths)
-        {
-            var normalized = (values ?? []).Where(value => !string.IsNullOrWhiteSpace(value))
-                .Select(value => paths ? value.Trim().Replace('\\', '/') : value.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            return values is not null && values.SequenceEqual(normalized) ? values : new(normalized);
-        }
+            => ConfigPersistencePolicy.NormalizeStrings(values, paths);
+
+        internal static void NormalizeSourceScopeForPersistence(BackupSourceScope scope)
+            => ConfigPersistencePolicy.NormalizeSourceScopeForPersistence(scope);
 
         /// <summary>
         /// 配置规范化：补全全局设置默认值、各备份配置的自动化/源范围/发现来源基线/
@@ -304,7 +302,7 @@ namespace FolderRewind.Services
                 foreach (var folder in backupConfig.SourceFolders.Where(folder => folder != null))
                 {
                     folder.SourceScope ??= new BackupSourceScope();
-                    folder.SourceScope.IncludePatterns = NormalizeStrings(folder.SourceScope.IncludePatterns, paths: true);
+                    NormalizeSourceScopeForPersistence(folder.SourceScope);
                 }
                 if (backupConfig.DiscoveryOrigin != null)
                 {
@@ -357,11 +355,12 @@ namespace FolderRewind.Services
         /// SchemaExtensions 键、给缺失 ConfigKind 的配置/预设补核心默认 Kind、
         /// 重新生成重复或非法的文件夹 ID、补配置修订号与提供者状态字典。
         /// </summary>
-        private static void PrepareSchemaOnePersistence(AppConfig config)
+        private static void PrepareSchemaOnePersistence(AppConfig config, bool repairSourceIdentities = true)
         {
+            // Loading/import may migrate old identities. Ordinary saves must never rename a Source.
+            ConfigPersistencePolicy.PrepareSourceIdentities(config, repairSourceIdentities);
             config.SchemaVersion = ConfigSchema.CurrentVersion;
             config.SchemaExtensions ??= new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-            var usedFolderIds = new HashSet<Guid>();
 
             var pluginSettings = config.GlobalSettings.Plugins;
             RemoveLegacyExtensions(pluginSettings, "Enabled", "PluginEnabled", "PluginSettings", "StoreRepo");
@@ -395,19 +394,6 @@ namespace FolderRewind.Services
 
                 foreach (var folder in backupConfig.SourceFolders.Where(static item => item != null))
                 {
-                    if (!Guid.TryParse(folder.Id, out var folderId)
-                        || folderId == Guid.Empty
-                        || !usedFolderIds.Add(folderId))
-                    {
-                        do
-                        {
-                            folderId = Guid.NewGuid();
-                        }
-                        while (!usedFolderIds.Add(folderId));
-
-                        folder.Id = folderId.ToString();
-                    }
-
                     folder.ProviderStates ??= new Dictionary<string, ProviderStatePayload>(StringComparer.OrdinalIgnoreCase);
                 }
             }
@@ -537,21 +523,17 @@ namespace FolderRewind.Services
 
             try
             {
-                return UiDispatcherService.RunOnUiAsync(() =>
+                var result = UiDispatcherService.RunOnUiAsync(() =>
                 {
                     SnapshotRequests.Drain();
                     var snapshot = CaptureDetachedSnapshot();
                     return ConfigWriter.EnqueueAsync(() => SerializeConfig(snapshot), publishSavedEvent);
                 }).ConfigureAwait(false).GetAwaiter().GetResult();
+                return ReportSaveResult(result);
             }
             catch (Exception ex)
             {
-                return new ConfigSaveResult
-                {
-                    Success = false,
-                    ErrorMessage = ex.Message,
-                    Exception = ex
-                };
+                return ReportSaveResult(SaveFailure(ex));
             }
         }
 
@@ -566,7 +548,7 @@ namespace FolderRewind.Services
 
             try
             {
-                return await SnapshotRequests.EnqueueAsync(null, publishSavedEvent, cancellationToken).ConfigureAwait(false);
+                return ReportSaveResult(await SnapshotRequests.EnqueueAsync(null, publishSavedEvent, cancellationToken).ConfigureAwait(false));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -574,7 +556,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                return SaveFailure(ex);
+                return ReportSaveResult(SaveFailure(ex));
             }
         }
 
@@ -591,12 +573,13 @@ namespace FolderRewind.Services
 
             try
             {
-                return await UiDispatcherService.RunOnUiAsync(() =>
+                var result = await UiDispatcherService.RunOnUiAsync(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     mutation(CurrentConfig);
                     return SnapshotRequests.EnqueueAsync(null, publishSavedEvent, cancellationToken);
                 }).ConfigureAwait(false);
+                return ReportSaveResult(result);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -604,7 +587,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                return SaveFailure(ex);
+                return ReportSaveResult(SaveFailure(ex));
             }
         }
 
@@ -629,15 +612,39 @@ namespace FolderRewind.Services
 
         private static AppConfig CaptureDetachedSnapshot()
         {
+#if PERFORMANCE_UI_PROFILING
+            using var captureProfile = Development.PerformanceUiProfiling.Measure("Config.Capture.Total");
+#endif
             if (IsRecoveryMode) throw new InvalidOperationException("Configuration writes are disabled during recovery.");
+            // Validate on the UI owner before normalization can mutate any live fields.
+            ConfigPersistencePolicy.PrepareSourceIdentities(CurrentConfig, repair: false);
+#if PERFORMANCE_UI_PROFILING
+            using (Development.PerformanceUiProfiling.Measure("Config.Normalize"))
+#endif
             NormalizeConfig(CurrentConfig);
-            PrepareSchemaOnePersistence(CurrentConfig);
+#if PERFORMANCE_UI_PROFILING
+            using (Development.PerformanceUiProfiling.Measure("Config.PrepareSchemaOne"))
+#endif
+            PrepareSchemaOnePersistence(CurrentConfig, repairSourceIdentities: false);
+#if PERFORMANCE_UI_PROFILING
+            using (Development.PerformanceUiProfiling.Measure("Config.Copy"))
+#endif
             return ConfigSnapshotMapper.Copy(CurrentConfig);
         }
 
         private static Task WriteSnapshotAsync(
             ReadOnlyMemory<byte> payload,
             CancellationToken cancellationToken)
+        {
+#if CONFIGURATION_REPAIR_ACCEPTANCE
+            return Development.ConfigurationRepairAcceptance.WriteSnapshotAsync(payload, cancellationToken,
+                () => WriteSnapshotCoreAsync(payload, cancellationToken));
+#else
+            return WriteSnapshotCoreAsync(payload, cancellationToken);
+#endif
+        }
+
+        private static Task WriteSnapshotCoreAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
             => AtomicFileService.WriteAsync(
                 ConfigPath,
                 (stream, token) => stream.WriteAsync(payload, token).AsTask(),
@@ -654,7 +661,9 @@ namespace FolderRewind.Services
             => new()
             {
                 Success = false,
-                ErrorMessage = exception.Message,
+                ErrorMessage = exception is ConfigSourceIdentityException identity
+                    ? I18n.GetString(identity.Duplicate ? "Config_SourceIdDuplicate" : "Config_SourceIdInvalid")
+                    : exception.Message,
                 Exception = exception
             };
 
@@ -1134,6 +1143,7 @@ namespace FolderRewind.Services
             settings.SponsorBackgroundStretchIndex = Math.Clamp(settings.SponsorBackgroundStretchIndex, 0, 2);
             settings.SponsorBackgroundImageOpacity = ClampUnit(settings.SponsorBackgroundImageOpacity, 0.28);
             settings.SponsorBackgroundOverlayOpacity = ClampUnit(settings.SponsorBackgroundOverlayOpacity, 0.62);
+            SponsorAppearanceService.Normalize(settings);
             settings.CompletionSoundIndex = Math.Clamp(settings.CompletionSoundIndex, 0, CompletionSoundService.PresetCount - 1);
             settings.CompletionSoundCustomPath = settings.CompletionSoundCustomPath?.Trim() ?? string.Empty;
             if (!settings.SponsorEntitlementCached)

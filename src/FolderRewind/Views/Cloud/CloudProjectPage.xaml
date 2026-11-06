@@ -14,8 +14,8 @@
   </StackPanel>
   <Button x:Uid="CloudWizard_ChangeConnection" Click="OnConnect"/>
   <Button x:Uid="CloudRepair_Action" Click="OnConnect" Visibility="{x:Bind ViewModel.HasRepair, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
-  <Button x:Uid="CloudWizard_EditConnection" Click="OnEdit"/>
-  <Button x:Uid="CloudReauth_Action" Click="OnReauthenticate" AutomationProperties.AutomationId="CloudProjectReauthenticate"/>
+  <Button x:Uid="CloudWizard_EditConnection" Click="OnEdit" IsEnabled="{x:Bind ViewModel.CanManageCurrentConnection, Mode=OneWay}" AutomationProperties.AutomationId="CloudProjectEditConnection"/>
+  <Button x:Uid="CloudReauth_Action" Click="OnReauthenticate" IsEnabled="{x:Bind ViewModel.CanManageCurrentConnection, Mode=OneWay}" AutomationProperties.AutomationId="CloudProjectReauthenticate"/>
   <TextBlock x:Uid="CloudHistory_SecondDeviceHelp" TextWrapping="Wrap"/>
   <Button x:Uid="CloudHistory_Update" Click="OnUpdateHistory" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="CloudUpdateProjectHistory"/>
   <Button x:Uid="CloudHistory_Open" Click="OnHistory" AutomationProperties.AutomationId="CloudOpenProjectHistory"/>

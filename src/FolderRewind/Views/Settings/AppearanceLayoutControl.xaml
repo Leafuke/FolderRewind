@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:models="using:FolderRewind.Models"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -178,8 +179,7 @@
 
                         <!-- 赞助专属个性化 (次级 Expander) -->
                         <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
-                            <toolkit:SettingsExpander Expanded="OnSponsorExpanded" x:Name="SponsorExpander" IsExpanded="False"
-                                                    IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
+                            <toolkit:SettingsExpander Expanded="OnSponsorExpanded" x:Name="SponsorExpander" IsExpanded="False">
                                 <toolkit:SettingsExpander.Header>
                                     <TextBlock x:Uid="SettingsPage_SponsorPersonalization" AutomationProperties.AutomationId="SettingsSponsorPersonalizationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsExpander.Header>
@@ -191,7 +191,84 @@
                                 </toolkit:SettingsExpander.HeaderIcon>
                                 <toolkit:SettingsExpander.Items>
                                     <Grid Style="{StaticResource SettingsDeferredItemsHostStyle}">
+                                        <!-- Browsing is available to everyone; paid editors inherit the entitlement gate. -->
+                                        <ContentControl IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}"
+                                                        HorizontalContentAlignment="Stretch" IsTabStop="False">
                                         <StackPanel x:Name="SponsorBody" x:Load="{x:Bind SponsorSection.IsCreated, Mode=OneWay}">
+                                            <toolkit:SettingsCard>
+                                                <toolkit:SettingsCard.Header>
+                                                    <TextBlock x:Name="AppearanceThemeLabel" x:Uid="Appearance_Themes" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                                </toolkit:SettingsCard.Header>
+                                                <toolkit:SettingsCard.Description>
+                                                    <TextBlock x:Uid="Appearance_ThemesDescription" Style="{StaticResource SettingsDescriptionStyle}" />
+                                                </toolkit:SettingsCard.Description>
+                                                <ComboBox x:Uid="Appearance_ThemeSelector" AutomationProperties.AutomationId="SettingsAppearanceTheme"
+                                                          AutomationProperties.LabeledBy="{x:Bind AppearanceThemeLabel, Mode=OneTime}"
+                                                          Style="{StaticResource SettingsSelectorStyle}"
+                                                          ItemsSource="{x:Bind ViewModel.BuiltinAppearanceThemeNames, Mode=OneWay}"
+                                                          SelectedIndex="{x:Bind ViewModel.BuiltinAppearanceThemeIndex, Mode=OneWay}"
+                                                          IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}"
+                                                          SelectionChanged="OnAppearanceThemeChanged" />
+                                            </toolkit:SettingsCard>
+                                            <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                                                <toolkit:SettingsCard.Header>
+                                                    <TextBlock x:Name="AppearanceSchemesLabel" x:Uid="Appearance_Schemes" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                                </toolkit:SettingsCard.Header>
+                                                <toolkit:SettingsCard.Description>
+                                                    <TextBlock x:Uid="Appearance_SchemesDescription" Style="{StaticResource SettingsDescriptionStyle}" />
+                                                </toolkit:SettingsCard.Description>
+                                                <StackPanel Spacing="8">
+                                                    <TextBlock AutomationProperties.AutomationId="SettingsAppearanceStatus"
+                                                               Text="{x:Bind ViewModel.AppearanceSchemeStatusText, Mode=OneWay}"
+                                                               Style="{StaticResource SettingsDescriptionStyle}" />
+                                                    <ComboBox x:Uid="Appearance_SchemeSelector" AutomationProperties.AutomationId="SettingsAppearanceScheme"
+                                                              AutomationProperties.LabeledBy="{x:Bind AppearanceSchemesLabel, Mode=OneTime}"
+                                                              HorizontalAlignment="Stretch"
+                                                              ItemsSource="{x:Bind ViewModel.AppearanceSchemes, Mode=OneWay}"
+                                                              SelectedIndex="{x:Bind ViewModel.PersonalAppearanceSchemeIndex, Mode=OneWay}"
+                                                              IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}"
+                                                              SelectionChanged="OnAppearanceSchemeChanged">
+                                                        <ComboBox.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:SponsorAppearanceScheme">
+                                                                <TextBlock Text="{x:Bind Name, Mode=OneTime}" TextTrimming="CharacterEllipsis" />
+                                                            </DataTemplate>
+                                                        </ComboBox.ItemTemplate>
+                                                    </ComboBox>
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <Button AutomationProperties.AutomationId="SettingsAppearanceSave"
+                                                                Content="{x:Bind ViewModel.SaveAppearanceSchemeButtonText, Mode=OneWay}"
+                                                                Command="{x:Bind ViewModel.SaveAppearanceSchemeCommand, Mode=OneTime}" />
+                                                        <Button x:Uid="Appearance_Update" AutomationProperties.AutomationId="SettingsAppearanceUpdate"
+                                                                Command="{x:Bind ViewModel.UpdateAppearanceSchemeCommand, Mode=OneTime}" />
+                                                        <Button x:Uid="Appearance_More" AutomationProperties.AutomationId="SettingsAppearanceMore"
+                                                                IsEnabled="{x:Bind ViewModel.CanManageAppearanceScheme, Mode=OneWay}">
+                                                            <Button.Flyout>
+                                                                <MenuFlyout>
+                                                                    <MenuFlyoutItem x:Uid="Appearance_RenameItem" AutomationProperties.AutomationId="SettingsAppearanceRename"
+                                                                                    Command="{x:Bind ViewModel.RenameAppearanceSchemeCommand, Mode=OneTime}" />
+                                                                    <MenuFlyoutItem x:Uid="Appearance_DeleteItem" AutomationProperties.AutomationId="SettingsAppearanceDelete"
+                                                                                    Command="{x:Bind ViewModel.DeleteAppearanceSchemeCommand, Mode=OneTime}" />
+                                                                </MenuFlyout>
+                                                            </Button.Flyout>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </toolkit:SettingsCard>
+                                            <toolkit:SettingsCard>
+                                                <toolkit:SettingsCard.Header>
+                                                    <TextBlock x:Name="SponsorNavigationAnimationLabel" x:Uid="Sponsor_NavigationAnimation" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                                </toolkit:SettingsCard.Header>
+                                                <toolkit:SettingsCard.Description>
+                                                    <TextBlock x:Uid="Sponsor_NavigationAnimationDescription" Style="{StaticResource SettingsDescriptionStyle}" />
+                                                </toolkit:SettingsCard.Description>
+                                                <ComboBox AutomationProperties.AutomationId="SettingsSponsorNavigationAnimation"
+                                                          AutomationProperties.LabeledBy="{x:Bind SponsorNavigationAnimationLabel, Mode=OneTime}"
+                                                          Style="{StaticResource SettingsSelectorStyle}"
+                                                          ItemsSource="{x:Bind ViewModel.SponsorNavigationAnimationPresets, Mode=OneWay}"
+                                                          SelectedIndex="{x:Bind ViewModel.SponsorNavigationAnimationIndex, Mode=OneWay}"
+                                                          IsEnabled="{x:Bind ViewModel.CanEditAppearanceSchemes, Mode=OneWay}"
+                                                          SelectionChanged="OnSponsorNavigationAnimationChanged" />
+                                            </toolkit:SettingsCard>
                                             <toolkit:SettingsCard>
                                                 <toolkit:SettingsCard.Header>
                                                     <TextBlock x:Name="SponsorAccentLabel" x:Uid="SettingsPage_SponsorAccent" Style="{StaticResource SettingsHeaderTextStyle}" />
@@ -362,6 +439,7 @@
                                                 </StackPanel>
                                             </toolkit:SettingsCard>
                                                 </StackPanel>
+                                        </ContentControl>
                                     </Grid>
                                 </toolkit:SettingsExpander.Items>
                             </toolkit:SettingsExpander>

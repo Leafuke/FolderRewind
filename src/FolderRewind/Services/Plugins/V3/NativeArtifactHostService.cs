@@ -135,6 +135,25 @@ internal static class NativeArtifactHostService
 #endif
             );
 
+    internal static Task<BackupSizeStatistics> ReadBackupSizeAsync(BackupConfig config, SourceVersion version,
+        VersionRepresentation representation, IArtifactEnvelopeCodec codec, CancellationToken token)
+    {
+        // Remote-only metadata must not create an empty local Artifact repository.
+        if (string.IsNullOrWhiteSpace(config.DestinationPath)
+            || !Directory.Exists(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id)))
+            return Task.FromResult(BackupSizeStatistics.Unknown);
+        return NativeArtifactBackupSizeReader.ReadAsync(Store(config, codec), version, representation, token);
+    }
+
+    internal static Task<HistoryBackupType> ReadBackupTypeAsync(BackupConfig config, SourceVersion version,
+        VersionRepresentation representation, IArtifactEnvelopeCodec codec, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(config.DestinationPath)
+            || !Directory.Exists(NativeArtifactStore.ForConfig(config.DestinationPath, config.Id)))
+            return Task.FromResult(HistoryBackupType.Semantic);
+        return NativeArtifactBackupSizeReader.ReadTypeAsync(Store(config, codec), version, representation, token);
+    }
+
     internal static Task<SourceCaptureResult> CaptureDirectAsync(BackupConfig config, PluginV3BackupSourceResolution resolution,
         FileChangeCapturePlan plan, SourceCaptureBaselineCandidate statistics, EffectiveSourceBoundarySnapshot boundary,
         string stableSource, CancellationToken token, PluginOperationLease? operation = null)

@@ -45,7 +45,11 @@ public sealed record TimelineEntrySummary(
     int BranchableCheckpointCount,
     SourceVersionCreationKind CreationKind = SourceVersionCreationKind.Capture,
     CheckpointId? CheckpointId = null, bool IsLocalPayloadMissing = false,
-    HistoricalBoundaryConfidence BoundaryConfidence = HistoricalBoundaryConfidence.Known);
+    HistoricalBoundaryConfidence BoundaryConfidence = HistoricalBoundaryConfidence.Known,
+    BackupSizeStatistics? SizeStatistics = null, HistoryBackupType BackupType = HistoryBackupType.Unknown);
+
+public sealed record HistorySourceSizeSummary(RepresentationId? RepresentationId, BackupSizeStatistics Statistics,
+    HistoryBackupType BackupType = HistoryBackupType.Unknown);
 
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
@@ -63,7 +67,8 @@ public sealed record RunSummary(
     bool HasPartialCapture,
     ImmutableArray<BackupRunSourceResult> Sources,
     ImmutableArray<BranchId> BranchIds,
-    IReadOnlyDictionary<BranchUpdateId, string>? HistoricalBranchNames = null, IReadOnlySet<CheckpointId>? BranchableCheckpointIds = null);
+    IReadOnlyDictionary<BranchUpdateId, string>? HistoricalBranchNames = null, IReadOnlySet<CheckpointId>? BranchableCheckpointIds = null,
+    IReadOnlyDictionary<SourceId, HistorySourceSizeSummary>? SourceSizeStatistics = null);
 
 public sealed record BranchSummary(
     BranchId BranchId,
@@ -171,6 +176,9 @@ public sealed class HistoryPresentationQueryService
             ? await _runtime.Index.ReadSourceFactsAsync<ReplicaLifecycleUpdate>(sourceForlifecycle, cancellationToken).ConfigureAwait(false)
             : await _runtime.Query.GetAllReplicaLifecycleUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var catalog = (await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        var sizeSnapshots = referencesOnly ? [] : await _runtime.Index.GetBackupSizeSnapshotsAsync(sourceId, cancellationToken).ConfigureAwait(false);
+        var captureSizes = sizeSnapshots.ToDictionary(item => item.VersionId, BackupSizeMetadata.ReadCapture);
+        var captureSizeSnapshots = sizeSnapshots.ToDictionary(item => item.VersionId);
         var workspace = referencesOnly ? null : (await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var safetySnapshots = referencesOnly ? [] : await _runtime.Query.GetSafetySnapshotProjectionsAsync(
             activeOnly: true,
@@ -199,24 +207,46 @@ public sealed class HistoryPresentationQueryService
         var versionScopes = versions.ToDictionary(item => item.VersionId, item => item.CaptureScope);
         var versionMap = versions.ToDictionary(v => v.VersionId);
         var representationMap = allRepresentations.ToDictionary(r => r.RepresentationId);
+        var admissionContext = new HistoryExactCheckpointAdmission.EvaluationContext(versionMap, representationMap, cancellationToken);
         var pathCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         bool Exists(string path)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!pathCache.TryGetValue(path, out var exists)) pathCache[path] = exists = File.Exists(path) || Directory.Exists(path);
             return exists;
         }
-        var availability = new Dictionary<(RepresentationId, bool), bool>();
-        bool Available(VersionRepresentation representation, bool allowRemote, HashSet<RepresentationId> visiting)
+        var availability = new AvailabilityContext(representationMap, (representation, allowRemote) =>
+            localPaths[representation.RepresentationId].Any(Exists)
+                || (allowRemote && replicaGroups[representation.RepresentationId].Any(r => activeReplicas.Contains(r.ReplicaId))));
+        bool Available(VersionRepresentation representation, bool allowRemote)
+            => availability.IsAvailable(representation, allowRemote, cancellationToken);
+        var dependencySizes = new BackupSizeMetadata.DependencySizeContext(representationMap);
+        var versionSizes = new Dictionary<VersionId, HistorySourceSizeSummary>();
+        HistorySourceSizeSummary VersionSizes(VersionId id)
         {
-            var key = (representation.RepresentationId, allowRemote);
-            if (availability.TryGetValue(key, out var cached)) return cached;
-            if (!visiting.Add(representation.RepresentationId)) return false;
-            var present = localPaths[representation.RepresentationId].Any(Exists)
-                || (allowRemote && replicaGroups[representation.RepresentationId].Any(r => activeReplicas.Contains(r.ReplicaId)));
-            var complete = present && representation.DependencyRepresentationIds.All(id =>
-                representationMap.TryGetValue(id, out var dependency) && Available(dependency, allowRemote, visiting));
-            visiting.Remove(representation.RepresentationId);
-            return availability[key] = complete;
+            if (versionSizes.TryGetValue(id, out var cached)) return cached;
+            var candidates = representationGroups.GetValueOrDefault(id) ?? [];
+            var state = Assess(candidates, localPaths, MaterializationPolicyProjection.Project(id, policyGroups[id]), Exists,
+                Available);
+            var captured = captureSizes.GetValueOrDefault(id) ?? BackupSizeStatistics.Unknown;
+            var added = versionMap.TryGetValue(id, out var version) && version.CreationKind == SourceVersionCreationKind.Capture
+                ? captured.AddedStoredBytes ?? LocalArchiveSize(state.Representation) : null;
+            return versionSizes[id] = new(state.Representation?.RepresentationId,
+                new(added, captured.LogicalContentBytes, dependencySizes.GetBytes(state.Representation, cancellationToken)),
+                HistoryBackupTypePolicy.Resolve(captureSizeSnapshots.GetValueOrDefault(id), state.Representation));
+        }
+        long? LocalArchiveSize(VersionRepresentation? representation)
+        {
+            if (representation?.Kind is not (RepresentationKind.CoreFull or RepresentationKind.CoreSmartDelta
+                or RepresentationKind.CoreRolling or RepresentationKind.LegacyArchive)) return null;
+            // Display-only fallback for old archives; never publish the current length as a capture fact.
+            foreach (var path in localPaths[representation.RepresentationId])
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try { return new FileInfo(path).Length; }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
+            }
+            return null;
         }
         var timeline = new List<TimelineEntrySummary>();
         foreach (var checkpoint in checkpoints.Where(c => byRun != true && c.CreationKind != CheckpointCreationKind.SafetySnapshot
@@ -232,13 +262,17 @@ public sealed class HistoryPresentationQueryService
             var policy = MaterializationPolicyProjection.Project(version.VersionId, policyGroups[version.VersionId]);
             var reps = representationGroups.GetValueOrDefault(version.VersionId) ?? [];
             var state = Assess(reps, localPaths, policy, Exists,
-                (representation, remote) => Available(representation, remote, new HashSet<RepresentationId>()));
+                Available);
             var selected = state.Representation;
             var localPath = state.LocalPath;
             var fileName = selected?.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
                 ?? selected?.RepresentationSpecificMetadata.GetValueOrDefault("legacyFileName")
                 ?? (localPath is null ? null : Path.GetFileName(localPath));
-            var admission = HistoryExactCheckpointAdmission.Evaluate(checkpoint, versionMap, representationMap);
+            var admission = admissionContext.Evaluate(checkpoint, cancellationToken);
+            var sizes = referencesOnly ? BackupSizeStatistics.Unknown : VersionSizes(version.VersionId).Statistics;
+            if (checkpoint.CreationKind == CheckpointCreationKind.Capture && checkpoint.CreatedByRunId is not null
+                && checkpoint.CreatedByRunId != version.CreatedByRunId)
+                sizes = new(0, sizes.LogicalContentBytes, sizes.RestoreDependencyBytes);
             timeline.Add(new(
                 version.VersionId, selected?.RepresentationId, version.SourceId, checkpoint.CreatedAtUtc,
                 version.SourceDescriptorSnapshot.DisplayName, fileName, localPath,
@@ -250,7 +284,8 @@ public sealed class HistoryPresentationQueryService
                 admission.IsReady ? checkpoint.CheckpointId : null,
                 admission.IsReady ? 1 : 0, checkpoint.CreationKind == CheckpointCreationKind.Merge ? SourceVersionCreationKind.Merge : version.CreationKind, checkpoint.CheckpointId,
                 reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any()
-                && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists), version.BoundaryConfidence));
+                && !reps.SelectMany(rep => localPaths[rep.RepresentationId]).Any(Exists), version.BoundaryConfidence, sizes,
+                referencesOnly ? HistoryBackupType.Unknown : VersionSizes(version.VersionId).BackupType));
         }
 
         if (referencesOnly)
@@ -269,7 +304,8 @@ public sealed class HistoryPresentationQueryService
                 projection.IsPinned, checkpoint.Sources));
         }
         var historicalBranchNames = branchUpdates.ToDictionary(u => u.UpdateId, u => u.Name);
-        var branchableIds = checkpoints.Where(c => HistoryExactCheckpointAdmission.Evaluate(c, versionMap, representationMap).IsReady).Select(c => c.CheckpointId).ToHashSet();
+        var branchableIds = byRun == false ? new HashSet<CheckpointId>()
+            : checkpoints.Where(c => admissionContext.Evaluate(c, cancellationToken).IsReady).Select(c => c.CheckpointId).ToHashSet();
         var branchMap = branchUpdates.ToDictionary(item => item.UpdateId);
         var runSummaries = runs.Select(run =>
         {
@@ -280,9 +316,18 @@ public sealed class HistoryPresentationQueryService
             var branchIds = run.SourceResults.Where(r => r.BranchUpdateId is not null)
                 .Select(r => branchMap.GetValueOrDefault(r.BranchUpdateId!.Value)?.BranchId)
                 .OfType<BranchId>().Distinct().ToImmutableArray();
+            var sourceSizes = run.SourceResults.ToDictionary(item => item.SourceId, item =>
+            {
+                var summary = item.VersionId is { } id ? VersionSizes(id) : new HistorySourceSizeSummary(null, BackupSizeStatistics.Unknown);
+                var sizes = summary.Statistics;
+                return summary with { Statistics = new(
+                    item.Outcome is BackupRunSourceOutcome.Reused or BackupRunSourceOutcome.CarriedForward ? 0
+                        : item.Outcome == BackupRunSourceOutcome.Captured ? sizes.AddedStoredBytes : null,
+                    sizes.LogicalContentBytes, sizes.RestoreDependencyBytes) };
+            });
             return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome,
                 projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
-                hasPartialCapture, run.SourceResults, branchIds, historicalBranchNames, branchableIds);
+                hasPartialCapture, run.SourceResults, branchIds, historicalBranchNames, branchableIds, sourceSizes);
         }).ToImmutableArray();
         var branchSummaries = branchProjection.Branches.Where(branch => !branch.IsDeleted && (sourceId is null || branch.Tips[0].SourceId == sourceId)).Select(branch =>
         {
@@ -316,6 +361,59 @@ public sealed class HistoryPresentationQueryService
             sourceId is { } updateSource ? workspace?.GetSourceState(updateSource).ActiveBranchUpdateId : null);
         _measure?.Invoke("metadata-projection", timer!.Elapsed);
         return new(snapshot, versionMap, representationMap);
+    }
+
+    // Query-local facts and completed results only. Remote permission is part of the
+    // key: a remote dependency must never make the local-only pass appear ready.
+    internal sealed class AvailabilityContext(
+        IReadOnlyDictionary<RepresentationId, VersionRepresentation> graph,
+        Func<VersionRepresentation, bool, bool> isPresent)
+    {
+        private readonly Dictionary<(RepresentationId, bool), bool> _completed = [];
+        private sealed class Frame(VersionRepresentation representation, bool present)
+        {
+            internal VersionRepresentation Representation { get; } = representation;
+            internal int NextDependency;
+            internal bool Available = present;
+        }
+
+        internal bool IsAvailable(VersionRepresentation root, bool allowRemote, CancellationToken token = default)
+        {
+            token.ThrowIfCancellationRequested();
+            if (_completed.TryGetValue((root.RepresentationId, allowRemote), out var known)) return known;
+            var present = isPresent(root, allowRemote);
+            token.ThrowIfCancellationRequested();
+            if (!present || root.DependencyRepresentationIds.IsEmpty)
+            {
+                _completed.Add((root.RepresentationId, allowRemote), present);
+                return present;
+            }
+            var visiting = new HashSet<RepresentationId> { root.RepresentationId };
+            var pending = new Stack<Frame>();
+            pending.Push(new(root, present));
+            while (pending.TryPeek(out var frame))
+            {
+                token.ThrowIfCancellationRequested();
+                var current = frame.Representation;
+                if (!frame.Available || frame.NextDependency == current.DependencyRepresentationIds.Length)
+                {
+                    pending.Pop();
+                    visiting.Remove(current.RepresentationId);
+                    _completed.Add((current.RepresentationId, allowRemote), frame.Available);
+                    continue;
+                }
+                var id = current.DependencyRepresentationIds[frame.NextDependency];
+                if (!graph.TryGetValue(id, out var dependency)) frame.Available = false;
+                else if (_completed.TryGetValue((id, allowRemote), out var available))
+                {
+                    frame.Available = available;
+                    frame.NextDependency++;
+                }
+                else if (!visiting.Add(id)) frame.Available = false;
+                else pending.Push(new(dependency, isPresent(dependency, allowRemote)));
+            }
+            return _completed[(root.RepresentationId, allowRemote)];
+        }
     }
 
     private static (

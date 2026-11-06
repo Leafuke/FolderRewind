@@ -12,6 +12,9 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Windows.System;
 using System;
+using System.Linq;
+using Microsoft.UI.Input;
+using Windows.UI.Core;
 
 namespace FolderRewind.Views;
 
@@ -22,7 +25,8 @@ public sealed partial class MergePage : Page
         if (ViewModel.Navigation is { } navigation && ViewModel.State.Session is { } session)
             NavigationService.NavigateTo("SpatialWorkspace", new SpatialWorkspaceNavigationParameter(navigation.ConfigId, Guid.Parse(navigation.FolderId), SpatialWorkspaceMode.Merge) { SessionId = session.Id });
     }
-    private bool _narrow, _showDetail, _syncScroll, _refreshingList;
+    private bool _narrow, _showDetail, _syncScroll, _refreshingList, _syncSelection;
+    private bool _compareSideBySide = true;
     private string? _announcedStatus;
     private ScrollViewer? _listScroll, _oursScroll, _theirsScroll;
     public MergePageViewModel ViewModel { get; } = new();
@@ -31,17 +35,20 @@ public sealed partial class MergePage : Page
         InitializeComponent(); DataContext = ViewModel;
         ViewModel.PropertyChanged += (_, _) =>
         {
+            UpdateComparisonLayout();
             if (_announcedStatus == ViewModel.Status) return;
             _announcedStatus = ViewModel.Status;
             FrameworkElementAutomationPeer.FromElement(StatusText)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
         };
         ViewModel.ContentChanging += () => _refreshingList = true;
+        ViewModel.SelectionUpdated += SyncListSelection;
         ViewModel.ContentChanged += () => DispatcherQueue.TryEnqueue(() =>
         {
             if (ViewModel.Filter != (FilterPicker.SelectedItem as ComboBoxItem)?.Tag?.ToString())
                 foreach (ComboBoxItem item in FilterPicker.Items) if (item.Tag?.ToString() == ViewModel.Filter) { FilterPicker.SelectedItem = item; break; }
             _listScroll?.ChangeView(null, ViewModel.ViewState.ScrollOffset, null, true);
             _refreshingList = false;
+            SyncListSelection();
         });
     }
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -61,11 +68,7 @@ public sealed partial class MergePage : Page
         if (FilePanel is null) return;
         var width = e.NewSize.Width - PageLayout.Padding.Left - PageLayout.Padding.Right;
         _narrow = width < 720;
-        var sideBySide = width >= 1000;
         ListColumn.Width = _narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(width < 1000 ? 240 : ViewModel.ViewState.ListWidth);
-        CompareSecondColumn.Width = new GridLength(sideBySide ? 1 : 0, GridUnitType.Star);
-        CompareSecondRow.Height = new GridLength(sideBySide ? 0 : 1, GridUnitType.Star);
-        Grid.SetColumn(TheirsPanel, sideBySide ? 1 : 0); Grid.SetRow(TheirsPanel, sideBySide ? 0 : 1);
         TargetPairColumn.Width = new GridLength(_narrow ? 0 : 1, GridUnitType.Star);
         Grid.SetColumn(TargetPair, _narrow ? 0 : 1); Grid.SetRow(TargetPair, _narrow ? 1 : 0);
         Grid.SetColumn(FooterActions, width < 1000 ? 0 : 1);
@@ -73,11 +76,38 @@ public sealed partial class MergePage : Page
         Grid.SetColumnSpan(FooterActions, width < 1000 ? 2 : 1);
         FooterActions.HorizontalAlignment = width < 1000 ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         FooterActions.Orientation = width < 520 ? Orientation.Vertical : Orientation.Horizontal;
-        BatchButtons.Orientation = width < 1000 ? Orientation.Vertical : Orientation.Horizontal;
+        FooterGrid.RowSpacing = width < 1000 ? 8 : 0;
+        MethodMapColumn.Width = new GridLength(_narrow ? 0 : 1, _narrow ? GridUnitType.Pixel : GridUnitType.Auto);
+        Grid.SetColumn(OpenMapButton, _narrow ? 0 : 1); Grid.SetRow(OpenMapButton, _narrow ? 1 : 0);
+        OpenMapButton.Margin = new Thickness(0, _narrow ? 8 : 0, 0, 0);
         UpdateNarrowLayout();
+    }
+    private void OnDetailPanelSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        _compareSideBySide = e.NewSize.Width >= 640;
+        BatchButtons.Orientation = _compareSideBySide ? Orientation.Horizontal : Orientation.Vertical;
+        FileActions.Orientation = _compareSideBySide ? Orientation.Horizontal : Orientation.Vertical;
+        UpdateComparisonLayout();
+    }
+    private void UpdateComparisonLayout()
+    {
+        if (SingleDetailLayout is null) return;
+        // Only real diff content fills the remaining height. Semantic and binary summaries
+        // keep their decisions next to the metadata instead of below empty, stretched panes.
+        var previewHeight = ViewModel.HasComparisonLines ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
+        SingleDetailLayout.VerticalAlignment = ViewModel.HasComparisonLines ? VerticalAlignment.Stretch : VerticalAlignment.Top;
+        ComparisonContentRow.Height = previewHeight;
+        CompareFirstRow.Height = previewHeight;
+        CompareSecondRow.Height = _compareSideBySide ? new GridLength(0) : previewHeight;
+        OursPreviewRow.Height = previewHeight; TheirsPreviewRow.Height = previewHeight;
+        CompareSecondColumn.Width = _compareSideBySide ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        CompareGrid.RowSpacing = _compareSideBySide ? 0 : 12;
+        CompareGrid.ColumnSpacing = _compareSideBySide ? 12 : 0;
+        Grid.SetColumn(TheirsPanel, _compareSideBySide ? 1 : 0); Grid.SetRow(TheirsPanel, _compareSideBySide ? 0 : 1);
     }
     private void UpdateNarrowLayout()
     {
+        if (ViewModel.SelectionCount == 0) _showDetail = false;
         FilePanel.Visibility = _narrow && _showDetail ? Visibility.Collapsed : Visibility.Visible;
         DetailPanel.Visibility = _narrow && !_showDetail ? Visibility.Collapsed : Visibility.Visible;
         Grid.SetColumn(DetailPanel, _narrow ? 0 : 2); Grid.SetColumnSpan(DetailPanel, _narrow ? 3 : 1);
@@ -85,11 +115,77 @@ public sealed partial class MergePage : Page
         BackToFiles.Visibility = _narrow ? Visibility.Visible : Visibility.Collapsed;
         ListSplitter.Visibility = _narrow ? Visibility.Collapsed : Visibility.Visible;
         SplitColumn.Width = new GridLength(_narrow ? 0 : 16);
+        OpenBatchButton.Visibility = _narrow && ViewModel.ShowBatchActions ? Visibility.Visible : Visibility.Collapsed;
     }
     private void OnBackToFiles(object sender, RoutedEventArgs e) { _showDetail = false; UpdateNarrowLayout(); ChangeList.Focus(FocusState.Programmatic); }
-    private void OnChangeClicked(object sender, ItemClickEventArgs e) { _showDetail = true; UpdateNarrowLayout(); }
-    private void OnListKeyDown(object sender, KeyRoutedEventArgs e)
-    { if (_narrow && e.Key == VirtualKey.Enter && ViewModel.SelectedChange is not null) { _showDetail = true; UpdateNarrowLayout(); BackToFiles.Focus(FocusState.Programmatic); e.Handled = true; } }
+    private void OnFilePanelSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (SelectionButtons is not null) SelectionButtons.Orientation = e.NewSize.Width < 260 ? Orientation.Vertical : Orientation.Horizontal;
+    }
+    private static bool KeyDownNow(VirtualKey key) => (InputKeyboardSource.GetKeyStateForCurrentThread(key) & CoreVirtualKeyStates.Down) != 0;
+    private void OnChangeClicked(object sender, ItemClickEventArgs e)
+    {
+        if (KeyDownNow(VirtualKey.Control) || KeyDownNow(VirtualKey.Shift)) return;
+        if (e.ClickedItem is not MergeChangeItem row) return;
+        // ItemClick may precede the platform's selection update. Also replace off-page selections
+        // when clicking the sole selected row currently materialized by the ListView.
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!ViewModel.IsListAvailable || !ViewModel.Changes.Contains(row)) return;
+            ViewModel.SelectOnly(row);
+            _showDetail = true; UpdateNarrowLayout();
+        });
+    }
+    private async void OnListKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.A && KeyDownNow(VirtualKey.Control))
+        {
+            e.Handled = true; await ViewModel.SelectAllAsync();
+            if (ViewModel.IsListAvailable && IsLoaded) ChangeList.Focus(FocusState.Keyboard);
+            return;
+        }
+        if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.ClearSelection(); e.Handled = true; return;
+        }
+        if (_narrow && e.Key == VirtualKey.Enter && ViewModel.SelectionCount > 0)
+        {
+            OnOpenBatch(sender, e); e.Handled = true; return;
+        }
+        if (!KeyDownNow(VirtualKey.Control) && e.Key is VirtualKey.Up or VirtualKey.Down or VirtualKey.Home or VirtualKey.End)
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!_refreshingList && ViewModel.IsListAvailable)
+                    ViewModel.UpdateSelection(ChangeList.SelectedItems.Cast<MergeChangeItem>().ToArray(), [], [], false);
+            });
+    }
+    private void OnListSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncSelection || _refreshingList) return;
+        ViewModel.UpdateSelection(ChangeList.SelectedItems.Cast<MergeChangeItem>().ToArray(),
+            e.AddedItems.Cast<MergeChangeItem>().ToArray(), e.RemovedItems.Cast<MergeChangeItem>().ToArray(), KeyDownNow(VirtualKey.Control));
+    }
+    private void SyncListSelection()
+    {
+        if (_refreshingList || _syncSelection) return;
+        _syncSelection = true;
+        try
+        {
+            foreach (var row in ChangeList.SelectedItems.Cast<MergeChangeItem>().ToArray())
+                if (!ViewModel.IsSelected(row.Id)) ChangeList.SelectedItems.Remove(row);
+            var selectedIds = ChangeList.SelectedItems.Cast<MergeChangeItem>().Select(row => row.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var row in ViewModel.Changes)
+                if (ViewModel.IsSelected(row.Id) && !selectedIds.Contains(row.Id)) ChangeList.SelectedItems.Add(row);
+        }
+        finally { _syncSelection = false; }
+        UpdateNarrowLayout();
+    }
+    private async void OnSelectAll(object sender, RoutedEventArgs e) => await ViewModel.SelectAllAsync();
+    private void OnDeselect(object sender, RoutedEventArgs e) => ViewModel.ClearSelection();
+    private void OnOpenBatch(object sender, RoutedEventArgs e)
+    {
+        _showDetail = true; UpdateNarrowLayout(); BackToFiles.Focus(FocusState.Programmatic);
+    }
     private void OnSplitterKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key is not (VirtualKey.Left or VirtualKey.Right)) return;
@@ -147,10 +243,10 @@ public sealed partial class MergePage : Page
     private async void OnDeleteChoice(object sender, RoutedEventArgs e) => await ViewModel.AdoptAsync(MergeResolutionChoice.Delete);
     private void OnStop(object sender, RoutedEventArgs e) => ViewModel.Operations?.Tracker.Stop();
     private async void OnDownload(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.PrepareReplicasAsync); }
-    private async void OnRecompute(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.RecomputeAsync); }
+    private async void OnRecompute(object sender, RoutedEventArgs e) { ViewModel.ClearSelection(); if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.RecomputeAsync); }
     private async void OnRecover(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.ResumeAsync); }
     private async void OnReload(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) { await ViewModel.ExecuteAsync(() => o.LoadAsync()); await ViewModel.ReloadChangesAsync(); } }
-    private async void OnRetrySave(object sender, RoutedEventArgs e) { if (ViewModel.Operations is { } o) await ViewModel.ExecuteAsync(o.RetrySaveAsync); }
+    private async void OnRetrySave(object sender, RoutedEventArgs e) => await ViewModel.RetryDecisionSaveAsync();
     private async void OnImport(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.CanImport || ViewModel.SelectedChange is not { } row || ViewModel.Operations is not { } o) return;

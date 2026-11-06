@@ -21,6 +21,7 @@ public sealed class RcloneExecutionContext : IDisposable
     internal bool PreserveSnapshot { get; set; }
     internal string TaskDirectory => _taskDirectory;
     internal string TaskRoot => Path.GetDirectoryName(_taskDirectory)!;
+    internal string SharedTaskRoot { get; }
     private static readonly ConcurrentDictionary<string, RcloneExecutionContext> Contexts = new(StringComparer.OrdinalIgnoreCase);
     internal static bool TryFind(string snapshot, out RcloneExecutionContext context) => Contexts.TryGetValue(snapshot, out context!);
     internal static bool HasActiveCredential(string path) => Path.IsPathFullyQualified(path) && Contexts.Values.Any(c => !c._disposed
@@ -69,17 +70,27 @@ public sealed class RcloneExecutionContext : IDisposable
             throw RcloneConnectionDiagnostics.InvalidFailure("cloud.remote-mismatch", "CloudSetup_RemoteMismatch");
         _revision = SHA256.HashData(content);
         SourceBytes = content;
-        TargetRevisionEvidence = RcloneCredentialRefresh.TargetRevision(content);
-        AllowedTokenSections = RcloneCredentialRefresh.AuthenticationSections(content, remoteName);
+        try
+        {
+            TargetRevisionEvidence = RcloneCredentialRefresh.TargetRevision(content);
+            AllowedTokenSections = RcloneCredentialRefresh.AuthenticationSections(content, remoteName);
+        }
+        catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.ParseConfiguration, ConfigPath); throw; }
         if (AllowedTokenSections.Length != 0 && !allowTokenWriteback)
             throw RcloneConnectionDiagnostics.InvalidFailure("connection.external-oauth-unsupported", "CloudConnection_ExternalOAuthUnsupported");
-        var root = Path.GetFullPath(taskRoot);
+        SharedTaskRoot = Path.GetFullPath(taskRoot);
+        RcloneCredentialStore.Track(ConfigPath, SharedTaskRoot, allowTokenWriteback);
+        RcloneCredentialRefresh.RejectReparsePoints(SharedTaskRoot);
+        var root = RcloneCredentialStore.Scope(SharedTaskRoot, ConfigPath);
+        RcloneCredentialRefresh.RejectReparsePoints(root);
         _taskDirectory = Path.Combine(root, "task-" + Guid.NewGuid().ToString("N"));
         SnapshotPath = Path.Combine(_taskDirectory, "rclone.conf");
         FileStream? ownership = null;
         try
         {
-            Directory.CreateDirectory(root);
+            RcloneExecutionContext.CreatePrivateDirectory(SharedTaskRoot);
+            RcloneExecutionContext.CreatePrivateDirectory(Path.Combine(SharedTaskRoot, "by-source"));
+            RcloneExecutionContext.CreatePrivateDirectory(root);
             CleanupExpired(root, DateTimeOffset.UtcNow);
             CreatePrivateDirectory(_taskDirectory);
             ownership = new FileStream(Path.Combine(_taskDirectory, "ownership.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
@@ -137,7 +148,7 @@ public sealed class RcloneExecutionContext : IDisposable
         var root = Path.GetFullPath(taskRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!Directory.Exists(root) || (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) return 0;
         int cleaned = 0;
-        foreach (var directory in Directory.EnumerateDirectories(root, "task-*", SearchOption.TopDirectoryOnly).Take(1000))
+        foreach (var directory in CleanupCandidates(root).Take(1000))
         {
             var name = Path.GetFileName(directory);
             if (name.Length != 37 || !Guid.TryParseExact(name[5..], "N", out _) || !Path.GetFullPath(directory).StartsWith(root, StringComparison.OrdinalIgnoreCase)
@@ -157,6 +168,18 @@ public sealed class RcloneExecutionContext : IDisposable
             catch (UnauthorizedAccessException) { }
         }
         return cleaned;
+    }
+    private static IEnumerable<string> CleanupCandidates(string root)
+    {
+        foreach (var directory in Directory.EnumerateDirectories(root, "task-*").Take(1000)) yield return directory;
+        var scoped = Path.Combine(root, "by-source");
+        if (!Directory.Exists(scoped) || (File.GetAttributes(scoped) & FileAttributes.ReparsePoint) != 0) yield break;
+        foreach (var scope in Directory.EnumerateDirectories(scoped).Take(1000))
+        {
+            var name = Path.GetFileName(scope);
+            if (name.Length != 64 || !name.All(Uri.IsHexDigit) || (File.GetAttributes(scope) & FileAttributes.ReparsePoint) != 0) continue;
+            foreach (var directory in Directory.EnumerateDirectories(scope, "task-*").Take(1000)) yield return directory;
+        }
     }
     public void RequireUnchanged()
     {
@@ -232,7 +255,7 @@ internal sealed class RcloneExecutionScope : IDisposable
 
 // Keep diagnostics alongside the execution primitive so its existing linked-source
 // consumers do not acquire a dependency on the application's configuration service.
-internal static class RcloneConnectionDiagnostics
+internal static partial class RcloneConnectionDiagnostics
 {
     internal static IOException Failure(string code, string resource, Exception? inner = null)
         => Mark(new IOException("[" + code + "] " + I18n.GetString(resource), inner), code);

@@ -114,6 +114,18 @@ namespace FolderRewind.Views.Settings
             }
         }
 
+        private void OnAppearanceThemeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_presentation.CanEdit || sender is not ComboBox combo) return;
+            TaskObserver.Observe(ViewModel.SelectBuiltinAppearanceThemeAsync(combo.SelectedIndex), nameof(AppearanceLayoutControl));
+        }
+
+        private void OnAppearanceSchemeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_presentation.CanEdit || sender is not ComboBox combo) return;
+            TaskObserver.Observe(ViewModel.SelectPersonalAppearanceSchemeAsync(combo.SelectedIndex), nameof(AppearanceLayoutControl));
+        }
+
         private void OnSponsorBackdropChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_presentation.CanEdit) return;
@@ -121,6 +133,12 @@ namespace FolderRewind.Views.Settings
             {
                 ViewModel.HandleSponsorBackdropChanged(cb.SelectedIndex);
             }
+        }
+
+        private void OnSponsorNavigationAnimationChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_presentation.CanEdit || sender is not ComboBox combo) return;
+            ViewModel.HandleSponsorNavigationAnimationChanged(combo.SelectedIndex);
         }
 
         private void OnSponsorTitleTextChanged(object sender, TextChangedEventArgs e)

@@ -50,10 +50,11 @@ internal sealed class PluginV3SpatialPreview
     {
         var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == origin.ConfigId);
         if (config is null) return false;
-        var current = PluginV3ModelMapper.ToSnapshot(config);
         var folder = origin.Folders.Single(f => f.FolderId == folderId);
-        return current.Revision == origin.Revision && current.Kind == origin.Kind
-            && current.Folders.Any(f => f.FolderId == folder.FolderId && f.Path == folder.Path);
+        return new ConfigRevision(config.ConfigRevision) == origin.Revision
+            && PluginV3ModelMapper.ToKind(config) == origin.Kind
+            && config.SourceFolders.Any(f => Guid.TryParse(f.Id, out var id)
+                && id == folder.FolderId && f.Path == folder.Path);
     }
     public static bool CanPreview(BackupConfig config)
     {

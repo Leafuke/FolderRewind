@@ -17,6 +17,8 @@ public sealed partial class CloudRecoveryPage : Page
         => ContentLayout.Width = Math.Min(860, Math.Max(0, e.NewSize.Width - 48));
     private CloudWizardSession? _session;
     private bool _active;
+    private long _navigation;
+    private CloudSetupNavigationParameter _options = new();
     public CloudSetupViewModel ViewModel { get; private set; } = null!;
     public string PasswordLabel => I18n.GetString("CloudRecovery_Password.Header");
     public CloudRecoveryPage() => InitializeComponent();
@@ -24,13 +26,43 @@ public sealed partial class CloudRecoveryPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
-        var options = (e.Parameter as CloudSetupNavigationParameter ?? new()) with { Intent = CloudSetupIntent.Recover };
-        _session = CloudWizardSessions.Get(options); ViewModel = _session.ViewModel; ViewModel.RecoveryMode = true;
-        if (!_session.Initialized) { await ViewModel.InitializeAsync(options.ConfigId, profileId: options.ProfileId); _session.Initialized = true; }
-        if (_active) { Editor.Attach(ViewModel); Editor.Visibility = Visibility.Visible; Bindings.Update(); if (ViewModel.WizardStep == 5) ShowRecovery(); }
+        var navigation = ++_navigation;
+        try
+        {
+            var options = (e.Parameter as CloudSetupNavigationParameter ?? new()) with { Intent = CloudSetupIntent.Recover };
+            _options = options; StartupFailure.Visibility = Visibility.Collapsed;
+            _session = CloudWizardSessions.Get(options); ViewModel = _session.ViewModel; ViewModel.RecoveryMode = true;
+            if (!_session.Initialized)
+            {
+                var result = await ViewModel.InitializeWithResultAsync(options.ConfigId, profileId: options.ProfileId);
+                if (!_active || navigation != _navigation || result == CloudSetupInitializationState.Canceled) return;
+                if (result == CloudSetupInitializationState.TargetUnavailable) { ShowStartupFailure(ViewModel.Message); return; }
+                _session.Initialized = true;
+            }
+            if (_active && navigation == _navigation) { Editor.Attach(ViewModel); Editor.Visibility = Visibility.Visible; Bindings.Update(); if (ViewModel.WizardStep == 5) ShowRecovery(); }
+        }
+        catch (Exception error)
+        {
+            RcloneCredentialDiagnosticReporter.Report(error, nameof(CloudRecoveryPage));
+            if (_active && navigation == _navigation) ShowStartupFailure(I18n.GetString("CloudConnection_InitializationFailed"));
+        }
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e)
-    { _active = false; RecoveryPassword.Password = ""; ViewModel?.SuspendChecks(); base.OnNavigatedFrom(e); }
+    {
+        _active = false; _navigation++; RecoveryPassword.Password = ""; _session?.ViewModel.SuspendChecks();
+        if (_session is { Initialized: false } session) { _session = null; CloudWizardSessions.End(session); }
+        base.OnNavigatedFrom(e);
+    }
+    private void ShowStartupFailure(string message)
+    { Editor.Visibility = RecoveryPanel.Visibility = Visibility.Collapsed; StartupError.Message = message; StartupFailure.Visibility = Visibility.Visible; }
+    private void OnStartNew(object sender, RoutedEventArgs e)
+    {
+        var session = _session; _session = null;
+        if (session is not null) CloudWizardSessions.End(session);
+        NavigationService.NavigateTo("CloudRecovery", new CloudSetupNavigationParameter(_options.ConfigId, Intent: CloudSetupIntent.Recover));
+    }
+    private void OnStartupBack(object sender, RoutedEventArgs e)
+    { if (Frame.CanGoBack) Frame.GoBack(); else NavigationService.NavigateTo("CloudConnections"); }
     private void ShowRecovery()
     {
         ViewModel.WizardStep = 5; Editor.Visibility = Visibility.Collapsed; RecoveryPanel.Visibility = Visibility.Visible;

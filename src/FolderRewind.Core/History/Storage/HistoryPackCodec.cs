@@ -69,10 +69,20 @@ public sealed class HistoryPackCodec
     }
 
     public HistoryPackReadResult Decode(ReadOnlySpan<byte> originalBytes)
+        => DecodeCore(originalBytes.ToArray(), null);
+
+    // Only repository-owned buffers may be transferred; public Decode still copies its input.
+    internal HistoryPackReadResult DecodeOwned(byte[] originalBytes, HistoryPackReadSession session)
+    {
+        session.RequireActive();
+        return DecodeCore(originalBytes, session);
+    }
+
+    private HistoryPackReadResult DecodeCore(byte[] originalBytes, HistoryPackReadSession? session)
     {
         try
         {
-            using var document = JsonDocument.Parse(originalBytes.ToArray());
+            using var document = JsonDocument.Parse(originalBytes);
             var root = document.RootElement;
             var formatVersion = root.GetProperty("formatVersion").GetInt32();
             if (formatVersion != HistoryCommitPack.CurrentFormatVersion)
@@ -114,13 +124,14 @@ public sealed class HistoryPackCodec
                         throw new HistoryRepositoryValidationException(
                             $"Envelope identity does not match payload identity for {kind}/{id}.");
                     }
+                    session?.RememberValidated(item, payload, domainObject);
                 }
 
                 objects.Add(item);
             }
 
             var pack = new HistoryCommitPack(packId, transactionId, createdAtUtc, objects);
-            return new HistoryPackReadResult(pack, originalBytes.ToArray(), unsupported);
+            return new HistoryPackReadResult(pack, originalBytes, unsupported);
         }
         catch (HistoryRepositoryException)
         {

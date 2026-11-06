@@ -61,6 +61,24 @@ public sealed class ContrastThemeTests
         Assert.IsTrue(Load("Views/Diagnostics/LogPage.xaml").Descendants().Any(e => e.Name.LocalName == "LogLevelPresenter"));
     }
 
+    [TestMethod]
+    public void SponsorGradientsCoverBothThemesAndUseSystemBrushesInHighContrast()
+    {
+        var doc = Load("Styles/SponsorThemeResources.xaml");
+        var dictionaries = doc.Descendants().Where(element => element.Name.LocalName == "ResourceDictionary" && element.Attribute(X + "Key") is not null)
+            .ToDictionary(element => element.Attribute(X + "Key")!.Value);
+        var keys = dictionaries["Light"].Elements().Select(element => element.Attribute(X + "Key")!.Value).ToArray();
+        Assert.HasCount(3, keys);
+        foreach (var theme in new[] { "Dark", "HighContrast" })
+            CollectionAssert.AreEquivalent(keys, dictionaries[theme].Elements().Select(element => element.Attribute(X + "Key")!.Value).ToArray());
+        foreach (var brush in dictionaries["HighContrast"].Elements())
+        {
+            Assert.AreEqual("StaticResource", brush.Name.LocalName);
+            Assert.AreEqual("SystemColorWindowBrush", brush.Attribute("ResourceKey")!.Value);
+            Assert.IsNull(brush.Attribute("Opacity"));
+        }
+    }
+
     private static XDocument Load(string path)
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);

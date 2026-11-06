@@ -23,6 +23,7 @@ namespace FolderRewind.Services
         }
         internal static GitHubReleaseService.GitHubLatestReleaseResult? Metadata { get; private set; }
         internal static DateTimeOffset? CheckedUtc { get; private set; }
+        internal static string ReleaseNotes => Metadata is { } release ? ExtractLocalizedReleaseNotes(release.Body, IsChineseUi()) : "";
         internal static event Action? Changed;
 
         public static async Task<UpdateCheckResult?> CheckForUpdateAsync(CancellationToken ct = default)
@@ -91,6 +92,13 @@ namespace FolderRewind.Services
             if (latest is null) return false;
             var uri = fallback ? new Uri(latest.InstallChannel == InstallChannel.Store
                 ? AppUpdatePolicy.StoreProductUrl : AppUpdatePolicy.ReleasesUrl) : latest.Target.Uri;
+            return await OpenUriAsync(uri);
+        }
+
+        internal static Task<bool> OpenReleaseNotesAsync() => OpenUriAsync(new Uri(AppUpdatePolicy.ReleasesUrl));
+
+        private static async Task<bool> OpenUriAsync(Uri uri)
+        {
             try { return await Windows.System.Launcher.LaunchUriAsync(uri); }
             catch (Exception error)
             { LogService.LogError("Could not open the update destination.", nameof(AppUpdateService), error); return false; }

@@ -131,13 +131,14 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
         try
         {
             EnsureInitializedInsideGate();
-            var existing = await ReadAllPacksInsideGateAsync(cancellationToken).ConfigureAwait(false);
+            using var readSession = new HistoryPackReadSession();
+            var existing = await ReadAllPacksInsideGateAsync(cancellationToken, readSession).ConfigureAwait(false);
             var decoded = new List<HistoryPackReadResult>(incomingBytes.Length);
             for (var index = 0; index < incomingBytes.Length; index++)
             {
                 try
                 {
-                    decoded.Add(_codec.Decode(incomingBytes[index]));
+                    decoded.Add(_codec.DecodeOwned(incomingBytes[index], readSession));
                 }
                 catch (HistoryPackCompatibilityException)
                 {
@@ -195,7 +196,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
                 // 所有跨 Pack 引用都在 existing ∪ staged 的候选视图中一次验证，
                 // 绝不按文件枚举顺序把合法 forward reference 判为损坏。
                 using var timing = FolderRewind.Services.HistoryOperationDiagnostics.Current?.Measure("history-pack-validate");
-                _validator.Validate(ConfigId, existing.Concat(newPacks));
+                _validator.Validate(ConfigId, existing.Concat(newPacks), readSession);
             }
             catch (HistoryRepositoryException)
             {
@@ -206,6 +207,8 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
                 throw;
             }
 
+            // Index publication may deserialize again; release operation-local typed facts first.
+            readSession.Dispose();
             Imports.Install(newPacks, cancellationToken);
 
             if (newPacks.Count > 0 && PacksInstalled is { } installed)
@@ -242,7 +245,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
     }
 
     internal async Task<IReadOnlyList<HistoryPackReadResult>> ReadAllPacksInsideGateAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, HistoryPackReadSession? readSession = null)
     {
         using var timing = FolderRewind.Services.HistoryOperationDiagnostics.Current?.Measure("history-pack-read-decode");
         var results = new List<HistoryPackReadResult>();
@@ -256,7 +259,7 @@ public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-            results.Add(_codec.Decode(bytes));
+            results.Add(readSession is null ? _codec.Decode(bytes) : _codec.DecodeOwned(bytes, readSession));
         }
 
         return results;

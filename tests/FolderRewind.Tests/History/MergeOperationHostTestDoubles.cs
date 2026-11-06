@@ -27,13 +27,17 @@ namespace FolderRewind.Services
         internal static Func<BackupConfig, MergeSession, CancellationToken, Task<MergeReviewSnapshot>> ReviewFactory { get; set; } = null!;
         public static Task<HistoryRestoreService> CreateRestoreServiceAsync(BackupConfig config, CancellationToken token)
             => Task.FromResult(RestoreFactory(config));
-        internal static HistoryMergeService MergeCore(HistoryRuntime runtime, HistoryRestoreService restore, MergeSession? session) => new(runtime, restore);
+        internal static HistoryMergeService MergeCore(HistoryRuntime runtime, HistoryRestoreService restore, MergeSession? session,
+            Action<MergePreparationProgress>? progress = null) => new(runtime, restore) { Progress = progress };
         internal static bool MergeBindingCurrent(MergeSession session) => session.Plan.SemanticProvider is null && session.Plan.ProviderVersion == MergeProviderDescriptor.GenericIdentity;
-        internal static Task<MergeSession?> StartMergeAsync(BackupConfig config, BranchId branch, CancellationToken token, SemanticMergeBinding? binding = null)
+        internal static Task<MergeSession?> StartMergeAsync(BackupConfig config, BranchId branch, CancellationToken token, SemanticMergeBinding? binding = null,
+            Action<MergePreparationProgress>? progress = null)
             => Start(config, branch, token);
-        internal static Task<MergeSession> RecomputeMergeAsync(BackupConfig config, MergeSession session, CancellationToken token)
+        internal static Task<MergeSession> RecomputeMergeAsync(BackupConfig config, MergeSession session, CancellationToken token,
+            Action<MergePreparationProgress>? progress = null)
             => Recompute(config, session, token);
-        internal static Task<MergeSession> PrepareMergeReplicasAsync(BackupConfig config, MergeSession session, CancellationToken token)
+        internal static Task<MergeSession> PrepareMergeReplicasAsync(BackupConfig config, MergeSession session, CancellationToken token,
+            Action<MergePreparationProgress>? progress = null)
             => throw new NotSupportedException();
         internal static Task<MergeReviewSnapshot> PrepareMergeReviewAsync(BackupConfig config, MergeSession session,
             Action<MergeOperationStage> progress, CancellationToken token) => ReviewFactory(config, session, token);

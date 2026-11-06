@@ -10,7 +10,11 @@ public enum MergeOperationStage { Idle, Loading, Analyzing, Downloading, Saving,
 
 public sealed record MergeOperationSnapshot(MergeSession? Session = null, MergeOperationStage Stage = MergeOperationStage.Idle,
     bool IsBusy = false, bool CanStop = false, bool IsSaved = true, HistoryRestoreResult? Result = null,
-    string? Error = null, string? Notice = null);
+    string? Error = null, string? Notice = null)
+{
+    internal MergePreparationProgress? Progress { get; init; }
+    internal MergeDecisionChange? DecisionChange { get; init; }
+}
 
 /// <summary>Application-owned operation lifetime. Observers may detach without cancelling work.</summary>
 public sealed class MergeOperationTracker
@@ -19,6 +23,7 @@ public sealed class MergeOperationTracker
     private CancellationTokenSource? _cancellation;
     private Task _task = Task.CompletedTask;
     private MergeOperationSnapshot _snapshot = new();
+    private long _generation;
     public MergeOperationSnapshot Snapshot { get { lock (_sync) return _snapshot; } }
     public Task PendingTask { get { lock (_sync) return _task; } }
     public event Action? Changed;
@@ -26,9 +31,27 @@ public sealed class MergeOperationTracker
     public void Update(Func<MergeOperationSnapshot, MergeOperationSnapshot> update)
     {
         lock (_sync) _snapshot = update(_snapshot);
+        NotifyChanged();
+    }
+    private void NotifyChanged()
+    {
         // A detached/broken UI observer must never change the outcome of an operation.
         foreach (var subscriber in Changed?.GetInvocationList() ?? [])
             try { ((Action)subscriber)(); } catch { }
+    }
+    internal Action<MergePreparationProgress> CreateProgressObserver()
+    {
+        long generation;
+        lock (_sync) generation = _generation;
+        return progress =>
+        {
+            lock (_sync)
+            {
+                if (generation != _generation || !_snapshot.IsBusy || _cancellation is null || _cancellation.IsCancellationRequested) return;
+                _snapshot = _snapshot with { Progress = progress };
+            }
+            NotifyChanged();
+        };
     }
 
     public Task RunAsync(MergeOperationStage stage, Func<CancellationToken, Task> action, bool canStop = true)
@@ -37,8 +60,9 @@ public sealed class MergeOperationTracker
         {
             if (_snapshot.IsBusy) return _task;
             _cancellation = new();
+            _generation++;
             var cancellation = _cancellation;
-            _snapshot = _snapshot with { IsBusy = true, CanStop = canStop, Stage = stage, Error = null, Notice = null };
+            _snapshot = _snapshot with { IsBusy = true, CanStop = canStop, Stage = stage, Error = null, Notice = null, Progress = null };
             _task = Task.Run(async () =>
             {
                 Update(s => s);
@@ -50,7 +74,7 @@ public sealed class MergeOperationTracker
                 finally
                 {
                     lock (_sync) { _cancellation = null; cancellation.Dispose(); }
-                    Update(s => s with { IsBusy = false, CanStop = false, Stage = MergeOperationStage.Idle });
+                    Update(s => s with { IsBusy = false, CanStop = false, Stage = MergeOperationStage.Idle, Progress = null });
                 }
             });
             return _task;
@@ -74,5 +98,5 @@ public sealed class MergeOperationTracker
     }
 
     public void ReportResult(HistoryRestoreResult result) => Update(s => s with { Result = result });
-    public void ReportStage(MergeOperationStage stage) => Update(s => s with { Stage = stage });
+    public void ReportStage(MergeOperationStage stage) => Update(s => s with { Stage = stage, Progress = null });
 }

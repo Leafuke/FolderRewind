@@ -4,8 +4,10 @@ namespace FolderRewind.Models
 {
     public sealed class ManagedFolder
     {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N");
         public string Path { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
+        public BackupSourceScope SourceScope { get; set; } = new();
     }
 
     public sealed class AutomationSettings
@@ -20,6 +22,7 @@ namespace FolderRewind.Models
         public string DestinationPath { get; set; } = string.Empty;
         public ObservableCollection<ManagedFolder> SourceFolders { get; set; } = [];
         public AutomationSettings Automation { get; set; } = new();
+        public FilterSettings Filters { get; set; } = new();
     }
 
     public sealed class GlobalSettings
@@ -45,6 +48,7 @@ namespace FolderRewind.Services
         public static AppConfig CurrentConfig { get; set; } = new();
         public static Queue<ConfigSaveResult> SaveResults { get; } = new();
         public static Action? BeforeSave { get; set; }
+        public static Func<Task<ConfigSaveResult>>? SaveAsyncOverride { get; set; }
 
         public static void Save()
         {
@@ -59,11 +63,14 @@ namespace FolderRewind.Services
         }
 
         public static Task<ConfigSaveResult> SaveAsync(bool publishSavedEvent = true, CancellationToken cancellationToken = default)
-            => Task.FromResult(SaveWithResult(publishSavedEvent));
+            => SaveAsyncOverride?.Invoke() ?? Task.FromResult(SaveWithResult(publishSavedEvent));
 
         internal static void PublishSaved()
         {
         }
+
+        internal static void NormalizeSourceScopeForPersistence(BackupSourceScope scope)
+            => ConfigPersistencePolicy.NormalizeSourceScopeForPersistence(scope);
     }
 
     public static class MiniWindowService

@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <Platforms>AnyCPU</Platforms>
+    <DefineConstants>$(DefineConstants);UI_ACCEPTANCE_CRITERIA_TEST</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,9 +33,24 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/FolderRewind.Core/FolderRewind.Core.csproj" />
+    <ProjectReference Include="../../tools/HistoryGraphProbe/HistoryGraphProbe.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="FolderRewindFaultInjection" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../FolderRewind.TestSupport/FolderRewind.TestSupport.csproj" />
   </ItemGroup>
   <Import Project="HostSourceLinks.props" />
+  <Target Name="CopyHistoryGraphProbe" AfterTargets="Build">
+    <MSBuild Projects="../../tools/HistoryGraphProbe/HistoryGraphProbe.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="FolderRewindFaultInjection">
+      <Output TaskParameter="TargetOutputs" ItemName="_HistoryGraphProbeTarget" />
+    </MSBuild>
+    <PropertyGroup>
+      <_HistoryGraphProbeOutputDirectory>@(_HistoryGraphProbeTarget->'%(RootDir)%(Directory)')</_HistoryGraphProbeOutputDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <_HistoryGraphProbeFiles Include="$(_HistoryGraphProbeOutputDirectory)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_HistoryGraphProbeFiles)"
+          DestinationFiles="@(_HistoryGraphProbeFiles->'$(OutDir)HistoryGraphProbe\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

@@ -28,6 +28,18 @@ Workspace Source state carries `BaseVersionId`, boundary/baseline evidence, `Act
 
 Pins, Branch tips, Workspace baselines, active operations and unfinished durable merge sessions protect recoverable materialization. Presentation suppression is not physical deletion. Artifact reachability begins at Representation Artifact roots; the Artifact ledger owns its dependency graph, not History roots.
 
+## Backup size statistics
+
+Capture publishes a Host-owned `VersionMetadataSnapshot` with producer `folderrewind.core`, schema `backup-size`, version `1`, in the same Commit Pack as its Version. Its JSON payload contains nonnegative Int64 `addedStoredBytes` and `logicalContentBytes`. Plugin metadata replacement or inheritance must preserve the current capture's Host snapshot and must never inherit another Version's capture costs. Failed or canceled captures publish no such snapshot.
+
+The optional `backupType` string records the actual capture type (`Full`, `Smart`, `Rolling`, `SemanticFull`, or `SemanticSmart`), independently of later configuration edits or Representation rewrites. Native Representation metadata may also contain `hostBackupType`. Older entries fall back to their Representation kind, legacy backup-type evidence, or the bound Artifact root's capture mode; unknown semantic modes remain generic Semantic rather than being guessed from configuration.
+
+Representation metadata `hostStoredBytes` records the final output size; Native Artifact `hostRestoreDependencyBytes` records its complete, deduplicated closure including actual Envelope bytes. These invariant-culture integers are observations after sealing, not space-budget estimates. Chain rewriting recomputes new Representation storage facts while preserving the original Version capture snapshot. Native `nativeClosureStorageBytes` remains a capacity-budget field.
+
+Presentation reads these facts without opening backup contents. Null/missing/unrecognized measurements mean unknown, including after old-format import; zero is a known measurement. A reused or unchanged Run Source contributes zero new backup output. Missing local payloads or remote-only availability do not erase committed statistics. Old records may acquire local, cancelable, on-demand size observations from verified archive listings or bound Native capture evidence, but these observations neither invent original Added Storage nor publish authoritative replacements. Statistics never trigger cloud downloads.
+
+For Capture entries without recorded Added Storage, presentation falls back to the selected ordinary archive's current local file length (Full, Smart, Rolling or legacy archive). Only that archive is counted, independently of its dependencies; Native Artifact roots are excluded. This temporary display value does not publish a capture snapshot. Recorded values, including zero, take precedence; missing or unreadable files remain unknown, and reused or unchanged entries still display zero.
+
 ## Mutation and recovery
 
 - Preserve lock order: configuration operation gate, runtime mutation/recovery gate, then local-state storage locks. Internal recovery uses its typed operation lease and must not re-enter the outer operation.

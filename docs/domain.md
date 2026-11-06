@@ -2,6 +2,20 @@
 
 FolderRewind proposes backup-worthy data, lets the user own the resulting configuration, and manages restorable source archives and operation groupings without silently changing protection boundaries.
 
+## Backup size language
+
+**Added Storage**:
+The bytes of final backup output newly created by a successful capture, after compression and encryption. Native Artifact output includes newly created packs, its root and their Envelopes; reused objects are excluded. This immutable Version fact excludes temporary files, shared indexes/logs, allocation-unit overhead and any space reclaimed by retention.
+_Avoid_: Root payload size, net disk growth, space freed by deletion
+
+**Version Content Size**:
+The total file length of the Version's restorable logical state within its effective boundary, including inherited Smart content and applied deletions.
+_Avoid_: Changed-file size, compressed size, Artifact root logical size
+
+**Restore Dependency Size**:
+The stored bytes needed by the currently selected Representation and its complete dependency closure, counting each data object once. Replacing a Representation may change this value without changing Added Storage.
+_Avoid_: Download size, independently owned space, deletion benefit
+
 ## Discovery language
 
 **Game Definition**:
@@ -168,6 +182,19 @@ _Avoid_: History transaction, in-place archive rewrite, plugin commit
 **Operation Comment**:
 The comment supplied for one backup invocation and attached to its Backup Run and newly created Source Versions, without rewriting reused Versions.
 _Avoid_: Folder note, mutable archive comment
+
+## Cloud credential language
+
+**Cloud Connection**:
+A configured access relationship that projects can bind to. Multiple connections may share the same Credential Storage.
+
+**Credential Storage**:
+One local credential file and the authentication revisions that belong to it. It owns refresh serialization and recovery evidence independently of connection names and project bindings.
+_Avoid_: Account, connection profile, project credentials
+
+**Credential Evidence**:
+Retained authentication material and execution facts used to decide whether credentials can be safely recovered or advanced. Uncertain evidence can contain the only refreshed token and remains preserved until its relationship to the credentials is established.
+_Avoid_: Disposable cache, expired token files
 
 ## Plugin language
 

@@ -20,9 +20,10 @@ internal sealed record SpatialWorkspaceRow(string Id, string Title, string Descr
 }
 
 /// <summary>Rebuildable UI index. Decisions continue to be owned by MergeSessionStore.</summary>
-internal sealed partial class SpatialWorkspaceIndex(string path) : IDisposable
+internal sealed partial class SpatialWorkspaceIndex(string path, SpatialIndexDiagnostics? diagnostics = null) : IDisposable
 {
     private readonly object _gate = new();
+    private readonly SpatialIndexDiagnostics? _diagnostics = diagnostics;
     private SqliteConnection? _db;
     private bool _disposed;
     private long _metadataBytes;
@@ -39,12 +40,12 @@ internal sealed partial class SpatialWorkspaceIndex(string path) : IDisposable
                 CREATE INDEX rows_group ON rows(groupkey);
                 CREATE TABLE components(id TEXT NOT NULL,component TEXT NOT NULL);
                 CREATE INDEX components_lookup ON components(component,id);
-                CREATE INDEX components_id ON components(id);
+                CREATE INDEX components_id ON components(id,component);
                 CREATE TABLE locations(id TEXT NOT NULL,world TEXT NOT NULL,layer TEXT,minx REAL,miny REAL,maxx REAL,maxy REAL);
                 CREATE INDEX locations_window ON locations(world,layer,minx,maxx,miny,maxy,id);
-                CREATE INDEX locations_id ON locations(id);
+                CREATE INDEX locations_id ON locations(id,world,layer,minx,maxx,miny,maxy);
                 CREATE TABLE selection(id TEXT PRIMARY KEY);
-                """; command.ExecuteNonQuery(); return _db;
+                """; Executed(command).ExecuteNonQuery(); return _db;
         }
     }
     private SqliteCommand Command(string sql, params (string, object?)[] parameters)
@@ -54,35 +55,51 @@ internal sealed partial class SpatialWorkspaceIndex(string path) : IDisposable
         return command;
     }
     internal void Clear()
-    { lock (_gate) { using var c = Command("DELETE FROM selection; DELETE FROM locations; DELETE FROM rows; DELETE FROM components"); c.ExecuteNonQuery(); _metadataBytes = 0; _rowCount = 0; } }
+    { lock (_gate) { using var c = Command("DELETE FROM selection; DELETE FROM locations; DELETE FROM rows; DELETE FROM components"); Executed(c).ExecuteNonQuery(); _metadataBytes = 0; _rowCount = 0; _mutationVersion++; } }
     internal void Put(IEnumerable<SpatialWorkspaceRow> rows, bool allowReplace = true)
+        => PutCore(rows, allowReplace, requireExisting: false, clearSelection: false, null, default);
+    internal void UpdateMergeRows(IEnumerable<SpatialWorkspaceRow> rows, int expectedRowCount, Action validate,
+        System.Threading.CancellationToken token = default)
+        => PutCore(rows, allowReplace: true, requireExisting: true, clearSelection: true, validate, token, expectedRowCount);
+    private void PutCore(IEnumerable<SpatialWorkspaceRow> rows, bool allowReplace, bool requireExisting, bool clearSelection,
+        Action? validate, System.Threading.CancellationToken token, int? expectedRowCount = null)
     {
-        lock (_gate)
+        using (EnterOperation(requireExisting ? "merge-update" : "put", token))
         {
+            if (expectedRowCount is { } expected && _rowCount != expected)
+                throw new InvalidDataException("Merge spatial index row count changed.");
             using var tx = Db.BeginTransaction();
             var charged = _metadataBytes; var rowCount = _rowCount;
             foreach (var row in rows)
             {
-                var data = JsonSerializer.Serialize(row);
+                token.ThrowIfCancellationRequested();
+                string data;
+                using (Measure("put.serialize")) data = JsonSerializer.Serialize(row);
+                using var writePhase = Measure("put.write-row");
                 if (data.Length > 65536 || row.Locations.Count > 128) throw new InvalidDataException("Spatial item budget exceeded.");
                 var bytes = Encoding.UTF8.GetByteCount(data) + row.Title.Length * 3L + row.Locations.Count * 256L + row.Id.Length * 4L;
-                using var previous = Command("SELECT bytes FROM rows WHERE id=$i", ("$i", row.Id)); var prior = previous.ExecuteScalar();
+                using var previous = Command("SELECT bytes FROM rows WHERE id=$i", ("$i", row.Id)); var prior = Executed(previous).ExecuteScalar();
+                if (requireExisting && prior is null) throw new InvalidDataException("Merge spatial item is missing.");
                 if (!allowReplace && prior is not null) throw new InvalidDataException("Duplicate spatial comparison identity.");
                 charged += bytes - (prior is null ? 0 : Convert.ToInt64(prior)); if (prior is null) rowCount++;
                 if (charged > 256L * 1024 * 1024 || rowCount > 1_000_000) throw new IOException("Spatial index budget exceeded.");
-                using var write = Command("INSERT OR REPLACE INTO rows VALUES($i,$t,$s,$c,$d,$b,$g,$sx,$sy)", ("$i", row.Id), ("$t", row.Title + "\n" + row.Description + "\n" + string.Join("\n", row.SourcePaths)), ("$s", row.Status), ("$c", row.CanSelect ? 1 : 0), ("$d", data), ("$b", bytes), ("$g", GroupKey(row)), ("$sx", row.Locations.FirstOrDefault()?.Bounds?.MinX), ("$sy", row.Locations.FirstOrDefault()?.Bounds?.MinY)); write.ExecuteNonQuery();
-                using (var clearComponents = Command("DELETE FROM components WHERE id=$i", ("$i", row.Id))) clearComponents.ExecuteNonQuery();
+                using var write = Command("INSERT OR REPLACE INTO rows VALUES($i,$t,$s,$c,$d,$b,$g,$sx,$sy)", ("$i", row.Id), ("$t", row.Title + "\n" + row.Description + "\n" + string.Join("\n", row.SourcePaths)), ("$s", row.Status), ("$c", row.CanSelect ? 1 : 0), ("$d", data), ("$b", bytes), ("$g", GroupKey(row)), ("$sx", row.Locations.FirstOrDefault()?.Bounds?.MinX), ("$sy", row.Locations.FirstOrDefault()?.Bounds?.MinY)); Executed(write).ExecuteNonQuery();
+                using (var clearComponents = Command("DELETE FROM components WHERE id=$i", ("$i", row.Id))) Executed(clearComponents).ExecuteNonQuery();
                 foreach (var component in row.Components.Distinct(StringComparer.Ordinal))
-                { using var insert = Command("INSERT INTO components VALUES($i,$c)", ("$i", row.Id), ("$c", component)); insert.ExecuteNonQuery(); }
-                using var clear = Command("DELETE FROM locations WHERE id=$i", ("$i", row.Id)); clear.ExecuteNonQuery();
+                { using var insert = Command("INSERT INTO components VALUES($i,$c)", ("$i", row.Id), ("$c", component)); Executed(insert).ExecuteNonQuery(); }
+                using var clear = Command("DELETE FROM locations WHERE id=$i", ("$i", row.Id)); Executed(clear).ExecuteNonQuery();
                 foreach (var l in row.Locations)
                 {
                     if (string.IsNullOrWhiteSpace(l.WorldId) || l.Bounds is { } b && (new[] { b.MinX, b.MinY, b.MaxX, b.MaxY }.Any(v => !double.IsFinite(v)) || b.MinX >= b.MaxX || b.MinY >= b.MaxY))
                         throw new InvalidDataException("Invalid spatial bounds.");
-                    using var location = Command("INSERT INTO locations VALUES($i,$w,$l,$x,$y,$xx,$yy)", ("$i", row.Id), ("$w", l.WorldId), ("$l", l.LayerId), ("$x", l.Bounds?.MinX), ("$y", l.Bounds?.MinY), ("$xx", l.Bounds?.MaxX), ("$yy", l.Bounds?.MaxY)); location.ExecuteNonQuery();
+                    using var location = Command("INSERT INTO locations VALUES($i,$w,$l,$x,$y,$xx,$yy)", ("$i", row.Id), ("$w", l.WorldId), ("$l", l.LayerId), ("$x", l.Bounds?.MinX), ("$y", l.Bounds?.MinY), ("$xx", l.Bounds?.MaxX), ("$yy", l.Bounds?.MaxY)); Executed(location).ExecuteNonQuery();
                 }
             }
-            tx.Commit(); _metadataBytes = charged; _rowCount = rowCount;
+            if (clearSelection) { using var clear = Command("DELETE FROM selection"); Executed(clear).ExecuteNonQuery(); }
+            token.ThrowIfCancellationRequested();
+            validate?.Invoke();
+            token.ThrowIfCancellationRequested();
+            tx.Commit(); _metadataBytes = charged; _rowCount = rowCount; _mutationVersion++;
         }
     }
     private const string Window = "EXISTS(SELECT 1 FROM locations l WHERE l.id=r.id AND l.world=$w AND (l.layer IS NULL OR l.layer=$l) AND (l.minx IS NULL OR l.minx<$xx AND l.maxx>$x AND l.miny<$yy AND l.maxy>$y))";
@@ -107,24 +124,24 @@ internal sealed partial class SpatialWorkspaceIndex(string path) : IDisposable
         lock (_gate)
         {
             using var tx = Db.BeginTransaction();
-            if (!additive && !remove) { using var clear = Command("DELETE FROM selection"); clear.ExecuteNonQuery(); }
+            if (!additive && !remove) { using var clear = Command("DELETE FROM selection"); Executed(clear).ExecuteNonQuery(); }
             using var c = Command((remove ? "DELETE FROM selection WHERE id IN (SELECT r.id FROM rows r WHERE " : "INSERT OR IGNORE INTO selection SELECT r.id FROM rows r WHERE ")
-                + Window + " AND r.selectable=1 AND ($f='' OR r.status=$f)" + (remove ? ")" : ""), Args(world, layer, bounds).Append(("$f", (object?)filter)).ToArray()); c.ExecuteNonQuery(); tx.Commit();
+                + Window + " AND r.selectable=1 AND ($f='' OR r.status=$f)" + (remove ? ")" : ""), Args(world, layer, bounds).Append(("$f", (object?)filter)).ToArray()); Executed(c).ExecuteNonQuery(); tx.Commit();
         }
     }
     internal void SelectItem(string id, bool additive)
     {
         lock (_gate)
         {
-            if (!additive) { using var clear = Command("DELETE FROM selection"); clear.ExecuteNonQuery(); }
-            using var c = Command("INSERT OR IGNORE INTO selection SELECT id FROM rows WHERE id=$i AND selectable=1", ("$i", id)); c.ExecuteNonQuery();
+            if (!additive) { using var clear = Command("DELETE FROM selection"); Executed(clear).ExecuteNonQuery(); }
+            using var c = Command("INSERT OR IGNORE INTO selection SELECT id FROM rows WHERE id=$i AND selectable=1", ("$i", id)); Executed(c).ExecuteNonQuery();
         }
     }
     internal string[] Selected()
     {
         lock (_gate)
         {
-            using var c = Command("SELECT id FROM selection ORDER BY id"); using var read = c.ExecuteReader(); var result = new List<string>();
+            using var c = Command("SELECT id FROM selection ORDER BY id"); using var read = Executed(c).ExecuteReader(); var result = new List<string>();
             while (read.Read()) { if (result.Count >= 100_000) throw new IOException("Selection exceeds the operation budget."); result.Add(read.GetString(0)); } return result.ToArray();
         }
     }
@@ -133,14 +150,14 @@ internal sealed partial class SpatialWorkspaceIndex(string path) : IDisposable
         lock (_gate)
         {
             using var c = Command("SELECT (SELECT COUNT(*) FROM rows),(SELECT COUNT(*) FROM selection),(SELECT COUNT(*) FROM rows r WHERE NOT EXISTS(SELECT 1 FROM locations l WHERE l.id=r.id))");
-            using var r = c.ExecuteReader(); r.Read(); return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
+            using var r = Executed(c).ExecuteReader(); r.Read(); return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
         }
     }
     private static (string, object?)[] Args(string world, string layer, SpatialPreviewBounds b)
         => [("$w", world), ("$l", layer), ("$x", b.MinX), ("$y", b.MinY), ("$xx", b.MaxX), ("$yy", b.MaxY)];
-    private static IReadOnlyList<SpatialWorkspaceRow> Read(SqliteCommand command)
+    private IReadOnlyList<SpatialWorkspaceRow> Read(SqliteCommand command)
     {
-        using var read = command.ExecuteReader(); var rows = new List<SpatialWorkspaceRow>();
+        using var read = Executed(command).ExecuteReader(); var rows = new List<SpatialWorkspaceRow>();
         while (read.Read()) rows.Add(JsonSerializer.Deserialize<SpatialWorkspaceRow>(read.GetString(0))!); return rows;
     }
     public void Dispose() { lock (_gate) { _disposed = true; _db?.Dispose(); _db = null; } }

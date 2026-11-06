@@ -53,15 +53,16 @@ public sealed partial class SpatialWorkspaceViewModel
             return;
         }
         if (_index is null || ids.Length == 0) return;
-        var rows = await Task.Run(() => _index.ByIds(ids));
-        if (rows is not null) await SelectItemAsync(Item(rows), false);
+        var result = await AccessIndexAsync((index, _, _) => index.ByIds(ids));
+        if (IsCurrent(result) && result!.Value is { } rows) await SelectItemAsync(Item(rows), false);
     }
     public void ShowDetails(string text) { Details = text; Notify(); }
     public void ClearFocus() { SelectedItem = null; Details = ""; Notify(); OverlayChanged?.Invoke(); }
     public async Task ChangeBatchModeAsync(bool onlyUnresolved)
     {
         BatchOnlyUnresolved = onlyUnresolved;
-        if (_index is not null) await Task.Run(() => _index.ClearSelection());
+        var result = await AccessIndexAsync((index, _, _) => { index.ClearSelection(); return true; });
+        if (!IsCurrent(result, requireRowsRevision: false)) return;
         SelectionFeedback = I18n.GetString("SpatialWorkspace_BatchModeChanged");
         Notify(); await ReloadRowsAsync();
     }

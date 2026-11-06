@@ -3,7 +3,6 @@ using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
@@ -169,7 +168,8 @@ namespace FolderRewind.Views
                 }
 
                 // 1. 执行跳转
-                if (!ContentFrame.Navigate(pageType, parameter, new SuppressNavigationTransitionInfo())
+                if (!ContentFrame.Navigate(pageType, parameter,
+                        NavigationAnimationService.CreateTransition(isInitial: ContentFrame.Content is null))
                     || ContentFrame.Content?.GetType() != pageType)
                 {
                     UpdateNavSelection(GetPageTagFromType(ContentFrame.SourcePageType) ?? "");
@@ -288,7 +288,7 @@ namespace FolderRewind.Views
         {
             if (ContentFrame.CanGoBack)
             {
-                ContentFrame.GoBack(new SuppressNavigationTransitionInfo());
+                ContentFrame.GoBack(NavigationAnimationService.CreateTransition(isBack: true));
             }
         }
 

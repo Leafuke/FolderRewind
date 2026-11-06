@@ -58,9 +58,10 @@ namespace FolderRewind.Services
                     var settings = ConfigService.CurrentConfig.GlobalSettings;
                     var previousPath = settings.SponsorBackgroundImagePath;
                     var previousEnabled = settings.SponsorBackgroundEnabled;
+                    var previousKind = settings.SponsorBackgroundKind;
                     await ConfigEditTransaction.ApplyAsync(
-                        () => { settings.SponsorBackgroundImagePath = targetPath; settings.SponsorBackgroundEnabled = true; },
-                        () => { settings.SponsorBackgroundImagePath = previousPath; settings.SponsorBackgroundEnabled = previousEnabled; },
+                        () => { settings.SponsorBackgroundImagePath = targetPath; settings.SponsorBackgroundKind = Models.SponsorBackgroundKind.Image; settings.SponsorBackgroundEnabled = true; },
+                        () => { settings.SponsorBackgroundImagePath = previousPath; settings.SponsorBackgroundKind = previousKind; settings.SponsorBackgroundEnabled = previousEnabled; },
                         () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
 
                     // 同一扩展名会覆盖同一个目标路径，显式要求 Shell 重新解码。

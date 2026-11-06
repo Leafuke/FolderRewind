@@ -174,4 +174,43 @@ public sealed class RcloneCredentialRefreshTests
     [TestMethod]
     public void ExternalOAuthIsRejectedBeforeStartingAChild()
         => Assert.ThrowsExactly<InvalidOperationException>(() => new RcloneExecutionContext(_exe, _config, _root, "outer:/backup", _root));
+
+    [TestMethod]
+    public async Task FreshOriginFollowsTrustedTokenRevisionsWhileKeepingUnattributedLegacyBytes()
+    {
+        RcloneCredentialStore.RegisterFresh(_config, File.ReadAllBytes(_config));
+        var legacy = Path.Combine(_root, "task-unknown"); Directory.CreateDirectory(legacy);
+        var evidence = Path.Combine(legacy, "rclone.conf"); File.WriteAllText(evidence, "unique unrelated legacy token");
+        using (var context = Context())
+            await RcloneConnectionService.RunAsync(Start(context), TimeSpan.FromSeconds(10), default);
+        Assert.IsTrue(RcloneCredentialStore.HasFreshOrigin(_config, true));
+        await RcloneCredentialRefresh.PrepareStoreAsync(_config, _root, true, default);
+        StringAssert.Contains(File.ReadAllText(_config), "\"access_token\":\"new\"");
+        Assert.AreEqual("unique unrelated legacy token", File.ReadAllText(evidence));
+        Assert.IsFalse(RcloneCredentialRefresh.HasPendingEvidence(_root, _config, true));
+    }
+
+    [TestMethod]
+    public async Task ReplayCompletesOriginProofBeforeJudgingUnattributedLegacyEvidence()
+    {
+        RcloneCredentialStore.RegisterFresh(_config, File.ReadAllBytes(_config));
+        var legacy = Path.Combine(_root, "task-unknown"); Directory.CreateDirectory(legacy);
+        File.WriteAllText(Path.Combine(legacy, "rclone.conf"), "unique legacy evidence");
+        using (var context = Context())
+        {
+            await using var lease = await RcloneCredentialRefresh.BeginAsync(Start(context), default);
+            var refreshed = File.ReadAllText(_config).Replace("old", "new");
+            File.WriteAllText(context.SnapshotPath, refreshed);
+            File.WriteAllText(_config, refreshed); // Durable source write, before the trusted ledger/terminal cleanup.
+            var path = Path.Combine(context.TaskDirectory, "attempt.json");
+            var attempt = JsonSerializer.Deserialize(File.ReadAllBytes(path), CredentialRefreshJsonContext.Default.CredentialRefreshAttempt)!;
+            File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(attempt with { Phase = "Exited" }, CredentialRefreshJsonContext.Default.CredentialRefreshAttempt));
+            context.PreserveSnapshot = true;
+        }
+        Assert.IsFalse(RcloneCredentialStore.HasFreshOrigin(_config, true));
+        await RcloneCredentialRefresh.PrepareStoreAsync(_config, _root, true, default);
+        Assert.IsTrue(RcloneCredentialStore.HasFreshOrigin(_config, true));
+        Assert.AreEqual("unique legacy evidence", File.ReadAllText(Path.Combine(legacy, "rclone.conf")));
+        StringAssert.Contains(File.ReadAllText(_config), "\"access_token\":\"new\"");
+    }
 }

@@ -14,23 +14,31 @@ namespace FolderRewind.Services;
 public sealed record RcloneRemoteOption(string Name, string Backend);
 public sealed record RcloneRemoteCatalog(IReadOnlyList<RcloneRemoteOption> Remotes, string RevisionEvidence);
 public sealed record RemoteDirectoryResult(IReadOnlyList<string> Names, bool Truncated, int NextOffset = -1);
-public sealed record ConnectionProbeResult(bool ReadWriteVerified, bool Canceled, string Diagnostic, string? RetainedObject);
+public sealed record ConnectionProbeResult(bool ReadWriteVerified, bool Canceled, string Diagnostic, string? RetainedObject)
+{
+    internal RcloneFailureDetails? Failure { get; init; }
+}
 
-public sealed class OwnedRcloneConnection(string configPath, string remoteRoot) : IDisposable
+public sealed class OwnedRcloneConnection(string configPath, string remoteRoot) : IDisposable, IAsyncDisposable
 {
     public string ConfigPath { get; } = configPath;
     public string RemoteRoot { get; } = remoteRoot;
-    private bool _committed;
+    private volatile bool _committed;
+    private int _disposed;
+    internal void Preserve() => _committed = true;
     public void Commit() => _committed = true;
     public void Dispose()
     {
-        if (_committed) return;
+        if (_committed || Interlocked.Exchange(ref _disposed, 1) != 0) return;
         // OAuth 可能已经轮换；取消向导也不能删除受管目录中的唯一新令牌。
         if (RcloneExecutionContext.HasActiveCredential(ConfigPath) || RcloneCredentialRefresh.MustPreserveOwnedCredentials(ConfigPath)) return;
         File.Delete(ConfigPath);
         File.Delete(ConfigPath + ".folderrewind.lock");
+        File.Delete(ConfigPath + RcloneCredentialStore.OriginSuffix);
         Directory.Delete(Path.GetDirectoryName(ConfigPath)!);
     }
+    // Evidence enumeration can touch many legacy entries; UI callers release off the dispatcher.
+    public ValueTask DisposeAsync() => _committed ? ValueTask.CompletedTask : new(Task.Run(Dispose));
 }
 
 public static class RcloneConnectionService
@@ -99,10 +107,12 @@ public static class RcloneConnectionService
         try
         {
             var content = Encoding.UTF8.GetBytes($"[{name}]\ntype = webdav\nurl = {endpoint.AbsoluteUri}\nvendor = other\nuser = {user}\npass = {obscured}\n");
-            await AtomicFileService.WriteAsync(path, (stream, ct) => stream.WriteAsync(content, ct).AsTask(), token).ConfigureAwait(false);
+            await using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous))
+                await stream.WriteAsync(content, token).ConfigureAwait(false);
+            RcloneCredentialStore.RegisterFresh(path, content);
             return new(path, name + ":");
         }
-        catch { if (File.Exists(path)) File.Delete(path); Directory.Delete(directory); throw; }
+        catch { if (File.Exists(path)) File.Delete(path); File.Delete(path + RcloneCredentialStore.OriginSuffix); Directory.Delete(directory); throw; }
     }
 
     public static async Task<RemoteDirectoryResult> BrowseAsync(RcloneExecutionContext context, CancellationToken token = default, int offset = 0)
@@ -135,6 +145,7 @@ public static class RcloneConnectionService
         var remote = CloudRemotePath.Append(context.RemoteRoot, ".folderrewind-probe-" + Guid.NewGuid().ToString("N"));
         bool attempted = false, verified = false;
         string diagnostic = ""; bool canceled = false;
+        RcloneFailureDetails? failure = null;
         try
         {
             var bytes = RandomNumberGenerator.GetBytes(8192);
@@ -147,7 +158,11 @@ public static class RcloneConnectionService
             diagnostic = I18n.GetString(verified ? "CloudSetup_ReadWriteVerified" : "CloudSetup_ProbeMismatch");
         }
         catch (OperationCanceledException) { canceled = true; diagnostic = I18n.GetString("Common_Canceled"); }
-        catch (Exception ex) { diagnostic = CloudCommandSecurity.Redact(ex.Message); }
+        catch (Exception ex)
+        {
+            RcloneConnectionDiagnostics.AtStage(ex, CredentialFailureStage.Probe, context.ConfigPath);
+            diagnostic = CloudCommandSecurity.Redact(ex.Message); failure = RcloneConnectionDiagnostics.Capture(ex);
+        }
         string? retained = attempted ? remote : null;
         try
         {
@@ -161,7 +176,7 @@ public static class RcloneConnectionService
         }
         catch { retained = remote; }
         finally { File.Delete(input); File.Delete(output); Directory.Delete(directory); }
-        return new(verified, canceled, diagnostic, retained);
+        return new(verified, canceled, diagnostic, retained) { Failure = failure };
     }
 
     internal static async Task<string> RunAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, string? stdin = null)

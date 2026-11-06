@@ -69,6 +69,11 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
 
         var before = new RepresentationEnvironment(catalog.Entries, [], []);
         var after = new RepresentationEnvironment(catalog.Entries.Where(e => !targets.Contains(e.LocalReplicaId)), [], []);
+        var verificationPaths = catalog.Entries.Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
+            .Select(e => e.Locator.AbsolutePath).Append(request.BackupRoot!).ToArray();
+        // Removing a replica can select a different path for the same Representation.
+        using var beforeVerification = HistoryChainRewriteVerification.Create(verificationPaths);
+        using var afterVerification = HistoryChainRewriteVerification.Create(verificationPaths);
         var targetRepresentations = catalog.Entries.Where(e => targets.Contains(e.LocalReplicaId)).Select(e => e.RepresentationId).ToHashSet();
         var affected = representations.Where(r => Closure(r.RepresentationId, graph).Any(targetRepresentations.Contains))
             .Select(r => r.VersionId).ToHashSet();
@@ -82,7 +87,7 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
         {
             if (validWithoutTargets.TryGetValue(id, out var usable)) return usable;
             var assessment = await engine.AssessVersionAsync(graph[id].VersionId, representations, after,
-                AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
+                AssessmentDepth.Deep, MaterializationFidelity.Exact, token, afterVerification).ConfigureAwait(false);
             usable = assessment.Candidates.Any(a => a.RepresentationId == id && a.Readiness == HistoryReadiness.Ready
                 && a.Fidelity == MaterializationFidelity.Exact);
             validWithoutTargets[id] = usable;
@@ -95,7 +100,7 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
             if (!Supported(original)) throw new InvalidOperationException("A dependent version uses an unsupported archive or historical boundary.");
             if (mergeProtected.Contains(id)) throw new InvalidOperationException("Representation is protected by an unfinished Merge Session.");
             var alternatives = await engine.AssessVersionAsync(original.VersionId, representations, after,
-                AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
+                AssessmentDepth.Deep, MaterializationFidelity.Exact, token, afterVerification).ConfigureAwait(false);
             if (alternatives.Readiness == HistoryReadiness.Ready && alternatives.Selected is { } alternate)
             {
                 planned.Add(id);
@@ -119,10 +124,10 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
         foreach (var version in protectedVersions.OrderBy(v => v.ToString(), StringComparer.Ordinal))
         {
             var retained = await engine.AssessVersionAsync(version, representations, after, AssessmentDepth.Deep,
-                MaterializationFidelity.Exact, token).ConfigureAwait(false);
+                MaterializationFidelity.Exact, token, afterVerification).ConfigureAwait(false);
             if (retained.Readiness == HistoryReadiness.Ready) continue;
             var old = await engine.AssessVersionAsync(version, representations, before, AssessmentDepth.Deep,
-                MaterializationFidelity.Exact, token).ConfigureAwait(false);
+                MaterializationFidelity.Exact, token, beforeVerification).ConfigureAwait(false);
             if (old.Readiness != HistoryReadiness.Ready || old.Selected is null)
             {
                 blockers.Add("A dependent version cannot be restored exactly. Download missing archives or repair the chain first.");

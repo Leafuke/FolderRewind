@@ -54,9 +54,14 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 return new ArchiveMaterializationInput(representation, assessment.SelectedLocalPath);
             })
             .ToImmutableArray();
-        if (context.RestoreVerification is { } operation && _backend is IArchiveRestorePreflightBackend backend)
+        if (context.RestoreVerification is { UseRestoreMaterialization: true } operation && _backend is IArchiveRestorePreflightBackend backend)
             await backend.MaterializeRestoreAsync(inputs, context.StagingDirectory, operation, cancellationToken).ConfigureAwait(false);
-        else await _backend.MaterializeAsync(inputs, context.StagingDirectory, cancellationToken).ConfigureAwait(false);
+        else
+        {
+            using var space = context.RestoreVerification is { UseRestoreMaterialization: false } verification
+                ? verification.ReserveLegacyMaterializationSpace(inputs, context.StagingDirectory) : null;
+            await _backend.MaterializeAsync(inputs, context.StagingDirectory, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     protected async ValueTask<RepresentationAssessment> AssessArchivePayloadAsync(
@@ -87,8 +92,11 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 }
                 if (context.Representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expected))
                 {
+                    using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("archive-storage-hash");
+                    Services.HistoryOperationDiagnostics.Current?.Count("archive-storage-hash-calls");
                     await using var input = new FileStream(local.ResolvedPath!, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                     var digest = Convert.ToHexString(await SHA256.HashDataAsync(input, cancellationToken).ConfigureAwait(false));
+                    Services.HistoryOperationDiagnostics.Current?.Count("archive-storage-hash-bytes", input.Position);
                     if (!StringComparer.OrdinalIgnoreCase.Equals(expected, digest))
                     {
                         failures.Add($"Storage hash mismatch: {local.ResolvedPath}");

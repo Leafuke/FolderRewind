@@ -15,6 +15,7 @@ public static class SourceDirectorySnapshot
         IEnumerable<string> files, CancellationToken token, bool enforceLimits = true, bool skipLinks = false,
         Func<string, bool>? includeDirectory = null, Func<string, bool>? mayDescend = null)
     {
+        using var timing = Services.HistoryOperationDiagnostics.Current?.Measure("source-directory-inventory");
         var directories = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Stack<string>(); pending.Push(root);
         while (pending.TryPop(out var directory))

@@ -23,7 +23,22 @@
     <Compile Include="../../src/FolderRewind/Services/Plugins/BundledMineRewindPackage.cs" Link="Host/Services/Plugins/BundledMineRewindPackage.cs" />
     <Compile Include="../../src/FolderRewind/Services/Backup/SourceScopeIntersection.cs" Link="Host/Services/Backup/SourceScopeIntersection.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.cs" Link="Host/Services/History/SpatialWorkspaceIndex.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialIndexDiagnostics.cs" Link="Host/Services/History/SpatialIndexDiagnostics.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Presentation.cs" Link="Host/Services/History/SpatialWorkspaceIndex.Presentation.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceIndex.Snapshot.cs" Link="Host/Services/History/SpatialWorkspaceIndex.Snapshot.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialMergeIndexBuilder.cs" Link="Host/Services/History/SpatialMergeIndexBuilder.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialMergeIndexUpdater.cs" Link="Host/Services/History/SpatialMergeIndexUpdater.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialWorkspaceStorage.cs" Link="Host/Services/History/SpatialWorkspaceStorage.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialMergeRows.cs" Link="Host/Services/History/SpatialMergeRows.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialIndexReadLifetime.cs" Link="Host/Services/History/SpatialIndexReadLifetime.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/MergeProgressPresentation.cs" Link="Host/Services/History/MergeProgressPresentation.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/SpatialPresentationRefreshCoordinator.cs" Link="Host/Services/History/SpatialPresentationRefreshCoordinator.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobScheduler.cs" Link="Host/Services/Cloud/CloudJobScheduler.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/CloudJobTaskRegistry.cs" Link="Host/Services/Cloud/CloudJobTaskRegistry.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Backup/BackupTaskCollection.cs" Link="Host/Services/Backup/BackupTaskCollection.cs" />
+    <Compile Include="../../src/FolderRewind/Services/History/HistorySourceBindingRepairService.cs" Link="Host/Services/History/HistorySourceBindingRepairService.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Configuration/ConfigPersistencePolicy.cs" Link="Host/Services/Configuration/ConfigPersistencePolicy.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Development/UiAcceptanceCriteria.cs" Link="Host/Services/Development/UiAcceptanceCriteria.cs" />
     <Compile Include="../../src/FolderRewind/Services/History/SpatialSelectionGeometry.cs" Link="Host/Services/History/SpatialSelectionGeometry.cs" />
     <Compile Include="../../src/FolderRewind/Services/Common/NativeRestoreCoordinationPolicy.cs" Link="Host/Services/Common/NativeRestoreCoordinationPolicy.cs" />
     <Compile Include="../../src/FolderRewind/Services/Diagnostics/OperationDiagnosticFormatter.cs" Link="Host/Services/Diagnostics/OperationDiagnosticFormatter.cs" />
@@ -36,6 +51,8 @@
     <Compile Include="../../src/FolderRewind/Services/Migration/MigrationWorkflowStore.cs" Link="Host/Services/Migration/MigrationWorkflowStore.cs" />
     <Compile Include="../../src/FolderRewind/Services/Migration/MigrationWorkflowRunner.cs" Link="Host/Services/Migration/MigrationWorkflowRunner.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneCredentialRefresh.cs" Link="Host/Services/Cloud/RcloneCredentialRefresh.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneFailureDetails.cs" Link="Host/Services/Cloud/RcloneFailureDetails.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneCredentialStore.cs" Link="Host/Services/Cloud/RcloneCredentialStore.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/OwnedCloudDependencyProcess.cs" Link="Host/Services/Cloud/OwnedCloudDependencyProcess.cs" />
     <Compile Include="../../src/FolderRewind/Services/Updates/AppUpdatePolicy.cs" Link="Host/Services/Updates/AppUpdatePolicy.cs" />
     <Compile Include="../../src/FolderRewind/Services/Updates/AppUpdatePresentation.cs" Link="Host/Services/Updates/AppUpdatePresentation.cs" />
@@ -56,6 +73,10 @@
     <Compile Include="../../src/FolderRewind/Services/Plugins/PluginStoreOperationController.cs" Link="Host/Services/Plugins/PluginStoreOperationController.cs" />
     <Compile Include="../../src/FolderRewind/Services/Diagnostics/LogPresentationController.cs" Link="Host/Services/Diagnostics/LogPresentationController.cs" />
     <Compile Include="../../src/FolderRewind/Services/Settings/PersonalizationThemePolicy.cs" Link="Host/Services/Settings/PersonalizationThemePolicy.cs" />
+    <Compile Include="../../src/FolderRewind/Models/Configuration/SponsorAppearanceModels.cs" Link="Host/Models/Configuration/SponsorAppearanceModels.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Settings/SponsorAppearancePolicy.cs" Link="Host/Services/Settings/SponsorAppearancePolicy.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Shell/NavigationAnimationPolicy.cs" Link="Host/Services/Shell/NavigationAnimationPolicy.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Settings/SponsorAppearanceController.cs" Link="Host/Services/Settings/SponsorAppearanceController.cs" />
     <Compile Include="../../src/FolderRewind/Services/FolderManagement/SourceScopePreviewController.cs" Link="Host/Services/FolderManagement/SourceScopePreviewController.cs" />
     <Compile Include="../../src/FolderRewind/Services/KnotLink/TcpClient.cs" Link="Host/Services/KnotLink/TcpClient.cs" />
     <Compile Include="../../src/FolderRewind/Services/KnotLink/KnotLinkInitializationState.cs" Link="Host/Services/KnotLink/KnotLinkInitializationState.cs" />

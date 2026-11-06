@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
@@ -25,14 +26,15 @@ internal sealed partial class MergeOperationService
     }
     public Task ClearAsync(IReadOnlyList<string> ids) => Run(MergeOperationStage.Saving, _ =>
     {
-        var session = RequireSession(); var before = ReadPrevious(session, ids);
+        var original = RequireSession(); var session = original; var before = ReadPrevious(session, ids);
         session = Runtime!.MergeSessions.SetResolutions(session, ids.Distinct().ToDictionary(id => id, _ => (MergeResolution?)null));
-        Remember(session, before); SetSession(session, true); Refresh(); return Task.CompletedTask;
+        Remember(session, before); SetSession(session, true, new(original, session, before.Keys.ToImmutableArray())); Refresh(); return Task.CompletedTask;
     });
     public Task UndoAsync() => Run(MergeOperationStage.Saving, _ =>
     {
         if (!CanUndo || _undo is not { } undo) throw new InvalidOperationException(I18n.GetString("MergeWorkspace_UndoExpired"));
-        SetSession(Runtime!.MergeSessions.SetResolutions(RequireSession(), undo.Values), true); _undo = null;
+        var original = RequireSession(); var session = Runtime!.MergeSessions.SetResolutions(original, undo.Values);
+        SetSession(session, true, new(original, session, undo.Values.Keys.ToImmutableArray())); _undo = null;
         Refresh(); return Task.CompletedTask;
     });
 
@@ -76,6 +78,23 @@ internal sealed partial class MergeOperationService
 
     internal sealed record ChangePage(IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution, bool Automatic)> Rows,
         int Matching, int Total, int Unresolved);
+    public Task<IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution, bool Automatic)>> QueryAllChangesAsync(
+        MergeSession session, string search, string filter, CancellationToken token) => Task.Run<IReadOnlyList<(MergeConflict, MergeResolution?, bool)>>(() =>
+    {
+        var rows = new List<(MergeConflict, MergeResolution?, bool)>();
+        var offset = 0;
+        while (true)
+        {
+            token.ThrowIfCancellationRequested();
+            var page = QueryChanges(session, search, filter, offset, 1000);
+            rows.AddRange(page.Rows);
+            offset += page.Rows.Count;
+            if (offset >= page.Matching || page.Rows.Count == 0) break;
+        }
+        token.ThrowIfCancellationRequested();
+        return rows;
+    }, token);
+
     public ChangePage QueryChanges(MergeSession session, string search, string filter, int offset, int count, string? selectedId = null)
     {
         if (session.Plan.SemanticProvider is not null)

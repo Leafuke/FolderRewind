@@ -19,6 +19,7 @@ namespace FolderRewind.History.Application;
 public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreService restore, IHistoryMergeProvider? provider = null,
     SemanticMergeEngine? semantic = null)
 {
+    internal Action<MergePreparationProgress>? Progress { get; init; }
     private readonly IHistoryMergeProvider _provider = provider ?? new GenericFileMergeProvider();
     private MergeProviderDescriptor Descriptor => semantic?.Descriptor ?? _provider.Descriptor;
     public async Task<MergeSession?> StartAsync(BranchId source, string configRevision,
@@ -74,6 +75,16 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
         history.MergeSessions.RequireCurrentContract(session, Descriptor);
         if (session.State != MergeSessionState.Preparing)
             throw new InvalidOperationException("Merge preparation requires its fixed provider and Preparing state.");
+        var progress = new MergePreparationReporter(Progress) { SessionId = session.Id, PlanRevision = session.Plan.Revision };
+        var versionCount = session.Plan.Sources.SelectMany(s => s.Action switch
+        {
+            HistoryMergeSourceAction.Remove => Array.Empty<CheckpointSource?>(),
+            HistoryMergeSourceAction.Reuse => new[] { s.Ours?.VersionId == s.ReuseVersionId ? s.Ours : s.Theirs, s.Ours },
+            HistoryMergeSourceAction.MergeFiles or HistoryMergeSourceAction.SourceDeleteModify or HistoryMergeSourceAction.SourceModifyDelete
+                => new[] { s.Base, s.Ours, s.Theirs },
+            _ => new[] { s.Ours, s.Theirs }
+        }).Select(s => s?.VersionId).OfType<VersionId>().Distinct().Count();
+        progress.Report(MergePreparationStage.PreparingHistory, 0, versionCount);
         using var inputScope = restore.EnterInputScope();
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), session.Plan.Revision.ToString("N"));
         Directory.CreateDirectory(root);
@@ -82,6 +93,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
         {
             if (source?.VersionId is not { } id) return MergeTreeManifest.Empty;
             if (cache.TryGetValue(id, out var cached)) return cached;
+            progress.Report(MergePreparationStage.PreparingHistory, cache.Count, versionCount);
             var version = await history.Query.GetVersionAsync(id, token).ConfigureAwait(false) ?? throw new InvalidDataException("Merge Version is missing.");
             var assessment = await restore.AssessVersionAsync(id, MaterializationFidelity.Exact, AssessmentDepth.Deep, token).ConfigureAwait(false);
             if (assessment.Readiness != HistoryReadiness.Ready)
@@ -99,7 +111,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 var tree = (await MergeTreeManifest.ReadAsync(destination, FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false))
                     with { InputRepresentationId = prepared.InputRepresentationId, HasCompleteDirectoryInventory = prepared.HasCompleteDirectoryInventory };
-                cache.Add(id, tree); return tree;
+                cache.Add(id, tree); progress.Report(MergePreparationStage.PreparingHistory, cache.Count, versionCount); return tree;
             }
             finally { HistoryRestoreTransactionJournalStore.CleanupStaging([prepared.StagingDirectory]); }
         }
@@ -120,8 +132,9 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 if (plan.Action == HistoryMergeSourceAction.MergeFiles)
                 {
                     b = await Materialize(plan.Base);
+                    progress.Report(MergePreparationStage.AnalyzingWorld);
                     var proposal = semantic is null ? _provider.Analyze(plan.SourceId, b, o, t)
-                        : await semantic.AnalyzeAsync(session, plan, b, o, t, _provider, token).ConfigureAwait(false);
+                        : await semantic.AnalyzeAsync(session, plan, b, o, t, _provider, token, progress).ConfigureAwait(false);
                     if (semantic is null) ValidateProposal(plan.SourceId, b, o, t, proposal);
                     automatic = proposal.Automatic; conflicts = proposal.Conflicts;
                 }
@@ -150,6 +163,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                     }
                 }
             }
+            progress.Report(MergePreparationStage.OrganizingResults);
             conflicts = conflicts.Select(conflict =>
             {
                 var signature = ConflictSignature(session.Plan, plan, conflict);

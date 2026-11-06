@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FolderRewind.Services;
 
@@ -20,8 +21,12 @@ internal static class CloudWizardSessions
     public static CloudWizardSession Get(CloudSetupNavigationParameter options)
     {
         if (options.SessionId is { } id && Sessions.TryGetValue(id, out var found)) return found;
-        foreach (var session in Sessions.Values)
-            if (session.Options == options) return session;
+        var matching = Sessions.Values.FirstOrDefault(session => session.Options == options);
+        if (matching is not null)
+        {
+            if (matching.ViewModel.WizardStep != 5) return matching;
+            End(matching); // An explicit new operation must not reopen a completed authorization session.
+        }
         var created = new CloudWizardSession(options); Sessions.Add(created.Id, created); return created;
     }
     public static void End(CloudWizardSession session)

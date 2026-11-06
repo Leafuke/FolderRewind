@@ -6,6 +6,9 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using FolderRewind.Plugin.Abstractions;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
@@ -27,18 +30,24 @@ internal sealed record HistoryConfigurationRepairResult(
 
 internal static class HistorySourceBindingRepairService
 {
-    public static HistoryConfigurationRepairResult RestoreMissingBinding(
+    public static async Task<HistoryConfigurationRepairResult> RestoreMissingBindingAsync(
         BackupConfig config,
         MissingHistoricalSource missing,
         string confirmedPath,
-        string expectedConfigRevision)
+        string expectedConfigRevision,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(missing);
-        if (!StringComparer.Ordinal.Equals(config.ConfigRevision, expectedConfigRevision))
+        await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, cancellationToken);
+        if (!IsCurrent(config) || !StringComparer.Ordinal.Equals(config.ConfigRevision, expectedConfigRevision))
             return new(HistoryConfigurationRepairStatus.StaleConfig, "Config changed; rebuild the Checkout plan.");
         if (config.SourceFolders.Any(folder => Guid.TryParse(folder.Id, out var id) && id == missing.SourceId.Value))
             return new(HistoryConfigurationRepairStatus.StaleConfig, "Historical Source binding already exists; rebuild the Checkout plan.");
+        if (ConfigService.CurrentConfig.BackupConfigs.Where(current => !ReferenceEquals(current, config))
+            .SelectMany(current => current.SourceFolders)
+            .Any(folder => Guid.TryParse(folder.Id, out var id) && id == missing.SourceId.Value))
+            return new(HistoryConfigurationRepairStatus.Conflict, I18n.GetString("Config_SourceIdDuplicate"));
 
         string normalizedPath;
         try { normalizedPath = Path.GetFullPath(confirmedPath); }
@@ -57,27 +66,34 @@ internal static class HistorySourceBindingRepairService
             DisplayName = missing.Descriptor.DisplayName,
             SourceScope = new BackupSourceScope()
         };
-        config.SourceFolders.Add(folderToAdd);
-        config.ConfigRevision = Guid.NewGuid().ToString("N");
-        var save = ConfigService.SaveWithResult();
-        if (save.Success) return new(HistoryConfigurationRepairStatus.Succeeded, string.Empty);
-
-        config.SourceFolders.Remove(folderToAdd);
-        config.ConfigRevision = previousRevision;
-        return new(HistoryConfigurationRepairStatus.SaveFailed, save.ErrorMessage ?? "Config save failed.");
+        var installed = JsonSerializer.Serialize(folderToAdd, AppJsonContext.Default.ManagedFolder);
+        var revision = Guid.NewGuid().ToString("N");
+        return await PersistAsync(() =>
+        {
+            config.SourceFolders.Add(folderToAdd);
+            config.ConfigRevision = revision;
+        }, () =>
+        {
+            // A later edit to this new source owns it now; never remove that edited source.
+            var unchanged = JsonSerializer.Serialize(folderToAdd, AppJsonContext.Default.ManagedFolder) == installed;
+            if (unchanged) config.SourceFolders.Remove(folderToAdd);
+            RestoreRevision(config, revision, previousRevision, unchanged);
+        }, cancellationToken);
     }
 
-    public static HistoryConfigurationRepairResult RestoreHistoricalBoundary(
+    public static async Task<HistoryConfigurationRepairResult> RestoreHistoricalBoundaryAsync(
         BackupConfig config,
         HistorySourceBoundaryMismatch mismatch,
         string expectedConfigRevision,
-        bool acceptConfigWideFilterImpact)
+        bool acceptConfigWideFilterImpact,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(mismatch);
         if (!acceptConfigWideFilterImpact)
             return new(HistoryConfigurationRepairStatus.ConfirmationRequired, "Config-wide filter impact must be confirmed.");
-        if (!StringComparer.Ordinal.Equals(config.ConfigRevision, expectedConfigRevision))
+        await using var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(config.Id, cancellationToken);
+        if (!IsCurrent(config) || !StringComparer.Ordinal.Equals(config.ConfigRevision, expectedConfigRevision))
             return new(HistoryConfigurationRepairStatus.StaleConfig, "Config changed; rebuild the Checkout plan.");
         var folder = config.SourceFolders.SingleOrDefault(item =>
             Guid.TryParse(item.Id, out var id) && id == mismatch.SourceId.Value);
@@ -88,14 +104,16 @@ internal static class HistorySourceBindingRepairService
         var previousFilters = config.Filters;
         var previousRevision = config.ConfigRevision;
         var boundary = mismatch.HistoricalBoundary;
-        folder.SourceScope = new BackupSourceScope
+        var scope = new BackupSourceScope
         {
             Mode = boundary.ScopeMode == EffectiveBoundaryScopeMode.Include
                 ? BackupSourceScopeMode.Include
                 : BackupSourceScopeMode.All,
             IncludePatterns = new ObservableCollection<string>(boundary.ScopeRules)
         };
-        config.Filters = new FilterSettings
+        // Save captures normalize the live model. Compare the same persisted spelling on rollback.
+        ConfigService.NormalizeSourceScopeForPersistence(scope);
+        var filters = new FilterSettings
         {
             BackupFilterMode = boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist
                 ? BackupFilterMode.Whitelist
@@ -107,16 +125,67 @@ internal static class HistorySourceBindingRepairService
                 ? new ObservableCollection<PathFilterRule>(boundary.Rules)
                 : new ObservableCollection<PathFilterRule>(),
             UseRegex = boundary.UseRegex,
-            RestoreWhitelist = new ObservableCollection<PathFilterRule>(previousFilters.RestoreWhitelist)
+            RestoreWhitelist = new ObservableCollection<PathFilterRule>(previousFilters.RestoreWhitelist),
+            SchemaExtensions = new(previousFilters.SchemaExtensions)
         };
-        config.ConfigRevision = Guid.NewGuid().ToString("N");
-        var save = ConfigService.SaveWithResult();
-        if (save.Success) return new(HistoryConfigurationRepairStatus.Succeeded, string.Empty);
+        var expectedFilters = JsonSerializer.Serialize(filters, AppJsonContext.Default.FilterSettings);
+        var mode = scope.Mode;
+        var rules = scope.IncludePatterns.ToArray();
+        var blacklist = filters.Blacklist.ToArray();
+        var whitelist = filters.BackupWhitelist.ToArray();
+        var revision = Guid.NewGuid().ToString("N");
+        return await PersistAsync(() =>
+        {
+            folder.SourceScope = scope;
+            config.Filters = filters;
+            config.ConfigRevision = revision;
+        }, () =>
+        {
+            var scopeUnchanged = ReferenceEquals(folder.SourceScope, scope) && scope.Mode == mode
+                && scope.IncludePatterns.SequenceEqual(rules);
+            if (scopeUnchanged) folder.SourceScope = previousScope;
+            else if (ReferenceEquals(folder.SourceScope, scope))
+            {
+                if (scope.Mode == mode) scope.Mode = previousScope.Mode;
+                if (scope.IncludePatterns.SequenceEqual(rules)) scope.IncludePatterns = previousScope.IncludePatterns;
+            }
+            var filtersUnchanged = ReferenceEquals(config.Filters, filters)
+                && JsonSerializer.Serialize(filters, AppJsonContext.Default.FilterSettings) == expectedFilters;
+            if (filtersUnchanged) config.Filters = previousFilters;
+            else if (ReferenceEquals(config.Filters, filters))
+            {
+                // Restore only fields still equal to our applied values, preserving concurrent edits.
+                if (filters.BackupFilterMode == (boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist
+                    ? BackupFilterMode.Whitelist : BackupFilterMode.Blacklist)) filters.BackupFilterMode = previousFilters.BackupFilterMode;
+                if (filters.UseRegex == boundary.UseRegex) filters.UseRegex = previousFilters.UseRegex;
+                if (filters.Blacklist.SequenceEqual(blacklist)) filters.Blacklist = previousFilters.Blacklist;
+                if (filters.BackupWhitelist.SequenceEqual(whitelist)) filters.BackupWhitelist = previousFilters.BackupWhitelist;
+            }
+            RestoreRevision(config, revision, previousRevision, scopeUnchanged && filtersUnchanged);
+        }, cancellationToken);
+    }
 
-        folder.SourceScope = previousScope;
-        config.Filters = previousFilters;
-        config.ConfigRevision = previousRevision;
-        return new(HistoryConfigurationRepairStatus.SaveFailed, save.ErrorMessage ?? "Config save failed.");
+    private static bool IsCurrent(BackupConfig config)
+        => ConfigService.CurrentConfig.BackupConfigs.Any(current => ReferenceEquals(current, config));
+
+    private static void RestoreRevision(BackupConfig config, string applied, string previous, bool fullyRestored)
+    {
+        if (config.ConfigRevision == applied)
+            config.ConfigRevision = fullyRestored ? previous : Guid.NewGuid().ToString("N");
+    }
+
+    private static async Task<HistoryConfigurationRepairResult> PersistAsync(Action apply, Action rollback, CancellationToken token)
+    {
+        try
+        {
+            await ConfigEditTransaction.ApplyAsync(apply, rollback, () => ConfigService.SaveAsync(), "Config save failed.", token);
+            return new(HistoryConfigurationRepairStatus.Succeeded, string.Empty);
+        }
+        catch (IOException error)
+        {
+            return new(HistoryConfigurationRepairStatus.SaveFailed,
+                error is ConfigEditRollbackException ? error.ToString() : error.Message);
+        }
     }
 
     private static bool PathsOverlap(string left, string right)

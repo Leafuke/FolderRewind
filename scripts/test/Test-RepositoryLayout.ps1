@@ -14,13 +14,18 @@ try {
     foreach ($project in $projects) {
         [xml]$xml = Get-Content -LiteralPath $project.FullName -Raw
         $references = @()
-        foreach ($item in $xml.SelectNodes('//ProjectReference')) {
-            $include = [string]$item.Include
-            if ($include -eq '$(FolderRewindHostProject)') {
-                $include = $xml.SelectSingleNode('//FolderRewindHostProject').InnerText
-            }
+        $includes = @($xml.SelectNodes('//ProjectReference') | ForEach-Object { [string]$_.Include })
+        if (@($includes | Where-Object { $_.Contains('$(') }).Count) {
+            $evaluation = & dotnet msbuild $project.FullName -nologo -getItem:ProjectReference
+            if ($LASTEXITCODE -ne 0) { throw "Could not evaluate project dependencies: $($project.FullName)" }
+            $evaluated = ($evaluation -join "`n") | ConvertFrom-Json
+            $includes = @($evaluated.Items.ProjectReference | ForEach-Object { [string]$_.FullPath })
+            if ($includes.Count -eq 0) { throw "No evaluated project dependencies: $($project.FullName)" }
+        }
+        foreach ($include in $includes) {
             if ($include.Contains('$(')) { throw "Unresolved project dependency: $($project.Name): $include" }
-            $reference = [IO.Path]::GetFullPath((Join-Path $project.DirectoryName $include))
+            if ([string]::IsNullOrWhiteSpace($include)) { throw "Empty project dependency: $($project.FullName)" }
+            $reference = [IO.Path]::GetFullPath($include, $project.DirectoryName)
             if (-not (Test-Path -LiteralPath $reference -PathType Leaf)) { throw "Missing project dependency: $reference" }
             if (-not $reference.StartsWith($repository + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
                 throw "Host project depends on an external source checkout: $reference"

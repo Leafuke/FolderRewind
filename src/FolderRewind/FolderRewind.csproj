@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>FolderRewind</RootNamespace>
-    <Version>1.10.0.0</Version>
+    <Version>1.10.1.0</Version>
     <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
@@ -19,11 +19,11 @@
     <TieredPGO>true</TieredPGO>
     <!--
       Keep the Windows App SDK version and the 2.3.1 XAML performance opt-ins
-      overridable for the local A/B benchmark. Normal builds use 2.6.4 with
+      overridable for the local A/B benchmark. Normal builds use 2.6.5 with
       all four validated optional changes enabled on SDK 2.3.1 and later.
       Keep the historical Xaml231 property names for benchmark compatibility.
     -->
-    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)'==''">2.6.4</FolderRewindWindowsAppSdkVersion>
+    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)'==''">2.6.5</FolderRewindWindowsAppSdkVersion>
     <FolderRewindEnableXaml231Optimizations Condition="'$(FolderRewindEnableXaml231Optimizations)'==''">true</FolderRewindEnableXaml231Optimizations>
     <FolderRewindXaml231OptionalChanges>DeferContextFlyoutInit,IconNoGridOptimization,DefaultStyleOptimizations,OptimizeApplyStyles</FolderRewindXaml231OptionalChanges>
     <EnabledXamlOptionalChanges Condition="'$(EnabledXamlOptionalChanges)'=='' and '$(FolderRewindEnableXaml231Optimizations)'=='true' and $([MSBuild]::VersionGreaterThanOrEquals('$(FolderRewindWindowsAppSdkVersion)', '2.3.1'))">$(FolderRewindXaml231OptionalChanges)</EnabledXamlOptionalChanges>
@@ -39,6 +39,32 @@
   <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true'">
     <DefineConstants>$(DefineConstants);NATIVE_ARTIFACT_ACCEPTANCE</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(FolderManagerUiAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);FOLDER_MANAGER_UI_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(PerformancePostRunAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);PERFORMANCE_POST_RUN_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(PerformanceUiProfiling)'=='true'">
+    <DefineConstants>$(DefineConstants);PERFORMANCE_UI_PROFILING</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NativeArtifactAcceptance)'=='true' and '$(SpatialWorkspaceUiAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);SPATIAL_WORKSPACE_UI_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FolderRewindFaultInjection)'=='true' and '$(NativeArtifactAcceptance)'=='true' and '$(ConfigurationRepairAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);CONFIGURATION_REPAIR_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ValidateConfigurationRepairAcceptance" BeforeTargets="PrepareForBuild"
+          Condition="'$(ConfigurationRepairAcceptance)'=='true' and ('$(FolderRewindFaultInjection)'!='true' or '$(NativeArtifactAcceptance)'!='true')">
+    <Error Text="Configuration repair acceptance requires both FolderRewindFaultInjection=true and NativeArtifactAcceptance=true." />
+  </Target>
+  <PropertyGroup Condition="'$(FolderRewindFaultInjection)'=='true' and '$(NativeArtifactAcceptance)'=='true' and '$(CloudCredentialUiAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);CLOUD_CREDENTIAL_UI_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ValidateCloudCredentialUiAcceptance" BeforeTargets="PrepareForBuild"
+          Condition="'$(CloudCredentialUiAcceptance)'=='true' and ('$(FolderRewindFaultInjection)'!='true' or '$(NativeArtifactAcceptance)'!='true')">
+    <Error Text="Cloud credential UI acceptance requires both FolderRewindFaultInjection=true and NativeArtifactAcceptance=true." />
+  </Target>
   <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
     <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI</DefineConstants>
     <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>

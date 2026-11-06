@@ -51,9 +51,9 @@ public sealed partial class ConfigSettingsPage
         e.Cancel = true;
         if (_leaving) return;
         _leaving = true;
-        TaskObserver.Observe(ConfirmLeaveAsync(e.SourcePageType, e.Parameter), nameof(ConfigSettingsPage));
+        TaskObserver.Observe(ConfirmLeaveAsync(e.SourcePageType, e.Parameter, e.NavigationMode), nameof(ConfigSettingsPage));
     }
-    private async Task ConfirmLeaveAsync(Type destination, object? parameter)
+    private async Task ConfirmLeaveAsync(Type destination, object? parameter, NavigationMode navigationMode)
     {
         try
         {
@@ -67,7 +67,15 @@ public sealed partial class ConfigSettingsPage
                 if (!ViewModel.LastSaveSucceeded || ViewModel.HasUnsavedChanges) return;
             }
             _allowNavigation = true;
-            Frame.Navigate(destination, parameter);
+            try
+            {
+                // Resume the original navigation mode; a confirmed Back must not push a new entry.
+                if (navigationMode == NavigationMode.Back)
+                    Frame.GoBack(NavigationAnimationService.CreateTransition(isBack: true));
+                else
+                    Frame.Navigate(destination, parameter, NavigationAnimationService.CreateTransition());
+            }
+            finally { _allowNavigation = false; }
         }
         finally { _leaving = false; }
     }

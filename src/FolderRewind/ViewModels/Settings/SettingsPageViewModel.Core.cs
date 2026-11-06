@@ -73,6 +73,8 @@ namespace FolderRewind.ViewModels
 
         public ObservableCollection<string> SponsorBackdropPresets { get; } = new();
 
+        public ObservableCollection<string> SponsorNavigationAnimationPresets { get; } = new();
+
         public ObservableCollection<string> SponsorTitleIconGlyphs { get; } = new();
 
         public ObservableCollection<string> SponsorBackgroundStretchModes { get; } = new();
@@ -286,6 +288,7 @@ namespace FolderRewind.ViewModels
 
         public SettingsPageViewModel()
         {
+            InitializeAppearanceSchemeCommands();
             InstallMinecraftPresetCommand = new AsyncRelayCommand(
                 async () => { await InstallMinecraftPresetAsync(); },
                 () => IsMinecraftPresetInstallIdle);

@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using System;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace FolderRewind.ViewModels;
 
@@ -71,6 +72,10 @@ public sealed partial class SettingsPageViewModel
             ObservePluginSettings();
         if (!string.IsNullOrWhiteSpace(e.PropertyName))
             OnPropertyChanged(e.PropertyName);
+        if (e.PropertyName == nameof(GlobalSettings.SponsorNavigationAnimation))
+            OnPropertyChanged(nameof(SponsorNavigationAnimationIndex));
+        if (!_isAppearanceOperationRunning && e.PropertyName?.StartsWith("Sponsor", StringComparison.Ordinal) == true)
+            RefreshAppearanceSchemeState();
     }
 
     private void ObservePluginSettings()
@@ -89,8 +94,10 @@ public sealed partial class SettingsPageViewModel
             OnPropertyChanged(nameof(PluginsAutoCheckUpdates));
     }
 
-    private void SetSetting<T>(T current, T value, Action<T> apply)
+    private void SetSetting<T>(T current, T value, Action<T> apply, [CallerMemberName] string propertyName = "")
     {
+        if (propertyName.StartsWith("Sponsor", StringComparison.Ordinal)
+            && (!IsSponsorUnlocked || _isAppearanceOperationRunning)) return;
         if (Equals(current, value)) return;
         apply(value);
         _isDirty = true;

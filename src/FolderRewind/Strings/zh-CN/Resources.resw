@@ -412,13 +412,13 @@
     <value>赞助者专属个性化</value>
   </data>
   <data name="SettingsPage_SponsorPersonalizationDesc.Text" xml:space="preserve">
-    <value>赞助解锁后，可自定义主题色、背景、标题栏等外观设置</value>
+    <value>展开查看主题、个人外观方案、页面切换动画等功能，赞助解锁后即可自定义</value>
   </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>尚未解锁</value>
   </data>
   <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
-    <value>购买或恢复赞助者版本后即可使用这些外观功能。</value>
+    <value>可展开下方列表查看功能；购买或恢复赞助者版本后即可使用。</value>
   </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>主题颜色</value>
@@ -457,10 +457,10 @@
     <value>清除背景</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
-    <value>启用背景图片</value>
+    <value>显示背景</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
-    <value>临时关闭时会保留已选择的图片</value>
+    <value>控制当前图片或主题渐变；关闭后保留外观设置</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
     <value>背景显示方式</value>
@@ -469,10 +469,10 @@
     <value>根据图片比例选择填充、完整显示或拉伸</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
-    <value>图片透明度</value>
+    <value>背景透明度</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
-    <value>降低图片存在感，让界面内容更清楚</value>
+    <value>调整图片或主题渐变的透明度，让界面内容更清楚</value>
   </data>
   <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
     <value>背景遮罩强度</value>
@@ -1680,6 +1680,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] 配置保存失败：{0}</value>
   </data>
+  <data name="Config_SaveFailureTitle" xml:space="preserve"><value>配置未保存</value></data>
+  <data name="Config_SaveFailureMessage" xml:space="preserve"><value>无法保存配置。请查看详情，解决问题后重新保存。</value></data>
+  <data name="Config_SourceIdInvalid" xml:space="preserve"><value>来源标识无效或为空，配置未保存。请修复来源关联后重试；保存不会自动更改历史来源标识。</value></data>
+  <data name="Config_SourceIdDuplicate" xml:space="preserve"><value>多个来源使用了同一标识，配置未保存。请解决来源关联冲突后重试；保存不会自动更改历史来源标识。</value></data>
   <data name="Config_OpenConfigDirFailed" xml:space="preserve">
     <value>[Config] 无法打开配置目录：{0}</value>
   </data>
@@ -6096,7 +6100,7 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_UndoExpired" xml:space="preserve"><value>决定已变化，无法撤销旧的一批处理。</value></data>
   <data name="MergeWorkspace_Recomputed" xml:space="preserve"><value>重新分析：保留 {0} 项决定，{1} 项决定已失效。</value></data>
   <data name="MergeWorkspace_Automatic" xml:space="preserve"><value>自动处理</value></data>
-  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>已勾选 {0} 项</value></data>
+  <data name="MergeWorkspace_SelectedCount" xml:space="preserve"><value>已选择 {0} 项</value></data>
   <data name="MergeWorkspace_Adopt" xml:space="preserve"><value>采用</value></data>
   <data name="MergeWorkspace_AdoptDeletion" xml:space="preserve"><value>采用删除</value></data>
   <data name="MergeWorkspace_PreviewLoading" xml:space="preserve"><value>正在读取预览…</value></data>
@@ -6143,7 +6147,27 @@ Pull Request：{1}</value>
   <data name="MergeWorkspace_GroupBaseUnavailable" xml:space="preserve"><value>此类范围或来源冲突不提供文件级共同基点预览。</value></data>
   <data name="MergeWorkspace_BackIcon.AutomationProperties.Name" xml:space="preserve"><value>返回备份历史，保留合并任务</value></data>
   <data name="MergeWorkspace_BackIcon.ToolTipService.ToolTip" xml:space="preserve"><value>返回历史 · 任务将保留</value></data>
-  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>以下操作仅应用于勾选项，不会影响全部搜索结果。</value></data>
+  <data name="MergeWorkspace_BatchHint.Text" xml:space="preserve"><value>以下操作应用于所有选中项，包括尚未滚动加载的项。决定保存后可撤销；实际文件仅在审阅并应用后修改。</value></data>
+  <data name="MergeWorkspace_Rules.Content" xml:space="preserve"><value>规则说明</value></data>
+  <data name="MergeWorkspace_Rules.AutomationProperties.Name" xml:space="preserve"><value>查看当前合并方式的完整规则</value></data>
+  <data name="MergeWorkspace_SelectAll.Content" xml:space="preserve"><value>全选结果</value></data>
+  <data name="MergeWorkspace_SelectAll.AutomationProperties.Name" xml:space="preserve"><value>全选当前搜索与筛选结果中的可处理项，包括尚未加载的项</value></data>
+  <data name="MergeWorkspace_Deselect.Content" xml:space="preserve"><value>取消选择</value></data>
+  <data name="MergeWorkspace_Deselect.AutomationProperties.Name" xml:space="preserve"><value>清空选择或取消正在进行的全选</value></data>
+  <data name="MergeWorkspace_SelectionHelp.AutomationProperties.Name" xml:space="preserve"><value>查看选择快捷键说明</value></data>
+  <data name="MergeWorkspace_SelectionHelp.ToolTipService.ToolTip" xml:space="preserve"><value>选择快捷键</value></data>
+  <data name="MergeWorkspace_SelectionHelpText.Text" xml:space="preserve"><value>单击：只选择这一项并预览
+Ctrl + 单击：增加或移除选择
+Shift + 单击 / ↑↓：连续选择
+Ctrl + A：全选当前结果中的可处理项，包含尚未加载的项
+Esc：取消选择
+Enter：在窄窗口中打开预览或批量操作
+修改搜索或显示范围会清空选择。快捷键仅在文件列表内生效。</value></data>
+  <data name="MergeWorkspace_SelectingAll.Text" xml:space="preserve"><value>正在收集全部筛选结果…</value></data>
+  <data name="MergeWorkspace_OpenBatch.Content" xml:space="preserve"><value>处理所选项目</value></data>
+  <data name="MergeWorkspace_MoreChoices.Content" xml:space="preserve"><value>更多操作</value></data>
+  <data name="MergeWorkspace_UnsupportedChoices" xml:space="preserve"><value>不可用：{0}。部分所选项目不支持这些决定，请调整选择后重试。</value></data>
+  <data name="MergeWorkspace_NoDecisionsToClear" xml:space="preserve"><value>清除决定不可用：所选项目没有已保存的人工决定。</value></data>
   <data name="MergeWorkspace_CancelNew.Content" xml:space="preserve"><value>返回当前任务</value></data>
   <data name="MergeWorkspace_ClearButton.Content" xml:space="preserve"><value>清除决定</value></data>
   <data name="MergeWorkspace_CompleteHint" xml:space="preserve"><value>可在历史中查看合并版本与保护快照。</value></data>
@@ -6616,6 +6640,17 @@ Pull Request：{1}</value>
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>预览批量路径替换</value></data>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>旧自定义上传命令未转换为原生云备份。请在连接向导中明确转换后再启用。</value></data>
   <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>认证刷新证据无法安全合并，请保留凭据快照并重新授权；已暂停使用此凭据的新调用。</value></data>
+  <data name="CloudConnection_PathUnsafe" xml:space="preserve"><value>凭据或任务路径包含不支持的重解析点，已暂停本次调用。请查看诊断定位相关目录，再重新建立访问。</value></data>
+  <data name="CloudConnection_HardlinkUnsafe" xml:space="preserve"><value>凭据文件存在多个硬链接，已暂停使用。请新建连接或重新认证以生成独立凭据；原文件及证据将保留。</value></data>
+  <data name="CloudConnection_MetadataUnavailable" xml:space="preserve"><value>无法可靠读取凭据文件的安全信息，已暂停本次调用。诊断记录包含查询结果，请检查连接或重新认证。</value></data>
+  <data name="CloudConnection_ConfigInvalid" xml:space="preserve"><value>rclone 配置包含重复项、缺少必要字段或格式不受支持。请修正配置或重新导入。</value></data>
+  <data name="CloudConnection_EvidenceInvalid" xml:space="preserve"><value>凭据证据损坏或格式不受支持。已保留文件并暂停此凭据，请重新认证。</value></data>
+  <data name="CloudConnection_SnapshotUnattributed" xml:space="preserve"><value>发现无法确认归属的旧凭据快照。原文件已保留，旧凭据暂停使用；可新建连接或重新认证生成独立凭据。</value></data>
+  <data name="CloudConnection_ProfileMissing" xml:space="preserve"><value>原云连接记录已不存在或无法唯一确定。请返回连接列表，或建立新连接；项目原有绑定不会自动改动。</value></data>
+  <data name="CloudConnection_InitializationFailed" xml:space="preserve"><value>无法打开云连接页面。请返回重试，并查看应用日志中的诊断。</value></data>
+  <data name="CloudConnection_StartNew.Content" xml:space="preserve"><value>建立新连接</value></data>
+  <data name="CloudConnection_Return.Content" xml:space="preserve"><value>返回</value></data>
+  <data name="CloudConnection_Rebuild.Content" xml:space="preserve"><value>重新建立访问</value></data>
   <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth 连接需要安全保存刷新的令牌。请先复制到 FolderRewind 受管凭据目录。</value></data>
   <data name="CloudJob_RunningCannotRelease" xml:space="preserve"><value>云任务正在执行，暂时不能放弃载荷保护。</value></data>
   <data name="CloudJob_WriteVerificationRequired" xml:space="preserve"><value>请在云连接向导中验证当前目录的写入权限后重试。</value></data>
@@ -7838,7 +7873,7 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="Product_Channel_Setup" xml:space="preserve"><value>安装程序</value></data>
   <data name="Product_Channel_Sideload" xml:space="preserve"><value>侧载安装</value></data>
   <data name="Product_Channel_Developer" xml:space="preserve"><value>开发版本</value></data>
-  <data name="Product_Channel_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="Product_Channel_Unknown" xml:space="preserve"><value>未识别</value></data>
   <data name="Product_UpdateStatus_NotChecked" xml:space="preserve"><value>尚未检查；缓存内容仅供参考</value></data>
   <data name="Product_UpdateStatus_Checking" xml:space="preserve"><value>正在检查更新…</value></data>
   <data name="Product_UpdateStatus_UpToDate" xml:space="preserve"><value>当前已是最新稳定版本</value></data>
@@ -7878,4 +7913,113 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="Product_ShowArchived.Content" xml:space="preserve"><value>显示已归档公告</value></data>
   <data name="Product_NoNotices.Text" xml:space="preserve"><value>暂无适用的公告。</value></data>
   <data name="Product_HistoryUncertain" xml:space="preserve"><value>历史提交结果尚未确定，需要先完成恢复检查。</value></data>
+  <data name="History_Size_AddedLabel" xml:space="preserve"><value>存储大小</value></data>
+  <data name="History_Size_ContentLabel" xml:space="preserve"><value>版本内容大小</value></data>
+  <data name="History_Size_DependencyLabel" xml:space="preserve"><value>恢复依赖大小</value></data>
+  <data name="History_Size_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="History_Size_Loading" xml:space="preserve"><value>读取中…</value></data>
+  <data name="History_Size_Open.ToolTipService.ToolTip" xml:space="preserve"><value>备份信息</value></data>
+  <data name="History_Size_BackupTypeLabel" xml:space="preserve"><value>备份类型</value></data>
+  <data name="History_BackupType_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="History_BackupType_Full" xml:space="preserve"><value>完整（Full）</value></data>
+  <data name="History_BackupType_Smart" xml:space="preserve"><value>普通增量（Smart）</value></data>
+  <data name="History_BackupType_Rolling" xml:space="preserve"><value>滚动（Rolling）</value></data>
+  <data name="History_BackupType_SemanticFull" xml:space="preserve"><value>语义完整（Full）</value></data>
+  <data name="History_BackupType_SemanticSmart" xml:space="preserve"><value>语义增量（Semantic Smart）</value></data>
+  <data name="History_BackupType_Semantic" xml:space="preserve"><value>语义备份（Semantic）</value></data>
+  <data name="Appearance_Themes.Text" xml:space="preserve"><value>成套主题</value></data>
+  <data name="Appearance_ThemesDescription.Text" xml:space="preserve"><value>选择后立即应用配色、材质和静态渐变，保留自定义标题与图标</value></data>
+  <data name="Appearance_Schemes.Text" xml:space="preserve"><value>个人外观方案</value></data>
+  <data name="Appearance_SchemesDescription.Text" xml:space="preserve"><value>保存喜欢的外观，选择方案即可切换。微调不会自动更新已保存方案</value></data>
+  <data name="Appearance_Theme_paper" xml:space="preserve"><value>纸张</value></data>
+  <data name="Appearance_Theme_forest" xml:space="preserve"><value>森林</value></data>
+  <data name="Appearance_Theme_night" xml:space="preserve"><value>夜航</value></data>
+  <data name="Appearance_SaveCurrent" xml:space="preserve"><value>保存当前外观</value></data>
+  <data name="Appearance_SaveAs" xml:space="preserve"><value>另存为</value></data>
+  <data name="Appearance_Update.Content" xml:space="preserve"><value>更新方案</value></data>
+  <data name="Appearance_More.Content" xml:space="preserve"><value>更多</value></data>
+  <data name="Appearance_RenameItem.Text" xml:space="preserve"><value>重命名</value></data>
+  <data name="Appearance_DeleteItem.Text" xml:space="preserve"><value>删除方案</value></data>
+  <data name="Appearance_Rename" xml:space="preserve"><value>重命名外观方案</value></data>
+  <data name="Appearance_Delete" xml:space="preserve"><value>删除外观方案</value></data>
+  <data name="Appearance_DeleteConfirm" xml:space="preserve"><value>删除“{0}”？当前外观和图片文件会保留。</value></data>
+  <data name="Appearance_Name" xml:space="preserve"><value>方案名称</value></data>
+  <data name="Appearance_CurrentCustom" xml:space="preserve"><value>当前：自定义外观</value></data>
+  <data name="Appearance_CurrentScheme" xml:space="preserve"><value>当前：{0}</value></data>
+  <data name="Appearance_CurrentModified" xml:space="preserve"><value>当前：{0}（已修改，尚未更新方案）</value></data>
+  <data name="Appearance_SaveFailed" xml:space="preserve"><value>无法保存外观方案</value></data>
+  <data name="Appearance_OperationFailed" xml:space="preserve"><value>外观方案操作失败：{0}</value></data>
+  <data name="Appearance_Error_Locked" xml:space="preserve"><value>赞助授权尚未解锁，请刷新购买状态后重试。</value></data>
+  <data name="Appearance_Error_NameRequired" xml:space="preserve"><value>请输入方案名称。</value></data>
+  <data name="Appearance_Error_DuplicateName" xml:space="preserve"><value>已有同名方案，请使用其他名称。</value></data>
+  <data name="Appearance_Error_MissingScheme" xml:space="preserve"><value>该方案已不存在，请重新选择。</value></data>
+  <data name="Appearance_Error_UnknownTheme" xml:space="preserve"><value>无法识别该主题，请重新选择。</value></data>
+  <data name="Appearance_Error_Busy" xml:space="preserve"><value>正在保存外观，请稍后重试。</value></data>
+  <data name="Appearance_ThemeSelector.PlaceholderText" xml:space="preserve"><value>选择主题</value></data>
+  <data name="Appearance_SchemeSelector.PlaceholderText" xml:space="preserve"><value>选择已保存的方案</value></data>
+  <data name="Sponsor_NavigationAnimation.Text" xml:space="preserve"><value>页面切换动画</value></data>
+  <data name="Sponsor_NavigationAnimationDescription.Text" xml:space="preserve"><value>从下次页面切换起生效，随个人外观方案保存。遵循 Windows 动画设置</value></data>
+  <data name="Sponsor_NavigationAnimation_None" xml:space="preserve"><value>无动画</value></data>
+  <data name="Sponsor_NavigationAnimation_Entrance" xml:space="preserve"><value>轻柔进入</value></data>
+  <data name="Sponsor_NavigationAnimation_Slide" xml:space="preserve"><value>横向滑动</value></data>
+  <data name="Sponsor_NavigationAnimation_DrillIn" xml:space="preserve"><value>缩放</value></data>
+  <data name="Product_UpdateHeading.Text" xml:space="preserve"><value>版本与更新</value></data>
+  <data name="Product_NoticesHeading.Text" xml:space="preserve"><value>公告</value></data>
+  <data name="Product_VersionLabel" xml:space="preserve"><value>当前版本 {0}</value></data>
+  <data name="Product_InstallationMethod" xml:space="preserve"><value>安装方式：{0}</value></data>
+  <data name="Product_UnknownInstallationHint" xml:space="preserve"><value>未识别安装方式，更新时将打开官方发布页面。</value></data>
+  <data name="Product_UpdateTarget" xml:space="preserve"><value>可更新至 v{0}</value></data>
+  <data name="Product_ReleasePage.Content" xml:space="preserve"><value>发行说明</value></data>
+  <data name="Product_UpdateDetails.Header" xml:space="preserve"><value>更新说明与提醒选项</value></data>
+  <data name="Product_CurrentNotices.Text" xml:space="preserve"><value>当前公告</value></data>
+  <data name="Product_ArchivedNotices.Text" xml:space="preserve"><value>已归档</value></data>
+  <data name="Product_CriticalNotice" xml:space="preserve"><value>重要兼容性提醒</value></data>
+  <data name="Product_AppliesToCurrentVersion" xml:space="preserve"><value>适用于当前版本</value></data>
+  <data name="Product_NoticeMetadata" xml:space="preserve"><value>发布于 {0} · {1}</value></data>
+  <data name="Product_ViewSteps" xml:space="preserve"><value>查看处理步骤</value></data>
+  <data name="Product_ViewDetails" xml:space="preserve"><value>查看详情</value></data>
+  <data name="Product_CollapseNotice" xml:space="preserve"><value>收起详情</value></data>
+  <data name="Product_CancelSnooze.Text" xml:space="preserve"><value>取消暂缓提醒</value></data>
+  <data name="Product_RestoreUpdate.Text" xml:space="preserve"><value>重新启用此版本提醒</value></data>
+  <data name="Product_Unarchive.Text" xml:space="preserve"><value>取消归档</value></data>
+  <data name="Product_NoticeCount" xml:space="preserve"><value>{0} 条适用 · 含 {1} 条重要提醒</value></data>
+  <data name="Product_NoticesLastCheck" xml:space="preserve"><value>上次成功刷新：{0}</value></data>
+  <data name="Product_NoticesLoading" xml:space="preserve"><value>正在获取公告…</value></data>
+  <data name="Product_NoticesFailedNoCache" xml:space="preserve"><value>无法获取公告，且没有有效缓存。请刷新重试。</value></data>
+  <data name="Product_NoticesCached" xml:space="preserve"><value>正在显示有效缓存；本次会话尚未成功刷新公告。</value></data>
+  <data name="Product_NoticesNotChecked" xml:space="preserve"><value>尚未获取公告，可点击“刷新公告”获取。</value></data>
+  <data name="Product_NoArchivedNotices" xml:space="preserve"><value>暂无已归档的适用公告。</value></data>
+  <data name="Product_AllNoticesArchived" xml:space="preserve"><value>当前适用的公告均已归档，可切换至“已归档”查看。</value></data>
+  <data name="Product_NoApplicableNotices" xml:space="preserve"><value>当前版本暂无适用公告。</value></data>
+  <data name="Product_NoApplicableCachedNotices" xml:space="preserve"><value>有效缓存中没有适用于当前版本的公告，可刷新获取最新结果。</value></data>
+  <data name="Product_WaitForNotices" xml:space="preserve"><value>正在刷新公告，请等待当前刷新完成。</value></data>
+  <data name="Product_WaitForUpdates" xml:space="preserve"><value>正在检查更新或保存刷新结果，请稍候。</value></data>
+  <data name="Product_UnknownInstallationMethod" xml:space="preserve"><value>安装方式：未识别（从官方发布页更新）</value></data>
+  <data name="Product_VersionSummary" xml:space="preserve"><value>v{0} · {1}</value></data>
+  <data name="Product_UpdateSectionName" xml:space="preserve"><value>版本与更新</value></data>
+  <data name="Product_NoticesSectionName" xml:space="preserve"><value>公告</value></data>
+  <data name="Product_UpdateShort_NotChecked" xml:space="preserve"><value>尚未检查更新</value></data>
+  <data name="Product_UpdateShort_Checking" xml:space="preserve"><value>正在检查更新…</value></data>
+  <data name="Product_UpdateShort_UpToDate" xml:space="preserve"><value>已是最新稳定版</value></data>
+  <data name="Product_UpdateShort_Available" xml:space="preserve"><value>发现新版本</value></data>
+  <data name="Product_UpdateShort_Failed" xml:space="preserve"><value>检查失败，可重试</value></data>
+  <data name="Product_NoticesHeaderDefault" xml:space="preserve"><value>查看公告与兼容性提醒</value></data>
+  <data name="Product_NoticesHeaderFailedCache" xml:space="preserve"><value>刷新失败，可阅读缓存公告</value></data>
+  <data name="Product_NoticesHeaderFailed" xml:space="preserve"><value>获取失败，请重试</value></data>
+  <data name="Product_ApplicableNoticeCount" xml:space="preserve"><value>{0} 条适用公告</value></data>
+  <data name="Product_ArchivedNoticeCount" xml:space="preserve"><value>{0} 条已归档公告</value></data>
+  <data name="Product_ViewArchivedNotices" xml:space="preserve"><value>查看已归档公告（{0}）</value></data>
+  <data name="Product_BackToCurrentNotices" xml:space="preserve"><value>返回当前公告</value></data>
+  <data name="Product_ImportantNoticeSummary" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Product_ArchivedListHeading.Text" xml:space="preserve"><value>已归档公告</value></data>
+  <data name="Product_ReleaseNotesDetails.Header" xml:space="preserve"><value>更新说明</value></data>
+  <data name="Product_ReleaseNotesOpenFailed" xml:space="preserve"><value>无法打开发行说明，请稍后重试。</value></data>
+  <data name="Product_CachedUpdateTarget" xml:space="preserve"><value>缓存提示可更新至 v{0}</value></data>
+  <data name="MergeProgress_PreparingHistory" xml:space="preserve"><value>准备历史版本</value></data>
+  <data name="MergeProgress_AnalyzingWorld" xml:space="preserve"><value>分析世界</value></data>
+  <data name="MergeProgress_OrganizingResults" xml:space="preserve"><value>整理结果</value></data>
+  <data name="MergeProgress_InitializingVisualization" xml:space="preserve"><value>初始化可视化</value></data>
+  <data name="MergeProgress_Count" xml:space="preserve"><value>{0} · {1} / {2}</value></data>
+  <data name="MergeProgress_ReadFiles" xml:space="preserve"><value>{0} · 已打开 {1} 个文件</value></data>
+  <data name="MergeProgress_Items" xml:space="preserve"><value>{0} · {1} 项</value></data>
 </root>

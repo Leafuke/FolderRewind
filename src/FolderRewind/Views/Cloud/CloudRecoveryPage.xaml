@@ -3,6 +3,11 @@
  <ScrollViewer AutomationProperties.AutomationId="CloudRecoveryPageScroll" Padding="24"><StackPanel x:Name="ContentLayout" Spacing="16" MaxWidth="860" HorizontalAlignment="Stretch">
   <TextBlock x:Uid="CloudWizard_RecoveryTitle" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
   <TextBlock x:Uid="CloudSetup_RecoveryScope" TextWrapping="Wrap"/>
+  <StackPanel x:Name="StartupFailure" Visibility="Collapsed" Spacing="12">
+   <InfoBar x:Name="StartupError" IsOpen="True" IsClosable="False" Severity="Error" AutomationProperties.AutomationId="CloudRecoveryInitializationError"/>
+   <Button x:Uid="CloudConnection_StartNew" Click="OnStartNew" AutomationProperties.AutomationId="CloudRecoveryStartNew"/>
+   <Button x:Uid="CloudConnection_Return" Click="OnStartupBack" AutomationProperties.AutomationId="CloudRecoveryReturn"/>
+  </StackPanel>
   <controls:CloudConnectionEditor x:Name="Editor" Visibility="Collapsed" Confirmed="OnConnected"/>
   <StackPanel x:Name="RecoveryPanel" Visibility="Collapsed" Spacing="12">
    <InfoBar Severity="{x:Bind Severity(ViewModel.MessageSeverity), Mode=OneWay}" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False"/>

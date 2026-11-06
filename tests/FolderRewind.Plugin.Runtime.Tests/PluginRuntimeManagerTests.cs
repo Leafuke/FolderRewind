@@ -7,7 +7,7 @@ using FolderRewind.Plugin.Runtime.Settings;
 namespace FolderRewind.Plugin.Runtime.Tests;
 
 [TestClass]
-public sealed class PluginRuntimeManagerTests
+public sealed partial class PluginRuntimeManagerTests
 {
     private static readonly PluginId PluginOneId = new("com.folderrewind.test-one");
     private static readonly PluginId PluginTwoId = new("com.folderrewind.test-two");

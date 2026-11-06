@@ -204,8 +204,8 @@ public sealed class HistoryRuntime : IAsyncDisposable
             try
             {
                 if (!File.Exists(Index.IndexPath)
-                    || await Index.GetSchemaVersionAsync(cancellationToken).ConfigureAwait(false) != HistoryIndex.CurrentSchemaVersion
-                    || !await Index.MatchesFilesAsync(Repository.GetPackFiles(), cancellationToken, packs).ConfigureAwait(false))
+                    || !await Index.MatchesFilesAsync(Repository.GetPackFiles(), cancellationToken, packs).ConfigureAwait(false)
+                    || !await Index.EnsureCurrentSchemaAsync(cancellationToken).ConfigureAwait(false))
                 {
                     await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
                     rebuilt = true;
@@ -367,9 +367,15 @@ public sealed class HistoryRuntime : IAsyncDisposable
             var files = Repository.GetPackFiles();
             var installedIds = installed.Select(p => p.Pack.PackId).ToHashSet();
             var previousFiles = files.Where(f => !installedIds.Contains(f.PackId)).ToArray();
-            if (File.Exists(Index.IndexPath)
-                && await Index.GetSchemaVersionAsync(token).ConfigureAwait(false) == HistoryIndex.CurrentSchemaVersion
-                && await Index.MatchesFilesAsync(previousFiles, token).ConfigureAwait(false))
+            var canApply = false;
+            try
+            {
+                canApply = File.Exists(Index.IndexPath)
+                    && await Index.MatchesFilesAsync(previousFiles, token).ConfigureAwait(false)
+                    && await Index.EnsureCurrentSchemaAsync(token).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is SqliteException or InvalidDataException or HistoryRepositoryException or IOException) { }
+            if (canApply)
             {
                 await Index.ApplyPacksAsync(installed, token).ConfigureAwait(false);
                 await Index.RecordFilesAsync(files.Where(f => installedIds.Contains(f.PackId)).ToArray(), token).ConfigureAwait(false);
@@ -394,8 +400,8 @@ public sealed class HistoryRuntime : IAsyncDisposable
             try
             {
                 if (File.Exists(Index.IndexPath)
-                    && await Index.GetSchemaVersionAsync(cancellationToken).ConfigureAwait(false) == HistoryIndex.CurrentSchemaVersion
-                    && await Index.MatchesFilesAsync(files, cancellationToken).ConfigureAwait(false)) return;
+                    && await Index.MatchesFilesAsync(files, cancellationToken).ConfigureAwait(false)
+                    && await Index.EnsureCurrentSchemaAsync(cancellationToken).ConfigureAwait(false)) return;
             }
             catch (Exception ex) when (ex is SqliteException or InvalidDataException or HistoryRepositoryException or IOException) { }
             var packs = await Repository.ReadAllPacksInsideGateAsync(cancellationToken).ConfigureAwait(false);

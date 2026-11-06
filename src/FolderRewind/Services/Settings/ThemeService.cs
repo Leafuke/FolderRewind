@@ -1,9 +1,8 @@
-using FolderRewind.Models;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using System;
+using System.Collections.Generic;
 using Windows.UI;
 
 namespace FolderRewind.Services
@@ -13,6 +12,10 @@ namespace FolderRewind.Services
         public static event System.Action<ElementTheme>? ThemeChanged;
 
         public const int SponsorAccentPresetCount = 7;
+
+        private static readonly List<WeakReference<FrameworkElement>> ThemeRoots = new();
+        private static SponsorAccentResources? _accentResources;
+        private static int _appliedAccentIndex;
 
         public static ElementTheme GetCurrentTheme()
         {
@@ -28,10 +31,7 @@ namespace FolderRewind.Services
 
         public static void ApplyThemeToWindow(Window? window)
         {
-            if (window?.Content is FrameworkElement root)
-            {
-                root.RequestedTheme = GetCurrentTheme();
-            }
+            ApplyThemeToElement(window?.Content as FrameworkElement);
         }
 
         public static void ApplyPersonalizationToWindow(Window? window)
@@ -39,10 +39,17 @@ namespace FolderRewind.Services
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             var unlocked = SponsorService.IsUnlocked;
 
-            var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
-                settings?.SponsorBackgroundEnabled == true, unlocked, AccessibilityThemeService.IsHighContrast);
-            ApplyAccentPreset(appearance.AccentIndex);
+            var accentChanged = ApplyAccentPreferences();
             ApplyBackdrop(window, unlocked ? settings?.SponsorBackdropIndex ?? 0 : 0);
+            if (accentChanged) ThemeChanged?.Invoke(GetCurrentTheme());
+        }
+
+        internal static bool ApplyAccentPreferences()
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
+                settings?.SponsorBackgroundEnabled == true, SponsorService.IsUnlocked, AccessibilityThemeService.IsHighContrast);
+            return ApplyAccentPreset(appearance.AccentIndex);
         }
 
         public static string GetAccentPresetName(int index)
@@ -71,8 +78,7 @@ namespace FolderRewind.Services
         /// </summary>
         public static void ApplyThemeToDialog(ContentDialog? dialog)
         {
-            if (dialog == null) return;
-            dialog.RequestedTheme = GetCurrentTheme();
+            ApplyThemeToElement(dialog);
         }
 
         /// <summary>
@@ -82,15 +88,18 @@ namespace FolderRewind.Services
         {
             if (element == null) return;
             element.RequestedTheme = GetCurrentTheme();
+            ThemeRoots.RemoveAll(reference => !reference.TryGetTarget(out _));
+            if (!ThemeRoots.Exists(reference => reference.TryGetTarget(out var root) && ReferenceEquals(root, element)))
+                ThemeRoots.Add(new WeakReference<FrameworkElement>(element));
         }
 
         public static void NotifyThemeChanged()
         {
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
-                settings?.SponsorBackgroundEnabled == true, SponsorService.IsUnlocked, AccessibilityThemeService.IsHighContrast);
-            ApplyAccentPreset(appearance.AccentIndex);
-            ThemeChanged?.Invoke(GetCurrentTheme());
+            ApplyAccentPreferences();
+            var theme = GetCurrentTheme();
+            foreach (var reference in ThemeRoots.ToArray())
+                if (reference.TryGetTarget(out var root)) root.RequestedTheme = theme;
+            ThemeChanged?.Invoke(theme);
         }
 
         private static void ApplyBackdrop(Window? window, int backdropIndex)
@@ -112,42 +121,26 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void ApplyAccentPreset(int accentIndex)
+        private static bool ApplyAccentPreset(int accentIndex)
         {
             var index = Math.Clamp(accentIndex, 0, SponsorAccentPresetCount - 1);
+            if (index == _appliedAccentIndex) return false;
+
+            var dictionaries = Application.Current.Resources.MergedDictionaries;
             if (index == 0)
             {
-                ClearAccentOverride();
-                return;
+                if (_accentResources is not null) dictionaries.Remove(_accentResources);
+            }
+            else
+            {
+                if (_accentResources is null) _accentResources = new SponsorAccentResources(GetAccentColor(index));
+                else _accentResources.Update(GetAccentColor(index));
+                if (!dictionaries.Contains(_accentResources)) dictionaries.Add(_accentResources);
             }
 
-            var color = GetAccentColor(index);
-            var light1 = Blend(color, Colors.White, 0.18);
-            var light2 = Blend(color, Colors.White, 0.36);
-            var light3 = Blend(color, Colors.White, 0.54);
-            var dark1 = Blend(color, Colors.Black, 0.14);
-            var dark2 = Blend(color, Colors.Black, 0.28);
-            var dark3 = Blend(color, Colors.Black, 0.42);
-
-            SetResource("SystemAccentColor", color);
-            SetResource("SystemAccentColorLight1", light1);
-            SetResource("SystemAccentColorLight2", light2);
-            SetResource("SystemAccentColorLight3", light3);
-            SetResource("SystemAccentColorDark1", dark1);
-            SetResource("SystemAccentColorDark2", dark2);
-            SetResource("SystemAccentColorDark3", dark3);
-
-            SetResource("AccentFillColorDefaultBrush", new SolidColorBrush(color));
-            SetResource("AccentFillColorSecondaryBrush", new SolidColorBrush(WithAlpha(color, 0xE6)));
-            SetResource("AccentFillColorTertiaryBrush", new SolidColorBrush(WithAlpha(color, 0xCC)));
-            SetResource("SystemControlForegroundAccentBrush", new SolidColorBrush(color));
-
-            SetResource("SystemAccentColorLight1Brush", new SolidColorBrush(light1));
-            SetResource("SystemAccentColorLight2Brush", new SolidColorBrush(light2));
-            SetResource("SystemAccentColorLight3Brush", new SolidColorBrush(light3));
-            SetResource("SystemAccentColorDark1Brush", new SolidColorBrush(dark1));
-            SetResource("SystemAccentColorDark2Brush", new SolidColorBrush(dark2));
-            SetResource("SystemAccentColorDark3Brush", new SolidColorBrush(dark3));
+            _appliedAccentIndex = index;
+            RefreshAccentResources();
+            return true;
         }
 
         private static Color GetAccentColor(int index)
@@ -164,53 +157,17 @@ namespace FolderRewind.Services
             };
         }
 
-        private static void ClearAccentOverride()
+        private static void RefreshAccentResources()
         {
-            RemoveResource("SystemAccentColor");
-            RemoveResource("SystemAccentColorLight1");
-            RemoveResource("SystemAccentColorLight2");
-            RemoveResource("SystemAccentColorLight3");
-            RemoveResource("SystemAccentColorDark1");
-            RemoveResource("SystemAccentColorDark2");
-            RemoveResource("SystemAccentColorDark3");
-            RemoveResource("AccentFillColorDefaultBrush");
-            RemoveResource("AccentFillColorSecondaryBrush");
-            RemoveResource("AccentFillColorTertiaryBrush");
-            RemoveResource("SystemControlForegroundAccentBrush");
-            RemoveResource("SystemAccentColorLight1Brush");
-            RemoveResource("SystemAccentColorLight2Brush");
-            RemoveResource("SystemAccentColorLight3Brush");
-            RemoveResource("SystemAccentColorDark1Brush");
-            RemoveResource("SystemAccentColorDark2Brush");
-            RemoveResource("SystemAccentColorDark3Brush");
-        }
-
-        private static Color Blend(Color color, Color target, double amount)
-        {
-            amount = Math.Clamp(amount, 0, 1);
-            return Color.FromArgb(
-                color.A,
-                (byte)Math.Round(color.R + (target.R - color.R) * amount),
-                (byte)Math.Round(color.G + (target.G - color.G) * amount),
-                (byte)Math.Round(color.B + (target.B - color.B) * amount));
-        }
-
-        private static Color WithAlpha(Color color, byte alpha)
-        {
-            return Color.FromArgb(alpha, color.R, color.G, color.B);
-        }
-
-        private static void SetResource(string key, object value)
-        {
-            Application.Current.Resources[key] = value;
-        }
-
-        private static void RemoveResource(string key)
-        {
-            var resources = Application.Current.Resources;
-            if (resources.ContainsKey(key))
+            ThemeRoots.RemoveAll(reference => !reference.TryGetTarget(out _));
+            foreach (var reference in ThemeRoots.ToArray())
             {
-                resources.Remove(key);
+                if (!reference.TryGetTarget(out var root)) continue;
+                // Adding/removing resources alone does not invalidate an existing ThemeResource reference.
+                // Refresh synchronously and preserve Default so following the system theme still works.
+                var requestedTheme = root.RequestedTheme;
+                root.RequestedTheme = root.ActualTheme == ElementTheme.Dark ? ElementTheme.Light : ElementTheme.Dark;
+                root.RequestedTheme = requestedTheme;
             }
         }
     }

@@ -107,7 +107,6 @@ public sealed partial class HistoryPage : Page
                             entry.Visibility = narrow ? Visibility.Visible : Visibility.Collapsed;
             }
         }
-        SetHistorySizeVisibility(grid.Children[0], narrow);
         ReflowHistoryMetadata(grid.Children[0], narrow);
     }
 
@@ -117,9 +116,16 @@ public sealed partial class HistoryPage : Page
         {
             foreach (var child in metadata.Children.OfType<FrameworkElement>())
             {
+                if (child is Button { Tag: NativeHistoryVersionViewItem })
+                {
+                    Grid.SetRow(child, 0);
+                    Grid.SetColumn(child, 0);
+                    Grid.SetColumnSpan(child, narrow ? 4 : 1);
+                    continue;
+                }
                 var tag = child.Tag as string;
                 if (tag is not ("HistoryReadiness" or "HistoryBranch" or "HistoryCreation")) continue;
-                Grid.SetRow(child, narrow ? tag == "HistoryBranch" ? 1 : tag == "HistoryCreation" ? 2 : 0 : 0);
+                Grid.SetRow(child, narrow ? tag == "HistoryBranch" ? 2 : tag == "HistoryCreation" ? 3 : 1 : 0);
                 Grid.SetColumn(child, narrow ? 0 : tag == "HistoryReadiness" ? 1 : tag == "HistoryCreation" ? 2 : 3);
                 Grid.SetColumnSpan(child, narrow ? 4 : 1);
             }
@@ -130,14 +136,6 @@ public sealed partial class HistoryPage : Page
     }
 
     private async void OnLoadErrorAction(object sender, RoutedEventArgs e) => await ViewModel.ExecuteLoadErrorActionAsync();
-
-    private static void SetHistorySizeVisibility(DependencyObject parent, bool narrow)
-    {
-        if (parent is FrameworkElement { Tag: "HistorySize" } size)
-            size.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
-        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-            SetHistorySizeVisibility(VisualTreeHelper.GetChild(parent, i), narrow);
-    }
 
     private void OnHistoryContainerContentChanging(
         ListViewBase sender,
@@ -233,6 +231,7 @@ public sealed partial class HistoryPage : Page
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        _sizeFlyout?.Hide();
         if (e.SourcePageType == typeof(MergePage))
             _mergeReturnContext = ViewModel.CaptureReturnContext(FindHistoryScroll(HistoryList)?.VerticalOffset ?? 0);
         _legacyNoticeActive = false;

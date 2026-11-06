@@ -7,7 +7,7 @@
     <FolderRewindRepositoryRoot>$(MSBuildThisFileDirectory)</FolderRewindRepositoryRoot>
     <Nullable>enable</Nullable>
     <ImplicitUsings Condition="'$(MSBuildProjectName)' != 'FolderRewind'">enable</ImplicitUsings>
-    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)' == ''">2.6.4</FolderRewindWindowsAppSdkVersion>
+    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)' == ''">2.6.5</FolderRewindWindowsAppSdkVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(FolderRewindOwnedProject)' == 'true' And '$(FolderRewindFaultInjection)' == 'true'">
     <BaseOutputPath>$(FolderRewindRepositoryRoot)artifacts\build\fault-injection\$(MSBuildProjectName)\bin\</BaseOutputPath>

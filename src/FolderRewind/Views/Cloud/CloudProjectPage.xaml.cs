@@ -18,27 +18,39 @@ public sealed partial class CloudProjectPage : Page
         => ContentLayout.Width = Math.Min(860, Math.Max(0, e.NewSize.Width - 48));
     public CloudSetupViewModel ViewModel { get; } = new();
     private bool _refreshing, _active;
+    private long _navigation;
     public InfoBarSeverity Severity(int value) => (InfoBarSeverity)value;
     public CloudProjectPage() => InitializeComponent();
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
-        var id = (e.Parameter as CloudSetupNavigationParameter)?.ConfigId ?? (e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "";
-        ViewModel.PropertyChanged += OnChanged;
-        ViewModel.RequestedJobId = (e.Parameter as CloudSetupNavigationParameter)?.JobId;
-        await ViewModel.InitializeAsync(id);
-        if (_active)
+        var navigation = ++_navigation;
+        try
         {
-            Refresh();
-            if (ViewModel.RequestedJobId is { } requested && !ViewModel.Jobs.Any(j => j.JobId == requested))
+            var id = (e.Parameter as CloudSetupNavigationParameter)?.ConfigId ?? (e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? "";
+            ViewModel.PropertyChanged += OnChanged;
+            ConfigService.Saved += OnConfigSaved;
+            ViewModel.RequestedJobId = (e.Parameter as CloudSetupNavigationParameter)?.JobId;
+            var result = await ViewModel.InitializeWithResultAsync(id);
+            if (_active && navigation == _navigation && result != CloudSetupInitializationState.Canceled)
             {
-                ViewModel.SelectedJobIndex = -1;
-                NotificationNavigationService.Unavailable(new(NotificationTargetKind.CloudProject, requested, id, JobId: requested));
+                Refresh();
+                if (ViewModel.RequestedJobId is { } requested && !ViewModel.Jobs.Any(j => j.JobId == requested))
+                {
+                    ViewModel.SelectedJobIndex = -1;
+                    NotificationNavigationService.Unavailable(new(NotificationTargetKind.CloudProject, requested, id, JobId: requested));
+                }
             }
+        }
+        catch (Exception error)
+        {
+            RcloneCredentialDiagnosticReporter.Report(error, nameof(CloudProjectPage));
+            if (_active && navigation == _navigation) ViewModel.ReportConnectionFailure(error);
         }
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e)
-    { _active = false; ViewModel.PropertyChanged -= OnChanged; ViewModel.Dispose(); base.OnNavigatedFrom(e); }
+    { _active = false; _navigation++; ConfigService.Saved -= OnConfigSaved; ViewModel.PropertyChanged -= OnChanged; ViewModel.Dispose(); base.OnNavigatedFrom(e); }
+    private void OnConfigSaved() => UiDispatcherService.Enqueue(() => { if (_active) Refresh(); });
     private void OnChanged(object? s, PropertyChangedEventArgs e) { if (_active) Refresh(); }
     private void Refresh()
     {
@@ -55,16 +67,18 @@ public sealed partial class CloudProjectPage : Page
     }
     private void OnReauthenticate(object s, RoutedEventArgs e)
     {
-        var id = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(p => p.Id == ViewModel.ProjectId)?.Cloud.ConnectionProfileId;
-        if (id is not null) NavigationService.NavigateTo("CloudSetup",
-            new CloudSetupNavigationParameter(ViewModel.ProjectId, ManageConnection: true, ProfileId: id, Reauthenticate: true));
+        var profile = ViewModel.BoundProfile();
+        if (profile is not null) NavigationService.NavigateTo("CloudSetup",
+            new CloudSetupNavigationParameter(ViewModel.ProjectId, ManageConnection: true, ProfileId: profile.Id, Reauthenticate: true));
+        else ViewModel.ReportConnectionFailure(RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.MissingProfile, CredentialFailureStage.Initialize));
     }
     private async void OnUpdateHistory(object s, RoutedEventArgs e) => await Run(ViewModel.UpdateProjectHistoryAsync);
     private void OnHistory(object s, RoutedEventArgs e) => NavigationService.NavigateTo("History", ManagerNavigationParameter.ForConfig(ViewModel.ProjectId));
     private void OnEdit(object s, RoutedEventArgs e)
     {
-        var id = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(p => p.Id == ViewModel.ProjectId)?.Cloud.ConnectionProfileId;
-        if (id is not null) NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ViewModel.ProjectId, ManageConnection: true, ProfileId: id));
+        var profile = ViewModel.BoundProfile();
+        if (profile is not null) NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ViewModel.ProjectId, ManageConnection: true, ProfileId: profile.Id));
+        else ViewModel.ReportConnectionFailure(RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.MissingProfile, CredentialFailureStage.Initialize));
     }
     private async void OnAutomatic(object s, RoutedEventArgs e) { if (!_refreshing && _active) { var enabled = Automatic.IsOn; await Run(t => ViewModel.SetAutomaticUploadAsync(enabled, t)); } }
     private async void OnLoadVersions(object s, RoutedEventArgs e) => await Run(ViewModel.LoadVersionsAsync);
