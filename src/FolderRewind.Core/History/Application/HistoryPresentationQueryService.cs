@@ -220,6 +220,7 @@ public sealed class HistoryPresentationQueryService
                 || (allowRemote && replicaGroups[representation.RepresentationId].Any(r => activeReplicas.Contains(r.ReplicaId))));
         bool Available(VersionRepresentation representation, bool allowRemote)
             => availability.IsAvailable(representation, allowRemote, cancellationToken);
+        var dependencySizes = new BackupSizeMetadata.DependencySizeContext(representationMap);
         var versionSizes = new Dictionary<VersionId, HistorySourceSizeSummary>();
         HistorySourceSizeSummary VersionSizes(VersionId id)
         {
@@ -231,7 +232,7 @@ public sealed class HistoryPresentationQueryService
             var added = versionMap.TryGetValue(id, out var version) && version.CreationKind == SourceVersionCreationKind.Capture
                 ? captured.AddedStoredBytes ?? LocalArchiveSize(state.Representation) : null;
             return versionSizes[id] = new(state.Representation?.RepresentationId,
-                new(added, captured.LogicalContentBytes, BackupSizeMetadata.DependencyBytes(state.Representation, representationMap, cancellationToken)),
+                new(added, captured.LogicalContentBytes, dependencySizes.GetBytes(state.Representation, cancellationToken)),
                 HistoryBackupTypePolicy.Resolve(captureSizeSnapshots.GetValueOrDefault(id), state.Representation));
         }
         long? LocalArchiveSize(VersionRepresentation? representation)
