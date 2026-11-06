@@ -59,11 +59,12 @@ dotnet build .\FolderRewind.slnx -c Debug -p:Platform=x64 -p:GenerateAppxPackage
 按影响范围选择测试工程，可先用 `--filter` 定向验证：
 
 ```powershell
-dotnet test .\tests\FolderRewind.Plugin.Abstractions.Tests\FolderRewind.Plugin.Abstractions.Tests.csproj -c Release
-dotnet test .\tests\FolderRewind.Plugin.Runtime.Tests\FolderRewind.Plugin.Runtime.Tests.csproj -c Release
-dotnet test .\tests\FolderRewind.Tests\FolderRewind.Tests.csproj -c Release
+dotnet test .\tests\FolderRewind.Plugin.Abstractions.Tests\FolderRewind.Plugin.Abstractions.Tests.csproj -c Release --filter 'TestCategory!=PerformanceBenchmark'
+dotnet test .\tests\FolderRewind.Plugin.Runtime.Tests\FolderRewind.Plugin.Runtime.Tests.csproj -c Release --filter 'TestCategory!=PerformanceBenchmark'
+dotnet test .\tests\FolderRewind.Tests\FolderRewind.Tests.csproj -c Release --filter 'TestCategory!=PerformanceBenchmark'
 ```
 
 - 数据安全、公共契约和核心行为变化需要有意义的回归测试；避免只镜像实现的测试和无关测试扩张。
+- CI、发布和常规验证统一排除 `PerformanceBenchmark`；性能测量由本地通过显式分类筛选及夹具参数可选执行，入口见 `benchmarks/performance/README.md`。深链、取消和故障恢复等正确性回归仍属于必跑功能验证。
 - 先完成相关验证，再根据失败或未消除的风险扩大范围；不要无理由反复运行全量测试。避免并行构建争用同一项目的 `bin/obj`。
 - 与UI相关自动验收默认使用 winappcli （可使用 `winapp --help` 查阅使用说明），若用户要求人工验收则给出验收步骤即可。

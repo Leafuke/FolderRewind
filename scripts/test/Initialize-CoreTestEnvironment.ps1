@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$ToolsDirectory = "$PSScriptRoot/../../artifacts/test-tools")
+param([string]$ToolsDirectory = "$PSScriptRoot/../../artifacts/test-tools", [string]$SevenZipRelease)
 . (Join-Path $PSScriptRoot '../common/Repository.ps1')
 $folderRewindScriptRoot = Get-FolderRewindRoot -Start $PSScriptRoot
 if ($ToolsDirectory) { $ToolsDirectory = Resolve-FolderRewindPath -Path $ToolsDirectory -Root $folderRewindScriptRoot }
@@ -12,9 +12,18 @@ $root = [IO.Path]::GetFullPath("$PSScriptRoot/../..")
 $tools = [IO.Path]::GetFullPath($ToolsDirectory)
 
 $sevenZip = Join-Path $root '7za.exe'
-if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) { $sevenZip = (Get-Command 7z.exe -ErrorAction Stop).Source }
+if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) {
+    # Some integration fixtures require this exact path. Stage the standalone
+    # executable rather than pointing only the environment variable at system 7z.
+    $stagedSevenZip = & "$PSScriptRoot/../build/Stage-SevenZip.ps1" -Platform x64 -ReleaseTag $SevenZipRelease | Select-Object -Last 1
+    if (-not $stagedSevenZip -or -not (Test-Path -LiteralPath $stagedSevenZip -PathType Leaf)) {
+        throw 'Standalone test 7za.exe was not staged.'
+    }
+    Copy-Item -LiteralPath $stagedSevenZip -Destination $sevenZip
+}
 & $sevenZip i | Out-Null
 if ($LASTEXITCODE) { throw 'Real 7-Zip is required for archive integration tests.' }
+Write-Host "Test 7-Zip: $sevenZip"
 
 # Use the same pinned Windows x64 asset and SHA-256 as the application installer.
 $catalog = Get-Content -LiteralPath (Join-Path $root 'src/FolderRewind/Services/Onboarding/OnboardingToolAssets.cs') -Raw

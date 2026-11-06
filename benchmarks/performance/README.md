@@ -2,6 +2,17 @@
 
 性能运行与汇总脚本位于本目录，独立执行程序位于 `tools/BackupPerformanceHost`。方法、数据安全边界及比较步骤见[开发指南](https://folderrewind.top/docs/architecture/development#performance)。
 
+性能测量由本地按需执行，CI 与发布的所有测试工程统一使用 `TestCategory!=PerformanceBenchmark`，性能结果不作为发布门槛。深链、取消和故障恢复等正确性回归仍在功能测试中执行。
+
+Runtime 性能基准可在本地显式开启：
+
+```powershell
+$env:FOLDERREWIND_RUNTIME_BENCHMARK_OUTPUT = Join-Path $PWD 'artifacts/performance/runtime'
+dotnet test ./tests/FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj -c Release --filter 'TestCategory=PerformanceBenchmark' --results-directory artifacts/performance/runtime-tests
+```
+
+Host、还原、空间页与 UI 的性能测量使用下列入口，按其参数指定隔离夹具与输出目录。
+
 - `Run-CoreSmartBenchmark.ps1`：固定合成数据的 Full/Smart 与扫描分析。
 - `Run-RestorePerformance.ps1`、`Run-RestoreServiceComparison.ps1`：隔离还原比较。
 - `Run-StageTwoComparison.ps1`：服务阶段比较。

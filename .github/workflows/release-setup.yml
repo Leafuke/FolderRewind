@@ -72,7 +72,10 @@ jobs:
           key: ${{ runner.os }}-nuget-setup-${{ hashFiles('**/*.csproj', '**/*.wixproj', 'NuGet.Config') }}
           restore-keys: ${{ runner.os }}-nuget-setup-
       - name: Run production and isolated recovery test suites
-        run: ./scripts/test/Invoke-SetupCoreTests.ps1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEVENZIP_RELEASE: ${{ needs.preflight.outputs.sevenzip }}
+        run: ./scripts/test/Invoke-SetupCoreTests.ps1 -SevenZipRelease $env:SEVENZIP_RELEASE
       - name: Preserve core test evidence
         if: always()
         uses: actions/upload-artifact@v4

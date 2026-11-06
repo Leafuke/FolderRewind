@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$ResultsDirectory = 'artifacts/core-tests')
+param([string]$ResultsDirectory = 'artifacts/core-tests', [string]$SevenZipRelease)
 . (Join-Path $PSScriptRoot '../common/Repository.ps1')
 $folderRewindScriptRoot = Get-FolderRewindRoot -Start $PSScriptRoot
 if ($ResultsDirectory) { $ResultsDirectory = Resolve-FolderRewindPath -Path $ResultsDirectory -Root $folderRewindScriptRoot }
@@ -26,7 +26,7 @@ if (-not (Test-Path -LiteralPath $assetsPath -PathType Leaf)) {
     throw "Missing application restore metadata: $assetsPath"
 }
 
-& "$PSScriptRoot/Initialize-CoreTestEnvironment.ps1"
+& "$PSScriptRoot/Initialize-CoreTestEnvironment.ps1" -SevenZipRelease $SevenZipRelease
 $projects = [ordered]@{
     abstractions='tests/FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj'
     runtime='tests/FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj'
@@ -34,9 +34,10 @@ $projects = [ordered]@{
     recovery='tests/FolderRewind.Core.Recovery.Tests/FolderRewind.Core.Recovery.Tests.csproj'
 }
 $timings = @()
+# Release acceptance covers functional suites; performance measurements are local opt-in runs.
 foreach ($suite in $projects.Keys) {
     $timer = [Diagnostics.Stopwatch]::StartNew()
-    $filter = if ($suite -eq 'host') { @('--filter', 'TestCategory!=PerformanceBenchmark') } else { @() }
+    $filter = @('--filter', 'TestCategory!=PerformanceBenchmark')
     $variant = @(if ($suite -eq 'recovery') { '-p:FolderRewindFaultInjection=true' })
     dotnet test $projects[$suite] -c Release @filter @variant --logger "trx;LogFileName=core-tests.trx" --results-directory (Join-Path $ResultsDirectory $suite) --blame-hang-timeout 2m --blame-hang-dump-type none
     if ($LASTEXITCODE) { throw "Core test suite failed: $suite" }
