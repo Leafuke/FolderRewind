@@ -183,6 +183,19 @@ _Avoid_: History transaction, in-place archive rewrite, plugin commit
 The comment supplied for one backup invocation and attached to its Backup Run and newly created Source Versions, without rewriting reused Versions.
 _Avoid_: Folder note, mutable archive comment
 
+## Cloud credential language
+
+**Cloud Connection**:
+A configured access relationship that projects can bind to. Multiple connections may share the same Credential Storage.
+
+**Credential Storage**:
+One local credential file and the authentication revisions that belong to it. It owns refresh serialization and recovery evidence independently of connection names and project bindings.
+_Avoid_: Account, connection profile, project credentials
+
+**Credential Evidence**:
+Retained authentication material and execution facts used to decide whether credentials can be safely recovered or advanced. Uncertain evidence can contain the only refreshed token and remains preserved until its relationship to the credentials is established.
+_Avoid_: Disposable cache, expired token files
+
 ## Plugin language
 
 **Plugin**:
