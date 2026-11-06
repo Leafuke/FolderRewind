@@ -167,6 +167,9 @@ namespace FolderRewind
 #if CONFIGURATION_REPAIR_ACCEPTANCE
                 Services.Development.ConfigurationRepairAcceptance.Start(_window);
 #endif
+#if CLOUD_CREDENTIAL_UI_ACCEPTANCE
+                Services.Development.CloudCredentialUiAcceptance.Start(_window);
+#endif
                 StartupTimingService.Mark("Window activated");
 #if NATIVE_ARTIFACT_ACCEPTANCE
                 Services.Development.PerformanceUiAcceptance.Start(_window);

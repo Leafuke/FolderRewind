@@ -40,7 +40,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
             if (_saveSession.PersistenceUncertain) { Message = I18n.GetString("CloudWizard_SaveUncertain"); return; }
             if (!SetProperty(ref _selectedProfileIndex, value) || value < 0 || value >= _profiles.Count) return;
             var profile = _profiles[value];
-            if (_owned is not null && _owned.ConfigPath != profile.CredentialReference) { _owned.Dispose(); _owned = null; }
+            if (_owned is not null && _owned.ConfigPath != profile.CredentialReference) ReleaseOwnedCredentials();
             _saveSession.Select(profile, _manageConnection);
             if (_manageConnection) _editingProfile = profile;
             _selectedProfileId = profile.Id; ConfigPath = profile.CredentialReference;
@@ -141,8 +141,15 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
     public ObservableCollection<string> Remotes { get; } = [];
     public ObservableCollection<string> Directories { get; } = [];
     public ObservableCollection<string> Versions { get; } = [];
-    public bool IsBusy { get => _busy; private set { SetProperty(ref _busy, value); OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanEditConnection)); OnPropertyChanged(nameof(CanBrowseMore)); OnPropertyChanged(nameof(CanUpload)); } }
-    public bool CanEdit => !IsBusy;
+    private bool _targetUnavailable;
+    public bool IsBusy { get => _busy; private set { SetProperty(ref _busy, value); OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanEditConnection)); OnPropertyChanged(nameof(CanBrowseMore)); OnPropertyChanged(nameof(CanUpload)); OnPropertyChanged(nameof(CanManageCurrentConnection)); } }
+    public bool CanEdit => !IsBusy && !_disposed && !_targetUnavailable;
+    public bool CanManageCurrentConnection => CanEdit && BoundProfile() is not null;
+    internal CloudConnectionProfile? BoundProfile()
+    {
+        var project = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(p => p.Id == ProjectId);
+        return CloudConnectionNavigationPolicy.FindProfile(ConfigService.CurrentConfig.CloudConnections, project?.Cloud.ConnectionProfileId);
+    }
     public bool CanEditConnection => CanEdit && !_saveSession.PersistenceUncertain;
     public bool CanUpload => IsProject && CanEdit && _saved && _config?.Cloud.WritableEvidence.Length > 0;
     public OnboardingCheckState MessageState { get; private set; } = OnboardingCheckState.Unknown;
@@ -162,16 +169,38 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         set { SetProperty(ref _selectedRemoteIndex, value); if (value >= 0 && value < _remotes.Count) RemoteRoot = RemoteWithPreservedSuffix(_remotes[value].Name); }
     }
     public async Task InitializeAsync(string id, CancellationToken token = default, bool manageConnection = false, string? profileId = null)
+    { await InitializeWithResultAsync(id, token, manageConnection, profileId); }
+    internal async Task<CloudSetupInitializationState> InitializeWithResultAsync(string id, CancellationToken token = default, bool manageConnection = false, string? profileId = null)
     {
-        if (_disposed) return;
+        if (_disposed) return CloudSetupInitializationState.Canceled;
         _manageConnection = manageConnection;
-        _editingProfile = profileId is null ? null : ConfigService.CurrentConfig.CloudConnections.Single(p => p.Id == profileId);
+        _targetUnavailable = false;
         IsBusy = true;
         _requestFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, token);
-        try { await InitializeCoreAsync(id, linked.Token); }
-        catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
-        catch (Exception ex) { if (!_disposed) { _saved = false; ReportConnectionFailure(ex); } }
+        try
+        {
+            linked.Token.ThrowIfCancellationRequested();
+            _editingProfile = profileId is null ? null : CloudConnectionNavigationPolicy.FindProfile(ConfigService.CurrentConfig.CloudConnections, profileId);
+            if (profileId is not null && _editingProfile is null)
+                throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.MissingProfile, CredentialFailureStage.Initialize);
+#if CLOUD_CREDENTIAL_UI_ACCEPTANCE
+            await Services.Development.CloudCredentialUiAcceptance.PauseInitializationAsync(linked.Token);
+#endif
+            await InitializeCoreAsync(id, linked.Token);
+            linked.Token.ThrowIfCancellationRequested();
+            if (profileId is not null && CloudConnectionNavigationPolicy.FindProfile(ConfigService.CurrentConfig.CloudConnections, profileId) is null)
+                throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.MissingProfile, CredentialFailureStage.Initialize);
+            return CloudSetupInitializationState.Ready;
+        }
+        catch (OperationCanceledException) when (linked.IsCancellationRequested) { return CloudSetupInitializationState.Canceled; }
+        catch (Exception ex)
+        {
+            _targetUnavailable = profileId is not null && CloudConnectionNavigationPolicy.FindProfile(ConfigService.CurrentConfig.CloudConnections, profileId) is null
+                || id.Length != 0 && (_config is null || !ConfigService.CurrentConfig.BackupConfigs.Any(p => p.Id == _config.Id));
+            if (!_disposed) { _saved = false; ReportConnectionFailure(ex); }
+            return _targetUnavailable ? CloudSetupInitializationState.TargetUnavailable : CloudSetupInitializationState.NeedsCredentialRepair;
+        }
         finally { if (!_disposed) IsBusy = false; _requestFinished.TrySetResult(true); }
     }
 
@@ -187,8 +216,6 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         ShareConnection = _manageConnection;
         if (!string.IsNullOrEmpty(id) && _config is null)
         {
-            _disposed = true;
-            IsBusy = true;
             throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
         }
         if (_manageConnection)
@@ -288,25 +315,29 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
     }
     private static bool MatchesConnectionRevision(string expected, RcloneExecutionContext context)
         => expected == context.RevisionEvidence || RcloneCredentialRefresh.AcceptsFrozenRevision(context.ConfigPath, expected, context.SourceBytes);
-    public async Task RunCheckAsync(Func<CancellationToken, Task> action)
+    public Task RunCheckAsync(Func<CancellationToken, Task> action) => RunCheckAsync(action, CloudCheckIntent.UseCurrentCredential);
+    internal async Task RunCheckAsync(Func<CancellationToken, Task> action, CloudCheckIntent intent)
     {
-        if (_disposed || IsBusy) return;
+        if (!CanEdit) return;
         IsBusy = true;
         _requestFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _request?.Dispose(); _request = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         try
         {
-            var originalPath = ConfigPath;
-            var migratedPath = await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, _request.Token, allowUncertain: true);
-            _request.Token.ThrowIfCancellationRequested();
-            if (originalPath == ConfigPath && migratedPath != originalPath)
+            if (intent == CloudCheckIntent.UseCurrentCredential)
             {
-                ConfigPath = migratedPath;
-                _request.Dispose();
-                _request = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+                var originalPath = ConfigPath;
+                var migratedPath = await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, _request.Token, allowUncertain: true);
+                _request.Token.ThrowIfCancellationRequested();
+                if (originalPath == ConfigPath && migratedPath != originalPath)
+                {
+                    ConfigPath = migratedPath;
+                    _request.Dispose();
+                    _request = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+                }
+                if (Path.IsPathFullyQualified(ConfigPath) && File.Exists(ConfigPath))
+                    await RcloneCredentialRefresh.PrepareStoreAsync(ConfigPath, ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(ConfigPath), _request.Token);
             }
-            if (Path.IsPathFullyQualified(ConfigPath) && File.Exists(ConfigPath))
-                await RcloneCredentialRefresh.PrepareStoreAsync(ConfigPath, ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(ConfigPath), _request.Token);
             await action(_request.Token);
         }
         catch (OperationCanceledException)
@@ -320,8 +351,10 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         catch (Exception ex) { if (!_lifetime.IsCancellationRequested) ReportConnectionFailure(ex); }
         finally { IsBusy = false; _requestFinished?.TrySetResult(true); }
     }
-    private void ReportConnectionFailure(Exception error)
+    internal void ReportConnectionFailure(Exception error)
     {
+        _owned?.Preserve();
+        RcloneCredentialDiagnosticReporter.Report(error, nameof(CloudSetupViewModel));
         var code = RcloneConnectionDiagnostics.Code(error);
         var message = CloudCommandSecurity.Redact(error.Message);
         var wizardKey = error is CloudSetupInputException input ? input.ResourceKey : error.Message switch
@@ -337,7 +370,8 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         RecordCheck(code, OnboardingCheckState.NeedsInput, message);
         FailureKind = error is CloudSetupInputException ? "Input" : CloudFailurePresentation.Kind(error);
         OnPropertyChanged(nameof(FailureKind));
-        Message = wizardKey is not null ? message : CloudFailurePresentation.Message(FailureKind);
+        Message = wizardKey is not null || RcloneConnectionDiagnostics.Details(error)?.Reason is not (null or CredentialFailureReason.Other)
+            ? message : CloudFailurePresentation.Message(FailureKind);
     }
     public void LoadRemotes()
     {
@@ -352,11 +386,21 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
     {
         if (_saveSession.PersistenceUncertain) throw new InvalidOperationException(I18n.GetString("CloudWizard_SaveUncertain"));
         var connection = await RcloneConnectionService.CreateWebDavAsync(Executable, ConfigService.RcloneConnectionsDirectory, url, user, password, allowInsecure, token);
-        if (_lifetime.IsCancellationRequested) { connection.Dispose(); return; }
+        if (_lifetime.IsCancellationRequested) { await connection.DisposeAsync(); return; }
+        try { await ValidateCandidateAsync(connection, RemoteWithPreservedSuffix(CloudRemotePath.Split(connection.RemoteRoot).Remote), token); }
+        catch { connection.Preserve(); connection.Dispose(); throw; }
         if (!IsReauthenticating) BeginNewConnection();
-        _owned?.Dispose(); _owned = connection;
+        ReleaseOwnedCredentials(); _owned = connection;
         ConfigPath = connection.ConfigPath; RemoteRoot = RemoteWithPreservedSuffix(CloudRemotePath.Split(connection.RemoteRoot).Remote);
         LoadRemotes(); Message = I18n.GetString("CloudSetup_CredentialsCreated");
+    }
+    private async Task ValidateCandidateAsync(OwnedRcloneConnection candidate, string remote, CancellationToken token)
+    {
+        await RcloneCredentialRefresh.PrepareStoreAsync(candidate.ConfigPath, ConfigService.RcloneTasksDirectory, true, token);
+        await Task.Run(() =>
+        {
+            using var context = new RcloneExecutionContext(Executable, candidate.ConfigPath, WorkingDirectory, remote, ConfigService.RcloneTasksDirectory, true);
+        }, token);
     }
     public Task BrowseAsync(CancellationToken token) => BrowseCoreAsync(0, token);
     public Task BrowseMoreAsync(CancellationToken token) => _nextDirectoryOffset >= 0 ? BrowseCoreAsync(_nextDirectoryOffset, token) : Task.CompletedTask;
@@ -395,9 +439,10 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
             + (result.RetainedObject is null ? "" : "\n" + I18n.GetString("CloudSetup_ProbeCleanup"));
         var details = CloudCommandSecurity.Redact(result.Diagnostic)
             + (result.RetainedObject is null ? "" : "\n" + I18n.Format("CloudSetup_ProbeRetained", result.RetainedObject));
-        var code = result.Diagnostic.StartsWith("[cloud.snapshot-unavailable]", StringComparison.Ordinal) ? "cloud.snapshot-unavailable" : "cloud.access-unconfirmed";
+        var code = result.Failure?.Code ?? (result.Diagnostic.StartsWith("[cloud.snapshot-unavailable]", StringComparison.Ordinal) ? "cloud.snapshot-unavailable" : "cloud.access-unconfirmed");
+        if (result.Failure is { } failure) { _owned?.Preserve(); RcloneCredentialDiagnosticReporter.Report(failure, nameof(CloudSetupViewModel)); }
         FailureKind = result.Canceled ? "Timeout" : CloudFailurePresentation.Kind(code, result.Diagnostic);
-        if (!result.ReadWriteVerified) Message = CloudFailurePresentation.Message(FailureKind);
+        if (!result.ReadWriteVerified) Message = result.Failure?.Reason is not (null or CredentialFailureReason.Other) ? result.Diagnostic : CloudFailurePresentation.Message(FailureKind);
         await ObserveConnectionAsync(context, true, result.ReadWriteVerified, FailureKind);
         if (revision != _revision || _disposed) return;
         RecordCheck(result.ReadWriteVerified ? "cloud.access-verified" : code, result.ReadWriteVerified ? OnboardingCheckState.Ready : OnboardingCheckState.NeedsInput, details);
@@ -491,7 +536,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
     public bool HasProfiles => ConnectionProfiles.Count != 0;
     public void BeginNewConnection()
     {
-        _saveSession.CreateNew(); _owned?.Dispose(); _owned = null;
+        _saveSession.CreateNew(); ReleaseOwnedCredentials();
         _editingProfile = null; _selectedProfileId = null; _selectedProfileIndex = -1;
         _importedFrom = ""; LastSaveResult = null;
         OnPropertyChanged(nameof(SelectedProfileIndex)); Invalidate();
@@ -507,7 +552,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         {
             // Reuse the credential storage without selecting its owning profile. The edit
             // session must keep the original connection identity and every project binding.
-            _owned?.Dispose(); _owned = null;
+            ReleaseOwnedCredentials();
             ConfigPath = existing.CredentialReference; _importedFrom = source;
             LoadRemotes();
             SelectedRemoteIndex = _remotes.FindIndex(r => r.Name == existing.RemoteName);
@@ -529,10 +574,15 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var directory = System.IO.Path.Combine(ConfigService.RcloneConnectionsDirectory, "connection-" + Guid.NewGuid().ToString("N"));
         RcloneExecutionContext.CreatePrivateDirectory(directory);
         var target = System.IO.Path.Combine(directory, "rclone.conf");
-        await AtomicFileService.WriteAsync(target, (s, ct) => s.WriteAsync(bytes, ct).AsTask(), token);
+        await using (var stream = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous))
+            await stream.WriteAsync(bytes, token);
+        RcloneCredentialStore.RegisterFresh(target, bytes);
+        var candidate = new OwnedRcloneConnection(target, RemoteRoot);
+        try { await ValidateCandidateAsync(candidate, RemoteRoot, token); }
+        catch { candidate.Preserve(); candidate.Dispose(); throw; }
         if (_owned is not null && CloudConnectionCatalog.SameCredentialStorage(_owned.ConfigPath, source)) _owned.Commit();
         if (!IsReauthenticating) BeginNewConnection();
-        _owned?.Dispose(); _owned = new(target, RemoteRoot);
+        ReleaseOwnedCredentials(); _owned = candidate;
         _importedFrom = source; ConfigPath = target; LoadRemotes();
         Message = I18n.GetString("CloudConnections_ManagedImported");
     }
@@ -861,10 +911,17 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
             if (_disposed) await CleanupAsync();
         }
     }
+    private void ReleaseOwnedCredentials() => _ = ReleaseOwnedCredentialsAsync();
+    private Task ReleaseOwnedCredentialsAsync()
+    {
+        var owned = _owned; _owned = null;
+        return owned is null ? Task.CompletedTask : TaskObserver.ObserveAsync(owned.DisposeAsync().AsTask(),
+            error => RcloneCredentialDiagnosticReporter.Report(error, nameof(CloudSetupViewModel)));
+    }
     private async Task CleanupAsync()
     {
         if (_requestFinished is { } pending) await pending.Task;
-        _owned?.Dispose(); _owned = null;
+        await ReleaseOwnedCredentialsAsync();
         if (_analysis is not null) { await _analysis.DisposeAsync(); _analysis = null; }
     }
     public void Dispose()

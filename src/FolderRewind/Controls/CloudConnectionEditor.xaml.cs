@@ -70,7 +70,8 @@ public sealed partial class CloudConnectionEditor : UserControl
         Status.Message = ViewModel.Message; Status.IsOpen = ViewModel.HasMessage;
         Status.Severity = (InfoBarSeverity)ViewModel.MessageSeverity;
         RepairButton.Visibility = Show(ViewModel.HasRepair && ViewModel.FailureKind != "Input");
-        RepairButton.Content = I18n.GetString(ViewModel.FailureKind == "Tool" ? "CloudSetup_PickExecutable.Content" : "CloudRepair_Action.Content");
+        RepairButton.Content = I18n.GetString(ViewModel.FailureKind == "Tool" ? "CloudSetup_PickExecutable.Content"
+            : ViewModel.FailureKind == "Connection" ? ViewModel.HasEditableProfile ? "CloudReauth_Action.Content" : "CloudConnection_Rebuild.Content" : "CloudRepair_Action.Content");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(RepairButton, (string)RepairButton.Content);
         Bindings.Update();
         if (ViewModel.IsBusy) _shownFailure = "";
@@ -80,12 +81,15 @@ public sealed partial class CloudConnectionEditor : UserControl
             DispatcherQueue.TryEnqueue(() => Status.StartBringIntoView());
         }
     }
-    private async Task Run(Func<CancellationToken, Task> action) { await ViewModel.RunCheckAsync(action); Refresh(); }
+    private async Task Run(Func<CancellationToken, Task> action, CloudCheckIntent intent = CloudCheckIntent.UseCurrentCredential)
+    { await ViewModel.RunCheckAsync(action, intent); Refresh(); }
     private void OnChoose(object sender, RoutedEventArgs e) { ViewModel.StartMethod(int.Parse((string)((Button)sender).Tag)); Refresh(); }
     private void OnBack(object sender, RoutedEventArgs e) { ViewModel.GoBackWizard(); Refresh(); }
     private async void OnNext(object sender, RoutedEventArgs e)
     {
         if (ViewModel.WizardStep == 4) { Confirmed?.Invoke(this, EventArgs.Empty); return; }
+        var intent = ViewModel.WizardStep is 1 or 2 && ViewModel.ConnectionMethod < 3
+            ? CloudCheckIntent.PrepareReplacement : CloudCheckIntent.UseCurrentCredential;
         await Run(async token =>
         {
             switch (ViewModel.WizardStep)
@@ -117,22 +121,22 @@ public sealed partial class CloudConnectionEditor : UserControl
                     ViewModel.AcceptLocation();
                     break;
             }
-        });
+        }, intent);
     }
-    private async void OnPrepareRclone(object s, RoutedEventArgs e) => await Run(t => ViewModel.PrepareToolsAsync(false, t));
-    private async void OnPrepareOpenList(object s, RoutedEventArgs e) => await Run(t => ViewModel.PrepareToolsAsync(true, t));
+    private async void OnPrepareRclone(object s, RoutedEventArgs e) => await Run(t => ViewModel.PrepareToolsAsync(false, t), CloudCheckIntent.PrepareReplacement);
+    private async void OnPrepareOpenList(object s, RoutedEventArgs e) => await Run(t => ViewModel.PrepareToolsAsync(true, t), CloudCheckIntent.PrepareReplacement);
     private void OnCreateSeparate(object s, RoutedEventArgs e) { ViewModel.CreateSeparateConnection(); Refresh(); }
     private async void OnRecognizeLocalConfig(object s, RoutedEventArgs e) => await Run(async token =>
     {
         var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.OpenListConfig", [".json"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (path is not null) await ViewModel.LocalEnvironment.InspectConfigurationAsync(path, token);
-    });
+    }, CloudCheckIntent.PrepareReplacement);
     private Task<bool> ConfirmLocalAuthorization(Models.OpenListRuntimeSettings draft)
         => AppDialogService.Default.ConfirmAsync(I18n.GetString("OpenList_AuthorizationTitle"),
             I18n.Format("OpenList_AuthorizationDescription", draft.ExecutablePath, draft.WorkingDirectory, draft.DataDirectory, draft.ConfigFilePath, draft.ServiceBaseUri),
             I18n.GetString("Common_Confirm"), XamlRoot);
-    private async void OnSaveLocalEnvironment(object s, RoutedEventArgs e) => await Run(t => ViewModel.LocalEnvironment.SaveAsync(ConfirmLocalAuthorization, t));
-    private async void OnCheckLocalEnvironment(object s, RoutedEventArgs e) => await Run(ViewModel.LocalEnvironment.CheckAsync);
+    private async void OnSaveLocalEnvironment(object s, RoutedEventArgs e) => await Run(t => ViewModel.LocalEnvironment.SaveAsync(ConfirmLocalAuthorization, t), CloudCheckIntent.PrepareReplacement);
+    private async void OnCheckLocalEnvironment(object s, RoutedEventArgs e) => await Run(ViewModel.LocalEnvironment.CheckAsync, CloudCheckIntent.PrepareReplacement);
     private async void OnReloadLocalEnvironment(object s, RoutedEventArgs e)
     {
         if (!ViewModel.LocalEnvironment.HasEdits || await AppDialogService.Default.ConfirmAsync(I18n.GetString("OpenList_Reload.Content"),
@@ -141,7 +145,7 @@ public sealed partial class CloudConnectionEditor : UserControl
     private async void OnInitialize(object s, RoutedEventArgs e)
     {
         var password = InitialPassword.Password;
-        try { await Run(t => ViewModel.InitializeOpenListAsync(password, double.IsNaN(Port.Value) ? 0 : (int)Port.Value, t)); }
+        try { await Run(t => ViewModel.InitializeOpenListAsync(password, double.IsNaN(Port.Value) ? 0 : (int)Port.Value, t), CloudCheckIntent.PrepareReplacement); }
         finally { InitialPassword.Password = ""; }
     }
     private async void OnAuthorizeStart(object s, RoutedEventArgs e)
@@ -151,21 +155,21 @@ public sealed partial class CloudConnectionEditor : UserControl
             var draft = ViewModel.LocalOpenListDraft;
             var expected = ConfigSnapshotMapper.Copy(ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime);
             if (await ConfirmLocalAuthorization(draft)) await ViewModel.AuthorizeAndStartOpenListAsync(draft, expected, token);
-        });
+        }, CloudCheckIntent.PrepareReplacement);
     }
     private void OnEnvironmentSettings(object s, RoutedEventArgs e) => NavigationService.NavigateTo("Settings", NavigationService.SettingsOpenListTarget);
     private async void OnPickExecutable(object s, RoutedEventArgs e) => await Run(async t =>
-    { var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) ViewModel.Executable = path; });
+    { var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) ViewModel.Executable = path; }, CloudCheckIntent.PrepareReplacement);
     private async void OnPickConfig(object s, RoutedEventArgs e) => await Run(async t =>
-    { var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Config", [".conf", "*"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) { ViewModel.ConfigPath = path; ViewModel.LoadRemotes(); } });
-    private async void OnDetectConfig(object s, RoutedEventArgs e) => await Run(ViewModel.DetectConfigurationAsync);
-    private async void OnListRemotes(object s, RoutedEventArgs e) => await Run(t => { ViewModel.LoadRemotes(); return Task.CompletedTask; });
-    private async void OnReuseCredentials(object s, RoutedEventArgs e) => await Run(t => { ViewModel.ReuseManagedCredentials(); return Task.CompletedTask; });
+    { var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Config", [".conf", "*"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) { ViewModel.ConfigPath = path; ViewModel.LoadRemotes(); } }, CloudCheckIntent.PrepareReplacement);
+    private async void OnDetectConfig(object s, RoutedEventArgs e) => await Run(ViewModel.DetectConfigurationAsync, CloudCheckIntent.PrepareReplacement);
+    private async void OnListRemotes(object s, RoutedEventArgs e) => await Run(t => { ViewModel.LoadRemotes(); return Task.CompletedTask; }, CloudCheckIntent.PrepareReplacement);
+    private async void OnReuseCredentials(object s, RoutedEventArgs e) => await Run(t => { ViewModel.ReuseManagedCredentials(); return Task.CompletedTask; }, CloudCheckIntent.PrepareReplacement);
     private async void OnImportNew(object s, RoutedEventArgs e)
     {
         if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"),
             I18n.GetString(ViewModel.IsReauthenticating ? "CloudReauth_ImportHelp.Text" : "CloudWizard_ImportHelp.Text"),
-            I18n.GetString("Common_Confirm"), XamlRoot)) await Run(ViewModel.ImportManagedAsync);
+            I18n.GetString("Common_Confirm"), XamlRoot)) await Run(ViewModel.ImportManagedAsync, CloudCheckIntent.PrepareReplacement);
     }
     private async void OnBrowse(object s, RoutedEventArgs e) => await Run(ViewModel.BrowseAsync);
     private async void OnBrowseMore(object s, RoutedEventArgs e) => await Run(ViewModel.BrowseMoreAsync);
@@ -185,6 +189,8 @@ public sealed partial class CloudConnectionEditor : UserControl
     private void OnRepair(object s, RoutedEventArgs e)
     {
         if (!ViewModel.CanEdit) return;
+        if (ViewModel.FailureKind == "Connection" && ViewModel.HasEditableProfile)
+        { ViewModel.BeginReauthentication(); Refresh(); return; }
         if (ViewModel.FailureKind == "Tool") { ViewModel.WizardStep = 1; Refresh(); OnPickExecutable(s, e); }
         else if (ViewModel.FailureKind == "Offline" && ViewModel.DependsOnOpenList) OnEnvironmentSettings(s, e);
         else { ViewModel.WizardStep = ViewModel.ConnectionMethod == 3 ? 1 : 2; Refresh(); }

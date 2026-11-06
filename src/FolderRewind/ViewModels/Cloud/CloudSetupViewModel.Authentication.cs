@@ -41,22 +41,29 @@ public sealed partial class CloudSetupViewModel
             return I18n.Format("CloudReauth_Summary", _reauthenticationProfile.DisplayName, string.Join(", ", projects.Select(p => p.Name)));
         }
     }
-    public void BeginReauthentication()
+    internal bool HasEditableProfile => CloudConnectionNavigationPolicy.FindProfile(ConfigService.CurrentConfig.CloudConnections, _editingProfile?.Id ?? _selectedProfileId) is not null;
+    public bool BeginReauthentication()
     {
-        var profile = _editingProfile ?? ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == _selectedProfileId);
-        if (profile is null) throw new InvalidOperationException(I18n.GetString("CloudConnections_SelectFirst"));
+        var profile = CloudConnectionNavigationPolicy.FindProfile(ConfigService.CurrentConfig.CloudConnections, _editingProfile?.Id ?? _selectedProfileId);
+        if (profile is null)
+        {
+            _targetUnavailable = true;
+            ReportConnectionFailure(RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.MissingProfile, CredentialFailureStage.Initialize));
+            return false;
+        }
         _reauthenticationProfile = CloudConnectionEditPolicy.Copy(profile);
         _saveSession.Reauthenticate(profile);
         _reauthenticationSuffix = _config?.Cloud.RemotePathSuffix
             ?? ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(p => p.Cloud.ConnectionProfileId == profile.Id)?.Cloud.RemotePathSuffix ?? "";
         _reauthenticationBindings = null;
         ConnectionName = profile.DisplayName; ShareConnection = profile.Scope == CloudConnectionScope.Shared;
-        _owned?.Dispose(); _owned = null;
+        ReleaseOwnedCredentials();
         ConfigPath = ""; RemoteRoot = ""; WorkingDirectory = "";
         if (!File.Exists(Executable)) Executable = ConfigService.CurrentConfig.GlobalSettings.RcloneExecutablePath;
         WizardStep = 0; RequestAutomaticUpload = RequestFirstUpload = false;
         Message = I18n.GetString("CloudReauth_Help");
         OnPropertyChanged(nameof(IsReauthenticating)); OnPropertyChanged(nameof(CanEditProfile)); OnPropertyChanged(nameof(ReauthenticationSummary));
+        return true;
     }
     public void CreateSeparateConnection()
     {

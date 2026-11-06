@@ -114,7 +114,11 @@ namespace FolderRewind.Services
                 return (true, 0, string.Empty);
             }
             catch (RcloneProcessException ex) { return (false, ex.ExitCode, CloudCommandSecurity.Redact(ex.Message)); }
-            catch (Exception ex) { return (false, -1, CloudCommandSecurity.Redact(ex.Message)); }
+            catch (Exception ex)
+            {
+                RcloneCredentialDiagnosticReporter.Report(ex, nameof(CloudSyncService));
+                return (false, -1, CloudCommandSecurity.Redact(ex.Message));
+            }
         }
 
         private static void AppendLogLine(string? line, StringBuilder builder, BackupTask task, bool isError)

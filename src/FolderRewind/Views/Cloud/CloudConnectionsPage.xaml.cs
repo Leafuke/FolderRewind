@@ -44,12 +44,18 @@ public sealed partial class CloudConnectionsPage : Page
     }
     private void OnEdit(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.SelectedProfileId is { } id) NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ManageConnection: true, ProfileId: id));
+        if (SelectedProfile() is { } profile) NavigationService.NavigateTo("CloudSetup", new CloudSetupNavigationParameter(ManageConnection: true, ProfileId: profile.Id));
     }
     private void OnReauthenticate(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.SelectedProfileId is { } id) NavigationService.NavigateTo("CloudSetup",
-            new CloudSetupNavigationParameter(ManageConnection: true, ProfileId: id, Reauthenticate: true));
+        if (SelectedProfile() is { } profile) NavigationService.NavigateTo("CloudSetup",
+            new CloudSetupNavigationParameter(ManageConnection: true, ProfileId: profile.Id, Reauthenticate: true));
+    }
+    private CloudConnectionProfile? SelectedProfile()
+    {
+        var profile = CloudConnectionNavigationPolicy.FindProfile(ConfigService.CurrentConfig.CloudConnections, ViewModel.SelectedProfileId);
+        if (profile is null) { Result.Text = I18n.GetString("CloudConnection_ProfileMissing"); ViewModel.Refresh(); }
+        return profile;
     }
     private async void OnPromote(object sender, RoutedEventArgs e)
     {

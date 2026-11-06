@@ -6640,6 +6640,17 @@ Cloud switch: {2} → {3}</value>
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>Preview root mapping</value></data>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>The legacy custom upload command has not been converted to Native History cloud backup. Convert it explicitly in the connection wizard before enabling uploads.</value></data>
   <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>Authentication refresh evidence cannot be merged safely. Keep the credential snapshots and authorize again; new calls using these credentials are paused.</value></data>
+  <data name="CloudConnection_PathUnsafe" xml:space="preserve"><value>The credential or task path contains an unsupported reparse point. This call is paused. Check the diagnostics to locate the directory, then set up access again.</value></data>
+  <data name="CloudConnection_HardlinkUnsafe" xml:space="preserve"><value>The credential file has multiple hard links and cannot be used. Create a connection or reauthenticate to generate independent credentials. The original files and evidence will be kept.</value></data>
+  <data name="CloudConnection_MetadataUnavailable" xml:space="preserve"><value>The credential file's security information could not be read reliably. This call is paused. Diagnostics include the query result; check the connection or reauthenticate.</value></data>
+  <data name="CloudConnection_ConfigInvalid" xml:space="preserve"><value>The rclone configuration has duplicate entries, missing required fields, or an unsupported format. Correct it or import another configuration.</value></data>
+  <data name="CloudConnection_EvidenceInvalid" xml:space="preserve"><value>Credential evidence is damaged or uses an unsupported format. The files have been kept and these credentials are paused. Please reauthenticate.</value></data>
+  <data name="CloudConnection_SnapshotUnattributed" xml:space="preserve"><value>An old credential snapshot has no reliable owner. Its files have been kept and existing credentials are paused. Create a connection or reauthenticate to generate independent credentials.</value></data>
+  <data name="CloudConnection_ProfileMissing" xml:space="preserve"><value>The original cloud connection is missing or cannot be uniquely identified. Return to the connection list or create a connection. The project's existing binding will not change automatically.</value></data>
+  <data name="CloudConnection_InitializationFailed" xml:space="preserve"><value>The cloud connection page could not be opened. Go back and retry, then check the application log for diagnostics.</value></data>
+  <data name="CloudConnection_StartNew.Content" xml:space="preserve"><value>Create a connection</value></data>
+  <data name="CloudConnection_Return.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="CloudConnection_Rebuild.Content" xml:space="preserve"><value>Set up access again</value></data>
   <data name="CloudConnection_ExternalOAuthUnsupported" xml:space="preserve"><value>OAuth connections require safe persistence of refreshed tokens. Copy the configuration into FolderRewind managed credentials first.</value></data>
   <data name="CloudJob_RunningCannotRelease" xml:space="preserve"><value>A cloud task is running. Payload protection cannot be abandoned yet.</value></data>
   <data name="CloudJob_WriteVerificationRequired" xml:space="preserve"><value>Verify write access to the current directory in the cloud connection wizard, then retry.</value></data>

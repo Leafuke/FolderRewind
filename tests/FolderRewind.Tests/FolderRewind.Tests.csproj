@@ -33,14 +33,14 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/FolderRewind.Core/FolderRewind.Core.csproj" />
-    <ProjectReference Include="../../tools/HistoryGraphProbe/HistoryGraphProbe.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../tools/HistoryGraphProbe/HistoryGraphProbe.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="FolderRewindFaultInjection" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../FolderRewind.TestSupport/FolderRewind.TestSupport.csproj" />
   </ItemGroup>
   <Import Project="HostSourceLinks.props" />
   <Target Name="CopyHistoryGraphProbe" AfterTargets="Build">
-    <MSBuild Projects="../../tools/HistoryGraphProbe/HistoryGraphProbe.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+    <MSBuild Projects="../../tools/HistoryGraphProbe/HistoryGraphProbe.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="FolderRewindFaultInjection">
       <Output TaskParameter="TargetOutputs" ItemName="_HistoryGraphProbeTarget" />
     </MSBuild>
     <PropertyGroup>

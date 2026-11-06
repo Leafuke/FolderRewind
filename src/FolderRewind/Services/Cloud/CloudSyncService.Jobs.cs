@@ -311,6 +311,7 @@ public static partial class CloudSyncService
         }
         catch (Exception ex)
         {
+            RcloneCredentialDiagnosticReporter.Report(ex, nameof(CloudSyncService));
             var diagnostic = CloudCommandSecurity.Redact(ex.Message);
             if (delivered is not null)
             {

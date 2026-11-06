@@ -51,6 +51,8 @@
     <Compile Include="../../src/FolderRewind/Services/Migration/MigrationWorkflowStore.cs" Link="Host/Services/Migration/MigrationWorkflowStore.cs" />
     <Compile Include="../../src/FolderRewind/Services/Migration/MigrationWorkflowRunner.cs" Link="Host/Services/Migration/MigrationWorkflowRunner.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneCredentialRefresh.cs" Link="Host/Services/Cloud/RcloneCredentialRefresh.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneFailureDetails.cs" Link="Host/Services/Cloud/RcloneFailureDetails.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneCredentialStore.cs" Link="Host/Services/Cloud/RcloneCredentialStore.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/OwnedCloudDependencyProcess.cs" Link="Host/Services/Cloud/OwnedCloudDependencyProcess.cs" />
     <Compile Include="../../src/FolderRewind/Services/Updates/AppUpdatePolicy.cs" Link="Host/Services/Updates/AppUpdatePolicy.cs" />
     <Compile Include="../../src/FolderRewind/Services/Updates/AppUpdatePresentation.cs" Link="Host/Services/Updates/AppUpdatePresentation.cs" />

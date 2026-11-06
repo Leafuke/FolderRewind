@@ -8,6 +8,17 @@ using System.Threading.Tasks;
 namespace FolderRewind.Services;
 
 internal enum CloudConnectionEditIntent { Create, Reuse, Edit, Reauthenticate }
+internal enum CloudSetupInitializationState { Ready, NeedsCredentialRepair, TargetUnavailable, Canceled }
+internal enum CloudCheckIntent { UseCurrentCredential, PrepareReplacement }
+internal static class CloudConnectionNavigationPolicy
+{
+    internal static CloudConnectionProfile? FindProfile(IEnumerable<CloudConnectionProfile> profiles, string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        var matches = profiles.Where(p => p.Id == id).Take(2).ToArray();
+        return matches.Length == 1 ? matches[0] : null;
+    }
+}
 internal enum CloudSetupSaveStage { None, Connection, Binding }
 internal sealed class CloudWizardFlow
 {

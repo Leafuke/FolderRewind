@@ -158,7 +158,7 @@ internal static class CloudConnectionCatalog
         void RequireUnreferenced()
         {
             if (app.BackupConfigs.Any(p => p.Cloud.ConnectionProfileId == id) || RcloneExecutionContext.HasActiveCredential(profile.CredentialReference)
-                || RcloneCredentialRefresh.HasPendingEvidence(ConfigService.RcloneTasksDirectory, profile.CredentialReference))
+                || RcloneCredentialRefresh.HasPendingEvidence(ConfigService.RcloneTasksDirectory, profile.CredentialReference, IsManaged(profile.CredentialReference)))
                 throw new InvalidOperationException(I18n.GetString("CloudConnections_Referenced"));
             var root = Path.Combine(ConfigService.ConfigDirectory, "history");
             if (!Directory.Exists(root)) return;

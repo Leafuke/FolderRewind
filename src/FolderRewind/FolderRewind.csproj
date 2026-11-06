@@ -58,6 +58,13 @@
           Condition="'$(ConfigurationRepairAcceptance)'=='true' and ('$(FolderRewindFaultInjection)'!='true' or '$(NativeArtifactAcceptance)'!='true')">
     <Error Text="Configuration repair acceptance requires both FolderRewindFaultInjection=true and NativeArtifactAcceptance=true." />
   </Target>
+  <PropertyGroup Condition="'$(FolderRewindFaultInjection)'=='true' and '$(NativeArtifactAcceptance)'=='true' and '$(CloudCredentialUiAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);CLOUD_CREDENTIAL_UI_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ValidateCloudCredentialUiAcceptance" BeforeTargets="PrepareForBuild"
+          Condition="'$(CloudCredentialUiAcceptance)'=='true' and ('$(FolderRewindFaultInjection)'!='true' or '$(NativeArtifactAcceptance)'!='true')">
+    <Error Text="Cloud credential UI acceptance requires both FolderRewindFaultInjection=true and NativeArtifactAcceptance=true." />
+  </Target>
   <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
     <DefineConstants>$(DefineConstants);FOLDERREWIND_MSI</DefineConstants>
     <ApplicationIcon>Assets\MsiApp.ico</ApplicationIcon>
