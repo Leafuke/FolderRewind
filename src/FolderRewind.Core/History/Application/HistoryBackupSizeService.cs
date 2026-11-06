@@ -48,7 +48,31 @@ public sealed class HistoryBackupSizeService(HistoryRuntime runtime,
         var ordered = new List<VersionRepresentation>();
         var visited = new HashSet<RepresentationId>();
         var visiting = new HashSet<RepresentationId>();
-        if (!Visit(root)) return BackupSizeStatistics.Unknown;
+        var pending = new Stack<(VersionRepresentation Node, int NextDependency)>();
+        pending.Push((root, 0));
+        while (pending.TryPop(out var frame))
+        {
+            token.ThrowIfCancellationRequested();
+            var (node, next) = frame;
+            if (next == 0)
+            {
+                if (visited.Contains(node.RepresentationId)) continue;
+                if (node.Kind == RepresentationKind.PluginArtifact || !visiting.Add(node.RepresentationId))
+                    return BackupSizeStatistics.Unknown;
+            }
+            if (next == node.DependencyRepresentationIds.Length)
+            {
+                visiting.Remove(node.RepresentationId);
+                visited.Add(node.RepresentationId);
+                ordered.Add(node);
+                continue;
+            }
+            var found = graph.TryGetValue(node.DependencyRepresentationIds[next], out var dependency);
+            token.ThrowIfCancellationRequested();
+            if (!found) return BackupSizeStatistics.Unknown;
+            pending.Push((node, next + 1));
+            pending.Push((dependency!, 0));
+        }
         var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         var guards = new List<FileStream>();
         try
@@ -97,17 +121,5 @@ public sealed class HistoryBackupSizeService(HistoryRuntime runtime,
             return new(logicalContentBytes: files.Values.Sum(), restoreDependencyBytes: stored);
         }
         finally { foreach (var guard in guards) await guard.DisposeAsync().ConfigureAwait(false); }
-
-        bool Visit(VersionRepresentation node)
-        {
-            if (visited.Contains(node.RepresentationId)) return true;
-            if (node.Kind == RepresentationKind.PluginArtifact || !visiting.Add(node.RepresentationId)) return false;
-            foreach (var id in node.DependencyRepresentationIds)
-                if (!graph.TryGetValue(id, out var dependency) || !Visit(dependency)) return false;
-            visiting.Remove(node.RepresentationId);
-            visited.Add(node.RepresentationId);
-            ordered.Add(node);
-            return true;
-        }
     }
 }
