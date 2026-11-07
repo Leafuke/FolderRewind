@@ -232,6 +232,7 @@ namespace FolderRewind.Services
 
         private static Task HandleTransportErrorAsync(string component, Exception exception)
         {
+            if (KnotLinkCoordinationChannel.Gate.IsBusy) KnotLinkCoordinationChannel.Gate.MarkUncertain();
             LogService.LogWarning($"KnotLink {component} transport error: {exception.Message}", "KnotLink");
             return Task.CompletedTask;
         }
@@ -252,6 +253,7 @@ namespace FolderRewind.Services
             await _initLock.WaitAsync(ct).ConfigureAwait(false);
             try
             {
+                if (KnotLinkCoordinationChannel.Gate.IsBusy) KnotLinkCoordinationChannel.Gate.MarkUncertain();
                 _isEnabled = false;
 
                 // 停止所有自动备份任务
@@ -310,13 +312,45 @@ namespace FolderRewind.Services
         /// <summary>
         /// 尝试广播事件，并返回消息是否已成功交给 KnotLink 发送器。
         /// </summary>
-        public static async Task<bool> TryBroadcastEventAsync(string eventData)
+        public static Task<bool> TryBroadcastEventAsync(string eventData, CancellationToken cancellationToken = default)
         {
+            // An unavailable optional sender has no active protocol state to clean up.
+            // Once a channel is owned, failed terminal delivery must still be recorded by its owner.
+            var acceptanceTransport = false;
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+            acceptanceTransport = Development.NativeArtifactAcceptance.HasCoordinationTransport;
+#endif
+            if (!acceptanceTransport && (_signalSender is null || !IsEnabled) && !KnotLinkCoordinationChannel.Gate.IsBusy) return Task.FromResult(false);
+            var normalized = NormalizeEventData(eventData);
+            var parsed = KnotLinkKeyValueCodec.Parse(normalized).Values;
+            var terminal = parsed.TryGetValue("event", out var name) && (name is "backup_success" or "backup_failed"
+                || name is "command_completed" or "command_failed"
+                    && (!parsed.TryGetValue("command", out var command) || command.Equals("BACKUP", StringComparison.OrdinalIgnoreCase)));
+            if (terminal) return DispatchTerminalAsync(normalized, cancellationToken);
+            return SendEventDirectAsync(normalized, cancellationToken);
+        }
+
+        private static async Task<bool> DispatchTerminalAsync(string data, CancellationToken token)
+        {
+            var submitted = await KnotLinkCoordinationChannel.Gate.DispatchAsync(KnotLinkCoordinationChannel.Owner,
+                ct => SendEventDirectAsync(data, ct), token).ConfigureAwait(false);
+            if (!submitted) LogService.LogWarning("backup.coordination_terminal_dispatch_failed; owner="
+                + KnotLinkCoordinationChannel.Owner, "KnotLink");
+            return submitted;
+        }
+
+        private static async Task<bool> SendEventDirectAsync(string eventData, CancellationToken cancellationToken)
+        {
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+            if (Development.NativeArtifactAcceptance.SubmitCoordinationEvent(eventData, cancellationToken) is { } accepted) return accepted;
+#endif
             if (_signalSender == null || !IsEnabled) return false;
 
             try
             {
-                await _signalSender.EmitAsync(NormalizeEventData(eventData)).ConfigureAwait(false);
+                using var sendBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                sendBudget.CancelAfter(TimeSpan.FromSeconds(5));
+                await _signalSender.EmitAsync(eventData, sendBudget.Token).ConfigureAwait(false);
                 return true;
             }
             catch (Exception ex)
@@ -352,14 +386,15 @@ namespace FolderRewind.Services
         public static Task<bool> TryBroadcastEventAsync(
             KnotLinkCommandContext? context,
             string eventName,
-            IReadOnlyDictionary<string, string?>? fields = null)
+            IReadOnlyDictionary<string, string?>? fields = null,
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(eventName))
             {
                 return Task.FromResult(false);
             }
 
-            return TryBroadcastEventAsync(FormatBroadcastEventData(context, eventName, fields));
+            return TryBroadcastEventAsync(FormatBroadcastEventData(context, eventName, fields), cancellationToken);
         }
 
         public static void BroadcastCommandLifecycle(

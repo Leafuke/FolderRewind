@@ -57,6 +57,16 @@ internal static class OperationDiagnosticFormatter
     {
         var key = diagnostic.Code switch
         {
+            "minerewind.world_identity_unresolved" or "minerewind.world_identity_changed" => "OperationDiagnostic_WorldIdentityUnresolved",
+            "restore.coordination_changed" => "OperationDiagnostic_RestoreCoordinationChanged",
+            "minerewind.playerdata_world_unresolved" => "OperationDiagnostic_PlayerWorldUnresolved",
+            "minerewind.scope_world_unresolved" => "OperationDiagnostic_ScopeWorldUnresolved",
+            "minerewind.coordination_needs_reset" => "OperationDiagnostic_CoordinationNeedsReset",
+            "minerewind.coordination_busy" or "minerewind.consistency_multiple_active_worlds" => "OperationDiagnostic_CoordinationBusy",
+            "minerewind.coordination_window_expired" => "OperationDiagnostic_CoordinationWindowExpired",
+            "minerewind.coordination_disconnected" => "OperationDiagnostic_CoordinationDisconnected",
+            "backup.coordination_cleanup_failed" => "OperationDiagnostic_CoordinationCleanupFailed",
+            "minerewind.primary_metadata_missing" => "OperationDiagnostic_PrimaryMetadataMissing",
             "minerewind.world_lock_probe_failed" => "OperationDiagnostic_WorldLockProbeFailed",
             "minerewind.restore_knotlink_unavailable" => "OperationDiagnostic_RestoreKnotLinkUnavailable",
             "minerewind.restore_handshake_unavailable" => "OperationDiagnostic_RestoreHandshakeUnavailable",

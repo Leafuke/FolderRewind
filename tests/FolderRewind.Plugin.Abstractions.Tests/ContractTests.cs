@@ -54,7 +54,7 @@ public sealed class ContractTests
         Assert.IsTrue(new PluginApiVersion(3, 0).IsSatisfiedBy(new PluginApiVersion(3, 2)));
         Assert.IsFalse(new PluginApiVersion(3, 2).IsSatisfiedBy(new PluginApiVersion(3, 1)));
         Assert.IsFalse(new PluginApiVersion(2, 9).IsSatisfiedBy(new PluginApiVersion(3, 9)));
-        Assert.AreEqual(new PluginApiVersion(3, 17), PluginApiVersion.HostVersion);
+        Assert.AreEqual(new PluginApiVersion(3, 18), PluginApiVersion.HostVersion);
     }
 
     [TestMethod]
@@ -187,6 +187,7 @@ public sealed class ContractTests
         IBackupConsistencyCapability provider = new LegacyConsistencyProvider();
         Assert.IsFalse(provider.SupportsCoordinationOnly);
         Assert.IsFalse(new BackupConsistencyRequest(null!, null!, ConsistencyIntent.Prefer).CoordinationOnly);
+        Assert.IsFalse(((IConsistencyLease)new LegacyConsistencyLease()).CaptureCancellation.CanBeCanceled);
     }
     private sealed class LegacyConsistencyProvider : IBackupConsistencyCapability
     {

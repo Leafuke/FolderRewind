@@ -55,6 +55,26 @@ public sealed class KnotLinkTransportTests
     }
 
     [TestMethod]
+    public async Task CanceledWriteCannotSendItsTerminalInALaterFrame()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var accept = listener.AcceptTcpClientAsync();
+        await using var client = new KlTcpClient(TimeSpan.FromHours(1));
+        await client.ConnectAsync("127.0.0.1", ((IPEndPoint)listener.LocalEndpoint).Port);
+        using var peer = await accept;
+        await using var stream = peer.GetStream();
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => client.SendAsync("event=backup_success;operation=cancelled", cancellation.Token));
+        await client.SendAsync("event=next_operation");
+        using var receiveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        var header = new byte[8]; await stream.ReadExactlyAsync(header, receiveBudget.Token);
+        CollectionAssert.AreEqual(Magic, header[..4]);
+        var payload = new byte[System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(header.AsSpan(4))];
+        await stream.ReadExactlyAsync(payload, receiveBudget.Token);
+        Assert.AreEqual("event=next_operation", Encoding.UTF8.GetString(payload));
+    }
+
+    [TestMethod]
     public void HostInitializationState_RemainsInitializedUntilReset()
     {
         var state = new KnotLinkInitializationState();

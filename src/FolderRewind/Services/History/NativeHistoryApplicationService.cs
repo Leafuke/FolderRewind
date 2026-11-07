@@ -452,6 +452,7 @@ internal static partial class NativeHistoryApplicationService
         {
             RecoverNativeInsideOperation = (operation, token) => Plugins.V3.NativeArtifactHostService.RecoverInsideOperationAsync(config, runtime, operation, token),
             FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token),
+            BeforeDestinationMutation = NativeHistoryRestoreOrchestrator.RevalidateMutationSafetyAsync,
             ValidateVersionTarget = validateVersionTarget,
             VerificationContext = verificationContext,
             PreparationEnvironmentFactory = (graph, token) => BuildPreparationEnvironmentAsync(runtime, graph, token),

@@ -38,6 +38,7 @@ public sealed partial class HistoryRestoreService
             var plan = HistoryRestoreMutationPlanner.Build(session, prepared, AllowDirectorySwap && !HoldCurrentReadProtection,
                 HoldCurrentReadProtection, UnchangedTargetSources);
             ValidateCurrentInputs?.Invoke();
+            if (BeforeDestinationMutation is { } recheck) await recheck(token).ConfigureAwait(false);
             journal = session.Freeze(plan, expected, desired);
             var locations = new RestorePlanLocations(plan);
             using (HistoryRestoreFileSystemPlanStore.Execute(plan,

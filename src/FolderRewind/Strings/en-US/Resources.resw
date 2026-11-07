@@ -8022,4 +8022,25 @@ Affected projects: {1}</value></data>
   <data name="MergeProgress_Count" xml:space="preserve"><value>{0} · {1} / {2}</value></data>
   <data name="MergeProgress_ReadFiles" xml:space="preserve"><value>{0} · Opened {1} files</value></data>
   <data name="MergeProgress_Items" xml:space="preserve"><value>{0} · {1} items</value></data>
+  <data name="SettingsPage_MinecraftCoordinationTitle.Text" xml:space="preserve"><value>Minecraft coordination session</value></data>
+  <data name="SettingsPage_MinecraftCoordinationDescription.Text" xml:space="preserve"><value>Reset restores compatibility with the existing protocol; it cannot verify which operation an old acknowledgement belongs to. Degraded backups and offline operations after closing the game remain available.</value></data>
+  <data name="SettingsPage_MinecraftCoordinationReset.Content" xml:space="preserve"><value>Reset coordination</value></data>
+  <data name="SettingsPage_MinecraftCoordinationReady" xml:space="preserve"><value>Compatibility coordination is ready</value></data>
+  <data name="SettingsPage_MinecraftCoordinationBusy" xml:space="preserve"><value>A related operation or cleanup is running; reset is temporarily unavailable</value></data>
+  <data name="SettingsPage_MinecraftCoordinationNeedsReset" xml:space="preserve"><value>Session state is uncertain; online coordination is suspended until reset</value></data>
+  <data name="SettingsPage_MinecraftCoordinationResetDone" xml:space="preserve"><value>Compatibility coordination was reset. The next operation will perform a new handshake.</value></data>
+  <data name="SettingsPage_MinecraftCoordinationResetFailed" xml:space="preserve"><value>Reset failed: a related operation is running or a terminal signal could not be submitted.</value></data>
+  <data name="OperationDiagnostic_WorldIdentityUnresolved" xml:space="preserve"><value>World identity or occupancy could not be fully established. Backup may degrade; destination changes require confirming that the world has exited.</value></data>
+  <data name="OperationDiagnostic_PlayerWorldUnresolved" xml:space="preserve"><value>The world for player-data preservation is ambiguous. Restore was blocked.</value></data>
+  <data name="OperationDiagnostic_ScopeWorldUnresolved" xml:space="preserve"><value>The world and selected regions could not be resolved. Backup was blocked to avoid expanding its scope.</value></data>
+  <data name="OperationDiagnostic_CoordinationNeedsReset" xml:space="preserve"><value>Coordination state is uncertain; reset it in Settings. Backups that allow degradation continue without a consistent world-save point.</value></data>
+  <data name="OperationDiagnostic_CoordinationBusy" xml:space="preserve"><value>Coordination cannot safely distinguish or coordinate these active worlds. Backups that allow degradation use raw capture.</value></data>
+  <data name="OperationDiagnostic_CoordinationWindowExpired" xml:space="preserve"><value>The local coordination capture window expired. Backups that allow degradation continue reading and verifying files; captures requiring coordination were stopped.</value></data>
+  <data name="OperationDiagnostic_PrimaryMetadataMissing" xml:space="preserve"><value>The world's level.dat is missing. Other world evidence was used; check the save's integrity.</value></data>
+  <data name="OperationDiagnostic_CoordinationDisconnected" xml:space="preserve"><value>Coordination disconnected during capture. The result has no coordinated world-save guarantee.</value></data>
+  <data name="OperationDiagnostic_CoordinationCleanupFailed" xml:space="preserve"><value>Coordination cleanup failed. The stored data result is unchanged; reset coordination in Settings before another online coordination.</value></data>
+  <data name="OperationDiagnostic_ApplicationClosing" xml:space="preserve"><value>The application is shutting down. Start another operation after shutdown is cancelled or the application restarts.</value></data>
+  <data name="OperationDiagnostic_RestoreCoordinationChanged" xml:space="preserve">
+    <value>World or coordination state changed. Nothing was restored. Exit the world and retry.</value>
+  </data>
 </root>

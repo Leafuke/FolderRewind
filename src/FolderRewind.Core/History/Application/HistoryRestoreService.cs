@@ -28,6 +28,7 @@ public sealed partial class HistoryRestoreService
     private readonly Func<CancellationToken, ValueTask<IAsyncDisposable>>? _finalGuard;
     internal Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, ValueTask<IAsyncDisposable>>? FinalGuardInsideOperation { get; init; }
     internal Func<SourceVersion, CancellationToken, Task>? ValidateVersionTarget { get; init; }
+    internal Func<CancellationToken, Task>? BeforeDestinationMutation { get; init; }
     internal ArchiveRestoreVerificationContext? VerificationContext { get; set; }
     internal bool UseTargetVolumeWorkspaces { get; init; }
     internal bool AllowDirectorySwap { get; init; } = true;
@@ -460,6 +461,7 @@ public sealed partial class HistoryRestoreService
             return await ExecuteTargetVolumeMutationAsync(preparationSession, prepared, currentWorkspace, desiredWorkspace, cancellationToken).ConfigureAwait(false);
         }
         var transactionId = commitPack?.TransactionId ?? HistoryTransactionId.New();
+        if (BeforeDestinationMutation is { } recheck) await recheck(cancellationToken).ConfigureAwait(false);
         var journal = new HistoryRestoreTransactionJournal(
             transactionId,
             HistoryRestoreTransactionPhase.Prepared,

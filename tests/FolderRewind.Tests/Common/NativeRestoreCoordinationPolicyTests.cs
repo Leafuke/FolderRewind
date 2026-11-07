@@ -54,6 +54,16 @@ public sealed class NativeRestoreCoordinationPolicyTests
     }
 
     [TestMethod]
+    public void SafetyPreparationBlockDoesNotBecomeAPostActionFailure()
+    {
+        var host = new HistoryRestoreResult(HistoryRestoreStatus.BlockedBeforeMutation, "world changed; retry", false, []);
+        var result = NativeRestoreCoordinationPolicy.Resolve(true, host, new(OperationOutcome.Blocked, []));
+        Assert.AreSame(host, result);
+        Assert.IsNull(result.PostActionDiagnostic);
+        Assert.IsFalse(result.WorkspaceUpdated);
+    }
+
+    [TestMethod]
     public void PostActionWarningPreservesNoChangeAndSuccessfulMutation()
     {
         foreach (var status in new[] { HistoryRestoreStatus.NoChanges, HistoryRestoreStatus.Committed })

@@ -8022,4 +8022,25 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="MergeProgress_Count" xml:space="preserve"><value>{0} · {1} / {2}</value></data>
   <data name="MergeProgress_ReadFiles" xml:space="preserve"><value>{0} · 已打开 {1} 个文件</value></data>
   <data name="MergeProgress_Items" xml:space="preserve"><value>{0} · {1} 项</value></data>
+  <data name="SettingsPage_MinecraftCoordinationTitle.Text" xml:space="preserve"><value>Minecraft 联动会话</value></data>
+  <data name="SettingsPage_MinecraftCoordinationDescription.Text" xml:space="preserve"><value>重置会恢复现有协议的兼容联动，无法验证历史回执的归属。普通降级备份和退出游戏后的离线操作仍可使用。</value></data>
+  <data name="SettingsPage_MinecraftCoordinationReset.Content" xml:space="preserve"><value>重置联动</value></data>
+  <data name="SettingsPage_MinecraftCoordinationReady" xml:space="preserve"><value>兼容联动已就绪</value></data>
+  <data name="SettingsPage_MinecraftCoordinationBusy" xml:space="preserve"><value>相关操作或清理正在进行，暂时不能重置</value></data>
+  <data name="SettingsPage_MinecraftCoordinationNeedsReset" xml:space="preserve"><value>会话状态不确定，在线联动已暂停，需要手动重置</value></data>
+  <data name="SettingsPage_MinecraftCoordinationResetDone" xml:space="preserve"><value>兼容联动已重置；下一次操作将重新握手。</value></data>
+  <data name="SettingsPage_MinecraftCoordinationResetFailed" xml:space="preserve"><value>未能重置联动：相关操作正在进行或结束信号仍未成功发送。</value></data>
+  <data name="OperationDiagnostic_WorldIdentityUnresolved" xml:space="preserve"><value>无法完整确认世界身份或占用状态。备份可能降级，修改目标前必须确认世界已退出。</value></data>
+  <data name="OperationDiagnostic_PlayerWorldUnresolved" xml:space="preserve"><value>无法明确确定要保留玩家数据的世界，本次还原已阻止。</value></data>
+  <data name="OperationDiagnostic_ScopeWorldUnresolved" xml:space="preserve"><value>无法明确解析世界及所选区域，已阻止备份以避免扩大范围。</value></data>
+  <data name="OperationDiagnostic_CoordinationNeedsReset" xml:space="preserve"><value>联动会话状态不确定，需要在设置中重置。允许降级的备份将继续，但不保证世界保存时点一致。</value></data>
+  <data name="OperationDiagnostic_CoordinationBusy" xml:space="preserve"><value>当前联动无法安全区分或协调这些活动世界；允许降级的备份使用原始捕获。</value></data>
+  <data name="OperationDiagnostic_CoordinationWindowExpired" xml:space="preserve"><value>本地联动捕获窗口已到期。允许降级的备份继续读取并校验文件；要求联动的捕获已中止。</value></data>
+  <data name="OperationDiagnostic_PrimaryMetadataMissing" xml:space="preserve"><value>世界的 level.dat 缺失，已按其余世界证据处理；请检查存档完整性。</value></data>
+  <data name="OperationDiagnostic_CoordinationDisconnected" xml:space="preserve"><value>捕获期间联动连接中断，本轮无法保证协调后的世界保存点。</value></data>
+  <data name="OperationDiagnostic_CoordinationCleanupFailed" xml:space="preserve"><value>联动清理失败，已存储的数据结果保持有效；请在设置中重置联动后再进行在线联动。</value></data>
+  <data name="OperationDiagnostic_ApplicationClosing" xml:space="preserve"><value>应用正在退出，请在取消退出或重新启动后再开始操作。</value></data>
+  <data name="OperationDiagnostic_RestoreCoordinationChanged" xml:space="preserve">
+    <value>恢复准备期间世界或联动状态已变化，尚未执行恢复写入。请退出世界后重试。</value>
+  </data>
 </root>

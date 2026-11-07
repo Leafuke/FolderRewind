@@ -337,7 +337,7 @@ public sealed class RestoreMaterializationCoordinator
                 effectiveMode,
                 readSession.ReadService,
                 workspace,
-                progress ?? NullPluginOperationProgress.Instance);
+                progress ?? NullPluginOperationProgress.Instance) { MaximumOutputBytes = bounded.MaximumBytes };
             RestoreMaterializationResult result;
             try
             {

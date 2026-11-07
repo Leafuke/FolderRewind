@@ -33,7 +33,7 @@ internal static partial class NativeArtifactAcceptance
         string SevenZip, string Source, string SourceId, bool Encrypted, string? Rclone = null, string? CrashAt = null,
         bool Incremental = true, int Iterations = 1, bool Lifecycle = false, bool Benchmark = false, int PreviousVersions = 0,
         bool ExperimentalDelivery = false, string? MigrationBundle = null, string? BaselinePackage = null, bool TypedFilters = false,
-        bool MergeUiSeed = false);
+        bool MergeUiSeed = false, bool CoordinationLifecycle = false, string? CoordinationDeadline = null, bool CoordinationReview = false);
     private static string? _crashAt;
     internal static Action<string>? Observation;
     internal static void Observe(string phase)
@@ -137,11 +137,21 @@ internal static partial class NativeArtifactAcceptance
                 manifest.EntryAssembly, manifest.EntryType, manifest.RequiredApi));
             await File.WriteAllTextAsync(Path.Combine(root, "temporary-scope"), Plugin.Runtime.Artifacts.OwnedPluginTemporaryStorage.ForLogicalRoot(
                 Path.Combine(root, "plugin-temp", manifest.PluginId.Value)));
+            IPluginHostServices hostServices = new PluginV3HostServices(manifest.PluginId, Path.Combine(root, "plugin-data"), Path.Combine(root, "plugin-temp"));
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+            if (request.CoordinationLifecycle || request.CoordinationDeadline is not null || request.CoordinationReview)
+                hostServices = _coordinationServices = new(hostServices, loaded.Instance, manifest.PluginId);
+#endif
             var activation = await PluginV3RuntimeService.ActivateAsync(new(manifest.PluginId, () => loaded.Instance,
                 new(manifest.PluginId, new Dictionary<string, JsonElement>()), [PluginV3ModelMapper.ToSnapshot(config)],
-                new PluginV3HostServices(manifest.PluginId, Path.Combine(root, "plugin-data"), Path.Combine(root, "plugin-temp")),
+                hostServices,
                 new PluginV3ActivationStore(), manifest));
             if (!activation.Success) throw new InvalidOperationException(JsonSerializer.Serialize(activation.Diagnostics));
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+            if (request.CoordinationReview) return await RunCoordinationReviewAsync(config, root);
+            if (request.CoordinationDeadline is not null) return await RunCoordinationDeadlineAsync(config, root, request.CoordinationDeadline);
+            if (request.CoordinationLifecycle) return await RunCoordinationLifecycleAsync(config, root);
+#endif
             if (request.MergeUiSeed) return await SeedMergeUiAsync(config, root);
             if (request.TypedFilters) return await RunTypedFilterMergeAsync(config, root);
             if (request.ExperimentalDelivery && request.Phase == "capture") return await RunExperimentalDeliveryAsync(config, root);

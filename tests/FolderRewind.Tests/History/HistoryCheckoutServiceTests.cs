@@ -11,6 +11,43 @@ public sealed class HistoryCheckoutServiceTests
 {
     private string _root = null!;
 
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task DomainSafetyIsRecheckedAfterProtectionBeforeEitherMutationBackendWrites(bool targetVolume)
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(configId, new HistoryRepositoryPaths(Path.Combine(_root, "safety-repository")));
+        await using var history = new HistoryRuntime(repository); await history.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = new SourceVersion(VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            CaptureScope.FullSource, CaptureOutcome.Captured, [], new SourceDescriptorSnapshot("source", "source"), null, HistoryProvenance.Native("test"));
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, Representation(version.VersionId) }.Select(fact => codec.CreateObject(fact))));
+        await history.EnsureIndexCurrentAsync();
+        var workspace = new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null));
+        await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+        var target = CreateTarget("safety-target", "old"); var protectedCurrent = false; var checks = 0;
+        var restore = new HistoryRestoreService(history, new([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), new FileSystemHistoryRestoreMutationBackend())
+        {
+            UseTargetVolumeWorkspaces = targetVolume,
+            ProtectCurrentWorkInsideOperation = (_, _, _) => { protectedCurrent = true; return Task.FromResult(workspace); },
+            BeforeDestinationMutation = _ =>
+            {
+                Assert.IsTrue(protectedCurrent); checks++;
+                Assert.AreEqual("old", File.ReadAllText(Path.Combine(target, "original.txt")));
+                throw new IOException("World became occupied while the Host prepared the restore.");
+            }
+        };
+        var result = await restore.RestoreVersionAsync(version.VersionId, new(sourceId, target), workspace, HistoryRestoreApplyMode.Clean);
+        Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, result.Status, result.Diagnostic);
+        Assert.AreEqual(1, checks); Assert.AreEqual("old", File.ReadAllText(Path.Combine(target, "original.txt")));
+        Assert.IsFalse(File.Exists(Path.Combine(target, "restored.txt")));
+        Assert.AreEqual(0L, (await history.WorkspaceStore.LoadAsync()).Value!.StateRevision);
+    }
+
     [TestInitialize]
     public void Initialize()
     {

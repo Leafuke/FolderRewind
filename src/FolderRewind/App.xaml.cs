@@ -170,6 +170,9 @@ namespace FolderRewind
 #if CLOUD_CREDENTIAL_UI_ACCEPTANCE
                 Services.Development.CloudCredentialUiAcceptance.Start(_window);
 #endif
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+                Services.Development.MinecraftCoordinationUiAcceptance.Start(_window);
+#endif
                 StartupTimingService.Mark("Window activated");
 #if NATIVE_ARTIFACT_ACCEPTANCE
                 Services.Development.PerformanceUiAcceptance.Start(_window);
@@ -593,7 +596,10 @@ namespace FolderRewind
                 await Services.AutomationService.StopAsync();
                 Services.MergeOperationService.BeginShutdown();
                 var deadline = DateTime.UtcNow.AddSeconds(30);
-                while (BackupService.ActiveTasks.Any(task => !task.IsCompleted) || Services.MergeOperationService.ActiveTasks.Length != 0)
+                while (BackupService.ActiveTasks.Any(task => !task.IsCompleted) || Services.MergeOperationService.ActiveTasks.Length != 0
+                    || Services.Plugins.V3.PluginV3BackupRunOwner.HasActiveRuns
+                    || Services.KnotLink.KnotLinkCoordinationChannel.HasActiveInteractions
+                    || Services.KnotLink.KnotLinkCoordinationChannel.Gate.IsBusy)
                 {
                     if (DateTime.UtcNow >= deadline)
                         throw new InvalidOperationException("请等待当前任务完成后退出或重启。 / Wait for active tasks before exiting or restarting.");

@@ -94,6 +94,14 @@ internal sealed class CapabilityRegistrationSet
                 recognized = true;
             }
 
+            if (capability is IBackupRunCoordinationCapability run)
+            {
+                if (run.Kind.OwnerId.Value != pluginId.Value)
+                    throw new InvalidOperationException("Backup run coordination owner mismatch.");
+                Add("backup-run-coordination", run.Kind.ToString(), capability);
+                recognized = true;
+            }
+
             if (capability is IBackupConsistencyCapability consistency)
             {
                 Add("backup-consistency", consistency.Kind.ToString(), capability);

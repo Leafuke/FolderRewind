@@ -6,6 +6,7 @@
 
 using System;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace FolderRewind.Services.KnotLink
 {
@@ -43,18 +44,18 @@ namespace FolderRewind.Services.KnotLink
             _signalId = signalId;
         }
 
-        public Task EmitAsync(string data)
+        public Task EmitAsync(string data, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(_appId) || string.IsNullOrEmpty(_signalId))
                 throw new InvalidOperationException("AppId and SignalId must be set before emitting.");
 
-            return EmitAsync(_appId, _signalId, data);
+            return EmitAsync(_appId, _signalId, data, cancellationToken);
         }
 
-        public Task EmitAsync(string appId, string signalId, string data)
+        public Task EmitAsync(string appId, string signalId, string data, CancellationToken cancellationToken = default)
         {
             string sKey = appId + "-" + signalId + "&*&";
-            return _client.SendAsync(sKey + data);
+            return _client.SendAsync(sKey + data, cancellationToken);
         }
 
         public void Dispose()

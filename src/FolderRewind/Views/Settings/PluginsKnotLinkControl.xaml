@@ -170,6 +170,20 @@
                             </Grid>
                         </toolkit:SettingsCard>
 
+                        <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch"
+                                              Visibility="{x:Bind ViewModel.HasMinecraftCoordination, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                              AutomationProperties.AutomationId="SettingsMinecraftCoordination">
+                            <StackPanel Spacing="8">
+                                <TextBlock x:Uid="SettingsPage_MinecraftCoordinationTitle" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                <TextBlock Text="{x:Bind ViewModel.MinecraftCoordinationText, Mode=OneWay}" TextWrapping="Wrap"
+                                           AutomationProperties.AutomationId="SettingsMinecraftCoordinationStatus" />
+                                <TextBlock x:Uid="SettingsPage_MinecraftCoordinationDescription" Style="{StaticResource SettingsDescriptionStyle}" TextWrapping="Wrap" />
+                                <Button x:Uid="SettingsPage_MinecraftCoordinationReset" HorizontalAlignment="Left"
+                                        AutomationProperties.AutomationId="SettingsMinecraftCoordinationReset"
+                                        Command="{x:Bind ViewModel.ResetMinecraftCoordinationCommand}" />
+                            </StackPanel>
+                        </toolkit:SettingsCard>
+
                         <!-- 服务端版本与状态 -->
                         <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
                             <Grid ColumnSpacing="8">

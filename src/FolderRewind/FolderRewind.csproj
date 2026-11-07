@@ -78,6 +78,13 @@
     <DebugType>None</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(FolderRewindFaultInjection)'=='true' and '$(NativeArtifactAcceptance)'=='true' and '$(MinecraftCoordinationUiAcceptance)'=='true'">
+    <DefineConstants>$(DefineConstants);MINECRAFT_COORDINATION_UI_ACCEPTANCE</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ValidateMinecraftCoordinationUiAcceptance" BeforeTargets="PrepareForBuild"
+          Condition="'$(MinecraftCoordinationUiAcceptance)'=='true' and ('$(FolderRewindFaultInjection)'!='true' or '$(NativeArtifactAcceptance)'!='true')">
+    <Error Text="Minecraft coordination UI acceptance requires isolated fault-injection and Native acceptance output." />
+  </Target>
 
   <!-- dotnet CLI 默认 Platform=AnyCPU，但打包 WinUI3 不允许中性架构；这里将 AnyCPU 映射为 x64。 -->
   <PropertyGroup Condition="'$(Platform)'=='' Or '$(Platform)'=='AnyCPU'">

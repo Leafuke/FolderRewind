@@ -134,6 +134,9 @@ namespace FolderRewind.Services
             string eventName,
             IReadOnlyDictionary<string, string?>? fields = null)
         {
+            if (NativeRestoreSafetyCaptureContext.Current is not null) return;
+            // Run coordination emits one authoritative game terminal after the entire History batch decides.
+            if (PluginV3BackupRunOwner.Current is not null && eventName is "backup_success" or "backup_failed") return;
             var context = KnotLinkService.CurrentCommandContext;
             var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
             {
@@ -153,6 +156,7 @@ namespace FolderRewind.Services
 
         private static void BroadcastBackupLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
         {
+            if (NativeRestoreSafetyCaptureContext.Current is not null) return;
             var context = KnotLinkService.CurrentCommandContext;
             if (context?.Metadata.HasConversation == true
                 && string.Equals(context.Command, "BACKUP", StringComparison.OrdinalIgnoreCase))
@@ -213,6 +217,9 @@ namespace FolderRewind.Services
                 ?? throw new InvalidOperationException("Independent recovery commit did not create a SafetySnapshot: " + result.Outcome + "; "
                     + (result.Diagnostic ?? result.RecoveryMessage ?? string.Join("; ", result.SourceOutcomes.Select(o => o.ErrorMessage))));
             // 每个载荷已按配置的备份验证等级在入库前验证；提交后不再无条件完整重验。
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+            Development.NativeArtifactAcceptance.Observe("restore-safety-capture-committed");
+#endif
             return snapshot;
         }
 
@@ -322,6 +329,10 @@ namespace FolderRewind.Services
             NativeHistoryConfigurationOperationGate.Lease operationLease,
             CancellationToken cancellationToken = default)
         {
+            var requestedCancellation = cancellationToken;
+            using var coordinatedCancellation = PluginV3BackupRunOwner.Current is { } runOwner
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, runOwner.CaptureCancellation) : null;
+            cancellationToken = coordinatedCancellation?.Token ?? cancellationToken;
             if (config == null || folder == null)
             {
                 return new BackupSourceExecutionOutcome
@@ -525,6 +536,7 @@ namespace FolderRewind.Services
 
             bool success = false;
             bool canceled = false;
+            bool coordinationBlocked = false;
             bool sourceUnavailable = false;
             string? generatedFileName = null;
             SourceCaptureResult? captureResult = null;
@@ -589,6 +601,13 @@ namespace FolderRewind.Services
             try
             {
                 await v3Session.AcquireConsistencyAsync(cancellationToken).ConfigureAwait(false);
+                void CancelLiveRead()
+                {
+                    if (PluginV3BackupRunOwner.Current?.IsSourceReadCompleted(sourceId.Value) != true) coordinatedCancellation?.Cancel();
+                }
+                using var domainCancellation = v3Session.SourceCaptureCancellation.Register(CancelLiveRead);
+                using var disconnected = v3Session.SourceCaptureCancellation.CanBeCanceled && PluginV3BackupRunOwner.Current is { } owner
+                    ? owner.ChannelInvalidation.Register(CancelLiveRead) : default;
                 await v3Session.PrepareMetadataRequirementsAsync(cancellationToken).ConfigureAwait(false);
                 captureInput = ReadCaptureInput(sourcePath, runtimeConfig, runtimeFolder, sourceId, effectiveBoundary, captureBaseline, cancellationToken);
                 captureInput.MetadataPaths = v3Session.MetadataPaths;
@@ -660,6 +679,10 @@ namespace FolderRewind.Services
                             var view = await captureInput.PrepareForModeAsync(plan.Input.AddedFiles.Concat(plan.Input.ModifiedFiles),
                                 runtimeConfig.Archive.SourceReadMode, protect: true, CaptureTemporaryRoot, cancellationToken).ConfigureAwait(false);
                             LogCaptureInput(view, view.IsCopy ? "copy" : "protected_direct", runtimeConfig.Id);
+                            if (view.IsCopy) PluginV3BackupRunOwner.Current?.ReportSourceReadCompleted(Guid.Parse(folder.Id));
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+                            Development.NativeArtifactAcceptance.Observe("native-direct-capture");
+#endif
                             captureResult = await NativeArtifactHostService.CaptureDirectAsync(runtimeConfig,
                                 v3Session.SourceResolution, plan, witness, effectiveBoundary, view.SourcePath, cancellationToken, v3Session.ArtifactOperation).ConfigureAwait(false);
                         }
@@ -761,10 +784,17 @@ namespace FolderRewind.Services
                 if (captureResult is not null && captureFence is not null)
                     captureResult = captureResult with { ConcurrencyFence = captureFence };
             }
+            catch (BackupCoordinationAdmissionRequiredException) { throw; }
+            catch (RestoreCoordinationChangedException error)
+            {
+                success = false; coordinationBlocked = true;
+                await RunOnUIAsync(() => task.ErrorMessage = error.Message);
+            }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                canceled = true;
+                canceled = requestedCancellation.IsCancellationRequested;
                 success = false;
+                if (!canceled) task.ErrorMessage = I18n.GetString(PluginV3BackupRunOwner.Current?.CancellationMessageKey ?? "OperationDiagnostic_CoordinationDisconnected");
             }
             catch (Exception ex)
             {
@@ -778,7 +808,19 @@ namespace FolderRewind.Services
                 await RunOnUIAsync(() => { if (string.IsNullOrEmpty(task.ErrorMessage)) task.ErrorMessage = message; });
             }
 
-            var operationDiagnostics = v3Session.Diagnostics.ToList();
+            var expiredLiveRead = v3Session.SourceCaptureCancellation.IsCancellationRequested
+                && PluginV3BackupRunOwner.Current?.IsSourceReadCompleted(sourceId.Value) != true;
+            PluginV3BackupRunOwner.Current?.ReportSourceReadCompleted(Guid.Parse(folder.Id));
+            if (!requestedCancellation.IsCancellationRequested && (coordinatedCancellation?.IsCancellationRequested == true
+                || expiredLiveRead))
+            {
+                success = false;
+                task.ErrorMessage = I18n.GetString(PluginV3BackupRunOwner.Current!.CancellationMessageKey);
+            }
+            var operationDiagnostics = v3Session.Diagnostics.Concat(PluginV3BackupRunOwner.Current?.DiagnosticsForSource(Guid.Parse(folder.Id)) ?? []).ToList();
+            if (coordinationBlocked)
+                operationDiagnostics.Add(new("restore.coordination_changed", DiagnosticSeverity.Error, "RestoreCoordinator", "folderrewind.core",
+                    new Dictionary<string, string> { ["message"] = task.ErrorMessage }));
             try { captureInput?.Dispose(); }
             catch (Exception cleanupError)
             {
@@ -830,9 +872,9 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(
                     folder,
                     BackupSourceExecutionStatus.Failed,
-                    errorMessage: task.ErrorMessage, userFacingError: false,
+                    errorMessage: task.ErrorMessage, userFacingError: coordinationBlocked,
                     captureResult: captureResult,
-                    operationOutcome: canceled ? OperationOutcome.Canceled : OperationOutcome.Failed,
+                    operationOutcome: coordinationBlocked ? OperationOutcome.Blocked : canceled ? OperationOutcome.Canceled : OperationOutcome.Failed,
                     warningDiagnostics: operationDiagnostics,
                     task: task);
             }
@@ -887,7 +929,13 @@ namespace FolderRewind.Services
             EffectiveSourceBoundarySnapshot authoritativeBoundary,
             BackupSourceExecutionOutcome outcome)
         {
-            if (outcome.CaptureResult is not null) return outcome.CaptureResult;
+            if (outcome.CaptureResult is { } captured)
+            {
+                var warnings = outcome.WarningDiagnostics.Where(d => !captured.Diagnostics.Any(existing => existing.Code == d.Code))
+                    .Select(d => new HistoryDiagnostic(d.Code, HistoryDiagnosticSeverity.Warning,
+                        d.Arguments.GetValueOrDefault("message") ?? d.Code));
+                return captured.WithVersionMetadata(captured.VersionMetadataCandidates, warnings);
+            }
             var sourceId = Guid.TryParse(folder.Id, out var parsed) && parsed != Guid.Empty
                 ? new SourceId(parsed)
                 : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
@@ -919,7 +967,8 @@ namespace FolderRewind.Services
                 expectedWorkspaceRevision: -1,
                 expectedBaseVersionId: null,
                 cleanupHandle: null,
-                diagnostics: diagnostic,
+                diagnostics: diagnostic.Concat(outcome.ErrorDiagnostics.Select(d => new HistoryDiagnostic(d.Code, HistoryDiagnosticSeverity.Error,
+                    d.Arguments.GetValueOrDefault("message") ?? d.Code))),
                 effectiveSourceBoundary: authoritativeBoundary);
         }
 

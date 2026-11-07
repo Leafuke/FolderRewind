@@ -47,6 +47,11 @@ public static partial class BackupService
         // Optional metadata guards do not make the entire live source a stable view.
         view.TryProtectMetadata(input.MetadataPaths);
         LogCaptureInput(view, view.IsCopy ? "copy" : "direct", config.Id);
+        if (view.IsCopy && PluginV3BackupRunOwner.Current is { } run)
+        {
+            var source = config.SourceFolders.SingleOrDefault(f => StringComparer.OrdinalIgnoreCase.Equals(f.Path, input.OriginalRoot));
+            if (source is not null) run.ReportSourceReadCompleted(Guid.Parse(source.Id));
+        }
         return view;
     }
 

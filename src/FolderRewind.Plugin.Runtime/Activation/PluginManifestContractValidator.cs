@@ -22,6 +22,8 @@ public static class PluginManifestContractValidator
         RequireUnique(manifest.ArtifactTransformers.Select(value => value.TransformerId), "Artifact Transformer");
         RequireUnique(manifest.RestoreStrategies.Select(value => value.RestoreStrategyId), "Restore Strategy");
         RequireUnique(manifest.MergeProviders.Select(value => value.ProviderId), "Merge Provider");
+        if (manifest.Capabilities.Contains(PluginCapabilityKind.BackupRunCoordination) && manifest.RequiredApi.Minor < 18)
+            throw new InvalidDataException("Backup run coordination requires API 3.18.");
         if (manifest.Capabilities.Any(c => c is PluginCapabilityKind.SpatialComparison or PluginCapabilityKind.SpatialScopeSelection)
             && !new PluginApiVersion(3, 14).IsSatisfiedBy(manifest.RequiredApi))
             throw new InvalidDataException("Spatial workspace capabilities require API 3.14.");
@@ -143,6 +145,9 @@ public static class PluginManifestContractValidator
         CapabilityRegistrationSet registrations)
     {
         var runtimeKinds = registrations.Capabilities.SelectMany(GetKinds).Distinct().ToHashSet();
+        if (registrations.Capabilities.OfType<IBackupRunCoordinationCapability>()
+            .Any(c => !manifest.ConfigKinds.Any(k => k.Kind == c.Kind)))
+            throw new InvalidDataException("Backup run coordination Kind is not declared by the Manifest.");
         if (!runtimeKinds.SetEquals(manifest.Capabilities))
         {
             throw new InvalidDataException("Runtime capability registrations do not match the static Manifest.");
@@ -183,6 +188,7 @@ public static class PluginManifestContractValidator
 
     private static IEnumerable<PluginCapabilityKind> GetKinds(IPluginCapability capability)
     {
+        if (capability is IBackupRunCoordinationCapability) yield return PluginCapabilityKind.BackupRunCoordination;
         if (capability is ISpatialComparisonCapability) yield return PluginCapabilityKind.SpatialComparison;
         if (capability is ISpatialScopeSelectionCapability) yield return PluginCapabilityKind.SpatialScopeSelection;
         if (capability is IMergeProviderCapability) yield return PluginCapabilityKind.MergeProvider;

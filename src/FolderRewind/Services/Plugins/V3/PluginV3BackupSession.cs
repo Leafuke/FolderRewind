@@ -26,6 +26,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     private readonly PluginV3BackupSourceResolution _resolution;
     private readonly List<PluginDiagnostic> _diagnostics;
     private PluginOperationLease? _artifactOperation;
+    private IConsistencyLease? _runSourceLease;
     private IReadOnlyList<string> _metadataPaths = [];
     internal PluginOperationLease? ArtifactOperation => _artifactOperation;
 
@@ -42,8 +43,9 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public EffectiveSourceBoundarySnapshot EffectiveBoundary => _resolution.EffectiveBoundary;
     public IReadOnlyList<PluginDiagnostic> Diagnostics => _diagnostics;
     public bool IsBlocked => _resolution.IsBlocked;
-    public string SourcePath => _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
+    public string SourcePath => _runSourceLease?.SourcePath ?? _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
     public bool HasStableSourceView => _captureLeaseOwner.StableSourcePath is not null;
+    internal CancellationToken SourceCaptureCancellation => _runSourceLease?.CaptureCancellation ?? CancellationToken.None;
     public IReadOnlyList<string> MetadataPaths => _metadataPaths;
 
     public async ValueTask PrepareMetadataRequirementsAsync(CancellationToken token)
@@ -87,6 +89,20 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         if (NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(EffectiveConfig.ArtifactTransformPolicy))
             _artifactOperation = PluginV3RuntimeService.Runtime.TryAcquireOperation(new(EffectiveConfig.ArtifactTransformPolicy!.Transformer.PluginId), cancellationToken)
                 ?? throw new InvalidOperationException("Native operation session unavailable.");
+        if (NativeRestoreSafetyCaptureContext.Current is { } restoreCapture)
+        {
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+            Development.NativeArtifactAcceptance.Observe("restore-safety-source-read");
+#endif
+            await restoreCapture.ValidateAsync(cancellationToken, EffectiveConfig.Id, _resolution.FolderSnapshot.FolderId).ConfigureAwait(false);
+            return;
+        }
+        if (PluginV3BackupRunOwner.Current is { } run && run.ConfigId == EffectiveConfig.Id)
+        {
+            _runSourceLease = await run.AcquireAsync(_resolution, cancellationToken).ConfigureAwait(false);
+            _diagnostics.AddRange(_runSourceLease.Diagnostics);
+            return;
+        }
         await _captureLeaseOwner.AcquireAsync(
             PluginV3RuntimeService.Runtime,
             _resolution.PluginId.Value,
@@ -201,7 +217,12 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
 
     public async ValueTask CompleteCaptureAsync()
     {
-        try { await _captureLeaseOwner.CompleteAsync().ConfigureAwait(false); }
+        try
+        {
+            var runLease = Interlocked.Exchange(ref _runSourceLease, null);
+            if (runLease is not null) await runLease.DisposeAsync().ConfigureAwait(false);
+            await _captureLeaseOwner.CompleteAsync().ConfigureAwait(false);
+        }
         finally { System.Threading.Interlocked.Exchange(ref _artifactOperation, null)?.Dispose(); }
     }
 

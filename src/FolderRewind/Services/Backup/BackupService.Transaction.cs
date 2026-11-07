@@ -20,7 +20,7 @@ public static partial class BackupService
 {
     internal sealed class BackupTransactionExecutionResult
     {
-        public OperationOutcome Outcome { get; init; } = OperationOutcome.Failed;
+        public OperationOutcome Outcome { get; set; } = OperationOutcome.Failed;
         public bool CreatedNewArchive { get; init; }
         public IReadOnlyList<BackupSourceExecutionOutcome> SourceOutcomes { get; init; } = Array.Empty<BackupSourceExecutionOutcome>();
         public HistoryCommitBatch? CommittedBatch { get; init; }
@@ -28,6 +28,7 @@ public static partial class BackupService
         public bool HistoryRecoveryRequired { get; init; }
         public string? RecoveryMessage { get; init; }
         public string? Diagnostic { get; init; }
+        public IReadOnlyList<PluginDiagnostic> CompletionDiagnostics { get; set; } = [];
 
         public PluginBackupRequestResult ToPluginResult() => new(
             HistoryRecoveryRequired && Outcome != OperationOutcome.RecoveryRequired
@@ -314,9 +315,29 @@ public static partial class BackupService
                     operationRuntime,
                     operationLease,
                     cancellationToken).ConfigureAwait(false);
+                if (PluginV3BackupRunOwner.Current is { } run)
+                {
+                    run.ReportSourceReadCompleted(Guid.Parse(folder.Id));
+                    var warnings = run.DiagnosticsForSource(Guid.Parse(folder.Id)).Where(d => d.Severity == DiagnosticSeverity.Warning).ToArray();
+                    if (warnings.Length > 0)
+                    {
+                        outcome.WarningDiagnostics = outcome.WarningDiagnostics.Concat(warnings).Distinct().ToArray();
+                        if (outcome.OperationOutcome == OperationOutcome.Success) outcome.OperationOutcome = OperationOutcome.SuccessWithWarnings;
+                    }
+                }
                 sourceOutcomes.Add(outcome);
                 if (outcome.OperationOutcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.RecoveryRequired)
                     BackupNotificationBatch.Current?.Failed(folder, outcome.ErrorMessage);
+                if (NativeRestoreSafetyCaptureContext.Current is not null && outcome.OperationOutcome == OperationOutcome.Blocked)
+                {
+                    terminalLifecycle.Set(CreateFailedTerminal("restore_coordination_changed", outcome.ErrorMessage));
+                    await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
+                    await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, outcome.ErrorMessage).ConfigureAwait(false);
+                    return new BackupTransactionExecutionResult
+                    {
+                        Outcome = OperationOutcome.Blocked, SourceOutcomes = sourceOutcomes, Diagnostic = outcome.ErrorMessage
+                    };
+                }
             }
 
             // 如果有被取消的 Source，执行回滚清理
@@ -419,6 +440,11 @@ public static partial class BackupService
                 await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, ex.Message).ConfigureAwait(false);
                 return BackupTransactionExecutionResult.Failed(sourceOutcomes, ex.Message);
             }
+        }
+        catch (BackupCoordinationAdmissionRequiredException)
+        {
+            await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
+            throw;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
