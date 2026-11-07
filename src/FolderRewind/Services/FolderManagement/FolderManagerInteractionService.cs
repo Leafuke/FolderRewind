@@ -63,7 +63,8 @@ internal sealed class FolderManagerInteractionService(Func<XamlRoot?> root) : IF
         var loading = dialog.InitializeAsync(config, folder);
         TaskObserver.Observe(loading, nameof(FolderDetailsDialog));
         await AppDialogService.Default.ShowCustomAsync(dialog, root(), token);
-        await loading;
+        try { await loading; }
+        catch (OperationCanceledException) when (loading.IsCanceled) { }
     }
     public Task ShowConfigSettingsAsync(BackupConfig config, CancellationToken token)
     {

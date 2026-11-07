@@ -61,6 +61,8 @@ internal sealed class CapabilityRegistrationSet
             }
             if (capability is ISpatialPreviewCapability spatial)
             {
+                if (spatial is not ISpatialPreviewDemandCapability)
+                    throw new InvalidDataException("Spatial preview providers must implement ISpatialPreviewDemandCapability. Upgrade the plugin.");
                 if (spatial.Kind.OwnerId.Value != pluginId.Value)
                     throw new InvalidOperationException("Spatial previews must be owned by the Config Kind owner.");
                 Add("spatial-preview", spatial.Kind.ToString(), capability);

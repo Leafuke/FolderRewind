@@ -8043,4 +8043,7 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="OperationDiagnostic_RestoreCoordinationChanged" xml:space="preserve">
     <value>恢复准备期间世界或联动状态已变化，尚未执行恢复写入。请退出世界后重试。</value>
   </data>
+  <data name="FolderDetailsDialog_ReadNotice" xml:space="preserve"><value>读取提示</value></data>
+  <data name="FolderDetailsDialog_ReadIncomplete" xml:space="preserve"><value>部分信息未能完整读取。</value></data>
+  <data name="OperationDiagnostic_SemanticCoverageLimited" xml:space="preserve"><value>已保留原始字节，但部分世界数据无法完整解析。请检查缺失的外部区块、不支持的格式或损坏的数据。</value></data>
 </root>

@@ -17,6 +17,8 @@ public static class PluginManifestContractValidator
         }
         RequireUnique(manifest.RequestedHostServices, "requested Host service");
         RequireUnique(manifest.Capabilities, "capability");
+        if (manifest.Capabilities.Contains(PluginCapabilityKind.SpatialPreview) && manifest.RequiredApi.Minor < 18)
+            throw new InvalidDataException("Spatial preview requires the API 3.18 demand contract. Upgrade the plugin.");
         RequireUnique(manifest.ConfigKinds.Select(value => value.Kind), "Config Kind");
         RequireUnique(manifest.ArtifactFormats.Select(value => value.Format), "Artifact Format");
         RequireUnique(manifest.ArtifactTransformers.Select(value => value.TransformerId), "Artifact Transformer");
@@ -145,6 +147,8 @@ public static class PluginManifestContractValidator
         CapabilityRegistrationSet registrations)
     {
         var runtimeKinds = registrations.Capabilities.SelectMany(GetKinds).Distinct().ToHashSet();
+        if (registrations.Capabilities.OfType<ISpatialPreviewCapability>().Any(p => p is not ISpatialPreviewDemandCapability))
+            throw new InvalidDataException("Spatial preview providers must implement ISpatialPreviewDemandCapability. Upgrade the plugin.");
         if (registrations.Capabilities.OfType<IBackupRunCoordinationCapability>()
             .Any(c => !manifest.ConfigKinds.Any(k => k.Kind == c.Kind)))
             throw new InvalidDataException("Backup run coordination Kind is not declared by the Manifest.");

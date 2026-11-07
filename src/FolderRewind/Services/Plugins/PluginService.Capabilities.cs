@@ -66,10 +66,10 @@ public static partial class PluginService
         {
             var configSnapshot = PluginV3ModelMapper.ToSnapshot(config);
             var folderSnapshot = PluginV3ModelMapper.ToSnapshot(config.Id, folder);
-            var result = await lease.Capability.ReadAsync(
-                new FolderMetadataRequest(configSnapshot, folderSnapshot),
-                lease.Context).ConfigureAwait(false);
-            if (result.Fields.Count == 0) return Array.Empty<FolderDetailsSection>();
+            var result = await Task.Run(async () => await lease.Capability.ReadAsync(
+                new FolderMetadataRequest(configSnapshot, folderSnapshot), lease.Context), cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (result.Fields.Count == 0 && result.Diagnostics.Count == 0) return Array.Empty<FolderDetailsSection>();
 
             var fieldKeys = new HashSet<string>(StringComparer.Ordinal);
             var items = new List<FolderDetailsItem>(result.Fields.Count);
@@ -89,6 +89,13 @@ public static partial class PluginService
                     Value = ResolveLocalizedText(field.Value, string.Empty)
                 });
             }
+            foreach (var diagnostic in result.Diagnostics)
+                items.Add(new FolderDetailsItem
+                {
+                    Label = I18n.GetString("FolderDetailsDialog_ReadNotice"),
+                    Value = I18n.PickBest(diagnostic.Arguments, I18n.GetString("FolderDetailsDialog_ReadIncomplete"))
+                        ?? I18n.GetString("FolderDetailsDialog_ReadIncomplete")
+                });
             if (items.Count == 0) return Array.Empty<FolderDetailsSection>();
 
             var title = ResolveConfigKindOption(config).DisplayName;
@@ -101,7 +108,7 @@ public static partial class PluginService
                 }
             ];
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
             throw;
         }
@@ -111,7 +118,15 @@ public static partial class PluginService
                 $"v3 folder metadata failed for '{pluginId.Value}': {ex.Message}",
                 nameof(PluginService),
                 ex);
-            return Array.Empty<FolderDetailsSection>();
+            return [new FolderDetailsSection
+            {
+                Title = ResolveConfigKindOption(config).DisplayName,
+                Items = new ObservableCollection<FolderDetailsItem>
+                {
+                    new() { Label = I18n.GetString("FolderDetailsDialog_ReadNotice"),
+                        Value = I18n.GetString("FolderDetailsDialog_ReadIncomplete"), IsError = true }
+                }
+            }];
         }
     }
 

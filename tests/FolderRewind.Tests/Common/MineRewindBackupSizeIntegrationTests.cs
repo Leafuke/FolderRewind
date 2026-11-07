@@ -33,7 +33,7 @@ public sealed class MineRewindBackupSizeIntegrationTests
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "AGENTS.md"))) repo = repo.Parent;
         Assert.IsNotNull(repo);
-        var package = BundledMineRewindPackage.Resolve(Path.Combine(repo.FullName, "src", "FolderRewind"));
+        var package = MineRewindIntegrationPackage.Resolve(Path.Combine(repo.FullName, "src", "FolderRewind"));
         var pluginPath = Path.Combine(root, "plugin"); ZipFile.ExtractToDirectory(package, pluginPath);
         var manifest = PluginPackageManifestReader.Parse(await File.ReadAllBytesAsync(Path.Combine(pluginPath, "manifest.json"))).Contract;
         var context = new PackageContext(pluginPath);

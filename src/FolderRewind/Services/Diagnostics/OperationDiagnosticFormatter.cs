@@ -75,6 +75,7 @@ internal static class OperationDiagnosticFormatter
             "minerewind.restore_multiple_active_worlds" => "OperationDiagnostic_RestoreMultipleWorlds",
             "minerewind.restore_coordination_failed" => "OperationDiagnostic_RestoreCoordinationFailed",
             "minerewind.restore_rejoin_failed" => "OperationDiagnostic_RestoreRejoinFailed",
+            "minerewind.full.semantic_coverage_limited" or "minerewind.incremental.semantic_coverage_limited" => "OperationDiagnostic_SemanticCoverageLimited",
             "minerewind.consistency_raw_source" => "OperationDiagnostic_ConsistencyRawSource",
             "minerewind.consistency_handshake_unavailable" => "OperationDiagnostic_ConsistencyHandshakeUnavailable",
             "minerewind.consistency_save_timeout" => "OperationDiagnostic_ConsistencySaveTimeout",

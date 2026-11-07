@@ -6,7 +6,7 @@ using FolderRewind.Plugin.Runtime.Operations;
 namespace FolderRewind.Plugin.Runtime.Tests;
 
 [TestClass]
-public sealed class PluginVerticalSliceTests
+public sealed partial class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
@@ -216,7 +216,11 @@ public sealed class PluginVerticalSliceTests
         var (config, folder) = Snapshot(FakeKind, "C:\\Data");
         var dispatcher = new SpatialPreviewDispatcher(fixture.Manager);
         using var cancellation = new CancellationTokenSource();
-        var render = dispatcher.RenderAsync(new(new(config, folder, Guid.NewGuid()), "layer", 0, 0, 1, null), cancellation.Token).AsTask();
+        var source = new SpatialPreviewSource(config, folder, Guid.NewGuid());
+        await dispatcher.DescribeAsync(source, default);
+        var tile = new SpatialPreviewTileRequest(source, "layer", 0, 0, 1, null) { ViewId = Guid.NewGuid(), DemandRevision = 1 };
+        await dispatcher.UpdateDemandAsync(new(source, tile.ViewId, 1, [tile]), default);
+        var render = dispatcher.RenderAsync(tile, cancellation.Token).AsTask();
         await plugin.PreviewStarted.Task;
         Assert.AreEqual(1, fixture.Manager.GetSnapshot(FakePluginId).ActiveLeases);
         cancellation.Cancel();
@@ -368,10 +372,13 @@ public sealed class PluginVerticalSliceTests
         IBackupConsistencyCapability,
         IRestoreCoordinatorCapability,
         IPluginCommandCapability,
-        ISpatialPreviewCapability
+        ISpatialPreviewDemandCapability
     {
         public TaskCompletionSource PreviewStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public SpatialPreviewBounds? PreviewBounds { get; set; }
+        public int AppliedDemands { get; private set; }
+        public ValueTask UpdateDemandAsync(SpatialPreviewDemand demand, PluginInvocationContext context)
+        { AppliedDemands++; return ValueTask.CompletedTask; }
         public ValueTask<SpatialPreviewDescription> DescribeAsync(SpatialPreviewSource source, PluginInvocationContext context)
             => ValueTask.FromResult(new SpatialPreviewDescription(
                 [new("layer", new("Layer", new Dictionary<string, string>()), new(0, 0, 16, 16), 1, 16, null) { CoordinateBounds = PreviewBounds }],

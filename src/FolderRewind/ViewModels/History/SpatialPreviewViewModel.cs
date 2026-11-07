@@ -166,6 +166,9 @@ public sealed partial class SpatialPreviewViewModel : CommunityToolkit.Mvvm.Comp
             Navigation = navigation;
             foreach (var target in navigation.Targets) Targets.Add(new(target, Layers.FirstOrDefault(l => l.Layer.Id == target.LayerId)?.Name ?? target.LayerId));
             NavigationStatus = Targets.Count == 0 ? I18n.GetString("Preview_NoTargets") : I18n.GetString("Preview_SavedPosition");
+            if (navigation.Diagnostics.Count > 0)
+                NavigationStatus += " · " + string.Join(" · ", navigation.Diagnostics.Select(d =>
+                    I18n.PickBest(d.Arguments, I18n.GetString("FolderDetailsDialog_ReadIncomplete"))));
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (_epoch.IsCurrent(revision)) NavigationStatus = I18n.GetString("Preview_Failed"); LogService.LogWarning(ex.ToString(), "SpatialPreview"); }

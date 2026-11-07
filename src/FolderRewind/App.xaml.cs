@@ -172,6 +172,7 @@ namespace FolderRewind
 #endif
 #if MINECRAFT_COORDINATION_UI_ACCEPTANCE
                 Services.Development.MinecraftCoordinationUiAcceptance.Start(_window);
+                Services.Development.MinecraftReadUiAcceptance.Start(_window);
 #endif
                 StartupTimingService.Mark("Window activated");
 #if NATIVE_ARTIFACT_ACCEPTANCE

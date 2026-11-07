@@ -8043,4 +8043,7 @@ Affected projects: {1}</value></data>
   <data name="OperationDiagnostic_RestoreCoordinationChanged" xml:space="preserve">
     <value>World or coordination state changed. Nothing was restored. Exit the world and retry.</value>
   </data>
+  <data name="FolderDetailsDialog_ReadNotice" xml:space="preserve"><value>Read notice</value></data>
+  <data name="FolderDetailsDialog_ReadIncomplete" xml:space="preserve"><value>Some information could not be read completely.</value></data>
+  <data name="OperationDiagnostic_SemanticCoverageLimited" xml:space="preserve"><value>Raw bytes were preserved, but some world data cannot be fully interpreted. Check missing external chunks, unsupported formats or damaged data.</value></data>
 </root>

@@ -13,6 +13,16 @@ public interface ISpatialPreviewCapability : IPluginCapability
     ValueTask CloseAsync(SpatialPreviewSource source, PluginInvocationContext context) => ValueTask.CompletedTask;
 }
 
+/// <summary>Required for spatial preview providers from API 3.18. Updates are light-weight and never perform source I/O.</summary>
+public interface ISpatialPreviewDemandCapability : ISpatialPreviewCapability
+{
+    ValueTask UpdateDemandAsync(SpatialPreviewDemand demand, PluginInvocationContext context);
+}
+
+/// <summary>A complete, priority-ordered replacement for one view's demand. Empty Tiles releases the view.</summary>
+public sealed record SpatialPreviewDemand(SpatialPreviewSource Source, Guid ViewId, long Revision,
+    IReadOnlyList<SpatialPreviewTileRequest> Tiles);
+
 /// <summary>Generation identifies a browsing snapshot, not an atomic filesystem snapshot. Refresh starts a new generation.</summary>
 public sealed record SpatialPreviewSource(ConfigSnapshot Config, FolderSnapshot Folder, Guid Generation)
 {
@@ -63,12 +73,15 @@ public sealed record SpatialPreviewTarget(string Id, LocalizedText Group, Locali
 public sealed record SpatialPreviewNavigation(IReadOnlyList<SpatialPreviewTarget> Targets, string? DefaultTargetId)
 {
     public string? QuickTargetId { get; init; }
+    public IReadOnlyList<PluginDiagnostic> Diagnostics { get; init; } = [];
 }
 
 /// <summary>Square world tile: origin and units-per-pixel are in provider coordinates. PixelSize is 256.</summary>
 public sealed record SpatialPreviewTileRequest(SpatialPreviewSource Source, string LayerId,
     double OriginX, double OriginY, double UnitsPerPixel, int? MaximumHeight)
 {
+    public Guid ViewId { get; init; }
+    public long DemandRevision { get; init; }
     public string? ViewModeId { get; init; }
     public bool ShowStatusOverlay { get; init; }
 }

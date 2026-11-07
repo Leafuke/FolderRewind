@@ -6,6 +6,7 @@ namespace FolderRewind.Plugin.Runtime.Activation;
 
 public sealed class PluginRuntimeManager
 {
+    internal Operations.SpatialPreviewDemands PreviewDemands { get; } = new();
     private readonly SemaphoreSlim _transitionGate = new(1, 1);
     private readonly CapabilityRegistry _registry = new();
     private readonly ConcurrentDictionary<PluginId, PluginRuntimeSession> _sessions = new();
@@ -359,6 +360,7 @@ public sealed class PluginRuntimeManager
             }
 
             session.BeginDeactivation();
+            PreviewDemands.Clear(pluginId);
             _registry.Remove(pluginId);
             _sessions.TryRemove(pluginId, out _);
             var alreadyRequiresRestart = _status.TryGetValue(pluginId, out var priorStatus)

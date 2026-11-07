@@ -32,9 +32,7 @@ public sealed class SemanticMergeIntegrationTests
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !Directory.Exists(Path.Combine(repo.FullName, "src", "FolderRewind", "Assets", "Plugins"))) repo = repo.Parent;
         Assert.IsNotNull(repo);
-        using var preset = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo.FullName, "src", "FolderRewind", "Assets", "PluginPresets", "minecraft-enhanced-experience.v1.json")));
-        var relative = preset.RootElement.GetProperty("actions").EnumerateArray().Single(a => a.GetProperty("id").GetString() == "install-minerewind").GetProperty("packagePath").GetString()!;
-        var package = Path.Combine(repo.FullName, "src", "FolderRewind", relative);
+        var package = MineRewindIntegrationPackage.Resolve(Path.Combine(repo.FullName, "src", "FolderRewind"));
         var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(package)));
         Assert.AreEqual(hash, File.ReadAllText(package + ".sha256").Trim().Split(' ')[0].ToUpperInvariant());
         var extraction = Path.Combine(AppContext.BaseDirectory, "merge-package-fixtures", Guid.NewGuid().ToString("N"));
