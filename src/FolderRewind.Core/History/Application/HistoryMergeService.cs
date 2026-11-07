@@ -1,5 +1,6 @@
 using FolderRewind.History.Representation;
 using FolderRewind.History.Domain;
+using FolderRewind.History.Storage;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
 using FolderRewind.Plugin.Runtime.Artifacts;
@@ -109,7 +110,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 destination += "-" + Guid.NewGuid().ToString("N"); Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 Directory.Move(prepared.StagingDirectory, destination);
                 var tree = (await MergeTreeManifest.ReadAsync(destination, FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
-                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false))
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true),
+                new HistoryRestoreTreeScope(binding).MayDescend).ConfigureAwait(false))
                     with { InputRepresentationId = prepared.InputRepresentationId, HasCompleteDirectoryInventory = prepared.HasCompleteDirectoryInventory };
                 cache.Add(id, tree); progress.Report(MergePreparationStage.PreparingHistory, cache.Count, versionCount); return tree;
             }

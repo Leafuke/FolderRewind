@@ -2,6 +2,7 @@ using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
+using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins.V3;
 using System;
@@ -53,7 +54,8 @@ internal static partial class NativeHistoryApplicationService
             var exists = Directory.Exists(binding.TargetDirectory);
             var live = exists ? await MergeTreeManifest.ReadAsync(binding.TargetDirectory,
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
-                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false) : MergeTreeManifest.Empty;
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true),
+                new HistoryRestoreTreeScope(binding).MayDescend).ConfigureAwait(false) : MergeTreeManifest.Empty;
             branchChanges.AddRange(MergeReviewSnapshot.Compare(oursTree, result));
             workingChanges.AddRange(MergeReviewSnapshot.Compare(live, result));
             targets.Add(new(binding.SourceId, binding.TargetDirectory, exists, live.Digest));

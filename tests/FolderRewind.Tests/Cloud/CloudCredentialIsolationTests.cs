@@ -190,7 +190,7 @@ public sealed class CloudCredentialIsolationTests
         File.WriteAllText(Path.Combine(real, "test.conf"), "[test]\ntype = local\n");
         var link = Path.Combine(_root, "link"); Directory.CreateSymbolicLink(link, real);
         var source = Path.Combine(link, "test.conf");
-        var failure = Assert.ThrowsExactly<InvalidOperationException>(() => RcloneCredentialRefresh.RejectReparsePoints(source));
+        var failure = Assert.ThrowsExactly<InvalidOperationException>(() => RcloneCredentialRefresh.RejectReparsePoints(source, _root));
         var details = RcloneConnectionDiagnostics.Details(failure)!;
         Assert.AreEqual("connection.path-unsafe", details.Code); Assert.AreEqual(1, details.AncestorDepth);
         Assert.AreNotEqual(0, details.Attributes & (int)FileAttributes.ReparsePoint);
@@ -250,6 +250,64 @@ public sealed class CloudCredentialIsolationTests
         Assert.IsNull(CloudConnectionNavigationPolicy.FindProfile([profile], "missing"));
         Assert.IsNull(CloudConnectionNavigationPolicy.FindProfile([profile, profile], "existing"));
         Assert.AreSame(profile, CloudConnectionNavigationPolicy.FindProfile([profile], "existing"));
+    }
+
+    [TestMethod]
+    [DataRow("webdav", true)]
+    [DataRow("box", false)]
+    public async Task UncertainStaticWebDavTaskDoesNotDisableCredentialsOrReplayTheOldTask(string backend, bool reusable)
+    {
+        var source = Config("starting", "[test]\ntype = " + backend + "\nurl = https://example.invalid/\n"
+            + (backend == "box" ? "token = {\"access_token\":\"old\"}\n" : "vendor = other\nuser = synthetic\npass = synthetic\n"));
+        string directory;
+        using (var context = Context(source))
+        {
+            directory = context.TaskDirectory;
+            await using var lease = await RcloneCredentialRefresh.BeginAsync(context.CreateStartInfo(["version"]), default);
+            await lease!.StartingAsync(default);
+        }
+        var attempt = File.ReadAllBytes(Path.Combine(directory, "attempt.json"));
+        if (reusable) await RcloneCredentialRefresh.PrepareStoreAsync(source, Tasks, true, default);
+        else
+        {
+            var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => RcloneCredentialRefresh.PrepareStoreAsync(source, Tasks, true, default));
+            Assert.AreEqual("connection.refresh-conflict", RcloneConnectionDiagnostics.Code(error));
+        }
+        CollectionAssert.AreEqual(attempt, File.ReadAllBytes(Path.Combine(directory, "attempt.json")));
+        Assert.IsTrue(File.Exists(Path.Combine(directory, "rclone.conf"))); // Remote outcome is still unknown.
+    }
+
+    [TestMethod]
+    public async Task ChangedStaticSnapshotCannotBeTreatedAsUnchangedWebDav()
+    {
+        var source = Config("changed-static", "[test]\ntype = webdav\nuser = old\n");
+        string snapshot;
+        using (var context = Context(source))
+        {
+            snapshot = context.SnapshotPath;
+            await using var lease = await RcloneCredentialRefresh.BeginAsync(context.CreateStartInfo(["version"]), default);
+            await lease!.StartingAsync(default);
+            File.WriteAllText(snapshot, "[test]\ntype = webdav\nuser = new\n");
+        }
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => RcloneCredentialRefresh.PrepareStoreAsync(source, Tasks, true, default));
+        StringAssert.Contains(File.ReadAllText(snapshot), "user = new");
+        StringAssert.Contains(File.ReadAllText(source), "user = old");
+    }
+
+    [TestMethod]
+    public async Task FreshStorageIsIndependentOfMoreThanAThousandEmptyLegacyDirectories()
+    {
+        var source = Config("many-legacy"); RcloneCredentialStore.RegisterFresh(source, File.ReadAllBytes(source));
+        for (var i = 0; i < 1001; i++) Directory.CreateDirectory(Path.Combine(Tasks, "task-" + Guid.NewGuid().ToString("N")));
+        var unknown = LegacyOrphan(); var evidence = File.ReadAllBytes(Path.Combine(unknown, "rclone.conf"));
+        await RcloneCredentialRefresh.PrepareStoreAsync(source, Tasks, true, default);
+        using var context = Context(source);
+        Assert.IsTrue(File.Exists(context.SnapshotPath));
+        CollectionAssert.AreEqual(evidence, File.ReadAllBytes(Path.Combine(unknown, "rclone.conf")));
+        using var cancel = new CancellationTokenSource();
+        using var iterator = RcloneCredentialStore.Enumerate(Tasks, source, cancel.Token).GetEnumerator();
+        Assert.IsTrue(iterator.MoveNext()); cancel.Cancel();
+        Assert.ThrowsExactly<OperationCanceledException>(() => iterator.MoveNext());
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

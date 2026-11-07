@@ -8,6 +8,7 @@ using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Threading;
+using FolderRewind.Plugin.Runtime.IO;
 
 namespace FolderRewind.Services;
 
@@ -28,6 +29,7 @@ public sealed class RcloneExecutionContext : IDisposable
         && StringComparer.OrdinalIgnoreCase.Equals(c.ConfigPath, Path.GetFullPath(path)));
     private readonly string _taskDirectory;
     private readonly FileStream _ownership;
+    private readonly RcloneStoragePathLease _paths;
     private readonly string[] _backendOptions;
     public string ExecutablePath { get; }
     public string ConfigPath { get; }
@@ -45,70 +47,79 @@ public sealed class RcloneExecutionContext : IDisposable
             throw new IOException("Bound rclone connections require absolute executable, config, and working directory paths.");
         ExecutablePath = Path.GetFullPath(executable);
         ConfigPath = Path.GetFullPath(configPath);
-        RcloneCredentialRefresh.RejectReparsePoints(ConfigPath);
-        AllowTokenWriteback = allowTokenWriteback;
-        WorkingDirectory = Path.GetFullPath(string.IsNullOrEmpty(workingDirectory) ? Path.GetDirectoryName(ExecutablePath)! : workingDirectory);
-        RemoteRoot = remoteRoot;
-        if (!File.Exists(ExecutablePath)) throw RcloneConnectionDiagnostics.Failure("cloud.tool-unavailable", "CloudFailure_Tool");
-        if (!Directory.Exists(WorkingDirectory)) throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudFailure_Configuration");
-        byte[] content;
-        try { content = ReadConfigurationBytes(ConfigPath); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudSetup_SourceConfigUnavailable", ex);
-        }
-        var config = System.Text.Encoding.UTF8.GetString(content).TrimStart('\uFEFF');
-        _backendOptions = config.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-            .Where(line => line.IndexOf('=') is var equals && equals >= 0 && line[..equals].Trim().Equals("type", StringComparison.OrdinalIgnoreCase))
-            .Select(line => line[(line.IndexOf('=') + 1)..].Trim())
-            .Where(type => type.Length != 0 && type.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'))
-            .Select(type => type.Replace('_', '-') + "-").Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        if (config.Contains("RCLONE_ENCRYPT_V", StringComparison.Ordinal)) throw new InvalidOperationException("Interactive encrypted rclone configurations require foreground unlock; task snapshots are not supported.");
-        var remoteName = remoteRoot.Split(':', 2)[0];
-        if (!remoteRoot.Contains(':') || string.IsNullOrWhiteSpace(remoteName) || remoteName.IndexOfAny(['[', ']', '\r', '\n', '/', '\\']) >= 0
-            || !config.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Any(line => line.Trim() == "[" + remoteName + "]"))
-            throw RcloneConnectionDiagnostics.InvalidFailure("cloud.remote-mismatch", "CloudSetup_RemoteMismatch");
-        _revision = SHA256.HashData(content);
-        SourceBytes = content;
+        var paths = new RcloneStoragePathLease(ConfigPath, taskRoot);
         try
         {
-            TargetRevisionEvidence = RcloneCredentialRefresh.TargetRevision(content);
-            AllowedTokenSections = RcloneCredentialRefresh.AuthenticationSections(content, remoteName);
+            RcloneCredentialRefresh.RejectReparsePoints(ConfigPath);
+            AllowTokenWriteback = allowTokenWriteback;
+            WorkingDirectory = Path.GetFullPath(string.IsNullOrEmpty(workingDirectory) ? Path.GetDirectoryName(ExecutablePath)! : workingDirectory);
+            RemoteRoot = remoteRoot;
+            if (!File.Exists(ExecutablePath)) throw RcloneConnectionDiagnostics.Failure("cloud.tool-unavailable", "CloudFailure_Tool");
+            if (!Directory.Exists(WorkingDirectory)) throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudFailure_Configuration");
+            byte[] content;
+            try { content = ReadConfigurationBytes(ConfigPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw RcloneConnectionDiagnostics.Failure("cloud.source-config-unavailable", "CloudSetup_SourceConfigUnavailable", ex);
+            }
+            var config = System.Text.Encoding.UTF8.GetString(content).TrimStart('\uFEFF');
+            _backendOptions = config.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Where(line => line.IndexOf('=') is var equals && equals >= 0 && line[..equals].Trim().Equals("type", StringComparison.OrdinalIgnoreCase))
+                .Select(line => line[(line.IndexOf('=') + 1)..].Trim())
+                .Where(type => type.Length != 0 && type.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'))
+                .Select(type => type.Replace('_', '-') + "-").Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (config.Contains("RCLONE_ENCRYPT_V", StringComparison.Ordinal)) throw new InvalidOperationException("Interactive encrypted rclone configurations require foreground unlock; task snapshots are not supported.");
+            var remoteName = remoteRoot.Split(':', 2)[0];
+            if (!remoteRoot.Contains(':') || string.IsNullOrWhiteSpace(remoteName) || remoteName.IndexOfAny(['[', ']', '\r', '\n', '/', '\\']) >= 0
+                || !config.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Any(line => line.Trim() == "[" + remoteName + "]"))
+                throw RcloneConnectionDiagnostics.InvalidFailure("cloud.remote-mismatch", "CloudSetup_RemoteMismatch");
+            _revision = SHA256.HashData(content);
+            SourceBytes = content;
+            try
+            {
+                TargetRevisionEvidence = RcloneCredentialRefresh.TargetRevision(content);
+                AllowedTokenSections = RcloneCredentialRefresh.AuthenticationSections(content, remoteName);
+            }
+            catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.ParseConfiguration, ConfigPath); throw; }
+            if (AllowedTokenSections.Length != 0 && !allowTokenWriteback)
+                throw RcloneConnectionDiagnostics.InvalidFailure("connection.external-oauth-unsupported", "CloudConnection_ExternalOAuthUnsupported");
+            SharedTaskRoot = Path.GetFullPath(taskRoot);
+            RcloneCredentialStore.Track(ConfigPath, SharedTaskRoot, allowTokenWriteback);
+            RcloneCredentialRefresh.RejectReparsePoints(SharedTaskRoot);
+            var root = RcloneCredentialStore.Scope(SharedTaskRoot, ConfigPath);
+            RcloneCredentialRefresh.RejectReparsePoints(root, SharedTaskRoot);
+            _taskDirectory = Path.Combine(root, "task-" + Guid.NewGuid().ToString("N"));
+            SnapshotPath = Path.Combine(_taskDirectory, "rclone.conf");
+            FileStream? ownership = null;
+            try
+            {
+                RcloneExecutionContext.CreatePrivateDirectory(SharedTaskRoot);
+                RcloneExecutionContext.CreatePrivateDirectory(Path.Combine(SharedTaskRoot, "by-source"));
+                RcloneExecutionContext.CreatePrivateDirectory(root);
+                CleanupExpired(root, DateTimeOffset.UtcNow);
+                CreatePrivateDirectory(_taskDirectory);
+                RcloneCredentialRefresh.RejectReparsePoints(_taskDirectory, SharedTaskRoot);
+                ownership = new FileStream(Path.Combine(_taskDirectory, "ownership.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+                RcloneCredentialRefresh.RegisterSnapshot(_taskDirectory, ConfigPath, RevisionEvidence);
+                File.WriteAllBytes(SnapshotPath, content);
+                _ownership = ownership;
+                _paths = paths;
+                Contexts[SnapshotPath] = this;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                ownership?.Dispose();
+                try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
+                catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
+                throw RcloneConnectionDiagnostics.Failure("cloud.snapshot-create-failed", "CloudSetup_SnapshotCreateFailed", ex);
+            }
         }
-        catch (Exception error) { RcloneConnectionDiagnostics.AtStage(error, CredentialFailureStage.ParseConfiguration, ConfigPath); throw; }
-        if (AllowedTokenSections.Length != 0 && !allowTokenWriteback)
-            throw RcloneConnectionDiagnostics.InvalidFailure("connection.external-oauth-unsupported", "CloudConnection_ExternalOAuthUnsupported");
-        SharedTaskRoot = Path.GetFullPath(taskRoot);
-        RcloneCredentialStore.Track(ConfigPath, SharedTaskRoot, allowTokenWriteback);
-        RcloneCredentialRefresh.RejectReparsePoints(SharedTaskRoot);
-        var root = RcloneCredentialStore.Scope(SharedTaskRoot, ConfigPath);
-        RcloneCredentialRefresh.RejectReparsePoints(root);
-        _taskDirectory = Path.Combine(root, "task-" + Guid.NewGuid().ToString("N"));
-        SnapshotPath = Path.Combine(_taskDirectory, "rclone.conf");
-        FileStream? ownership = null;
-        try
-        {
-            RcloneExecutionContext.CreatePrivateDirectory(SharedTaskRoot);
-            RcloneExecutionContext.CreatePrivateDirectory(Path.Combine(SharedTaskRoot, "by-source"));
-            RcloneExecutionContext.CreatePrivateDirectory(root);
-            CleanupExpired(root, DateTimeOffset.UtcNow);
-            CreatePrivateDirectory(_taskDirectory);
-            ownership = new FileStream(Path.Combine(_taskDirectory, "ownership.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
-            RcloneCredentialRefresh.RegisterSnapshot(_taskDirectory, ConfigPath, RevisionEvidence);
-            File.WriteAllBytes(SnapshotPath, content);
-            _ownership = ownership;
-            Contexts[SnapshotPath] = this;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            ownership?.Dispose();
-            try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
-            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
-            throw RcloneConnectionDiagnostics.Failure("cloud.snapshot-create-failed", "CloudSetup_SnapshotCreateFailed", ex);
-        }
+        catch { paths.Dispose(); throw; }
     }
     internal static void CreatePrivateDirectory(string path)
     {
+        using var parent = DirectoryPathLease.BindExistingAncestor(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        RcloneCredentialRefresh.RejectReparsePoints(path);
         if (OperatingSystem.IsWindows())
         {
             using var identity = WindowsIdentity.GetCurrent();
@@ -223,19 +234,51 @@ public sealed class RcloneExecutionContext : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        Contexts.TryRemove(SnapshotPath, out _);
-        if (PreserveSnapshot || File.Exists(Path.Combine(_taskDirectory, "attempt.json"))) { _ownership.Dispose(); return; }
-        // 只清理由本任务创建的确切文件，不递归清理用户凭据目录。
-        var cleaned = false;
-        try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); cleaned = true; }
-        catch (IOException) { } // 临时锁释放后可由有界过期回收处理，不改变业务成功事实。
-        catch (UnauthorizedAccessException) { }
-        finally { _ownership.Dispose(); }
-        if (!cleaned) return;
-        try { File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        try
+        {
+            Contexts.TryRemove(SnapshotPath, out _);
+            if (PreserveSnapshot || File.Exists(Path.Combine(_taskDirectory, "attempt.json"))) { _ownership.Dispose(); return; }
+            // 只清理由本任务创建的确切文件，不递归清理用户凭据目录。
+            var cleaned = false;
+            try { File.Delete(SnapshotPath); File.Delete(Path.Combine(_taskDirectory, "snapshot.json")); cleaned = true; }
+            catch (IOException) { } // 临时锁释放后可由有界过期回收处理，不改变业务成功事实。
+            catch (UnauthorizedAccessException) { }
+            finally { _ownership.Dispose(); }
+            if (!cleaned) return;
+            try { File.Delete(Path.Combine(_taskDirectory, "ownership.lock")); Directory.Delete(_taskDirectory); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        finally { _paths.Dispose(); }
     }
+}
+
+// The Host-selected storage parent may be redirected. Its private task/credential descendants may not.
+// Keep logical paths unchanged: origins, persisted snapshots and the existing file locks use them.
+internal sealed class RcloneStoragePathLease : IDisposable
+{
+    private readonly DirectoryPathLease _source;
+    private readonly DirectoryPathLease _tasks;
+    internal RcloneStoragePathLease(string source, string taskRoot)
+    {
+        source = Path.GetFullPath(source); taskRoot = Path.GetFullPath(taskRoot);
+        var sourceParent = Path.GetDirectoryName(source)!;
+        var storageRoot = Path.GetDirectoryName(taskRoot)!;
+        _source = DirectoryPathLease.BindExistingAncestor(sourceParent);
+        try
+        {
+            _tasks = DirectoryPathLease.BindExistingAncestor(taskRoot);
+            try
+            {
+                RcloneCredentialRefresh.RejectReparsePoints(source,
+                    DirectoryPathBoundary.Contains(storageRoot, source) ? storageRoot : sourceParent);
+                RcloneCredentialRefresh.RejectReparsePoints(taskRoot, storageRoot);
+            }
+            catch { _tasks.Dispose(); throw; }
+        }
+        catch { _source.Dispose(); throw; }
+    }
+    public void Dispose() { _tasks.Dispose(); _source.Dispose(); }
 }
 
 internal sealed class RcloneExecutionScope : IDisposable

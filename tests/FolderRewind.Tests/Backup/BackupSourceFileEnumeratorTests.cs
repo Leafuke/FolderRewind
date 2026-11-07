@@ -40,6 +40,19 @@ public sealed class BackupSourceFileEnumeratorTests
     }
 
     [TestMethod]
+    public void SystemAttributeDoesNotSilentlyRemoveSelectedUserFilesOrDirectories()
+    {
+        var directory = Path.Combine(_root, "Saves");
+        var file = Path.Combine(directory, "slot1.sav");
+        File.SetAttributes(directory, File.GetAttributes(directory) | FileAttributes.System);
+        File.SetAttributes(file, File.GetAttributes(file) | FileAttributes.System);
+        var selection = new BackupSourceScope { Mode = BackupSourceScopeMode.Include, IncludePatterns = new() { "Saves/**/*.sav" } };
+        var files = BackupSourceFileEnumerator.EnumerateUnordered(_root, selection, requireComplete: true).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "Saves/slot1.sav", "Saves/nested/slot2.SAV" }, files.Select(f => f.RelativePath).ToArray());
+        Assert.AreEqual("one", File.ReadAllText(files.Single(f => f.RelativePath == "Saves/slot1.sav").FullPath));
+    }
+
+    [TestMethod]
     public void IncludeSelectionIsMaximumBoundaryAndFilterCanOnlyShrinkIt()
     {
         var selection = new BackupSourceScope

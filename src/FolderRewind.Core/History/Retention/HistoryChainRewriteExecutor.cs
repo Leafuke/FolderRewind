@@ -31,14 +31,19 @@ public sealed class PreparedHistoryChainRewrite : IAsyncDisposable
     internal HistoryChainRewriteJournalStore Journals { get; }
     internal bool CommitStarted { get; set; }
     internal bool Disposed { get; private set; }
+    internal IDisposable? StorageLease { get; set; }
     internal void ReleaseReads() { foreach (var read in Reads) read.Dispose(); Reads.Clear(); }
     public async ValueTask DisposeAsync()
     {
         if (Disposed) return;
         Disposed = true;
         ReleaseReads();
-        if (!CommitStarted)
-            await Journals.FinishAsync(new(Plan.OperationId, null, false, false, [], [], BackupRoot: Journals.BackupRoot), CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            if (!CommitStarted)
+                await Journals.FinishAsync(new(Plan.OperationId, null, false, false, [], [], BackupRoot: Journals.BackupRoot), CancellationToken.None).ConfigureAwait(false);
+        }
+        finally { StorageLease?.Dispose(); }
     }
 }
 
@@ -53,12 +58,15 @@ public sealed class HistoryChainRewriteExecutor(HistoryRuntime history, Represen
         if (await HistoryChainRewritePlanner.FingerprintAsync(history, token).ConfigureAwait(false) != plan.StateFingerprint)
             throw new InvalidOperationException("History changed; prepare the deletion again.");
         var destination = HistoryRewriteStoragePaths.NormalizeBackupRoot(plan.Request.BackupRoot);
-        HistoryRewriteStoragePaths.RequireUnlinkedAncestors(HistoryRewriteStoragePaths.OperationRoot(destination, history.ConfigId, plan.OperationId));
         var journals = new HistoryChainRewriteJournalStore(history, checkpoint, destination);
-        var prepared = new PreparedHistoryChainRewrite(plan, journals);
-        journals.Save(new(plan.OperationId, null, false, false, [], [], BackupRoot: destination));
+        var prepared = new PreparedHistoryChainRewrite(plan, journals)
+        {
+            StorageLease = HistoryRewriteStoragePaths.BindStorage(
+                HistoryRewriteStoragePaths.OperationRoot(destination, history.ConfigId, plan.OperationId), destination)
+        };
         try
         {
+            journals.Save(new(plan.OperationId, null, false, false, [], [], BackupRoot: destination));
             RequireSpace(journals.WorkRoot(plan.OperationId), 1024 * 1024);
             var graph = plan.Representations.ToDictionary(r => r.RepresentationId);
             var inputIds = plan.Steps.SelectMany(s => HistoryChainRewritePlanner.Closure(s.Original.RepresentationId, graph)).ToHashSet();

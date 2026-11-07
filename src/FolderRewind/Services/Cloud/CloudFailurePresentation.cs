@@ -16,6 +16,7 @@ internal static class CloudFailurePresentation
 
     internal static string Kind(string code, string diagnostic)
     {
+        if (code == "connection.path-unsafe" || diagnostic.StartsWith("[connection.path-unsafe]", StringComparison.Ordinal)) return "Path";
         var text = code + " " + diagnostic;
         if (text.Contains("tool-unavailable", StringComparison.Ordinal)) return "Tool";
         if (text.Contains("source-config-unavailable", StringComparison.Ordinal) || text.Contains("credentials-missing", StringComparison.Ordinal)
@@ -34,5 +35,6 @@ internal static class CloudFailurePresentation
         return "Unknown";
     }
 
-    internal static string Message(string kind) => I18n.GetString("CloudFailure_" + kind);
+    internal static bool OffersInlineRepair(string kind) => kind is not ("Input" or "Path");
+    internal static string Message(string kind) => I18n.GetString(kind == "Path" ? "CloudConnection_PathUnsafe" : "CloudFailure_" + kind);
 }

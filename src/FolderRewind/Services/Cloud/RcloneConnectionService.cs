@@ -32,10 +32,14 @@ public sealed class OwnedRcloneConnection(string configPath, string remoteRoot) 
         if (_committed || Interlocked.Exchange(ref _disposed, 1) != 0) return;
         // OAuth 可能已经轮换；取消向导也不能删除受管目录中的唯一新令牌。
         if (RcloneExecutionContext.HasActiveCredential(ConfigPath) || RcloneCredentialRefresh.MustPreserveOwnedCredentials(ConfigPath)) return;
+        var directory = Path.GetDirectoryName(Path.GetFullPath(ConfigPath))!;
+        var parent = Path.GetDirectoryName(directory)!;
+        using var paths = Plugin.Runtime.IO.DirectoryPathLease.BindExistingAncestor(parent);
+        RcloneCredentialRefresh.RejectReparsePoints(ConfigPath, parent);
         File.Delete(ConfigPath);
         File.Delete(ConfigPath + ".folderrewind.lock");
         File.Delete(ConfigPath + RcloneCredentialStore.OriginSuffix);
-        Directory.Delete(Path.GetDirectoryName(ConfigPath)!);
+        Directory.Delete(directory);
     }
     // Evidence enumeration can touch many legacy entries; UI callers release off the dispatcher.
     public ValueTask DisposeAsync() => _committed ? ValueTask.CompletedTask : new(Task.Run(Dispose));
@@ -88,6 +92,8 @@ public static class RcloneConnectionService
     {
         if (!Path.IsPathFullyQualified(executable) || !File.Exists(executable))
             throw RcloneConnectionDiagnostics.Failure("cloud.tool-unavailable", "CloudFailure_Tool");
+        if (!Path.IsPathFullyQualified(credentialsRoot)) throw new ArgumentException("Credentials directory must be absolute.", nameof(credentialsRoot));
+        using var rootLease = await Task.Run(() => Plugin.Runtime.IO.DirectoryPathLease.BindExistingAncestor(credentialsRoot), token).ConfigureAwait(false);
         var endpoint = ValidateWebDavUrl(url, allowInsecure);
         if (user.IndexOfAny(['\r', '\n', '\0']) >= 0 || password.IndexOfAny(['\r', '\n', '\0']) >= 0)
             throw new ArgumentException(I18n.GetString("CloudSetup_InvalidCredential"));
@@ -98,7 +104,6 @@ public static class RcloneConnectionService
         var output = await RunAsync(start, TimeSpan.FromSeconds(15), token, password + "\n").ConfigureAwait(false);
         var obscured = output.TrimEnd('\r', '\n');
         if (obscured.IndexOfAny(['\r', '\n', '\0']) >= 0 || obscured.Length == 0) throw new IOException(I18n.GetString("CloudSetup_ObscureFailed"));
-        if (!Path.IsPathFullyQualified(credentialsRoot)) throw new ArgumentException("Credentials directory must be absolute.", nameof(credentialsRoot));
         var directory = Path.Combine(Path.GetFullPath(credentialsRoot), "connection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         RcloneExecutionContext.CreatePrivateDirectory(directory);

@@ -157,6 +157,7 @@ internal static class CloudConnectionCatalog
         var app = ConfigService.CurrentConfig; var profile = app.CloudConnections.Single(p => p.Id == id);
         void RequireUnreferenced()
         {
+            using var paths = Plugin.Runtime.IO.DirectoryPathLease.BindExistingAncestor(ConfigService.ConfigDirectory);
             if (app.BackupConfigs.Any(p => p.Cloud.ConnectionProfileId == id) || RcloneExecutionContext.HasActiveCredential(profile.CredentialReference)
                 || RcloneCredentialRefresh.HasPendingEvidence(ConfigService.RcloneTasksDirectory, profile.CredentialReference, IsManaged(profile.CredentialReference)))
                 throw new InvalidOperationException(I18n.GetString("CloudConnections_Referenced"));
@@ -170,7 +171,7 @@ internal static class CloudConnectionCatalog
                 if (File.Exists(path + ".attention") || !File.Exists(path) && File.Exists(path + ".required"))
                     throw new InvalidOperationException(I18n.GetString("CloudConnections_Referenced"));
                 if (!File.Exists(path)) continue;
-                RcloneCredentialRefresh.RejectReparsePoints(path);
+                RcloneCredentialRefresh.RejectReparsePoints(path, ConfigService.ConfigDirectory);
                 if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new InvalidDataException(I18n.GetString("CloudConnections_Referenced"));
                 var journal = JsonSerializer.Deserialize(File.ReadAllBytes(path), CloudJobJsonContext.Default.HistoryCloudJournalDocument);
                 if (journal is null || journal.Jobs.Any(j => j.Target.ProfileId == id && j.Protection == CloudProtectionDisposition.Held))

@@ -56,8 +56,9 @@ public sealed partial class NativeArtifactStore
     public string CreateWorkspace(string kind)
     {
         if (kind is not ("read" or "capture" or "materialize")) throw new ArgumentException("Unknown Artifact workspace kind.", nameof(kind));
-        var parent = Path.Combine(Root, "." + kind); HostArtifactWorkspace.CreatePrivateDirectory(parent);
-        var path = Path.Combine(parent, Guid.NewGuid().ToString("N")); HostArtifactWorkspace.CreatePrivateDirectory(path);
+        using var root = IO.DirectoryPathLease.BindExistingAncestor(Root);
+        var parent = Path.Combine(Root, "." + kind); HostArtifactWorkspace.CreatePrivateDirectory(parent, Root);
+        var path = Path.Combine(parent, Guid.NewGuid().ToString("N")); HostArtifactWorkspace.CreatePrivateDirectory(path, Root);
         return path;
     }
 

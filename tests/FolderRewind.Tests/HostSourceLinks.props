@@ -126,6 +126,7 @@
     <Compile Include="../../src/FolderRewind/Services/Settings/SponsorBackgroundImageCachePolicy.cs" Link="Host/Services/Settings/SponsorBackgroundImageCachePolicy.cs" />
     <Compile Include="../../src/FolderRewind/Services/Plugins/V3/PluginV3CaptureLeaseOwner.cs" Link="Host/Services/Plugins/V3/PluginV3CaptureLeaseOwner.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneExecutionContext.cs" Link="Host/Services/Cloud/RcloneExecutionContext.cs" />
+    <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneCredentialRevisions.cs" Link="Host/Services/Cloud/RcloneCredentialRevisions.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneConnectionService.cs" Link="Host/Services/Cloud/RcloneConnectionService.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneNativeHistoryTransport.cs" Link="Host/Services/Cloud/RcloneNativeHistoryTransport.cs" />
     <Compile Include="../../src/FolderRewind/Services/Cloud/RcloneMigrationSnapshotTransport.cs" Link="Host/Services/Cloud/RcloneMigrationSnapshotTransport.cs" />

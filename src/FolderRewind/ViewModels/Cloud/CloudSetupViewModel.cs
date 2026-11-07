@@ -388,7 +388,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var connection = await RcloneConnectionService.CreateWebDavAsync(Executable, ConfigService.RcloneConnectionsDirectory, url, user, password, allowInsecure, token);
         if (_lifetime.IsCancellationRequested) { await connection.DisposeAsync(); return; }
         try { await ValidateCandidateAsync(connection, RemoteWithPreservedSuffix(CloudRemotePath.Split(connection.RemoteRoot).Remote), token); }
-        catch { connection.Preserve(); connection.Dispose(); throw; }
+        catch { await connection.DisposeAsync(); throw; }
         if (!IsReauthenticating) BeginNewConnection();
         ReleaseOwnedCredentials(); _owned = connection;
         ConfigPath = connection.ConfigPath; RemoteRoot = RemoteWithPreservedSuffix(CloudRemotePath.Split(connection.RemoteRoot).Remote);
@@ -579,7 +579,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         RcloneCredentialStore.RegisterFresh(target, bytes);
         var candidate = new OwnedRcloneConnection(target, RemoteRoot);
         try { await ValidateCandidateAsync(candidate, RemoteRoot, token); }
-        catch { candidate.Preserve(); candidate.Dispose(); throw; }
+        catch { await candidate.DisposeAsync(); throw; }
         if (_owned is not null && CloudConnectionCatalog.SameCredentialStorage(_owned.ConfigPath, source)) _owned.Commit();
         if (!IsReauthenticating) BeginNewConnection();
         ReleaseOwnedCredentials(); _owned = candidate;

@@ -13,6 +13,7 @@ internal sealed class VerifiedArtifactContent : IDisposable
     private readonly List<FileStream> _files = [];
     private readonly HashSet<string> _pinnedDirectories = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _paths = new(StringComparer.OrdinalIgnoreCase);
+    private IO.DirectoryPathLease? _ancestors;
     private bool _disposed;
     internal string Root { get; }
     internal IReadOnlyList<ArtifactFileEntry> Files { get; private set; } = [];
@@ -79,9 +80,8 @@ internal sealed class VerifiedArtifactContent : IDisposable
     }
     private void PinAncestors(string directory)
     {
-        var pending = new Stack<string>();
-        for (var item = new DirectoryInfo(directory); item is not null; item = item.Parent) pending.Push(item.FullName);
-        while (pending.TryPop(out var path)) PinDirectory(path);
+        _ancestors = new IO.DirectoryPathLease(Path.GetDirectoryName(Path.GetFullPath(directory))!);
+        PinDirectory(directory);
     }
     private void PinDirectory(string path)
     {
@@ -110,6 +110,7 @@ internal sealed class VerifiedArtifactContent : IDisposable
         foreach (var file in _files) file.Dispose(); _files.Clear();
         for (int i = _directories.Count - 1; i >= 0; i--) _directories[i].Dispose();
         _directories.Clear();
+        _ancestors?.Dispose(); _ancestors = null;
     }
     [StructLayout(LayoutKind.Sequential)]
     private struct FileInformation

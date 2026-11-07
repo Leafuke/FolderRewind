@@ -27,6 +27,7 @@ public static class SourceDirectorySnapshot
                 var attributes = entry.Attributes;
                 if ((attributes & FileAttributes.Directory) == 0)
                 {
+                    if (!include(Path.GetRelativePath(root, entry.FullName).Replace('\\', '/'))) continue;
                     if (!skipLinks && (attributes & FileAttributes.ReparsePoint) != 0)
                         throw new IOException("A stable Native source cannot contain filesystem links.");
                     continue;

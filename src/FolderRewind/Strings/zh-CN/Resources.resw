@@ -6640,7 +6640,7 @@ Enter：在窄窗口中打开预览或批量操作
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>预览批量路径替换</value></data>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>旧自定义上传命令未转换为原生云备份。请在连接向导中明确转换后再启用。</value></data>
   <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>认证刷新证据无法安全合并，请保留凭据快照并重新授权；已暂停使用此凭据的新调用。</value></data>
-  <data name="CloudConnection_PathUnsafe" xml:space="preserve"><value>凭据或任务路径包含不支持的重解析点，已暂停本次调用。请查看诊断定位相关目录，再重新建立访问。</value></data>
+  <data name="CloudConnection_PathUnsafe" xml:space="preserve"><value>凭据或任务目录中包含不支持的链接，已暂停本次操作。请检查该目录中的链接或选择其他存储位置；重新认证无法修复路径问题。</value></data>
   <data name="CloudConnection_HardlinkUnsafe" xml:space="preserve"><value>凭据文件存在多个硬链接，已暂停使用。请新建连接或重新认证以生成独立凭据；原文件及证据将保留。</value></data>
   <data name="CloudConnection_MetadataUnavailable" xml:space="preserve"><value>无法可靠读取凭据文件的安全信息，已暂停本次调用。诊断记录包含查询结果，请检查连接或重新认证。</value></data>
   <data name="CloudConnection_ConfigInvalid" xml:space="preserve"><value>rclone 配置包含重复项、缺少必要字段或格式不受支持。请修正配置或重新导入。</value></data>

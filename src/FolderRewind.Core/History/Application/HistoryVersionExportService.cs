@@ -1,6 +1,7 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
 using FolderRewind.Services;
+using FolderRewind.Plugin.Runtime.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,8 +20,10 @@ public sealed class HistoryVersionExportService(RepresentationRuntime representa
         var target = Path.GetFullPath(destination);
         var parent = Path.GetDirectoryName(target) ?? throw new IOException("Export parent is missing.");
         RequireDestination(target, protectedRoots);
+        using var ancestors = DirectoryPathLease.BindExistingAncestor(parent);
         Directory.CreateDirectory(parent);
-        RequireNoLinks(parent);
+        using var destinationParent = new DirectoryPathLease(parent);
+        RequireDestination(target, protectedRoots);
         var staging = Path.Combine(parent, ".folderrewind-export-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(staging);
         try
@@ -30,7 +33,6 @@ public sealed class HistoryVersionExportService(RepresentationRuntime representa
                 requiredFidelity, staging, token, lease.VerificationContext).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             RequireDestination(target, protectedRoots);
-            RequireNoLinks(parent);
             // Move 对已存在目标失败，不覆盖用户文件；只有完整物化成功才发布。
             Directory.Move(staging, target);
         }
@@ -46,12 +48,6 @@ public sealed class HistoryVersionExportService(RepresentationRuntime representa
         foreach (var root in protectedRoots)
             if (!BackupPathOverlapPolicy.Validate(destination, root).IsSafe)
                 throw new IOException("Export destination overlaps a source or backup repository.");
-        RequireNoLinks(Path.GetDirectoryName(Path.GetFullPath(destination))!);
-    }
-    private static void RequireNoLinks(string path)
-    {
-        for (var directory = new DirectoryInfo(path); directory is not null; directory = directory.Parent)
-            if (directory.Exists && (directory.Attributes & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Export destination must not traverse a reparse point.");
+        using var parent = DirectoryPathLease.BindExistingAncestor(Path.GetDirectoryName(Path.GetFullPath(destination))!);
     }
 }

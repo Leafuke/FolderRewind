@@ -69,7 +69,7 @@ public sealed partial class CloudConnectionEditor : UserControl
         VerificationHelp.Text = I18n.GetString(ViewModel.RecoveryMode ? "CloudWizard_ReadOnlyCheck" : "CloudWizard_WriteCheck");
         Status.Message = ViewModel.Message; Status.IsOpen = ViewModel.HasMessage;
         Status.Severity = (InfoBarSeverity)ViewModel.MessageSeverity;
-        RepairButton.Visibility = Show(ViewModel.HasRepair && ViewModel.FailureKind != "Input");
+        RepairButton.Visibility = Show(ViewModel.HasRepair && CloudFailurePresentation.OffersInlineRepair(ViewModel.FailureKind));
         RepairButton.Content = I18n.GetString(ViewModel.FailureKind == "Tool" ? "CloudSetup_PickExecutable.Content"
             : ViewModel.FailureKind == "Connection" ? ViewModel.HasEditableProfile ? "CloudReauth_Action.Content" : "CloudConnection_Rebuild.Content" : "CloudRepair_Action.Content");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(RepairButton, (string)RepairButton.Content);
@@ -188,7 +188,7 @@ public sealed partial class CloudConnectionEditor : UserControl
     }
     private void OnRepair(object s, RoutedEventArgs e)
     {
-        if (!ViewModel.CanEdit) return;
+        if (!ViewModel.CanEdit || !CloudFailurePresentation.OffersInlineRepair(ViewModel.FailureKind)) return;
         if (ViewModel.FailureKind == "Connection" && ViewModel.HasEditableProfile)
         { ViewModel.BeginReauthentication(); Refresh(); return; }
         if (ViewModel.FailureKind == "Tool") { ViewModel.WizardStep = 1; Refresh(); OnPickExecutable(s, e); }

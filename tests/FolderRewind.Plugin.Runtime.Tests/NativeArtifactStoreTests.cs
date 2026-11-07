@@ -15,6 +15,27 @@ public sealed partial class NativeArtifactStoreTests
     private static readonly ConfigKindRef Kind = new(new(Id.Value), "world");
 
     [TestMethod]
+    public async Task RedirectedStorageCompletesCaptureAndVerifiedReadWhilePinningItsAlias()
+    {
+        using var fixture = new Fixture();
+        Directory.CreateDirectory(fixture.Root);
+        var physical = Path.Combine(fixture.Root, "physical"); Directory.CreateDirectory(physical);
+        var alias = Path.Combine(fixture.Root, "redirected"); Directory.CreateSymbolicLink(alias, physical);
+        try
+        {
+            var (store, root) = await fixture.CaptureAsync(storageRoot: Path.Combine(alias, "store"));
+            await using (var read = await store.OpenAsync(root, default))
+            {
+                foreach (var artifact in read.Artifacts)
+                    Assert.IsNotEmpty(await read.Read.ListFilesAsync(artifact.Content, default));
+                Assert.ThrowsExactly<IOException>(() => Directory.Delete(alias));
+            }
+            Assert.IsEmpty(Directory.GetDirectories(Path.Combine(store.Root, ".read")));
+        }
+        finally { Directory.Delete(alias); }
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task SealedStatisticsCountPhysicalEnvelopesAndOnlyNewNodesWhenReusingPacks(bool encrypted)

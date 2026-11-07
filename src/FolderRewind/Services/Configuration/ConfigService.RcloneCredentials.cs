@@ -113,6 +113,9 @@ public static partial class ConfigService
     private static async Task<CredentialMigrationResult> MigrateCredentialAsync(CredentialMigration migration, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
+        using var sourcePaths = new RcloneStoragePathLease(migration.Source,
+            Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(migration.Source)))!, "rclone-tasks"));
+        using var targetPaths = new RcloneStoragePathLease(migration.Target, RcloneTasksDirectory);
         RejectCredentialReparsePoints(migration.Source);
         RejectCredentialReparsePoints(migration.Target);
         byte[] content;
@@ -192,18 +195,7 @@ public static partial class ConfigService
     }
 
     private static void RejectCredentialReparsePoints(string path)
-    {
-        for (var current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
-        {
-            try
-            {
-                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                    throw new IOException("Credential migration refuses reparse points.");
-            }
-            catch (FileNotFoundException) { }
-            catch (DirectoryNotFoundException) { }
-        }
-    }
+        => RcloneCredentialRefresh.RejectReparsePoints(path);
 
     internal static async Task<string> WaitForRcloneCredentialMigrationAsync(string path, CancellationToken token = default, bool allowUncertain = false)
     {

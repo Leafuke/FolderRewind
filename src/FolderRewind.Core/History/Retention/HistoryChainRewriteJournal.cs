@@ -182,7 +182,7 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
         var relative = Path.GetRelativePath(history.Repository.Paths.RepositoryRoot, full);
         if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar))
             throw new InvalidDataException("Rewrite cleanup escapes the repository.");
-        DeleteTree(full);
+        DeleteTree(full, history.Repository.Paths.RepositoryRoot);
     }
 
     internal void CleanupOperationTree(HistoryTransactionId id, bool payloads)
@@ -194,7 +194,7 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
         var work = Path.TrimEndingDirectorySeparator(Path.GetFullPath(WorkRoot(id)));
         if (StringComparer.OrdinalIgnoreCase.Equals(full, work) || !HistoryRewriteStoragePaths.IsWithin(full, work))
             throw new InvalidDataException("Rewrite cleanup escapes its owned work directory.");
-        DeleteTree(full);
+        DeleteTree(full, BackupRoot ?? history.Repository.Paths.RepositoryRoot);
     }
 
     private void CleanupOperationTree(HistoryTransactionId id, bool payloads, string? destination)
@@ -205,12 +205,12 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
         if (!HistoryRewriteStoragePaths.IsWithin(path, operationRoot)
             || StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(path), operationRoot))
             throw new InvalidDataException("Rewrite cleanup escapes its owned operation directory.");
-        DeleteTree(path);
+        DeleteTree(path, destination);
     }
 
-    private static void DeleteTree(string full)
+    private static void DeleteTree(string full, string trustedRoot)
     {
-        HistoryRewriteStoragePaths.RequireUnlinkedAncestors(full);
+        using var storage = HistoryRewriteStoragePaths.BindStorage(full, trustedRoot);
         if (!Directory.Exists(full)) return;
         var directories = new System.Collections.Generic.Stack<string>();
         directories.Push(full);
@@ -218,8 +218,13 @@ public sealed class HistoryChainRewriteJournalStore(HistoryRuntime history, Acti
         {
             if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Rewrite cleanup refuses linked directories.");
-            foreach (var child in Directory.EnumerateDirectories(directory)) directories.Push(child);
-            foreach (var file in Directory.EnumerateFiles(directory)) File.SetAttributes(file, FileAttributes.Normal);
+            foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos())
+            {
+                if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new IOException("Rewrite cleanup refuses filesystem aliases inside its owned tree.");
+                if ((entry.Attributes & FileAttributes.Directory) != 0) directories.Push(entry.FullName);
+                else File.SetAttributes(entry.FullName, FileAttributes.Normal);
+            }
         }
         Directory.Delete(full, recursive: true);
     }

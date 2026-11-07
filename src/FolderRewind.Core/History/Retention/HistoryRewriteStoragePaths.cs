@@ -2,6 +2,7 @@ using FolderRewind.History.Domain;
 using FolderRewind.History.Storage;
 using System;
 using System.IO;
+using FolderRewind.Plugin.Runtime.IO;
 
 namespace FolderRewind.History.Retention;
 
@@ -29,13 +30,14 @@ public static class HistoryRewriteStoragePaths
             && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
-    internal static void RequireUnlinkedAncestors(string path)
+    internal static IDisposable BindStorage(string path, string backupRoot)
     {
-        for (var directory = new DirectoryInfo(Path.GetFullPath(path)); directory is not null; directory = directory.Parent)
+        var lease = DirectoryPathLease.BindExistingAncestor(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        try
         {
-            if ((Directory.Exists(directory.FullName) || File.Exists(directory.FullName))
-                && (File.GetAttributes(directory.FullName) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Backup rewrite storage refuses linked directories.");
+            DirectoryPathBoundary.RequireUnlinkedPath(path, backupRoot);
+            return lease;
         }
+        catch { lease.Dispose(); throw; }
     }
 }
