@@ -15,7 +15,7 @@ using System.Text.Json;
 namespace FolderRewind.Tests;
 
 [TestClass]
-public sealed class MineRewindBackupSizeIntegrationTests
+public sealed partial class MineRewindBackupSizeIntegrationTests
 {
     [TestMethod]
     [DataRow(false)]

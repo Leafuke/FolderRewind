@@ -77,8 +77,7 @@ public sealed class ArtifactTransformCoordinator
         var readableIds = compatibleRoots.Select(root => root.ArtifactId)
             .Append(primaryRoot.ArtifactId)
             .ToHashSet();
-        await _store.VerifyArtifactsAsync(current, readableIds, cancellationToken).ConfigureAwait(false);
-        var readSession = _store.CreateReadSession(current, readableIds);
+        await using var readSession = await _store.CreateProtectedReadSessionAsync(current, readableIds, cancellationToken).ConfigureAwait(false);
         var transactionId = "transform-" + Guid.NewGuid().ToString("N");
         var bounded = limits ?? ArtifactTransformLimits.Default;
         await using var staging = _store.CreateStagingArea(transactionId, bounded.MaximumFiles, bounded.MaximumBytes);
@@ -104,7 +103,8 @@ public sealed class ArtifactTransformCoordinator
         {
             return new ArtifactTransformRunResult(OperationOutcome.Canceled, current, primaryArtifactRootId, Array.Empty<PluginDiagnostic>(), false);
         }
-        catch (Exception ex) when (policy.FailureBehavior == ArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
+        catch (Exception ex) when (policy.FailureBehavior == ArtifactTransformFailureBehavior.KeepPrimaryWithWarnings
+            && ArtifactCaptureTransformException.IsDomainFailure(ex))
         {
             return new ArtifactTransformRunResult(
                 OperationOutcome.SuccessWithWarnings,

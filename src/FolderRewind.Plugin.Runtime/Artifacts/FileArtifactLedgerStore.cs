@@ -99,6 +99,24 @@ public sealed class FileArtifactLedgerStore
         }
     }
 
+    internal async Task<ArtifactReadSession> CreateProtectedReadSessionAsync(ArtifactLedgerDocument ledger,
+        IEnumerable<ArtifactId> artifactIds, CancellationToken token)
+    {
+        var session = CreateReadSession(ledger, artifactIds);
+        var read = await ((HostArtifactReadService)session.ReadService).ProtectAsync(token).ConfigureAwait(false);
+        try
+        {
+            foreach (var snapshot in session.Snapshots.Values)
+            {
+                var facts = read.ProtectedFacts(snapshot.Content);
+                if (facts.Size != snapshot.LogicalSize || !StringComparer.OrdinalIgnoreCase.Equals(facts.Sha256, snapshot.LogicalSha256))
+                    throw new InvalidDataException($"Artifact '{snapshot.ArtifactId}' failed protected integrity verification.");
+            }
+            return new(read, session.Snapshots);
+        }
+        catch { await read.DisposeAsync(); throw; }
+    }
+
     public async ValueTask<ArtifactLedgerDocument> LoadAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -550,4 +568,7 @@ public enum ArtifactTransactionStage
 
 public sealed record ArtifactReadSession(
     IArtifactReadService ReadService,
-    IReadOnlyDictionary<ArtifactId, BackupArtifactSnapshot> Snapshots);
+    IReadOnlyDictionary<ArtifactId, BackupArtifactSnapshot> Snapshots) : IAsyncDisposable
+{
+    public ValueTask DisposeAsync() => ReadService is IAsyncDisposable owned ? owned.DisposeAsync() : ValueTask.CompletedTask;
+}

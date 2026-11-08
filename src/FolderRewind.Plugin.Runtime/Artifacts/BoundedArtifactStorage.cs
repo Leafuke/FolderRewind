@@ -35,6 +35,26 @@ public sealed class HostArtifactReadService : IArtifactReadService, IAsyncDispos
     internal static HostArtifactReadService FromVerified(IReadOnlyDictionary<ArtifactContentHandle, string> roots,
         IReadOnlyDictionary<ArtifactContentHandle, VerifiedArtifactContent> verified) => new(roots, verified);
 
+    /// <summary>Owns read guards and the hashes computed while those guards are held.</summary>
+    internal async Task<HostArtifactReadService> ProtectAsync(CancellationToken token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var proofs = new Dictionary<ArtifactContentHandle, VerifiedArtifactContent>();
+        try
+        {
+            foreach (var pair in _roots)
+                proofs.Add(pair.Key, await VerifiedArtifactContent.CreateAsync(pair.Value, token, _allowedPaths).ConfigureAwait(false));
+            return FromVerified(_roots, proofs);
+        }
+        catch { foreach (var proof in proofs.Values) proof.Dispose(); throw; }
+    }
+
+    internal (string Sha256, long Size) ProtectedFacts(ArtifactContentHandle handle)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var proof = _verified[handle]; proof.RequireRoot(RequireRoot(handle)); return (proof.Sha256, proof.Size);
+    }
+
     public ValueTask DisposeAsync()
     {
         if (_disposed) return ValueTask.CompletedTask;

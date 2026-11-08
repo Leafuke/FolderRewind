@@ -577,6 +577,7 @@ public sealed partial class NativeArtifactStoreTests
 
     private sealed class GraphPlugin(bool diamond) : IFolderRewindPlugin, IBackupArtifactTransformerCapability, IRestoreMaterializerCapability
     {
+        internal Action<ArtifactTransformRequest>? BeforeTransform { get; set; }
         internal bool FailWithOpenStream { get; init; }
         internal Stream? HeldStream { get; private set; }
         public ArtifactTransformerId TransformerId => new(Id, "full");
@@ -588,6 +589,7 @@ public sealed partial class NativeArtifactStoreTests
         public ValueTask DeactivateAsync(CancellationToken token) => ValueTask.CompletedTask;
         public async ValueTask<ArtifactTransformResult> TransformAsync(ArtifactTransformRequest request, PluginInvocationContext context)
         {
+            BeforeTransform?.Invoke(request);
             if (FailWithOpenStream)
             {
                 var unfinished = await request.Staging.CreateArtifactAsync(default);
