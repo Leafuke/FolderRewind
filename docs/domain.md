@@ -228,6 +228,7 @@ _Avoid_: Plugin config write, augmentation side effect, silent synchronization
 
 **Config Reconciliation**:
 The comparison of current user-owned configuration with plugin domain knowledge to produce Config Change Proposals without applying them.
+This remains a public API 3.18 contract concept. The Host currently provides no reconciliation workflow or internal coordinator, and MineRewind does not advertise this capability; real discovery uses Discovery Draft Commit.
 _Avoid_: Config augmentation, automatic sync, plugin migration
 
 **State Owner ID**:

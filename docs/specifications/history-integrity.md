@@ -51,6 +51,8 @@ For Capture entries without recorded Added Storage, presentation falls back to t
 
 ## Compatibility
 
+The disposable History SQLite index uses schema 5. Upgrades from valid schema 3 and 4 databases remove redundant relation tables and duplicated object columns in one transaction, retaining replica observations. Cancellation or an upgrade failure leaves the previous schema intact. Invalid caches use the existing controlled rebuild path; immutable History Pack payloads and identities are unchanged.
+
 Released 1.8.2 fixtures define the supported direct legacy upgrade boundary. Legacy provenance with unknown source scope does not acquire deletion authority from later content verification. Archive-scan recovery cannot invent ancestry or advance a Branch. Borrowed legacy archives remain outside automatic retention deletion.
 
 History import, configuration activation and local capability confirmation are separate durable decisions, as specified by [ADR 0008](../adr/0008-data-migration-transactions.md). Source-directory moves in the code repository do not authorize a configuration migration, storage-layout change or modification of user data.
