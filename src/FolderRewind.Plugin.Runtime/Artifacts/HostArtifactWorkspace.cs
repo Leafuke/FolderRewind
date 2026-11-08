@@ -1,15 +1,18 @@
 ﻿using System.Security.AccessControl;
 using System.Security.Principal;
+using FolderRewind.Plugin.Runtime.IO;
 
 namespace FolderRewind.Plugin.Runtime.Artifacts;
 
 /// <summary>Host-created plaintext directories have a protected owner ACL and reject filesystem aliases.</summary>
 public static class HostArtifactWorkspace
 {
-    public static void CreatePrivateDirectory(string path)
+    public static void CreatePrivateDirectory(string path, string? trustedRoot = null)
     {
         path = Path.GetFullPath(path);
-        RequireUnlinkedAncestors(path);
+        trustedRoot ??= Path.GetDirectoryName(path)!;
+        using var parent = DirectoryPathLease.BindExistingAncestor(Path.GetDirectoryName(path)!);
+        DirectoryPathBoundary.RequireUnlinkedPath(path, trustedRoot);
         if (OperatingSystem.IsWindows())
         {
             using var identity = WindowsIdentity.GetCurrent();
@@ -29,6 +32,7 @@ public static class HostArtifactWorkspace
     public static void DeleteOwnedDirectory(string path)
     {
         if (!Directory.Exists(path)) return;
+        using var parent = DirectoryPathLease.BindExistingAncestor(Path.GetDirectoryName(Path.GetFullPath(path))!);
         ValidateOwnedDirectory(path);
         // Archive attributes can be read-only. Normalize only this validated private tree before deletion.
         var entries = new DirectoryInfo(path).EnumerateFileSystemInfos("*", new EnumerationOptions
@@ -45,7 +49,8 @@ public static class HostArtifactWorkspace
 
     public static void ValidateOwnedDirectory(string path, CancellationToken token = default)
     {
-        RequireUnlinkedAncestors(path);
+        using var parent = DirectoryPathLease.BindExistingAncestor(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        DirectoryPathBoundary.RequireUnlinkedPath(path, Path.GetDirectoryName(Path.GetFullPath(path))!);
         if (OperatingSystem.IsWindows())
         {
             using var identity = WindowsIdentity.GetCurrent();
@@ -60,13 +65,6 @@ public static class HostArtifactWorkspace
                 if ((attributes & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Artifact workspace contains a filesystem alias.");
                 if ((attributes & FileAttributes.Directory) != 0) pending.Push(entry);
             }
-    }
-
-    private static void RequireUnlinkedAncestors(string path)
-    {
-        for (var current = new DirectoryInfo(path); current is not null; current = current.Parent)
-            if (current.Exists && (current.Attributes & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidDataException("Artifact workspace ancestors cannot be filesystem aliases.");
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]

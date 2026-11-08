@@ -59,6 +59,9 @@ namespace FolderRewind.Services
             string runningStatus,
             string logLabel)
         {
+            using var operation = NotificationOperationScope.Current is null
+                ? new NotificationOperationScope(new(NotificationTargetKind.CloudProject), context: new("", "Cloud")) : null;
+            using var diagnostics = new BusinessOperationDiagnostics("CloudCommandRetry", operation is null);
             int retryCount = Math.Clamp(settings.RetryCount, 0, MaxRetryCount);
             int timeoutSeconds = Math.Clamp(settings.TimeoutSeconds, 10, MaxTimeoutSeconds);
             int exitCode = -1;
@@ -84,17 +87,18 @@ namespace FolderRewind.Services
 
                 if (result.Success)
                 {
-                    LogService.LogInfo(I18n.Format("CloudSync_Log_CommandSucceeded", logLabel), nameof(CloudSyncService));
+                    diagnostics.Complete("Success", detail: $"commandAttempts={attempt + 1}; exitCode={result.ExitCode}");
                     return result;
                 }
 
-                LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", logLabel, lastError), nameof(CloudSyncService));
+                LogService.LogWarning($"event=cloud.command-attempt; attempt={attempt + 1}; exitCode={exitCode}; retrying={attempt < retryCount}", nameof(CloudSyncService));
                 if (attempt < retryCount)
                 {
                     await Task.Delay(1000).ConfigureAwait(false);
                 }
             }
 
+            diagnostics.Complete("Failed", LogLevel.Error, $"commandAttempts={retryCount + 1}; exitCode={exitCode}");
             return (false, exitCode, lastError);
         }
 
@@ -109,8 +113,8 @@ namespace FolderRewind.Services
                         WorkingDirectory = command.WorkingDirectory, UseShellExecute = false, CreateNoWindow = true,
                         RedirectStandardOutput = true, RedirectStandardError = true
                     };
-                var output = await RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(timeoutSeconds), default).ConfigureAwait(false);
-                await RunOnUIAsync(() => task.Log = CloudCommandSecurity.Redact(output)).ConfigureAwait(false);
+                _ = await RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(timeoutSeconds), default).ConfigureAwait(false);
+                await RunOnUIAsync(() => task.Log = I18n.GetString("CloudSync_OutputOmitted")).ConfigureAwait(false);
                 return (true, 0, string.Empty);
             }
             catch (RcloneProcessException ex) { return (false, ex.ExitCode, CloudCommandSecurity.Redact(ex.Message)); }
@@ -119,93 +123,6 @@ namespace FolderRewind.Services
                 RcloneCredentialDiagnosticReporter.Report(ex, nameof(CloudSyncService));
                 return (false, -1, CloudCommandSecurity.Redact(ex.Message));
             }
-        }
-
-        private static void AppendLogLine(string? line, StringBuilder builder, BackupTask task, bool isError)
-        {
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                return;
-
-            }
-
-            var safeLine = CloudCommandSecurity.Redact(line);
-            builder.AppendLine(safeLine);
-            TrimBuilder(builder);
-
-            _ = RunOnUIAsync(() =>
-            {
-                task.Log = builder.ToString().Trim();
-                if (isError)
-                {
-                    task.ErrorMessage = safeLine;
-                }
-            });
-        }
-
-        private static void TrimBuilder(StringBuilder builder)
-        {
-            if (builder.Length <= MaxLogLength)
-            {
-                return;
-            }
-
-            builder.Remove(0, builder.Length - MaxLogLength);
-        }
-
-        private static string GetBestErrorMessage(int exitCode, string stderr, string stdout)
-        {
-            var source = !string.IsNullOrWhiteSpace(stderr) ? stderr : stdout;
-            if (!string.IsNullOrWhiteSpace(source))
-            {
-                var sourceSpan = source.AsSpan();
-                ReadOnlySpan<char> lastNonEmpty = default;
-                foreach (var line in sourceSpan.EnumerateLines())
-                {
-                    var trimmed = line.Trim();
-                    if (!trimmed.IsEmpty)
-                        lastNonEmpty = trimmed;
-                }
-                if (lastNonEmpty.Length > 0)
-                    return CloudCommandSecurity.Redact(lastNonEmpty.ToString());
-            }
-
-            return I18n.Format("CloudSync_Error_ExitCode", exitCode);
-        }
-
-        private static ResolvedCommand ResolveCommand(CloudSettings settings, CloudCommandContext context)
-        {
-            string executable = settings.CommandMode == CloudCommandMode.Rclone
-                ? ResolveRcloneExecutable(settings)
-                : settings.ExecutablePath ?? string.Empty;
-
-            string argumentsTemplate = settings.ArgumentsTemplate ?? string.Empty;
-            if (settings.CommandMode == CloudCommandMode.Rclone && string.IsNullOrWhiteSpace(argumentsTemplate))
-            {
-                argumentsTemplate = GetRecommendedArgumentsTemplate(settings.TemplateKind);
-            }
-
-            var variables = BuildVariables(context, settings.RemoteBasePath);
-
-            string resolvedExecutable = ReplaceVariables(executable, variables);
-            string resolvedArguments = ReplaceVariables(argumentsTemplate, variables);
-            string resolvedWorkingDirectory = ReplaceVariables(settings.WorkingDirectory ?? string.Empty, variables);
-            string operationCategory = CloudCommandSecurity.DetectOperationCategory(resolvedArguments);
-
-            (resolvedExecutable, resolvedArguments) = WrapScriptExecutionIfNeeded(resolvedExecutable.Trim(), resolvedArguments.Trim());
-            var previews = CloudCommandSecurity.BuildPreviews(
-                resolvedExecutable,
-                resolvedArguments,
-                operationCategory);
-
-            return new ResolvedCommand
-            {
-                ExecutablePath = resolvedExecutable.Trim(),
-                Arguments = resolvedArguments.Trim(),
-                WorkingDirectory = resolvedWorkingDirectory.Trim(),
-                DisplayPreview = previews.DisplayPreview,
-                LogPreview = previews.LogPreview
-            };
         }
 
         private static ResolvedCommand CreateDirectCommand(string executablePath, string workingDirectory, string arguments)

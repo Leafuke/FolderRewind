@@ -348,6 +348,9 @@ namespace FolderRewind.ViewModels
         {
             if (!_active) return;
             _active = false;
+            _coordinationPolling?.Cancel();
+            _coordinationPolling?.Dispose();
+            _coordinationPolling = null;
             _presentationGeneration++;
             _initializedSections.Clear();
             _initializingSections.Clear();
@@ -450,6 +453,7 @@ namespace FolderRewind.ViewModels
                         break;
                     case SettingsSection.KnotLink:
                         UpdateKnotLinkStatus();
+                        StartCoordinationPolling();
                         var server = await Task.Run(() => (
                             Installed: KnotLinkServerManagerService.IsServerInstalled(),
                             Running: KnotLinkServerManagerService.IsServerProcessRunning(),

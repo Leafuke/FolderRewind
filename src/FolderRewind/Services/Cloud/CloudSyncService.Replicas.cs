@@ -109,7 +109,7 @@ namespace FolderRewind.Services
                     Directory.CreateDirectory(directory); localPath = Path.Combine(directory, safeName);
                 }
                 var service = new HistoryReplicaSyncService(runtime, CreateReplicaTransport(config),
-                    token => new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).SyncAsync(token), new UploadOnlyRetirementGuard());
+                    token => new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).SyncAsync(token));
                 var replicas = await runtime.Query.GetStorageReplicasAsync(representationId, cancellationToken).ConfigureAwait(false);
                 foreach (var replica in replicas.Where(r => r.ProviderKind == ReplicaProviderKind.Cloud && r.ExpectedSize is not null
                     && !string.IsNullOrWhiteSpace(r.ExpectedStorageSha256)).OrderBy(r => r.ReplicaId.ToString(), StringComparer.Ordinal))
@@ -138,15 +138,6 @@ namespace FolderRewind.Services
         private static IHistoryReplicaTransport CreateReplicaTransport(BackupConfig config)
             => new RcloneNativeHistoryTransport(RcloneExecutionScope.Current
                 ?? throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired")), config.Cloud.TimeoutSeconds, config.Cloud.VerifyAfterUpload);
-
-        private sealed class UploadOnlyRetirementGuard : IHistoryReplicaRetirementGuard
-        {
-            public Task EnsureRetirementSafeAsync(
-                StorageReplica replica,
-                bool releaseVersion,
-                CancellationToken cancellationToken)
-                => throw new InvalidOperationException("Replica retirement requires an explicit retention workflow.");
-        }
 
     }
 }

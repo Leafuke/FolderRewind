@@ -41,20 +41,8 @@ public sealed partial class ConfigSettingsPage
     private void OnOpenDestinationClick(object sender, RoutedEventArgs e)
         => ExecuteAction(ConfigSettingsAction.OpenDestination);
 
-    private void OnOpenConfigFolderClick(object sender, RoutedEventArgs e)
-        => ExecuteAction(ConfigSettingsAction.OpenConfigFolder);
-
-    private void OnOpenConfigFileClick(object sender, RoutedEventArgs e)
-        => ExecuteAction(ConfigSettingsAction.OpenConfigFile);
-
     private void OnSaveAsTemplateClick(object sender, RoutedEventArgs e)
         => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.SaveAsTemplate), nameof(ConfigSettingsPage));
-
-    private void OnBrowseCloudExecutableClick(object sender, RoutedEventArgs e)
-        => ExecuteAction(ConfigSettingsAction.BrowseCloudExecutable);
-
-    private void OnBrowseCloudWorkingDirectoryClick(object sender, RoutedEventArgs e)
-        => ExecuteAction(ConfigSettingsAction.BrowseCloudWorkingDirectory);
 
     private void OnOpenCloudSyncClick(object sender, RoutedEventArgs e)
         => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.OpenCloudSync), nameof(ConfigSettingsPage));

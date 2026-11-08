@@ -8,7 +8,7 @@ namespace FolderRewind.Tests;
 public sealed class LudusaviManifestCompilerTests
 {
     [TestMethod]
-    public void CompilerKeepsWindowsFilesAndVisibleRegistryMetadata()
+    public async Task CompilerKeepsWindowsFilesAndVisibleRegistryMetadata()
     {
         using var manifest = StreamOf(
             """
@@ -39,7 +39,7 @@ public sealed class LudusaviManifestCompilerTests
               alias: Hades
             """);
 
-        var index = new LudusaviManifestCompiler().Compile(
+        var index = await LudusaviStreamingFixture.CompileAsync(
             manifest,
             null,
             null,
@@ -63,7 +63,7 @@ public sealed class LudusaviManifestCompilerTests
     }
 
     [TestMethod]
-    public void CompilerResolvesAliasChainsAndDiagnosesInvalidAliases()
+    public async Task CompilerResolvesAliasChainsAndDiagnosesInvalidAliases()
     {
         using var manifest = StreamOf(
             """
@@ -84,7 +84,7 @@ public sealed class LudusaviManifestCompilerTests
               alias: ''
             """);
 
-        var index = new LudusaviManifestCompiler().Compile(
+        var index = await LudusaviStreamingFixture.CompileAsync(
             manifest,
             null,
             null,
@@ -101,7 +101,7 @@ public sealed class LudusaviManifestCompilerTests
     }
 
     [TestMethod]
-    public void CompilerPreservesCaseDistinctGamesAndExactAliasTargets()
+    public async Task CompilerPreservesCaseDistinctGamesAndExactAliasTargets()
     {
         using var manifest = StreamOf(
             """
@@ -115,7 +115,7 @@ public sealed class LudusaviManifestCompilerTests
                 '<base>/ALIFE.INI': {}
             """);
 
-        var index = new LudusaviManifestCompiler().Compile(
+        var index = await LudusaviStreamingFixture.CompileAsync(
             manifest,
             null,
             null,
@@ -131,7 +131,7 @@ public sealed class LudusaviManifestCompilerTests
     }
 
     [TestMethod]
-    public void SecondaryManifestKeepsCaseDistinctTopLevelGamesSeparate()
+    public async Task SecondaryManifestKeepsCaseDistinctTopLevelGamesSeparate()
     {
         using var primary = StreamOf(
             """
@@ -146,7 +146,7 @@ public sealed class LudusaviManifestCompilerTests
                 '<base>/two.sav': {}
             """);
 
-        var index = new LudusaviManifestCompiler().Compile(
+        var index = await LudusaviStreamingFixture.CompileAsync(
             primary,
             secondary,
             null,
@@ -159,7 +159,7 @@ public sealed class LudusaviManifestCompilerTests
     }
 
     [TestMethod]
-    public void SecondaryManifestMergesBeforeFolderRewindOverride()
+    public async Task SecondaryManifestMergesBeforeFolderRewindOverride()
     {
         using var primary = StreamOf(
             """
@@ -202,7 +202,7 @@ public sealed class LudusaviManifestCompilerTests
             }
         };
 
-        var index = new LudusaviManifestCompiler().Compile(
+        var index = await LudusaviStreamingFixture.CompileAsync(
             primary,
             secondary,
             overrides,

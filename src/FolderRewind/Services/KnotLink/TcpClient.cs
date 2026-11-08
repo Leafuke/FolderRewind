@@ -101,6 +101,13 @@ namespace FolderRewind.Services.KnotLink
                 await _stream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
                 await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+                // An interrupted frame cannot safely share its stream with a later terminal.
+                _cts.Cancel();
+                _client?.Close();
+                throw;
+            }
             finally
             {
                 _sendLock.Release();
@@ -118,7 +125,12 @@ namespace FolderRewind.Services.KnotLink
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     int bytesRead = await _stream.ReadAsync(chunk, 0, chunk.Length, cancellationToken).ConfigureAwait(false);
-                    if (bytesRead == 0) break; // 对端关闭
+                    if (bytesRead == 0)
+                    {
+                        if (Volatile.Read(ref _disposed) == 0 && !cancellationToken.IsCancellationRequested)
+                            await ReportErrorAsync(new IOException("KnotLink peer closed the connection.")).ConfigureAwait(false);
+                        break;
+                    }
 
                     lock (_recvBuffer)
                     {

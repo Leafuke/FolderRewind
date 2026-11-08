@@ -12,7 +12,7 @@ namespace FolderRewind.Services;
 
 public static partial class ConfigService
 {
-    private sealed record CredentialReference(BackupConfig Project, CloudSettings Settings, string Remote);
+    private sealed record CredentialReference(CloudConnectionProfile Profile, string Remote, string ProfileRevision);
     private sealed record CredentialMigrationResult(string? Target = null, byte[]? Revision = null, Exception? Error = null, bool Uncertain = false);
     private sealed class CredentialMigration(string source, string target, CredentialReference[] references)
     {
@@ -40,12 +40,11 @@ public static partial class ConfigService
         var targetRoot = Path.GetFullPath(RcloneConnectionsDirectory);
         if (StringComparer.OrdinalIgnoreCase.Equals(legacyRoot, targetRoot)) return;
         var candidates = new Dictionary<string, List<CredentialReference>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var project in CurrentConfig.BackupConfigs)
+        foreach (var profile in CurrentConfig.CloudConnections)
         {
-            var settings = project.Cloud;
-            if (settings.CommandMode != CloudCommandMode.Rclone || !TryLegacyCredential(settings.RcloneConfigPath, legacyRoot, out var source)) continue;
+            if (!TryLegacyCredential(profile.CredentialReference, legacyRoot, out var source)) continue;
             if (!candidates.TryGetValue(source, out var references)) candidates[source] = references = [];
-            references.Add(new(project, settings, settings.RemoteBasePath));
+            references.Add(new(profile, profile.RemoteName + ":", profile.ProfileRevision));
         }
         foreach (var (source, references) in candidates)
         {
@@ -113,6 +112,9 @@ public static partial class ConfigService
     private static async Task<CredentialMigrationResult> MigrateCredentialAsync(CredentialMigration migration, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
+        using var sourcePaths = new RcloneStoragePathLease(migration.Source,
+            Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(migration.Source)))!, "rclone-tasks"));
+        using var targetPaths = new RcloneStoragePathLease(migration.Target, RcloneTasksDirectory);
         RejectCredentialReparsePoints(migration.Source);
         RejectCredentialReparsePoints(migration.Target);
         byte[] content;
@@ -167,43 +169,30 @@ public static partial class ConfigService
         {
             token.ThrowIfCancellationRequested();
             if (IsRecoveryMode) throw new InvalidOperationException(I18n.GetString("Common_Failed"));
-            var references = migration.References.Where(reference => CurrentConfig.BackupConfigs.Contains(reference.Project)
-                && ReferenceEquals(reference.Project.Cloud, reference.Settings)
-                && StringComparer.OrdinalIgnoreCase.Equals(reference.Settings.RcloneConfigPath, migration.Source)
-                && reference.Settings.RemoteBasePath == reference.Remote
-                && reference.Settings.CommandMode == CloudCommandMode.Rclone).ToArray();
-            if (references.Length == 0) return;
-            var previous = references.Select(reference => reference.Settings.RcloneConfigPath).ToArray();
-            var profiles = CurrentConfig.CloudConnections.Where(p => StringComparer.OrdinalIgnoreCase.Equals(p.CredentialReference, migration.Source)).ToArray();
+            var profiles = migration.References.Where(reference => CurrentConfig.CloudConnections.Contains(reference.Profile)
+                && StringComparer.OrdinalIgnoreCase.Equals(reference.Profile.CredentialReference, migration.Source)
+                && reference.Profile.RemoteName + ":" == reference.Remote
+                && reference.Profile.ProfileRevision == reference.ProfileRevision).Select(reference => reference.Profile).ToArray();
+            if (profiles.Length == 0) return;
+            var ownership = profiles.Select(profile => profile.CredentialOwnership).ToArray();
             await ConfigEditTransaction.ApplyAsync(
                 () =>
                 {
-                    foreach (var reference in references) reference.Settings.RcloneConfigPath = migration.Target;
-                    foreach (var profile in profiles) profile.CredentialReference = migration.Target;
+                    foreach (var profile in profiles)
+                    { profile.CredentialReference = migration.Target; profile.CredentialOwnership = CloudCredentialOwnership.ManagedCopy; }
                 },
                 () =>
                 {
-                    for (var i = 0; i < references.Length; i++)
-                        if (references[i].Settings.RcloneConfigPath == migration.Target) references[i].Settings.RcloneConfigPath = previous[i];
-                    foreach (var profile in profiles) if (profile.CredentialReference == migration.Target) profile.CredentialReference = migration.Source;
+                    for (var i = 0; i < profiles.Length; i++)
+                        if (profiles[i].CredentialReference == migration.Target)
+                        { profiles[i].CredentialReference = migration.Source; profiles[i].CredentialOwnership = ownership[i]; }
                 }, () => SaveAsync(), I18n.GetString("CloudSetup_CredentialMigrationFailed"));
         }).ConfigureAwait(false);
         return new(migration.Target, revision);
     }
 
     private static void RejectCredentialReparsePoints(string path)
-    {
-        for (var current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
-        {
-            try
-            {
-                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                    throw new IOException("Credential migration refuses reparse points.");
-            }
-            catch (FileNotFoundException) { }
-            catch (DirectoryNotFoundException) { }
-        }
-    }
+        => RcloneCredentialRefresh.RejectReparsePoints(path);
 
     internal static async Task<string> WaitForRcloneCredentialMigrationAsync(string path, CancellationToken token = default, bool allowUncertain = false)
     {

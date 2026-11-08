@@ -87,7 +87,6 @@ namespace FolderRewind.Views
             }
 
             var filePath = await MainWindowService.PickSaveFilePathAsync(
-                string.Empty,
                 "FolderRewind.TemplateManager.ExportTemplate",
                 new Dictionary<string, IReadOnlyList<string>>
                 {

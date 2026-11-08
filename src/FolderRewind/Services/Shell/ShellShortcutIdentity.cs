@@ -65,7 +65,6 @@ internal static class ShellShortcutIdentity
         }
         finally { PropVariantClear(ref value); Marshal.FinalReleaseComObject(store); }
     }
-    internal static void SetAppUserModelId(string path, string appId) => SetShortcutProperty(path, 5, appId);
 
     internal static void SetShortcutProperty(string path, uint propertyId, string text)
     {

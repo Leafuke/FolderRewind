@@ -253,7 +253,6 @@ internal sealed class HomeInteractionService(Func<XamlRoot?> xamlRootProvider) :
     {
         cancellationToken.ThrowIfCancellationRequested();
         var path = await MainWindowService.PickFolderPathAsync(
-            AppResourceLoader.GetForViewIndependentUse().GetString("HomePage_PluginBatchCreatePickRootTitle"),
             "FolderRewind.HomePage.PluginBatch.Root",
             MainWindowService.SuggestedPickerLocation.ComputerFolder);
         cancellationToken.ThrowIfCancellationRequested();

@@ -69,7 +69,7 @@ public sealed partial class CloudConnectionEditor : UserControl
         VerificationHelp.Text = I18n.GetString(ViewModel.RecoveryMode ? "CloudWizard_ReadOnlyCheck" : "CloudWizard_WriteCheck");
         Status.Message = ViewModel.Message; Status.IsOpen = ViewModel.HasMessage;
         Status.Severity = (InfoBarSeverity)ViewModel.MessageSeverity;
-        RepairButton.Visibility = Show(ViewModel.HasRepair && ViewModel.FailureKind != "Input");
+        RepairButton.Visibility = Show(ViewModel.HasRepair && CloudFailurePresentation.OffersInlineRepair(ViewModel.FailureKind));
         RepairButton.Content = I18n.GetString(ViewModel.FailureKind == "Tool" ? "CloudSetup_PickExecutable.Content"
             : ViewModel.FailureKind == "Connection" ? ViewModel.HasEditableProfile ? "CloudReauth_Action.Content" : "CloudConnection_Rebuild.Content" : "CloudRepair_Action.Content");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(RepairButton, (string)RepairButton.Content);
@@ -128,7 +128,7 @@ public sealed partial class CloudConnectionEditor : UserControl
     private void OnCreateSeparate(object s, RoutedEventArgs e) { ViewModel.CreateSeparateConnection(); Refresh(); }
     private async void OnRecognizeLocalConfig(object s, RoutedEventArgs e) => await Run(async token =>
     {
-        var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.OpenListConfig", [".json"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
+        var path = await MainWindowService.PickFilePathAsync("FolderRewind.CloudSetup.OpenListConfig", [".json"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (path is not null) await ViewModel.LocalEnvironment.InspectConfigurationAsync(path, token);
     }, CloudCheckIntent.PrepareReplacement);
     private Task<bool> ConfirmLocalAuthorization(Models.OpenListRuntimeSettings draft)
@@ -159,9 +159,9 @@ public sealed partial class CloudConnectionEditor : UserControl
     }
     private void OnEnvironmentSettings(object s, RoutedEventArgs e) => NavigationService.NavigateTo("Settings", NavigationService.SettingsOpenListTarget);
     private async void OnPickExecutable(object s, RoutedEventArgs e) => await Run(async t =>
-    { var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) ViewModel.Executable = path; }, CloudCheckIntent.PrepareReplacement);
+    { var path = await MainWindowService.PickFilePathAsync("FolderRewind.CloudSetup.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) ViewModel.Executable = path; }, CloudCheckIntent.PrepareReplacement);
     private async void OnPickConfig(object s, RoutedEventArgs e) => await Run(async t =>
-    { var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.CloudSetup.Config", [".conf", "*"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) { ViewModel.ConfigPath = path; ViewModel.LoadRemotes(); } }, CloudCheckIntent.PrepareReplacement);
+    { var path = await MainWindowService.PickFilePathAsync("FolderRewind.CloudSetup.Config", [".conf", "*"], MainWindowService.SuggestedPickerLocation.ComputerFolder); if (path is not null) { ViewModel.ConfigPath = path; ViewModel.LoadRemotes(); } }, CloudCheckIntent.PrepareReplacement);
     private async void OnDetectConfig(object s, RoutedEventArgs e) => await Run(ViewModel.DetectConfigurationAsync, CloudCheckIntent.PrepareReplacement);
     private async void OnListRemotes(object s, RoutedEventArgs e) => await Run(t => { ViewModel.LoadRemotes(); return Task.CompletedTask; }, CloudCheckIntent.PrepareReplacement);
     private async void OnReuseCredentials(object s, RoutedEventArgs e) => await Run(t => { ViewModel.ReuseManagedCredentials(); return Task.CompletedTask; }, CloudCheckIntent.PrepareReplacement);
@@ -188,7 +188,7 @@ public sealed partial class CloudConnectionEditor : UserControl
     }
     private void OnRepair(object s, RoutedEventArgs e)
     {
-        if (!ViewModel.CanEdit) return;
+        if (!ViewModel.CanEdit || !CloudFailurePresentation.OffersInlineRepair(ViewModel.FailureKind)) return;
         if (ViewModel.FailureKind == "Connection" && ViewModel.HasEditableProfile)
         { ViewModel.BeginReauthentication(); Refresh(); return; }
         if (ViewModel.FailureKind == "Tool") { ViewModel.WizardStep = 1; Refresh(); OnPickExecutable(s, e); }

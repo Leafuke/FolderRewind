@@ -87,8 +87,7 @@ public sealed partial class GameDiscoveryPage : Page
         _pickingPluginRoot = true;
         try
         {
-            var root = await MainWindowService.PickFolderPathAsync(
-                I18n.GetString("Setup_InstanceRoot"), "FolderRewind.GameDiscovery.PluginRoot",
+            var root = await MainWindowService.PickFolderPathAsync("FolderRewind.GameDiscovery.PluginRoot",
                 MainWindowService.SuggestedPickerLocation.ComputerFolder);
             if (ViewModel.IsSessionActive && ReferenceEquals(Frame?.Content, this) && !string.IsNullOrWhiteSpace(root))
                 await ViewModel.ScanPluginUserRootAsync(root);
@@ -119,7 +118,6 @@ public sealed partial class GameDiscoveryPage : Page
     private async void OnBrowseOverrideClick(object sender, RoutedEventArgs e)
     {
         var path = await MainWindowService.PickFilePathAsync(
-            I18n.GetString("GameDiscoveryPage_PickOverride"),
             "FolderRewind.GameDiscovery.Override",
             new[] { ".json" });
         if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path)) ViewModel.OverridePath = path;
@@ -132,7 +130,6 @@ public sealed partial class GameDiscoveryPage : Page
     private async Task AddRootAsync(GameStore store)
     {
         var path = await MainWindowService.PickFolderPathAsync(
-            I18n.Format("GameDiscoveryPage_PickStoreRoot", store),
             $"FolderRewind.GameDiscovery.{store}");
         if (ViewModel.IsSessionActive && !string.IsNullOrWhiteSpace(path)) ViewModel.AddLibraryRoot(store, path);
     }
@@ -436,7 +433,6 @@ public sealed partial class GameDiscoveryPage : Page
     private static Task<string?> PickYamlAsync(string settingsIdentifier)
     {
         return MainWindowService.PickFilePathAsync(
-            I18n.GetString("GameDiscoveryPage_PickManifest"),
             settingsIdentifier,
             new[] { ".yaml", ".yml" });
     }

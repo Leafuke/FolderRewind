@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Threading;
 
 namespace FolderRewind.Services;
 
@@ -88,16 +89,18 @@ internal static class RcloneCredentialStore
         { return null; }
     }
 
-    internal static IEnumerable<(string Directory, bool Legacy)> Enumerate(string root, string source)
+    internal static IEnumerable<(string Directory, bool Legacy)> Enumerate(string root, string source, CancellationToken token = default)
     {
         foreach (var (parent, legacy) in new[] { (Scope(root, source), false), (root, true) })
         {
             if (!Directory.Exists(parent)) continue;
-            RcloneCredentialRefresh.RejectReparsePoints(parent);
-            var directories = Directory.EnumerateDirectories(parent, "task-*").Take(1001).ToArray();
-            if (directories.Length > 1000)
-                throw RcloneConnectionDiagnostics.CredentialFailure(CredentialFailureReason.InvalidEvidence, CredentialFailureStage.Recover, source);
-            foreach (var directory in directories) yield return (directory, legacy);
+            RcloneCredentialRefresh.RejectReparsePoints(parent, Path.GetDirectoryName(Path.GetFullPath(root))!);
+            // Stream old entries with the operation's cancellation budget. An unrelated directory count is not corrupt evidence.
+            foreach (var directory in Directory.EnumerateDirectories(parent, "task-*"))
+            {
+                token.ThrowIfCancellationRequested();
+                yield return (directory, legacy);
+            }
         }
     }
 }

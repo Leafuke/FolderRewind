@@ -11,6 +11,7 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
     public async ValueTask<SpatialPreviewDescription> DescribeAsync(SpatialPreviewSource source, CancellationToken token)
     {
         using var lease = Acquire(source, token);
+        runtime.PreviewDemands.EnsureNotClosed(source);
         var value = await lease.Capability.DescribeAsync(source, lease.Context).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
         if (value.Layers.Count > 128 || value.Layers.Select(l => l.Id).Distinct(StringComparer.Ordinal).Count() != value.Layers.Count)
@@ -34,6 +35,7 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
             }).ToArray();
             return l with { Name = Freeze(l.Name), Height = FreezeHeight(l.Height), ViewModes = Array.AsReadOnly(modes) };
         }).ToArray();
+        runtime.PreviewDemands.Open(source);
         return new(Array.AsReadOnly(layers), Freeze(value.HorizontalAxis), Freeze(value.VerticalAxis), Freeze(value.Diagnostics))
         { LayerLabel = value.LayerLabel is { } label ? Freeze(label) : null,
           NavigationLabel = value.NavigationLabel is { } navigation ? Freeze(navigation) : null,
@@ -58,11 +60,13 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
                 || t.LayerId.Length > 256 || !Finite(t.X, t.Y)) throw new InvalidDataException("Invalid preview target.");
             return t with { Group = Freeze(t.Group), Name = Freeze(t.Name) };
         }).ToArray();
-        return new(Array.AsReadOnly(targets), value.DefaultTargetId) { QuickTargetId = value.QuickTargetId };
+        return new(Array.AsReadOnly(targets), value.DefaultTargetId)
+            { QuickTargetId = value.QuickTargetId, Diagnostics = Freeze(value.Diagnostics) };
     }
 
     public async ValueTask CloseAsync(SpatialPreviewSource source)
     {
+        runtime.PreviewDemands.Close(source);
         // A stopped plugin has already cleared its caches in Deactivate. Do not pin it or reactivate it for cleanup.
         using var lease = runtime.TryAcquire<ISpatialPreviewCapability>(new(source.Config.Kind.OwnerId.Value), c => c.Kind == source.Config.Kind);
         if (lease is not null) await lease.Capability.CloseAsync(source, lease.Context).ConfigureAwait(false);
@@ -73,10 +77,35 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
         if (!Finite(request.OriginX, request.OriginY, request.UnitsPerPixel) || request.UnitsPerPixel is < 1 or > 4096)
             throw new ArgumentException("Invalid preview tile coordinates.");
         ValidateMode(request.ViewModeId);
+        if (request.ViewId == Guid.Empty || request.DemandRevision <= 0) throw new ArgumentException("Preview demand identity is required.");
         using var lease = Acquire(request.Source, token);
+        runtime.PreviewDemands.Require(request);
         var value = await lease.Capability.RenderAsync(request, lease.Context).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
         return FreezeTile(value);
+    }
+
+    public async ValueTask UpdateDemandAsync(SpatialPreviewDemand demand, CancellationToken token)
+    {
+        if (demand.ViewId == Guid.Empty || demand.Revision <= 0 || demand.Tiles.Count > 256)
+            throw new ArgumentException("Invalid preview demand identity or size.");
+        var tiles = demand.Tiles.ToArray();
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            var tile = tiles[i];
+            if (SpatialPreviewDemands.SourceIdentity(tile.Source) != SpatialPreviewDemands.SourceIdentity(demand.Source)
+                || tile.Source.Generation != demand.Source.Generation || tile.ViewId != demand.ViewId || tile.DemandRevision != demand.Revision
+                || tile.Source.WorldId != demand.Source.WorldId
+                || string.IsNullOrWhiteSpace(tile.LayerId) || tile.LayerId.Length > 256
+                || !Finite(tile.OriginX, tile.OriginY, tile.UnitsPerPixel) || tile.UnitsPerPixel is < 1 or > 4096
+                || tiles.Take(i).Any(t => SpatialPreviewDemands.SameTile(t, tile)))
+                throw new ArgumentException("Invalid or duplicate preview demand tile.");
+            ValidateMode(tile.ViewModeId);
+        }
+        var frozen = demand with { Tiles = Array.AsReadOnly(tiles) };
+        using var lease = Acquire(demand.Source, token);
+        await runtime.PreviewDemands.UpdateAsync(frozen,
+            () => ((ISpatialPreviewDemandCapability)lease.Capability).UpdateDemandAsync(frozen, lease.Context), token).ConfigureAwait(false);
     }
 
     public async ValueTask<SpatialPreviewPoint> InspectAsync(SpatialPreviewPointRequest request, CancellationToken token)
@@ -110,6 +139,8 @@ public sealed class SpatialPreviewDispatcher(PluginRuntimeManager runtime)
             throw new ArgumentException("Invalid spatial input bounds or cache budget.");
         var lease = runtime.TryAcquire<ISpatialPreviewCapability>(new(source.Config.Kind.OwnerId.Value), c => c.Kind == source.Config.Kind, token)
             ?? throw new InvalidOperationException("SpatialPreviewUnavailable");
+        if (lease.Capability is not ISpatialPreviewDemandCapability)
+        { lease.Dispose(); throw new InvalidOperationException("Spatial preview demand capability is required. Upgrade the plugin."); }
         if (source.FixedInput is { } input && (lease.Capability is not IFixedSpatialPreviewCapability
             || string.IsNullOrWhiteSpace(input.Identity) || string.IsNullOrWhiteSpace(input.ContentDigest)
             || !Path.IsPathFullyQualified(input.RootPath)))

@@ -176,7 +176,11 @@ public sealed record RestoreMaterializationRequest(
     RestoreMode EffectiveMode,
     IArtifactReadService ArtifactRead,
     IRestoreMaterializationWorkspace Workspace,
-    IPluginOperationProgress Progress);
+    IPluginOperationProgress Progress)
+{
+    /// <summary>Host-owned cumulative output budget; a coordinator must check it before creating each output.</summary>
+    public long MaximumOutputBytes { get; init; } = long.MaxValue;
+}
 
 public sealed record RestoreMaterializationResult(
     OperationOutcome Outcome,

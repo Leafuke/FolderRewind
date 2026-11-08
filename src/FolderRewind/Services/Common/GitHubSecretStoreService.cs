@@ -11,21 +11,10 @@ namespace FolderRewind.Services
     internal static class GitHubSecretStoreService
     {
         private const string StoreFileName = "github_secure_store.dat";
-        private const string ClientSecretKey = "oauth_client_secret";
         private const string AccessTokenKey = "oauth_access_token";
         private const string UserLoginKey = "oauth_user_login";
         private static readonly string StorePath = Path.Combine(ConfigService.ConfigDirectory, StoreFileName);
         private static readonly byte[] AdditionalEntropy = Encoding.UTF8.GetBytes("FolderRewind.GitHubSecretStore.v1");
-
-        public static string GetClientSecret()
-        {
-            return GetValue(ClientSecretKey);
-        }
-
-        public static void SetClientSecret(string? secret)
-        {
-            SetValue(ClientSecretKey, secret);
-        }
 
         public static string GetAccessToken()
         {

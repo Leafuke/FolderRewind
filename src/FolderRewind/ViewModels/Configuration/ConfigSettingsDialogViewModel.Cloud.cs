@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using System;
@@ -50,81 +50,7 @@ namespace FolderRewind.ViewModels
 
         public bool IsLegacyCustomCommandMode => _cloud.CommandMode == CloudCommandMode.Custom;
 
-        public bool ShowCloudTemplateOptions => !IsLegacyCustomCommandMode;
-
-        public string EffectiveCloudExecutablePath => CloudSyncService.GetEffectiveExecutablePath(_config);
-
-        public string CloudExecutablePathText
-        {
-            get
-            {
-                string configured = _cloud.ExecutablePath?.Trim() ?? string.Empty;
-                string global = ConfigService.CurrentConfig?.GlobalSettings?.RcloneExecutablePath?.Trim() ?? string.Empty;
-                bool usesGlobalFallback = string.IsNullOrWhiteSpace(configured)
-                    || string.Equals(configured, "rclone.exe", StringComparison.OrdinalIgnoreCase);
-                if (usesGlobalFallback && !string.IsNullOrWhiteSpace(global))
-                {
-                    return global;
-                }
-
-                return string.IsNullOrWhiteSpace(configured) ? "rclone.exe" : configured;
-            }
-            set
-            {
-                string normalized = value?.Trim() ?? string.Empty;
-                string global = ConfigService.CurrentConfig?.GlobalSettings?.RcloneExecutablePath?.Trim() ?? string.Empty;
-                bool usesGlobalFallback = string.IsNullOrWhiteSpace(_cloud.ExecutablePath)
-                    || string.Equals(_cloud.ExecutablePath, "rclone.exe", StringComparison.OrdinalIgnoreCase);
-
-                if (!string.IsNullOrWhiteSpace(global)
-                    && usesGlobalFallback
-                    && string.Equals(normalized, global, StringComparison.OrdinalIgnoreCase))
-                {
-                    _cloud.ExecutablePath = "rclone.exe";
-                }
-                else
-                {
-                    _cloud.ExecutablePath = string.IsNullOrWhiteSpace(normalized) ? "rclone.exe" : normalized;
-                }
-
-                RaiseCloudUiProperties();
-            }
-        }
-
-        public string CloudExecutableDescription => I18n.Format("ConfigSettingsDialog_CloudExecutableDesc", EffectiveCloudExecutablePath);
-
-        public string CloudWorkingDirectoryText
-        {
-            get => _cloud.WorkingDirectory;
-            set
-            {
-                string normalized = value?.Trim() ?? string.Empty;
-                if (string.Equals(_cloud.WorkingDirectory, normalized, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _cloud.WorkingDirectory = normalized;
-                RaiseCloudUiProperties();
-            }
-        }
-
-        public string CloudRemoteBasePathText
-        {
-            get => ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == _cloud.ConnectionProfileId) is { } profile
-                ? profile.RemoteName + ":" + _cloud.RemotePathSuffix : _cloud.RemoteBasePath;
-            set
-            {
-                string normalized = value?.Trim() ?? string.Empty;
-                if (string.Equals(_cloud.RemoteBasePath, normalized, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _cloud.RemoteBasePath = normalized;
-                RaiseCloudUiProperties();
-            }
-        }
+        public string CloudRemoteBasePathText => CloudConnectionCatalog.RemoteRoot(ConfigService.CurrentConfig, _config);
 
         public int CloudTimeoutSeconds
         {

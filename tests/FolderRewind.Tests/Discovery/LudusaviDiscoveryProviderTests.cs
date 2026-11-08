@@ -195,9 +195,14 @@ public sealed class LudusaviDiscoveryProviderTests
     [TestMethod]
     public async Task ZeroInstallationsDoNotEnumerateManifestDefinitions()
     {
-        var provider = CreateProvider(
-            new ThrowingGameList(),
-            Array.Empty<DetectedGameInstallation>());
+        var cacheRoot = Path.Combine(_root, "unreadable-cache");
+        LudusaviStreamingFixture.SeedCache(cacheRoot, Array.Empty<LudusaviCompiledGame>());
+        // A scan without installations must not open or repair even an invalid generation.
+        var index = Directory.GetFiles(cacheRoot, "index.v3.json.gz", SearchOption.AllDirectories).Single();
+        File.WriteAllText(index, "invalid gzip");
+        using var locked = new FileStream(index, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        var provider = new LudusaviDiscoveryProvider(new(cacheRoot),
+            new FakeInstallationDiscovery(Array.Empty<DetectedGameInstallation>()), CreateResolver());
 
         var result = await provider.DiscoverAsync(new DiscoveryRequest(), null, CancellationToken.None);
 
@@ -299,7 +304,7 @@ public sealed class LudusaviDiscoveryProviderTests
               installDir:
                 Monument Valley 2: {}
             """));
-        var compiled = new LudusaviManifestCompiler().Compile(
+        var compiled = await LudusaviStreamingFixture.CompileAsync(
             manifest,
             null,
             null,
@@ -371,18 +376,8 @@ public sealed class LudusaviDiscoveryProviderTests
         IReadOnlyList<LudusaviCompiledGame> games,
         IReadOnlyList<DetectedGameInstallation> installations)
     {
-        var index = new LudusaviCompiledIndex
-        {
-            SourceSha256 = new string('a', 64),
-            Games = games
-        };
-        return new LudusaviDiscoveryProvider(
-            _ => Task.FromResult<(
-                LudusaviManifestCacheMetadata Metadata,
-                LudusaviCompiledIndex Index)?>(
-                (new LudusaviManifestCacheMetadata { GenerationId = new string('a', 64) }, index)),
-            new FakeInstallationDiscovery(installations),
-            CreateResolver());
+        var cache = LudusaviStreamingFixture.SeedCache(Path.Combine(_root, "provider-cache-" + Guid.NewGuid().ToString("N")), games);
+        return new LudusaviDiscoveryProvider(cache, new FakeInstallationDiscovery(installations), CreateResolver());
     }
 
     private LudusaviPathExpressionResolver CreateResolver() => new(new LudusaviPathEnvironment
@@ -439,12 +434,4 @@ public sealed class LudusaviDiscoveryProviderTests
         public void Report(DiscoveryProgress value) => Values.Add(value);
     }
 
-    private sealed class ThrowingGameList : IReadOnlyList<LudusaviCompiledGame>
-    {
-        public int Count => throw new AssertFailedException("Definitions must not be inspected when no installations exist.");
-        public LudusaviCompiledGame this[int index] => throw new AssertFailedException("Definitions must not be inspected when no installations exist.");
-        public IEnumerator<LudusaviCompiledGame> GetEnumerator() =>
-            throw new AssertFailedException("Definitions must not be inspected when no installations exist.");
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
-    }
 }

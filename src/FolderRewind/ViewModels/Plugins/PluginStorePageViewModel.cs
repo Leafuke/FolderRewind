@@ -98,8 +98,6 @@ public sealed class PluginStorePageViewModel : ViewModelBase
         await LoadCommand.ExecuteAsync(null);
     }
 
-    public void CancelPendingOperations() => _operations.Cancel();
-
     private IAsyncRelayCommand PageCommand(Func<CancellationToken, Func<bool>, Task> action)
         => new AsyncRelayCommand(() => RunAsync(action), () => CanLoad);
 
@@ -192,8 +190,7 @@ public sealed class PluginStorePageViewModel : ViewModelBase
     private async Task InstallManualAsync(CancellationToken ct, Func<bool> isCurrent)
     {
         // The shared gate is acquired before displaying the picker.
-        var path = await MainWindowService.PickFilePathAsync(
-            I18n.GetString("PluginStorePage_InstallManual.Content"), "FolderRewind.PluginV3.ManualInstall", new[] { ".frplugin" });
+        var path = await MainWindowService.PickFilePathAsync("FolderRewind.PluginV3.ManualInstall", new[] { ".frplugin" });
         ct.ThrowIfCancellationRequested();
         if (!isCurrent() || string.IsNullOrWhiteSpace(path)) return;
         var result = await PluginStoreService.InstallManualAsync(path, ct);

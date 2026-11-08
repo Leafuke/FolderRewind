@@ -28,6 +28,7 @@ public sealed partial class HistoryRestoreService
     private readonly Func<CancellationToken, ValueTask<IAsyncDisposable>>? _finalGuard;
     internal Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, ValueTask<IAsyncDisposable>>? FinalGuardInsideOperation { get; init; }
     internal Func<SourceVersion, CancellationToken, Task>? ValidateVersionTarget { get; init; }
+    internal Func<CancellationToken, Task>? BeforeDestinationMutation { get; init; }
     internal ArchiveRestoreVerificationContext? VerificationContext { get; set; }
     internal bool UseTargetVolumeWorkspaces { get; init; }
     internal bool AllowDirectorySwap { get; init; } = true;
@@ -113,7 +114,7 @@ public sealed partial class HistoryRestoreService
         using var ownedPreparation = PreparationSession is null ? TryCreatePreparationSession(mappedSources, expectedWorkspace, out preparationError) : null;
         if (preparationError is not null) return Blocked(preparationError);
         var session = PreparationSession ?? ownedPreparation;
-        using var currentInputs = RequiresCurrentInput ? EnterCurrentInputScope(mappedSources) : null;
+        using var currentInputs = RequiresCurrentInput ? EnterCurrentInputScope() : null;
         try
         {
             var chosen = new List<(SourceVersion Version, HistoryRestoreSourceBinding Binding, HistoryRestoreApplyMode Mode)>();
@@ -126,6 +127,8 @@ public sealed partial class HistoryRestoreService
                 var effectiveMode = version.CaptureScope == CaptureScope.PartialSource ? HistoryRestoreApplyMode.Overwrite : requestedMode;
                 chosen.Add((version, binding, effectiveMode));
             }
+            foreach (var (version, binding, _) in chosen)
+                currentInputs?.Protect(BindRestoreSource(version, binding, session));
             await ReservePreparationSpaceAsync(chosen.Select(s => (s.Version, s.Binding, RequiredFidelity(s.Mode))), session, cancellationToken).ConfigureAwait(false);
             foreach (var (version, binding, effectiveMode) in chosen)
             {
@@ -200,9 +203,10 @@ public sealed partial class HistoryRestoreService
         using var ownedPreparation = PreparationSession is null ? TryCreatePreparationSession([source], expectedWorkspace, out preparationError) : null;
         if (preparationError is not null) return Blocked(preparationError);
         var session = PreparationSession ?? ownedPreparation;
-        using var currentInputs = RequiresCurrentInput && ReusablePreparation is null ? EnterCurrentInputScope([source]) : null;
+        using var currentInputs = RequiresCurrentInput && ReusablePreparation is null ? EnterCurrentInputScope() : null;
         try
         {
+            currentInputs?.Protect(BindRestoreSource(version, source, session));
             var effectiveMode = version.CaptureScope == CaptureScope.PartialSource
                 ? HistoryRestoreApplyMode.Overwrite : requestedMode;
             var boundSource = session?.BindSource(source) ?? source;
@@ -255,12 +259,6 @@ public sealed partial class HistoryRestoreService
         }
     }
 
-    internal async Task<HistoryWorkingStateComparison> CompareReadOnlyAsync(SourceVersion version, HistoryRestoreSourceBinding binding, CancellationToken token)
-    {
-        using var evidence = await CompareReadOnlyWithEvidenceAsync(version, binding, token).ConfigureAwait(false);
-        return evidence.Comparison;
-    }
-
     internal async Task<HistoryWorkingStateEvidence> CompareReadOnlyWithEvidenceAsync(SourceVersion version, HistoryRestoreSourceBinding binding, CancellationToken token)
     {
         var graph = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
@@ -283,6 +281,11 @@ public sealed partial class HistoryRestoreService
         }
     }
 
+    private static HistoryRestoreSourceBinding BindRestoreSource(SourceVersion version,
+        HistoryRestoreSourceBinding source, HistoryRestorePreparationSession? session)
+        // Current-input protection and plugin preparation must use the same historical boundary and physical target.
+        => (session?.BindSource(source) ?? source) with { EffectiveSourceBoundary = version.EffectiveSourceBoundary };
+
     internal async Task<PreparedRestoreSource> PrepareSourceAsync(
         SourceVersion version,
         HistoryRestoreSourceBinding source,
@@ -292,7 +295,7 @@ public sealed partial class HistoryRestoreService
         HistoryRestorePreparationSession? session = null)
     {
         using var phase = Services.HistoryOperationDiagnostics.Current?.Measure("prepare-source");
-        source = session?.BindSource(source) ?? source;
+        source = BindRestoreSource(version, source, session);
         if (applyMode == HistoryRestoreApplyMode.Clean)
             LegacyRecoveryPolicy.RequireKnownBoundary(version);
         var (allRepresentations, environment) = await GetPreparationInputsAsync(cancellationToken).ConfigureAwait(false);
@@ -338,7 +341,7 @@ public sealed partial class HistoryRestoreService
                 completeDirectories = true;
             }
             return new PreparedRestoreSource(
-                source with { EffectiveSourceBoundary = version.EffectiveSourceBoundary },
+                source,
                 version,
                 assessment.Selected.Fidelity,
                 applyMode,
@@ -401,7 +404,8 @@ public sealed partial class HistoryRestoreService
                 { LogicalDirectory = version.SourceDescriptorSnapshot.PathHint };
             var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
             if ((await Merge.MergeTreeManifest.ReadAsync(staging, include, token,
-                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false)).Digest != expectedDigest)
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true),
+                new HistoryRestoreTreeScope(binding).MayDescend).ConfigureAwait(false)).Digest != expectedDigest)
                 throw new IOException("Exact representation no longer matches the fixed Merge input.");
             return lease;
         }
@@ -460,6 +464,7 @@ public sealed partial class HistoryRestoreService
             return await ExecuteTargetVolumeMutationAsync(preparationSession, prepared, currentWorkspace, desiredWorkspace, cancellationToken).ConfigureAwait(false);
         }
         var transactionId = commitPack?.TransactionId ?? HistoryTransactionId.New();
+        if (BeforeDestinationMutation is { } recheck) await recheck(cancellationToken).ConfigureAwait(false);
         var journal = new HistoryRestoreTransactionJournal(
             transactionId,
             HistoryRestoreTransactionPhase.Prepared,
@@ -469,6 +474,7 @@ public sealed partial class HistoryRestoreService
             [],
             [], [], commitPack is null ? null : new HistoryPackCodec().Encode(commitPack), desiredCatalog, expectedCatalogRevision);
         _journals.Save(journal);
+        ReportRestorePhase("mutation-started", transactionId);
         var snapshots = new List<HistoryRestoreRollbackSnapshot>();
         var applied = new List<SourceId>();
         var readLocks = new List<FileStream>();
@@ -481,7 +487,8 @@ public sealed partial class HistoryRestoreService
                 var tree = snapshot.HadOriginalTarget
                     ? await Merge.MergeTreeManifest.ReadAsync(snapshot.RollbackDirectory,
                         FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding), cancellationToken,
-                        FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding, isDirectory: true)).ConfigureAwait(false)
+                        FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding, isDirectory: true),
+                        new HistoryRestoreTreeScope(item.Binding).MayDescend).ConfigureAwait(false)
                     : Merge.MergeTreeManifest.Empty;
                 if (tree.Digest != item.ExpectedOriginalTreeDigest) throw new IOException("Working files changed after protection and before mutation.");
             }
@@ -544,7 +551,8 @@ public sealed partial class HistoryRestoreService
                     && boundary(path);
                 if ((await Merge.MergeTreeManifest.ReadAsync(item.Binding.TargetDirectory,
                     IncludeResult, cancellationToken,
-                    FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding, isDirectory: true)).ConfigureAwait(false)).Digest != item.ExpectedResultTreeDigest)
+                    FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding, isDirectory: true),
+                    new HistoryRestoreTreeScope(item.Binding).MayDescend).ConfigureAwait(false)).Digest != item.ExpectedResultTreeDigest)
                     throw new IOException("Applied Merge state differs from the verified result.");
             }
             if (commitPack is not null)

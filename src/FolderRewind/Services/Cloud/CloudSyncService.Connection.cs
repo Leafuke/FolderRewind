@@ -15,7 +15,7 @@ public static partial class CloudSyncService
         catch (InvalidOperationException) { return I18n.GetString("Migration_CloudBindingRequired"); }
         if (settings.CommandMode != CloudCommandMode.Rclone || !Path.IsPathFullyQualified(settings.RcloneConfigPath)
             || !File.Exists(settings.RcloneConfigPath)) return I18n.GetString("Migration_CloudBindingRequired");
-        if (!TryResolveSharedRcloneRuntime(settings, out _, out _, out var error)) return error;
+        if (!TryResolveRcloneRuntime(settings, out _, out _, out var error)) return error;
         var content = System.Text.Encoding.UTF8.GetString(RcloneExecutionContext.ReadConfigurationBytes(settings.RcloneConfigPath));
         var remote = settings.RemoteBasePath.Split(':', 2)[0];
         if (!settings.RemoteBasePath.Contains(':') || string.IsNullOrWhiteSpace(remote)
@@ -37,16 +37,15 @@ public static partial class CloudSyncService
     private static async Task<BackupConfig> PrepareConnectionAsync(BackupConfig config, CancellationToken token = default)
     {
         var resolved = CloudConnectionCatalog.Resolve(config);
-        config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
-        config.Cloud = resolved;
-        var originalPath = config.Cloud.RcloneConfigPath;
+        var originalPath = resolved.RcloneConfigPath;
         var path = await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, token).ConfigureAwait(false);
         if (!Path.IsPathFullyQualified(path) || !File.Exists(path))
             throw RcloneConnectionDiagnostics.Failure("connection.credentials-missing", "CloudSetup_SourceConfigUnavailable");
         if (Path.IsPathFullyQualified(path) && File.Exists(path))
             await RcloneCredentialRefresh.PrepareStoreAsync(path, ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(path), token).ConfigureAwait(false);
         var copy = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
-        if (copy.Cloud.RcloneConfigPath == originalPath) copy.Cloud.RcloneConfigPath = path;
+        copy.Cloud = resolved;
+        copy.Cloud.RcloneConfigPath = path;
         return copy;
     }
 
@@ -82,7 +81,7 @@ public static partial class CloudSyncService
     private static RcloneExecutionContext? CreateBoundConnection(CloudSettings settings)
     {
         if (settings.CommandMode != CloudCommandMode.Rclone || string.IsNullOrWhiteSpace(settings.RcloneConfigPath)) return null;
-        if (!TryResolveSharedRcloneRuntime(settings, out var executable, out var working, out var error)) throw new IOException(error);
+        if (!TryResolveRcloneRuntime(settings, out var executable, out var working, out var error)) throw new IOException(error);
         return new(executable, settings.RcloneConfigPath, working, settings.RemoteBasePath,
             ConfigService.RcloneTasksDirectory, CloudConnectionCatalog.IsManaged(settings.RcloneConfigPath));
     }

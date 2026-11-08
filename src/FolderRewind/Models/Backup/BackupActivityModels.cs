@@ -15,7 +15,6 @@ namespace FolderRewind.Models
         private string _folderName = string.Empty;
         private double _progress;
         private string _status = string.Empty;
-        private string _speed = string.Empty;
         private bool _isCompleted;
         private string _log = string.Empty;
         private string _errorMessage = string.Empty;
@@ -52,7 +51,6 @@ namespace FolderRewind.Models
             }
         }
         public string Status { get => _status; set => SetProperty(ref _status, value ?? string.Empty); }
-        public string Speed { get => _speed; set => SetProperty(ref _speed, value ?? string.Empty); }
         public bool IsCompleted
         {
             get => _isCompleted;

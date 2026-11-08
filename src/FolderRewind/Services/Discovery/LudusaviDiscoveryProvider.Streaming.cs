@@ -14,6 +14,14 @@ public sealed partial class LudusaviDiscoveryProvider
         IProgress<DiscoveryProgress>? progress, CancellationToken token)
     {
         var stopwatch = Stopwatch.StartNew();
+        progress?.Report(new DiscoveryProgress { ProviderId = ProviderId, Phase = "installations",
+            Message = I18n.GetString("GameDiscovery_Status_ScanningInstallations") });
+        var installationScan = _installationDiscovery.Scan(request.StoreRoots, request.DisabledAutoRoots, token);
+        var installations = installationScan.Installations;
+        if (installations.Count == 0)
+            return new DiscoveryProviderResult { ProviderId = ProviderId, Diagnostics = installationScan.Diagnostics,
+                Statistics = new DiscoveryScanStatistics { Duration = stopwatch.Elapsed } };
+
         await using var ownedGeneration = _generation is null
             ? await _cacheService!.PrepareStoredGenerationAsync(progress, token).ConfigureAwait(false) : null;
         var generation = _generation ?? ownedGeneration;
@@ -21,10 +29,6 @@ public sealed partial class LudusaviDiscoveryProvider
             return new DiscoveryProviderResult { ProviderId = ProviderId, Diagnostics = [Diagnostic(
                 DiscoveryDiagnosticSeverity.Information, "manifest-unavailable", I18n.GetString("GameDiscovery_Diagnostic_NoManifestCache"))] };
 
-        progress?.Report(new DiscoveryProgress { ProviderId = ProviderId, Phase = "installations",
-            Message = I18n.GetString("GameDiscovery_Status_ScanningInstallations") });
-        var installationScan = _installationDiscovery.Scan(request.StoreRoots, request.DisabledAutoRoots, token);
-        var installations = installationScan.Installations;
         var requested = request.Mode == DiscoveryRequestMode.PresetTargeted
             ? request.Definitions.Where(value => string.Equals(value.ProviderId, ProviderId, StringComparison.OrdinalIgnoreCase))
                 .Select(value => value.DefinitionId).ToHashSet(StringComparer.Ordinal) : null;

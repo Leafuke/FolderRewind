@@ -141,7 +141,7 @@ public sealed class HistoryBranchAndAnnotationTests
             HistoryWorkingStateStatus.ExactBaseline);
 
         Assert.IsNotNull(created.CreatedCheckpoint);
-        Assert.AreEqual(detached.VersionId, created.CreatedCheckpoint.Sources.Single().VersionId);
+        Assert.AreEqual(detached.VersionId, created.CreatedCheckpoint.VersionId);
         Assert.IsNull(created.CreatedCheckpoint.CreatedByRunId);
         Assert.HasCount(
             2,

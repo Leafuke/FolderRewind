@@ -15,6 +15,7 @@ Host、还原、空间页与 UI 的性能测量使用下列入口，按其参数
 
 - `Run-CoreSmartBenchmark.ps1`：固定合成数据的 Full/Smart 与扫描分析。
 - `Run-RestorePerformance.ps1`、`Run-RestoreServiceComparison.ps1`：隔离还原比较。
+- `scripts/test/Test-RedundancyCleanupPerformance.ps1`：冻结程序集的三轮清理对比，包括内存/重新加载状态的区块删除、对象导入临时空间和 History 索引占用。只报告对应工作量与中位数，不代表完整备份吞吐。
 - `Run-StageTwoComparison.ps1`：服务阶段比较。
 - `Run-UiPerformance.ps1`、`Summarize-UiPerformance.ps1`：隔离 UI 负载与调度延迟汇总。
 - `Run-ManagerUiAcceptance.ps1`：独立的管理页 Reset、同 ID 模型替换、选择和滚动回归。

@@ -42,7 +42,7 @@ public sealed class HistoryCloudBackupService(HistoryRuntime history, IHistoryRe
         foreach (var id in selected) Visit(id);
         var results = new List<HistoryCloudItemResult>();
         if (missing.Count != 0) return new(results, missing, null, false, DateTimeOffset.UtcNow);
-        var service = new HistoryReplicaSyncService(history, transport, syncMetadata, new NoRetirement());
+        var service = new HistoryReplicaSyncService(history, transport, syncMetadata);
         try
         {
             foreach (var id in closure)
@@ -77,10 +77,5 @@ public sealed class HistoryCloudBackupService(HistoryRuntime history, IHistoryRe
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         { return new(results, closure.Where(id => !results.Any(r => r.RepresentationId == id && r.State != HistoryCloudItemState.Failed)).ToArray(), null, true, DateTimeOffset.UtcNow); }
-    }
-    private sealed class NoRetirement : IHistoryReplicaRetirementGuard
-    {
-        public Task EnsureRetirementSafeAsync(StorageReplica replica, bool releaseVersion, CancellationToken cancellationToken)
-            => throw new InvalidOperationException("Upload cannot retire replicas.");
     }
 }

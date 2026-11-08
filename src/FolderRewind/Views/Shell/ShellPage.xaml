@@ -61,7 +61,7 @@
 
         <NavigationView x:Name="NavView" Grid.Row="1"
                         Background="Transparent"
-                        x:Uid="ShellPage_Header"
+                        AlwaysShowHeader="False"
                         PaneDisplayMode="Auto"
                         ExpandedModeThresholdWidth="1120"
                         IsSettingsVisible="True" 

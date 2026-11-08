@@ -31,14 +31,12 @@ public static partial class CloudSyncService
 
     internal static CloudJobTarget FreezeTarget(BackupConfig config)
     {
-        var settings = config.Cloud;
-        var profile = ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == settings.ConnectionProfileId);
-        var credential = profile?.CredentialReference ?? settings.RcloneConfigPath;
-        var root = profile is null ? settings.RemoteBasePath : profile.RemoteName + ":" + settings.RemotePathSuffix;
-        var runtimeSettings = ConfigSnapshotMapper.Copy(settings);
-        if (profile is not null) { runtimeSettings.ExecutablePath = profile.ExecutablePath; runtimeSettings.WorkingDirectory = profile.WorkingDirectory; }
-        var working = runtimeSettings.WorkingDirectory;
-        if (TryResolveSharedRcloneRuntime(runtimeSettings, out _, out var effectiveWorking, out _)) working = effectiveWorking;
+        var settings = CloudConnectionCatalog.Resolve(config);
+        var profile = ConfigService.CurrentConfig.CloudConnections.Single(p => p.Id == settings.ConnectionProfileId);
+        var credential = settings.RcloneConfigPath;
+        var root = settings.RemoteBasePath;
+        var working = settings.WorkingDirectory;
+        if (TryResolveRcloneRuntime(settings, out _, out var effectiveWorking, out _)) working = effectiveWorking;
         var revision = "";
         var credentialRevision = "";
         try
@@ -52,7 +50,7 @@ public static partial class CloudSyncService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         { /* 缺凭据也先保留接纳证据；不把本地成功变成没有 Job。解析/认证失败由执行阶段明确暂停。 */ }
-        return new(settings.ConnectionProfileId ?? "legacy", profile?.ProfileRevision ?? revision,
+        return new(profile.Id, profile.ProfileRevision,
             settings.BindingRevision, root, new HistoryConfigId(config.Id).Value, revision,
             Convert.ToHexString(SHA256.HashData(HistoryRepositoryDescriptor.Create(new(config.Id)).ToCanonicalBytes())), credentialRevision, working);
     }
@@ -175,8 +173,13 @@ public static partial class CloudSyncService
         CancellationToken token, string? explicitLocalPath = null, bool scheduled = false)
     {
         using var notificationOperation = new NotificationOperationScope(new(NotificationTargetKind.CloudProject,
-            initial.JobId, initial.ProjectId, JobId: initial.JobId));
-        HistoryCloudBackupResult Incomplete(string code) => new([], initial.Representations, null, token.IsCancellationRequested, DateTimeOffset.UtcNow);
+            initial.JobId, initial.ProjectId, JobId: initial.JobId), context: new(initial.JobId, "Cloud"));
+        using var diagnosticScope = new BusinessOperationDiagnostics("Cloud");
+        HistoryCloudBackupResult Incomplete(string code)
+        {
+            diagnosticScope.Complete(token.IsCancellationRequested ? "Canceled" : "Blocked", token.IsCancellationRequested ? LogLevel.Info : LogLevel.Warning, "code=" + code);
+            return new([], initial.Representations, null, token.IsCancellationRequested, DateTimeOffset.UtcNow);
+        }
         await CommandSemaphore.WaitAsync(token).ConfigureAwait(false);
         if (_automaticSyncStopping) { CommandSemaphore.Release(); return Incomplete("cloud.job-exit-pending"); }
         NotificationTrigger? notificationTrigger = null;
@@ -195,6 +198,7 @@ public static partial class CloudSyncService
                 job = job with { Phase = CloudJobPhase.Resolving, Attempt = job.Attempt + 1, Diagnostic = "" };
                 runtime.CloudJobs.Update(job);
             }
+            using var attemptScope = NotificationOperationScope.EnterChild(c => c with { JobAttempt = job.Attempt });
             PublishJobNotification(runtime, job.JobId, notificationTrigger.Value);
             var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(job.ProjectId).Matches(c.Id));
             if (current is not null)
@@ -266,7 +270,7 @@ public static partial class CloudSyncService
                         .Select(e => e.Locator.AbsolutePath).FirstOrDefault(File.Exists));
             HistoryReplicaPayloadProtocol payloads = new(LocalPath);
             if (closure.Any(id => graph[id].Kind == RepresentationKind.PluginArtifact)) payloads = new NativeArtifactReplicaService(Plugins.V3.NativeArtifactHostService.Store(config),
-                new HistoryReplicaSyncService(runtime, transport, ct => metadata.SyncAsync(ct), new UploadOnlyRetirementGuard()))
+                new HistoryReplicaSyncService(runtime, transport, ct => metadata.SyncAsync(ct)))
                 .ForJob(runtime, job, LocalPath, config.Id);
             var result = await service.UploadClosureAsync(job.Representations, LocalPath, token, id => intents[id].ReplicaId,
                 async (manifest, ct) =>
@@ -307,6 +311,9 @@ public static partial class CloudSyncService
                 if (!result.Complete) activeTask.Log += "\n" + failureDetail;
             }).ConfigureAwait(false);
 
+            diagnosticScope.Complete(result.Complete ? "Success" : result.Canceled ? "Canceled" : "Failed",
+                result.Complete || result.Canceled ? LogLevel.Info : LogLevel.Error,
+                $"job={job.JobId}; jobAttempt={job.Attempt}; phase={job.Phase}; items={result.Items.Count}; missing={result.Missing.Count}");
             return result;
         }
         catch (Exception ex)
@@ -315,6 +322,7 @@ public static partial class CloudSyncService
             var diagnostic = CloudCommandSecurity.Redact(ex.Message);
             if (delivered is not null)
             {
+                diagnosticScope.Complete("SuccessWithWarnings", LogLevel.Warning, $"job={job.JobId}; jobAttempt={job.Attempt}; failureStage=post-action");
                 LogService.LogWarning("JobId: " + job.JobId + " " + diagnostic, nameof(CloudSyncService));
                 return delivered;
             }
@@ -327,7 +335,9 @@ public static partial class CloudSyncService
                 task.ErrorMessage = token.IsCancellationRequested ? I18n.GetString("Common_Canceled") : CloudFailurePresentation.Message(CloudFailurePresentation.Kind(ex));
                 task.Log += "\n" + diagnostic;
             }).ConfigureAwait(false);
-            LogService.LogWarning("JobId: " + job.JobId + " " + diagnostic, nameof(CloudSyncService));
+            diagnosticScope.Complete(token.IsCancellationRequested ? "Canceled" : "Failed", token.IsCancellationRequested ? LogLevel.Info : LogLevel.Error,
+                $"job={job.JobId}; jobAttempt={job.Attempt}; failureStage={job.Phase}");
+            diagnosticScope.Failure(ex, token.IsCancellationRequested);
 
             return Incomplete(diagnostic);
         }

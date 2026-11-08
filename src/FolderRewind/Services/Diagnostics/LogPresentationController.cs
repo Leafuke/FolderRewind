@@ -25,6 +25,14 @@ internal sealed class LogPresentationController
         _capacity = capacity;
     }
 
+    internal static string? HealthResourceKey(LogHealthSnapshot health)
+        => health.LifecycleState == LogLifecycleState.Faulted ? "LogPersistence_Faulted"
+            : health.RejectedAfterStopCount > 0 ? "LogPersistence_Rejected"
+            : health.WriterState == LogWriterState.Disabled ? "LogPersistence_Disabled"
+            : health.WriterState == LogWriterState.Degraded ? "LogPersistence_Unavailable"
+            : health.HasPersistenceGap ? "LogPersistence_Gap"
+            : health.LastMaintenanceFailure is not null ? "LogPersistence_Maintenance" : null;
+
     public BatchObservableCollection<LogEntry> FilteredEntries { get; } = new();
     public bool IsLive { get; private set; } = true;
 

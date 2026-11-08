@@ -12,15 +12,9 @@ namespace FolderRewind.Models
 
         public string Message { get; set; } = string.Empty;
 
-        public int TotalRemoteEntries { get; set; }
-
         public int MatchedEntries { get; set; }
 
         public int ImportableEntries { get; set; }
-
-        public int UnmappedEntries { get; set; }
-
-        public int AmbiguousEntries { get; set; }
 
     }
 
@@ -33,12 +27,6 @@ namespace FolderRewind.Models
 
         public string Message { get; set; } = string.Empty;
 
-        public int ImportedHistoryCount { get; set; }
-
-        public int DuplicateHistoryCount { get; set; }
-
-        public int RecoveredBackupCount { get; set; }
-
         public ConfigCloudHistoryAnalysisResult Analysis { get; set; } = new();
     }
 
@@ -50,8 +38,6 @@ namespace FolderRewind.Models
         public bool Success { get; set; }
 
         public string Message { get; set; } = string.Empty;
-
-        public int UploadedEntryCount { get; set; }
 
         public int ReplacedRemoteEntryCount { get; set; }
     }

@@ -7,6 +7,19 @@ namespace FolderRewind.Tests;
 [TestClass]
 public sealed class LogPresentationControllerTests
 {
+    [TestMethod]
+    public void OperationFilterKeepsOnlyItsOperationAndCanBeCleared()
+    {
+        var controller = new LogPresentationController();
+        controller.BeginSession();
+        controller.LoadSnapshot([new() { OperationId = "first" }, new() { OperationId = "second" }]);
+        controller.SetOperationFilter("second");
+        Assert.HasCount(1, controller.FilteredEntries);
+        Assert.AreEqual("second", controller.FilteredEntries[0].OperationId);
+        controller.SetOperationFilter(null);
+        Assert.HasCount(2, controller.FilteredEntries);
+    }
+
     private static LogEntry Entry(int index, LogLevel level = LogLevel.Info)
         => new() { Message = index.ToString(), Level = level, Sequence = index + 1 };
 

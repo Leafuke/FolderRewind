@@ -198,7 +198,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
 
     private sealed class KnotLinkServiceAdapter : IKnotLinkHostService
     {
-        public bool IsAvailable => Services.KnotLinkService.IsSenderRunning;
+        public bool IsAvailable => Services.KnotLinkService.IsSenderRunning && !FolderRewind.Services.KnotLink.KnotLinkCoordinationChannel.Gate.NeedsReset;
 
         public async ValueTask SendAsync(
             string eventName,
@@ -206,10 +206,14 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (NativeHistoryRestoreOrchestrator.IsCheckingMutationSafety)
+                throw new InvalidOperationException("Read-only mutation safety validation cannot send KnotLink requests.");
+            if (eventName is "pre_hot_restore" || eventName == "handshake" && arguments.GetValueOrDefault("action") == "restore")
+                await FolderRewind.Services.KnotLink.KnotLinkCoordinationChannel.AdmitInteractionAsync(cancellationToken).ConfigureAwait(false);
             var sent = await Services.KnotLinkService.TryBroadcastEventAsync(
                 context: null,
                 eventName,
-                arguments.ToDictionary(pair => pair.Key, pair => (string?)pair.Value, StringComparer.Ordinal));
+                arguments.ToDictionary(pair => pair.Key, pair => (string?)pair.Value, StringComparer.Ordinal), cancellationToken);
             if (!sent) throw new InvalidOperationException("KnotLink did not accept the plugin event.");
         }
     }
@@ -282,11 +286,14 @@ internal sealed class PluginV3HostServices : IPluginHostServices
     private sealed class LoggerService(PluginId pluginId) : IPluginLogger
     {
         public void Log(DiagnosticSeverity severity, string message, Exception? exception = null)
-            => LogService.Log(
-                $"[PluginV3:{pluginId}] {message}{(exception is null ? string.Empty : " " + exception)}",
+        {
+            using var diagnostic = NotificationOperationScope.EnterChild(c => c with { PluginId = pluginId.Value });
+            LogService.Log(
+                DiagnosticPrivacy.Text(message),
                 severity == DiagnosticSeverity.Error
                     ? LogLevel.Error
-                    : severity == DiagnosticSeverity.Warning ? LogLevel.Warning : LogLevel.Info);
+                    : severity == DiagnosticSeverity.Warning ? LogLevel.Warning : LogLevel.Info, "Plugin:" + pluginId.Value, exception);
+        }
     }
 }
 

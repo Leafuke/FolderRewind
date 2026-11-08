@@ -20,9 +20,17 @@ The storage root uses an in-process gate and an exclusive cross-process mutation
 
 Pending capture and transfer intents protect uncommitted work. History Pack durability establishes the committed fact; recovery completes local state without replaying plugin code or deleting unrelated existing nodes. Malformed or conflicting intent cannot authorize cleanup. Missing providers or disabled plugins do not delete History or Artifact facts.
 
+Full transforms receive a call-owned protected read session. Both Native capture and the generic Artifact transform coordinator pin the selected file and directory bindings, compute their inventory hashes under those guards, and retain the guards through plugin consumption and staging sealing. A fixed list or `IsStable` flag alone is insufficient. Cancellation, failure and completion release the session; excluded paths are neither opened nor silently added. Input I/O and integrity failures do not take the semantic conversion fallback path. This implementation reuses the existing contract and does not add Plugin API fields.
+
+Digest calculation uses a bounded buffer shared across the session. Retained read guards do not each keep a large file buffer, so their memory overhead does not multiply by that buffer size for every inventory entry.
+
+Temporary reservations account for outstanding writes on the actual volume. Source-copy, plugin scratch, materialization input, staging and envelope allocations have separate lifetimes. Completed writes release their reservation while occupied files remain reflected in disk free space. Byte/file quotas and capacity reservations are independent checks. Cleanup and reservation release both run on failure; cleanup errors attach to the original failure instead of replacing it.
+
 ## Transfer and repair
 
 The store retains its closure-bundle transfer path and the object-closure path. Object-closure descriptors use version 2, retain envelope version 1, and validate ConfigId, FolderId, root identity, DAG and canonical node paths. The current descriptor reader is bounded to 16 MiB and 4,096 objects. Object keys include the configuration hash and the storage SHA-256, ending in `.7z`.
+
+Object-closure downloads write directly into quota-reserved Host staging. Both transfer readers share identity validation, decoded verification, repair and ledger publication; v2 import does not create a temporary closure ZIP. A healthy local realization is verified and reused before requesting its remote object. Repair preserves immutable node identity and remains recoverable across interrupted directory replacement.
 
 Replica publication must follow the selected transfer protocol's completed payload and integrity checks. Reuse is governed by the transport's configured verification policy; it does not always imply fresh content hashing. Download, materialization and repair still validate their expected identities, lengths, hashes, bounds and graph bindings before publishing usable local state. Mutable ledger state is not a replacement for immutable cloud facts.
 

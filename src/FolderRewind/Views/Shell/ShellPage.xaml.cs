@@ -156,14 +156,14 @@ namespace FolderRewind.Views
                     && parameter is FolderRewind.Models.ProductSettingsNavigationParameter productTarget)
                 {
                     settingsPage.ShowProductTarget(productTarget);
-                    UpdateNavSelection(pageTag); UpdatePageHeader(pageTag);
+                    UpdateNavSelection(pageTag);
                     return true;
                 }
                 if (ContentFrame.SourcePageType == pageType && parameter == null)
                 {
                     // 同页重复点击时不重建页面，只纠正导航栏选中态和标题。
                     UpdateNavSelection(pageTag);
-                    UpdatePageHeader(pageTag);
+
                     return true;
                 }
 
@@ -183,16 +183,10 @@ namespace FolderRewind.Views
                 UpdateNavSelection(pageTag);
 
                 // 3. 同步页面标题区状态。
-                UpdatePageHeader(pageTag);
+
                 return true;
             }
             return false;
-        }
-
-        private void UpdatePageHeader(string pageTag)
-        {
-            // 当前版本统一不显示页头，保留方法便于后续恢复定制标题策略。
-            NavView.Header = null;
         }
 
         private void UpdateNavSelection(string pageTag)
@@ -323,7 +317,7 @@ namespace FolderRewind.Views
             if (pageTag != null)
             {
                 UpdateNavSelection(pageTag);
-                UpdatePageHeader(pageTag);
+
             }
         }
 

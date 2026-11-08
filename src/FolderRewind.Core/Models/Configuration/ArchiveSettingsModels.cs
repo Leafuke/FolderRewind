@@ -47,7 +47,6 @@ namespace FolderRewind.Models
         private bool? _legacyCopySourceBeforeArchive;
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
-        private bool _safeRestoreEnabled = true;     // 旧输入别名；不控制事务回滚。
         private BackupArchiveVerificationLevel _backupVerificationLevel = BackupArchiveVerificationLevel.Balanced;
         private RestoreArchivePreflightMode _restorePreflightMode = RestoreArchivePreflightMode.Balanced;
         private bool _inputMigrationApplied;
@@ -91,14 +90,6 @@ namespace FolderRewind.Models
             set => SetProperty(ref _legacyCopySourceBeforeArchive, value);
         }
 
-        // Compatibility for existing callers; capture orchestration uses SourceReadMode.
-        [JsonIgnore]
-        public bool CopySourceBeforeArchive
-        {
-            get => SourceReadMode == BackupSourceReadMode.AlwaysCopy;
-            set => SourceReadMode = value ? BackupSourceReadMode.AlwaysCopy : BackupSourceReadMode.DirectOnly;
-        }
-
         /// <summary>
         /// CPU 线程数，0 表示自动（由 7z 决定），传递给 7z 的 -mmt 参数
         /// </summary>
@@ -111,20 +102,6 @@ namespace FolderRewind.Models
 
         public bool ShouldCreateSafetySnapshot(bool quickRestore)
             => quickRestore ? QuickRestoreSafetySnapshotEnabled : BackupBeforeRestore;
-
-        /// <summary>
-        /// 兼容旧输入；导出恒为 true，失败回滚始终开启。
-        /// </summary>
-        public bool SafeRestoreEnabled { get => true; set => SetProperty(ref _safeRestoreEnabled, value); }
-
-        /// <summary>
-        /// 兼容旧 JSON 字段；验证等级统一由 RestorePreflightMode 控制，缺省为均衡。
-        /// </summary>
-        public bool VerifyArchiveBeforeRestore
-        {
-            get => RestorePreflightMode == RestoreArchivePreflightMode.Strict;
-            set { }
-        }
 
         public BackupArchiveVerificationLevel BackupVerificationLevel
         {
@@ -159,7 +136,10 @@ namespace FolderRewind.Models
             if (!_sourceReadModeSpecified && _legacyCopySourceBeforeArchive is { } copy)
                 SourceReadMode = copy ? BackupSourceReadMode.AlwaysCopy : BackupSourceReadMode.DirectOnly;
             _legacyCopySourceBeforeArchive = null;
-            _safeRestoreEnabled = true;
+            foreach (var key in SchemaExtensions.Keys.Where(key =>
+                string.Equals(key, "SafeRestoreEnabled", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "VerifyArchiveBeforeRestore", StringComparison.OrdinalIgnoreCase)).ToArray())
+                SchemaExtensions.Remove(key);
             _inputMigrationApplied = true;
         }
 

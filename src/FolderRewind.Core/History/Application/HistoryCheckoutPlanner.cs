@@ -119,84 +119,39 @@ public sealed class HistoryCheckoutPlanner
                 $"Branch target checkpoint is not admissible as Exact: {admission.Diagnostic}", update, checkpoint);
 
         var bindingMap = currentConfigSources.ToDictionary(item => item.SourceId);
-        var missing = checkpoint.Sources
-            .Where(source => !bindingMap.ContainsKey(source.SourceId))
-            .Select(source => new MissingHistoricalSource(
-                source.SourceId,
-                source.SourceDescriptorSnapshot,
-                source.SourceDescriptorSnapshot.PathHint))
-            .ToImmutableArray();
-        if (!missing.IsEmpty)
+        if (!bindingMap.TryGetValue(checkpoint.SourceId, out var binding))
         {
             return new HistoryCheckoutPlan(
-                HistoryCheckoutReadiness.ConfigurationMappingRequired,
-                update,
-                checkpoint,
-                expectedWorkspace.StateRevision,
-                [],
-                missing,
-                [],
+                HistoryCheckoutReadiness.ConfigurationMappingRequired, update, checkpoint,
+                expectedWorkspace.StateRevision, [],
+                [new(checkpoint.SourceId, checkpoint.SourceDescriptorSnapshot, checkpoint.SourceDescriptorSnapshot.PathHint)], [],
                 "Historical Sources must be restored to the current Config under their original SourceId.");
         }
-
-        var mismatches = checkpoint.Sources
-            .Select(source => (Source: source, Binding: bindingMap[source.SourceId]))
-            .Where(pair => !StringComparer.Ordinal.Equals(
-                pair.Source.EffectiveSourceBoundaryFingerprint,
-                pair.Binding.Boundary.Fingerprint))
-            .Select(pair => new HistorySourceBoundaryMismatch(
-                pair.Source.SourceId,
-                pair.Source.EffectiveSourceBoundary,
-                pair.Binding.Boundary))
-            .ToImmutableArray();
-        if (!mismatches.IsEmpty)
+        if (!StringComparer.Ordinal.Equals(checkpoint.EffectiveSourceBoundaryFingerprint, binding.Boundary.Fingerprint))
         {
             return new HistoryCheckoutPlan(
-                HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired,
-                update,
-                checkpoint,
-                expectedWorkspace.StateRevision,
-                [],
-                [],
-                mismatches,
+                HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired, update, checkpoint,
+                expectedWorkspace.StateRevision, [], [],
+                [new(checkpoint.SourceId, checkpoint.EffectiveSourceBoundary, binding.Boundary)],
                 "Historical and current Effective Source Boundaries differ and require an explicit Config repair.");
         }
-
-        foreach (var source in checkpoint.Sources)
-        {
-            var assessment = await _restore.AssessVersionAsync(
-                source.VersionId!.Value,
-                MaterializationFidelity.Exact,
-                assessmentDepth,
-                cancellationToken).ConfigureAwait(false);
-            if (assessment.Readiness == HistoryReadiness.PreparationRequired)
-                return Blocked(HistoryCheckoutReadiness.PreparationRequired, expectedWorkspace, "Exact representation preparation is required.", update, checkpoint);
-            if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
-                return Blocked(HistoryCheckoutReadiness.ExactRepresentationUnavailable, expectedWorkspace, "An Exact representation is unavailable.", update, checkpoint);
-        }
-
-        var historical = checkpoint.Sources.Select(source => new HistoryCheckoutSourcePlan(
-            source.SourceId,
-            HistoryCheckoutSourceAction.Restore,
-            source.VersionId,
-            bindingMap[source.SourceId]));
-        var historicalIds = checkpoint.Sources.Select(source => source.SourceId).ToHashSet();
-        var currentOnly = currentConfigSources
-            .Where(binding => !historicalIds.Contains(binding.SourceId))
-            .Select(binding => new HistoryCheckoutSourcePlan(
-                binding.SourceId,
-                HistoryCheckoutSourceAction.PreserveCurrent,
-                null,
-                binding));
+        var assessment = await _restore.AssessVersionAsync(checkpoint.VersionId,
+            MaterializationFidelity.Exact, assessmentDepth, cancellationToken).ConfigureAwait(false);
+        if (assessment.Readiness == HistoryReadiness.PreparationRequired)
+            return Blocked(HistoryCheckoutReadiness.PreparationRequired, expectedWorkspace, "Exact representation preparation is required.", update, checkpoint);
+        if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
+            return Blocked(HistoryCheckoutReadiness.ExactRepresentationUnavailable, expectedWorkspace, "An Exact representation is unavailable.", update, checkpoint);
+        var historical = new HistoryCheckoutSourcePlan(checkpoint.SourceId, HistoryCheckoutSourceAction.Restore,
+            checkpoint.VersionId, binding);
         var requiresProtection = workingStateCheck == HistoryWorkingStateCheckMode.MetadataOnly;
-        foreach (var binding in currentConfigSources.Where(_ => workingStateCheck == HistoryWorkingStateCheckMode.CompareContent))
+        foreach (var currentBinding in currentConfigSources.Where(_ => workingStateCheck == HistoryWorkingStateCheckMode.CompareContent))
         {
-            var baseline = expectedWorkspace.SourceBaselines.FirstOrDefault(item => item.SourceId == binding.SourceId);
+            var baseline = expectedWorkspace.SourceBaselines.FirstOrDefault(item => item.SourceId == currentBinding.SourceId);
             if (baseline is null
                 || baseline.BaseVersionId is null
                 || baseline.Relation != WorkspaceBaselineRelation.Exact
                 || (_workingStateProbe is not null
-                    && !await _workingStateProbe.IsExactAsync(binding, baseline, cancellationToken)
+                    && !await _workingStateProbe.IsExactAsync(currentBinding, baseline, cancellationToken)
                         .ConfigureAwait(false)))
             {
                 requiresProtection = true;
@@ -208,7 +163,7 @@ public sealed class HistoryCheckoutPlanner
             update,
             checkpoint,
             expectedWorkspace.StateRevision,
-            historical.Concat(currentOnly).ToImmutableArray(),
+            [historical],
             [],
             [],
             string.Empty);

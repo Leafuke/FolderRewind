@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="FolderRewind.Plugin.Runtime"><HintPath>$(RuntimeAssembly)</HintPath></Reference>
+    <Reference Include="FolderRewind.Plugin.Abstractions"><HintPath>$(AbstractionsAssembly)</HintPath></Reference>
+    <Reference Include="MineRewind.World"><HintPath>$(WorldAssembly)</HintPath></Reference>
+    <Reference Include="fNbt"><HintPath>$(WorldDependencyDirectory)/fNbt.dll</HintPath></Reference>
+    <Reference Include="K4os.Compression.LZ4"><HintPath>$(WorldDependencyDirectory)/K4os.Compression.LZ4.dll</HintPath></Reference>
+    <Reference Include="System.IO.Hashing"><HintPath>$(WorldDependencyDirectory)/System.IO.Hashing.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

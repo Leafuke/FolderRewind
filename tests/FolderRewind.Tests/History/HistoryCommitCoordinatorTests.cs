@@ -211,7 +211,7 @@ public sealed class HistoryCommitCoordinatorTests
         var snapshot = Snapshot(Source(sourceId, "source-a"));
         var original = await source.Commit.CommitAsync(Request(snapshot, null, CreateCapture(sourceId, "old", -1, null)));
         var bundle = Path.Combine(_root, "migration.frhistory");
-        await new HistoryRepositoryTransferService().ExportAsync(source, bundle);
+        await new LegacyHistoryTransferFixture().ExportAsync(source, bundle);
         var targetDirectory = Path.Combine(_root, "fresh-config");
         await new HistoryRepositoryBatchTransferService(configExists: _ => true).ImportAsync(bundle, targetDirectory);
         await using var target = new HistoryRuntime(new FileHistoryRepository(_configId,

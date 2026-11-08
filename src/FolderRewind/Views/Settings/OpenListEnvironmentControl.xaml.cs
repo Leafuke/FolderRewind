@@ -60,12 +60,12 @@ public sealed partial class OpenListEnvironmentControl : UserControl
     }
     private async void OnPickExecutable(object sender, RoutedEventArgs e)
     {
-        var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.OpenList.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
+        var path = await MainWindowService.PickFilePathAsync("FolderRewind.OpenList.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (!_lifetime.IsCancellationRequested && path is not null) ViewModel.ExecutablePath = path;
     }
     private async void OnPickConfiguration(object sender, RoutedEventArgs e)
     {
-        var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.OpenList.Configuration", [".json"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
+        var path = await MainWindowService.PickFilePathAsync("FolderRewind.OpenList.Configuration", [".json"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (!_lifetime.IsCancellationRequested && path is not null) await ViewModel.InspectConfigurationAsync(path, _lifetime.Token);
     }
     private void OnOpenManagement(object sender, RoutedEventArgs e)

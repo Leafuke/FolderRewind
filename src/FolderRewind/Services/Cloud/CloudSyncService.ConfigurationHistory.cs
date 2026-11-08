@@ -49,11 +49,8 @@ namespace FolderRewind.Services
                 {
                     Success = true,
                     Message = I18n.GetString("CloudHistory_AnalysisReady"),
-                    TotalRemoteEntries = remote.Count,
                     MatchedEntries = remote.Count(local.Contains),
                     ImportableEntries = remote.Count(item => !local.Contains(item)),
-                    UnmappedEntries = 0,
-                    AmbiguousEntries = 0
                 };
             }
             catch (Exception ex)
@@ -70,9 +67,6 @@ namespace FolderRewind.Services
             {
                 Success = sync.Success,
                 Message = sync.Message,
-                ImportedHistoryCount = sync.Downloaded,
-                DuplicateHistoryCount = 0,
-                RecoveredBackupCount = 0,
                 Analysis = await AnalyzeConfigurationHistoryAsync(config).ConfigureAwait(false)
             };
         }
@@ -157,8 +151,6 @@ namespace FolderRewind.Services
             {
                 Success = sync.Success,
                 Message = sync.Message,
-                UploadedEntryCount = sync.Uploaded,
-                ReplacedRemoteEntryCount = 0
             };
         }
 

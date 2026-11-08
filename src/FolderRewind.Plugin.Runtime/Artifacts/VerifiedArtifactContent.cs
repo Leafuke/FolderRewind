@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Microsoft.Win32.SafeHandles;
@@ -13,6 +14,7 @@ internal sealed class VerifiedArtifactContent : IDisposable
     private readonly List<FileStream> _files = [];
     private readonly HashSet<string> _pinnedDirectories = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _paths = new(StringComparer.OrdinalIgnoreCase);
+    private IO.DirectoryPathLease? _ancestors;
     private bool _disposed;
     internal string Root { get; }
     internal IReadOnlyList<ArtifactFileEntry> Files { get; private set; } = [];
@@ -20,16 +22,17 @@ internal sealed class VerifiedArtifactContent : IDisposable
     internal long Size { get; private set; }
     private VerifiedArtifactContent(string root) => Root = Path.GetFullPath(root);
 
-    internal static async Task<VerifiedArtifactContent> CreateAsync(string root, CancellationToken token)
+    internal static async Task<VerifiedArtifactContent> CreateAsync(string root, CancellationToken token, IReadOnlySet<string>? allowedPaths = null)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Verified inventory reuse requires Windows read protection.");
         var proof = new VerifiedArtifactContent(root);
+        byte[]? hashBuffer = null;
         try
         {
             using var phase = ArtifactDiagnostics.Source.StartActivity("logical.hash");
             bool single = File.Exists(proof.Root);
             proof.PinAncestors(single ? Path.GetDirectoryName(proof.Root)! : proof.Root);
-            if (!single)
+            if (!single && allowedPaths is null)
             {
                 var pending = new Stack<string>(); pending.Push(proof.Root);
                 while (pending.TryPop(out var directory))
@@ -42,19 +45,33 @@ internal sealed class VerifiedArtifactContent : IDisposable
                     }
             }
             IReadOnlyList<(string RelativePath, string FullPath)> paths = single ? new[] { (RelativePath: "payload", FullPath: proof.Root) }
-                : HostArtifactReadService.EnumerateSafeFiles(proof.Root);
+                : allowedPaths is null ? HostArtifactReadService.EnumerateSafeFiles(proof.Root)
+                : allowedPaths.Order(StringComparer.Ordinal).Select(path => (RelativePath: ArtifactPathRules.NormalizeRelativePath(path),
+                    FullPath: ArtifactPathRules.ResolveUnderRoot(proof.Root, path))).ToArray();
             if (paths.Count == 0) throw new InvalidDataException("Artifact payload cannot be empty.");
             var files = new List<ArtifactFileEntry>(paths.Count);
             foreach (var path in paths)
             {
                 token.ThrowIfCancellationRequested();
+                if (!single && allowedPaths is not null)
+                    for (var parent = Path.GetDirectoryName(path.FullPath)!; !StringComparer.OrdinalIgnoreCase.Equals(parent, proof.Root); parent = Path.GetDirectoryName(parent)!)
+                    {
+                        if (string.IsNullOrEmpty(parent)) throw new InvalidDataException("Protected input escaped its root.");
+                        proof.PinDirectory(parent);
+                    }
                 var handle = Open(path.FullPath, directory: false);
                 FileStream stream;
-                // The hash API owns its read buffer. Retained guard streams must not retain one 64 KiB buffer per file.
+                // Retained guards must not keep one large buffer per file. Use one bounded shared
+                // hash buffer instead; tiny asynchronous hash reads otherwise dominate Full inputs.
                 try { stream = new FileStream(handle, FileAccess.Read, 1, isAsync: true); }
                 catch { handle.Dispose(); throw; }
                 proof._files.Add(stream);
-                var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false)).ToLowerInvariant();
+                hashBuffer ??= ArrayPool<byte>.Shared.Rent(64 * 1024);
+                using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                int read;
+                while ((read = await stream.ReadAsync(hashBuffer.AsMemory(0, 64 * 1024), token).ConfigureAwait(false)) != 0)
+                    digest.AppendData(hashBuffer, 0, read);
+                var hash = Convert.ToHexString(digest.GetHashAndReset()).ToLowerInvariant();
                 files.Add(new(path.RelativePath, stream.Length, hash));
             }
             proof.Files = files.AsReadOnly();
@@ -64,6 +81,7 @@ internal sealed class VerifiedArtifactContent : IDisposable
             return proof;
         }
         catch { proof.Dispose(); throw; }
+        finally { if (hashBuffer is not null) ArrayPool<byte>.Shared.Return(hashBuffer, clearArray: true); }
     }
     internal void RequireRoot(string root)
     {
@@ -79,9 +97,8 @@ internal sealed class VerifiedArtifactContent : IDisposable
     }
     private void PinAncestors(string directory)
     {
-        var pending = new Stack<string>();
-        for (var item = new DirectoryInfo(directory); item is not null; item = item.Parent) pending.Push(item.FullName);
-        while (pending.TryPop(out var path)) PinDirectory(path);
+        _ancestors = new IO.DirectoryPathLease(Path.GetDirectoryName(Path.GetFullPath(directory))!);
+        PinDirectory(directory);
     }
     private void PinDirectory(string path)
     {
@@ -91,7 +108,11 @@ internal sealed class VerifiedArtifactContent : IDisposable
     private static SafeFileHandle Open(string path, bool directory)
     {
         // OPEN_REPARSE_POINT ensures attributes are checked on the opened object, not a followed link.
-        var handle = CreateFileW(path, directory ? 0x81u : 0x80000000u, 1, IntPtr.Zero, 3,
+        // The Host can run without process-wide long-path opt-in. Keep the same
+        // extended-path spelling as DirectoryPathLease for decoded trees as well.
+        var extended = path.StartsWith(@"\\?\", StringComparison.Ordinal) ? path
+            : path.StartsWith(@"\\", StringComparison.Ordinal) ? @"\\?\UNC\" + path[2..] : @"\\?\" + path;
+        var handle = CreateFileW(extended, directory ? 0x81u : 0x80000000u, 1, IntPtr.Zero, 3,
             0x00200000u | (directory ? 0x02000000u : 0x48000000u), IntPtr.Zero);
         if (handle.IsInvalid)
         { var error = Marshal.GetLastWin32Error(); handle.Dispose(); throw new IOException("Cannot protect decoded Artifact content.", new Win32Exception(error)); }
@@ -110,6 +131,7 @@ internal sealed class VerifiedArtifactContent : IDisposable
         foreach (var file in _files) file.Dispose(); _files.Clear();
         for (int i = _directories.Count - 1; i >= 0; i--) _directories[i].Dispose();
         _directories.Clear();
+        _ancestors?.Dispose(); _ancestors = null;
     }
     [StructLayout(LayoutKind.Sequential)]
     private struct FileInformation

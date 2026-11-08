@@ -56,8 +56,6 @@ namespace FolderRewind.Services.KnotLink
             };
         }
 
-        public bool GetBoolOrDefault(string key, bool defaultValue = false) => GetBool(key) ?? defaultValue;
-
         public IReadOnlyList<string> GetList(string key)
         {
             if (string.IsNullOrWhiteSpace(key)) return Array.Empty<string>();

@@ -253,7 +253,7 @@ public sealed partial class MergePage : Page
         var original = o.Snapshot.Session;
         await ViewModel.ExecuteAsync(async () =>
         {
-            var path = await MainWindowService.PickFilePathAsync(I18n.GetString("Merge_Manual"), "merge-manual", ["*"]);
+            var path = await MainWindowService.PickFilePathAsync("merge-manual", ["*"]);
             if (path is not null)
             {
                 if (original?.Id != o.Snapshot.Session?.Id || original?.Revision != o.Snapshot.Session?.Revision)

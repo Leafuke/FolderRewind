@@ -206,11 +206,18 @@ public sealed class SourceCaptureReadLease : IDisposable, IVersionMetadataSource
             HistoryOperationDiagnostics.Current?.Count("source-copy-bytes", lease.CopiedBytes);
             HistoryOperationDiagnostics.Current?.Count("source-copy-files", copy ? selected.Count : 0);
             HistoryOperationDiagnostics.Current?.Count("source-protected-files", lease._protected.Count);
+            // Copying is complete; its bytes are reflected by actual free space. Retaining an
+            // outstanding-write reservation during transformation would count them a second time.
+            lease._space?.Dispose(); lease._space = null;
             return lease;
         }
-        catch (OperationCanceledException) { lease.Dispose(); throw; }
-        catch (CaptureInputException) { lease.Dispose(); throw; }
-        catch (Exception error) { lease.Dispose(); throw new CaptureInputException(current, error, phase); }
+        catch (Exception error)
+        {
+            try { lease.Dispose(); }
+            catch (Exception cleanup) { error.Data["CaptureInputCleanupError"] = cleanup; }
+            if (error is OperationCanceledException or CaptureInputException) throw;
+            throw new CaptureInputException(current, error, phase);
+        }
     }
 
     public bool TryProtectMetadata(IReadOnlyList<string> paths)
@@ -286,13 +293,24 @@ public sealed class SourceCaptureReadLease : IDisposable, IVersionMetadataSource
     public void Dispose()
     {
         if (_disposed) return; _disposed = true;
-        for (var i = _guards.Count - 1; i >= 0; i--) _guards[i].Dispose();
+        Exception? failure = null;
+        for (var i = _guards.Count - 1; i >= 0; i--) Release(_guards[i].Dispose);
         _guards.Clear();
-        try
+        Release(() =>
         {
             // This unique, owned directory is never the original source.
             if (_temporaryDirectory is { } owned && Directory.Exists(owned)) Directory.Delete(owned, true);
+        });
+        Release(() => _space?.Dispose()); _space = null;
+        if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        void Release(Action cleanup)
+        {
+            try { cleanup(); }
+            catch (Exception error)
+            {
+                if (failure is null) failure = error;
+                else failure.Data["AdditionalCleanupError-" + failure.Data.Count] = error;
+            }
         }
-        finally { _space?.Dispose(); _space = null; }
     }
 }

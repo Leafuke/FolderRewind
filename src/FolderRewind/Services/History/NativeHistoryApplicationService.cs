@@ -158,21 +158,21 @@ internal static partial class NativeHistoryApplicationService
         var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false);
         if (checkpoint is null) return Blocked("Checkpoint does not exist.");
         var currentIds = config.SourceFolders.Select(Source).ToHashSet();
-        if (completeCheckpoint && checkpoint.Sources.Any(item => !currentIds.Contains(item.SourceId)))
+        if (completeCheckpoint && !currentIds.Contains(checkpoint.SourceId))
             return Blocked("Complete restore requires explicit historical Source binding repair.");
         var affected = config.SourceFolders
-            .Where(folder => checkpoint.Sources.Any(item => item.VersionId is not null && item.SourceId == Source(folder)))
+            .Where(folder => checkpoint.SourceId == Source(folder))
             .ToArray();
         var restore = CreateRestoreService(config, runtime);
         var requiredFidelity = requestedMode == BackupService.RestoreMode.Clean
             ? MaterializationFidelity.Exact
             : MaterializationFidelity.Partial;
-        foreach (var source in checkpoint.Sources.Where(item => item.VersionId is not null && currentIds.Contains(item.SourceId)))
+        if (currentIds.Contains(checkpoint.SourceId))
         {
             var assessment = await restore.AssessVersionAsync(
-                source.VersionId!.Value, requiredFidelity, AssessmentDepth.Fast, cancellationToken).ConfigureAwait(false);
+                checkpoint.VersionId, requiredFidelity, AssessmentDepth.Fast, cancellationToken).ConfigureAwait(false);
             if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
-                return Blocked($"Checkpoint Source {source.SourceId} is not Ready.");
+                return Blocked($"Checkpoint Source {checkpoint.SourceId} is not Ready.");
         }
         PreflightRestoreLocations(config, await BindingsAsync(config, affected, cancellationToken).ConfigureAwait(false));
         return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(
@@ -201,13 +201,9 @@ internal static partial class NativeHistoryApplicationService
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Checkpoint does not exist.");
-        var restorableSources = checkpoint.Sources
-            .Where(item => item.VersionId is not null)
-            .Select(item => item.SourceId)
-            .ToHashSet();
         var bindings = await BindingsAsync(
             config,
-            config.SourceFolders.Where(folder => restorableSources.Contains(Source(folder))),
+            config.SourceFolders.Where(folder => checkpoint.SourceId == Source(folder)),
             cancellationToken).ConfigureAwait(false);
         ConfigureRestoreProtection(restore, config, runtime, bindings.Select(b => b.SourceId).ToArray(), config.Archive.BackupBeforeRestore);
         var result = await restore.RestoreCheckpointAsync(
@@ -326,8 +322,7 @@ internal static partial class NativeHistoryApplicationService
         var restore = CreateRestoreService(config, runtime);
         try
         {
-            await PrepareExactVersionsAsync(config, runtime, restore, initial.Checkpoint.Sources
-                .Where(s => s.VersionId is not null).Select(s => (s.SourceId, s.VersionId!.Value)), cancellationToken).ConfigureAwait(false);
+            await PrepareExactVersionsAsync(config, runtime, restore, [(initial.Checkpoint.SourceId, initial.Checkpoint.VersionId)], cancellationToken).ConfigureAwait(false);
         }
         catch (HistoryMergeBlockedException ex)
         {
@@ -386,19 +381,6 @@ internal static partial class NativeHistoryApplicationService
         return report;
     }
 
-    public static async Task ReleaseVersionAsync(
-        BackupConfig config,
-        VersionId versionId,
-        CancellationToken cancellationToken = default)
-    {
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        await runtime.MaterializationPolicies.SetAsync(
-            versionId,
-            MaterializationPolicyState.Released,
-            "Explicit user release",
-            cancellationToken).ConfigureAwait(false);
-    }
-
     public static async Task<HistoryTargetedReplicaDeletionResult> DeleteVersionLocalPayloadAsync(
         BackupConfig config,
         VersionId versionId,
@@ -452,6 +434,7 @@ internal static partial class NativeHistoryApplicationService
         {
             RecoverNativeInsideOperation = (operation, token) => Plugins.V3.NativeArtifactHostService.RecoverInsideOperationAsync(config, runtime, operation, token),
             FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token),
+            BeforeDestinationMutation = NativeHistoryRestoreOrchestrator.RevalidateMutationSafetyAsync,
             ValidateVersionTarget = validateVersionTarget,
             VerificationContext = verificationContext,
             PreparationEnvironmentFactory = (graph, token) => BuildPreparationEnvironmentAsync(runtime, graph, token),
@@ -696,28 +679,6 @@ internal static partial class NativeHistoryApplicationService
         => mode == BackupService.RestoreMode.Clean
             ? HistoryRestoreApplyMode.Clean
             : HistoryRestoreApplyMode.Overwrite;
-
-    private sealed class ArtifactLedgerGarbageCollector(BackupConfig config) : IHistoryArtifactGarbageCollector
-    {
-        public async Task GarbageCollectAsync(
-            IReadOnlySet<Guid> protectedArtifactRootIds,
-            CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrWhiteSpace(config.DestinationPath)) return;
-            var native = Plugins.V3.NativeArtifactHostService.Store(config);
-            var nativeLedger = await native.Ledger.LoadAsync(cancellationToken).ConfigureAwait(false);
-            var nativeIds = nativeLedger.Artifacts.Select(a => a.ArtifactId.Value).ToHashSet();
-            await native.CollectAsync(protectedArtifactRootIds.Where(nativeIds.Contains).Select(id => new ArtifactId(id)), cancellationToken);
-            var store = new FileArtifactLedgerStore(config.DestinationPath);
-            var legacy = await store.LoadAsync(cancellationToken).ConfigureAwait(false);
-            // A destination may be shared by configurations; never collect another config's nodes.
-            var foreign = legacy.Artifacts.Where(a => a.ConfigId != config.Id).Select(a => a.ArtifactId);
-            await store.GarbageCollectUnreachableAsync(
-                protectedArtifactRootIds.Where(id => !nativeIds.Contains(id)).Select(id => new ArtifactId(id)).Concat(foreign),
-                dryRun: false,
-                cancellationToken).ConfigureAwait(false);
-        }
-    }
 }
 
 internal sealed class SevenZipHistoryArchiveBackend : SevenZipArchiveProcessBackend

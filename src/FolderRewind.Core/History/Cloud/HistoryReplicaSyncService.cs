@@ -16,31 +16,24 @@ namespace FolderRewind.History.Cloud;
 
 public sealed class HistoryReplicaSyncService
 {
+#if FOLDERREWIND_PROTOCOL_TESTS
+    internal static Action<string>? TestFault;
+#endif
     private readonly HistoryRuntime _history;
     private readonly IHistoryReplicaTransport _transport;
     public FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport? ArtifactObjects
         => _transport as FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport;
     private readonly Func<CancellationToken, Task<HistoryMetadataSyncResult>> _syncMetadata;
-    private readonly IHistoryReplicaRetirementGuard _retirementGuard;
     private readonly HistoryPackCodec _codec = new();
 
     public HistoryReplicaSyncService(
         HistoryRuntime history,
         IHistoryReplicaTransport transport,
-        Func<CancellationToken, Task<HistoryMetadataSyncResult>> syncMetadata,
-        IHistoryReplicaRetirementGuard retirementGuard)
+        Func<CancellationToken, Task<HistoryMetadataSyncResult>> syncMetadata)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _transport = transport ?? throw new ArgumentNullException(nameof(transport));
         _syncMetadata = syncMetadata ?? throw new ArgumentNullException(nameof(syncMetadata));
-        _retirementGuard = retirementGuard ?? throw new ArgumentNullException(nameof(retirementGuard));
-    }
-
-    private static void Observe(string stage)
-    {
-#if NATIVE_ARTIFACT_ACCEPTANCE
-        FolderRewind.Services.Development.NativeArtifactAcceptance.Observe(stage);
-#endif
     }
 
     public async Task<HistoryReplicaOperationResult> UploadAsync(
@@ -64,9 +57,7 @@ public sealed class HistoryReplicaSyncService
                 HistoryRepositoryPaths.CreateReplicaObjectKey(replicaId), expectedSize, expectedHash);
             if (persistIntent is not null) await persistIntent(intent, cancellationToken).ConfigureAwait(false);
             if (publishPayloadDependencies is not null) await publishPayloadDependencies(cancellationToken).ConfigureAwait(false);
-            Observe("CloudDescriptor:before");
             await _transport.UploadAsync(replicaId, localPath, cancellationToken).ConfigureAwait(false);
-            Observe("CloudDescriptor:after");
             var verification = await _transport.VerifyRemoteAsync(intent, localPath, cancellationToken).ConfigureAwait(false);
             if (!verification.Success)
                 throw new InvalidDataException("[cloud.payload-check-failed] " + verification.Diagnostic);
@@ -74,9 +65,7 @@ public sealed class HistoryReplicaSyncService
             var manifest = new HistoryReplicaManifest(
                 representationId, replicaId, artifactRootId, objectKey,
                 expectedSize, expectedHash);
-            Observe("CloudManifest:before");
             await _transport.CommitManifestOnceAsync(manifest, cancellationToken).ConfigureAwait(false);
-            Observe("CloudManifest:after");
             var remoteManifest = await _transport.ReadManifestAsync(replicaId, cancellationToken).ConfigureAwait(false);
             if (remoteManifest is null || !HistoryCloudReplicaValidity.Matches(remoteManifest, manifest))
                 throw new InvalidDataException("[cloud.manifest-invalid] Remote manifest does not match the upload intent.");
@@ -91,9 +80,7 @@ public sealed class HistoryReplicaSyncService
                 .SingleOrDefault(r => r.ReplicaId == replicaId);
             if (existing is null)
             {
-                Observe("CloudFacts:before");
                 await CommitFactsAsync([replica, active], cancellationToken).ConfigureAwait(false);
-                Observe("CloudFacts:after");
             }
             else if (existing.ObjectKey != objectKey || existing.ExpectedSize != manifest.Size
                 || !StringComparer.OrdinalIgnoreCase.Equals(existing.ExpectedStorageSha256, manifest.StorageSha256)
@@ -154,54 +141,18 @@ public sealed class HistoryReplicaSyncService
         finally { try { if (File.Exists(staging)) File.Delete(staging); } catch { } }
     }
 
-    public async Task<HistoryReplicaOperationResult> RetireAsync(
-        StorageReplica replica,
-        HistoryReplicaManifest manifest,
-        bool releaseVersion,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await _retirementGuard.EnsureRetirementSafeAsync(replica, releaseVersion, cancellationToken).ConfigureAwait(false);
-            if (releaseVersion)
-            {
-                var representation = await _history.Query.GetRepresentationAsync(replica.RepresentationId, cancellationToken)
-                    .ConfigureAwait(false) ?? throw new InvalidOperationException("Representation is missing.");
-                await _history.MaterializationPolicies.SetAsync(
-                    representation.VersionId, MaterializationPolicyState.Released,
-                    "User requested shared materialization release.", cancellationToken).ConfigureAwait(false);
-            }
-            var updates = await _history.Query.GetReplicaLifecycleUpdatesAsync(replica.ReplicaId, cancellationToken)
-                .ConfigureAwait(false);
-            var parentIds = Tips(updates).Select(item => item.UpdateId).ToArray();
-            if (Tips(updates).Any(item => item.State == ReplicaLifecycleState.Retired))
-                return new(HistoryReplicaOperationStatus.Succeeded, replica.ReplicaId, string.Empty);
-            var retired = new ReplicaLifecycleUpdate(
-                ReplicaLifecycleUpdateId.New(), replica.ReplicaId, parentIds,
-                ReplicaLifecycleState.Retired, DateTimeOffset.UtcNow, "User requested Cloud replica retirement.");
-            await CommitFactsAsync([retired], cancellationToken).ConfigureAwait(false);
-            var sync = await _syncMetadata(cancellationToken).ConfigureAwait(false);
-            if (!sync.Succeeded) throw new InvalidOperationException("Retirement metadata sync failed: " + sync.Diagnostic);
-            try
-            {
-                await _transport.DeletePhysicalAsync(manifest, cancellationToken).ConfigureAwait(false);
-                return new(HistoryReplicaOperationStatus.Succeeded, replica.ReplicaId, string.Empty);
-            }
-            catch (Exception ex)
-            {
-                return new(HistoryReplicaOperationStatus.MetadataCommittedPhysicalOrphan, replica.ReplicaId, ex.Message);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception ex) { return new(HistoryReplicaOperationStatus.Failed, replica.ReplicaId, ex.Message); }
-    }
-
     private async Task CommitFactsAsync(IEnumerable<object> facts, CancellationToken cancellationToken)
     {
         await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
         var objects = facts.Select(fact => _codec.CreateObject(fact)).ToArray();
         var pack = new HistoryCommitPack(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow, objects);
+#if FOLDERREWIND_PROTOCOL_TESTS
+        TestFault?.Invoke("CloudFacts:before");
+#endif
         await _history.Repository.CommitAsync(pack, cancellationToken: cancellationToken).ConfigureAwait(false);
+#if FOLDERREWIND_PROTOCOL_TESTS
+        TestFault?.Invoke("CloudFacts:after");
+#endif
         await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.TransactionCommitted, objects.Select(item => item.Id));
     }
@@ -235,12 +186,5 @@ public sealed class HistoryReplicaSyncService
         return info.Length == manifest.Size && StringComparer.OrdinalIgnoreCase.Equals(hash, manifest.StorageSha256)
             ? new(true, info.Length, hash, string.Empty)
             : new(false, info.Length, hash, "Downloaded payload size or hash differs from manifest.");
-    }
-
-    private static ImmutableArray<ReplicaLifecycleUpdate> Tips(IEnumerable<ReplicaLifecycleUpdate> updates)
-    {
-        var all = updates.ToImmutableArray();
-        var parents = all.SelectMany(item => item.ParentUpdateIds).ToHashSet();
-        return all.Where(item => !parents.Contains(item.UpdateId)).ToImmutableArray();
     }
 }

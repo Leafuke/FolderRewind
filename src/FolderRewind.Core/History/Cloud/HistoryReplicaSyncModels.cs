@@ -25,22 +25,12 @@ public interface IHistoryReplicaTransport
     Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken cancellationToken);
     Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId replicaId, CancellationToken cancellationToken);
     Task DownloadAsync(HistoryReplicaManifest manifest, string stagingPath, CancellationToken cancellationToken);
-    Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken cancellationToken);
-}
-
-public interface IHistoryReplicaRetirementGuard
-{
-    Task EnsureRetirementSafeAsync(
-        StorageReplica replica,
-        bool releaseVersion,
-        CancellationToken cancellationToken);
 }
 
 public enum HistoryReplicaOperationStatus
 {
     Succeeded = 0,
-    Failed = 1,
-    MetadataCommittedPhysicalOrphan = 2
+    Failed = 1
 }
 
 public sealed record HistoryReplicaOperationResult(

@@ -45,6 +45,10 @@ internal sealed partial class MergeOperationService
         if (_stopping) return Task.CompletedTask;
         return Tracker.RunAsync(stage, async token =>
         {
+            using var operation = new NotificationOperationScope(new(NotificationTargetKind.History, ConfigId: Config.Id, FolderId: SourceId.ToString()),
+                context: new("", "Merge"));
+            using var diagnostic = new BusinessOperationDiagnostics("Merge");
+            var previousResult = Snapshot.Result;
             var gate = Gates.GetOrAdd(Config.Id, _ => new(1, 1));
             if (!await gate.WaitAsync(0, token).ConfigureAwait(false))
                 throw new InvalidOperationException(I18n.GetString("MergeWorkspace_ConfigBusy"));
@@ -68,10 +72,16 @@ internal sealed partial class MergeOperationService
                 if (stage == MergeOperationStage.Saving) { _pendingSave = action; Tracker.Update(s => s with { IsSaved = false }); }
                 await action(token).ConfigureAwait(false);
                 if (stage == MergeOperationStage.Saving) { _pendingSave = null; Tracker.Update(s => s with { IsSaved = true }); }
+                var appliedResult = !ReferenceEquals(previousResult, Snapshot.Result) ? Snapshot.Result : null;
+                diagnostic.Complete(appliedResult?.Status.ToString() ?? "Success",
+                    appliedResult is { Succeeded: false } ? LogLevel.Error : appliedResult?.PostActionDiagnostic is not null ? LogLevel.Warning : LogLevel.Info,
+                    $"stage={stage}; mergeSessionId={Snapshot.Session?.Id}; planRevision={Snapshot.Session?.Plan.Revision}; providerId={Snapshot.Session?.Plan.SemanticProvider?.ProviderId.ToString() ?? "folderrewind.core"}; providerVersion={Snapshot.Session?.Plan.ProviderVersion}; state={Snapshot.Session?.State}");
             }
+            catch (OperationCanceledException error) when (token.IsCancellationRequested)
+            { diagnostic.Failure(error, canceled: true); throw; }
             catch (Exception ex)
             {
-                LogService.LogError($"Merge config={Config.Id} session={Snapshot.Session?.Id} stage={Snapshot.Stage}", "Merge", ex);
+                diagnostic.Failure(ex);
                 if (stage == MergeOperationStage.Saving && Snapshot.IsSaved) _pendingSave = null;
                 try { Refresh(); } catch { /* The original error/result takes precedence over a failed refresh. */ }
                 if (ex is HistoryMergeBlockedException blocked)

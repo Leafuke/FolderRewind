@@ -84,9 +84,6 @@ namespace FolderRewind.ViewModels
                 CloudPresetStatusText = I18n.GetString("CloudWizard_NavigationFailed");
         }
 
-        public void HandleKnotLinkToggled(bool isOn)
-            => TaskObserver.Observe(SetKnotLinkEnabledAsync(isOn), nameof(SettingsPageViewModel));
-
         public async Task SetKnotLinkEnabledAsync(bool isOn, CancellationToken cancellationToken = default)
         {
             if (isOn) ValidateKnotLinkSettings();

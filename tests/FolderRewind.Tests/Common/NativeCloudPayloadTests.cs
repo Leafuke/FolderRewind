@@ -250,7 +250,7 @@ public sealed class NativeCloudPayloadTests
             return job;
         }
         public HistoryReplicaSyncService Replicas(IHistoryReplicaTransport transport) => new(History, transport,
-            _ => Task.FromResult(Metadata(transport is not MemoryTransport { FailAt: "metadata" })), new NoRetirement());
+            _ => Task.FromResult(Metadata(transport is not MemoryTransport { FailAt: "metadata" })));
         public Task<HistoryCloudBackupResult> UploadAsync(HistoryCloudJob job, IHistoryReplicaTransport transport, CancellationToken token = default)
         {
             var service = new HistoryCloudBackupService(History, transport, _ => Task.FromResult(Metadata(transport is not MemoryTransport { FailAt: "metadata" })));
@@ -278,8 +278,6 @@ public sealed class NativeCloudPayloadTests
             ZipFile.ExtractToDirectory(payload, target); return Task.CompletedTask;
         }
     }
-    private sealed class NoRetirement : IHistoryReplicaRetirementGuard
-    { public Task EnsureRetirementSafeAsync(StorageReplica replica, bool releaseVersion, CancellationToken token) => throw new AssertFailedException(); }
 
     private sealed class MemoryTransport : IHistoryReplicaTransport, INativeArtifactObjectTransport
     {
@@ -310,6 +308,5 @@ public sealed class NativeCloudPayloadTests
         { Manifests.TryAdd(manifest.ReplicaId, manifest); if (FailAt == "manifest") throw new IOException("injected manifest publication failure"); return Task.CompletedTask; }
         public Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId id, CancellationToken token) => Task.FromResult(Manifests.GetValueOrDefault(id));
         public Task DownloadAsync(HistoryReplicaManifest manifest, string path, CancellationToken token) => File.WriteAllBytesAsync(path, Payloads[manifest.ReplicaId], token);
-        public Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token) => throw new AssertFailedException();
     }
 }

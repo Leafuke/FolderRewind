@@ -50,9 +50,7 @@ public sealed class MineRewindPerformanceIntegrationTests
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "AGENTS.md"))) repo = repo.Parent;
         Assert.IsNotNull(repo);
-        using var preset = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo.FullName, "src", "FolderRewind", "Assets", "PluginPresets", "minecraft-enhanced-experience.v1.json")));
-        var package = Path.Combine(repo.FullName, "src", "FolderRewind", preset.RootElement.GetProperty("actions").EnumerateArray()
-            .Single(action => action.GetProperty("id").GetString() == "install-minerewind").GetProperty("packagePath").GetString()!);
+        var package = MineRewindIntegrationPackage.Resolve(Path.Combine(repo.FullName, "src", "FolderRewind"));
         Assert.IsTrue(File.Exists(package));
         var root = Path.Combine(Path.GetTempPath(), "fr-minerewind-package-" + Guid.NewGuid().ToString("N"));
         ZipFile.ExtractToDirectory(package, root);
@@ -76,7 +74,7 @@ public sealed class MineRewindPerformanceIntegrationTests
     private static async Task<PathFilterRule[]> InvokePolicyAsync(string root, string world)
     {
         var id = new PluginId("com.folderrewind.minerewind");
-        using var plugin = PluginAssemblyLoader.Load(new(id, root, "MineRewind.dll", "MineRewind.MinecraftSavesPlugin", new(3, 9)));
+        using var plugin = PluginAssemblyLoader.Load(new(id, root, "MineRewind.dll", "MineRewind.MinecraftSavesPlugin", PluginApiVersion.HostVersion));
         var folder = new FolderSnapshot(Guid.NewGuid(), world, "synthetic world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         var config = new ConfigSnapshot("performance-integration", new("test"), new(new(id.Value), "minecraft-saves"), "test", [folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         var context = new ActivationContext(id, config);

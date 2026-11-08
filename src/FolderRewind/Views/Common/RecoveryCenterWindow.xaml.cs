@@ -74,7 +74,6 @@ public sealed partial class RecoveryCenterWindow : Window
     private async void OnExportClick(object sender, RoutedEventArgs e)
     {
         var path = await MainWindowService.PickSaveFilePathAsync(
-            I18n.GetString("RecoveryCenter_ExportPickerTitle"),
             "RecoveryCenterExport",
             new Dictionary<string, IReadOnlyList<string>>
             {

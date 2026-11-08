@@ -64,7 +64,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         {
             var parts = new List<string>();
             if (_config?.Cloud.LegacyConversionRequired == true) parts.Add(I18n.GetString("CloudConnection_LegacyConversionRequired"));
-            if (_config is not null && !_manageConnection && RemoteRoot != _config.Cloud.RemoteBasePath)
+            if (_config is not null && !_manageConnection && RemoteRoot != CloudConnectionCatalog.RemoteRoot(ConfigService.CurrentConfig, _config))
                 parts.Add(I18n.GetString("CloudConnections_LocationChangeConfirm"));
             var profile = _editingProfile ?? _profiles.FirstOrDefault(p => p.Id == _selectedProfileId);
             if (profile is not null && (ConfigPath != profile.CredentialReference || RemoteRoot.Split(':', 2)[0] != profile.RemoteName
@@ -112,12 +112,6 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var context = new OnboardingRepairContext(_config?.Id ?? "", "", _config is null ? "" : NativeHistoryConfigLease.Signature(_config), DateTimeOffset.UtcNow);
         while (Diagnostics.Count >= OnboardingOperationBudgets.RecentDiagnostics) Diagnostics.RemoveAt(0);
         Diagnostics.Add(new(new(code, state, message, context.CheckedAtUtc, []), context));
-    }
-    public bool IsDiagnosticCurrent(OnboardingDiagnosticItem item)
-    {
-        var current = _config is null ? null : ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == _config.Id);
-        return !_disposed && _diagnosticRevision == _revision && Diagnostics.Contains(item)
-            && (_config is null || current is not null && OnboardingRepairPolicy.IsCurrent(item.Context, current.Id, "", NativeHistoryConfigLease.Signature(current)));
     }
     public bool IsProject => _config is not null && !_manageConnection;
     public bool IsRecovery => _config is null && !_manageConnection;
@@ -236,15 +230,13 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
             return;
         }
         Message = I18n.GetString("CloudSetup_CredentialMigrating");
-        var originalPath = _config.Cloud.RcloneConfigPath;
+        var originalPath = ConfigService.CurrentConfig.CloudConnections.SingleOrDefault(p => p.Id == _config.Cloud.ConnectionProfileId)?.CredentialReference ?? "";
         await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, token, allowUncertain: true);
         token.ThrowIfCancellationRequested();
         _config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(id).Matches(c.Id))
             ?? throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
         _executable = CloudSyncService.GetEffectiveExecutablePath(_config);
-        _configPath = _config.Cloud.RcloneConfigPath;
-        _working = _config.Cloud.WorkingDirectory;
-        _remote = _config.Cloud.RemoteBasePath;
+        _configPath = ""; _working = ""; _remote = "";
         ConnectionName = _config.Name;
         if (_profiles.FirstOrDefault(p => p.Id == _config.Cloud.ConnectionProfileId) is { } initialProfile)
         {
@@ -388,7 +380,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         var connection = await RcloneConnectionService.CreateWebDavAsync(Executable, ConfigService.RcloneConnectionsDirectory, url, user, password, allowInsecure, token);
         if (_lifetime.IsCancellationRequested) { await connection.DisposeAsync(); return; }
         try { await ValidateCandidateAsync(connection, RemoteWithPreservedSuffix(CloudRemotePath.Split(connection.RemoteRoot).Remote), token); }
-        catch { connection.Preserve(); connection.Dispose(); throw; }
+        catch { await connection.DisposeAsync(); throw; }
         if (!IsReauthenticating) BeginNewConnection();
         ReleaseOwnedCredentials(); _owned = connection;
         ConfigPath = connection.ConfigPath; RemoteRoot = RemoteWithPreservedSuffix(CloudRemotePath.Split(connection.RemoteRoot).Remote);
@@ -579,7 +571,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         RcloneCredentialStore.RegisterFresh(target, bytes);
         var candidate = new OwnedRcloneConnection(target, RemoteRoot);
         try { await ValidateCandidateAsync(candidate, RemoteRoot, token); }
-        catch { candidate.Preserve(); candidate.Dispose(); throw; }
+        catch { await candidate.DisposeAsync(); throw; }
         if (_owned is not null && CloudConnectionCatalog.SameCredentialStorage(_owned.ConfigPath, source)) _owned.Commit();
         if (!IsReauthenticating) BeginNewConnection();
         ReleaseOwnedCredentials(); _owned = candidate;

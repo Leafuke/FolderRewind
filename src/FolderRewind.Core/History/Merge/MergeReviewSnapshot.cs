@@ -1,4 +1,5 @@
 using FolderRewind.History.Application;
+using FolderRewind.History.Storage;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using System;
@@ -40,7 +41,8 @@ public sealed record MergeReviewSnapshot(PreparedMerge Prepared, ImmutableArray<
                 throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged));
             var tree = target.Existed ? await MergeTreeManifest.ReadAsync(binding.TargetDirectory,
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
-                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false) : MergeTreeManifest.Empty;
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true),
+                new HistoryRestoreTreeScope(binding).MayDescend).ConfigureAwait(false) : MergeTreeManifest.Empty;
             if (tree.Digest != target.Digest) throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged));
         }
     }

@@ -190,7 +190,7 @@ public sealed partial class HistoryPage
                     if (verificationTask?.IsCompleted == false) return;
                     try
                     {
-                        var selected = await MainWindowService.PickFilePathAsync(I18n.GetString("LegacyMigration_Browse"), "Legacy182Archive", [".7z", ".zip"]);
+                        var selected = await MainWindowService.PickFilePathAsync("Legacy182Archive", [".7z", ".zip"]);
                         if (selected is not null) location.Text = selected;
                     }
                     catch (Exception ex) { detail.Text = ex.Message; }

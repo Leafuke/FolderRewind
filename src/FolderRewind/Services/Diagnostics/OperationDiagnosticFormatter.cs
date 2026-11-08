@@ -57,6 +57,16 @@ internal static class OperationDiagnosticFormatter
     {
         var key = diagnostic.Code switch
         {
+            "minerewind.world_identity_unresolved" or "minerewind.world_identity_changed" => "OperationDiagnostic_WorldIdentityUnresolved",
+            "restore.coordination_changed" => "OperationDiagnostic_RestoreCoordinationChanged",
+            "minerewind.playerdata_world_unresolved" => "OperationDiagnostic_PlayerWorldUnresolved",
+            "minerewind.scope_world_unresolved" => "OperationDiagnostic_ScopeWorldUnresolved",
+            "minerewind.coordination_needs_reset" => "OperationDiagnostic_CoordinationNeedsReset",
+            "minerewind.coordination_busy" or "minerewind.consistency_multiple_active_worlds" => "OperationDiagnostic_CoordinationBusy",
+            "minerewind.coordination_window_expired" => "OperationDiagnostic_CoordinationWindowExpired",
+            "minerewind.coordination_disconnected" => "OperationDiagnostic_CoordinationDisconnected",
+            "backup.coordination_cleanup_failed" => "OperationDiagnostic_CoordinationCleanupFailed",
+            "minerewind.primary_metadata_missing" => "OperationDiagnostic_PrimaryMetadataMissing",
             "minerewind.world_lock_probe_failed" => "OperationDiagnostic_WorldLockProbeFailed",
             "minerewind.restore_knotlink_unavailable" => "OperationDiagnostic_RestoreKnotLinkUnavailable",
             "minerewind.restore_handshake_unavailable" => "OperationDiagnostic_RestoreHandshakeUnavailable",
@@ -65,6 +75,7 @@ internal static class OperationDiagnosticFormatter
             "minerewind.restore_multiple_active_worlds" => "OperationDiagnostic_RestoreMultipleWorlds",
             "minerewind.restore_coordination_failed" => "OperationDiagnostic_RestoreCoordinationFailed",
             "minerewind.restore_rejoin_failed" => "OperationDiagnostic_RestoreRejoinFailed",
+            "minerewind.full.semantic_coverage_limited" or "minerewind.incremental.semantic_coverage_limited" => "OperationDiagnostic_SemanticCoverageLimited",
             "minerewind.consistency_raw_source" => "OperationDiagnostic_ConsistencyRawSource",
             "minerewind.consistency_handshake_unavailable" => "OperationDiagnostic_ConsistencyHandshakeUnavailable",
             "minerewind.consistency_save_timeout" => "OperationDiagnostic_ConsistencySaveTimeout",
@@ -95,8 +106,18 @@ internal static class OperationDiagnosticFormatter
     {
         static string Escape(string value) => value.Replace("\\", "\\\\").Replace("\r", "\\r").Replace("\n", "\\n");
         return $"code={Escape(diagnostic.Code)}; severity={diagnostic.Severity}; owner={Escape(diagnostic.Owner)}; capability={Escape(diagnostic.Capability)}; "
-            + string.Join("; ", diagnostic.Arguments.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => Escape(pair.Key) + "=" + Escape(pair.Value)));
+            + string.Join("; ", diagnostic.Arguments.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .Select(pair => Escape(pair.Key) + "=" + Escape(SafeArgument(pair.Key, pair.Value))));
     }
+
+    private static string SafeArgument(string key, string value)
+        => key.ToLowerInvariant() switch
+        {
+            "source" or "stage" or "reason" or "exceptiontype" or "hresult" or "code" or "outcome"
+                or "operationid" or "runid" or "sourceid" or "configid" or "transactionid" or "count"
+                => DiagnosticPrivacy.Text(value),
+            _ => "[REDACTED]"
+        };
 
     internal static string Details(IEnumerable<PluginDiagnostic> diagnostics)
         => string.Join(Environment.NewLine + Environment.NewLine, Snapshot(diagnostics).Select(item => Describe(item) + Environment.NewLine + Technical(item)));
@@ -104,7 +125,7 @@ internal static class OperationDiagnosticFormatter
     internal static string TaskDetails(BackupTask task)
     {
         var sections = new List<string>();
-        void Add(string key, string text) { if (!string.IsNullOrWhiteSpace(text)) sections.Add(I18n.GetString(key) + Environment.NewLine + text); }
+        void Add(string key, string text) { if (!string.IsNullOrWhiteSpace(text)) sections.Add(I18n.GetString(key) + Environment.NewLine + DiagnosticPrivacy.Text(text)); }
         Add("BackupTasks_DetailsErrors", task.ErrorDiagnostics.Count > 0 ? Details(task.ErrorDiagnostics) : task.ErrorMessage);
         Add("BackupTasks_DetailsWarnings", Details(task.WarningDiagnostics));
         Add("BackupTasks_DetailsLog", task.Log);

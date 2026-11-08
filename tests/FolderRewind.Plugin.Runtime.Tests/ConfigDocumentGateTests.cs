@@ -60,7 +60,8 @@ public sealed class ConfigDocumentGateTests
         Assert.AreEqual(42, minecraft["SourceFolders"]![0]!["FutureFolderValue"]!.GetValue<int>());
         Assert.AreEqual(
             "1.21.8",
-            minecraft["ProviderStates"]!["com.folderrewind.minerewind"]!["Data"]!["MinecraftVersion"]!.GetValue<string>());
+            minecraft["LegacyPreservation"]!["OriginalExtendedProperties"]!["MinecraftVersion"]!.GetValue<string>());
+        Assert.IsFalse(minecraft["ProviderStates"]!.AsObject().ContainsKey("com.folderrewind.minerewind"));
         Assert.AreEqual("preset-1", minecraft["HostOrigin"]!["TemplateId"]!.GetValue<string>());
         Assert.AreEqual(
             "preserve-me",

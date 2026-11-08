@@ -38,7 +38,8 @@ public enum PluginCapabilityKind
     SpatialPreview = 15,
     MergeProvider = 16,
     SpatialComparison = 17,
-    SpatialScopeSelection = 18
+    SpatialScopeSelection = 18,
+    BackupRunCoordination = 19
 }
 
 public sealed record LocalizedText(

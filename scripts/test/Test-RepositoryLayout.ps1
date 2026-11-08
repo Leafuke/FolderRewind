@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 Push-Location -LiteralPath $repository
 try {
     $projects = @(Get-ChildItem src,tests,tools,benchmarks -Recurse -Filter '*.csproj' -File |
-        Where-Object FullName -NotMatch '[\\/](bin|obj)[\\/]')
+        Where-Object FullName -NotMatch '[\\/](bin|obj|AppPackages|BundleArtifacts)[\\/]')
     $graph = @{}
     $core = [IO.Path]::GetFullPath((Join-Path $repository 'src/FolderRewind.Core/FolderRewind.Core.csproj'))
     $app = [IO.Path]::GetFullPath((Join-Path $repository 'src/FolderRewind/FolderRewind.csproj'))
@@ -79,14 +79,14 @@ try {
         if ($item.Path -like '*Core.Recovery.Tests*') { throw 'Fault-injection acceptance must use its separate entry point.' }
     }
     $sources = @(Get-ChildItem src,tests,tools,benchmarks,scripts,.github -Recurse -File |
-        Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' -and $_.Extension -in @('.cs','.csproj','.xaml','.resw','.props','.ps1','.py','.yml') } |
+        Where-Object { $_.FullName -notmatch '[\\/](bin|obj|AppPackages|BundleArtifacts)[\\/]' -and $_.Extension -in @('.cs','.csproj','.xaml','.resw','.props','.ps1','.py','.yml') } |
         ForEach-Object { [IO.Path]::GetRelativePath($repository,$_.FullName) })
     $ignored = @($sources | git -c core.quotepath=false check-ignore --stdin)
     if ($ignored.Count) { throw "Source files are hidden by ignore rules: $($ignored -join ', ')" }
     $global:LASTEXITCODE = 0 # check-ignore returns 1 when no paths are ignored.
     $syntaxErrors = @()
     Get-ChildItem scripts,benchmarks,.github/scripts,tools -Recurse -Filter '*.ps1' -File |
-        Where-Object FullName -NotMatch '[\\/](bin|obj)[\\/]' | ForEach-Object {
+        Where-Object FullName -NotMatch '[\\/](bin|obj|AppPackages|BundleArtifacts)[\\/]' | ForEach-Object {
             $tokens = $null; $errors = $null
             [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
             foreach ($errorItem in $errors) { $syntaxErrors += "$($_.FullName): $($errorItem.Message)" }

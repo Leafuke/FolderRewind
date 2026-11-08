@@ -32,6 +32,7 @@ namespace FolderRewind.Views
 
         private string _keyword = string.Empty;
         private LogLevel? _filterLevel;
+        private string? _healthNoticeKey;
 
         public LogPage()
         {
@@ -58,6 +59,7 @@ namespace FolderRewind.Views
             // - 避免离开页面期间产生的日志丢失
             // - 也避免缓存页面导致的“只初始化一次”问题
             ReloadSnapshot();
+            RefreshHealth();
         }
 
         protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
@@ -101,10 +103,27 @@ namespace FolderRewind.Views
 
         private void OnBatchTick(DispatcherQueueTimer sender, object args)
         {
+            RefreshHealth();
             var changed = false;
             for (var count = 0; count < 200 && _pending.TryDequeue(out var item); count++)
                 changed |= _presentation.Append(item.Entry, item.Generation);
             if (changed) ScrollToEnd();
+        }
+
+        private void RefreshHealth()
+        {
+            var key = LogPresentationController.HealthResourceKey(LogService.Health);
+            if (_healthNoticeKey == key) return;
+            _healthNoticeKey = key;
+            PersistenceNotice.IsOpen = key is not null;
+            PersistenceNotice.Message = key is null ? string.Empty : I18n.GetString(key);
+            PersistenceNotice.Severity = key == "LogPersistence_Disabled" ? InfoBarSeverity.Informational : InfoBarSeverity.Warning;
+        }
+
+        private void ShowOperationFailure(string resourceKey)
+        {
+            OperationFailureNotice.Message = I18n.GetString(resourceKey);
+            OperationFailureNotice.IsOpen = true;
         }
 
         private void RefreshFiltered()
@@ -167,13 +186,19 @@ namespace FolderRewind.Views
                 if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("LogClear_Title"), I18n.GetString("LogClear_Description"),
                     I18n.GetString("LogClear_Action"), XamlRoot, isDestructive: true)) return;
                 Unsubscribe();
-                try { LogService.Clear(); await LogService.FlushAsync(); }
+                try
+                {
+                    var result = await LogService.ClearAsync();
+                    if (!result.Succeeded) ShowOperationFailure("LogClear_Failed");
+                    else OperationFailureNotice.IsOpen = false;
+                    RefreshHealth();
+                }
                 finally { if (_isActive) { EnsureSubscribed(); ReloadSnapshot(); } }
             }
             catch (Exception error)
             {
                 LogService.LogError("Could not clear current log.", nameof(LogPage), error);
-                NotificationService.ShowError(I18n.GetString("LogClear_Failed"));
+                ShowOperationFailure("LogClear_Failed");
             }
             finally { _clearing = false; }
         }
@@ -210,14 +235,17 @@ namespace FolderRewind.Views
 
         private async void OnOpenFileClick(object sender, RoutedEventArgs e)
         {
-            var path = LogService.GetLogFilePath();
             try
             {
-                await LogService.FlushAsync();
-                if (!File.Exists(path))
+                var result = await LogService.FlushAsync();
+                RefreshHealth();
+                if (!result.Succeeded && result.Status != LogPersistenceStatus.KnownLoss)
                 {
-                    File.WriteAllText(path, string.Empty);
+                    ShowOperationFailure("LogPersistence_OpenUnconfirmed");
+                    return;
                 }
+                OperationFailureNotice.IsOpen = false;
+                var path = LogService.GetLogFilePath();
 
                 Process.Start(new ProcessStartInfo
                 {
@@ -228,6 +256,7 @@ namespace FolderRewind.Views
             }
             catch
             {
+                ShowOperationFailure("LogPersistence_OpenUnconfirmed");
             }
         }
     }

@@ -45,38 +45,6 @@ public sealed class FileArtifactLedgerStore
         return new ArtifactTransformStagingArea(root, maximumFiles, maximumBytes);
     }
 
-    public ArtifactReadSession CreateReadSession(
-        ArtifactLedgerDocument ledger,
-        IEnumerable<ArtifactId> artifactIds)
-    {
-        ArtifactLedgerValidator.Validate(ledger);
-        var selectedIds = artifactIds.ToHashSet();
-        var selected = ledger.Artifacts.Where(artifact => selectedIds.Contains(artifact.ArtifactId)).ToArray();
-        if (selected.Length != selectedIds.Count) throw new KeyNotFoundException("Artifact read session contains an unknown ArtifactId.");
-        var roots = new Dictionary<ArtifactContentHandle, string>();
-        var snapshots = new Dictionary<ArtifactId, BackupArtifactSnapshot>();
-        foreach (var artifact in selected)
-        {
-            var handle = new ArtifactContentHandle(Guid.NewGuid().ToString("N"));
-            var path = ArtifactPathRules.ResolveUnderRoot(_repositoryRoot, artifact.ContentRelativePath);
-            roots.Add(handle, path);
-            snapshots.Add(artifact.ArtifactId, new BackupArtifactSnapshot(
-                artifact.ArtifactId,
-                artifact.Format,
-                artifact.FormatVersion,
-                artifact.RestoreStrategyId,
-                handle,
-                artifact.LogicalSha256,
-                artifact.LogicalSize,
-                artifact.Completeness,
-                artifact.CoreCaptureMode,
-                artifact.ConfigId,
-                artifact.FolderId,
-                artifact.Dependencies));
-        }
-        return new ArtifactReadSession(new HostArtifactReadService(roots), snapshots);
-    }
-
     public async ValueTask VerifyArtifactsAsync(
         ArtifactLedgerDocument ledger,
         IEnumerable<ArtifactId> artifactIds,
@@ -105,63 +73,6 @@ public sealed class FileArtifactLedgerStore
         try
         {
             return await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    public async ValueTask<(ArtifactLedgerDocument Ledger, ArtifactId ArtifactRootId)> RegisterDetachedCoreArtifactAsync(
-        string configId,
-        Guid folderId,
-        string contentRelativePath,
-        ArtifactCompleteness completeness,
-        CoreCaptureMode captureMode,
-        string transactionId,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(configId) || folderId == Guid.Empty)
-        {
-            throw new ArgumentException("Detached Core Artifact ownership is incomplete.");
-        }
-        var safeId = RequireTransactionId(transactionId);
-        var canonicalPath = ArtifactPathRules.NormalizeRelativePath(contentRelativePath);
-        var contentPath = ArtifactPathRules.ResolveUnderRoot(_repositoryRoot, canonicalPath);
-        var (sha256, size) = await HostArtifactReadService.ComputeLogicalFactsAsync(contentPath, cancellationToken)
-            .ConfigureAwait(false);
-
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var current = await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
-            var artifactId = new ArtifactId(Guid.NewGuid());
-            var entry = new ArtifactLedgerEntry(
-                artifactId,
-                new ArtifactFormatRef(new OwnerId("folderrewind.core"), "archive-set"),
-                1,
-                new RestoreStrategyId(new PluginId("folderrewind.core"), "archive-materializer"),
-                configId,
-                folderId,
-                canonicalPath,
-                sha256,
-                size,
-                sha256,
-                size,
-                completeness,
-                captureMode,
-                Array.Empty<ArtifactId>(),
-                safeId,
-                ArtifactAvailability.Available,
-                ArtifactAvailability.Pending);
-            var candidate = current with
-            {
-                Revision = NewRevision(),
-                Artifacts = current.Artifacts.Append(entry).ToArray()
-            };
-            ArtifactLedgerValidator.Validate(candidate);
-            await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
-            return (candidate, artifactId);
         }
         finally
         {
@@ -547,7 +458,3 @@ public enum ArtifactTransactionStage
     MetadataSwitched = 3,
     Committed = 4
 }
-
-public sealed record ArtifactReadSession(
-    IArtifactReadService ReadService,
-    IReadOnlyDictionary<ArtifactId, BackupArtifactSnapshot> Snapshots);

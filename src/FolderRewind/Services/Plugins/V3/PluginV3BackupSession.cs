@@ -17,7 +17,7 @@ namespace FolderRewind.Services.Plugins.V3;
 
 /// <summary>
 /// 负责单个备份源的捕获会话生命周期：一致性租约（Consistency Lease）获取、
-/// 稳定读取视图（Stable SourcePath）、版本元数据捕获及会话完成清理。
+/// Host 读取视图上的版本元数据捕获及会话完成清理。
 /// 消费已经冻结的 <see cref="PluginV3BackupSourceResolution"/>，不再重复解析策略或有效边界。
 /// </summary>
 internal sealed class PluginV3BackupSession : IAsyncDisposable
@@ -26,6 +26,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     private readonly PluginV3BackupSourceResolution _resolution;
     private readonly List<PluginDiagnostic> _diagnostics;
     private PluginOperationLease? _artifactOperation;
+    private IConsistencyLease? _runSourceLease;
     private IReadOnlyList<string> _metadataPaths = [];
     internal PluginOperationLease? ArtifactOperation => _artifactOperation;
 
@@ -42,8 +43,8 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public EffectiveSourceBoundarySnapshot EffectiveBoundary => _resolution.EffectiveBoundary;
     public IReadOnlyList<PluginDiagnostic> Diagnostics => _diagnostics;
     public bool IsBlocked => _resolution.IsBlocked;
-    public string SourcePath => _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
-    public bool HasStableSourceView => _captureLeaseOwner.StableSourcePath is not null;
+    public string SourcePath => _runSourceLease?.SourcePath ?? _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
+    internal CancellationToken SourceCaptureCancellation => _runSourceLease?.CaptureCancellation ?? CancellationToken.None;
     public IReadOnlyList<string> MetadataPaths => _metadataPaths;
 
     public async ValueTask PrepareMetadataRequirementsAsync(CancellationToken token)
@@ -87,6 +88,20 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         if (NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(EffectiveConfig.ArtifactTransformPolicy))
             _artifactOperation = PluginV3RuntimeService.Runtime.TryAcquireOperation(new(EffectiveConfig.ArtifactTransformPolicy!.Transformer.PluginId), cancellationToken)
                 ?? throw new InvalidOperationException("Native operation session unavailable.");
+        if (NativeRestoreSafetyCaptureContext.Current is { } restoreCapture)
+        {
+#if MINECRAFT_COORDINATION_UI_ACCEPTANCE
+            Development.NativeArtifactAcceptance.Observe("restore-safety-source-read");
+#endif
+            await restoreCapture.ValidateAsync(cancellationToken, EffectiveConfig.Id, _resolution.FolderSnapshot.FolderId).ConfigureAwait(false);
+            return;
+        }
+        if (PluginV3BackupRunOwner.Current is { } run && run.ConfigId == EffectiveConfig.Id)
+        {
+            _runSourceLease = await run.AcquireAsync(_resolution, cancellationToken).ConfigureAwait(false);
+            _diagnostics.AddRange(_runSourceLease.Diagnostics);
+            return;
+        }
         await _captureLeaseOwner.AcquireAsync(
             PluginV3RuntimeService.Runtime,
             _resolution.PluginId.Value,
@@ -95,9 +110,6 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             _resolution.Intent,
             _diagnostics,
             cancellationToken,
-            NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(EffectiveConfig.ArtifactTransformPolicy)
-                ? new BackupSourceViewLimits(Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes,
-                    Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles) : null,
             EffectiveConfig.ArtifactTransformPolicy?.Transformer.PluginId == _resolution.PluginId.Value.Value ? _artifactOperation : null).ConfigureAwait(false);
     }
 
@@ -113,7 +125,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         var capability = operation?.Find<IVersionMetadataProviderCapability>(c => c.Kind == _resolution.ConfigSnapshot.Kind) ?? lease?.Capability;
         var context = operation?.Context ?? lease?.Context;
         if (capability is null || context is null) return PluginV3VersionMetadataCaptureResult.Empty;
-        var stableSourcePath = stagedSourcePath ?? _captureLeaseOwner.StableSourcePath;
+        var stableSourcePath = stagedSourcePath;
         if (stableSourcePath is null && sourceView is null)
         {
             // A successful ordinary source lease intentionally has no stable metadata view.
@@ -201,7 +213,12 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
 
     public async ValueTask CompleteCaptureAsync()
     {
-        try { await _captureLeaseOwner.CompleteAsync().ConfigureAwait(false); }
+        try
+        {
+            var runLease = Interlocked.Exchange(ref _runSourceLease, null);
+            if (runLease is not null) await runLease.DisposeAsync().ConfigureAwait(false);
+            await _captureLeaseOwner.CompleteAsync().ConfigureAwait(false);
+        }
         finally { System.Threading.Interlocked.Exchange(ref _artifactOperation, null)?.Dispose(); }
     }
 

@@ -21,7 +21,7 @@ namespace FolderRewind.ViewModels
 
         public BackupConfig Config => _config;
 
-        public string RemoteBasePath => _config.Cloud?.RemoteBasePath ?? string.Empty;
+        public string RemoteBasePath => CloudConnectionCatalog.RemoteRoot(ConfigService.CurrentConfig, _config);
 
         public string EffectiveExecutablePath => CloudSyncService.GetEffectiveExecutablePath(_config);
 
@@ -56,8 +56,6 @@ namespace FolderRewind.ViewModels
                     OnPropertyChanged(nameof(AnalysisSummary));
                     OnPropertyChanged(nameof(AnalysisMatchedText));
                     OnPropertyChanged(nameof(AnalysisImportableText));
-                    OnPropertyChanged(nameof(AnalysisUnmappedText));
-                    OnPropertyChanged(nameof(AnalysisAmbiguousText));
                 }
             }
         }
@@ -79,14 +77,6 @@ namespace FolderRewind.ViewModels
         public string AnalysisImportableText => AnalysisResult == null
             ? "-"
             : I18n.Format("ConfigCloudSyncDialog_Analysis_Importable", AnalysisResult.ImportableEntries);
-
-        public string AnalysisUnmappedText => AnalysisResult == null
-            ? "-"
-            : I18n.Format("ConfigCloudSyncDialog_Analysis_Unmapped", AnalysisResult.UnmappedEntries);
-
-        public string AnalysisAmbiguousText => AnalysisResult == null
-            ? "-"
-            : I18n.Format("ConfigCloudSyncDialog_Analysis_Ambiguous", AnalysisResult.AmbiguousEntries);
 
         public async Task InitializeAsync()
         {

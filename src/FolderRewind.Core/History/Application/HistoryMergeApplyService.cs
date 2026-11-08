@@ -32,7 +32,8 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
             var exists = Directory.Exists(binding.TargetDirectory);
             var live = exists ? await MergeTreeManifest.ReadAsync(binding.TargetDirectory,
                 FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token,
-                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true)).ConfigureAwait(false) : MergeTreeManifest.Empty;
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding, isDirectory: true),
+                new HistoryRestoreTreeScope(binding).MayDescend).ConfigureAwait(false) : MergeTreeManifest.Empty;
             if (exists && live.Digest == source.TreeDigest) continue;
             writes.Add(binding.SourceId, live.Digest);
             if (!live.IsEmpty && !await IsCleanAsync(workspace, [binding], token).ConfigureAwait(false))

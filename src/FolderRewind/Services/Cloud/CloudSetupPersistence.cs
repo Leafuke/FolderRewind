@@ -24,15 +24,15 @@ internal sealed class CloudSetupPersistence(Action? validateProfileCommit = null
         var profile = request.Profile;
         var draft = new ConfigSettingsDraftService(current);
         var cloud = draft.Draft.Cloud;
-        var changed = cloud.ConnectionProfileId != profile.Id || cloud.RemoteBasePath != request.RemoteRoot
-            || cloud.RcloneConfigPath != profile.CredentialReference;
+        var suffix = CloudRemotePath.Split(request.RemoteRoot).Suffix;
+        var changed = cloud.ConnectionProfileId != profile.Id || cloud.RemotePathSuffix != suffix;
         if (changed && current.Cloud.ConnectionProfileId is not null && request.ReadableEvidence.Length == 0 && request.WritableEvidence.Length == 0)
             throw new InvalidOperationException(I18n.GetString("CloudWizard_VerificationRequired"));
-        cloud.ExecutablePath = profile.ExecutablePath; cloud.WorkingDirectory = profile.WorkingDirectory;
-        cloud.RcloneConfigPath = profile.CredentialReference; cloud.RemoteBasePath = request.RemoteRoot;
         cloud.CommandMode = CloudCommandMode.Rclone; cloud.LegacyConversionRequired = false;
         cloud.ReadableEvidence = request.ReadableEvidence; cloud.WritableEvidence = request.WritableEvidence;
-        cloud.ConnectionProfileId = profile.Id; cloud.RemotePathSuffix = CloudRemotePath.Split(request.RemoteRoot).Suffix;
+        cloud.ConnectionProfileId = profile.Id; cloud.RemotePathSuffix = suffix;
+        if (changed || cloud.BindingRevision.Length == 0) cloud.BindingRevision = Guid.NewGuid().ToString("N");
+        CloudConnectionCatalog.ClearInlineConnection(cloud);
         if (changed || request.WritableEvidence.Length == 0) cloud.Enabled = false;
         if (!draft.IsDirty) return;
         if (request.ExpectedProjectRevision is not null && current.ConfigRevision != request.ExpectedProjectRevision)

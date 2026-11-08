@@ -29,7 +29,10 @@ public sealed class HistoryChainRewritePlanner(HistoryRuntime history, Represent
     {
         history.CloudJobs.RequireCleanupSafe();
         request = request with { BackupRoot = HistoryRewriteStoragePaths.NormalizeBackupRoot(request.BackupRoot) };
-        HistoryRewriteStoragePaths.RequireUnlinkedAncestors(HistoryRewriteStoragePaths.ManagedRoot(request.BackupRoot, history.ConfigId));
+        // Planning does not create payloads. Bind the destination when execution begins; a currently
+        // unwritable destination must not turn this read-only analysis into an unrelated exception.
+        Plugin.Runtime.IO.DirectoryPathBoundary.RequireUnlinkedPath(
+            HistoryRewriteStoragePaths.ManagedRoot(request.BackupRoot, history.ConfigId), request.BackupRoot);
         await history.EnsureIndexCurrentAsync(token).ConfigureAwait(false);
         var load = await history.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false);
         if (load.Status != DeviceLocalStateStatus.Valid || load.Value is null)

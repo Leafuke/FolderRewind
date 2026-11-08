@@ -41,19 +41,6 @@ namespace FolderRewind.ViewModels
             CloseBehaviorSelectedIndex = selectedIndex;
         }
 
-        public void HandleRememberCloseBehaviorToggled(bool isOn)
-        {
-            Settings.RememberCloseBehavior = isOn;
-
-            if (Settings.RememberCloseBehavior && Settings.CloseBehavior == CloseBehavior.Ask)
-            {
-                Settings.CloseBehavior = CloseBehavior.MinimizeToTray;
-                OnPropertyChanged(nameof(CloseBehaviorSelectedIndex));
-            }
-
-            _isDirty = true;
-        }
-
         public void HandleNotificationsToggled(bool isOn)
         {
             Settings.EnableNotifications = isOn;

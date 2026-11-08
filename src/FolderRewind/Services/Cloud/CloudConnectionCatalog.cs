@@ -23,40 +23,50 @@ internal static class CloudConnectionCatalog
                 cloud.Enabled = false;
                 continue; // 保留原命令用于安全副本和用户明确转换。
             }
-            if (cloud.ConnectionProfileId is not null || string.IsNullOrEmpty(cloud.RcloneConfigPath)) continue;
-            try { BindLegacy(config, project); }
+            if (!string.IsNullOrWhiteSpace(cloud.ConnectionProfileId))
+            {
+                if (config.CloudConnections.Any(p => p.Id == cloud.ConnectionProfileId)) ClearInlineConnection(cloud);
+                else cloud.Enabled = false;
+                continue;
+            }
+            cloud.ConnectionProfileId = null;
+            if (string.IsNullOrEmpty(cloud.RcloneConfigPath)) continue;
+            try { BindLegacy(config, project); ClearInlineConnection(cloud); }
             catch (InvalidDataException) { cloud.Enabled = false; }
         }
     }
 
-    // 编辑旧字段仅修改本项目绑定；共享档案的认证/目标变更必须从连接管理入口进行。
-    public static void BindLegacy(AppConfig app, BackupConfig project)
+    // Only load/import may interpret legacy inline connection parameters.
+    private static void BindLegacy(AppConfig app, BackupConfig project)
     {
         var cloud = project.Cloud;
         if (cloud.CommandMode != CloudCommandMode.Rclone) return;
         var (remote, suffix) = CloudRemotePath.Split(cloud.RemoteBasePath);
-        var existing = app.CloudConnections.SingleOrDefault(p => p.Id == cloud.ConnectionProfileId);
-        var sameConnection = existing is not null && existing.RemoteName == remote
-            && existing.CredentialReference == cloud.RcloneConfigPath
-            && existing.ExecutablePath == cloud.ExecutablePath && existing.WorkingDirectory == cloud.WorkingDirectory;
-        if (sameConnection && cloud.RemotePathSuffix == suffix && cloud.BindingRevision.Length != 0) return;
-        if (!sameConnection)
+        var existing = new CloudConnectionProfile
         {
-            if (string.IsNullOrEmpty(cloud.RcloneConfigPath)) return;
-            existing = new CloudConnectionProfile
-            {
-                DisplayName = project.Name, OwnerProjectId = project.Id, Scope = CloudConnectionScope.Project,
-                RemoteName = remote, CredentialReference = cloud.RcloneConfigPath,
-                ExecutablePath = cloud.ExecutablePath, WorkingDirectory = cloud.WorkingDirectory,
-                CredentialOwnership = IsManaged(cloud.RcloneConfigPath) ? CloudCredentialOwnership.ManagedCopy : CloudCredentialOwnership.ExternalReference,
-                Access = CloudConnectionAccess.ConnectedUnverified
-            };
-            app.CloudConnections.Add(existing);
-        }
+            DisplayName = project.Name, OwnerProjectId = project.Id, Scope = CloudConnectionScope.Project,
+            RemoteName = remote, CredentialReference = cloud.RcloneConfigPath,
+            ExecutablePath = cloud.ExecutablePath, WorkingDirectory = cloud.WorkingDirectory,
+            CredentialOwnership = IsManaged(cloud.RcloneConfigPath) ? CloudCredentialOwnership.ManagedCopy : CloudCredentialOwnership.ExternalReference,
+            Access = CloudConnectionAccess.ConnectedUnverified
+        };
+        app.CloudConnections.Add(existing);
         cloud.ConnectionProfileId = existing!.Id;
         cloud.RemotePathSuffix = suffix;
         cloud.BindingRevision = Guid.NewGuid().ToString("N");
     }
+
+    internal static void ClearInlineConnection(CloudSettings cloud)
+    {
+        if (cloud.CommandMode != CloudCommandMode.Rclone || cloud.ConnectionProfileId is null) return;
+        cloud.RcloneConfigPath = ""; cloud.ExecutablePath = "rclone.exe";
+        cloud.WorkingDirectory = ""; cloud.RemoteBasePath = "";
+        cloud.LocalOpenListServiceUri = "";
+    }
+
+    internal static string RemoteRoot(AppConfig app, BackupConfig project)
+        => app.CloudConnections.SingleOrDefault(p => p.Id == project.Cloud.ConnectionProfileId) is { } profile
+            ? profile.RemoteName + ":" + project.Cloud.RemotePathSuffix : "";
 
     public static bool IsManaged(string path) => Path.IsPathFullyQualified(path)
         && Path.GetFullPath(path).StartsWith(Path.GetFullPath(ConfigService.RcloneConnectionsDirectory).TrimEnd(Path.DirectorySeparatorChar)
@@ -71,7 +81,8 @@ internal static class CloudConnectionCatalog
         var input = project.Cloud;
         if (input.LegacyConversionRequired || input.CommandMode != CloudCommandMode.Rclone)
             throw RcloneConnectionDiagnostics.InvalidFailure("connection.legacy-conversion-required", "CloudConnection_LegacyConversionRequired");
-        if (input.ConnectionProfileId is null) return ConfigSnapshotMapper.Copy(input);
+        if (input.ConnectionProfileId is null)
+            throw RcloneConnectionDiagnostics.InvalidFailure("connection.credentials-missing", "Migration_CloudBindingRequired");
         var profile = ConfigService.CurrentConfig.CloudConnections.SingleOrDefault(p => p.Id == input.ConnectionProfileId)
             ?? throw RcloneConnectionDiagnostics.InvalidFailure("connection.credentials-missing", "Migration_CloudBindingRequired");
         var resolved = CloudConnectionResolver.Resolve(profile, project.Id, input.RemotePathSuffix, input.BindingRevision);
@@ -125,11 +136,7 @@ internal static class CloudConnectionCatalog
                 applied = true;
                 foreach (var project in projects)
                 {
-                    // 兼容字段随权威档案更新，避免随后编辑项目时把旧字段误转换成另一连接。
-                    project.Cloud.RcloneConfigPath = profile.CredentialReference;
-                    project.Cloud.ExecutablePath = profile.ExecutablePath;
-                    project.Cloud.WorkingDirectory = profile.WorkingDirectory;
-                    project.Cloud.RemoteBasePath = profile.RemoteName + ":" + project.Cloud.RemotePathSuffix;
+                    ClearInlineConnection(project.Cloud);
                     if (targetChanged)
                     {
                         project.Cloud.Enabled = false;
@@ -157,6 +164,7 @@ internal static class CloudConnectionCatalog
         var app = ConfigService.CurrentConfig; var profile = app.CloudConnections.Single(p => p.Id == id);
         void RequireUnreferenced()
         {
+            using var paths = Plugin.Runtime.IO.DirectoryPathLease.BindExistingAncestor(ConfigService.ConfigDirectory);
             if (app.BackupConfigs.Any(p => p.Cloud.ConnectionProfileId == id) || RcloneExecutionContext.HasActiveCredential(profile.CredentialReference)
                 || RcloneCredentialRefresh.HasPendingEvidence(ConfigService.RcloneTasksDirectory, profile.CredentialReference, IsManaged(profile.CredentialReference)))
                 throw new InvalidOperationException(I18n.GetString("CloudConnections_Referenced"));
@@ -170,7 +178,7 @@ internal static class CloudConnectionCatalog
                 if (File.Exists(path + ".attention") || !File.Exists(path) && File.Exists(path + ".required"))
                     throw new InvalidOperationException(I18n.GetString("CloudConnections_Referenced"));
                 if (!File.Exists(path)) continue;
-                RcloneCredentialRefresh.RejectReparsePoints(path);
+                RcloneCredentialRefresh.RejectReparsePoints(path, ConfigService.ConfigDirectory);
                 if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new InvalidDataException(I18n.GetString("CloudConnections_Referenced"));
                 var journal = JsonSerializer.Deserialize(File.ReadAllBytes(path), CloudJobJsonContext.Default.HistoryCloudJournalDocument);
                 if (journal is null || journal.Jobs.Any(j => j.Target.ProfileId == id && j.Protection == CloudProtectionDisposition.Held))

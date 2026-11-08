@@ -255,8 +255,6 @@ namespace FolderRewind.Services.KnotLink
             Options = options.Select(item => new[] { item.Description, item.Value }).ToList()
         };
 
-        public static KnotLinkFuncArgument BooleanOption(string description) => Optional(description, ("True", "true"), ("False", "false"));
-
         public static SortedDictionary<string, KnotLinkFuncArgument> Args(params (string Name, KnotLinkFuncArgument Argument)[] args) =>
             new(args.ToDictionary(item => item.Name, item => item.Argument, StringComparer.Ordinal), StringComparer.Ordinal);
 

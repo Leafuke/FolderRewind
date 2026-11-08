@@ -43,10 +43,12 @@ internal static class PerformanceFakePreview
 
     private static LocalizedText Text(string value) => new(value, new Dictionary<string, string>());
 
-    private sealed class Provider : IFolderRewindPlugin, IFixedSpatialPreviewCapability, ISpatialComparisonCapability
+    private sealed class Provider : IFolderRewindPlugin, IFixedSpatialPreviewCapability, ISpatialPreviewDemandCapability, ISpatialComparisonCapability
     {
         private static readonly byte[] Pixels = MakePixels();
         public ConfigKindRef Kind => PerformanceFakePreview.Kind;
+        public ValueTask UpdateDemandAsync(SpatialPreviewDemand demand, PluginInvocationContext context)
+        { context.OperationCancellation.ThrowIfCancellationRequested(); return ValueTask.CompletedTask; }
         public ValueTask<PluginActivationResult> ActivateAsync(IPluginActivationContext context, CancellationToken token)
         {
             context.RegisterCapability<IPluginCapability>(this);

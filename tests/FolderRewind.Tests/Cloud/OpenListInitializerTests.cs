@@ -61,6 +61,10 @@ public sealed class OpenListInitializerTests
             _exe, root, "sensitive-fixture", FreePort(), [], default, (start, token) =>
                 start.ArgumentList[0] == "version" ? Task.FromResult("OpenList v4.2.6") : throw new IOException("sensitive-fixture")));
         Assert.DoesNotContain("sensitive-fixture", error.ToString());
+        Assert.IsNull(error.InnerException);
+        StringAssert.Contains((string)error.Data["SafeDiagnostic"]!, "System.IO.IOException");
+        StringAssert.Contains((string)error.Data["SafeDiagnostic"]!, "stage=initialize");
+        Assert.DoesNotContain("sensitive-fixture", (string)error.Data["SafeDiagnostic"]!);
         Assert.HasCount(1, Directory.GetDirectories(root));
     }
     [TestMethod]

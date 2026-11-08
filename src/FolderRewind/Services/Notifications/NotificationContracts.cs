@@ -32,8 +32,6 @@ public sealed class InAppNotificationRequest
     public string? Details { get; set; }
     public string? ResultKey { get; set; }
     public bool AlertOnce { get; set; }
-    // Kept for source compatibility; channel choice now belongs to NotificationPolicy.
-    public bool ToastOnlyInBackground { get; set; }
     public bool? CompletionSoundSuccess { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;

@@ -19,9 +19,9 @@ public sealed partial class MigrationWizardPage : Page
     {
         InitializeComponent();
         ViewModel.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(ViewModel.ShowPendingRestart)) UpdateRecoveryLayout(); };
-        ViewModel.PickPackage += extensions => MainWindowService.PickFilePathAsync("", "FolderRewind.Migration.Wizard.Import", extensions,
+        ViewModel.PickPackage += extensions => MainWindowService.PickFilePathAsync("FolderRewind.Migration.Wizard.Import", extensions,
             MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
-        ViewModel.PickExport += extension => MainWindowService.PickSaveFilePathAsync("", "FolderRewind.Migration.Wizard.Export",
+        ViewModel.PickExport += extension => MainWindowService.PickSaveFilePathAsync("FolderRewind.Migration.Wizard.Export",
             new Dictionary<string, IReadOnlyList<string>> { ["FolderRewind"] = [extension] }, extension == ".json" ? "FolderRewind_config" : "FolderRewind_migration",
             MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
         ViewModel.Restart += async () => { Program.RestartOnExit = true; try { await App.ExitApplicationAsync(); } catch { Program.RestartOnExit = false; throw; } };
@@ -94,7 +94,7 @@ public sealed partial class MigrationWizardPage : Page
     { var path = await PickDirectoryAsync(); if (path is not null) ViewModel.SelectedBackupRoot = path; }
     private static async Task<string?> PickDirectoryAsync()
     {
-        try { return await MainWindowService.PickFolderPathAsync("", "FolderRewind.Migration.Wizard.Path"); }
+        try { return await MainWindowService.PickFolderPathAsync("FolderRewind.Migration.Wizard.Path"); }
         catch (Exception error) { NotificationService.ShowError(I18n.GetString("MigrationWizard_ActionFailed")); LogService.LogError("Could not select migration directory.", nameof(MigrationWizardPage), error); return null; }
     }
     private void OnApplyMapping(object sender, RoutedEventArgs e) => ViewModel.ApplyRootMapping();

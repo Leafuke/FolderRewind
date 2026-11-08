@@ -41,12 +41,6 @@ internal static class MigrationProjectSetupService
         }
         return results;
     }
-    internal static Task<IReadOnlyList<MigrationResumeResult>> ApplyMappingsAsync(IEnumerable<MigrationPathPreview> selected, CancellationToken token)
-        => MigrationBatchConfirmation.RunAsync(selected, item => item.Original.Id, async (item, cancellation) =>
-        {
-            await CompleteAsync(item.Original, item.Draft, releaseBackup: false, cancellationToken: cancellation).ConfigureAwait(false);
-            return new MigrationResumeResult(item.Original.Id, false, false, "");
-        }, error => CloudCommandSecurity.Redact(error.Message), token);
 
     internal static IReadOnlyList<string> Check(BackupConfig draft, bool requireExecutionReady = true)
     {

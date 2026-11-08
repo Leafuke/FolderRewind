@@ -72,6 +72,8 @@ public sealed class CloudWorkflowRegressionTests
     [TestMethod]
     [DataRow("cloud.tool-unavailable", "", "Tool")]
     [DataRow("cloud.source-config-unavailable", "", "Configuration")]
+    [DataRow("connection.path-unsafe", "", "Path")]
+    [DataRow("", "[connection.path-unsafe] Unsupported managed link", "Path")]
     [DataRow("", "HTTP 401 Unauthorized", "Authentication")]
     [DataRow("", "403 Forbidden", "Permission")]
     [DataRow("", "dial tcp: connectex: connection refused", "Offline")]

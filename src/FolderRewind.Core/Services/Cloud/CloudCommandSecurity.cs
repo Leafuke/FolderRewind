@@ -16,7 +16,7 @@ public static partial class CloudCommandSecurity
     private static partial Regex SensitiveOptionRegex();
 
     [GeneratedRegex(
-        """(?<prefix>\b(?:password|passwd|passphrase|token|access[-_]?token|refresh[-_]?token|secret|client[-_]?secret|api[-_]?key|apikey|aws_secret_access_key)\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;\r\n]+)""",
+        """(?<prefix>\b(?:password|passwd|passphrase|token|access[-_]?token|refresh[-_]?token|secret|client[-_]?secret|api[-_]?key|apikey|aws_secret_access_key|authorization|sig|signature|x-amz-signature|x-goog-signature)["']?\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;\r\n]+)""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SensitiveAssignmentRegex();
 

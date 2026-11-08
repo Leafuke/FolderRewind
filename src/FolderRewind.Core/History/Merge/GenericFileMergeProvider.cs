@@ -1,6 +1,7 @@
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.Plugin.Runtime.Operations;
+using FolderRewind.Plugin.Runtime.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -52,22 +53,26 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
     }
 
     public static async Task<MergeTreeManifest> ReadAsync(string root, Func<string, bool> include, CancellationToken token,
-        Func<string, bool>? includeDirectory = null)
+        Func<string, bool>? includeDirectory = null, Func<string, bool>? mayDescend = null)
     {
+        using var rootBinding = new DirectoryPathLease(root);
         var files = new Dictionary<string, MergeFileValue>(StringComparer.Ordinal);
         byte[]? buffer = null;
         var pending = new Stack<string>(); pending.Push(root);
         while (pending.TryPop(out var directory))
         {
             token.ThrowIfCancellationRequested();
-            if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) throw new IOException("Merge cannot follow links.");
+            if (directory != root && (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) throw new IOException("Merge cannot follow links.");
             foreach (var path in Directory.EnumerateFileSystemEntries(directory))
             {
                 var attributes = File.GetAttributes(path);
-                if ((attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("Merge cannot follow links.");
-                if ((attributes & FileAttributes.Directory) != 0) { pending.Push(path); continue; }
                 var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
-                if (!include(relative)) continue;
+                var isDirectory = (attributes & FileAttributes.Directory) != 0;
+                var included = isDirectory ? (includeDirectory ?? include)(relative) : include(relative);
+                var descend = isDirectory && (mayDescend?.Invoke(relative) ?? true);
+                if (!included && !descend) continue;
+                if ((attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("Merge cannot follow links.");
+                if (isDirectory) { if (descend) pending.Push(path); continue; }
                 _ = RestoreStagingProposalValidator.ValidateAndFreeze(new([new(relative, ReadOnlyMemory<byte>.Empty)], []), _ => true);
                 await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                 using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -77,7 +82,8 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
                 files.Add(relative, new(path, Convert.ToHexString(hash.GetHashAndReset()), size));
             }
         }
-        var result = Create(files, SourceDirectorySnapshot.Read(root, include, files.Keys, token, includeDirectory: includeDirectory));
+        var result = Create(files, SourceDirectorySnapshot.Read(root, include, files.Keys, token,
+            includeDirectory: includeDirectory, mayDescend: mayDescend));
         SourceDirectorySnapshot.Validate(result.Directories, result.Files.Keys);
         if (GenericFileMergeProvider.StructuralGroups(result).Count != 0)
             throw new IOException("Input tree contains case or file/directory collisions.");

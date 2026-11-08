@@ -78,16 +78,18 @@ internal sealed class PluginV3SpatialPreview
         => RunAsync((d, ct) => d.DescribeAsync(Source, ct), token);
     public Task<SpatialPreviewTile> RenderAsync(SpatialPreviewTileRequest request, CancellationToken token)
         => RunAsync((d, ct) => d.RenderAsync(request, ct), token);
+    public Task UpdateDemandAsync(SpatialPreviewDemand demand)
+        => RunAsync(async (d, ct) => { await d.UpdateDemandAsync(demand, ct); return true; }, CancellationToken.None, cleanup: demand.Tiles.Count == 0);
     public Task<SpatialPreviewPoint> InspectAsync(SpatialPreviewPointRequest request, CancellationToken token)
         => RunAsync((d, ct) => d.InspectAsync(request, ct), token);
     public Task<SpatialPreviewNavigation> GetNavigationTargetsAsync(CancellationToken token)
         => RunAsync((d, ct) => d.GetNavigationTargetsAsync(Source, ct), token);
-    private Task<T> RunAsync<T>(Func<SpatialPreviewDispatcher, CancellationToken, ValueTask<T>> action, CancellationToken token)
+    private Task<T> RunAsync<T>(Func<SpatialPreviewDispatcher, CancellationToken, ValueTask<T>> action, CancellationToken token, bool cleanup = false)
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_closed, this);
-            if (!IsCurrent()) throw new InvalidOperationException(I18n.GetString("Preview_SourceChanged"));
+            if (!cleanup && !IsCurrent()) throw new InvalidOperationException(I18n.GetString("Preview_SourceChanged"));
             var task = Task.Run(async () =>
             {
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);

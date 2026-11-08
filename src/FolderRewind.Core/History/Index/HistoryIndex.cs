@@ -38,31 +38,35 @@ public sealed record HistoryReplicaObservation(
 
 public sealed class HistoryIndex : IDisposable
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
     private const string BranchParentIndex = "CREATE INDEX IX_BranchUpdateParents_Parent ON BranchUpdateParents(ParentUpdateId, UpdateId)";
+    private const string ObjectsSchema = "CREATE TABLE Objects(Kind TEXT NOT NULL, ObjectId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, PayloadHash TEXT NOT NULL, PRIMARY KEY(Kind, ObjectId))";
+    private const string LegacyObjectsSchema = "CREATE TABLE Objects(Kind TEXT NOT NULL, ObjectId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, PayloadHash TEXT NOT NULL, PackId TEXT NOT NULL, IsSupported INTEGER NOT NULL, PayloadJson TEXT NOT NULL, PRIMARY KEY(Kind, ObjectId))";
+    private const string LegacyRelationsSchema = """
+        CREATE TABLE VersionParents(VersionId TEXT NOT NULL, ParentVersionId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(VersionId, Ordinal));
+        CREATE TABLE CheckpointParents(CheckpointId TEXT NOT NULL, ParentCheckpointId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, Ordinal));
+        CREATE TABLE CheckpointSources(CheckpointId TEXT NOT NULL, SourceId TEXT NOT NULL, VersionId TEXT NULL, Disposition INTEGER NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, SourceId));
+        CREATE TABLE AnnotationParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
+        CREATE TABLE ReplicaLifecycleParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
+        CREATE TABLE MaterializationPolicyParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
+        """;
     private static readonly JsonSerializerOptions PayloadJsonOptions = new(JsonSerializerDefaults.Web);
-    private const string Schema = """
+    private const string Schema = $"""
         PRAGMA foreign_keys = OFF;
         CREATE TABLE IndexedPacks(PackId TEXT PRIMARY KEY, PayloadSha256 TEXT NOT NULL, FileLength INTEGER NOT NULL DEFAULT 0, LastWriteUtcTicks INTEGER NOT NULL DEFAULT 0);
-        CREATE TABLE Objects(Kind TEXT NOT NULL, ObjectId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, PayloadHash TEXT NOT NULL, PackId TEXT NOT NULL, IsSupported INTEGER NOT NULL, PayloadJson TEXT NOT NULL, PRIMARY KEY(Kind, ObjectId));
+        {ObjectsSchema};
         CREATE TABLE Versions(VersionId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, SourceId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CaptureScope INTEGER NOT NULL, Outcome INTEGER NOT NULL, CreationKind INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
-        CREATE TABLE VersionParents(VersionId TEXT NOT NULL, ParentVersionId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(VersionId, Ordinal));
         CREATE TABLE Representations(RepresentationId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, Kind INTEGER NOT NULL, Format TEXT NOT NULL, Fidelity INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE RepresentationDependencies(RepresentationId TEXT NOT NULL, DependencyRepresentationId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(RepresentationId, Ordinal));
         CREATE TABLE Checkpoints(CheckpointId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, SourceId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CreatedByRunId TEXT NULL, CreationKind INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
-        CREATE TABLE CheckpointParents(CheckpointId TEXT NOT NULL, ParentCheckpointId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, Ordinal));
-        CREATE TABLE CheckpointSources(CheckpointId TEXT NOT NULL, SourceId TEXT NOT NULL, VersionId TEXT NULL, Disposition INTEGER NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, SourceId));
         CREATE TABLE Runs(RunId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, StartedAtUtc TEXT NOT NULL, CompletedAtUtc TEXT NOT NULL, Outcome INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE BranchUpdates(UpdateId TEXT PRIMARY KEY, BranchId TEXT NOT NULL, SourceId TEXT NOT NULL, Name TEXT NOT NULL, TargetCheckpointId TEXT NULL, IsDeleted INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE BranchUpdateParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
         CREATE TABLE BranchTips(BranchId TEXT NOT NULL, UpdateId TEXT NOT NULL, PRIMARY KEY(BranchId, UpdateId));
         CREATE TABLE Annotations(UpdateId TEXT PRIMARY KEY, TargetKind INTEGER NOT NULL, TargetId TEXT NOT NULL, AnnotationKind INTEGER NOT NULL, Value TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
-        CREATE TABLE AnnotationParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
         CREATE TABLE SharedReplicas(ReplicaId TEXT PRIMARY KEY, RepresentationId TEXT NOT NULL, ProviderKind INTEGER NOT NULL, ObjectKey TEXT NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE ReplicaLifecycle(UpdateId TEXT PRIMARY KEY, ReplicaId TEXT NOT NULL, State INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
-        CREATE TABLE ReplicaLifecycleParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
         CREATE TABLE MaterializationPolicies(UpdateId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, State INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
-        CREATE TABLE MaterializationPolicyParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
         CREATE TABLE MigrationRecords(RecordId TEXT PRIMARY KEY, PayloadJson TEXT NOT NULL);
         CREATE TABLE SafetySnapshots(SnapshotId TEXT PRIMARY KEY, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE SafetySnapshotReleases(ReleaseId TEXT PRIMARY KEY, SnapshotId TEXT NOT NULL, ReleasedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
@@ -91,8 +95,8 @@ public sealed class HistoryIndex : IDisposable
 
     public string IndexPath => _indexPath;
 
-    // The caller first matches the pack inventory under the repository gate. Only a
-    // known schema-3 cache is upgraded; other versions are rebuilt from immutable packs.
+    // Only verified schema-3/4 layouts are upgraded in place. Keep device observations;
+    // immutable facts can be rebuilt, but those observations cannot be recovered from packs.
     internal async Task<bool> EnsureCurrentSchemaAsync(CancellationToken token)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -104,30 +108,50 @@ public sealed class HistoryIndex : IDisposable
             command.CommandText = "PRAGMA user_version";
             var version = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
             if (version == CurrentSchemaVersion) return true;
-            if (version != 3) return false;
+            if (version is not (3 or 4)) return false;
             token.ThrowIfCancellationRequested();
             using var transaction = connection.BeginTransaction();
             command.Transaction = transaction;
             version = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
             if (version == CurrentSchemaVersion) return true;
-            if (version != 3) return false;
+            if (version is not (3 or 4)) return false;
 
             command.CommandText = "SELECT name,sql FROM sqlite_master WHERE sql IS NOT NULL";
             var definitions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             using (var reader = command.ExecuteReader())
                 while (reader.Read()) definitions.Add(reader.GetString(0), NormalizeSql(reader.GetString(1)));
-            foreach (var statement in Schema.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            var expected = Schema.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                .Concat(LegacyRelationsSchema.Split(';', StringSplitOptions.RemoveEmptyEntries));
+            foreach (var statement in expected)
             {
                 var sql = NormalizeSql(statement);
-                if (!sql.StartsWith("CREATE ", StringComparison.Ordinal) || sql == NormalizeSql(BranchParentIndex)) continue;
+                if (!sql.StartsWith("CREATE ", StringComparison.Ordinal)
+                    || version == 3 && sql == NormalizeSql(BranchParentIndex)) continue;
+                if (sql.StartsWith("CREATE TABLE Objects(", StringComparison.Ordinal)) sql = NormalizeSql(LegacyObjectsSchema);
                 var name = sql.Split(' ')[2].Split('(')[0];
                 if (!definitions.TryGetValue(name, out var actual) || actual != sql) return false;
             }
             command.CommandText = "PRAGMA integrity_check";
             if (!StringComparer.Ordinal.Equals(Convert.ToString(command.ExecuteScalar(), CultureInfo.InvariantCulture), "ok")) return false;
-            token.ThrowIfCancellationRequested();
-            command.CommandText = BranchParentIndex;
+            foreach (var statement in LegacyRelationsSchema.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                token.ThrowIfCancellationRequested();
+                command.CommandText = "DROP TABLE " + NormalizeSql(statement).Split(' ')[2].Split('(')[0];
+                await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            }
+            command.CommandText = $"""
+                ALTER TABLE Objects RENAME TO LegacyObjects;
+                {ObjectsSchema};
+                INSERT INTO Objects(Kind,ObjectId,SchemaVersion,PayloadHash)
+                    SELECT Kind,ObjectId,SchemaVersion,PayloadHash FROM LegacyObjects;
+                DROP TABLE LegacyObjects;
+                """;
             await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            if (version == 3)
+            {
+                command.CommandText = BranchParentIndex;
+                await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            }
             command.CommandText = $"PRAGMA user_version = {CurrentSchemaVersion}";
             await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
@@ -153,7 +177,9 @@ public sealed class HistoryIndex : IDisposable
             var directory = Path.GetDirectoryName(_indexPath)
                 ?? throw new InvalidOperationException("History index has no parent directory.");
             Directory.CreateDirectory(directory);
-            temporaryPath = Path.Combine(directory, $".history-index.{Guid.NewGuid():N}.tmp");
+            // SQLite also appends journal suffixes. Keep the owned temporary name short
+            // so rebuilding does not reject a directory where the final database fits.
+            temporaryPath = ReserveTemporaryDatabasePath(directory);
             BuildDatabase(temporaryPath, packs, cancellationToken);
 
             InstallRebuiltDatabase(temporaryPath, _indexPath);
@@ -173,6 +199,21 @@ public sealed class HistoryIndex : IDisposable
 
             _gate.Release();
         }
+    }
+
+    private static string ReserveTemporaryDatabasePath(string directory)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var candidate = Path.Combine(directory, Path.GetRandomFileName());
+            try
+            {
+                using var reserved = new FileStream(candidate, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                return candidate;
+            }
+            catch (IOException) when (File.Exists(candidate)) { }
+        }
+        throw new IOException("Unable to reserve a temporary History index.");
     }
 
     internal async Task<bool> MatchesFilesAsync(IReadOnlyList<HistoryPackFile> files, CancellationToken token,
@@ -248,13 +289,11 @@ public sealed class HistoryIndex : IDisposable
                             continue;
                         }
                     }
-                    var payload = Encoding.UTF8.GetString(item.CanonicalPayload);
-                    var supported = HistoryObjectKinds.IsKnown(item.Kind) && item.SchemaVersion == 1;
                     Execute(connection, transaction,
-                        "INSERT INTO Objects VALUES($kind,$id,$schema,$hash,$pack,$supported,$payload)",
-                        ("$kind", item.Kind), ("$id", item.Id), ("$schema", item.SchemaVersion), ("$hash", item.PayloadHash),
-                        ("$pack", pack.Pack.PackId.ToString()), ("$supported", supported ? 1 : 0), ("$payload", payload));
-                    if (!supported) continue;
+                        "INSERT INTO Objects(Kind,ObjectId,SchemaVersion,PayloadHash) VALUES($kind,$id,$schema,$hash)",
+                        ("$kind", item.Kind), ("$id", item.Id), ("$schema", item.SchemaVersion), ("$hash", item.PayloadHash));
+                    if (!HistoryObjectKinds.IsKnown(item.Kind) || item.SchemaVersion != 1) continue;
+                    var payload = Encoding.UTF8.GetString(item.CanonicalPayload);
                     var value = _codec.DeserializeKnown(item);
                     IndexKnownObject(connection, transaction, value, payload);
                     if (value is BranchUpdate branch) branches.Add(branch.BranchId.ToString());
@@ -730,13 +769,9 @@ public sealed class HistoryIndex : IDisposable
                 ("$hash", HistoryPackCodec.ComputeSha256(pack.OriginalBytes)));
             foreach (var item in pack.Pack.Objects)
             {
-                var payloadJson = Encoding.UTF8.GetString(item.CanonicalPayload);
                 Execute(connection, transaction,
-                    "INSERT OR IGNORE INTO Objects(Kind, ObjectId, SchemaVersion, PayloadHash, PackId, IsSupported, PayloadJson) VALUES($kind, $id, $schema, $hash, $pack, $supported, $payload)",
-                    ("$kind", item.Kind), ("$id", item.Id), ("$schema", item.SchemaVersion),
-                    ("$hash", item.PayloadHash), ("$pack", pack.Pack.PackId.ToString()),
-                    ("$supported", HistoryObjectKinds.IsKnown(item.Kind) && item.SchemaVersion == 1 ? 1 : 0),
-                    ("$payload", payloadJson));
+                    "INSERT OR IGNORE INTO Objects(Kind,ObjectId,SchemaVersion,PayloadHash) VALUES($kind,$id,$schema,$hash)",
+                    ("$kind", item.Kind), ("$id", item.Id), ("$schema", item.SchemaVersion), ("$hash", item.PayloadHash));
                 if (!indexedObjects.Add(item.Key)
                     || !HistoryObjectKinds.IsKnown(item.Kind)
                     || item.SchemaVersion != 1)
@@ -744,7 +779,7 @@ public sealed class HistoryIndex : IDisposable
                     continue;
                 }
 
-                IndexKnownObject(connection, transaction, _codec.DeserializeKnown(item), payloadJson);
+                IndexKnownObject(connection, transaction, _codec.DeserializeKnown(item), Encoding.UTF8.GetString(item.CanonicalPayload));
             }
         }
 
@@ -784,7 +819,6 @@ public sealed class HistoryIndex : IDisposable
                     ("$source", item.SourceId.ToString()), ("$created", Utc(item.CreatedAtUtc)),
                     ("$scope", (int)item.CaptureScope), ("$outcome", (int)item.Outcome),
                     ("$creationKind", (int)item.CreationKind), ("$payload", payloadJson));
-                InsertEdges(connection, transaction, "VersionParents", "VersionId", item.VersionId.ToString(), "ParentVersionId", item.ParentVersionIds.Select(id => id.ToString()));
                 break;
             case VersionRepresentation item:
                 Execute(connection, transaction,
@@ -801,16 +835,6 @@ public sealed class HistoryIndex : IDisposable
                     ("$created", Utc(item.CreatedAtUtc)), ("$run", item.CreatedByRunId?.ToString()),
                     ("$creationKind", (int)item.CreationKind),
                     ("$payload", payloadJson));
-                InsertEdges(connection, transaction, "CheckpointParents", "CheckpointId", item.CheckpointId.ToString(), "ParentCheckpointId", item.ParentCheckpointIds.Select(id => id.ToString()));
-                for (var index = 0; index < item.Sources.Length; index++)
-                {
-                    var source = item.Sources[index];
-                    Execute(connection, transaction,
-                        "INSERT INTO CheckpointSources VALUES($checkpoint,$source,$version,$disposition,$ordinal)",
-                        ("$checkpoint", item.CheckpointId.ToString()), ("$source", source.SourceId.ToString()),
-                        ("$version", source.VersionId?.ToString()), ("$disposition", (int)source.Disposition),
-                        ("$ordinal", index));
-                }
                 break;
             case BackupRun item:
                 Execute(connection, transaction,
@@ -835,7 +859,6 @@ public sealed class HistoryIndex : IDisposable
                     ("$id", item.UpdateId.ToString()), ("$targetKind", (int)item.Target.Kind),
                     ("$target", item.Target.TargetId.ToString("N")), ("$kind", (int)item.AnnotationKind),
                     ("$value", item.Value), ("$created", Utc(item.CreatedAtUtc)), ("$payload", payloadJson));
-                InsertEdges(connection, transaction, "AnnotationParents", "UpdateId", item.UpdateId.ToString(), "ParentUpdateId", item.ParentUpdateIds.Select(id => id.ToString()));
                 break;
             case StorageReplica item:
                 Execute(connection, transaction,
@@ -848,14 +871,12 @@ public sealed class HistoryIndex : IDisposable
                     "INSERT INTO ReplicaLifecycle VALUES($id,$replica,$state,$created,$payload)",
                     ("$id", item.UpdateId.ToString()), ("$replica", item.ReplicaId.ToString()),
                     ("$state", (int)item.State), ("$created", Utc(item.CreatedAtUtc)), ("$payload", payloadJson));
-                InsertEdges(connection, transaction, "ReplicaLifecycleParents", "UpdateId", item.UpdateId.ToString(), "ParentUpdateId", item.ParentUpdateIds.Select(id => id.ToString()));
                 break;
             case MaterializationPolicyUpdate item:
                 Execute(connection, transaction,
                     "INSERT INTO MaterializationPolicies VALUES($id,$version,$state,$created,$payload)",
                     ("$id", item.UpdateId.ToString()), ("$version", item.VersionId.ToString()),
                     ("$state", (int)item.State), ("$created", Utc(item.CreatedAtUtc)), ("$payload", payloadJson));
-                InsertEdges(connection, transaction, "MaterializationPolicyParents", "UpdateId", item.UpdateId.ToString(), "ParentUpdateId", item.ParentUpdateIds.Select(id => id.ToString()));
                 break;
             case LegacyMigrationRecord item:
                 Execute(connection, transaction,

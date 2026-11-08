@@ -23,7 +23,7 @@ public sealed class BackupSourceFile
 public static class BackupSourceFileEnumerator
 {
         /// <summary>
-        /// 枚举源目录内全部受保护文件（权威枚举路径）：跳过 System 属性与重解析点，
+        /// 枚举源目录内全部受保护文件（权威枚举路径）：跳过重解析点，
         /// Include 源范围先于任何配置过滤器判定（下游规则只能收窄边界），再应用附加过滤器。
         /// 结果按相对路径排序；元数据直接来自同次目录枚举。
         /// </summary>
@@ -60,7 +60,7 @@ public static class BackupSourceFileEnumerator
         {
             RecurseSubdirectories = true,
             IgnoreInaccessible = !requireComplete,
-            AttributesToSkip = FileAttributes.System | FileAttributes.ReparsePoint,
+            AttributesToSkip = FileAttributes.ReparsePoint,
             ReturnSpecialDirectories = false
         };
         var files = new FileSystemEnumerable<BackupSourceFile?>(root, (ref FileSystemEntry entry) =>

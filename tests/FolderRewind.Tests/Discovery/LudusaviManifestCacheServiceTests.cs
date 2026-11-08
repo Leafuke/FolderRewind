@@ -37,10 +37,10 @@ public sealed class LudusaviManifestCacheServiceTests
         var cacheRoot = Path.Combine(_root, "cache");
         var service = new LudusaviManifestCacheService(cacheRoot);
 
-        var first = await service.ImportAndCompileAsync(validPath, null, null, null, CancellationToken.None);
+        var first = await service.ImportSnapshotAsync(validPath, null, null, null, CancellationToken.None);
         await Assert.ThrowsAsync<InvalidDataException>(async () =>
-            await service.ImportAndCompileAsync(invalidPath, null, null, null, CancellationToken.None));
-        var current = await service.LoadCurrentAsync(CancellationToken.None);
+            await service.ImportSnapshotAsync(invalidPath, null, null, null, CancellationToken.None));
+        var current = await service.ReadSnapshotAsync(CancellationToken.None);
 
         Assert.IsNotNull(current);
         Assert.AreEqual(first.Metadata.GenerationId, current.Value.Metadata.GenerationId);
@@ -55,7 +55,7 @@ public sealed class LudusaviManifestCacheServiceTests
         var cacheRoot = Path.Combine(_root, "cache");
         var service = new LudusaviManifestCacheService(cacheRoot);
 
-        var result = await service.ImportAndCompileAsync(manifestPath, null, null, null, CancellationToken.None);
+        var result = await service.ImportSnapshotAsync(manifestPath, null, null, null, CancellationToken.None);
         var generationRoot = Path.Combine(cacheRoot, "generations", result.Metadata.GenerationId);
 
         Assert.IsTrue(File.Exists(Path.Combine(cacheRoot, "current.json")));
@@ -86,8 +86,8 @@ public sealed class LudusaviManifestCacheServiceTests
         var service = new LudusaviManifestCacheService(Path.Combine(_root, "cache"));
         var uri = new Uri("https://example.test/manifest.yaml");
 
-        var first = await service.DownloadAndCompileAsync(client, uri, null, null, null, CancellationToken.None);
-        var second = await service.DownloadAndCompileAsync(client, uri, null, null, null, CancellationToken.None);
+        var first = await service.DownloadSnapshotAsync(client, uri, null, null, null, CancellationToken.None);
+        var second = await service.DownloadSnapshotAsync(client, uri, null, null, null, CancellationToken.None);
 
         Assert.AreEqual(LudusaviManifestUpdateStatus.Updated, first.Status);
         Assert.AreEqual(LudusaviManifestUpdateStatus.NotModified, second.Status);
@@ -106,9 +106,9 @@ public sealed class LudusaviManifestCacheServiceTests
         var service = new LudusaviManifestCacheService(Path.Combine(_root, "cache"));
         var uri = new Uri("https://example.test/manifest.yaml");
 
-        var first = await service.DownloadAndCompileAsync(client, uri, secondaryPath, null, null, CancellationToken.None);
+        var first = await service.DownloadSnapshotAsync(client, uri, secondaryPath, null, null, CancellationToken.None);
         await File.WriteAllTextAsync(secondaryPath, "Extra Two:\n  files:\n    '<home>/two.sav': {}\n");
-        var second = await service.DownloadAndCompileAsync(client, uri, secondaryPath, null, null, CancellationToken.None);
+        var second = await service.DownloadSnapshotAsync(client, uri, secondaryPath, null, null, CancellationToken.None);
 
         Assert.AreEqual(LudusaviManifestUpdateStatus.Updated, second.Status);
         Assert.AreNotEqual(first.Metadata.GenerationId, second.Metadata.GenerationId);
@@ -142,10 +142,10 @@ public sealed class LudusaviManifestCacheServiceTests
             }
         }));
         var service = new LudusaviManifestCacheService(Path.Combine(_root, "cache"));
-        var first = await service.ImportAndCompileAsync(manifestPath, null, overridePath, null, CancellationToken.None);
+        var first = await service.ImportSnapshotAsync(manifestPath, null, overridePath, null, CancellationToken.None);
 
         File.Delete(overridePath);
-        var second = await service.EnsureCurrentAsync(null, overridePath, null, CancellationToken.None);
+        var second = await service.EnsureSnapshotAsync(null, overridePath, null, CancellationToken.None);
 
         Assert.IsNotNull(second);
         Assert.AreNotEqual(first.Metadata.GenerationId, second.Value.Metadata.GenerationId);
@@ -159,16 +159,16 @@ public sealed class LudusaviManifestCacheServiceTests
         var manifestPath = Path.Combine(_root, "manifest.yaml");
         await File.WriteAllTextAsync(manifestPath, "One:\n  files:\n    '<home>/one.sav': {}\n");
         var service = new LudusaviManifestCacheService(Path.Combine(_root, "cache"));
-        var first = await service.ImportAndCompileAsync(manifestPath, null, null, null, CancellationToken.None);
+        var first = await service.ImportSnapshotAsync(manifestPath, null, null, null, CancellationToken.None);
 
         await File.WriteAllTextAsync(manifestPath, "Two:\n  files:\n    '<home>/two.sav': {}\n");
-        var changed = await service.EnsureCurrentAsync(null, null, null, CancellationToken.None);
+        var changed = await service.EnsureSnapshotAsync(null, null, null, CancellationToken.None);
         Assert.IsNotNull(changed);
         Assert.AreNotEqual(first.Metadata.GenerationId, changed.Value.Metadata.GenerationId);
         Assert.AreEqual("Two", changed.Value.Index.Games.Single().DisplayName);
 
         File.Delete(manifestPath);
-        var missing = await service.EnsureCurrentAsync(null, null, null, CancellationToken.None);
+        var missing = await service.EnsureSnapshotAsync(null, null, null, CancellationToken.None);
         Assert.IsNotNull(missing);
         Assert.AreEqual(changed.Value.Metadata.GenerationId, missing.Value.Metadata.GenerationId);
         Assert.IsTrue(missing.Value.Metadata.Warnings.Any(warning => warning.Contains("cached copy", StringComparison.OrdinalIgnoreCase)));
@@ -181,12 +181,13 @@ public sealed class LudusaviManifestCacheServiceTests
         var cacheRoot = Path.Combine(_root, "cache");
         var service = new LudusaviManifestCacheService(cacheRoot);
         await File.WriteAllTextAsync(manifestPath, "One:\n  files:\n    '<home>/one.sav': {}\n");
-        var first = await service.ImportAndCompileAsync(manifestPath, null, null, null, CancellationToken.None);
+        var first = await service.ImportSnapshotAsync(manifestPath, null, null, null, CancellationToken.None);
         await File.WriteAllTextAsync(manifestPath, "Two:\n  files:\n    '<home>/two.sav': {}\n");
-        var second = await service.ImportAndCompileAsync(manifestPath, null, null, null, CancellationToken.None);
+        var second = await service.ImportSnapshotAsync(manifestPath, null, null, null, CancellationToken.None);
+        File.Delete(manifestPath); // Exercise offline fallback rather than rebuilding from the still-available input.
         CorruptIndex(cacheRoot, second.Metadata.GenerationId);
 
-        var loaded = await service.LoadCurrentAsync(CancellationToken.None);
+        var loaded = await service.ReadSnapshotAsync(CancellationToken.None);
         var pointer = JsonSerializer.Deserialize<LudusaviManifestPointer>(
             await File.ReadAllTextAsync(Path.Combine(cacheRoot, "current.json")));
 
@@ -203,18 +204,18 @@ public sealed class LudusaviManifestCacheServiceTests
         var cacheRoot = Path.Combine(_root, "cache");
         var service = new LudusaviManifestCacheService(cacheRoot);
         await File.WriteAllTextAsync(manifestPath, "One:\n  files:\n    '<home>/one.sav': {}\n");
-        var first = await service.ImportAndCompileAsync(manifestPath, null, null, null, CancellationToken.None);
+        var first = await service.ImportSnapshotAsync(manifestPath, null, null, null, CancellationToken.None);
         await File.WriteAllTextAsync(manifestPath, "Two:\n  files:\n    '<home>/two.sav': {}\n");
-        var second = await service.ImportAndCompileAsync(manifestPath, null, null, null, CancellationToken.None);
+        var second = await service.ImportSnapshotAsync(manifestPath, null, null, null, CancellationToken.None);
         CorruptIndex(cacheRoot, first.Metadata.GenerationId);
         CorruptIndex(cacheRoot, second.Metadata.GenerationId);
 
-        var rebuilt = await service.EnsureCurrentAsync(null, null, null, CancellationToken.None);
+        var rebuilt = await service.EnsureSnapshotAsync(null, null, null, CancellationToken.None);
 
         Assert.IsNotNull(rebuilt);
         Assert.AreEqual(second.Metadata.GenerationId, rebuilt.Value.Metadata.GenerationId);
         Assert.AreEqual("Two", rebuilt.Value.Index.Games.Single().DisplayName);
-        Assert.IsNotNull(await service.LoadCurrentAsync(CancellationToken.None));
+        Assert.IsNotNull(await service.ReadSnapshotAsync(CancellationToken.None));
     }
 
     [TestMethod]
@@ -224,14 +225,14 @@ public sealed class LudusaviManifestCacheServiceTests
         var cacheRoot = Path.Combine(_root, "cache");
         var service = new LudusaviManifestCacheService(cacheRoot);
         await File.WriteAllTextAsync(manifestPath, "Game:\n  files:\n    '<home>/save.sav': {}\n");
-        var imported = await service.ImportAndCompileAsync(manifestPath, null, null, null, CancellationToken.None);
+        var imported = await service.ImportSnapshotAsync(manifestPath, null, null, null, CancellationToken.None);
         CorruptIndex(cacheRoot, imported.Metadata.GenerationId);
 
-        var rebuilt = await service.EnsureCurrentAsync(null, null, null, CancellationToken.None);
+        var rebuilt = await service.EnsureSnapshotAsync(null, null, null, CancellationToken.None);
 
         Assert.IsNotNull(rebuilt);
         Assert.AreEqual(imported.Metadata.GenerationId, rebuilt.Value.Metadata.GenerationId);
-        Assert.IsNotNull(await service.LoadCurrentAsync(CancellationToken.None));
+        Assert.IsNotNull(await service.ReadSnapshotAsync(CancellationToken.None));
     }
 
     [TestMethod]
@@ -261,7 +262,7 @@ public sealed class LudusaviManifestCacheServiceTests
         await File.WriteAllTextAsync(Path.Combine(legacyRoot, "index.v2.json.gz"), "legacy");
         var service = new LudusaviManifestCacheService(cacheRoot);
 
-        var current = await service.EnsureCurrentAsync(null, null, null, CancellationToken.None);
+        var current = await service.EnsureSnapshotAsync(null, null, null, CancellationToken.None);
 
         Assert.IsNotNull(current);
         Assert.AreNotEqual(legacyGenerationId, current.Value.Metadata.GenerationId);
@@ -274,6 +275,40 @@ public sealed class LudusaviManifestCacheServiceTests
             "generations",
             current.Value.Metadata.GenerationId,
             "index.v3.json.gz")));
+    }
+
+    [TestMethod]
+    public async Task CanceledCompilationAndOversizedDownloadPreservePointerAndReleaseGenerationGate()
+    {
+        var manifest = Path.Combine(_root, "manifest.yaml");
+        await File.WriteAllTextAsync(manifest, "First: {}\n");
+        var cacheRoot = Path.Combine(_root, "cache");
+        var service = new LudusaviManifestCacheService(cacheRoot);
+        await service.ImportSnapshotAsync(manifest, null, null, null, default);
+        var pointer = File.ReadAllBytes(Path.Combine(cacheRoot, "current.json"));
+        await File.WriteAllTextAsync(manifest, "Second: {}\n");
+        using var cancellation = new CancellationTokenSource();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await service.ImportSnapshotAsync(manifest, null, null,
+                new CancelCompilation(cancellation), cancellation.Token));
+        CollectionAssert.AreEqual(pointer, File.ReadAllBytes(Path.Combine(cacheRoot, "current.json")));
+        using var client = new HttpClient(new SequenceHandler(_ =>
+        {
+            var response = Response(HttpStatusCode.OK, "unused", "\"large\"");
+            response.Content.Headers.ContentLength = 64L * 1024 * 1024 + 1;
+            return response;
+        }));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(async () =>
+            await service.DownloadSnapshotAsync(client, new("https://example.test/manifest"), null, null, null, default));
+        CollectionAssert.AreEqual(pointer, File.ReadAllBytes(Path.Combine(cacheRoot, "current.json")));
+        Assert.IsFalse(Directory.EnumerateDirectories(Path.Combine(cacheRoot, "generations"), "*.tmp").Any());
+        var retry = await service.ImportSnapshotAsync(manifest, null, null, null, default);
+        Assert.AreEqual("Second", retry.Index.Games.Single().DefinitionId);
+    }
+
+    private sealed class CancelCompilation(CancellationTokenSource cancellation) : IProgress<DiscoveryProgress>
+    {
+        public void Report(DiscoveryProgress value) { if (value.Phase == "compile") cancellation.Cancel(); }
     }
 
     private sealed class SequenceHandler : HttpMessageHandler

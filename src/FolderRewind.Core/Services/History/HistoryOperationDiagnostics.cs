@@ -21,6 +21,7 @@ public sealed class HistoryOperationDiagnostics : IDisposable
     private readonly Dictionary<string, string> _observations = new(StringComparer.Ordinal);
     private readonly HistoryOperationDiagnostics? _previous;
     private readonly string _operation;
+    private readonly Action<HistoryOperationDiagnostic>? _completed;
     private readonly long _started = Stopwatch.GetTimestamp();
     private readonly DateTimeOffset _date = DateTimeOffset.UtcNow;
     private readonly ProcessIo? _initialIo = ReadCurrentIo();
@@ -28,8 +29,9 @@ public sealed class HistoryOperationDiagnostics : IDisposable
     public HistoryOperationDiagnostic? Summary { get; private set; }
     public static HistoryOperationDiagnostics? Current => Ambient.Value;
     public static HistoryOperationDiagnostics Begin(string operation) => new(operation);
-    private HistoryOperationDiagnostics(string operation)
-    { _operation = operation; _previous = Ambient.Value; Ambient.Value = this; }
+    public static HistoryOperationDiagnostics Begin(string operation, Action<HistoryOperationDiagnostic> completed) => new(operation, completed);
+    private HistoryOperationDiagnostics(string operation, Action<HistoryOperationDiagnostic>? completed = null)
+    { _operation = operation; _previous = Ambient.Value; _completed = completed ?? _previous?._completed; Ambient.Value = this; }
     public void Count(string code, long value = 1)
     { lock (_sync) _counters[code] = checked(_counters.GetValueOrDefault(code) + value); }
     public void Observe(string code, string value)
@@ -96,6 +98,7 @@ public sealed class HistoryOperationDiagnostics : IDisposable
             lock (Recent) { Recent.Enqueue(result); while (Recent.Count > 32) Recent.Dequeue(); }
         }
         Ambient.Value = _previous;
+        try { _completed?.Invoke(Summary!); } catch { /* Diagnostics must never change the completed operation's outcome. */ }
     }
     private sealed class Phase(HistoryOperationDiagnostics owner, string code) : IDisposable
     {

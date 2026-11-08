@@ -56,8 +56,9 @@ public sealed partial class NativeArtifactStore
     public string CreateWorkspace(string kind)
     {
         if (kind is not ("read" or "capture" or "materialize")) throw new ArgumentException("Unknown Artifact workspace kind.", nameof(kind));
-        var parent = Path.Combine(Root, "." + kind); HostArtifactWorkspace.CreatePrivateDirectory(parent);
-        var path = Path.Combine(parent, Guid.NewGuid().ToString("N")); HostArtifactWorkspace.CreatePrivateDirectory(path);
+        using var root = IO.DirectoryPathLease.BindExistingAncestor(Root);
+        var parent = Path.Combine(Root, "." + kind); HostArtifactWorkspace.CreatePrivateDirectory(parent, Root);
+        var path = Path.Combine(parent, Guid.NewGuid().ToString("N")); HostArtifactWorkspace.CreatePrivateDirectory(path, Root);
         return path;
     }
 
@@ -194,6 +195,10 @@ public sealed partial class NativeArtifactStore
             staging = Ledger.CreateStagingArea(transaction, ArtifactTransformLimits.Default.MaximumFiles, ArtifactTransformLimits.Default.MaximumBytes);
             var handle = primaryInput?.Content ?? new ArtifactContentHandle(Guid.NewGuid().ToString("N"));
             var primaryRead = primaryInput?.Read ?? new HostArtifactReadService(new Dictionary<ArtifactContentHandle, string> { [handle] = primaryDirectory });
+            // A full transformer may reuse the inventory hash while streaming. Its complete input
+            // remains protected through transformation and staging sealing, regardless of entry point.
+            await using var protectedPrimary = incrementalInput is null ? await primaryRead.ProtectAsync(token).ConfigureAwait(false) : null;
+            if (protectedPrimary is not null) primaryRead = protectedPrimary;
             var primaryFiles = await primaryRead.ListFilesAsync(handle, token);
             if (incrementalInput is null && primaryFiles.Count == 0) throw new InvalidDataException("Full primary cannot be empty.");
             var primaryFacts = HostArtifactReadService.ComputeInventoryFacts(primaryFiles);

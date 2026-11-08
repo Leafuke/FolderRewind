@@ -83,7 +83,7 @@ internal static class CloudReadOnlyRecoveryService
         var fidelity = preview.RequiredFidelity;
         var graph = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).ToDictionary(r => r.RepresentationId);
         var transport = new RcloneNativeHistoryTransport(connection);
-        var replicas = new HistoryReplicaSyncService(runtime, transport, _ => throw new InvalidOperationException("Read-only recovery cannot sync metadata to the remote."), new NoRetirement());
+        var replicas = new HistoryReplicaSyncService(runtime, transport, _ => throw new InvalidOperationException("Read-only recovery cannot sync metadata to the remote."));
         var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         var local = (catalog?.Entries ?? []).Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath && File.Exists(e.Locator.AbsolutePath)).Select(e => e.RepresentationId).ToHashSet();
         var payloadRoot = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "downloaded-payloads");
@@ -111,10 +111,5 @@ internal static class CloudReadOnlyRecoveryService
             .Where(p => !string.IsNullOrWhiteSpace(p)).Append(ConfigService.ConfigDirectory).Append(runtime.Repository.Paths.RepositoryRoot).ToArray();
         await new HistoryVersionExportService(representations).ExportAsync(versionId, graph.Values.ToArray(),
             await NativeHistoryApplicationService.BuildEnvironmentAsync(runtime, token).ConfigureAwait(false), destination, protectedRoots, token, fidelity).ConfigureAwait(false);
-    }
-    private sealed class NoRetirement : IHistoryReplicaRetirementGuard
-    {
-        public Task EnsureRetirementSafeAsync(StorageReplica replica, bool releaseVersion, CancellationToken token)
-            => throw new InvalidOperationException("Read-only recovery cannot retire replicas.");
     }
 }

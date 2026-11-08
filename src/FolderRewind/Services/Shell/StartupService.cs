@@ -60,11 +60,6 @@ namespace FolderRewind.Services
                 return false;
             }
         }
-        public static async Task<bool> IsStartupEnabledAsync()
-        {
-            var probe = await TryGetStartupEnabledAsync();
-            return probe.success && probe.enabled;
-        }
 
         public static async Task<(bool success, bool enabled)> TryGetStartupEnabledAsync()
         {

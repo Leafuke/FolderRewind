@@ -28,22 +28,21 @@ public static class NotificationService
     public static event Action<int>? RunningTaskCountChanged;
     private static readonly object TrackingLock = new();
     private static bool _tracking;
-    private static int _runningTaskCount, _suppressionCount, _generation;
+    private static int _runningTaskCount, _generation;
     private const string ReportedExceptionKey = "FolderRewind.NotificationReported";
     internal static bool WasExceptionReported(Exception error)
     { try { return error.Data[ReportedExceptionKey] is true; } catch { return false; } }
     internal static void MarkExceptionReported(Exception error)
     { try { error.Data[ReportedExceptionKey] = true; } catch { /* Notification bookkeeping cannot replace the original failure. */ } }
     internal static int NotificationGeneration => Volatile.Read(ref _generation);
-    internal static bool IsNotificationEnabled => (ConfigService.CurrentConfig?.GlobalSettings?.EnableNotifications ?? true)
-        && Volatile.Read(ref _suppressionCount) == 0;
+    internal static bool IsNotificationEnabled => ConfigService.CurrentConfig?.GlobalSettings?.EnableNotifications ?? true;
     static NotificationService() => Core.Changed += RefreshBadgeVisualState;
 
     internal static NotificationEnvironment GetEnvironment()
     {
         var settings = ConfigService.CurrentConfig?.GlobalSettings;
         return new(settings?.EnableNotifications ?? true,
-            Volatile.Read(ref _suppressionCount) > 0 || NotificationOperationScope.Current?.IsInternal == true,
+            NotificationOperationScope.Current?.IsInternal == true,
             NativeWindowActivationService.IsAppForeground(),
             (ToastNotificationLevel)Math.Clamp(settings?.ToastNotificationLevel ?? 2, 0, 3),
             (settings?.CompletionSoundIndex ?? 0) > 0, NotificationGeneration, IsCenterOpen, Volatile.Read(ref _presentationGeneration));
@@ -57,20 +56,6 @@ public static class NotificationService
         }
         RefreshBadgeVisualState();
         NotificationCoordinator.Notify(SettingsChanged);
-    }
-    private sealed class SuppressionScope : IDisposable
-    {
-        private int _disposed;
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-            if (Interlocked.Decrement(ref _suppressionCount) == 0) RefreshNotificationSettings();
-        }
-    }
-    public static IDisposable SuppressNotifications()
-    {
-        if (Interlocked.Increment(ref _suppressionCount) == 1) RefreshNotificationSettings();
-        return new SuppressionScope();
     }
 
     public static void ShowInfoBar(InAppNotificationRequest request) => Publish(request, null);
@@ -115,27 +100,6 @@ public static class NotificationService
     public static void ShowImportant(string message, string? title = null, int autoCloseMs = 8000, Action? action = null, string? actionText = null)
         => ShowNotification(new() { Title = title ?? I18n.GetString("Notification_Important_Title"), Message = message,
             Severity = NotificationSeverity.Warning, AutoCloseMs = autoCloseMs, Action = action, ActionText = actionText }, NotificationImportance.Important);
-
-    public static void ShowToast(string title, string message, IDictionary<string, string>? arguments = null, string? tag = null,
-        string? group = null, NotificationSeverity severity = NotificationSeverity.Informational)
-        => Publish(new() { Title = title, Message = message, Severity = severity, Category = NotificationCategory.BusinessResult },
-            severity == NotificationSeverity.Error ? NotificationImportance.Error : severity == NotificationSeverity.Warning
-                ? NotificationImportance.Important : NotificationImportance.Info, arguments, tag, group, systemOnly: true);
-    public static void ShowToastWithLogo(string title, string message, Uri? logoUri = null, IDictionary<string, string>? arguments = null,
-        string? tag = null, string? group = null)
-        => Publish(new() { Title = title, Message = message, Category = NotificationCategory.BusinessResult },
-            NotificationImportance.Info, arguments, tag, group, logoUri, systemOnly: true);
-
-    public static void NotifyBackupCompleted(string folderName, bool success, string? errorMessage = null)
-        => ShowNotification(new()
-        {
-            Category = NotificationCategory.BusinessResult, Source = "backup",
-            Title = I18n.GetString(success ? "Notification_BackupCompleted_Title" : "Notification_BackupFailed_Title"),
-            Message = success ? I18n.Format("Notification_BackupCompleted_Success", folderName)
-                : I18n.Format("Notification_BackupCompleted_Failed", folderName, errorMessage ?? ""),
-            Details = errorMessage, Severity = success ? NotificationSeverity.Success : NotificationSeverity.Error,
-            CompletionSoundSuccess = success, Target = NotificationOperationScope.Current?.Target ?? new(NotificationTargetKind.Tasks)
-        }, success ? NotificationImportance.Info : NotificationImportance.Error);
     public static void NotifyRestoreCompleted(string folderName, bool success, string? errorMessage = null)
     {
         var warning = success && !string.IsNullOrWhiteSpace(errorMessage);

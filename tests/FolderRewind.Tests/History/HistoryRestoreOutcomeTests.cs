@@ -8,6 +8,29 @@ namespace FolderRewind.Tests;
 public sealed class HistoryRestoreOutcomeTests
 {
     [TestMethod]
+    public void CancellationBeforeMutationKeepsItsCancellationOutcome()
+    {
+        var result = new HistoryRestoreResult(HistoryRestoreStatus.BlockedBeforeMutation, "A task was canceled.", false, []);
+        HistoryRestoreOutcomePolicy.ThrowIfCanceledBeforeMutation(result, default);
+        Assert.ThrowsExactly<OperationCanceledException>(() => HistoryRestoreOutcomePolicy.ThrowIfCanceledBeforeMutation(result, new(true)));
+    }
+
+    [TestMethod]
+    [DataRow(HistoryRestoreStatus.Committed)]
+    [DataRow(HistoryRestoreStatus.CommittedWithPostActionWarning)]
+    [DataRow(HistoryRestoreStatus.CommittedRecoveryRequired)]
+    [DataRow(HistoryRestoreStatus.MutationFailedRecoveryRequired)]
+    [DataRow(HistoryRestoreStatus.MutationFailedRolledBack)]
+    [DataRow(HistoryRestoreStatus.NoChanges)]
+    [DataRow(HistoryRestoreStatus.PreparationRequired)]
+    public void LateCancellationDoesNotReplaceTheFileOrRecoveryOutcome(HistoryRestoreStatus status)
+    {
+        var result = new HistoryRestoreResult(status, "retain this outcome", false, []);
+        HistoryRestoreOutcomePolicy.ThrowIfCanceledBeforeMutation(result, new(true));
+        Assert.AreEqual(status, result.Status);
+    }
+
+    [TestMethod]
     [DataRow(HistoryRestoreStatus.NoChanges, false, OperationOutcome.SuccessWithWarnings)]
     [DataRow(HistoryRestoreStatus.Committed, true, OperationOutcome.SuccessWithWarnings)]
     [DataRow(HistoryRestoreStatus.MutationFailedRolledBack, false, OperationOutcome.Failed)]

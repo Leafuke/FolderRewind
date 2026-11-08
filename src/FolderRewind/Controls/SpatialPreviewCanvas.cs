@@ -1,4 +1,5 @@
 using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Runtime.Operations;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins.V3;
 using Microsoft.UI.Xaml;
@@ -49,6 +50,7 @@ public sealed partial class SpatialPreviewCanvas : Grid
 
     private readonly DispatcherTimer _schedule = new() { Interval = TimeSpan.FromMilliseconds(40) };
     private PluginV3SpatialPreview? _session;
+    private SpatialPreviewDemandPublisher? _demand;
     private SpatialPreviewLayer? _layer;
     private int? _height;
     private string? _viewModeId;
@@ -104,6 +106,21 @@ public sealed partial class SpatialPreviewCanvas : Grid
     }
     internal void SetSource(PluginV3SpatialPreview? session, SpatialPreviewLayer? layer, int? maximumHeight, bool reset, string? viewModeId = null, bool showStatusOverlay = false)
     {
+        if (!ReferenceEquals(_session, session))
+        {
+            if (_demand is { } oldDemand) Observe(oldDemand.CloseAsync());
+            _demand = session is null ? null : new SpatialPreviewDemandPublisher(session.Source, session.UpdateDemandAsync,
+                error => DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (!_active || !ReferenceEquals(_session, session)) return;
+                    if (error is not null && error is not OperationCanceledException && error is not ObjectDisposedException)
+                    {
+                        foreach (var key in _wanted) { _failed.Add(key); _diagnostics[key] = (DiagnosticSeverity.Error, I18n.GetString("Preview_Failed")); }
+                        LogService.LogWarning(error.ToString(), "Spatial preview demand");
+                    }
+                    Pump(); UpdateStatus();
+                }));
+        }
         var preserve = !reset && session is not null && ReferenceEquals(_session, session) && _layer?.Id == layer?.Id;
         if (!preserve) _fallback.Children.Clear();
         else if (_tiles.Children.Count > 0)
@@ -117,6 +134,7 @@ public sealed partial class SpatialPreviewCanvas : Grid
         _refinements.Clear(); _requestOrder.Clear(); _completed.Clear(); _empty.Clear(); _lod = 0;
         _statistics.Clear(); _noSurface.Clear(); _viewModeId = viewModeId; _showStatusOverlay = showStatusOverlay;
         _session = session; _layer = layer; _height = maximumHeight; _active = session is not null && layer is not null;
+        if (!_active) _demand?.Set([]);
         _bitmaps.Clear(); _lru.Clear(); _images.Clear(); _tiles.Children.Clear(); _grid.Children.Clear(); _markers.Children.Clear(); _markerShape = null;
         _pressed = null; ReleasePointerCaptures(); _marker = null;
         ActivityChanged?.Invoke(_active, false);
@@ -191,6 +209,10 @@ public sealed partial class SpatialPreviewCanvas : Grid
         if (_wanted.Any(k => !_bitmaps.ContainsKey(k)))
             foreach (var key in _bitmaps.Keys.Where(k => !_wanted.Contains(k) && Intersects(k)).OrderByDescending(k => k.UnitsPerPixel).ToArray()) Show(key);
         foreach (var key in _wanted) if (_bitmaps.ContainsKey(key)) Show(key);
+        _demand?.Set(_wanted.OrderBy(k => Math.Abs(k.OriginX + 128d * k.UnitsPerPixel - _camera.CenterX)
+                + Math.Abs(k.OriginY + 128d * k.UnitsPerPixel - _camera.CenterY))
+            .Select(k => new SpatialPreviewTileRequest(session.Source, layer.Id, k.OriginX, k.OriginY, k.UnitsPerPixel, _height)
+            { ViewModeId = _viewModeId, ShowStatusOverlay = _showStatusOverlay }).ToArray());
         PruneImages(); Trim(); DrawGrid(); Pump(); UpdateStatus();
     }
     private void Show(PreviewTileKey key)
@@ -222,11 +244,10 @@ public sealed partial class SpatialPreviewCanvas : Grid
     }
     private void Pump()
     {
-        if (!_active || _session is not { } session || _layer is not { } layer) return;
+        if (!_active || _session is not { } session || _layer is not { } layer || _demand?.IsReady != true) return;
         foreach (var key in _wanted.Where(k => (!_bitmaps.ContainsKey(k) || _refinements.ContainsKey(k))
             && !_pending.ContainsKey(k) && !_failed.Contains(k) && (!_refinements.TryGetValue(k, out var due) || Environment.TickCount64 >= due))
-            .OrderBy(k => _bitmaps.ContainsKey(k) ? 1 : 0)
-            .ThenBy(k => _requestOrder.GetValueOrDefault(k))
+            .OrderBy(k => _requestOrder.GetValueOrDefault(k))
             .ThenBy(k => Math.Abs(k.OriginX + 128d * k.UnitsPerPixel - _camera.CenterX) + Math.Abs(k.OriginY + 128d * k.UnitsPerPixel - _camera.CenterY)).ToArray())
         {
             if (_running >= MaximumConcurrentRequests) break;
@@ -240,7 +261,10 @@ public sealed partial class SpatialPreviewCanvas : Grid
     {
         try
         {
-            var result = await session.RenderAsync(new(session.Source, layer, key.OriginX, key.OriginY, key.UnitsPerPixel, height) { ViewModeId = _viewModeId, ShowStatusOverlay = _showStatusOverlay }, cancellation.Token);
+            var demand = _demand;
+            if (demand?.IsReady != true) return;
+            var result = await session.RenderAsync(new(session.Source, layer, key.OriginX, key.OriginY, key.UnitsPerPixel, height)
+            { ViewModeId = _viewModeId, ShowStatusOverlay = _showStatusOverlay, ViewId = demand.ViewId, DemandRevision = demand.Revision }, cancellation.Token);
             if (cancellation.IsCancellationRequested || !_epoch.IsCurrent(revision) || !session.IsCurrent()) return;
             var bitmap = new WriteableBitmap(256, 256);
             using (var stream = bitmap.PixelBuffer.AsStream()) stream.Write(result.BgraPremultiplied.Span);

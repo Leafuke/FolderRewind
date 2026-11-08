@@ -121,10 +121,3 @@ public enum LudusaviManifestUpdateStatus
     Updated = 0,
     NotModified = 1
 }
-
-public sealed class LudusaviManifestUpdateResult
-{
-    public required LudusaviManifestUpdateStatus Status { get; init; }
-    public required LudusaviManifestCacheMetadata Metadata { get; init; }
-    public required LudusaviCompiledIndex Index { get; init; }
-}

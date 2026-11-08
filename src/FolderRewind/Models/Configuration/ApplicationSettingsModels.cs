@@ -86,7 +86,6 @@ namespace FolderRewind.Models
         private double _startupWidth = 1300;
         private double _startupHeight = 900;
         private double _navPaneWidth = 180;
-        private string _fontFamily = "";
         private double _baseFontSize = 14;
         private string _homeSortMode = "NameAsc";
         private string _lastManagerConfigId = "";
@@ -149,10 +148,6 @@ namespace FolderRewind.Models
         private int _appUpdatePreferredSource = 1; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
         private bool _appUpdateAutoFallback = true;
         private string _appUpdateCustomMirrorUrl = "";
-        private string _gitHubOAuthClientId = "";
-
-        // 首次启动引导
-        private bool _hasShownFirstLaunchGuide = false;
 
         // 核心功能自动校验
         private bool _hasTriggeredInitialCoreValidation = false;
@@ -178,8 +173,6 @@ namespace FolderRewind.Models
         public double StartupWidth { get => _startupWidth; set => SetProperty(ref _startupWidth, value); }
         public double StartupHeight { get => _startupHeight; set => SetProperty(ref _startupHeight, value); }
         public double NavPaneWidth { get => _navPaneWidth; set => SetProperty(ref _navPaneWidth, value); }
-        // Legacy serialized preference: retained for configuration round-trips, no longer rendered.
-        public string FontFamily { get => _fontFamily; set => SetProperty(ref _fontFamily, value); }
         public double BaseFontSize { get => _baseFontSize; set => SetProperty(ref _baseFontSize, value); }
         public string HomeSortMode { get => _homeSortMode; set => SetProperty(ref _homeSortMode, value); }
 
@@ -375,16 +368,6 @@ namespace FolderRewind.Models
         /// 自定义镜像地址。可填写前缀或包含 {url} 占位符的模板。
         /// </summary>
         public string AppUpdateCustomMirrorUrl { get => _appUpdateCustomMirrorUrl; set => SetProperty(ref _appUpdateCustomMirrorUrl, value ?? string.Empty); }
-
-        /// <summary>
-        /// GitHub OAuth App 的 Client ID。
-        /// </summary>
-        public string GitHubOAuthClientId { get => _gitHubOAuthClientId; set => SetProperty(ref _gitHubOAuthClientId, value ?? string.Empty); }
-
-        /// <summary>
-        /// 是否已经展示过首次启动引导。
-        /// </summary>
-        public bool HasShownFirstLaunchGuide { get => _hasShownFirstLaunchGuide; set => SetProperty(ref _hasShownFirstLaunchGuide, value); }
         public bool MsiShellIdentityNoticeShown { get; set; }
 
         /// <summary>

@@ -23,19 +23,6 @@ namespace FolderRewind.ViewModels
             Invalid
         }
 
-        public sealed class BatchAddFoldersResult
-        {
-            public bool Success { get; set; } = true;
-
-            public string ErrorMessage { get; set; } = string.Empty;
-
-            public List<ManagedFolder> AddedFolders { get; } = new();
-
-            public List<string> DuplicateDisplayNames { get; } = new();
-
-            public List<string> UnsafePaths { get; } = new();
-        }
-
         public sealed class PluginDiscoverCandidatesResult
         {
             public List<ManagedFolder> ToAdd { get; } = new();
@@ -206,11 +193,6 @@ namespace FolderRewind.ViewModels
             _context.RequestSelection(path);
         }
 
-        public void ClearPendingFolderPath()
-        {
-            _context.InvalidatePending();
-        }
-
         public BackupConfig? FindConfigById(string? configId)
         {
             if (string.IsNullOrWhiteSpace(configId))
@@ -231,18 +213,6 @@ namespace FolderRewind.ViewModels
             return Configs.FirstOrDefault(c => c.SourceFolders.Any(f =>
                 !string.IsNullOrWhiteSpace(f.Path) &&
                 string.Equals(f.Path, folderPath, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        public ManagedFolder? FindFolderInCurrentConfig(string? folderPath)
-        {
-            if (string.IsNullOrWhiteSpace(folderPath) || CurrentConfig?.SourceFolders == null)
-            {
-                return null;
-            }
-
-            return CurrentConfig.SourceFolders.FirstOrDefault(f =>
-                !string.IsNullOrWhiteSpace(f.Path) &&
-                string.Equals(f.Path, folderPath, StringComparison.OrdinalIgnoreCase));
         }
 
         public void SetSelectedFolder(ManagedFolder? folder, bool persistSelection)
@@ -294,11 +264,6 @@ namespace FolderRewind.ViewModels
 
             settings.LastManagerFolderPath = string.Empty;
             TaskObserver.Observe(TaskObserver.SaveConfigAsync(), nameof(FolderManagerPageViewModel));
-        }
-
-        public AddFolderResult AddFolder(string path, string? name, out ManagedFolder? addedFolder)
-        {
-            return AddFolderInternal(path, name, null, null, out addedFolder);
         }
 
 
@@ -476,33 +441,6 @@ namespace FolderRewind.ViewModels
 
             CurrentConfig.SourceFolders.Move(index, 0);
             // Persisted by the owning asynchronous command.
-        }
-
-
-
-        public async Task BackupCurrentConfigAsync(BackupInvocationOptions? invocationOptions = null)
-        {
-            if (CurrentConfig == null)
-            {
-                return;
-            }
-
-            await BackupService.BackupConfigAsync(
-                CurrentConfig,
-                invocationOptions ?? BackupInvocationOptions.ForManual(BackupComment.Trim()));
-        }
-
-        public async Task BackupSelectedFolderAsync(BackupInvocationOptions? invocationOptions = null)
-        {
-            if (CurrentConfig == null || _selectedFolder == null)
-            {
-                return;
-            }
-
-            await BackupService.BackupFolderAsync(
-                CurrentConfig,
-                _selectedFolder,
-                invocationOptions ?? BackupInvocationOptions.ForManual(BackupComment.Trim()));
         }
 
         private AddFolderResult AddFolderInternal(

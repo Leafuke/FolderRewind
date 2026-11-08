@@ -80,10 +80,12 @@ internal static class SpatialWorkspaceUiProvider
 
     private static LocalizedText Text(string value) => new(value, new Dictionary<string, string>());
 
-    private sealed class Provider : IFolderRewindPlugin, IFixedSpatialPreviewCapability, ISpatialComparisonCapability
+    private sealed class Provider : IFolderRewindPlugin, IFixedSpatialPreviewCapability, ISpatialPreviewDemandCapability, ISpatialComparisonCapability
     {
         private static readonly byte[] Pixels = MakePixels();
         public ConfigKindRef Kind => SpatialWorkspaceUiProvider.Kind;
+        public ValueTask UpdateDemandAsync(SpatialPreviewDemand demand, PluginInvocationContext context)
+        { RequireFixed(demand.Source); context.OperationCancellation.ThrowIfCancellationRequested(); return ValueTask.CompletedTask; }
         public ValueTask<PluginActivationResult> ActivateAsync(IPluginActivationContext context, CancellationToken token)
         {
             context.RegisterCapability<IPluginCapability>(this);

@@ -32,10 +32,6 @@ internal sealed class HistoryMigrationStateStore(HistoryConfigId configId, strin
     {
         if (Load() is null) Save(new(1, configId, initializationPending, [], initializationPending ? Guid.NewGuid().ToString("N") : ""));
     }
-    internal void RequireConfirmation()
-    {
-        if (Load() is { } state) Save(state with { InitializationPending = true });
-    }
     internal void RequireRecovered()
     {
         if (Load() is { InitializationPending: true, Intents.Length: > 0 })

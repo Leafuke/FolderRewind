@@ -12,14 +12,21 @@ namespace FolderRewind.Tests;
 public sealed class HistoryRewriteStorageTests
 {
     [TestMethod]
-    public async Task NewPayloadAndWorkStayInConfiguredDestinationAndCancelOnlyRemovesOwnedTrees()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task NewPayloadAndWorkStayInConfiguredDestinationAndCancelOnlyRemovesOwnedTrees(bool redirected)
     {
         await using var f = new HistoryChainRewriteFixture();
         await f.InitializeAsync();
         var a = await f.AddAsync(null, p => File.WriteAllText(Path.Combine(p, "a.txt"), "A"));
         var b = await f.AddAsync(a, p => File.WriteAllText(Path.Combine(p, "b.txt"), "B"));
         var destination = Path.Combine(f.Root, "chosen-backup-directory");
-        Directory.CreateDirectory(destination);
+        if (redirected)
+        {
+            var physical = Path.Combine(f.Root, "physical-backups"); Directory.CreateDirectory(physical);
+            Directory.CreateSymbolicLink(destination, physical);
+        }
+        else Directory.CreateDirectory(destination);
         var sentinel = Path.Combine(destination, "user-file.txt");
         File.WriteAllText(sentinel, "keep");
         var plan = await f.Planner.PlanAsync(f.Delete(a) with { BackupRoot = destination });

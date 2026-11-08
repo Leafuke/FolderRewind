@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using System;
@@ -304,11 +304,6 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(ShowCloudUploadAdvancedSettings));
             OnPropertyChanged(nameof(CanUseManualCloudActions));
             OnPropertyChanged(nameof(IsLegacyCustomCommandMode));
-            OnPropertyChanged(nameof(ShowCloudTemplateOptions));
-            OnPropertyChanged(nameof(EffectiveCloudExecutablePath));
-            OnPropertyChanged(nameof(CloudExecutablePathText));
-            OnPropertyChanged(nameof(CloudExecutableDescription));
-            OnPropertyChanged(nameof(CloudWorkingDirectoryText));
             OnPropertyChanged(nameof(CloudRemoteBasePathText));
             OnPropertyChanged(nameof(CloudTimeoutSeconds));
             OnPropertyChanged(nameof(CloudRetryCount));

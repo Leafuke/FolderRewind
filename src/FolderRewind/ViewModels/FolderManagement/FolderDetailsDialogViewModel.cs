@@ -13,9 +13,12 @@ namespace FolderRewind.ViewModels;
 public sealed class FolderDetailsDialogViewModel : ViewModelBase
 {
     public ObservableCollection<FolderDetailsSection> Sections { get; } = new();
+    private long _loadRevision;
 
     public async Task LoadAsync(BackupConfig config, ManagedFolder folder, CancellationToken cancellationToken)
     {
+        var revision = Interlocked.Increment(ref _loadRevision);
+        cancellationToken.ThrowIfCancellationRequested();
         Sections.Clear();
         foreach (FolderDetailsSection section in FolderDetailsService.BuildBaseSections(config, folder))
         {
@@ -23,6 +26,8 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
         }
 
         var pluginSections = await PluginService.GetFolderDetailsSectionsAsync(config, folder, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (revision != _loadRevision) return;
         foreach (FolderDetailsSection section in pluginSections)
         {
             Sections.Add(section);
@@ -37,6 +42,8 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
         try
         {
             var stats = await FolderDetailsService.ComputeStatisticsAsync(config, folder, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (revision != _loadRevision) return;
             if (stats.TotalBytes < 1024.0 * 1024.0)
             {
                 SetItemValue(basicItems, sizeLabel, $"{stats.TotalBytes / 1024.0:F2} KB");
@@ -63,6 +70,7 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            if (revision != _loadRevision || cancellationToken.IsCancellationRequested) return;
             LogService.LogWarning(
                 $"Failed to compute folder details statistics for '{folder.Path}': {ex.Message}",
                 nameof(FolderDetailsDialogViewModel));

@@ -15,17 +15,14 @@ public sealed class HistoryMetadataSyncService
 {
     private readonly HistoryRuntime _history;
     private readonly IHistoryMetadataTransport _transport;
-    private readonly IHistoryLegacyCloudBridge? _legacyBridge;
     private readonly HistoryPackCodec _codec = new();
 
     public HistoryMetadataSyncService(
         HistoryRuntime history,
-        IHistoryMetadataTransport transport,
-        IHistoryLegacyCloudBridge? legacyBridge = null)
+        IHistoryMetadataTransport transport)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-        _legacyBridge = legacyBridge;
     }
 
     public async Task<HistoryMetadataSyncResult> SyncAsync(CancellationToken cancellationToken = default)
@@ -38,13 +35,6 @@ public sealed class HistoryMetadataSyncService
                 .ConfigureAwait(false);
             if (descriptor is null)
             {
-                var localPacks = await _history.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-                if (localPacks.Count == 0
-                    && _legacyBridge is not null
-                    && await _transport.LegacyHistoryExistsAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false))
-                {
-                    _ = await _legacyBridge.TryBridgeAsync(cancellationToken).ConfigureAwait(false);
-                }
                 var canonical = HistoryRepositoryDescriptor.Create(_history.ConfigId).ToCanonicalBytes();
                 await _transport.CreateDescriptorOnceAsync(_history.ConfigId, canonical, cancellationToken)
                     .ConfigureAwait(false);
@@ -218,35 +208,4 @@ public sealed class HistoryMetadataSyncService
         => new(status, downloaded, uploaded, [], [], diagnostic);
 
     private sealed record PullResult(HistoryMetadataSyncStatus Status, int Downloaded, string Diagnostic);
-}
-
-public sealed class HistoryCloudSyncCoordinator
-{
-    private readonly Func<CancellationToken, Task<HistoryMetadataSyncResult>> _sync;
-    private readonly SemaphoreSlim _gate = new(1, 1);
-    private int _pending;
-
-    public HistoryCloudSyncCoordinator(Func<CancellationToken, Task<HistoryMetadataSyncResult>> sync)
-        => _sync = sync ?? throw new ArgumentNullException(nameof(sync));
-
-    public async Task<HistoryMetadataSyncResult> RequestSyncAsync(CancellationToken cancellationToken = default)
-    {
-        Interlocked.Exchange(ref _pending, 1);
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            HistoryMetadataSyncResult? result = null;
-            do
-            {
-                Interlocked.Exchange(ref _pending, 0);
-                result = await _sync(cancellationToken).ConfigureAwait(false);
-            }
-            while (Interlocked.CompareExchange(ref _pending, 0, 0) != 0);
-            return result!;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
 }

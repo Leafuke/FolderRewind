@@ -32,10 +32,14 @@ public sealed class OwnedRcloneConnection(string configPath, string remoteRoot) 
         if (_committed || Interlocked.Exchange(ref _disposed, 1) != 0) return;
         // OAuth 可能已经轮换；取消向导也不能删除受管目录中的唯一新令牌。
         if (RcloneExecutionContext.HasActiveCredential(ConfigPath) || RcloneCredentialRefresh.MustPreserveOwnedCredentials(ConfigPath)) return;
+        var directory = Path.GetDirectoryName(Path.GetFullPath(ConfigPath))!;
+        var parent = Path.GetDirectoryName(directory)!;
+        using var paths = Plugin.Runtime.IO.DirectoryPathLease.BindExistingAncestor(parent);
+        RcloneCredentialRefresh.RejectReparsePoints(ConfigPath, parent);
         File.Delete(ConfigPath);
         File.Delete(ConfigPath + ".folderrewind.lock");
         File.Delete(ConfigPath + RcloneCredentialStore.OriginSuffix);
-        Directory.Delete(Path.GetDirectoryName(ConfigPath)!);
+        Directory.Delete(directory);
     }
     // Evidence enumeration can touch many legacy entries; UI callers release off the dispatcher.
     public ValueTask DisposeAsync() => _committed ? ValueTask.CompletedTask : new(Task.Run(Dispose));
@@ -51,9 +55,6 @@ public static class RcloneConnectionService
             throw new ArgumentException(I18n.GetString("CloudSetup_InvalidUrl"));
         return uri;
     }
-
-    public static IReadOnlyList<RcloneRemoteOption> ListRemotes(string configPath)
-        => InspectRemotes(configPath).Remotes;
 
     public static RcloneRemoteCatalog InspectRemotes(string configPath)
     {
@@ -88,6 +89,8 @@ public static class RcloneConnectionService
     {
         if (!Path.IsPathFullyQualified(executable) || !File.Exists(executable))
             throw RcloneConnectionDiagnostics.Failure("cloud.tool-unavailable", "CloudFailure_Tool");
+        if (!Path.IsPathFullyQualified(credentialsRoot)) throw new ArgumentException("Credentials directory must be absolute.", nameof(credentialsRoot));
+        using var rootLease = await Task.Run(() => Plugin.Runtime.IO.DirectoryPathLease.BindExistingAncestor(credentialsRoot), token).ConfigureAwait(false);
         var endpoint = ValidateWebDavUrl(url, allowInsecure);
         if (user.IndexOfAny(['\r', '\n', '\0']) >= 0 || password.IndexOfAny(['\r', '\n', '\0']) >= 0)
             throw new ArgumentException(I18n.GetString("CloudSetup_InvalidCredential"));
@@ -98,7 +101,6 @@ public static class RcloneConnectionService
         var output = await RunAsync(start, TimeSpan.FromSeconds(15), token, password + "\n").ConfigureAwait(false);
         var obscured = output.TrimEnd('\r', '\n');
         if (obscured.IndexOfAny(['\r', '\n', '\0']) >= 0 || obscured.Length == 0) throw new IOException(I18n.GetString("CloudSetup_ObscureFailed"));
-        if (!Path.IsPathFullyQualified(credentialsRoot)) throw new ArgumentException("Credentials directory must be absolute.", nameof(credentialsRoot));
         var directory = Path.Combine(Path.GetFullPath(credentialsRoot), "connection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         RcloneExecutionContext.CreatePrivateDirectory(directory);
@@ -185,6 +187,7 @@ public static class RcloneConnectionService
         start.StandardErrorEncoding = Encoding.UTF8;
         if (start.RedirectStandardInput) start.StandardInputEncoding = new UTF8Encoding(false);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
         if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
@@ -203,6 +206,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, budget.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await Task.WhenAll(output, error).ConfigureAwait(false); } catch { }
             if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
@@ -211,6 +215,7 @@ public static class RcloneConnectionService
     internal static async Task<byte[]> RunBytesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, int maximumBytes)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         token.ThrowIfCancellationRequested();
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
@@ -234,6 +239,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, budget.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
             if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
@@ -243,7 +249,14 @@ public static class RcloneConnectionService
         string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget transferBudget)
     {
         using var space = FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceRequest(path, expectedLength));
+        await RunToReservedFileAsync(start, timeout, token, path, expectedLength, transferBudget).ConfigureAwait(false);
+    }
+    // The caller holds the destination's complete space reservation until this operation finishes.
+    internal static async Task RunToReservedFileAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token,
+        string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget transferBudget)
+    {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, deadline.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
         if (credentials is not null) await credentials.StartingAsync(deadline.Token).ConfigureAwait(false);
@@ -267,6 +280,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, deadline.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
             if (!completed && created && File.Exists(path)) File.Delete(path);
@@ -276,6 +290,7 @@ public static class RcloneConnectionService
     internal static async Task RunLinesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, Action<string> onLine)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
         if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
@@ -307,6 +322,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, budget.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
             if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);

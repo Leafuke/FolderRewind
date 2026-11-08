@@ -28,18 +28,6 @@ public sealed record LegacyHistoryRecord
     public string CloudArchiveRemotePath { get; init; } = string.Empty;
 }
 
-public static class LegacyHistoryReader
-{
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
-    public static IReadOnlyList<LegacyHistoryRecord> Read(string historyPath)
-    {
-        if (!File.Exists(historyPath)) return [];
-        var bytes = File.ReadAllBytes(historyPath);
-        return JsonSerializer.Deserialize<List<LegacyHistoryRecord>>(bytes, JsonOptions) ?? [];
-    }
-}
-
 public sealed record LegacyArchiveName(
     string BackupType,
     DateTime Timestamp,

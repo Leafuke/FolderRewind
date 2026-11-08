@@ -28,7 +28,7 @@ internal static class RestoreCoordinationAcceptance
         var global = ConfigService.CurrentConfig.GlobalSettings;
         global.EnableKnotLink = false; global.AutoStartKnotLinkServer = false;
         global.FileSizeWarningThresholdKB = 0; global.EnableNotices = false; global.EnableUpdateReminder = false;
-        global.HasShownFirstLaunchGuide = true; global.HasTriggeredInitialCoreValidation = true;
+        global.HasTriggeredInitialCoreValidation = true;
         global.Plugins.TypedSettings[MineRewindId.Value] = new() { ["AutoDiscoverSaves"] = JsonSerializer.SerializeToElement(false), ["PreservePlayerData"] = JsonSerializer.SerializeToElement(false) };
         var enabled = Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_PLUGIN_ENABLED") == "1";
         global.Plugins.EnabledIntent[MineRewindId.Value] = enabled;

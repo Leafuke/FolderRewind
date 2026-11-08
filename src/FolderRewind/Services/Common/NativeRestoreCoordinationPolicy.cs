@@ -25,6 +25,8 @@ internal static class NativeRestoreCoordinationPolicy
             return new(HistoryRestoreStatus.BlockedBeforeMutation, I18n.GetString("Restore_CoordinatorContinuationFailed"), false, []);
         if (mutation.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired)
             return mutation;
+        if (mutation.Status == HistoryRestoreStatus.BlockedBeforeMutation && coordinated.Outcome == OperationOutcome.Blocked
+            && coordinated.Diagnostics.Count == 0) return mutation;
         var warned = coordinated.Outcome is not (OperationOutcome.Success or OperationOutcome.NoChanges)
             || coordinated.Diagnostics.Any(item => item.Severity is DiagnosticSeverity.Warning or DiagnosticSeverity.Error);
         if (!warned) return mutation;

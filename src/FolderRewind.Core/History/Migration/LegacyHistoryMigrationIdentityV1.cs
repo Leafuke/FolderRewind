@@ -16,11 +16,8 @@ public static class LegacyHistoryMigrationIdentityV1
     public static LegacyMigrationRecordId Record(string originKey) => new(Create("record", originKey));
     public static AnnotationUpdateId Annotation(string originKey, HistoryAnnotationKind kind)
         => new(Create($"annotation-{(int)kind}", originKey));
-    public static ReplicaId CloudReplica(string originKey) => new(Create("cloud-replica", originKey));
-    public static ReplicaLifecycleUpdateId CloudLifecycle(string originKey) => new(Create("cloud-lifecycle", originKey));
     public static LocalReplicaId LocalReplica(string originKey) => new(Create("local-replica", originKey));
     public static CheckpointId Checkpoint(string configAndVector) => new(Create("checkpoint", configAndVector));
-    public static BranchId LegacyMain(HistoryConfigId configId) => new(Create("branch", configId + "|legacy-main"));
     public static BranchUpdateId BranchUpdate(BranchId branchId, CheckpointId checkpointId)
         => new(Create("branch-update", branchId + "|" + checkpointId));
 }

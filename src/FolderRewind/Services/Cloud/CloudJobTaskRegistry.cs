@@ -15,7 +15,7 @@ internal static class CloudJobTaskRegistry
         task.ErrorMessage = string.Empty;
         task.ErrorDiagnostics = [];
         task.WarningDiagnostics = [];
-        task.Progress = 0; task.Speed = string.Empty;
+        task.Progress = 0;
         task.IsCompleted = false; task.IsSuccess = false; task.IsIndeterminate = true;
         return task;
     }

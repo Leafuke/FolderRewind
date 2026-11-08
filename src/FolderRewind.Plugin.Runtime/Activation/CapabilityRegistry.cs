@@ -61,6 +61,8 @@ internal sealed class CapabilityRegistrationSet
             }
             if (capability is ISpatialPreviewCapability spatial)
             {
+                if (spatial is not ISpatialPreviewDemandCapability)
+                    throw new InvalidDataException("Spatial preview providers must implement ISpatialPreviewDemandCapability. Upgrade the plugin.");
                 if (spatial.Kind.OwnerId.Value != pluginId.Value)
                     throw new InvalidOperationException("Spatial previews must be owned by the Config Kind owner.");
                 Add("spatial-preview", spatial.Kind.ToString(), capability);
@@ -91,6 +93,14 @@ internal sealed class CapabilityRegistrationSet
                 {
                     Add("backup-scope-id", scope.Id.ToString(), capability);
                 }
+                recognized = true;
+            }
+
+            if (capability is IBackupRunCoordinationCapability run)
+            {
+                if (run.Kind.OwnerId.Value != pluginId.Value)
+                    throw new InvalidOperationException("Backup run coordination owner mismatch.");
+                Add("backup-run-coordination", run.Kind.ToString(), capability);
                 recognized = true;
             }
 

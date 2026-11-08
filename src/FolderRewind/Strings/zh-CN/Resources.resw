@@ -207,9 +207,6 @@
 
 为避免不同目录共用同一个备份槽位，同一备份项目中不能存在同名文件夹。</value>
   </data>
-  <data name="ShellPage_Header.Header" xml:space="preserve">
-    <value>FolderRewind</value>
-  </data>
   <data name="ShellPage_FolderConflict_Title" xml:space="preserve">
     <value>检测到备份槽位冲突风险</value>
   </data>
@@ -1056,15 +1053,6 @@
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>继续兼容还原</value>
   </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
-    <value>还原前校验备份完整性</value>
-  </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
-    <value>开启 — 还原前先校验备份完整性</value>
-  </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
-    <value>关闭 — 跳过校验直接还原</value>
-  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>启用自动备份</value>
   </data>
@@ -1474,7 +1462,7 @@
     <value>打开日志文件夹</value>
   </data>
   <data name="LogPage_BottomHint.Text" xml:space="preserve">
-    <value>提示：未选中任何项时会复制全部</value>
+    <value>提示：未选中任何项时会复制全部。分享前请检查是否包含私人路径或其他敏感信息。</value>
   </data>
   <data name="LogPage_OpenCurrentLogFile.Content" xml:space="preserve">
     <value>打开当前日志文件</value>
@@ -3336,18 +3324,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="FolderManager_PinToTop.Text" xml:space="preserve">
     <value>置顶该文件夹</value>
   </data>
-  <data name="FirstLaunch_Title" xml:space="preserve">
-    <value>欢迎使用 FolderRewind！</value>
-  </data>
-  <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>不确定如何开始？可以观看 Bilibili 上的介绍视频快速上手。</value>
-  </data>
-  <data name="FirstLaunch_OpenVideo" xml:space="preserve">
-    <value>观看视频</value>
-  </data>
-  <data name="FirstLaunch_Skip" xml:space="preserve">
-    <value>跳过</value>
-  </data>
   <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
     <value>开发者 B 站主页</value>
   </data>
@@ -4351,9 +4327,6 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
     <value>将当前备份项目在云端保存的备份文件和元数据拉回本地备份库，并尝试恢复历史记录。</value>
   </data>
-  <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
-    <value>当前使用：{0}。留空使用软件的默认路径。</value>
-  </data>
   <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
     <value>rclone 路径</value>
   </data>
@@ -4522,12 +4495,6 @@ Pull Request：{1}</value>
   <data name="ConfigCloudSyncDialog_Analysis_Importable" xml:space="preserve">
     <value>可直接导入的记录：{0}</value>
   </data>
-  <data name="ConfigCloudSyncDialog_Analysis_Unmapped" xml:space="preserve">
-    <value>未映射到本地文件夹：{0}</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Analysis_Ambiguous" xml:space="preserve">
-    <value>命中多个本地文件夹而跳过：{0}</value>
-  </data>
   <data name="CloudSync_ConfigSync_AnalysisSummary" xml:space="preserve">
     <value>本次分析命中了 {0} 条远端历史，其中 {1} 条可导入，{2} 条未映射，{3} 条因文件夹重名而跳过。</value>
   </data>
@@ -4542,18 +4509,6 @@ Pull Request：{1}</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportFailed" xml:space="preserve">
     <value>当前配置的历史记录导入失败。</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.Header" xml:space="preserve">
-    <value>同时同步历史记录</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OnContent" xml:space="preserve">
-    <value>开启</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OffContent" xml:space="preserve">
-    <value>关闭</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>自动上传备份成功后，同步上传当前配置的历史记录和活跃历史清单，便于其他设备识别已删除的旧备份。</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>默认远端基路径</value>
@@ -4710,15 +4665,6 @@ Pull Request：{1}</value>
   </data>
   <data name="FolderRenameDialog_ImpactSummaryFormat" xml:space="preserve">
     <value>将更新 {0} 个配置引用和 {1} 条历史记录。</value>
-  </data>
-  <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
-    <value>选择要加入备份的文件夹</value>
-  </data>
-  <data name="FolderManager_AddSubFoldersPickerTitle" xml:space="preserve">
-    <value>选择要扫描子文件夹的根目录</value>
-  </data>
-  <data name="FolderManager_PluginDiscoverPickerTitle" xml:space="preserve">
-    <value>选择插件要扫描的根目录</value>
   </data>
   <data name="FolderManager_AddSubFoldersFailed" xml:space="preserve">
     <value>添加子文件夹失败。</value>
@@ -5602,9 +5548,6 @@ Pull Request：{1}</value>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>失败回滚保护</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve"><value>还原前校验备份完整性</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_RestoreWhitelist.Header" xml:space="preserve"><value>还原白名单</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve"><value>启用自动备份</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_AutomationScope.Header" xml:space="preserve"><value>自动化作用范围</value></data>
@@ -5666,7 +5609,6 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>每个备份源保留最近版本数（0 为无限保留）</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前自动备份</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>失败回滚保护</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前校验备份完整性</value></data>
   <data name="ConfigSettingsDialog_AutoBackup_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>启用自动备份</value></data>
   <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>重复未发现变更后停止自动任务</value></data>
   <data name="ConfigSettingsDialog_BackupFilterMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份过滤模式</value></data>
@@ -5694,7 +5636,6 @@ Pull Request：{1}</value>
   <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>文件规则</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>仅普通还原使用此选项。恢复点供成功还原后反悔使用，失败回滚始终开启。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>还原出错时自动启动回滚。</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>执行还原时检查备份，损坏时停止操作。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>备份后自动上传</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Description" xml:space="preserve"><value>将新版本上传到已连接的云存储。</value></data>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
@@ -6640,7 +6581,7 @@ Enter：在窄窗口中打开预览或批量操作
   <data name="Migration_BatchPreviewPaths.Content" xml:space="preserve"><value>预览批量路径替换</value></data>
   <data name="CloudConnection_LegacyConversionRequired" xml:space="preserve"><value>旧自定义上传命令未转换为原生云备份。请在连接向导中明确转换后再启用。</value></data>
   <data name="CloudConnection_RefreshConflict" xml:space="preserve"><value>认证刷新证据无法安全合并，请保留凭据快照并重新授权；已暂停使用此凭据的新调用。</value></data>
-  <data name="CloudConnection_PathUnsafe" xml:space="preserve"><value>凭据或任务路径包含不支持的重解析点，已暂停本次调用。请查看诊断定位相关目录，再重新建立访问。</value></data>
+  <data name="CloudConnection_PathUnsafe" xml:space="preserve"><value>凭据或任务目录中包含不支持的链接，已暂停本次操作。请检查该目录中的链接或选择其他存储位置；重新认证无法修复路径问题。</value></data>
   <data name="CloudConnection_HardlinkUnsafe" xml:space="preserve"><value>凭据文件存在多个硬链接，已暂停使用。请新建连接或重新认证以生成独立凭据；原文件及证据将保留。</value></data>
   <data name="CloudConnection_MetadataUnavailable" xml:space="preserve"><value>无法可靠读取凭据文件的安全信息，已暂停本次调用。诊断记录包含查询结果，请检查连接或重新认证。</value></data>
   <data name="CloudConnection_ConfigInvalid" xml:space="preserve"><value>rclone 配置包含重复项、缺少必要字段或格式不受支持。请修正配置或重新导入。</value></data>
@@ -7070,7 +7011,7 @@ Enter：在窄窗口中打开预览或批量操作
   <data name="MigrationWizard_ContinueRemaining.Content" xml:space="preserve"><value>继续处理未完成项目…</value></data>
   <data name="HistoryLoad_DetailsText.AutomationProperties.Name" xml:space="preserve"><value>历史加载错误技术详情</value></data>
   <data name="MigrationWizard_ErrorDetailsText.AutomationProperties.Name" xml:space="preserve"><value>迁移技术详情</value></data>
-  <data name="LogClear_Failed" xml:space="preserve"><value>无法清空当前日志，请检查日志文件的访问权限。</value></data>
+  <data name="LogClear_Failed" xml:space="preserve"><value>无法清空当前日志文件。内存记录可能已清空，但文件清理未完成，请检查文件访问权限。</value></data>
   <data name="MigrationWizard_HistoryCloudPermissionPending" xml:space="preserve"><value>本地迁移已完成，云操作尚未确认。点击“继续迁移…”检查云连接并确认许可；连接不可用时可直接重新连接。自动上传开关保持不变。</value></data>
   <data name="MigrationWizard_CloudStillPaused" xml:space="preserve"><value>本地迁移已完成；云操作仍暂停。可从“设置 → 数据迁移 → 继续迁移…”单独确认。</value></data>
   <data name="MigrationWizard_CloudPermissionHint.Text" xml:space="preserve"><value>云操作许可独立于自动上传开关。不勾选时保持暂停，可稍后继续迁移确认。连接不可用时，请先在项目设置的“云存储”中重新连接并检查。</value></data>
@@ -8022,4 +7963,36 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="MergeProgress_Count" xml:space="preserve"><value>{0} · {1} / {2}</value></data>
   <data name="MergeProgress_ReadFiles" xml:space="preserve"><value>{0} · 已打开 {1} 个文件</value></data>
   <data name="MergeProgress_Items" xml:space="preserve"><value>{0} · {1} 项</value></data>
+  <data name="SettingsPage_MinecraftCoordinationTitle.Text" xml:space="preserve"><value>Minecraft 联动会话</value></data>
+  <data name="SettingsPage_MinecraftCoordinationDescription.Text" xml:space="preserve"><value>重置会恢复现有协议的兼容联动，无法验证历史回执的归属。普通降级备份和退出游戏后的离线操作仍可使用。</value></data>
+  <data name="SettingsPage_MinecraftCoordinationReset.Content" xml:space="preserve"><value>重置联动</value></data>
+  <data name="SettingsPage_MinecraftCoordinationReady" xml:space="preserve"><value>兼容联动已就绪</value></data>
+  <data name="SettingsPage_MinecraftCoordinationBusy" xml:space="preserve"><value>相关操作或清理正在进行，暂时不能重置</value></data>
+  <data name="SettingsPage_MinecraftCoordinationNeedsReset" xml:space="preserve"><value>会话状态不确定，在线联动已暂停，需要手动重置</value></data>
+  <data name="SettingsPage_MinecraftCoordinationResetDone" xml:space="preserve"><value>兼容联动已重置；下一次操作将重新握手。</value></data>
+  <data name="SettingsPage_MinecraftCoordinationResetFailed" xml:space="preserve"><value>未能重置联动：相关操作正在进行或结束信号仍未成功发送。</value></data>
+  <data name="OperationDiagnostic_WorldIdentityUnresolved" xml:space="preserve"><value>无法完整确认世界身份或占用状态。备份可能降级，修改目标前必须确认世界已退出。</value></data>
+  <data name="OperationDiagnostic_PlayerWorldUnresolved" xml:space="preserve"><value>无法明确确定要保留玩家数据的世界，本次还原已阻止。</value></data>
+  <data name="OperationDiagnostic_ScopeWorldUnresolved" xml:space="preserve"><value>无法明确解析世界及所选区域，已阻止备份以避免扩大范围。</value></data>
+  <data name="OperationDiagnostic_CoordinationNeedsReset" xml:space="preserve"><value>联动会话状态不确定，需要在设置中重置。允许降级的备份将继续，但不保证世界保存时点一致。</value></data>
+  <data name="OperationDiagnostic_CoordinationBusy" xml:space="preserve"><value>当前联动无法安全区分或协调这些活动世界；允许降级的备份使用原始捕获。</value></data>
+  <data name="OperationDiagnostic_CoordinationWindowExpired" xml:space="preserve"><value>本地联动捕获窗口已到期。允许降级的备份继续读取并校验文件；要求联动的捕获已中止。</value></data>
+  <data name="OperationDiagnostic_PrimaryMetadataMissing" xml:space="preserve"><value>世界的 level.dat 缺失，已按其余世界证据处理；请检查存档完整性。</value></data>
+  <data name="OperationDiagnostic_CoordinationDisconnected" xml:space="preserve"><value>捕获期间联动连接中断，本轮无法保证协调后的世界保存点。</value></data>
+  <data name="OperationDiagnostic_CoordinationCleanupFailed" xml:space="preserve"><value>联动清理失败，已存储的数据结果保持有效；请在设置中重置联动后再进行在线联动。</value></data>
+  <data name="OperationDiagnostic_ApplicationClosing" xml:space="preserve"><value>应用正在退出，请在取消退出或重新启动后再开始操作。</value></data>
+  <data name="OperationDiagnostic_RestoreCoordinationChanged" xml:space="preserve">
+    <value>恢复准备期间世界或联动状态已变化，尚未执行恢复写入。请退出世界后重试。</value>
+  </data>
+  <data name="FolderDetailsDialog_ReadNotice" xml:space="preserve"><value>读取提示</value></data>
+  <data name="FolderDetailsDialog_ReadIncomplete" xml:space="preserve"><value>部分信息未能完整读取。</value></data>
+  <data name="OperationDiagnostic_SemanticCoverageLimited" xml:space="preserve"><value>已保留原始字节，但部分世界数据无法完整解析。请检查缺失的外部区块、不支持的格式或损坏的数据。</value></data>
+  <data name="CloudSync_OutputOmitted" xml:space="preserve"><value>为保护敏感信息，工具原始输出已省略。命令结果可在日志中查看。</value></data>
+  <data name="LogPersistence_Disabled" xml:space="preserve"><value>文件日志已关闭，新的记录仅保存在内存中。</value></data>
+  <data name="LogPersistence_Unavailable" xml:space="preserve"><value>当前无法写入日志文件，页面中的记录可能尚未保存。</value></data>
+  <data name="LogPersistence_Gap" xml:space="preserve"><value>日志写入已恢复，但部分早先记录无法确认是否已保存。</value></data>
+  <data name="LogPersistence_Maintenance" xml:space="preserve"><value>日志轮转或清理失败，日志文件可能超出原有保留设置。</value></data>
+  <data name="LogPersistence_Faulted" xml:space="preserve"><value>日志写入线程异常停止，新的记录无法保存。</value></data>
+  <data name="LogPersistence_Rejected" xml:space="preserve"><value>日志服务停止后收到的记录未保存到文件。</value></data>
+  <data name="LogPersistence_OpenUnconfirmed" xml:space="preserve"><value>无法确认日志是否完整保存，请先检查日志状态再分享文件。</value></data>
 </root>

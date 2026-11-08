@@ -17,7 +17,7 @@ using Microsoft.UI.Xaml.Automation;
 
 namespace FolderRewind.Services;
 
-internal enum ConfigSettingsAction { Browse, OpenDestination, OpenConfigFolder, OpenConfigFile, SaveAsTemplate, BrowseCloudExecutable, BrowseCloudWorkingDirectory, OpenCloudSync, CleanNow, CleanupReport }
+internal enum ConfigSettingsAction { Browse, OpenDestination, OpenConfigFolder, OpenConfigFile, SaveAsTemplate, OpenCloudSync, CleanNow, CleanupReport }
 
 internal interface IConfigSettingsActions
 {
@@ -48,8 +48,6 @@ internal sealed class ConfigSettingsActions(ConfigSettingsDialogViewModel viewMo
         ConfigSettingsAction.OpenConfigFolder => OpenConfigFolderAsync(),
         ConfigSettingsAction.OpenConfigFile => OpenConfigFileAsync(),
         ConfigSettingsAction.SaveAsTemplate => SaveAsTemplateAsync(),
-        ConfigSettingsAction.BrowseCloudExecutable => BrowseCloudExecutableAsync(),
-        ConfigSettingsAction.BrowseCloudWorkingDirectory => BrowseCloudWorkingDirectoryAsync(),
         ConfigSettingsAction.OpenCloudSync => OpenCloudSyncAsync(),
         ConfigSettingsAction.CleanNow => OpenCleanupAsync(false),
         ConfigSettingsAction.CleanupReport => OpenCleanupAsync(true),
@@ -64,7 +62,6 @@ internal sealed class ConfigSettingsActions(ConfigSettingsDialogViewModel viewMo
     private async Task BrowseAsync()
     {
         var folderPath = await MainWindowService.PickFolderPathAsync(
-            string.Empty,
             "FolderRewind.ConfigSettings.Destination",
             MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (string.IsNullOrWhiteSpace(folderPath))
@@ -166,31 +163,6 @@ internal sealed class ConfigSettingsActions(ConfigSettingsDialogViewModel viewMo
                 MainWindowService.GetXamlRoot() ?? XamlRoot, cancellationToken: _token);
         }
 
-    }
-    private async Task BrowseCloudExecutableAsync()
-    {
-        var filePath = await MainWindowService.PickFilePathAsync(
-            string.Empty,
-            "FolderRewind.ConfigSettings.CloudExecutable",
-            new[] { ".exe", ".cmd", ".bat", ".ps1" },
-            MainWindowService.SuggestedPickerLocation.ComputerFolder);
-        if (string.IsNullOrWhiteSpace(filePath)) return;
-
-        _token.ThrowIfCancellationRequested();
-        ViewModel.CloudExecutablePathText = filePath;
-        ViewModel.RefreshCloudUi();
-    }
-    private async Task BrowseCloudWorkingDirectoryAsync()
-    {
-        var folderPath = await MainWindowService.PickFolderPathAsync(
-            string.Empty,
-            "FolderRewind.ConfigSettings.CloudWorkingDirectory",
-            MainWindowService.SuggestedPickerLocation.ComputerFolder);
-        if (string.IsNullOrWhiteSpace(folderPath)) return;
-
-        _token.ThrowIfCancellationRequested();
-        ViewModel.CloudWorkingDirectoryText = folderPath;
-        ViewModel.RefreshCloudUi();
     }
     private async Task OpenCloudSyncAsync()
     {

@@ -50,7 +50,6 @@ namespace FolderRewind.Models
         private string _remoteBasePath = "remote:FolderRewind";
         private string _rcloneConfigPath = string.Empty;
         private string _localOpenListServiceUri = string.Empty;
-        private bool _syncHistoryAfterUpload;
         private DateTime _lastRunUtc = DateTime.MinValue;
         private int _lastExitCode;
         private string _lastErrorMessage = "";
@@ -76,8 +75,6 @@ namespace FolderRewind.Models
         public string RemoteBasePath { get => _remoteBasePath; set => SetProperty(ref _remoteBasePath, value ?? string.Empty); }
         public string RcloneConfigPath { get => _rcloneConfigPath; set => SetProperty(ref _rcloneConfigPath, value ?? string.Empty); }
         public string LocalOpenListServiceUri { get => _localOpenListServiceUri; set => SetProperty(ref _localOpenListServiceUri, value ?? string.Empty); }
-
-        public bool SyncHistoryAfterUpload { get => _syncHistoryAfterUpload; set => SetProperty(ref _syncHistoryAfterUpload, value); }
 
         public DateTime LastRunUtc
         {

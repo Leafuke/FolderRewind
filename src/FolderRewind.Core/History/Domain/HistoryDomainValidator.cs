@@ -53,10 +53,6 @@ public static class HistoryDomainValidator
         {
             throw new HistoryDomainValidationException("Checkpoint semantic parents cannot contain duplicates.");
         }
-        if (checkpoint.Sources.GroupBy(item => item.SourceId).Any(group => group.Count() > 1))
-        {
-            throw new HistoryDomainValidationException("Checkpoint Source roster cannot contain duplicate SourceIds.");
-        }
     }
 
     public static void ValidateNative(BranchUpdate update)

@@ -129,11 +129,15 @@ public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnaps
     public BackupSourceViewLimits? SourceViewLimits { get; init; }
     /// <summary>Coordinate the source only. SourcePath must remain the requested folder; do not copy it.</summary>
     public bool CoordinationOnly { get; init; }
+    /// <summary>Local Host admission only; never evidence that a remote peer accepted this request.</summary>
+    public bool RunChannelAdmitted { get; init; }
 }
 public interface IConsistencyLease : IAsyncDisposable
 {
     string SourcePath { get; }
     bool IsStableSourceView => false;
+    /// <summary>Cancellation for this Source's live capture only; never use it for History commit. Ordinary/offline inputs use None.</summary>
+    CancellationToken CaptureCancellation => CancellationToken.None;
     IReadOnlyList<PluginDiagnostic> Diagnostics { get; }
 }
 
@@ -200,6 +204,7 @@ public interface IRestoreCoordinatorCapability : IPluginCapability
 }
 
 public delegate ValueTask<OperationOutcome> RestoreMutationContinuation(CancellationToken cancellationToken);
+public delegate ValueTask<IReadOnlyList<PluginDiagnostic>> RestoreMutationSafetyCheck(CancellationToken cancellationToken);
 public enum WorkspaceOperationKind { Restore = 0, Checkout = 1, Merge = 2 }
 
 public sealed record RestoreCoordinatorRequest(
@@ -208,7 +213,13 @@ public sealed record RestoreCoordinatorRequest(
     string TargetIdentity,
     Guid OperationId,
     WorkspaceOperationKind OperationKind,
-    RestoreMutationContinuation ContinueMutationAsync);
+    RestoreMutationContinuation ContinueMutationAsync)
+{
+    /// <summary>Admit the Host channel before acquiring provider protocol locks. No remote request is sent; the Host owns release.</summary>
+    public Func<CancellationToken, ValueTask>? AdmitKnotLinkChannelAsync { get; init; }
+    /// <summary>Register one read-only check before invoking the continuation. The Host rechecks after preparation, before its first destination change. Never send protocol requests from this check.</summary>
+    public Action<RestoreMutationSafetyCheck>? RegisterMutationSafetyCheck { get; init; }
+}
 public sealed record RestoreCoordinatorResult(OperationOutcome Outcome, IReadOnlyList<PluginDiagnostic> Diagnostics);
 
 /// <summary>Ordinary Restore only. Inputs are stable read-only views; proposals never name live paths.</summary>

@@ -73,26 +73,11 @@ public sealed class HistoryRepositoryValidator
                 if (parent.ConfigId != checkpoint.ConfigId || parent.SourceId != checkpoint.SourceId)
                     throw Invalid("Checkpoint parent must belong to the same Config.");
             }
-            var duplicateSource = checkpoint.Sources.GroupBy(item => item.SourceId).FirstOrDefault(group => group.Count() > 1);
-            if (duplicateSource is not null)
-            {
-                throw Invalid($"Checkpoint contains duplicate SourceId {duplicateSource.Key}.");
-            }
-
-            foreach (var source in checkpoint.Sources.Where(item => item.VersionId is not null))
-            {
-                var version = Require(versions, source.VersionId!.Value, "Checkpoint SourceVersion");
-                if (version.ConfigId != checkpoint.ConfigId || version.SourceId != source.SourceId)
-                {
-                    throw Invalid("Checkpoint source references a Version for another Config or Source.");
-                }
-                if (!StringComparer.Ordinal.Equals(
-                        version.EffectiveSourceBoundaryFingerprint,
-                        source.EffectiveSourceBoundaryFingerprint))
-                {
-                    throw Invalid("Checkpoint source boundary must match its referenced SourceVersion boundary.");
-                }
-            }
+            var version = Require(versions, checkpoint.VersionId, "Checkpoint SourceVersion");
+            if (version.ConfigId != checkpoint.ConfigId || version.SourceId != checkpoint.SourceId)
+                throw Invalid("Checkpoint source references a Version for another Config or Source.");
+            if (!StringComparer.Ordinal.Equals(version.EffectiveSourceBoundaryFingerprint, checkpoint.EffectiveSourceBoundaryFingerprint))
+                throw Invalid("Checkpoint source boundary must match its referenced SourceVersion boundary.");
         }
 
         foreach (var run in runs.Values)

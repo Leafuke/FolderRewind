@@ -35,6 +35,26 @@ public sealed class HostArtifactReadService : IArtifactReadService, IAsyncDispos
     internal static HostArtifactReadService FromVerified(IReadOnlyDictionary<ArtifactContentHandle, string> roots,
         IReadOnlyDictionary<ArtifactContentHandle, VerifiedArtifactContent> verified) => new(roots, verified);
 
+    /// <summary>Owns read guards and the hashes computed while those guards are held.</summary>
+    internal async Task<HostArtifactReadService> ProtectAsync(CancellationToken token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var proofs = new Dictionary<ArtifactContentHandle, VerifiedArtifactContent>();
+        try
+        {
+            foreach (var pair in _roots)
+                proofs.Add(pair.Key, await VerifiedArtifactContent.CreateAsync(pair.Value, token, _allowedPaths).ConfigureAwait(false));
+            return FromVerified(_roots, proofs);
+        }
+        catch { foreach (var proof in proofs.Values) proof.Dispose(); throw; }
+    }
+
+    internal (string Sha256, long Size) ProtectedFacts(ArtifactContentHandle handle)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var proof = _verified[handle]; proof.RequireRoot(RequireRoot(handle)); return (proof.Sha256, proof.Size);
+    }
+
     public ValueTask DisposeAsync()
     {
         if (_disposed) return ValueTask.CompletedTask;
@@ -298,6 +318,44 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
             _openStreams++;
             return ValueTask.FromResult<Stream>(new QuotaWriteStream(stream, ReserveBytes, StreamClosed, count => ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(_root, count))));
         }
+    }
+
+    // Trusted Host transports write directly into an allocated path. Reserve both quotas before I/O;
+    // the common import transaction verifies ciphertext and decoded contents before publication.
+    internal async Task WriteExternalFileAsync(ArtifactStagingHandle staging, string relativePath, long length,
+        Func<string, CancellationToken, Task> write, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        string path;
+        lock (_allocations)
+        {
+            ThrowIfSealed();
+            if (!_allocations.TryGetValue(staging, out var allocation)) throw new InvalidOperationException("Unknown staging handle.");
+            var normalized = ArtifactPathRules.NormalizeRelativePath(relativePath);
+            if (length < 0 || length > _maximumBytes - _reservedBytes || _reservedFiles >= _maximumFiles)
+                throw new IOException("Artifact staging quota exceeded.");
+            if (!allocation.Paths.Add(normalized)) throw new InvalidDataException("Duplicate staging path.");
+            path = ArtifactPathRules.ResolveUnderRoot(allocation.Path, normalized);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            HostArtifactReadService.EnsureNoReparsePoints(allocation.Path, path);
+            if (Interlocked.Add(ref _reservedBytes, length) > _maximumBytes)
+            {
+                Interlocked.Add(ref _reservedBytes, -length);
+                allocation.Paths.Remove(normalized);
+                throw new IOException("Artifact staging byte quota exceeded.");
+            }
+            _reservedFiles++;
+            _openStreams++;
+        }
+        try
+        {
+            using var reservation = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(path, length));
+            await write(path, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            HostArtifactReadService.EnsureNoReparsePoints(_root, path);
+            if (new FileInfo(path).Length != length) throw new InvalidDataException("Downloaded object length mismatch.");
+        }
+        finally { StreamClosed(); }
     }
 
     public async ValueTask<IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts>> SealAsync(

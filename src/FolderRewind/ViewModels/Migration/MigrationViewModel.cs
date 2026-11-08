@@ -41,7 +41,6 @@ public sealed class MigrationReviewViewModel : ObservableObject
     public string PreviewError { get => _previewError; private set => SetProperty(ref _previewError, value); }
     public bool CanSavePaths => _hasPathPreview && SelectedItems.Any();
     private void InvalidatePathPreview() { _hasPathPreview = false; OnPropertyChanged(nameof(CanSavePaths)); }
-    internal void SetMappingProjects(BackupConfig[] projects) => _mappingProjects = projects;
     public void PreviewPaths()
     {
         try

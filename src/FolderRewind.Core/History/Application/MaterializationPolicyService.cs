@@ -103,7 +103,7 @@ public sealed class MaterializationPolicyService
         }
         var checkpoints = await _runtime.Query.GetAllCheckpointsAsync(cancellationToken).ConfigureAwait(false);
         foreach (var checkpoint in checkpoints.Where(checkpoint =>
-                     checkpoint.Sources.Any(source => source.VersionId == versionId)))
+                     checkpoint.VersionId == versionId))
         {
             var checkpointTarget = new HistoryAnnotationTarget(
                 HistoryAnnotationTargetKind.Checkpoint,
@@ -123,7 +123,7 @@ public sealed class MaterializationPolicyService
             {
                 if (tip.TargetCheckpointId is not { } checkpointId) continue;
                 var checkpoint = await _runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false);
-                if (checkpoint?.Sources.Any(source => source.VersionId == versionId) == true)
+                if (checkpoint?.VersionId == versionId)
                 {
                     throw new MaterializationPolicyCommandException("Version is protected by a Branch tip.");
                 }
@@ -139,7 +139,7 @@ public sealed class MaterializationPolicyService
             var checkpoint = await _runtime.Query.GetCheckpointAsync(
                 checkpointId,
                 cancellationToken).ConfigureAwait(false);
-            if (checkpoint?.Sources.Any(source => source.VersionId == versionId) == true)
+            if (checkpoint?.VersionId == versionId)
             {
                 throw new MaterializationPolicyCommandException(
                     "Version is protected by an active Safety Snapshot.");
