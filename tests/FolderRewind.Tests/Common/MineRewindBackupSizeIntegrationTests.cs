@@ -7,6 +7,7 @@ using FolderRewind.Plugin.Runtime.Artifacts;
 using FolderRewind.Plugin.Runtime.Packaging;
 using FolderRewind.Services;
 using System.Collections.Immutable;
+using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -28,7 +29,16 @@ public sealed partial class MineRewindBackupSizeIntegrationTests
         finally { Directory.Delete(root, true); }
     }
 
-    private static async Task CaptureAsync(string root, bool encrypted)
+    [TestMethod]
+    public async Task DenseRegionFullSmartAndCheckpointRestoreExactFilesAndDirectories()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "MineRewindDenseTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try { await CaptureAsync(root, encrypted: false, dense: true); }
+        finally { Directory.Delete(root, true); }
+    }
+
+    private static async Task CaptureAsync(string root, bool encrypted, bool dense = false)
     {
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "AGENTS.md"))) repo = repo.Parent;
@@ -44,6 +54,13 @@ public sealed partial class MineRewindBackupSizeIntegrationTests
         var stable = new byte[1024 * 1024]; new Random(771).NextBytes(stable);
         await File.WriteAllBytesAsync(Path.Combine(sourcePath, "stable.bin"), stable);
         await File.WriteAllBytesAsync(Path.Combine(sourcePath, "changed.bin"), new byte[1024]);
+        if (dense)
+        {
+            Directory.CreateDirectory(Path.Combine(sourcePath, "region"));
+            Directory.CreateDirectory(Path.Combine(sourcePath, "empty"));
+            await File.WriteAllBytesAsync(Path.Combine(sourcePath, "level.dat"), new byte[] { 10, 0, 0, 0 });
+            await File.WriteAllBytesAsync(Path.Combine(sourcePath, "region", "r.100.100.mca"), DenseRegion(1));
+        }
         var source = SourceId.New();
         var folder = new FolderSnapshot(source.Value, sourcePath, "synthetic world", new Dictionary<StateOwnerId, ProviderStateSnapshot>());
         var config = new ConfigSnapshot(Guid.NewGuid().ToString("D"), new("test"), manifest.ConfigKinds[0].Kind, "test", [folder], new Dictionary<StateOwnerId, ProviderStateSnapshot>());
@@ -63,10 +80,22 @@ public sealed partial class MineRewindBackupSizeIntegrationTests
         {
             for (var step = 0; step < 3; step++)
             {
-                if (step == 1) await File.WriteAllBytesAsync(Path.Combine(sourcePath, "changed.bin"), new byte[2048]);
-                var files = Directory.GetFiles(sourcePath).ToImmutableSortedDictionary(path => Path.GetFileName(path)!,
+                if (step == 1)
+                {
+                    await File.WriteAllBytesAsync(Path.Combine(sourcePath, "changed.bin"), new byte[2048]);
+                    if (dense)
+                    {
+                        var regionPath = Path.Combine(sourcePath, "region", "r.100.100.mca");
+                        await File.WriteAllBytesAsync(regionPath, DenseRegion(2));
+                        File.SetLastWriteTimeUtc(regionPath, DateTime.UtcNow.AddSeconds(1));
+                    }
+                }
+                var files = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories).ToImmutableSortedDictionary(path => Path.GetRelativePath(sourcePath, path).Replace('\\', '/'),
                     path => new SourceCaptureFileState(new FileInfo(path).Length, File.GetLastWriteTimeUtc(path)), StringComparer.Ordinal);
-                var plan = FileChangeCapturePlan.Create(files!, baseline, EffectiveSourceBoundarySnapshot.All, step > 0, requestCheckpoint: step == 2);
+                var directories = Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories)
+                    .Select(path => Path.GetRelativePath(sourcePath, path).Replace('\\', '/')).Order(StringComparer.Ordinal).ToImmutableArray();
+                var plan = FileChangeCapturePlan.Create(files!, baseline, EffectiveSourceBoundarySnapshot.All, step > 0, requestCheckpoint: step == 2)
+                    with { Directories = directories };
                 var witness = new SourceCaptureBaselineCandidate(baseline?.Revision ?? -1, "", 0, files!);
                 var capture = await service.CaptureAsync(plan, config, folder, policy, sourcePath, EffectiveSourceBoundarySnapshot.All, witness, default);
                 try
@@ -89,6 +118,15 @@ public sealed partial class MineRewindBackupSizeIntegrationTests
                     else Assert.AreEqual(expectedAdded, expectedClosure, "Full/checkpoint output must be self-contained.");
                     var version = new SourceVersion(capture.ReservedVersionId!.Value, new(config.ConfigId), source, [], DateTimeOffset.UtcNow, null,
                         CaptureScope.FullSource, CaptureOutcome.Captured, [], new("world", sourcePath), capture.StateFingerprint, HistoryProvenance.Native("test"));
+                    Assert.AreEqual("minecraft-world-incremental", capture.RepresentationCandidate.Format);
+                    if (dense)
+                    {
+                        var backend = new NativePluginArtifactBackend(runtime, () => store, (_, _) => Task.FromResult(
+                            new NativeArtifactBinding(capture.RepresentationCandidate.ToFact(version.VersionId), config, folder)));
+                        var restored = Path.Combine(root, "restored-" + step);
+                        await backend.MaterializeAsync(rootId.Value, manifest.PluginId.Value, restored, default);
+                        RequireTree(sourcePath, restored, true);
+                    }
                     var observed = await NativeArtifactBackupSizeReader.ReadAsync(store, version, capture.RepresentationCandidate.ToFact(version.VersionId), default);
                     Assert.AreEqual(new BackupSizeStatistics(null, files.Values.Sum(f => f.Size), expectedClosure), observed);
                     if (step < 2)
@@ -99,13 +137,29 @@ public sealed partial class MineRewindBackupSizeIntegrationTests
                         Assert.AreEqual(expectedType, await NativeArtifactBackupSizeReader.ReadTypeAsync(store, version, oldRepresentation, default));
                     }
                     baseline = new(source, step, version.VersionId, capture.RepresentationCandidate.RepresentationId, RepresentationKind.PluginArtifact,
-                        capture.PayloadCandidate!.FileName, 0, files!, EffectiveSourceBoundarySnapshot.All.Fingerprint) { ArtifactRootId = rootId.Value };
+                        capture.PayloadCandidate!.FileName, 0, files!, EffectiveSourceBoundarySnapshot.All.Fingerprint)
+                        { ArtifactRootId = rootId.Value, Directories = directories };
                     previous = graph.Artifacts.Select(n => n.ArtifactId).ToHashSet();
                 }
                 finally { await capture.CommitParticipant!.AbortCommitAsync(default); }
             }
         }
         finally { await runtime.DeactivateAsync(manifest.PluginId); context.Unload(); }
+    }
+
+    private static byte[] DenseRegion(byte value)
+    {
+        var region = new byte[(1024 + 2) * 4096];
+        for (var slot = 0; slot < 1024; slot++)
+        {
+            var offset = (slot + 2) * 4096;
+            BinaryPrimitives.WriteUInt32BigEndian(region.AsSpan(slot * 4), (uint)((slot + 2) << 8 | 1));
+            BinaryPrimitives.WriteUInt32BigEndian(region.AsSpan(4096 + slot * 4), 1_700_000_000);
+            byte[] nbt = [10, 0, 0, 3, 0, 1, 118, 0, 0, 0, slot == 17 ? value : (byte)1, 0];
+            BinaryPrimitives.WriteInt32BigEndian(region.AsSpan(offset), nbt.Length + 1);
+            region[offset + 4] = 3; nbt.CopyTo(region, offset + 5);
+        }
+        return region;
     }
 
     // Stream loading keeps the exact bundled bytes while allowing deterministic Windows fixture cleanup.

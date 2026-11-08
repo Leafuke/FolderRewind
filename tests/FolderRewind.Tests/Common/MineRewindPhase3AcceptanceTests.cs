@@ -83,31 +83,10 @@ public sealed partial class MineRewindBackupSizeIntegrationTests
             await Measure("core-restore", () => codec.UnpackLogicalTreeAsync(archive, coreRestore, default));
             RequireTree(sourcePath, coreRestore, true);
 
-            if (File.Exists(Path.Combine(sourcePath, "level.dat")))
-            {
-                var oldStore = new NativeArtifactStore(Path.Combine(output, "legacy-store"), codec);
-                PreparedNativeArtifact? prepared = null;
-                await Measure("world-full-v1-transform", async () => prepared = await oldStore.PrepareAsync(runtime, config, folder,
-                    "old-version", "old-representation", sourcePath, policy, false, default));
-                await using (prepared!)
-                {
-                    await Measure("world-full-v1-envelope", () => prepared!.SealAndCommitGraphAsync(default));
-                    await using var read = await prepared!.OpenAsync(default);
-                    var materializer = prepared.Operation.Find<IRestoreMaterializerCapability>(_ => true)!;
-                    await using var workspace = await RestoreMaterializationWorkspace.CreateAsync(Path.Combine(output, "old-restore"));
-                    await Measure("world-full-v1-restore", async () =>
-                    {
-                        var result = await materializer.MaterializeAsync(new(config, folder, "old-version", prepared.Intent.Root, read.Artifacts,
-                            RestoreMode.Clean, RestoreMode.Clean, read.Read, workspace, new AcceptanceProgress()), prepared.Operation.Context);
-                        Assert.IsTrue(result.Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings);
-                    });
-                    RequireTree(sourcePath, workspace.RootPath, false); // Full v1 stores files; Host owns directory inventory.
-                }
-            }
             var store = new NativeArtifactStore(Path.Combine(output, "native-store"), codec);
             var service = new NativeArtifactIncrementalCaptureService(runtime, store, false);
             SourceCaptureBaseline? baseline = null;
-            // Repeated performance rounds isolate the two Full paths. Warmup/acceptance still
+            // Repeated performance rounds isolate Native Full. Warmup/acceptance still
             // performs Smart, checkpoint and every restore on each real snapshot.
             var steps = Environment.GetEnvironmentVariable("FOLDERREWIND_PHASE3_FULL_MEASUREMENTS_ONLY") == "1" ? 1 : 3;
             for (var step = 0; step < steps; step++)
