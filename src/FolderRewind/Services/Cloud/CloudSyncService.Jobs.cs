@@ -266,7 +266,7 @@ public static partial class CloudSyncService
                         .Select(e => e.Locator.AbsolutePath).FirstOrDefault(File.Exists));
             HistoryReplicaPayloadProtocol payloads = new(LocalPath);
             if (closure.Any(id => graph[id].Kind == RepresentationKind.PluginArtifact)) payloads = new NativeArtifactReplicaService(Plugins.V3.NativeArtifactHostService.Store(config),
-                new HistoryReplicaSyncService(runtime, transport, ct => metadata.SyncAsync(ct), new UploadOnlyRetirementGuard()))
+                new HistoryReplicaSyncService(runtime, transport, ct => metadata.SyncAsync(ct)))
                 .ForJob(runtime, job, LocalPath, config.Id);
             var result = await service.UploadClosureAsync(job.Representations, LocalPath, token, id => intents[id].ReplicaId,
                 async (manifest, ct) =>

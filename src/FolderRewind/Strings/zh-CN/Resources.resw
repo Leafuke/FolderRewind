@@ -1056,15 +1056,6 @@
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>继续兼容还原</value>
   </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
-    <value>还原前校验备份完整性</value>
-  </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
-    <value>开启 — 还原前先校验备份完整性</value>
-  </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
-    <value>关闭 — 跳过校验直接还原</value>
-  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>启用自动备份</value>
   </data>
@@ -3336,18 +3327,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="FolderManager_PinToTop.Text" xml:space="preserve">
     <value>置顶该文件夹</value>
   </data>
-  <data name="FirstLaunch_Title" xml:space="preserve">
-    <value>欢迎使用 FolderRewind！</value>
-  </data>
-  <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>不确定如何开始？可以观看 Bilibili 上的介绍视频快速上手。</value>
-  </data>
-  <data name="FirstLaunch_OpenVideo" xml:space="preserve">
-    <value>观看视频</value>
-  </data>
-  <data name="FirstLaunch_Skip" xml:space="preserve">
-    <value>跳过</value>
-  </data>
   <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
     <value>开发者 B 站主页</value>
   </data>
@@ -4543,18 +4522,6 @@ Pull Request：{1}</value>
   <data name="CloudSync_ConfigSync_HistoryImportFailed" xml:space="preserve">
     <value>当前配置的历史记录导入失败。</value>
   </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.Header" xml:space="preserve">
-    <value>同时同步历史记录</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OnContent" xml:space="preserve">
-    <value>开启</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OffContent" xml:space="preserve">
-    <value>关闭</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>自动上传备份成功后，同步上传当前配置的历史记录和活跃历史清单，便于其他设备识别已删除的旧备份。</value>
-  </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>默认远端基路径</value>
   </data>
@@ -5602,9 +5569,6 @@ Pull Request：{1}</value>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>失败回滚保护</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve"><value>还原前校验备份完整性</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_RestoreWhitelist.Header" xml:space="preserve"><value>还原白名单</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve"><value>启用自动备份</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_AutomationScope.Header" xml:space="preserve"><value>自动化作用范围</value></data>
@@ -5666,7 +5630,6 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>每个备份源保留最近版本数（0 为无限保留）</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前自动备份</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>失败回滚保护</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前校验备份完整性</value></data>
   <data name="ConfigSettingsDialog_AutoBackup_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>启用自动备份</value></data>
   <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>重复未发现变更后停止自动任务</value></data>
   <data name="ConfigSettingsDialog_BackupFilterMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份过滤模式</value></data>
@@ -5694,7 +5657,6 @@ Pull Request：{1}</value>
   <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>文件规则</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>仅普通还原使用此选项。恢复点供成功还原后反悔使用，失败回滚始终开启。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>还原出错时自动启动回滚。</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>执行还原时检查备份，损坏时停止操作。</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>备份后自动上传</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Description" xml:space="preserve"><value>将新版本上传到已连接的云存储。</value></data>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>

@@ -51,7 +51,6 @@ public sealed partial class CloudSetupViewModel
         StartMethod(provider.RequiresOpenList ? 0 : provider.Id == "webdav" ? 1 : 2);
         OnPropertyChanged(nameof(PresetHelp));
     }
-    public void UseNewLocalOpenList() => EnvironmentChoice = OpenListEnvironmentChoice.NewLocal;
     private void OnLocalEnvironmentChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(OpenListEnvironmentViewModel.ExecutablePath) or nameof(OpenListEnvironmentViewModel.ServiceBaseUri)

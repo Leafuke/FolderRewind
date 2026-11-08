@@ -321,16 +321,6 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             await PersistSelectionAsync(config, folder, request.Token);
     }
 
-    public void ClearCurrentSelection()
-    {
-        Suspend();
-        _currentConfig = null;
-        _currentFolder = null;
-        ClearPresentation();
-        ErrorMessage = string.Empty;
-        NotifyContextChanged();
-    }
-
     public void Suspend()
     {
         MigrationWorkflowCoordinator.Changed -= OnMigrationWorkflowChanged;
@@ -536,7 +526,6 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
         return recovered;
     }
-    public string? GetBackupFilePath(NativeHistoryVersionViewItem item) => item.LocalPath;
     public bool TryRevealBackupFile(NativeHistoryVersionViewItem item, out string? errorMessage)
     {
         errorMessage = null;

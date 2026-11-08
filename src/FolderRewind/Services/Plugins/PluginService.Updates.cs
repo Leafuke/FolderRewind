@@ -37,25 +37,6 @@ public static partial class PluginService
         }
     }
 
-    public static async Task CheckPluginUpdateAsync(
-        InstalledPluginInfo plugin,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(plugin);
-        var catalog = await PluginStoreService.GetOfficialCatalogAsync(ct).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(catalog.ErrorMessage))
-        {
-            LogService.LogWarning(
-                I18n.Format("PluginService_CheckUpdateFailed", plugin.Id, catalog.ErrorMessage),
-                nameof(PluginService));
-            return;
-        }
-
-        var item = catalog.Items.FirstOrDefault(candidate =>
-            string.Equals(candidate.PluginId, plugin.Id, StringComparison.OrdinalIgnoreCase));
-        await UiDispatcherService.RunOnUiAsync(() => ApplyCatalogUpdate(plugin, item)).ConfigureAwait(false);
-    }
-
     public static async Task<PluginStoreInstallResult> UpdatePluginFromUrlAsync(
         InstalledPluginInfo plugin,
         CancellationToken ct = default)

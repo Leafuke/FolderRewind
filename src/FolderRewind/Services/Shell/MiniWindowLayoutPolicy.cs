@@ -40,12 +40,6 @@ namespace FolderRewind.Services
             return Math.Max(1, (int)Math.Round(value * safeScale, MidpointRounding.AwayFromZero));
         }
 
-        public static MiniWindowPixelRect GetCollapsedBounds(MiniWindowPixelPoint anchor, double scale)
-        {
-            var size = DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
-            return new MiniWindowPixelRect(anchor.X, anchor.Y, size, size);
-        }
-
         public static MiniWindowLayoutResult GetExpandedBounds(
             MiniWindowPixelPoint anchor,
             MiniWindowPixelRect workArea,

@@ -14,12 +14,6 @@ public interface IHistoryMetadataTransport
     Task<IReadOnlyList<PackId>> ListPacksAsync(HistoryConfigId configId, CancellationToken cancellationToken);
     Task<byte[]> DownloadPackAsync(HistoryConfigId configId, PackId packId, CancellationToken cancellationToken);
     Task UploadPackOnceAsync(HistoryConfigId configId, PackId packId, byte[] bytes, CancellationToken cancellationToken);
-    Task<bool> LegacyHistoryExistsAsync(HistoryConfigId configId, CancellationToken cancellationToken);
-}
-
-public interface IHistoryLegacyCloudBridge
-{
-    Task<bool> TryBridgeAsync(CancellationToken cancellationToken);
 }
 
 public enum HistoryMetadataSyncStatus

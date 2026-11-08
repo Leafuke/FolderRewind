@@ -26,12 +26,6 @@ namespace FolderRewind.Services
         internal static string ReleaseNotes => Metadata is { } release ? ExtractLocalizedReleaseNotes(release.Body, IsChineseUi()) : "";
         internal static event Action? Changed;
 
-        public static async Task<UpdateCheckResult?> CheckForUpdateAsync(CancellationToken ct = default)
-        {
-            await CheckAsync(false, ct);
-            return Latest;
-        }
-
         internal static Task CheckAsync(bool manual, CancellationToken ct = default)
         {
             lock (Sync)

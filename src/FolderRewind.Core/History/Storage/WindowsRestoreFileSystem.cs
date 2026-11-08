@@ -209,7 +209,6 @@ internal static class WindowsRestoreFileSystem
     [StructLayout(LayoutKind.Sequential)] private struct UnicodeString { internal ushort Length, MaximumLength; internal IntPtr Buffer; }
     [StructLayout(LayoutKind.Sequential)] private struct ObjectAttributes { internal uint Length; internal IntPtr Root, Name; internal uint Attributes; internal IntPtr Security, SecurityQuality; }
     [StructLayout(LayoutKind.Sequential)] private struct IoStatusBlock { internal IntPtr Status; internal nuint Information; }
-    [StructLayout(LayoutKind.Sequential)] private struct FileBasicInfo { internal long Creation, Access, Write, Change; internal uint Attributes; }
     [StructLayout(LayoutKind.Sequential)] private struct FileInformation
     {
         internal uint Attributes; internal System.Runtime.InteropServices.ComTypes.FILETIME Creation, Access, Write;
@@ -219,14 +218,10 @@ internal static class WindowsRestoreFileSystem
     private static extern SafeFileHandle CreateFileW(string path, uint access, uint share, IntPtr security, uint creation, uint flags, IntPtr template);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, int kind, out FileIdInfo info, uint size);
-    [DllImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetRawInformation(SafeFileHandle handle, int kind, IntPtr info, uint size);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out FileInformation info);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetFileInformationByHandle(SafeFileHandle handle, int kind, IntPtr info, uint size);
-    [DllImport("kernel32.dll", EntryPoint = "SetFileInformationByHandle", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetBasicInformation(SafeFileHandle handle, int kind, ref FileBasicInfo info, uint size);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetVolumeInformationByHandleW(SafeFileHandle handle, StringBuilder? name, uint nameSize,
         out uint serial, out uint maxComponentLength, out uint flags, StringBuilder fileSystem, uint fileSystemSize);

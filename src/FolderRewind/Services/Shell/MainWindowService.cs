@@ -217,24 +217,6 @@ namespace FolderRewind.Services
             }
         }
 
-        public static bool IsMainWindowVisible()
-        {
-            try
-            {
-                var window = GetMainWindow();
-                if (window?.AppWindow != null)
-                {
-                    return window.AppWindow.IsVisible;
-                }
-
-                return true;
-            }
-            catch
-            {
-                return true;
-            }
-        }
-
         public static Task<string?> PickFolderPathAsync(
             string title,
             string settingsIdentifier,

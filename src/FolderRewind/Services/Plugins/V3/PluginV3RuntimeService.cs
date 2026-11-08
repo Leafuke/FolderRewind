@@ -77,12 +77,6 @@ public static class PluginV3RuntimeService
     public static bool IsActive(PluginId pluginId)
         => Runtime.GetSnapshot(pluginId).State == PluginRuntimeState.Active;
 
-    public static IReadOnlyList<PluginId> GetCompletionObservers()
-        => Manifests
-            .Where(pair => pair.Value.HasBackupCompletionObserver && IsActive(pair.Key))
-            .Select(pair => pair.Key)
-            .ToArray();
-
     public static IReadOnlyList<PluginId> GetActivePlugins()
         => Manifests.Keys.Where(IsActive).OrderBy(value => value.Value, StringComparer.Ordinal).ToArray();
 

@@ -56,42 +56,6 @@ internal static class PluginV3ModelMapper
         return (clone, clonedFolder);
     }
 
-    public static OperationDiagnosticRecord ToRecord(PluginDiagnostic diagnostic)
-        => new()
-        {
-            Code = diagnostic.Code,
-            Severity = diagnostic.Severity switch
-            {
-                DiagnosticSeverity.Warning => PersistedDiagnosticSeverity.Warning,
-                DiagnosticSeverity.Error => PersistedDiagnosticSeverity.Error,
-                _ => PersistedDiagnosticSeverity.Information
-            },
-            Capability = diagnostic.Capability,
-            Owner = diagnostic.Owner,
-            Arguments = new Dictionary<string, string>(diagnostic.Arguments, StringComparer.Ordinal)
-        };
-
-    public static PersistedOperationOutcome ToPersisted(OperationOutcome outcome)
-        => outcome switch
-        {
-            OperationOutcome.Success => PersistedOperationOutcome.Success,
-            OperationOutcome.SuccessWithWarnings => PersistedOperationOutcome.SuccessWithWarnings,
-            OperationOutcome.NoChanges => PersistedOperationOutcome.NoChanges,
-            OperationOutcome.Canceled => PersistedOperationOutcome.Canceled,
-            OperationOutcome.Blocked => PersistedOperationOutcome.Blocked,
-            _ => PersistedOperationOutcome.Failed
-        };
-
-    public static CoreCaptureMode ToCaptureMode(BackupMode mode, string fileName)
-        => mode switch
-        {
-            BackupMode.Smart when fileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase)
-                => CoreCaptureMode.Full,
-            BackupMode.Smart => CoreCaptureMode.Smart,
-            BackupMode.Rolling => CoreCaptureMode.Rolling,
-            _ => CoreCaptureMode.Full
-        };
-
     private static IReadOnlyDictionary<StateOwnerId, ProviderStateSnapshot> ToStates(
         string configId,
         Guid? folderId,

@@ -16,46 +16,12 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
-        // 过滤规则集中在这里：备份扫描和插件热备份都会复用同一套黑名单语义。
-
-        /// <summary>
-        /// 检查文件是否在黑名单中（参考 MineBackup 的 is_blacklisted 实现）
-        /// </summary>
-        /// <param name="fileToCheck">要检查的文件路径</param>
-        /// <param name="backupSourceRoot">备份源根目录</param>
-        /// <param name="originalSourceRoot">原始源目录（热备份时可能不同）</param>
-        /// <param name="blacklist">黑名单规则列表</param>
-        /// <param name="useRegex">是否启用正则表达式</param>
-        /// <returns>如果文件被黑名单匹配则返回 true</returns>
-        public static bool IsBlacklisted(
-            string fileToCheck,
-            string backupSourceRoot,
-            string originalSourceRoot,
-            IEnumerable<string>? blacklist,
-            bool useRegex = false)
-        {
-            if (string.IsNullOrWhiteSpace(fileToCheck) || blacklist == null)
-            {
-                return false;
-            }
-
-            return PathRuleMatcher.CreateForBackup(
-                blacklist,
-                backupSourceRoot,
-                originalSourceRoot,
-                useRegex).IsMatch(fileToCheck);
-        }
 
         public static bool HasBackupWhitelist(FilterSettings? filters)
         {
             return filters?.BackupFilterMode == BackupFilterMode.Whitelist
                 && filters.BackupWhitelist != null
                 && filters.BackupWhitelist.Any(rule => !string.IsNullOrWhiteSpace(rule.Pattern));
-        }
-
-        public static bool IsPartialBackupFilter(FilterSettings? filters)
-        {
-            return HasBackupWhitelist(filters);
         }
 
         public static bool TryValidateFilterRules(FilterSettings? filters, out string errorMessage)
@@ -103,28 +69,6 @@ namespace FolderRewind.Services
                 errorMessage = ex.Message;
                 return false;
             }
-        }
-
-        /// <summary>
-        /// 检查文件是否命中备份白名单。白名单只决定“纳入备份”，不会参与 Clean 还原保护。
-        /// </summary>
-        public static bool IsWhitelistedForBackup(
-            string fileToCheck,
-            string backupSourceRoot,
-            string originalSourceRoot,
-            IEnumerable<string>? whitelist,
-            bool useRegex = false)
-        {
-            if (string.IsNullOrWhiteSpace(fileToCheck) || whitelist == null)
-            {
-                return false;
-            }
-
-            return PathRuleMatcher.CreateForBackup(
-                whitelist,
-                backupSourceRoot,
-                originalSourceRoot,
-                useRegex).IsMatch(fileToCheck);
         }
 
         public static bool ShouldIncludeInBackup(
@@ -178,24 +122,6 @@ namespace FolderRewind.Services
         private static bool MayDescendForBackup(string relative, string root, FilterSettings? filters, PathRuleMatcher? matcher)
             => filters is null || matcher is null || (filters.BackupFilterMode == BackupFilterMode.Whitelist
                 ? matcher.MayContainDescendant(Path.Combine(root, relative)) : !matcher.ExcludesWholeSubtree(Path.Combine(root, relative)));
-
-        /// <summary>
-        /// 过滤文件列表，按当前备份过滤模式保留实际应进入归档的文件。
-        /// </summary>
-        public static List<string> FilterBlacklist(
-            IEnumerable<string> files,
-            string backupSourceRoot,
-            string originalSourceRoot,
-            FilterSettings? filters)
-        {
-            if (filters == null)
-            {
-                return files.ToList();
-            }
-
-            var matcher = CreateBackupMatcher(backupSourceRoot, originalSourceRoot, filters);
-            return files.Where(file => ShouldIncludeInBackup(file, filters, matcher)).ToList();
-        }
 
         private static List<string> EnumerateBackupRelativeFiles(
             string path,

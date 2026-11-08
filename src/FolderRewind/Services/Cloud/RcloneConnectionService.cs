@@ -56,9 +56,6 @@ public static class RcloneConnectionService
         return uri;
     }
 
-    public static IReadOnlyList<RcloneRemoteOption> ListRemotes(string configPath)
-        => InspectRemotes(configPath).Remotes;
-
     public static RcloneRemoteCatalog InspectRemotes(string configPath)
     {
         byte[] bytes;

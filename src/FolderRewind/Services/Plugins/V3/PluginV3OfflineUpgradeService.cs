@@ -231,10 +231,6 @@ internal static class PluginV3OfflineUpgradeService
         }
     }
 
-    public static bool ShouldBlockLegacyExecution(string pluginId)
-        => string.Equals(pluginId, MineRewindId, StringComparison.OrdinalIgnoreCase)
-           && HasFlatPayload(Path.Combine(PluginV3PackageService.PluginsRoot, MineRewindId));
-
     public static async ValueTask SuppressAutomaticMigrationAsync(
         PluginId pluginId,
         CancellationToken cancellationToken = default)

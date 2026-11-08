@@ -256,12 +256,6 @@ public sealed partial class HistoryRestoreService
         }
     }
 
-    internal async Task<HistoryWorkingStateComparison> CompareReadOnlyAsync(SourceVersion version, HistoryRestoreSourceBinding binding, CancellationToken token)
-    {
-        using var evidence = await CompareReadOnlyWithEvidenceAsync(version, binding, token).ConfigureAwait(false);
-        return evidence.Comparison;
-    }
-
     internal async Task<HistoryWorkingStateEvidence> CompareReadOnlyWithEvidenceAsync(SourceVersion version, HistoryRestoreSourceBinding binding, CancellationToken token)
     {
         var graph = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);

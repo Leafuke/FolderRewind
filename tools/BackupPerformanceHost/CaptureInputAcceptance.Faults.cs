@@ -63,7 +63,7 @@ internal static partial class CaptureInputAcceptance
                 File.WriteAllText(Path.Combine(source, "unchanged"), "must survive sparse fallback");
                 var config = new BackupConfig { Name = "fault fixture", DestinationPath = Path.Combine(Root, "fault-" + copy, "backups") };
                 var folder = new ManagedFolder { Path = source, DisplayName = "fault fixture" }; config.SourceFolders.Add(folder);
-                config.Archive.Mode = BackupMode.Smart; config.Archive.CopySourceBeforeArchive = copy;
+                config.Archive.Mode = BackupMode.Smart; config.Archive.SourceReadMode = copy ? BackupSourceReadMode.AlwaysCopy : BackupSourceReadMode.DirectOnly;
                 config.ArtifactTransformPolicy = new() { ExperimentalEnabled = true, Transformer = new() { PluginId = id.Value, TransformerId = "capture" },
                     FailureBehavior = PersistedArtifactTransformFailureBehavior.KeepPrimaryWithWarnings };
                 config.ArtifactTransformPolicy.Parameters["representation"] = JsonSerializer.SerializeToElement("incremental-v1");

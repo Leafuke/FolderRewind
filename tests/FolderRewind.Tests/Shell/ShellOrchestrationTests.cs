@@ -29,41 +29,6 @@ public sealed class ShellOrchestrationTests
     }
 
     [TestMethod]
-    public void PriorityNotificationPreservesRemainingFifoOrder()
-    {
-        var queue = new PriorityNotificationQueue<string>();
-        queue.Enqueue("first"); queue.Enqueue("second"); queue.EnqueueFirst("error");
-        Assert.IsTrue(queue.TryDequeue(out var item)); Assert.AreEqual("error", item);
-        Assert.IsTrue(queue.TryDequeue(out item)); Assert.AreEqual("first", item);
-        Assert.IsTrue(queue.TryDequeue(out item)); Assert.AreEqual("second", item);
-        Assert.IsFalse(queue.TryDequeue(out _));
-    }
-
-    [TestMethod]
-    public void HoverPausesRemainingDurationWithoutCountingHoverTime()
-    {
-        var time = new ManualTime();
-        var countdown = new NotificationCountdown(time);
-        countdown.Start(6000);
-        time.Timestamp += 2000;
-        countdown.Pause();
-        Assert.AreEqual(4000, countdown.RemainingMilliseconds);
-        time.Timestamp += 50000;
-        countdown.Resume();
-        time.Timestamp += 1000;
-        countdown.Pause();
-        Assert.AreEqual(3000, countdown.RemainingMilliseconds);
-    }
-
-    [TestMethod]
-    public void PersistentNotificationDoesNotAcquireTimeoutOnHover()
-    {
-        var countdown = new NotificationCountdown(new ManualTime());
-        countdown.Start(0); countdown.Pause(); countdown.Resume();
-        Assert.AreEqual(0, countdown.RemainingMilliseconds);
-    }
-
-    [TestMethod]
     public void ForcedExitDoesNotConsultSettingsOrShowDialog()
     {
         var controller = new WindowCloseController(() => throw new Exception(), () => throw new Exception(), _ => throw new Exception(), () => Assert.Fail(), () => Assert.Fail(), _ => Assert.Fail());
@@ -113,12 +78,5 @@ public sealed class ShellOrchestrationTests
         var controller = new WindowCloseController(() => WindowCloseChoice.Hide, () => throw new Exception(), _ => throw new Exception(), () => hidden = true, () => Assert.Fail(), _ => Assert.Fail());
         Assert.IsTrue(controller.HandleClosing(false));
         Assert.IsTrue(hidden);
-    }
-
-    private sealed class ManualTime : TimeProvider
-    {
-        public long Timestamp;
-        public override long TimestampFrequency => 1000;
-        public override long GetTimestamp() => Timestamp;
     }
 }

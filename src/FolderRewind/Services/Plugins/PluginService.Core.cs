@@ -150,8 +150,4 @@ public static partial class PluginService
             UseShellExecute = true
         });
     }
-
-    internal static InstalledPluginInfo? FindInstalled(string pluginId)
-        => Installed.FirstOrDefault(item =>
-            string.Equals(item.Id, pluginId, StringComparison.OrdinalIgnoreCase));
 }

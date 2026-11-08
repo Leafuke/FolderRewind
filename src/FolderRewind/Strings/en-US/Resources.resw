@@ -1056,15 +1056,6 @@ Duplicate folder names are blocked within the same backup project so different d
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>Continue fallback restore</value>
   </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
-    <value>Verify backup integrity before restore</value>
-  </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
-    <value>On — verify backup integrity before restoring</value>
-  </data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
-    <value>Off — skip verification</value>
-  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>Enable auto backup</value>
   </data>
@@ -3336,18 +3327,6 @@ Expected SHA-256:
   <data name="FolderManager_PinToTop.Text" xml:space="preserve">
     <value>Pin to top</value>
   </data>
-  <data name="FirstLaunch_Title" xml:space="preserve">
-    <value>Welcome to FolderRewind!</value>
-  </data>
-  <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>Not sure where to start? Read the English documentation on the official website.</value>
-  </data>
-  <data name="FirstLaunch_OpenVideo" xml:space="preserve">
-    <value>Read docs</value>
-  </data>
-  <data name="FirstLaunch_Skip" xml:space="preserve">
-    <value>Skip</value>
-  </data>
   <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
     <value>Bilibili Page</value>
   </data>
@@ -4543,18 +4522,6 @@ Pull request: {1}</value>
   <data name="CloudSync_ConfigSync_HistoryImportFailed" xml:space="preserve">
     <value>Failed to import history for the current configuration.</value>
   </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.Header" xml:space="preserve">
-    <value>Also sync history</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OnContent" xml:space="preserve">
-    <value>On</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OffContent" xml:space="preserve">
-    <value>Off</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>After each successful auto-upload, sync the current configuration's history and active-history manifest. This helps other devices avoid re-downloading old backups that were already deleted locally.</value>
-  </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>Default remote base path</value>
   </data>
@@ -5602,9 +5569,6 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>Restore rollback protection</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_RestoreWhitelist.Header" xml:space="preserve"><value>Restore whitelist</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve"><value>Enable auto backup</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_AutomationScope.Header" xml:space="preserve"><value>Automation scope</value></data>
@@ -5666,7 +5630,6 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep recent versions per source (0 for unlimited)</value></data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup before restore</value></data>
   <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Restore rollback protection</value></data>
-  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
   <data name="ConfigSettingsDialog_AutoBackup_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Enable auto backup</value></data>
   <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Stop auto task after repeated no changes</value></data>
   <data name="ConfigSettingsDialog_BackupFilterMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup filter mode</value></data>
@@ -5694,7 +5657,6 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>File rules</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Used only for ordinary restore. The snapshot lets you undo a successful restore; failure rollback is always enabled.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>Rollback starts automatically if a restore fails.</value></data>
-  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>Check backups during restoration and stop if damaged.</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>Upload after backup</value></data>
   <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Description" xml:space="preserve"><value>Upload new versions to the connected cloud storage.</value></data>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OnContent" xml:space="preserve"><value>On</value></data>

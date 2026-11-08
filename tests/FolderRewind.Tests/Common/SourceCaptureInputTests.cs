@@ -1,7 +1,6 @@
 using FolderRewind.History.Capture;
 using FolderRewind.Models;
 using FolderRewind.Services;
-using System.Text.Json;
 
 namespace FolderRewind.Tests;
 
@@ -27,14 +26,6 @@ public sealed class SourceCaptureInputTests
     private SourceCaptureInput Inventory()
         => new(Source, Directory.GetFiles(Source).ToDictionary(path => Path.GetFileName(path),
             path => new SourceCaptureFileState(new FileInfo(path).Length, File.GetLastWriteTimeUtc(path))), [], null, "boundary");
-
-    [TestMethod]
-    public void MissingAndExplicitCopySettingsRoundTrip()
-    {
-        Assert.IsFalse(JsonSerializer.Deserialize<ArchiveSettings>("{}")!.CopySourceBeforeArchive);
-        var copy = JsonSerializer.Deserialize<ArchiveSettings>(JsonSerializer.Serialize(new ArchiveSettings { CopySourceBeforeArchive = true }))!;
-        Assert.IsTrue(copy.CopySourceBeforeArchive);
-    }
 
     [TestMethod]
     public async Task SparseCopyRetainsCompleteInventoryAndDoesNotReadUnchangedFile()

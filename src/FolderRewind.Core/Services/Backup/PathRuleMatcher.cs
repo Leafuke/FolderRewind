@@ -201,9 +201,6 @@ internal sealed class PathRuleMatcher
             string.Empty,
             enableRegexRules: true);
 
-    public static void ValidateRestoreRules(IEnumerable<string>? rules)
-        => _ = CreateForRestore(rules, string.Empty);
-
     // 字面规则匹配路径段且覆盖其后代；任意正则/通配符命中本目录不代表覆盖子树。
     internal bool ExcludesWholeSubtree(string directory)
     {

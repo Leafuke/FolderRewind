@@ -98,8 +98,6 @@ public sealed class PluginStorePageViewModel : ViewModelBase
         await LoadCommand.ExecuteAsync(null);
     }
 
-    public void CancelPendingOperations() => _operations.Cancel();
-
     private IAsyncRelayCommand PageCommand(Func<CancellationToken, Func<bool>, Task> action)
         => new AsyncRelayCommand(() => RunAsync(action), () => CanLoad);
 

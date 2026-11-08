@@ -113,12 +113,6 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         while (Diagnostics.Count >= OnboardingOperationBudgets.RecentDiagnostics) Diagnostics.RemoveAt(0);
         Diagnostics.Add(new(new(code, state, message, context.CheckedAtUtc, []), context));
     }
-    public bool IsDiagnosticCurrent(OnboardingDiagnosticItem item)
-    {
-        var current = _config is null ? null : ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(c => c.Id == _config.Id);
-        return !_disposed && _diagnosticRevision == _revision && Diagnostics.Contains(item)
-            && (_config is null || current is not null && OnboardingRepairPolicy.IsCurrent(item.Context, current.Id, "", NativeHistoryConfigLease.Signature(current)));
-    }
     public bool IsProject => _config is not null && !_manageConnection;
     public bool IsRecovery => _config is null && !_manageConnection;
     public ObservableCollection<string> RecoveryRepositories { get; } = [];

@@ -114,11 +114,6 @@ public sealed partial class CloudSetupViewModel
         OnPropertyChanged(nameof(LocalOpenListSummary));
         Message = I18n.GetString("OpenList_StartedNeedsWebDav");
     }
-    public void UseLocalOpenList()
-    {
-        EnvironmentChoice = OpenListEnvironmentChoice.ExistingLocal;
-    }
-    public void UseExternalOpenList() => EnvironmentChoice = OpenListEnvironmentChoice.External;
     public async Task DetectConfigurationAsync(CancellationToken token)
     {
         if (!Path.IsPathFullyQualified(Executable) || !File.Exists(Executable)) throw RcloneConnectionDiagnostics.InvalidFailure("cloud.tool-unavailable", "CloudFailure_Tool");

@@ -24,26 +24,9 @@ namespace FolderRewind.Services
         private const string DownloadTaskIconGlyph = "\uE896";
         private const int MaxRetryCount = 5;
         private const int MaxTimeoutSeconds = 86400;
-        private const int MaxLogLength = 4096;
         private const string InternalCloudStateDirectoryName = "_folderrewind";
         // 故意串行执行云命令，避免并发 rclone 时任务状态、日志和元数据写入互相打架。
         private static readonly SemaphoreSlim CommandSemaphore = new(1, 1);
-
-        private sealed class CloudCommandContext
-        {
-            public required string ConfigName { get; init; }
-            public required string ConfigId { get; init; }
-            public required string FolderName { get; init; }
-            public required string SourcePath { get; init; }
-            public required string DestinationPath { get; init; }
-            public required string BackupSubDir { get; init; }
-            public required string MetadataDir { get; init; }
-            public required string ArchiveFileName { get; init; }
-            public required string ArchiveFilePath { get; init; }
-            public required string BackupMode { get; init; }
-            public required string Comment { get; init; }
-            public required string Timestamp { get; init; }
-        }
 
         private sealed class ResolvedCommand
         {
@@ -61,55 +44,6 @@ namespace FolderRewind.Services
             JsonSerializer.Serialize(stream, value, typeInfo);
         }
 
-        public static string VariablesHelpText => string.Join(Environment.NewLine, new[]
-        {
-            "{ArchiveFilePath}",
-            "{ArchiveFileName}",
-            "{BackupSubDir}",
-            "{MetadataDir}",
-            "{ConfigName}",
-            "{ConfigId}",
-            "{FolderName}",
-            "{SourcePath}",
-            "{DestinationPath}",
-            "{BackupMode}",
-            "{Comment}",
-            "{Timestamp}",
-            "{RemoteBasePath}"
-        });
-
-        public static void ApplyRecommendedTemplate(CloudSettings? settings)
-        {
-            if (settings == null)
-            {
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(settings.ExecutablePath))
-            {
-                settings.ExecutablePath = DefaultRcloneExecutable;
-            }
-
-            if (string.IsNullOrWhiteSpace(settings.RemoteBasePath))
-            {
-                settings.RemoteBasePath = "remote:FolderRewind";
-            }
-
-            settings.ArgumentsTemplate = GetRecommendedArgumentsTemplate(settings.TemplateKind);
-        }
-
-        public static string BuildPreview(BackupConfig? config)
-        {
-            if (config?.Cloud == null)
-            {
-                return string.Empty;
-            }
-
-            var context = BuildSampleContext(config);
-            var resolved = ResolveCommand(config.Cloud, context);
-            return resolved.DisplayPreview;
-        }
-
         public static bool CanUseHistoryCloudActions(BackupConfig? config)
         {
             return CanUseManualCloudActions(config);
@@ -124,23 +58,6 @@ namespace FolderRewind.Services
         public static string GetEffectiveExecutablePath(BackupConfig? config)
         {
             return ResolveRcloneExecutable(config?.Cloud);
-        }
-
-        public static string GetSuggestedRemoteBasePath()
-        {
-            string globalDefault = ConfigService.CurrentConfig?.GlobalSettings?.DefaultCloudRemoteBasePath?.Trim() ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(globalDefault))
-            {
-                return globalDefault;
-            }
-
-            var configured = ConfigService.CurrentConfig?.BackupConfigs?
-                .Select(cfg => cfg?.Cloud?.RemoteBasePath?.Trim())
-                .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
-
-            return string.IsNullOrWhiteSpace(configured)
-                ? "remote:FolderRewind"
-                : configured!;
         }
 
 
@@ -165,13 +82,6 @@ namespace FolderRewind.Services
         private static string BuildRcloneCopyToArguments(string sourcePath, string destinationPath)
         {
             return $"copyto {Quote(sourcePath)} {Quote(destinationPath)}";
-        }
-
-
-
-        private static string BuildRcloneListFileArguments(string remotePath)
-        {
-            return $"lsf {Quote(remotePath)} --files-only --max-depth 1";
         }
 
         private static (string Executable, string Arguments) WrapScriptExecutionIfNeeded(string executablePath, string arguments)
@@ -217,56 +127,6 @@ namespace FolderRewind.Services
             }
 
             return value.StartsWith('"') && value.EndsWith('"') ? value : $"\"{value}\"";
-        }
-
-        private static Dictionary<string, string> BuildVariables(CloudCommandContext context, string? remoteBasePath)
-        {
-            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["ArchiveFilePath"] = context.ArchiveFilePath,
-                ["ArchiveFileName"] = context.ArchiveFileName,
-                ["BackupSubDir"] = context.BackupSubDir,
-                ["MetadataDir"] = context.MetadataDir,
-                ["ConfigName"] = context.ConfigName,
-                ["ConfigId"] = context.ConfigId,
-                ["FolderName"] = context.FolderName,
-                ["SourcePath"] = context.SourcePath,
-                ["DestinationPath"] = context.DestinationPath,
-                ["BackupMode"] = context.BackupMode,
-                ["Comment"] = context.Comment,
-                ["Timestamp"] = context.Timestamp,
-                ["RemoteBasePath"] = string.IsNullOrWhiteSpace(remoteBasePath) ? "remote:FolderRewind" : remoteBasePath.Trim().TrimEnd('/')
-            };
-        }
-
-        private static string ReplaceVariables(string input, IReadOnlyDictionary<string, string> variables)
-        {
-            if (string.IsNullOrWhiteSpace(input) || variables.Count == 0)
-            {
-                return input ?? string.Empty;
-            }
-
-            string result = input;
-            foreach (var pair in variables)
-            {
-                result = Regex.Replace(
-                    result,
-                    Regex.Escape("{" + pair.Key + "}"),
-                    _ => pair.Value ?? string.Empty,
-                    RegexOptions.IgnoreCase);
-            }
-
-            return result;
-        }
-
-        private static string GetRecommendedArgumentsTemplate(CloudTemplateKind templateKind)
-        {
-            return templateKind switch
-            {
-                CloudTemplateKind.UploadBackupDirectory => "copy \"{BackupSubDir}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}\" --exclude \".folderrewind-preview/**\"",
-                CloudTemplateKind.Custom => string.Empty,
-                _ => "copyto \"{ArchiveFilePath}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}/{ArchiveFileName}\""
-            };
         }
 
         private static Task RunOnUIAsync(Action action)

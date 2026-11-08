@@ -11,7 +11,6 @@ public sealed class ProductMessageState
     public bool Archived { get; set; }
     public bool Ignored { get; set; }
     public bool Discovered { get; set; }
-    public bool AlertDelivered { get; set; }
     public string ReminderRevision { get; set; } = "";
     public DateTimeOffset? SnoozedUntil { get; set; }
     public DateTimeOffset ExpiresUtc { get; set; }

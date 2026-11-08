@@ -26,7 +26,7 @@ internal static partial class CaptureInputAcceptance
         var global = ConfigService.CurrentConfig.GlobalSettings;
         global.EnableKnotLink = false; global.AutoStartKnotLinkServer = false;
         global.EnableNotices = false; global.EnableUpdateReminder = false; global.FileSizeWarningThresholdKB = 0;
-        global.HasShownFirstLaunchGuide = true; global.HasTriggeredInitialCoreValidation = true;
+        global.HasTriggeredInitialCoreValidation = true;
         global.Plugins.AutoCheckUpdates = false;
         global.Plugins.TypedSettings[plugin.Value] = new() { ["AutoDiscoverSaves"] = JsonSerializer.SerializeToElement(false), ["PreservePlayerData"] = JsonSerializer.SerializeToElement(false) };
         global.Plugins.EnabledIntent[plugin.Value] = true;
@@ -62,7 +62,7 @@ internal static partial class CaptureInputAcceptance
             Kind = new() { OwnerId = "com.folderrewind.minerewind", KindId = "minecraft-saves" }, RequiredPluginId = "com.folderrewind.minerewind" };
         var folder = new ManagedFolder { Path = source, DisplayName = "synthetic" }; config.SourceFolders.Add(folder);
         config.Filters.Blacklist.Add(FolderRewind.Plugin.Abstractions.PathFilterRule.Legacy("*.cache"));
-        config.Archive.Mode = mode; config.Archive.CopySourceBeforeArchive = copy;
+        config.Archive.Mode = mode; config.Archive.SourceReadMode = copy ? BackupSourceReadMode.AlwaysCopy : BackupSourceReadMode.DirectOnly;
         config.Archive.MaxSmartBackupsPerFull = 0; config.Archive.CompressionLevel = 1;
         config.Archive.BackupBeforeRestore = false; config.Archive.QuickRestoreSafetySnapshotEnabled = false;
         if (!native)
@@ -248,17 +248,17 @@ internal static partial class CaptureInputAcceptance
         var signature = assembly.GetType("FolderRewind.Services.NativeHistoryConfigLease", true)!.GetMethod("Signature", BindingFlags.NonPublic | BindingFlags.Static)!;
         foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
         {
-            Require(saved.BackupConfigs.Single(c => c.Id == config.Id).Archive.CopySourceBeforeArchive == config.Archive.CopySourceBeforeArchive,
+            Require(saved.BackupConfigs.Single(c => c.Id == config.Id).Archive.SourceReadMode == config.Archive.SourceReadMode,
                 "Copy setting was not persisted.");
             var clone = (BackupConfig)mapper.Invoke(null, [config])!;
-            Require(clone.Archive.CopySourceBeforeArchive == config.Archive.CopySourceBeforeArchive, "Snapshot mapper lost copy setting.");
+            Require(clone.Archive.SourceReadMode == config.Archive.SourceReadMode, "Snapshot mapper lost copy setting.");
             var draftOwner = Activator.CreateInstance(draftType, config)!;
             var draft = (BackupConfig)draftType.GetProperty("Draft")!.GetValue(draftOwner)!;
             var before = signature.Invoke(null, [draft]);
-            draft.Archive.CopySourceBeforeArchive = !config.Archive.CopySourceBeforeArchive;
+            draft.Archive.SourceReadMode = config.Archive.SourceReadMode == BackupSourceReadMode.AlwaysCopy ? BackupSourceReadMode.DirectOnly : BackupSourceReadMode.AlwaysCopy;
             Require(!Equals(before, signature.Invoke(null, [draft])) && (bool)draftType.GetProperty("IsDirty")!.GetValue(draftOwner)!,
                 "Draft/signature ignored copy setting.");
-            Require(draft.Archive.CopySourceBeforeArchive != config.Archive.CopySourceBeforeArchive, "Draft mutated saved configuration.");
+            Require(draft.Archive.SourceReadMode != config.Archive.SourceReadMode, "Draft mutated saved configuration.");
         }
         Results.Add(new { phase = "config-persistence-clone-draft-signature", correct = true });
     }

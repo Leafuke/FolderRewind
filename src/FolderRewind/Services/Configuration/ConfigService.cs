@@ -95,7 +95,6 @@ namespace FolderRewind.Services
         /// </summary>
         private static ConfigImportTransactionStore ImportStore => new(ConfigPath);
         public static ConfigImportResult PendingImport => ImportStore.Result;
-        public static void CancelPendingImport() => ImportStore.Cancel();
 
         public static void Initialize()
         {
@@ -361,6 +360,7 @@ namespace FolderRewind.Services
             ConfigPersistencePolicy.PrepareSourceIdentities(config, repairSourceIdentities);
             config.SchemaVersion = ConfigSchema.CurrentVersion;
             config.SchemaExtensions ??= new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            RemoveLegacyExtensions(config.GlobalSettings, "FontFamily", "GitHubOAuthClientId", "HasShownFirstLaunchGuide");
 
             var pluginSettings = config.GlobalSettings.Plugins;
             RemoveLegacyExtensions(pluginSettings, "Enabled", "PluginEnabled", "PluginSettings", "StoreRepo");
@@ -368,6 +368,7 @@ namespace FolderRewind.Services
             foreach (var backupConfig in config.BackupConfigs.Where(static item => item != null))
             {
                 RemoveLegacyExtensions(backupConfig, "ConfigType", "ExtendedProperties");
+                RemoveLegacyExtensions(backupConfig.Cloud, "SyncHistoryAfterUpload");
                 if (string.IsNullOrWhiteSpace(backupConfig.Kind.OwnerId)
                     || string.IsNullOrWhiteSpace(backupConfig.Kind.KindId))
                 {
@@ -402,6 +403,7 @@ namespace FolderRewind.Services
             {
                 preset.SchemaVersion = ConfigSchema.CurrentVersion;
                 RemoveLegacyExtensions(preset, "BaseConfigType");
+                RemoveLegacyExtensions(preset.Cloud, "SyncHistoryAfterUpload");
                 if (string.IsNullOrWhiteSpace(preset.Kind.OwnerId)
                     || string.IsNullOrWhiteSpace(preset.Kind.KindId))
                 {

@@ -51,15 +51,6 @@ internal static class ProductMessageService
             }
         }
         catch (Exception error) { LogService.LogError("Product content cache could not be read.", nameof(ProductMessageService), error); }
-        NotificationService.Core.Delivered += item =>
-        {
-            if (item.Product is not { } product) return;
-            UiDispatcherService.Post(() =>
-            {
-                if (States.TryGetValue(product.Key, out var state)) state.AlertDelivered = true;
-                TaskObserver.Observe(SaveStateAsync(), nameof(ProductMessageService));
-            });
-        };
         await UiDispatcherService.RunOnUiAsync(() => Reconcile(false));
         _reminderTimer = new Timer(_ => TaskObserver.Observe(RemindDueAsync(), nameof(ProductMessageService)),
             null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));

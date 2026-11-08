@@ -230,7 +230,6 @@ public sealed class HistoryCloudBackupTests
         public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) { ManifestCount++; Manifests.TryAdd(manifest.ReplicaId, manifest); AfterManifest?.Invoke(); return Task.CompletedTask; }
         public Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId id, CancellationToken token) => Task.FromResult(HideManifests ? null : Manifests.GetValueOrDefault(id));
         public Task DownloadAsync(HistoryReplicaManifest manifest, string path, CancellationToken token) => throw new InvalidOperationException();
-        public Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token) => throw new InvalidOperationException();
     }
 
     private sealed class CancellationBarrier

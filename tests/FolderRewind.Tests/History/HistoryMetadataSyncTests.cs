@@ -139,9 +139,5 @@ public sealed class HistoryMetadataSyncTests
             _packs[packId] = bytes.ToArray();
             return Task.CompletedTask;
         }
-
-        public Task<bool> LegacyHistoryExistsAsync(
-            HistoryConfigId configId, CancellationToken cancellationToken)
-            => Task.FromResult(false);
     }
 }

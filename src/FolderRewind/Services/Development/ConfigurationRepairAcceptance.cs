@@ -46,7 +46,6 @@ internal static class ConfigurationRepairAcceptance
         ConfigService.CurrentConfig.GlobalSettings.Plugins.AutoCheckUpdates = false;
         ConfigService.CurrentConfig.GlobalSettings.EnableNotifications = false;
         ConfigService.CurrentConfig.GlobalSettings.ToastNotificationLevel = 0;
-        ConfigService.CurrentConfig.GlobalSettings.HasShownFirstLaunchGuide = true;
         // This suite exercises configuration persistence, not the independent two-second
         // first-project validator. Its automatic success toast would pollute command evidence.
         ConfigService.CurrentConfig.GlobalSettings.HasTriggeredInitialCoreValidation = true;

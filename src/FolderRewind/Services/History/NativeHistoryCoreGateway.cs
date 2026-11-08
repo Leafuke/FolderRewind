@@ -156,17 +156,6 @@ public static class NativeHistoryCoreGateway
             .QueryFileReferencesAsync(sourceId, cancellationToken).ConfigureAwait(false);
     }
 
-    public static async Task<bool> SetVersionPinByFileAsync(
-        string configId,
-        SourceId sourceId,
-        string fileName,
-        bool pinned,
-        CancellationToken cancellationToken = default)
-    {
-        var entry = await FindVersionByFileAsync(configId, sourceId, fileName, cancellationToken).ConfigureAwait(false);
-        return entry is not null && await SetVersionPinAsync(configId, sourceId, entry.VersionId, pinned, cancellationToken).ConfigureAwait(false);
-    }
-
     public static async Task<bool> SetVersionPinAsync(string configId, SourceId sourceId, VersionId versionId,
         bool pinned, CancellationToken cancellationToken = default)
     {
@@ -204,24 +193,6 @@ public static class NativeHistoryCoreGateway
         return (await new HistoryPresentationQueryService(runtime)
             .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
             .Timeline.FirstOrDefault(item => item.VersionId == versionId);
-    }
-
-    public static async Task<HistoryCommitBatch> CommitBackupAsync(
-        HistoryConfigSnapshot configSnapshot,
-        IEnumerable<SourceCaptureResult> results,
-        BackupInvocationKind kind,
-        DateTimeOffset startedAtUtc,
-        string? comment = null,
-        CancellationToken cancellationToken = default,
-        HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
-        HistorySafetySnapshotIntent? safetySnapshotIntent = null,
-        bool protect = false)
-    {
-        ArgumentNullException.ThrowIfNull(configSnapshot);
-        ArgumentNullException.ThrowIfNull(results);
-        var runtime = await EnsureReadyAsync(configSnapshot.ConfigId.Value, cancellationToken).ConfigureAwait(false);
-        return await CommitBackupCoreAsync(runtime, configSnapshot, results, kind, startedAtUtc, comment,
-            cancellationToken, intent, safetySnapshotIntent, protect).ConfigureAwait(false);
     }
 
     // The orchestrator has already recovered this runtime under the configuration gate.
@@ -309,15 +280,6 @@ public static class NativeHistoryCoreGateway
             }
         }
         return committed;
-    }
-
-    public static async Task<SourceCaptureBaseline?> LoadCaptureBaselineAsync(
-        string configId,
-        SourceId sourceId,
-        CancellationToken cancellationToken = default)
-    {
-        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
-        return await LoadCaptureBaselineCoreAsync(runtime, sourceId, cancellationToken).ConfigureAwait(false);
     }
 
     internal static Task<SourceCaptureBaseline?> LoadCaptureBaselineInsideOperationAsync(

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.History.Storage;
 
-public sealed class FileHistoryRepository : IHistoryRepository, IDisposable
+public sealed class FileHistoryRepository : IDisposable
 {
     private readonly HistoryPackCodec _codec;
     private readonly HistoryRepositoryValidator _validator;

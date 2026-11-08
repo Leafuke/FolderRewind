@@ -386,19 +386,6 @@ internal static partial class NativeHistoryApplicationService
         return report;
     }
 
-    public static async Task ReleaseVersionAsync(
-        BackupConfig config,
-        VersionId versionId,
-        CancellationToken cancellationToken = default)
-    {
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        await runtime.MaterializationPolicies.SetAsync(
-            versionId,
-            MaterializationPolicyState.Released,
-            "Explicit user release",
-            cancellationToken).ConfigureAwait(false);
-    }
-
     public static async Task<HistoryTargetedReplicaDeletionResult> DeleteVersionLocalPayloadAsync(
         BackupConfig config,
         VersionId versionId,
@@ -697,28 +684,6 @@ internal static partial class NativeHistoryApplicationService
         => mode == BackupService.RestoreMode.Clean
             ? HistoryRestoreApplyMode.Clean
             : HistoryRestoreApplyMode.Overwrite;
-
-    private sealed class ArtifactLedgerGarbageCollector(BackupConfig config) : IHistoryArtifactGarbageCollector
-    {
-        public async Task GarbageCollectAsync(
-            IReadOnlySet<Guid> protectedArtifactRootIds,
-            CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrWhiteSpace(config.DestinationPath)) return;
-            var native = Plugins.V3.NativeArtifactHostService.Store(config);
-            var nativeLedger = await native.Ledger.LoadAsync(cancellationToken).ConfigureAwait(false);
-            var nativeIds = nativeLedger.Artifacts.Select(a => a.ArtifactId.Value).ToHashSet();
-            await native.CollectAsync(protectedArtifactRootIds.Where(nativeIds.Contains).Select(id => new ArtifactId(id)), cancellationToken);
-            var store = new FileArtifactLedgerStore(config.DestinationPath);
-            var legacy = await store.LoadAsync(cancellationToken).ConfigureAwait(false);
-            // A destination may be shared by configurations; never collect another config's nodes.
-            var foreign = legacy.Artifacts.Where(a => a.ConfigId != config.Id).Select(a => a.ArtifactId);
-            await store.GarbageCollectUnreachableAsync(
-                protectedArtifactRootIds.Where(id => !nativeIds.Contains(id)).Select(id => new ArtifactId(id)).Concat(foreign),
-                dryRun: false,
-                cancellationToken).ConfigureAwait(false);
-        }
-    }
 }
 
 internal sealed class SevenZipHistoryArchiveBackend : SevenZipArchiveProcessBackend

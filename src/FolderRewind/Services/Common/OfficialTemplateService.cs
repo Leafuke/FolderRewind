@@ -214,17 +214,6 @@ namespace FolderRewind.Services
             };
         }
 
-        public static bool TryReadCachedIndex(out IReadOnlyList<RemoteTemplateIndexItem> templates)
-        {
-            var v2 = ReadCachedIndex(isV2: true);
-            var legacy = ReadCachedIndex(isV2: false);
-            templates = OfficialPresetIndexMergePolicy.MergeV2First(
-                v2.Items,
-                legacy.Items,
-                item => string.IsNullOrWhiteSpace(item.ShareId) ? item.TemplateId : item.ShareId);
-            return v2.Success || legacy.Success;
-        }
-
         private static async Task<RawIndexResult> FetchRawIndexAsync(bool isV2, CancellationToken ct)
         {
             foreach (var candidate in BuildIndexCandidates(isV2))

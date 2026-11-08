@@ -111,14 +111,6 @@ internal sealed partial class SpatialWorkspaceIndex(string path, SpatialIndexDia
             return Read(c);
         }
     }
-    internal IReadOnlyList<SpatialWorkspaceRow> InView(string world, string layer, SpatialPreviewBounds bounds, int count = 1000)
-    {
-        lock (_gate)
-        {
-            using var c = Command("SELECT data FROM rows r WHERE " + Window + " ORDER BY id LIMIT $n", Args(world, layer, bounds).Append(("$n", (object?)count)).ToArray());
-            return Read(c);
-        }
-    }
     internal void SelectArea(string world, string layer, SpatialPreviewBounds bounds, bool additive, bool remove, string filter)
     {
         lock (_gate)

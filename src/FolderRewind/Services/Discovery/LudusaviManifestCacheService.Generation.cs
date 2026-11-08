@@ -48,10 +48,4 @@ public sealed partial class LudusaviManifestCacheService
         }
         finally { if (!transferred) _gate.Release(); }
     }
-
-    internal async Task<LudusaviGeneration> AcquireGenerationAsync(LudusaviManifestCacheMetadata metadata, CancellationToken token)
-    {
-        await _gate.WaitAsync(token).ConfigureAwait(false);
-        return new LudusaviGeneration(metadata, Path.Combine(GetGenerationRoot(metadata.GenerationId), IndexFileName), _gate);
-    }
 }

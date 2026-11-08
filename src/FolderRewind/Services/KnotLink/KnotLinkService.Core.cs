@@ -472,34 +472,6 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 订阅指定信号频道。
-        /// </summary>
-        public static IDisposable? SubscribeSignal(string signalId, Func<string, Task> onSignal)
-        {
-            if (!IsEnabled) return null;
-            if (string.IsNullOrWhiteSpace(signalId)) return null;
-
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            if (settings == null) return null;
-
-            var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost) ? "127.0.0.1" : settings.KnotLinkHost;
-            var appId = string.IsNullOrWhiteSpace(settings.KnotLinkAppId) ? DefaultAppId : settings.KnotLinkAppId;
-
-            try
-            {
-                var sub = new SignalSubscriber(appId, signalId, host, onSignalAsync: onSignal);
-                sub.InitializeAsync().GetAwaiter().GetResult();
-                sub.OnErrorAsync = ex => HandleTransportErrorAsync("SignalSubscriber", ex);
-                return sub;
-            }
-            catch (Exception ex)
-            {
-                LogService.Log(I18n.Format("KnotLink_BroadcastFailed", ex.Message));
-                return null;
-            }
-        }
-
-        /// <summary>
         /// 主动向 KnotLink OpenSocket 发起查询（用于插件/热键触发的联动）。
         /// </summary>
         public static Task<string> QueryAsync(string question, int timeoutMs = 5000)

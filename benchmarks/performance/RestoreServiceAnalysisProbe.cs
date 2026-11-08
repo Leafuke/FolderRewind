@@ -33,7 +33,7 @@ public partial class BenchApplication
         var global = ConfigService.CurrentConfig.GlobalSettings;
         global.EnableKnotLink = false; global.AutoStartKnotLinkServer = false;
         global.EnableNotices = false; global.EnableUpdateReminder = false; global.FileSizeWarningThresholdKB = 0;
-        global.HasShownFirstLaunchGuide = true; global.HasTriggeredInitialCoreValidation = true;
+        global.HasTriggeredInitialCoreValidation = true;
         global.Plugins.AutoCheckUpdates = false;
         global.Plugins.TypedSettings[plugin.Value] = new() { ["AutoDiscoverSaves"] = JsonSerializer.SerializeToElement(false), ["PreservePlayerData"] = JsonSerializer.SerializeToElement(false) };
         global.Plugins.EnabledIntent[plugin.Value] = true;

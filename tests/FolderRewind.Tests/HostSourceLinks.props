@@ -92,7 +92,6 @@
     <Compile Include="../../src/FolderRewind/Services/KnotLink/KnotLinkFuncListModels.cs" Link="Host/Services/KnotLink/KnotLinkFuncListModels.cs" />
     <Compile Include="../../src/FolderRewind/Services/KnotLink/KnotLinkFuncListService.cs" Link="Host/Services/KnotLink/KnotLinkFuncListService.cs" />
     <Compile Include="../../src/FolderRewind/Services/Common/RestoreWhitelistPreparation.cs" Link="Host/Services/Common/RestoreWhitelistPreparation.cs" />
-    <Compile Include="../../src/FolderRewind/Services/Common/RestoreModePolicy.cs" Link="Host/Services/Common/RestoreModePolicy.cs" />
     <Compile Include="../../src/FolderRewind/Services/Discovery/TemplateFormatPolicy.cs" Link="Host/Services/Discovery/TemplateFormatPolicy.cs" />
     <Compile Include="../../src/FolderRewind/Models/Discovery/DiscoveryModels.cs" Link="Host/Models/Discovery/DiscoveryModels.cs" />
     <Compile Include="../../src/FolderRewind/Models/Discovery/LudusaviIndexModels.cs" Link="Host/Models/Discovery/LudusaviIndexModels.cs" />
@@ -151,7 +150,6 @@
     <Compile Include="../../src/FolderRewind/Services/Settings/SettingsPresentationLifetime.cs" Link="Host/Services/Settings/SettingsPresentationLifetime.cs" />
     <Compile Include="../../src/FolderRewind/Services/FolderManagement/FolderScopeEditController.cs" Link="Host/Services/FolderManagement/FolderScopeEditController.cs" />
     <Compile Include="../../src/FolderRewind/Services/Shell/StartupSequence.cs" Link="Host/Services/Shell/StartupSequence.cs" />
-    <Compile Include="../../src/FolderRewind/Services/Notifications/NotificationPresentationState.cs" Link="Host/Services/Notifications/NotificationPresentationState.cs" />
     <Compile Include="../../src/FolderRewind/Services/Shell/WindowCloseController.cs" Link="Host/Services/Shell/WindowCloseController.cs" />
     <Compile Include="../../src/FolderRewind/Services/Shell/MiniBackupController.cs" Link="Host/Services/Shell/MiniBackupController.cs" />
     <Compile Include="../../src/FolderRewind/Services/KnotLink/KnotLinkSettingsPolicy.cs" Link="Host/Services/KnotLink/KnotLinkSettingsPolicy.cs" />

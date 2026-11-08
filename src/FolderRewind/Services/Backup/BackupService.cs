@@ -64,43 +64,12 @@ namespace FolderRewind.Services
             public ScopeAwareSourceCaptureDiff ToCaptureDiff() => new([.. AddedFiles], [.. ModifiedFiles], [.. DeletedFiles]);
         }
 
-        private sealed class SmartRestoreArchiveGroup
-        {
-            public required FileInfo Archive { get; init; }
-            public required List<string> Files { get; init; }
-        }
-
-        private sealed class SmartRestorePlan
-        {
-            public required List<FileInfo> Chain { get; init; }
-            public required List<SmartRestoreArchiveGroup> ArchiveGroups { get; init; }
-        }
-
-        private enum RestoreChainBuildStatus
-        {
-            Success = 0,
-            MissingBaseFull = 1,
-            NotFound = 2
-        }
-
         public sealed class DeleteBackupResult
         {
             public bool Success { get; init; }
             public bool ArchiveDeleted { get; init; }
             public bool HistoryUpdated { get; init; }
             public string Message { get; init; } = string.Empty;
-        }
-
-        private sealed class DeleteArchiveExecutionResult
-        {
-            public bool Success { get; set; }
-            public bool ArchiveDeleted { get; set; }
-            public bool HistoryUpdated { get; set; }
-            public string DeletedFileName { get; set; } = string.Empty;
-            public string? RenamedFromFileName { get; set; }
-            public string? RenamedToFileName { get; set; }
-            public string? RenamedToBackupType { get; set; }
-            public string Message { get; set; } = string.Empty;
         }
 
         // 单个备份源的执行结果：同时供 Native RunVersion、插件结果映射与 UI 状态展示消费。

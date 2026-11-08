@@ -23,7 +23,6 @@ public sealed class BackupConfigDraftIssue
 /// </summary>
 public sealed class BackupConfigDraft
 {
-    public string DraftId { get; init; } = Guid.NewGuid().ToString("N");
     public required DiscoveredGameCandidate Game { get; init; }
     public required BackupSetCandidate BackupSet { get; init; }
     public required BackupPreset AppliedPreset { get; init; }

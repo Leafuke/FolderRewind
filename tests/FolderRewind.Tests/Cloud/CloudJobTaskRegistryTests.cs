@@ -27,7 +27,7 @@ public sealed class CloudJobTaskRegistryTests
         var previous = CloudJobTaskRegistry.GetOrCreate(tasks, "project", "job", "first");
         var diagnostic = new PluginDiagnostic("old.failure", DiagnosticSeverity.Error, "cloud", "test", new Dictionary<string, string>());
         previous.ErrorMessage = "offline"; previous.ErrorDiagnostics = [diagnostic]; previous.WarningDiagnostics = [diagnostic];
-        previous.Log = "old attempt"; previous.Progress = 88; previous.Speed = "old speed";
+        previous.Log = "old attempt"; previous.Progress = 88;
         previous.IsCompleted = true; previous.IsSuccess = true; previous.IsIndeterminate = false;
         Assert.IsFalse(previous.IsProgressIndeterminate);
         var progressNotifications = new List<bool>();
@@ -42,7 +42,7 @@ public sealed class CloudJobTaskRegistryTests
         Assert.AreEqual(string.Empty, retry.ErrorMessage);
         Assert.IsEmpty(retry.ErrorDiagnostics); Assert.IsEmpty(retry.WarningDiagnostics);
         Assert.IsFalse(retry.HasDetails); Assert.IsFalse(retry.IsCompleted); Assert.IsFalse(retry.IsSuccess);
-        Assert.IsTrue(retry.IsIndeterminate); Assert.AreEqual(0, retry.Progress); Assert.AreEqual(string.Empty, retry.Speed);
+        Assert.IsTrue(retry.IsIndeterminate); Assert.AreEqual(0, retry.Progress);
         Assert.IsTrue(retry.IsProgressIndeterminate);
         CollectionAssert.AreEqual(new[] { false, true }, progressNotifications);
         Assert.AreEqual(1, tasks.RunningCount);

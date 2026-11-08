@@ -21,11 +21,6 @@ internal static class OpenListInitializer
         @"^\s*(?:OpenList\s+|Version:\s*)v?" + Regex.Escape(SupportedVersion) + @"(?=\s|$|[-+])",
         RegexOptions.Multiline | RegexOptions.IgnoreCase)
         && version.Contains("OpenList", StringComparison.OrdinalIgnoreCase);
-    internal static async Task VerifySupportedAsync(string executable, CancellationToken token)
-    {
-        var output = await RcloneConnectionService.RunAsync(Start(executable, Path.GetDirectoryName(executable)!, "version"), TimeSpan.FromSeconds(15), token);
-        if (!Supports(output)) throw new InvalidOperationException("[openlist.initialization-version]");
-    }
     internal static void RequireAvailablePort(int port)
     {
         try { var listener = new TcpListener(IPAddress.Loopback, port); try { listener.Start(); } finally { listener.Stop(); } }

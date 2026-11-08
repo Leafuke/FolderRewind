@@ -53,7 +53,6 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     }
     public Task<byte[]> DownloadPackAsync(HistoryConfigId id, PackId pack, CancellationToken token) => ReadBytesAsync(PackPath(id, pack), token);
     public Task UploadPackOnceAsync(HistoryConfigId id, PackId pack, byte[] bytes, CancellationToken token) => WriteOnceAsync(PackPath(id, pack), bytes, token);
-    public Task<bool> LegacyHistoryExistsAsync(HistoryConfigId id, CancellationToken token) => Task.FromResult(false);
     public Task UploadAsync(ReplicaId id, string localPath, CancellationToken token)
         => CopyPayloadAsync(Path.GetFullPath(localPath), ReplicaRoot(id) + "/payload", true, token);
     private async Task CopyPayloadAsync(string source, string destination, bool immutable, CancellationToken token)
@@ -93,11 +92,6 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         if (manifest.Size is < 1 or > 16 * 1024 * 1024) throw new InvalidDataException("Native descriptor exceeds its metadata budget.");
         return DownloadBoundedAsync(ReplicaRoot(manifest.ReplicaId) + "/payload", stagingPath, manifest.Size,
             new FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget(16 * 1024 * 1024), token);
-    }
-    public async Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token)
-    {
-        await RunAsync(["deletefile", ReplicaRoot(manifest.ReplicaId) + "/payload"], token).ConfigureAwait(false);
-        await RunAsync(["deletefile", ReplicaRoot(manifest.ReplicaId) + "/manifest.json"], token).ConfigureAwait(false);
     }
     private Task<string> RunAsync(IReadOnlyList<string> arguments, CancellationToken token)
         => RcloneConnectionService.RunAsync(context.CreateStartInfo(arguments), _timeout, token);

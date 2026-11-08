@@ -156,7 +156,7 @@ internal static partial class NativeArtifactAcceptance
                 "acceptance:p3-remote", Path.Combine(root, "p3-rclone-tasks"));
             var transport = new RcloneNativeHistoryTransport(context, 120);
             var metadata = new HistoryMetadataSyncService(history, transport);
-            var replicas = new HistoryReplicaSyncService(history, transport, token => metadata.SyncAsync(token), new NoRetirement());
+            var replicas = new HistoryReplicaSyncService(history, transport, token => metadata.SyncAsync(token));
             var native = new NativeArtifactReplicaService(NativeArtifactHostService.Store(config), replicas);
             var representations = (await history.Query.GetAllRepresentationsAsync()).Where(r => r.Kind == RepresentationKind.PluginArtifact).ToArray();
             foreach (var representation in representations)

@@ -40,7 +40,7 @@ public sealed class CloudTransportRecoveryIntegrationTests
         var readOnly = new RcloneNativeHistoryTransport(recovery);
         var pulled = await new HistoryMetadataSyncService(fresh, readOnly).PullAsync();
         Assert.IsTrue(pulled.Succeeded);
-        var downloader = new HistoryReplicaSyncService(fresh, readOnly, _ => throw new InvalidOperationException("Recovery must be read only."), new NoRetirement());
+        var downloader = new HistoryReplicaSyncService(fresh, readOnly, _ => throw new InvalidOperationException("Recovery must be read only."));
         foreach (var representation in await fresh.Query.GetAllRepresentationsAsync())
         {
             var replica = (await fresh.Query.GetStorageReplicasAsync(representation.RepresentationId)).Single();
@@ -65,10 +65,6 @@ public sealed class CloudTransportRecoveryIntegrationTests
                 new RepresentationEnvironment(catalog.Entries, [], []), AssessmentDepth.Deep, MaterializationFidelity.Exact, default);
             Assert.AreNotEqual(HistoryReadiness.Ready, blocked.Readiness);
         }
-    }
-    private sealed class NoRetirement : IHistoryReplicaRetirementGuard
-    {
-        public Task EnsureRetirementSafeAsync(StorageReplica replica, bool releaseVersion, CancellationToken token) => throw new InvalidOperationException();
     }
 
     [TestMethod]

@@ -15,16 +15,6 @@ namespace FolderRewind.Services
             return IsChineseUi() ? ChineseOfficialWebsiteUrl : EnglishOfficialWebsiteUrl;
         }
 
-        public static string GetCloudGuideUrl()
-        {
-            return IsChineseUi() ? ChineseCloudGuideUrl : EnglishCloudGuideUrl;
-        }
-
-        public static string GetFirstLaunchGuideUrl()
-        {
-            return IsChineseUi() ? IntroVideoUrl : GetOfficialWebsiteUrl();
-        }
-
         public static bool IsChineseUi()
         {
             try

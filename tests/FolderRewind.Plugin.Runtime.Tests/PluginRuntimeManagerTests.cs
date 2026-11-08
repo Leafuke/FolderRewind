@@ -488,37 +488,6 @@ public sealed partial class PluginRuntimeManagerTests
         Assert.AreEqual("old", ((FakeDiscovery)lease.Capability).Marker);
     }
 
-    [TestMethod]
-    public async Task InvalidSettingsCandidateNeverCreatesOrCommitsPluginInstance()
-    {
-        var schema = PluginSettingsSchema.Parse(Encoding.UTF8.GetBytes("""
-            {
-              "schemaVersion": 1,
-              "settings": [{ "key": "setting", "type": "boolean", "required": true }]
-            }
-            """));
-        var factoryCalls = 0;
-        var store = new FakeStore();
-        var manager = new PluginRuntimeManager();
-        var coordinator = new PluginSettingsTransactionCoordinator(manager);
-        var candidate = Candidate(
-            PluginOneId,
-            () =>
-            {
-                factoryCalls++;
-                return PluginWithDiscovery("invalid");
-            },
-            store);
-
-        var result = await coordinator.ApplyAsync(schema, candidate);
-
-        Assert.IsFalse(result.Success);
-        Assert.IsNull(result.Transition);
-        Assert.AreEqual(0, factoryCalls);
-        Assert.IsEmpty(store.Commits);
-        Assert.AreEqual(PluginRuntimeState.Inactive, manager.GetSnapshot(PluginOneId).State);
-    }
-
     private static PluginActivationCandidate Candidate(
         PluginId id,
         FakePlugin plugin,

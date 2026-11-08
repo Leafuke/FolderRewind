@@ -217,11 +217,5 @@ internal static partial class NativeArtifactAcceptance
         var output = (await history.Query.GetAllRepresentationsAsync()).Where(r => r.VersionId == workspace.GetSourceState(baseline.SourceId).BaseVersionId).ToArray();
         if (output.Length != 1 || output[0].Kind != RepresentationKind.CoreFull) throw new IOException("Generic Merge output must remain CoreFull.");
     }
-
-    private sealed class NoRetirement : IHistoryReplicaRetirementGuard
-    {
-        public Task EnsureRetirementSafeAsync(StorageReplica replica, bool release, CancellationToken token)
-            => throw new NotSupportedException();
-    }
 }
 #endif
