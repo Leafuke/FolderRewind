@@ -286,11 +286,14 @@ internal sealed class PluginV3HostServices : IPluginHostServices
     private sealed class LoggerService(PluginId pluginId) : IPluginLogger
     {
         public void Log(DiagnosticSeverity severity, string message, Exception? exception = null)
-            => LogService.Log(
-                $"[PluginV3:{pluginId}] {message}{(exception is null ? string.Empty : " " + exception)}",
+        {
+            using var diagnostic = NotificationOperationScope.EnterChild(c => c with { PluginId = pluginId.Value });
+            LogService.Log(
+                DiagnosticPrivacy.Text(message),
                 severity == DiagnosticSeverity.Error
                     ? LogLevel.Error
-                    : severity == DiagnosticSeverity.Warning ? LogLevel.Warning : LogLevel.Info);
+                    : severity == DiagnosticSeverity.Warning ? LogLevel.Warning : LogLevel.Info, "Plugin:" + pluginId.Value, exception);
+        }
     }
 }
 

@@ -304,6 +304,8 @@ public static partial class BackupService
         {
             foreach (var folder in requestedFolders)
             {
+                using var sourceDiagnostics = NotificationOperationScope.EnterChild(c => c with { SourceId = folder.Id });
+                diagnostics.Observe("stage", "capture");
                 cancellationToken.ThrowIfCancellationRequested();
                 var resolution = resolutions[folder.Id];
                 var outcome = await CaptureBackupSourceAsync(
@@ -436,7 +438,8 @@ public static partial class BackupService
                 // Pre-durable 失败：History Commit 未形成持久 Pack，清理本次事务产生的未提交归档产物
                 terminalLifecycle.Set(CreateFailedTerminal("transaction_failed", ex.Message));
                 await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
-                Log($"Native History commit failed: {ex.Message}", LogLevel.Error);
+                diagnostics.Observe("failure-stage", "history-commit");
+                LogService.LogError("event=backup.commit-failed", "Backup", ex);
                 await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, ex.Message).ConfigureAwait(false);
                 return BackupTransactionExecutionResult.Failed(sourceOutcomes, ex.Message);
             }
@@ -457,7 +460,8 @@ public static partial class BackupService
         {
             terminalLifecycle.Set(CreateFailedTerminal("transaction_failed", ex.Message));
             await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
-            Log($"Backup transaction unhandled exception: {ex.Message}", LogLevel.Error);
+            diagnostics.Observe("failure-stage", "capture-or-preflight");
+            LogService.LogError("event=backup.transaction-failed", "Backup", ex);
             await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, ex.Message).ConfigureAwait(false);
             return BackupTransactionExecutionResult.Failed(sourceOutcomes, ex.Message);
         }

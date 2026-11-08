@@ -1462,7 +1462,7 @@
     <value>打开日志文件夹</value>
   </data>
   <data name="LogPage_BottomHint.Text" xml:space="preserve">
-    <value>提示：未选中任何项时会复制全部</value>
+    <value>提示：未选中任何项时会复制全部。分享前请检查是否包含私人路径或其他敏感信息。</value>
   </data>
   <data name="LogPage_OpenCurrentLogFile.Content" xml:space="preserve">
     <value>打开当前日志文件</value>
@@ -7011,7 +7011,7 @@ Enter：在窄窗口中打开预览或批量操作
   <data name="MigrationWizard_ContinueRemaining.Content" xml:space="preserve"><value>继续处理未完成项目…</value></data>
   <data name="HistoryLoad_DetailsText.AutomationProperties.Name" xml:space="preserve"><value>历史加载错误技术详情</value></data>
   <data name="MigrationWizard_ErrorDetailsText.AutomationProperties.Name" xml:space="preserve"><value>迁移技术详情</value></data>
-  <data name="LogClear_Failed" xml:space="preserve"><value>无法清空当前日志，请检查日志文件的访问权限。</value></data>
+  <data name="LogClear_Failed" xml:space="preserve"><value>无法清空当前日志文件。内存记录可能已清空，但文件清理未完成，请检查文件访问权限。</value></data>
   <data name="MigrationWizard_HistoryCloudPermissionPending" xml:space="preserve"><value>本地迁移已完成，云操作尚未确认。点击“继续迁移…”检查云连接并确认许可；连接不可用时可直接重新连接。自动上传开关保持不变。</value></data>
   <data name="MigrationWizard_CloudStillPaused" xml:space="preserve"><value>本地迁移已完成；云操作仍暂停。可从“设置 → 数据迁移 → 继续迁移…”单独确认。</value></data>
   <data name="MigrationWizard_CloudPermissionHint.Text" xml:space="preserve"><value>云操作许可独立于自动上传开关。不勾选时保持暂停，可稍后继续迁移确认。连接不可用时，请先在项目设置的“云存储”中重新连接并检查。</value></data>
@@ -7987,4 +7987,12 @@ WebDAV 账户与目录读写仍需在云连接向导中验证。</value></data>
   <data name="FolderDetailsDialog_ReadNotice" xml:space="preserve"><value>读取提示</value></data>
   <data name="FolderDetailsDialog_ReadIncomplete" xml:space="preserve"><value>部分信息未能完整读取。</value></data>
   <data name="OperationDiagnostic_SemanticCoverageLimited" xml:space="preserve"><value>已保留原始字节，但部分世界数据无法完整解析。请检查缺失的外部区块、不支持的格式或损坏的数据。</value></data>
+  <data name="CloudSync_OutputOmitted" xml:space="preserve"><value>为保护敏感信息，工具原始输出已省略。命令结果可在日志中查看。</value></data>
+  <data name="LogPersistence_Disabled" xml:space="preserve"><value>文件日志已关闭，新的记录仅保存在内存中。</value></data>
+  <data name="LogPersistence_Unavailable" xml:space="preserve"><value>当前无法写入日志文件，页面中的记录可能尚未保存。</value></data>
+  <data name="LogPersistence_Gap" xml:space="preserve"><value>日志写入已恢复，但部分早先记录无法确认是否已保存。</value></data>
+  <data name="LogPersistence_Maintenance" xml:space="preserve"><value>日志轮转或清理失败，日志文件可能超出原有保留设置。</value></data>
+  <data name="LogPersistence_Faulted" xml:space="preserve"><value>日志写入线程异常停止，新的记录无法保存。</value></data>
+  <data name="LogPersistence_Rejected" xml:space="preserve"><value>日志服务停止后收到的记录未保存到文件。</value></data>
+  <data name="LogPersistence_OpenUnconfirmed" xml:space="preserve"><value>无法确认日志是否完整保存，请先检查日志状态再分享文件。</value></data>
 </root>

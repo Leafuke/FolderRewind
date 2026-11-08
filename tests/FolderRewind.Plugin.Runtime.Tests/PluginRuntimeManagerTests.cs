@@ -341,6 +341,7 @@ public sealed partial class PluginRuntimeManagerTests
         Assert.AreEqual(OperationOutcome.SuccessWithWarnings, result.Outcome);
         Assert.AreEqual(PluginRuntimeState.Failed, result.State);
         Assert.IsTrue(result.RequiresRestart);
+        Assert.AreEqual("TimedOut", result.CleanupOutcome);
         Assert.IsTrue(manager.GetSnapshot(PluginOneId).RequiresRestart);
         Assert.IsNull(manager.TryAcquire<IDiscoveryCapability>(PluginOneId));
         Assert.AreEqual(1, manager.RestartRetainedCount);

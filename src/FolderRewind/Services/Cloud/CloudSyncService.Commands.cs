@@ -59,6 +59,9 @@ namespace FolderRewind.Services
             string runningStatus,
             string logLabel)
         {
+            using var operation = NotificationOperationScope.Current is null
+                ? new NotificationOperationScope(new(NotificationTargetKind.CloudProject), context: new("", "Cloud")) : null;
+            using var diagnostics = new BusinessOperationDiagnostics("CloudCommandRetry", operation is null);
             int retryCount = Math.Clamp(settings.RetryCount, 0, MaxRetryCount);
             int timeoutSeconds = Math.Clamp(settings.TimeoutSeconds, 10, MaxTimeoutSeconds);
             int exitCode = -1;
@@ -84,17 +87,18 @@ namespace FolderRewind.Services
 
                 if (result.Success)
                 {
-                    LogService.LogInfo(I18n.Format("CloudSync_Log_CommandSucceeded", logLabel), nameof(CloudSyncService));
+                    diagnostics.Complete("Success", detail: $"commandAttempts={attempt + 1}; exitCode={result.ExitCode}");
                     return result;
                 }
 
-                LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", logLabel, lastError), nameof(CloudSyncService));
+                LogService.LogWarning($"event=cloud.command-attempt; attempt={attempt + 1}; exitCode={exitCode}; retrying={attempt < retryCount}", nameof(CloudSyncService));
                 if (attempt < retryCount)
                 {
                     await Task.Delay(1000).ConfigureAwait(false);
                 }
             }
 
+            diagnostics.Complete("Failed", LogLevel.Error, $"commandAttempts={retryCount + 1}; exitCode={exitCode}");
             return (false, exitCode, lastError);
         }
 
@@ -109,8 +113,8 @@ namespace FolderRewind.Services
                         WorkingDirectory = command.WorkingDirectory, UseShellExecute = false, CreateNoWindow = true,
                         RedirectStandardOutput = true, RedirectStandardError = true
                     };
-                var output = await RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(timeoutSeconds), default).ConfigureAwait(false);
-                await RunOnUIAsync(() => task.Log = CloudCommandSecurity.Redact(output)).ConfigureAwait(false);
+                _ = await RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(timeoutSeconds), default).ConfigureAwait(false);
+                await RunOnUIAsync(() => task.Log = I18n.GetString("CloudSync_OutputOmitted")).ConfigureAwait(false);
                 return (true, 0, string.Empty);
             }
             catch (RcloneProcessException ex) { return (false, ex.ExitCode, CloudCommandSecurity.Redact(ex.Message)); }

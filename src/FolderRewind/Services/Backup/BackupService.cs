@@ -770,9 +770,8 @@ namespace FolderRewind.Services
                 var message = ex is CaptureInputException inputError
                     ? I18n.Format("BackupSourceView_InputFailed", inputError.SourcePath, inputError.InnerException?.GetBaseException().Message ?? inputError.Message)
                     : ex.Message;
-                Log(I18n.Format("BackupService_Log_Exception", message), LogLevel.Error);
-                if (ex is CaptureInputException failedInput)
-                    Log($"[CaptureInput] phase={failedInput.Phase}; path={failedInput.SourcePath}; nativeError={failedInput.NativeErrorCode}; cause={failedInput.InnerException}", LogLevel.Error);
+                HistoryOperationDiagnostics.Current?.Observe("failure-stage", ex is CaptureInputException failedInput ? failedInput.Phase : "capture");
+                LogService.LogError("event=backup.source-failed; source=" + folder.Id, "Backup", ex);
                 success = false;
                 await RunOnUIAsync(() => { if (string.IsNullOrEmpty(task.ErrorMessage)) task.ErrorMessage = message; });
             }

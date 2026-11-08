@@ -172,6 +172,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 return conflict with { Id = signature, InputSignature = signature };
             }).ToImmutableArray();
             history.MergeSessions.SaveSource(session, new(plan, automatic, b, o, t), conflicts, retainSemantic: semantic is not null);
+            foreach (var category in conflicts.GroupBy(conflict => conflict.Kind))
+                Services.HistoryOperationDiagnostics.Current?.Count("merge-conflicts-" + category.Key, category.Count());
         }
         return history.MergeSessions.CompletePreparation(session, Roots(session.Plan));
     }

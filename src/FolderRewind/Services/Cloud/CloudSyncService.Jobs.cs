@@ -173,8 +173,13 @@ public static partial class CloudSyncService
         CancellationToken token, string? explicitLocalPath = null, bool scheduled = false)
     {
         using var notificationOperation = new NotificationOperationScope(new(NotificationTargetKind.CloudProject,
-            initial.JobId, initial.ProjectId, JobId: initial.JobId));
-        HistoryCloudBackupResult Incomplete(string code) => new([], initial.Representations, null, token.IsCancellationRequested, DateTimeOffset.UtcNow);
+            initial.JobId, initial.ProjectId, JobId: initial.JobId), context: new(initial.JobId, "Cloud"));
+        using var diagnosticScope = new BusinessOperationDiagnostics("Cloud");
+        HistoryCloudBackupResult Incomplete(string code)
+        {
+            diagnosticScope.Complete(token.IsCancellationRequested ? "Canceled" : "Blocked", token.IsCancellationRequested ? LogLevel.Info : LogLevel.Warning, "code=" + code);
+            return new([], initial.Representations, null, token.IsCancellationRequested, DateTimeOffset.UtcNow);
+        }
         await CommandSemaphore.WaitAsync(token).ConfigureAwait(false);
         if (_automaticSyncStopping) { CommandSemaphore.Release(); return Incomplete("cloud.job-exit-pending"); }
         NotificationTrigger? notificationTrigger = null;
@@ -193,6 +198,7 @@ public static partial class CloudSyncService
                 job = job with { Phase = CloudJobPhase.Resolving, Attempt = job.Attempt + 1, Diagnostic = "" };
                 runtime.CloudJobs.Update(job);
             }
+            using var attemptScope = NotificationOperationScope.EnterChild(c => c with { JobAttempt = job.Attempt });
             PublishJobNotification(runtime, job.JobId, notificationTrigger.Value);
             var current = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(job.ProjectId).Matches(c.Id));
             if (current is not null)
@@ -305,6 +311,9 @@ public static partial class CloudSyncService
                 if (!result.Complete) activeTask.Log += "\n" + failureDetail;
             }).ConfigureAwait(false);
 
+            diagnosticScope.Complete(result.Complete ? "Success" : result.Canceled ? "Canceled" : "Failed",
+                result.Complete || result.Canceled ? LogLevel.Info : LogLevel.Error,
+                $"job={job.JobId}; jobAttempt={job.Attempt}; phase={job.Phase}; items={result.Items.Count}; missing={result.Missing.Count}");
             return result;
         }
         catch (Exception ex)
@@ -313,6 +322,7 @@ public static partial class CloudSyncService
             var diagnostic = CloudCommandSecurity.Redact(ex.Message);
             if (delivered is not null)
             {
+                diagnosticScope.Complete("SuccessWithWarnings", LogLevel.Warning, $"job={job.JobId}; jobAttempt={job.Attempt}; failureStage=post-action");
                 LogService.LogWarning("JobId: " + job.JobId + " " + diagnostic, nameof(CloudSyncService));
                 return delivered;
             }
@@ -325,7 +335,9 @@ public static partial class CloudSyncService
                 task.ErrorMessage = token.IsCancellationRequested ? I18n.GetString("Common_Canceled") : CloudFailurePresentation.Message(CloudFailurePresentation.Kind(ex));
                 task.Log += "\n" + diagnostic;
             }).ConfigureAwait(false);
-            LogService.LogWarning("JobId: " + job.JobId + " " + diagnostic, nameof(CloudSyncService));
+            diagnosticScope.Complete(token.IsCancellationRequested ? "Canceled" : "Failed", token.IsCancellationRequested ? LogLevel.Info : LogLevel.Error,
+                $"job={job.JobId}; jobAttempt={job.Attempt}; failureStage={job.Phase}");
+            diagnosticScope.Failure(ex, token.IsCancellationRequested);
 
             return Incomplete(diagnostic);
         }

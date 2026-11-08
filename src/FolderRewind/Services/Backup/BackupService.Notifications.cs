@@ -23,7 +23,8 @@ public static partial class BackupService
         var target = new NotificationTarget(NotificationTargetKind.Tasks,
             internalCapture ? NotificationOperationScope.Current?.OperationId : null, config?.Id,
             requestedFolders?.Count == 1 ? requestedFolders[0].Id : null);
-        using var operation = new NotificationOperationScope(target, internalCapture);
+        using var operation = new NotificationOperationScope(target, internalCapture,
+            new(target.OperationId ?? "", internalCapture ? "SafetySnapshot" : "Backup"));
         using var batch = new BackupNotificationBatch(config?.Name ?? "", operation.Target, requestedFolders?.Count ?? 0,
             requestedFolders?.Count == 1 ? requestedFolders[0].DisplayName : config?.Name ?? "",
             invocationOptions?.Source == BackupInvocationSource.Automatic ? NotificationTrigger.Automatic
@@ -82,7 +83,7 @@ public static partial class BackupService
                     {
                         var completed = false;
                         try { completed = await run.CompleteAsync(result).ConfigureAwait(false); }
-                        catch (Exception error) { LogService.LogWarning(error.ToString(), "Backup coordination completion"); }
+                        catch (Exception error) { LogService.LogWarning(DiagnosticPrivacy.ExceptionMetadata(error), "Backup coordination completion"); }
                         if (!completed)
                         {
                             var diagnostic = new PluginDiagnostic("backup.coordination_cleanup_failed", DiagnosticSeverity.Warning,
@@ -132,10 +133,12 @@ public static partial class BackupService
         private NotificationTarget _target;
         private readonly string _objectName;
         private readonly NotificationTrigger _trigger;
+        private readonly BusinessOperationDiagnostics _diagnostics;
         internal static BackupNotificationBatch? Current => Ambient.Value;
         public BackupNotificationBatch(string name, NotificationTarget target, int total, string objectName, NotificationTrigger trigger)
-        { _previous = Ambient.Value; Ambient.Value = this; _name = name; _target = target; _total = total; _objectName = objectName; _trigger = trigger; }
-        public void Dispose() => Ambient.Value = _previous;
+        { _previous = Ambient.Value; Ambient.Value = this; _name = name; _target = target; _total = total; _objectName = objectName; _trigger = trigger;
+            _diagnostics = new(NotificationOperationScope.Current?.Context.OperationType ?? "Backup", NotificationOperationScope.Current?.IsInternal == true); }
+        public void Dispose() { _diagnostics.Dispose(); Ambient.Value = _previous; }
 
         public void Failed(ManagedFolder folder, string detail)
         {
@@ -152,6 +155,13 @@ public static partial class BackupService
 
         public void Complete(BackupTransactionExecutionResult result)
         {
+            _diagnostics.Complete(result.Outcome.ToString(), result.Outcome is OperationOutcome.Failed or OperationOutcome.RecoveryRequired
+                    ? LogLevel.Error : result.HistoryRecoveryRequired || result.Outcome is OperationOutcome.SuccessWithWarnings or OperationOutcome.Blocked
+                        or OperationOutcome.CommittedRecoveryRequired ? LogLevel.Warning : LogLevel.Info,
+                $"config={_target.ConfigId}; run={result.CommittedBatch?.Run.RunId}; sourceCount={_total}; historyCommitted={(result.CommittedBatch is not null ? "true" : result.HistoryRecoveryRequired ? "unknown" : "false")}; recoveryRequired={result.HistoryRecoveryRequired}; "
+                + $"capturedSources={result.SourceOutcomes.Count(o => o.Status == BackupSourceExecutionStatus.NewArchive)}; unchanged={result.SourceOutcomes.Count(o => o.Status == BackupSourceExecutionStatus.Reused)}; "
+                + $"warnings={result.CompletionDiagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning) + result.SourceOutcomes.Sum(o => o.WarningDiagnostics.Count)}; warningCodes="
+                + string.Join(",", result.CompletionDiagnostics.Concat(result.SourceOutcomes.SelectMany(o => o.WarningDiagnostics)).Where(d => d.Severity == DiagnosticSeverity.Warning).Select(d => d.Code).Distinct()));
             try
             {
                 _target = _target with { RunId = result.CommittedBatch?.Run.RunId.ToString(), HistoryCreated = result.CommittedBatch is not null ? true : result.HistoryRecoveryRequired ? null : false };

@@ -466,6 +466,7 @@ public sealed partial class HistoryRestoreService
             [],
             [], [], commitPack is null ? null : new HistoryPackCodec().Encode(commitPack), desiredCatalog, expectedCatalogRevision);
         _journals.Save(journal);
+        ReportRestorePhase("mutation-started", transactionId);
         var snapshots = new List<HistoryRestoreRollbackSnapshot>();
         var applied = new List<SourceId>();
         var readLocks = new List<FileStream>();

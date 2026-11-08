@@ -293,7 +293,7 @@ public sealed class PluginRuntimeManager
                     OperationOutcome.SuccessWithWarnings,
                     PluginRuntimeState.Active,
                     CreateCleanupDiagnostics(candidate.PluginId, failedCleanup, "runtime.previous_deactivation"),
-                    RequiresRestart: true);
+                    RequiresRestart: true) { CleanupOutcome = failedCleanup.Outcome.ToString() };
             }
 
             var previousCleanup = await CleanupAsync(oldSession.Plugin, oldSession.Lifetime).ConfigureAwait(false);
@@ -310,9 +310,9 @@ public sealed class PluginRuntimeManager
                     OperationOutcome.SuccessWithWarnings,
                     PluginRuntimeState.Active,
                     CreateCleanupDiagnostics(candidate.PluginId, previousCleanup, "runtime.previous_deactivation"),
-                    RequiresRestart: true);
+                    RequiresRestart: true) { CleanupOutcome = previousCleanup.Outcome.ToString() };
             }
-            return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Active);
+            return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Active) with { CleanupOutcome = previousCleanup.Outcome.ToString() };
         }
         finally
         {
@@ -392,10 +392,10 @@ public sealed class PluginRuntimeManager
                     OperationOutcome.SuccessWithWarnings,
                     PluginRuntimeState.Failed,
                     diagnostics,
-                    RequiresRestart: true);
+                    RequiresRestart: true) { CleanupOutcome = cleanup.Outcome.ToString() };
             }
             _status[pluginId] = (PluginRuntimeState.Inactive, string.Empty, false);
-            return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Inactive);
+            return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Inactive) with { CleanupOutcome = cleanup.Outcome.ToString() };
         }
         finally
         {
@@ -637,7 +637,7 @@ public sealed class PluginRuntimeManager
             outcome,
             state,
             diagnostics,
-            RequiresRestart: cleanup.RequiresRestart);
+            RequiresRestart: cleanup.RequiresRestart) { CleanupOutcome = cleanup.Outcome.ToString() };
     }
 
     private static IReadOnlyList<PluginDiagnostic> CreateCleanupDiagnostics(

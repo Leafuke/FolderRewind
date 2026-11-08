@@ -42,7 +42,7 @@ internal static class HistoryRestoreRecoveryDiagnostics
         var detail = $"[RestoreRecovery] Config={config}; Transaction={transaction}; Phase={phase}; Plan={hasPlan}; "
             + $"Committed={committed?.ToString() ?? "unknown"}; Action={action}; {Describe(error)}; HResult=0x{error.HResult:X8}";
         HistoryOperationDiagnostics.Current?.Observe("restore-recovery", detail);
-        diagnosticSink?.Invoke(detail, "RestoreRecovery");
+        try { diagnosticSink?.Invoke(detail, "RestoreRecovery"); } catch { /* Recovery correctness is independent of diagnostic delivery. */ }
     }
 
     private static string Clean(object? value) => (value?.ToString() ?? "unknown").Replace('\r', ' ').Replace('\n', ' ');

@@ -36,6 +36,7 @@ public sealed record PluginRuntimeTransitionResult(
     IReadOnlyList<PluginDiagnostic> Diagnostics,
     bool RequiresRestart = false)
 {
+    public string CleanupOutcome { get; init; } = "NotRequired";
     public static PluginRuntimeTransitionResult Completed(
         PluginRuntimeState state,
         IReadOnlyList<PluginDiagnostic>? diagnostics = null,

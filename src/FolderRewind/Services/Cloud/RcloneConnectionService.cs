@@ -187,6 +187,7 @@ public static class RcloneConnectionService
         start.StandardErrorEncoding = Encoding.UTF8;
         if (start.RedirectStandardInput) start.StandardInputEncoding = new UTF8Encoding(false);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
         if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
@@ -205,6 +206,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, budget.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await Task.WhenAll(output, error).ConfigureAwait(false); } catch { }
             if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
@@ -213,6 +215,7 @@ public static class RcloneConnectionService
     internal static async Task<byte[]> RunBytesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, int maximumBytes)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         token.ThrowIfCancellationRequested();
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
@@ -236,6 +239,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, budget.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
             if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);
@@ -252,6 +256,7 @@ public static class RcloneConnectionService
         string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget transferBudget)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, deadline.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
         if (credentials is not null) await credentials.StartingAsync(deadline.Token).ConfigureAwait(false);
@@ -275,6 +280,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, deadline.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
             if (!completed && created && File.Exists(path)) File.Delete(path);
@@ -284,6 +290,7 @@ public static class RcloneConnectionService
     internal static async Task RunLinesAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token, Action<string> onLine)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(timeout);
+        using var commandDiagnostics = new ExternalCommandDiagnostics(start, token);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, budget.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };
         if (credentials is not null) await credentials.StartingAsync(budget.Token).ConfigureAwait(false);
@@ -315,6 +322,7 @@ public static class RcloneConnectionService
         finally
         {
             var interrupted = !process.HasExited;
+            commandDiagnostics.Complete(interrupted ? null : process.ExitCode, budget.IsCancellationRequested, interrupted);
             if (interrupted) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync().ConfigureAwait(false); }
             try { await error.ConfigureAwait(false); } catch { }
             if (credentials is not null) await credentials.CompleteAsync(interrupted).ConfigureAwait(false);

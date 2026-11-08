@@ -27,6 +27,7 @@ public static class PluginV3RuntimeService
         CancellationToken cancellationToken = default)
     {
         var result = await Runtime.ActivateAsync(WithArtifactGuard(candidate), cancellationToken).ConfigureAwait(false);
+        LogTransition("activate", candidate.PluginId, result);
         var manifest = candidate.Manifest;
         if (result.Success && manifest is not null)
         {
@@ -41,6 +42,7 @@ public static class PluginV3RuntimeService
         CancellationToken cancellationToken = default)
     {
         var result = await Runtime.ReplaceAsync(WithArtifactGuard(candidate), cancellationToken).ConfigureAwait(false);
+        LogTransition("replace", candidate.PluginId, result);
         if (result.Success && candidate.Manifest is not null)
         {
             Manifests[candidate.PluginId] = candidate.Manifest;
@@ -55,6 +57,7 @@ public static class PluginV3RuntimeService
         CancellationToken cancellationToken = default)
     {
         var result = await Runtime.DeactivateAsync(pluginId, cancellationToken).ConfigureAwait(false);
+        LogTransition("deactivate", pluginId, result);
         if (result.Success)
         {
             Manifests.TryRemove(pluginId, out _);
@@ -65,6 +68,15 @@ public static class PluginV3RuntimeService
 
     public static PluginManifestContract? FindManifest(PluginId pluginId)
         => Manifests.TryGetValue(pluginId, out var manifest) ? manifest : null;
+
+    private static void LogTransition(string transition, PluginId pluginId, PluginRuntimeTransitionResult result)
+    {
+        using var scope = new NotificationOperationScope(new(Models.NotificationTargetKind.Configuration),
+            context: new("", "PluginLifecycle", PluginId: pluginId.Value, Capability: transition));
+        LogService.Log($"event=plugin.transition; action={transition}; plugin={pluginId}; outcome={result.Outcome}; state={result.State}; cleanupOutcome={result.CleanupOutcome}; requiresRestart={result.RequiresRestart}; "
+            + "diagnosticCodes=" + string.Join(",", result.Diagnostics.Select(d => d.Code)),
+            result.Success && !result.RequiresRestart ? Models.LogLevel.Info : Models.LogLevel.Warning, "Plugin");
+    }
 
     private static PluginActivationCandidate WithArtifactGuard(PluginActivationCandidate candidate)
         => candidate.Manifest is null ? candidate : candidate with

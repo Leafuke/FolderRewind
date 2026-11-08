@@ -24,7 +24,7 @@ internal static class OpenListInitializer
     internal static void RequireAvailablePort(int port)
     {
         try { var listener = new TcpListener(IPAddress.Loopback, port); try { listener.Start(); } finally { listener.Stop(); } }
-        catch (SocketException) { throw new InvalidOperationException("[openlist.initialization-port]"); }
+        catch (SocketException error) { throw DiagnosticPrivacy.SensitiveFailure("openlist.initialization-port", "port", error); }
     }
     internal static async Task<OpenListRuntimeSettings> InitializeAsync(string executable, string root, string password,
         int port, string[] protectedPaths, CancellationToken token,
@@ -38,7 +38,10 @@ internal static class OpenListInitializer
             throw new InvalidOperationException("[openlist.initialization-overlap]");
         RcloneCredentialRefresh.RejectReparsePoints(root);
         run ??= (start, ct) => RcloneConnectionService.RunAsync(start, TimeSpan.FromSeconds(60), ct);
-        var version = await run(Start(executable, Path.GetDirectoryName(executable)!, "version"), token);
+        string version;
+        try { version = await run(Start(executable, Path.GetDirectoryName(executable)!, "version"), token); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception error) { throw DiagnosticPrivacy.SensitiveFailure("openlist.initialization-failed", "version", error); }
         if (!Supports(version)) throw new InvalidOperationException("[openlist.initialization-version]");
         RequireAvailablePort(port);
         token.ThrowIfCancellationRequested();
@@ -80,7 +83,7 @@ internal static class OpenListInitializer
                 ConfigFilePath = config, ServiceBaseUri = "http://127.0.0.1:" + port, Ownership = OpenListOwnership.External };
         }
         catch (OperationCanceledException) { throw; }
-        catch { throw new InvalidOperationException("[openlist.initialization-failed]"); }
+        catch (Exception error) { throw DiagnosticPrivacy.SensitiveFailure("openlist.initialization-failed", "initialize", error); }
         finally { start.Environment.Remove("OPENLIST_ADMIN_PASSWORD"); }
     }
     private static ProcessStartInfo Start(string executable, string working, params string[] arguments)

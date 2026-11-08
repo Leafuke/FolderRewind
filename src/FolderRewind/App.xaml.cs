@@ -50,10 +50,9 @@ namespace FolderRewind
                     try
                     {
                         var ex = e.ExceptionObject as Exception;
-                        LogService.Log(I18n.Format(
-                            "App_Log_AppDomainUnhandledException",
-                            ex?.Message ?? string.Empty,
-                            ex?.StackTrace ?? string.Empty));
+                        LogService.LogError("event=app.domain-unhandled; terminating=" + e.IsTerminating
+                            + (ex is null ? "" : "; " + DiagnosticPrivacy.ExceptionMetadata(ex)), "AppDomain");
+                        if (e.IsTerminating) LogService.TryFlushFatal();
                     }
                     catch { }
                 };
@@ -62,10 +61,7 @@ namespace FolderRewind
                 {
                     try
                     {
-                        LogService.Log(I18n.Format(
-                            "App_Log_TaskUnobservedException",
-                            e.Exception.Message,
-                            e.Exception.StackTrace ?? string.Empty));
+                        LogService.LogError("event=app.task-unobserved; " + DiagnosticPrivacy.ExceptionMetadata(e.Exception), "TaskScheduler");
                     }
                     catch { }
                 };
@@ -303,22 +299,16 @@ namespace FolderRewind
             }
             catch (Exception ex)
             {
-                LogService.Log(I18n.Format(
-                    "App_Log_Fatal",
-                    ex.Message,
-                    ex.StackTrace ?? string.Empty));
+                LogService.LogError("event=app.launch-failed; " + DiagnosticPrivacy.ExceptionMetadata(ex), "App");
             }
         }
 
         private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
         {
             e.Handled = true; // 防止直接崩溃
-            System.Diagnostics.Debug.WriteLine($"[App UnhandledException] {e.Exception.Message}\n{e.Exception.StackTrace}");
+            System.Diagnostics.Debug.WriteLine(DiagnosticPrivacy.ExceptionMetadata(e.Exception));
             // 写入自定义日志文件
-            LogService.Log(I18n.Format(
-                "App_Log_UnhandledException",
-                e.Exception.Message,
-                e.Exception.StackTrace ?? string.Empty));
+            LogService.LogError("event=app.ui-unhandled; " + DiagnosticPrivacy.ExceptionMetadata(e.Exception), "WinUI");
         }
 
         #endregion
@@ -641,7 +631,8 @@ namespace FolderRewind
             app.CleanupTrayIcon();
             app.CleanupAppNotifications();
 
-            await LogService.StopAsync();
+            var logResult = await LogService.StopForExitAsync();
+            if (!logResult.Succeeded) System.Diagnostics.Debug.WriteLine("Log shutdown: " + logResult.Status);
             _window?.Close();
             app.Exit();
         }

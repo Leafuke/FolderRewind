@@ -331,6 +331,9 @@ public static class NativeHistoryCoreGateway
     {
         ArgumentNullException.ThrowIfNull(config);
         var configId = new HistoryConfigId(config.Id);
+        using var recoveryScope = !Runtimes.TryGet(configId, out _) && NotificationOperationScope.Current is null
+            ? new NotificationOperationScope(new(NotificationTargetKind.History, ConfigId: config.Id), context: new("", "Recovery")) : null;
+        using var recoveryDiagnostics = recoveryScope is not null ? new BusinessOperationDiagnostics("Recovery") : null;
         try
         {
             var runtime = await Runtimes.GetOrCreateAsync(
@@ -341,14 +344,17 @@ public static class NativeHistoryCoreGateway
             // Report readiness now; the caller's config-operation recovery entry owns repair.
             await runtime.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
             Failed.TryRemove(configId.Value, out _);
+            recoveryDiagnostics?.Complete("Ready", detail: "config=" + config.Id);
             return runtime;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            recoveryDiagnostics?.Complete("Canceled");
             throw;
         }
         catch (Exception ex)
         {
+            recoveryDiagnostics?.Complete("Failed", LogLevel.Error, "failureStage=initialization");
             Failed[configId.Value] = ex.Message;
             LogService.LogError(
                 $"Failed to initialize History Workspace for config '{configId.Value}': {ex.Message}",

@@ -12,7 +12,20 @@ namespace FolderRewind.History.Application;
 public sealed partial class HistoryRestoreService
 {
     internal HistoryRestorePreparationSession? CreatePreparationSession(IReadOnlyList<HistoryRestoreSourceBinding> bindings, HistoryWorkspace expected)
-        => UseTargetVolumeWorkspaces && bindings.Count > 0 ? new(_history, _journals, expected, bindings, ProtectedRestoreRoots, RestoreConfigurationSignature) : null;
+    {
+        var session = UseTargetVolumeWorkspaces && bindings.Count > 0
+            ? new HistoryRestorePreparationSession(_history, _journals, expected, bindings, ProtectedRestoreRoots, RestoreConfigurationSignature) : null;
+        if (session is not null) ReportRestorePhase("preparing", session.Journal.TransactionId);
+        return session;
+    }
+
+    private void ReportRestorePhase(string phase, HistoryTransactionId transaction)
+    {
+        Services.HistoryOperationDiagnostics.Current?.Observe("transaction", transaction.ToString());
+        Services.HistoryOperationDiagnostics.Current?.Observe("stage", phase);
+        try { _history.DiagnosticSink?.Invoke($"event=restore.{phase}; transaction={transaction}", "Restore"); }
+        catch { /* Journals, never the diagnostic sink, determine transaction correctness. */ }
+    }
     internal HistoryRestorePreparationSession? TryCreatePreparationSession(IReadOnlyList<HistoryRestoreSourceBinding> bindings,
         HistoryWorkspace expected, out string? diagnostic)
     {
@@ -40,6 +53,7 @@ public sealed partial class HistoryRestoreService
             ValidateCurrentInputs?.Invoke();
             if (BeforeDestinationMutation is { } recheck) await recheck(token).ConfigureAwait(false);
             journal = session.Freeze(plan, expected, desired);
+            ReportRestorePhase("mutation-started", journal.TransactionId);
             var locations = new RestorePlanLocations(plan);
             using (HistoryRestoreFileSystemPlanStore.Execute(plan,
                 Path.Combine(_journals.TransactionDirectory(journal.TransactionId), "restore-progress.bin"), token, locations))
@@ -56,6 +70,7 @@ public sealed partial class HistoryRestoreService
             await _history.EnsureIndexCurrentAsync(CancellationToken.None).ConfigureAwait(false);
             await _history.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
             _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
+            ReportRestorePhase("committed", journal.TransactionId);
             return new(HistoryRestoreStatus.Committed, "", true, applied);
         }
         catch (Exception error)

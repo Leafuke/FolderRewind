@@ -79,6 +79,8 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
             }
             var request = new BackupRunCoordinationRequest(Guid.NewGuid(), PluginV3ModelMapper.ToSnapshot(config), sources.Values.ToArray(),
                 config.ConsistencyIntent == PersistedConsistencyIntent.Require ? ConsistencyIntent.Require : ConsistencyIntent.Prefer);
+            using var diagnostics = NotificationOperationScope.EnterChild(c => c with { PluginId = lease.Context.PluginId.Value,
+                Capability = "BackupRunCoordination", CoordinationOperationId = request.OperationId.ToString("D") });
             using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             var session = await lease.Capability.CreateSessionAsync(request, lease.Context).ConfigureAwait(false);
             return new(config.Id, lease, session, sources, logicalBindings, request.OperationId);
@@ -191,7 +193,7 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
         catch (Exception error)
         {
             if (_channel?.OwnsChannel == true) KnotLinkCoordinationChannel.Gate.MarkUncertain();
-            LogService.LogWarning(error.ToString(), "Backup coordination disposal");
+            LogService.LogWarning(DiagnosticPrivacy.ExceptionMetadata(error), "Backup coordination disposal");
         }
         finally
         {
@@ -211,7 +213,13 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
     {
         private readonly PluginV3BackupRunOwner? _previous = Ambient.Value;
         private readonly IDisposable _signals;
-        internal Scope(PluginV3BackupRunOwner owner) { Ambient.Value = owner; _signals = KnotLinkCoordinationChannel.EnterScope(owner.SignalOwner); }
-        public void Dispose() { _signals.Dispose(); Ambient.Value = _previous; }
+        private readonly IDisposable? _diagnostics;
+        internal Scope(PluginV3BackupRunOwner owner)
+        {
+            Ambient.Value = owner; _signals = KnotLinkCoordinationChannel.EnterScope(owner.SignalOwner);
+            _diagnostics = NotificationOperationScope.EnterChild(c => c with { PluginId = owner._lease.Context.PluginId.Value,
+                Capability = "BackupRunCoordination", CoordinationOperationId = owner.OperationId.ToString("D") });
+        }
+        public void Dispose() { _diagnostics?.Dispose(); _signals.Dispose(); Ambient.Value = _previous; }
     }
 }

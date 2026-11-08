@@ -1462,7 +1462,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Open log folder</value>
   </data>
   <data name="LogPage_BottomHint.Text" xml:space="preserve">
-    <value>Tip: selecting nothing copies all entries</value>
+    <value>Tip: selecting nothing copies all entries. Check for private paths and other sensitive information before sharing.</value>
   </data>
   <data name="LogPage_OpenCurrentLogFile.Content" xml:space="preserve">
     <value>Open current log file</value>
@@ -7011,7 +7011,7 @@ Task log
   <data name="MigrationWizard_ContinueRemaining.Content" xml:space="preserve"><value>Continue unfinished projects…</value></data>
   <data name="HistoryLoad_DetailsText.AutomationProperties.Name" xml:space="preserve"><value>History load error details</value></data>
   <data name="MigrationWizard_ErrorDetailsText.AutomationProperties.Name" xml:space="preserve"><value>Migration technical details</value></data>
-  <data name="LogClear_Failed" xml:space="preserve"><value>Could not clear the current log. Check access to the log file.</value></data>
+  <data name="LogClear_Failed" xml:space="preserve"><value>Could not clear the current log file. Memory entries may have been cleared, but file cleanup did not complete. Check file access.</value></data>
   <data name="MigrationWizard_HistoryCloudPermissionPending" xml:space="preserve"><value>Local migration is complete, but cloud operations still need confirmation. Choose Continue migration to check the connection and confirm permission. You can reconnect there if needed. Automatic upload stays unchanged.</value></data>
   <data name="MigrationWizard_CloudStillPaused" xml:space="preserve"><value>Local migration is complete; cloud operations remain paused. Confirm them later under Settings → Data migration → Continue migration.</value></data>
   <data name="MigrationWizard_CloudPermissionHint.Text" xml:space="preserve"><value>Cloud permission is independent of automatic upload. Leave it unchecked to keep cloud operations paused; you can confirm later. If the connection is unavailable, reconnect and check it under Project settings → Cloud storage first.</value></data>
@@ -7987,4 +7987,12 @@ Affected projects: {1}</value></data>
   <data name="FolderDetailsDialog_ReadNotice" xml:space="preserve"><value>Read notice</value></data>
   <data name="FolderDetailsDialog_ReadIncomplete" xml:space="preserve"><value>Some information could not be read completely.</value></data>
   <data name="OperationDiagnostic_SemanticCoverageLimited" xml:space="preserve"><value>Raw bytes were preserved, but some world data cannot be fully interpreted. Check missing external chunks, unsupported formats or damaged data.</value></data>
+  <data name="CloudSync_OutputOmitted" xml:space="preserve"><value>Raw tool output was omitted to protect sensitive information. Command results are available in the log.</value></data>
+  <data name="LogPersistence_Disabled" xml:space="preserve"><value>File logging is disabled. New entries are kept in memory only.</value></data>
+  <data name="LogPersistence_Unavailable" xml:space="preserve"><value>Log files cannot currently be written. Displayed entries may not be saved.</value></data>
+  <data name="LogPersistence_Gap" xml:space="preserve"><value>File logging has recovered, but some earlier entries could not be confirmed as saved.</value></data>
+  <data name="LogPersistence_Maintenance" xml:space="preserve"><value>Log rotation or cleanup failed. Log files may exceed the configured retention settings.</value></data>
+  <data name="LogPersistence_Faulted" xml:space="preserve"><value>The log writer has stopped unexpectedly. New entries cannot be saved.</value></data>
+  <data name="LogPersistence_Rejected" xml:space="preserve"><value>Entries received after logging stopped were not saved.</value></data>
+  <data name="LogPersistence_OpenUnconfirmed" xml:space="preserve"><value>Log persistence could not be confirmed. Check the logging status before sharing files.</value></data>
 </root>

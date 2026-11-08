@@ -85,6 +85,11 @@ internal sealed class NativeHistoryRestoreOrchestrator
             ConfigId = config.Id,
             SourcePaths = affectedFolders.ToDictionary(f => Guid.Parse(f.Id), f => System.IO.Path.GetFullPath(f.Path))
         };
+        var parentOperation = NotificationOperationScope.Current;
+        using var notificationScope = new NotificationOperationScope(new(NotificationTargetKind.History,
+            parentOperation?.OperationId ?? CurrentOperation.Value.Id.ToString("N"), config.Id), parentOperation is not null,
+            new("", operationKind.ToString()));
+        using var diagnostic = new BusinessOperationDiagnostics(operationKind.ToString(), parentOperation is not null);
         await using var signalInteraction = KnotLink.KnotLinkCoordinationChannel.EnterInteraction(CurrentOperation.Value.Id);
         try
         {
@@ -92,22 +97,23 @@ internal sealed class NativeHistoryRestoreOrchestrator
                 cancellationToken, operationKind).ConfigureAwait(false);
             HistoryRestoreOutcomePolicy.ThrowIfCanceledBeforeMutation(result, cancellationToken);
             var canceled = cancellationToken.IsCancellationRequested || Current?.CoordinatorOutcome == OperationOutcome.Canceled;
-            var level = canceled ? LogLevel.Info : result.Succeeded
+            var level = result.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired
+                ? LogLevel.Error : canceled ? LogLevel.Info : result.Succeeded
                 ? result.PostActionDiagnostic is null ? LogLevel.Info : LogLevel.Warning
                 : result.Status == HistoryRestoreStatus.BlockedBeforeMutation && Current?.CoordinatorOutcome != OperationOutcome.Failed
                     ? LogLevel.Warning : LogLevel.Error;
-            LogService.Log($"Restore completed: {Context(config, affectedFolders, targetIdentity, operationKind)}; status={result.Status}; "
-                + $"outcome={Current?.CoordinatorOutcome}; diagnostic={result.Diagnostic}", level, "History");
+            diagnostic.Complete(result.Status.ToString(), level,
+                $"config={config.Id}; sourceCount={affectedFolders.Count}; targetCommitted={result.TargetCommitted}; workspaceUpdated={result.WorkspaceUpdated}; coordinatorOutcome={Current?.CoordinatorOutcome}; cancellationRequested={canceled}");
             return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            LogService.LogInfo("Restore canceled: " + Context(config, affectedFolders, targetIdentity, operationKind), "History");
+            diagnostic.Failure(new OperationCanceledException(), canceled: true);
             throw;
         }
         catch (Exception ex)
         {
-            LogService.LogError($"Restore failed: {Context(config, affectedFolders, targetIdentity, operationKind)}; hresult=0x{ex.HResult:X8}", "History", ex);
+            diagnostic.Failure(ex);
             throw;
         }
         finally { CurrentOperation.Value = previous; }
@@ -215,8 +221,8 @@ internal sealed class NativeHistoryRestoreOrchestrator
         catch (Exception ex)
         {
             Current!.CoordinatorOutcome = OperationOutcome.Failed;
-            LogService.LogError($"Restore callback/coordinator failed: {Context(config, affectedFolders, targetIdentity, operationKind)}; "
-                + $"continuation_invoked={gate.WasInvoked}; hresult=0x{ex.HResult:X8}", "History", ex);
+            LogService.LogError($"event=restore.coordinator-failed; operation={Current?.Id}; config={config.Id}; continuationInvoked={gate.WasInvoked}; "
+                + DiagnosticPrivacy.ExceptionMetadata(ex), "Plugin");
             if (mutationResult?.Status is HistoryRestoreStatus.CommittedRecoveryRequired or HistoryRestoreStatus.MutationFailedRecoveryRequired) return mutationResult;
             return mutationResult?.WithPostActionWarning(I18n.Format("Restore_CoordinatorPostActionFailed", ex.Message)) ?? Blocked(ex.Message);
         }
