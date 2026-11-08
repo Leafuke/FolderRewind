@@ -104,7 +104,7 @@ public sealed partial class MinecraftIntegrationPage : Page
         var summary = OnboardingRepairPolicy.ExportSummary(Diagnostics.Select(i => (i.Check.Code, i.Check.State.ToString(), i.Check.CheckedAtUtc)));
         if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("Diagnostics_ExportTitle"), I18n.GetString("Diagnostics_ExportFields") + "\n\n" + summary,
             I18n.GetString("Common_Confirm"), XamlRoot)) return;
-        var path = await MainWindowService.PickSaveFilePathAsync("", "FolderRewind.Onboarding.Diagnostics",
+        var path = await MainWindowService.PickSaveFilePathAsync("FolderRewind.Onboarding.Diagnostics",
             new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<string>> { ["Text"] = new[] { ".txt" } }, "FolderRewind-checks");
         if (_lifetime.IsCancellationRequested || string.IsNullOrWhiteSpace(path)) return;
         try { await File.WriteAllTextAsync(path, summary, _lifetime.Token); CheckResults.Text = I18n.GetString("Diagnostics_Exported"); }
@@ -113,7 +113,7 @@ public sealed partial class MinecraftIntegrationPage : Page
     }
     private async void OnModsDirectory(object sender, RoutedEventArgs e)
     {
-        var path = await MainWindowService.PickFolderPathAsync(I18n.GetString("MinecraftCheck_ModsPicker"), "FolderRewind.Minecraft.Mods", MainWindowService.SuggestedPickerLocation.ComputerFolder);
+        var path = await MainWindowService.PickFolderPathAsync("FolderRewind.Minecraft.Mods", MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (!_lifetime.IsCancellationRequested && path is not null) ShellPathService.TryOpenPath(path, out _);
     }
 }

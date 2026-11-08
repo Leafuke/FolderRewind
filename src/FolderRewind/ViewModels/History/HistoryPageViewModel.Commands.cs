@@ -1072,7 +1072,9 @@ public sealed partial class HistoryPageViewModel
             if (isRestore && !notificationOperation.ResultReported)
                 NotificationService.ShowInfoBar(new InAppNotificationRequest
                 {
-                    Title = I18n.GetString("Notification_RestoreCompleted_Title"),
+                    Title = I18n.GetString("NotificationUI_Result_Canceled"),
+                    Content = new(NotificationOperationKind.Restore, NotificationTrigger.Manual, NotificationResultKind.Canceled,
+                        _currentConfig?.Name ?? "", _currentFolder?.DisplayName ?? ""),
                     Message = I18n.GetString("NotificationCenter_Result_Canceled"), KeepInCenter = true,
                     Category = NotificationCategory.Cancellation,
                     Target = notificationOperation.Target, ResultKey = "canceled"

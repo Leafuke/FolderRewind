@@ -64,7 +64,7 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
         {
             var parts = new List<string>();
             if (_config?.Cloud.LegacyConversionRequired == true) parts.Add(I18n.GetString("CloudConnection_LegacyConversionRequired"));
-            if (_config is not null && !_manageConnection && RemoteRoot != _config.Cloud.RemoteBasePath)
+            if (_config is not null && !_manageConnection && RemoteRoot != CloudConnectionCatalog.RemoteRoot(ConfigService.CurrentConfig, _config))
                 parts.Add(I18n.GetString("CloudConnections_LocationChangeConfirm"));
             var profile = _editingProfile ?? _profiles.FirstOrDefault(p => p.Id == _selectedProfileId);
             if (profile is not null && (ConfigPath != profile.CredentialReference || RemoteRoot.Split(':', 2)[0] != profile.RemoteName
@@ -230,15 +230,13 @@ public sealed partial class CloudSetupViewModel : ViewModelBase, IDisposable
             return;
         }
         Message = I18n.GetString("CloudSetup_CredentialMigrating");
-        var originalPath = _config.Cloud.RcloneConfigPath;
+        var originalPath = ConfigService.CurrentConfig.CloudConnections.SingleOrDefault(p => p.Id == _config.Cloud.ConnectionProfileId)?.CredentialReference ?? "";
         await ConfigService.WaitForRcloneCredentialMigrationAsync(originalPath, token, allowUncertain: true);
         token.ThrowIfCancellationRequested();
         _config = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(c => new HistoryConfigId(id).Matches(c.Id))
             ?? throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
         _executable = CloudSyncService.GetEffectiveExecutablePath(_config);
-        _configPath = _config.Cloud.RcloneConfigPath;
-        _working = _config.Cloud.WorkingDirectory;
-        _remote = _config.Cloud.RemoteBasePath;
+        _configPath = ""; _working = ""; _remote = "";
         ConnectionName = _config.Name;
         if (_profiles.FirstOrDefault(p => p.Id == _config.Cloud.ConnectionProfileId) is { } initialProfile)
         {

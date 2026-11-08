@@ -81,7 +81,6 @@ internal sealed class PluginSettingsActions(SettingsPageViewModel viewModel, Fun
         var rl = ResourceLoader.GetForViewIndependentUse();
 
         var filePath = await MainWindowService.PickFilePathAsync(
-            string.Empty,
             "FolderRewind.Settings.Plugins.ManualInstall",
             new[] { ".frplugin" },
             MainWindowService.SuggestedPickerLocation.Downloads,

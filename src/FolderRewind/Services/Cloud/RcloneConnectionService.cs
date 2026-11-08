@@ -245,6 +245,12 @@ public static class RcloneConnectionService
         string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget transferBudget)
     {
         using var space = FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceBudget.Shared.Reserve(new FolderRewind.Plugin.Runtime.Artifacts.ArtifactSpaceRequest(path, expectedLength));
+        await RunToReservedFileAsync(start, timeout, token, path, expectedLength, transferBudget).ConfigureAwait(false);
+    }
+    // The caller holds the destination's complete space reservation until this operation finishes.
+    internal static async Task RunToReservedFileAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken token,
+        string path, long expectedLength, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget transferBudget)
+    {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(timeout);
         await using var credentials = await RcloneCredentialRefresh.BeginAsync(start, deadline.Token).ConfigureAwait(false);
         using var process = new Process { StartInfo = start };

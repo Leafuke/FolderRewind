@@ -13,7 +13,7 @@ internal interface IFolderManagerInteractionService
 {
     Task MessageAsync(string title, string message, CancellationToken token);
     Task<bool> ConfirmAsync(string title, string message, CancellationToken token, bool destructive = false);
-    Task<string?> PickFolderAsync(string title, string identifier, CancellationToken token);
+    Task<string?> PickFolderAsync(string identifier, CancellationToken token);
     Task<string?> PickIconAsync(CancellationToken token);
     Task<string?> RequestRenameAsync(ManagedFolder folder, CancellationToken token);
     Task<BackupSourceScope?> EditScopeAsync(BackupConfig config, ManagedFolder folder, CancellationToken token);
@@ -28,17 +28,17 @@ internal sealed class FolderManagerInteractionService(Func<XamlRoot?> root) : IF
         => AppDialogService.Default.ShowMessageAsync(title, message, root(), cancellationToken: token);
     public Task<bool> ConfirmAsync(string title, string message, CancellationToken token, bool destructive = false)
         => AppDialogService.Default.ConfirmAsync(title, message, I18n.GetString("Common_Confirm"), root(), destructive, token);
-    public async Task<string?> PickFolderAsync(string title, string identifier, CancellationToken token)
+    public async Task<string?> PickFolderAsync(string identifier, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        var path = await MainWindowService.PickFolderPathAsync(title, identifier, MainWindowService.SuggestedPickerLocation.ComputerFolder);
+        var path = await MainWindowService.PickFolderPathAsync(identifier, MainWindowService.SuggestedPickerLocation.ComputerFolder);
         token.ThrowIfCancellationRequested();
         return path;
     }
     public async Task<string?> PickIconAsync(CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        var path = await MainWindowService.PickFilePathAsync(I18n.GetString("FolderManager_ChangeCoverPickerTitle"),
+        var path = await MainWindowService.PickFilePathAsync(
             "FolderRewind.FolderManager.ChangeCover", new[] { ".png", ".jpg", ".jpeg" },
             MainWindowService.SuggestedPickerLocation.PicturesLibrary, viewMode: Windows.Storage.Pickers.PickerViewMode.Thumbnail);
         token.ThrowIfCancellationRequested();

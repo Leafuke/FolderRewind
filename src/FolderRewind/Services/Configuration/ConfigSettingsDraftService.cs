@@ -99,21 +99,20 @@ internal sealed class ConfigSettingsDraftService
         foreach (var source in submitted.SourceFolders)
             if (current.SourceFolders.FirstOrDefault(f => f.Id == source.Id) is { } savedSource) source.LastBackupTime = savedSource.LastBackupTime;
         var replacement = BackupConfigCloneService.CloneForRuntimeMutation(submitted, I18n.GetString("Common_Failed"));
-        var cloudChanged = replacement.Cloud.Enabled != current.Cloud.Enabled || replacement.Cloud.RemoteBasePath != current.Cloud.RemoteBasePath
-            || replacement.Cloud.ConnectionProfileId != current.Cloud.ConnectionProfileId || replacement.Cloud.RcloneConfigPath != current.Cloud.RcloneConfigPath
-            || replacement.Cloud.WritableEvidence != current.Cloud.WritableEvidence;
-        if (replacement.Cloud.Enabled != current.Cloud.Enabled || replacement.Cloud.RemoteBasePath != current.Cloud.RemoteBasePath
+        var cloudChanged = replacement.Cloud.Enabled != current.Cloud.Enabled || replacement.Cloud.RemotePathSuffix != current.Cloud.RemotePathSuffix
             || replacement.Cloud.ConnectionProfileId != current.Cloud.ConnectionProfileId
-            || replacement.Cloud.RcloneConfigPath != current.Cloud.RcloneConfigPath || replacement.Cloud.WritableEvidence != current.Cloud.WritableEvidence)
+            || replacement.Cloud.WritableEvidence != current.Cloud.WritableEvidence;
+        if (replacement.Cloud.Enabled != current.Cloud.Enabled || replacement.Cloud.RemotePathSuffix != current.Cloud.RemotePathSuffix
+            || replacement.Cloud.ConnectionProfileId != current.Cloud.ConnectionProfileId
+            || replacement.Cloud.WritableEvidence != current.Cloud.WritableEvidence)
             await CloudSyncService.CloseCloudAdmissionAsync(current, token);
         var cloudRuntime = cloudChanged ? await History.Application.NativeHistoryCoreGateway.EnsureReadyAsync(current, token) : null;
         await using var cloudGate = cloudRuntime is not null ? await cloudRuntime.MutationGate.EnterAsync(token) : null;
         replacement.ConfigRevision = Guid.NewGuid().ToString("N");
         var index = configs.IndexOf(current);
-        var oldProfiles = ConfigService.CurrentConfig.CloudConnections.ToArray();
         await ConfigEditTransaction.ApplyAsync(() =>
         {
-            CloudConnectionCatalog.BindLegacy(ConfigService.CurrentConfig, replacement);
+            CloudConnectionCatalog.ClearInlineConnection(replacement.Cloud);
             if (cloudRuntime is not null)
             {
                 cloudRuntime.CloudJobs.ConfigureAdmission(replacement.Cloud.Enabled && replacement.Cloud.WritableEvidence.Length != 0
@@ -124,8 +123,6 @@ internal sealed class ConfigSettingsDraftService
         }, () =>
         {
             configs[index] = current;
-            ConfigService.CurrentConfig.CloudConnections.Clear();
-            foreach (var profile in oldProfiles) ConfigService.CurrentConfig.CloudConnections.Add(profile);
             if (cloudRuntime is not null)
             {
                 cloudRuntime.CloudJobs.ConfigureAdmission(current.Cloud.Enabled && current.Cloud.WritableEvidence.Length != 0 ? CloudSyncService.FreezeTarget(current) : null);

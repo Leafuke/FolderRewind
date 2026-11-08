@@ -102,7 +102,7 @@ namespace FolderRewind.Services
                 return (false, failureMessage);
             }
 
-            if (!TryResolveSharedRcloneRuntime(settings, out var executablePath, out var workingDirectory, out var errorMessage))
+            if (!TryResolveRcloneRuntime(settings, out var executablePath, out var workingDirectory, out var errorMessage))
             {
                 NotificationService.ShowError(errorMessage, I18n.GetString("CloudSync_Notification_Title"));
                 return (false, errorMessage);
@@ -162,7 +162,7 @@ namespace FolderRewind.Services
                 return (false, failureMessage);
             }
 
-            if (!TryResolveSharedRcloneRuntime(settings, out var executablePath, out var workingDirectory, out var errorMessage))
+            if (!TryResolveRcloneRuntime(settings, out var executablePath, out var workingDirectory, out var errorMessage))
             {
                 NotificationService.ShowError(errorMessage, I18n.GetString("CloudSync_Notification_Title"));
                 return (false, errorMessage);
@@ -208,60 +208,16 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool TryResolveSharedRcloneRuntime(
-            CloudSettings? fallbackSettings,
+        private static bool TryResolveRcloneRuntime(
+            CloudSettings settings,
             out string executablePath,
             out string workingDirectory,
             out string errorMessage)
         {
-            if (!string.IsNullOrWhiteSpace(fallbackSettings?.RcloneConfigPath))
-            {
-                // 新连接只解析本次选择和主机工具缺省，不借用其他项目的程序或工作目录。
-                executablePath = ResolveRcloneExecutable(fallbackSettings);
-                workingDirectory = fallbackSettings.WorkingDirectory.Trim();
-                return ValidateExecutableAndWorkingDirectory(executablePath, workingDirectory, out errorMessage);
-            }
-            // 运行时优先级：全局设置 -> 已配置任务中可复用值 -> 当前回退设置。
-            executablePath = ConfigService.CurrentConfig?.GlobalSettings?.RcloneExecutablePath?.Trim() ?? string.Empty;
-            workingDirectory = string.Empty;
-
-            var configs = ConfigService.CurrentConfig?.BackupConfigs ?? Enumerable.Empty<BackupConfig>();
-            foreach (var config in configs)
-            {
-                if (config?.Cloud == null)
-                {
-                    continue;
-                }
-
-                if (string.IsNullOrWhiteSpace(workingDirectory) && !string.IsNullOrWhiteSpace(config.Cloud.WorkingDirectory))
-                {
-                    workingDirectory = config.Cloud.WorkingDirectory.Trim();
-                }
-
-                if (string.IsNullOrWhiteSpace(executablePath))
-                {
-                    string candidate = config.Cloud.ExecutablePath?.Trim() ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(candidate) && !string.Equals(candidate, DefaultRcloneExecutable, StringComparison.OrdinalIgnoreCase))
-                    {
-                        executablePath = candidate;
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(executablePath))
-            {
-                executablePath = ResolveRcloneExecutable(fallbackSettings);
-            }
-
-            if (string.IsNullOrWhiteSpace(workingDirectory))
-            {
-                workingDirectory = fallbackSettings?.WorkingDirectory?.Trim() ?? string.Empty;
-            }
-
+            executablePath = ResolveRcloneExecutable(settings);
+            workingDirectory = settings.WorkingDirectory.Trim();
             return ValidateExecutableAndWorkingDirectory(executablePath, workingDirectory, out errorMessage);
         }
-
-
 
         private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds, CancellationToken cancellationToken = default)
         {

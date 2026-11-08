@@ -64,17 +64,14 @@ public sealed class HistoryMergePlanner(HistoryRuntime history)
             var admission = await new HistoryExactCheckpointAdmission(history).EvaluateAsync(b, cancellationToken: token).ConfigureAwait(false);
             if (!admission.IsReady) throw new InvalidOperationException(admission.Diagnostic);
         }
-        var sources = new List<HistoryMergeSourcePlan>();
-        foreach (var id in o.Sources.Concat(t.Sources).Concat(b?.Sources ?? []).Select(s => s.SourceId).Distinct().OrderBy(id => id.ToString(), StringComparer.Ordinal))
-        {
-            var bs = b?.Sources.SingleOrDefault(s => s.SourceId == id);
-            var os = o.Sources.SingleOrDefault(s => s.SourceId == id); var ts = t.Sources.SingleOrDefault(s => s.SourceId == id);
-            sources.Add(found.Mode == HistoryMergeMode.FastForwardLike
-                ? new(id, null, os, ts, ts is null ? HistoryMergeSourceAction.Remove : HistoryMergeSourceAction.Reuse, ts?.VersionId)
-                : PlanSource(id, bs, os, ts));
-        }
+        CheckpointSource Source(SourceCheckpoint c) => new(c.SourceId, c.SourceDescriptorSnapshot,
+            c.VersionId, CheckpointSourceDisposition.CarriedForward, c.EffectiveSourceBoundary);
+        var os = Source(o); var ts = Source(t); var bs = b is null ? null : Source(b);
+        ImmutableArray<HistoryMergeSourcePlan> sources = [found.Mode == HistoryMergeMode.FastForwardLike
+            ? new(o.SourceId, null, os, ts, HistoryMergeSourceAction.Reuse, t.VersionId)
+            : PlanSource(o.SourceId, bs, os, ts)];
         return new(Guid.NewGuid(), found.Mode, ours, theirs, found.BaseCheckpointId, workspace, configRevision,
-            bindings.ToImmutableArray(), sources.ToImmutableArray(), provider.Identity, provider.PolicyIdentity);
+            bindings.ToImmutableArray(), sources, provider.Identity, provider.PolicyIdentity);
     }
 
     internal static HistoryMergeSourcePlan PlanSource(SourceId id, CheckpointSource? b, CheckpointSource? o, CheckpointSource? t)

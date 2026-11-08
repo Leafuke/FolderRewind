@@ -25,7 +25,7 @@ public static partial class ConfigService
             if (chosen.Length != ids.Count) throw new InvalidOperationException("Migration project selection changed.");
             portable.BackupConfigs.Clear(); foreach (var project in chosen) portable.BackupConfigs.Add(project);
             FilterMigrationCloudConnections(portable);
-            RemoveOnboardingMachineBindings(portable); NormalizeConfig(portable); PrepareSchemaOnePersistence(portable);
+            RemoveOnboardingMachineBindings(portable); NormalizeConfig(portable); PrepareCurrentSchemaPersistence(portable);
             return Task.FromResult(new MigrationConfigurationExport(original, SerializeConfig(portable),
                 JsonSerializer.Serialize(CurrentConfig, AppJsonContext.Default.AppConfig)));
         });
@@ -89,7 +89,7 @@ public static partial class ConfigService
             foreach (var project in chosen)
                 if (project.Cloud.ConnectionProfileId is { } previousId && remappedIds.TryGetValue(previousId, out var replacement))
                     project.Cloud.ConnectionProfileId = replacement;
-            NormalizeConfig(merged); PrepareSchemaOnePersistence(merged);
+            NormalizeConfig(merged); PrepareCurrentSchemaPersistence(merged);
             return Task.FromResult(ImportStore.Stage(SerializeConfig(merged), ValidateHostPayload, chosen.Select(c => c.Id).ToArray(), mode,
                 preserveOtherProjectSetup: true, migrationWorkflowId: migrationWorkflowId));
         }).ConfigureAwait(false);
@@ -110,7 +110,12 @@ public static partial class ConfigService
                 || !(profile.Scope == CloudConnectionScope.Shared || profile.Scope == CloudConnectionScope.Project
                     && MigrationRecoveryPolicy.SameId(project.Id, profile.OwnerProjectId ?? "")))
             {
-                project.Cloud = new();
+                // A missing binding does not erase project strategy, unknown fields or
+                // the legacy Custom conversion notice. Machine secrets are scrubbed separately.
+                project.Cloud.Enabled = false;
+                project.Cloud.ConnectionProfileId = null;
+                project.Cloud.BindingRevision = "";
+                project.Cloud.ReadableEvidence = project.Cloud.WritableEvidence = "";
                 continue;
             }
             required.Add(id);

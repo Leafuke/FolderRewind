@@ -49,21 +49,46 @@ public sealed partial class NativeArtifactStore
     public async Task<string> ImportAsync(string bundle, ArtifactId expectedRoot, string expectedStorageHash,
         string configId, Guid folderId, CancellationToken token)
     {
-        using var held = await EnterAsync(token);
-        await RecoverRepairsWithoutGateAsync(token);
         using var zip = ZipFile.OpenRead(bundle);
         var descriptor = zip.GetEntry("closure.json") ?? throw new InvalidDataException("Artifact closure descriptor missing.");
         if (descriptor.Length > 16 * 1024 * 1024 || zip.Entries.Count > 8193) throw new InvalidDataException("Artifact closure metadata quota exceeded.");
         using var manifest = descriptor.Open();
         var closure = JsonSerializer.Deserialize<NativeArtifactClosure>(await ArtifactMetadataFile.ReadStreamAsync(manifest, 16 * 1024 * 1024, token)) ?? throw new InvalidDataException();
-        if (closure.Version != 1 || closure.Root != expectedRoot || closure.Nodes.Count > 4096
+        if (closure.Nodes is null || zip.Entries.Count != closure.Nodes.Count * 2 + 1
+            || zip.Entries.Select(e => e.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != zip.Entries.Count)
+            throw new InvalidDataException("Artifact closure contains unrelated or duplicate entries.");
+        return await ImportClosureAsync(closure, expectedRoot, expectedStorageHash, configId, folderId,
+            async (node, staging, allocation, cancellation) =>
+            {
+                foreach (var name in new[] { "payload.7z", "envelope.json" })
+                {
+                    var entry = zip.GetEntry(node.ArtifactId.Value.ToString("N") + "/" + name)
+                        ?? throw new InvalidDataException("Incomplete closure.");
+                    if (name == "payload.7z" ? entry.Length != node.StorageSize
+                        : entry.Length > NativeArtifactClosureLimits.MaximumEnvelopeBytes)
+                        throw new InvalidDataException("Invalid transfer entry size.");
+                    await using var target = await staging.OpenWriteAsync(allocation.Staging, name, cancellation);
+                    using var source = entry.Open();
+                    await source.CopyToAsync(target, cancellation);
+                }
+            }, token);
+    }
+
+    // Both transfer formats share the same identity, staging, repair and publication transaction.
+    private async Task<string> ImportClosureAsync(NativeArtifactClosure closure, ArtifactId expectedRoot,
+        string expectedStorageHash, string configId, Guid folderId,
+        Func<ArtifactLedgerEntry, ArtifactTransformStagingArea, ArtifactStagingAllocation, CancellationToken, Task> stageNode,
+        CancellationToken token)
+    {
+        using var held = await EnterAsync(token);
+        await RecoverRepairsWithoutGateAsync(token);
+        if (closure.Version != 1 || closure.Root != expectedRoot || closure.Nodes is null || closure.Nodes.Count > 4096
             || closure.Nodes.Any(n => n.ConfigId != configId || n.FolderId != folderId)) throw new InvalidDataException("Foreign Artifact closure.");
         var graph = new ArtifactLedgerDocument(ArtifactLedgerValidator.CurrentSchemaVersion, new("import"), closure.Nodes);
         ArtifactLedgerValidator.Validate(graph);
         var reachable = NativeArtifactClosureLimits.Validate(graph, expectedRoot);
-        if (reachable.Reachable.Count != closure.Nodes.Count || zip.Entries.Count != closure.Nodes.Count * 2 + 1
-            || zip.Entries.Select(e => e.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != zip.Entries.Count)
-            throw new InvalidDataException("Artifact closure contains unrelated or duplicate entries.");
+        if (reachable.Reachable.Count != closure.Nodes.Count)
+            throw new InvalidDataException("Artifact closure contains unrelated nodes.");
         var rootNode = closure.Nodes.Single(n => n.ArtifactId == expectedRoot);
         if (!StringComparer.OrdinalIgnoreCase.Equals(rootNode.StorageSha256, expectedStorageHash))
             throw new InvalidDataException("Artifact root disagrees with committed History.");
@@ -74,8 +99,11 @@ public sealed partial class NativeArtifactStore
         await using var staging = Ledger.CreateStagingArea(transaction, ArtifactTransformLimits.Default.MaximumFiles, ArtifactTransformLimits.Default.MaximumBytes);
         var facts = new Dictionary<ArtifactStagingHandle, StagedArtifactFacts>();
         var additions = new List<ArtifactLedgerEntry>();
-        foreach (var node in closure.Nodes)
+        var nodesById = closure.Nodes.ToDictionary(n => n.ArtifactId);
+        foreach (var id in reachable.TopologicallySorted)
         {
+            token.ThrowIfCancellationRequested();
+            var node = nodesById[id];
             // The complete declared sum was checked above. Each attempt is bounded to this node;
             // a discarded failed realization must not spend the replacement's decoded allowance.
             ArtifactExtractionBudget NodeBudget() => new(node.LogicalSize, node.LogicalEntryCount!.Value);
@@ -99,15 +127,7 @@ public sealed partial class NativeArtifactStore
             }
             var allocation = await staging.CreateArtifactAsync(node.ArtifactId, token);
             var path = staging.GetAllocationPath(allocation.Staging);
-            foreach (var name in new[] { "payload.7z", "envelope.json" })
-            {
-                var entry = zip.GetEntry(node.ArtifactId.Value.ToString("N") + "/" + name) ?? throw new InvalidDataException("Incomplete closure.");
-                if (entry.Length != (name == "payload.7z" ? node.StorageSize : Math.Min(entry.Length, NativeArtifactClosureLimits.MaximumEnvelopeBytes)))
-                    throw new InvalidDataException("Invalid envelope size.");
-                await using var target = await staging.OpenWriteAsync(allocation.Staging, name, token);
-                using var source = entry.Open();
-                await source.CopyToAsync(target, token);
-            }
+            await stageNode(node, staging, allocation, token);
             var canonical = node with { ContentRelativePath = "artifacts/" + node.ArtifactId.Value.ToString("N"), TransactionId = transaction };
             // Reuse exactly the same storage and logical verification as restore before publication.
             var temporaryGraph = graph with { Artifacts = closure.Nodes.Select(n => n.ArtifactId == node.ArtifactId

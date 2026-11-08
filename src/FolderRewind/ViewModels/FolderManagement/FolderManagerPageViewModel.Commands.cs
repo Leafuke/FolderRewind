@@ -210,7 +210,7 @@ public sealed partial class FolderManagerPageViewModel
     {
         var config = CurrentConfig!;
         var signature = NativeHistoryConfigLease.Signature(config);
-        var path = await PickFolderAsync("FolderManager_AddSingleFolderPickerTitle", "AddSingle", token);
+        var path = await PickFolderAsync("AddSingle", token);
         if (string.IsNullOrWhiteSpace(path)) return;
         var candidates = BuildPluginDiscoverCandidates([new ManagedFolder { Path = path, DisplayName = FolderNameConflictService.ResolveDisplayName(null, path) }]);
         await ImportCandidatesAsync(candidates, token, config, signature);
@@ -220,7 +220,7 @@ public sealed partial class FolderManagerPageViewModel
     {
         var config = CurrentConfig!;
         var signature = NativeHistoryConfigLease.Signature(config);
-        var path = await PickFolderAsync("FolderManager_AddSubFoldersPickerTitle", "AddSubFolders", token);
+        var path = await PickFolderAsync("AddSubFolders", token);
         if (string.IsNullOrWhiteSpace(path)) return;
         // Directory enumeration can block on removable/network volumes.
         var paths = await Task.Run(() => Directory.GetDirectories(path), token);
@@ -234,7 +234,7 @@ public sealed partial class FolderManagerPageViewModel
         var config = CurrentConfig!;
         var signature = NativeHistoryConfigLease.Signature(config);
         PluginService.Initialize();
-        var path = await PickFolderAsync("FolderManager_PluginDiscoverPickerTitle", "PluginDiscover", token);
+        var path = await PickFolderAsync("PluginDiscover", token);
         if (string.IsNullOrWhiteSpace(path)) return;
         var discovered = await FolderRewind.Services.Plugins.V3.PluginV3DiscoveryService.DiscoverFoldersAsync(config, path);
         token.ThrowIfCancellationRequested();
@@ -279,9 +279,9 @@ public sealed partial class FolderManagerPageViewModel
             I18n.Format("FolderManager_SourceDestinationOverlap_Content", string.Join(Environment.NewLine, paths.Distinct().Select(p => $"- {p}"))), token)
             : Task.CompletedTask;
 
-    private async Task<string?> PickFolderAsync(string title, string key, CancellationToken token)
+    private async Task<string?> PickFolderAsync(string key, CancellationToken token)
     {
-        var path = await _interaction.PickFolderAsync(I18n.GetString(title), "FolderRewind.FolderManager." + key, token);
+        var path = await _interaction.PickFolderAsync("FolderRewind.FolderManager." + key, token);
         token.ThrowIfCancellationRequested();
         return path;
     }

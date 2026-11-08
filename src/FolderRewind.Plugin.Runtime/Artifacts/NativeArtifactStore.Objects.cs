@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
@@ -12,6 +11,8 @@ public interface INativeArtifactObjectTransport
     Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, string? localPath, CancellationToken token)
         => HasVerifiedObjectAsync(key, size, sha256, token);
     Task UploadObjectAsync(string key, string path, long size, string sha256, ArtifactTransferBudget budget, CancellationToken token);
+    // Import staging holds the destination's space reservation; transports must not reserve it again.
+    // The transport still enforces expectedLength and the cumulative transfer budget while writing.
     Task DownloadObjectAsync(string key, string path, long expectedLength, ArtifactTransferBudget budget, CancellationToken token);
 }
 
@@ -127,41 +128,16 @@ public sealed partial class NativeArtifactStore
     {
         var descriptor = ReadObjectClosure(descriptorPath, expectedRoot, expectedStorageHash, configId, folderId);
         var graph = new ArtifactLedgerDocument(ArtifactLedgerValidator.CurrentSchemaVersion, new("cloud-objects"), descriptor.Objects.Select(o => o.Node).ToArray());
-        // Reuse the validated v1 import transaction. This temporary archive is restore-only,
-        // never uploaded and never part of the incremental capture path.
-        await using var owner = await OwnedPluginTemporaryStorage.CreateAsync(Path.Combine(Root, "transfer-workspaces"), token);
-        var work = await owner.CreateDirectoryAsync(token);
-        var bundle = Path.Combine(work, "import.bundle");
+        var envelopes = descriptor.Objects.ToDictionary(o => o.Node.ArtifactId, o => o.Envelope);
         var transferBudget = new ArtifactTransferBudget(ArtifactTransformLimits.Default.MaximumBytes);
-        try
-        {
-            using (ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(bundle,
-                checked(graph.Artifacts.Sum(n => n.StorageSize) + graph.Artifacts.Count * 8192L + 16 * 1024 * 1024))))
-            using (var output = new FileStream(bundle, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            using (var zip = new ZipArchive(output, ZipArchiveMode.Create))
+        return await ImportClosureAsync(new(1, expectedRoot, graph.Artifacts), expectedRoot, expectedStorageHash,
+            configId, folderId, async (node, staging, allocation, cancellation) =>
             {
-                foreach (var item in descriptor.Objects)
-                {
-                    var file = Path.Combine(work, "object");
-                    await transport.DownloadObjectAsync(CloudObjectKey(item.Node), file, item.Node.StorageSize, transferBudget, token);
-                    await using (var input = File.OpenRead(file))
-                    {
-                        if (input.Length != item.Node.StorageSize || !StringComparer.OrdinalIgnoreCase.Equals(
-                            Convert.ToHexString(await SHA256.HashDataAsync(input, token)), item.Node.StorageSha256))
-                            throw new InvalidDataException("Downloaded ciphertext hash mismatch.");
-                        input.Position = 0;
-                        await using var entry = zip.CreateEntry(item.Node.ArtifactId.Value.ToString("N") + "/payload.7z", CompressionLevel.NoCompression).Open();
-                        await input.CopyToAsync(entry, token);
-                    }
-                    File.Delete(file);
-                    await using var metadata = zip.CreateEntry(item.Node.ArtifactId.Value.ToString("N") + "/envelope.json", CompressionLevel.NoCompression).Open();
-                    await JsonSerializer.SerializeAsync(metadata, item.Envelope, cancellationToken: token);
-                }
-                await using var manifest = zip.CreateEntry("closure.json", CompressionLevel.NoCompression).Open();
-                await JsonSerializer.SerializeAsync(manifest, new NativeArtifactClosure(1, expectedRoot, graph.Artifacts), cancellationToken: token);
-            }
-            return await ImportAsync(bundle, expectedRoot, expectedStorageHash, configId, folderId, token);
-        }
-        finally { DeleteDirectory(work); }
+                await staging.WriteExternalFileAsync(allocation.Staging, "payload.7z", node.StorageSize,
+                    (path, ct) => transport.DownloadObjectAsync(CloudObjectKey(node), path,
+                        node.StorageSize, transferBudget, ct), cancellation);
+                await using var metadata = await staging.OpenWriteAsync(allocation.Staging, "envelope.json", cancellation);
+                await JsonSerializer.SerializeAsync(metadata, envelopes[node.ArtifactId], cancellationToken: cancellation);
+            }, token);
     }
 }

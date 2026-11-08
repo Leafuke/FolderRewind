@@ -137,7 +137,6 @@ namespace FolderRewind.Views.Settings
                 }
 
                 var filePath = await MainWindowService.PickSaveFilePathAsync(
-                    string.Empty,
                     "FolderRewind.Settings.DataManagement.ExportTemplate",
                     new Dictionary<string, IReadOnlyList<string>>
                     {
@@ -167,7 +166,6 @@ namespace FolderRewind.Views.Settings
             try
             {
                 var filePath = await MainWindowService.PickFilePathAsync(
-                    string.Empty,
                     "FolderRewind.Settings.DataManagement.ImportTemplate",
                     new[] { ".json" },
                     MainWindowService.SuggestedPickerLocation.DocumentsLibrary);

@@ -207,9 +207,6 @@
 
 Duplicate folder names are blocked within the same backup project so different directories do not share one backup slot.</value>
   </data>
-  <data name="ShellPage_Header.Header" xml:space="preserve">
-    <value>FolderRewind</value>
-  </data>
   <data name="ShellPage_FolderConflict_Title" xml:space="preserve">
     <value>Backup slot conflict risk detected</value>
   </data>
@@ -4330,9 +4327,6 @@ Pull request: {1}</value>
   <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
     <value>Pull this backup project's archived backups and metadata back into the local backup library, then try to recover the matching history records.</value>
   </data>
-  <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
-    <value>Using {0}. Leave blank to use the app default.</value>
-  </data>
   <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
     <value>rclone path</value>
   </data>
@@ -4500,12 +4494,6 @@ Pull request: {1}</value>
   </data>
   <data name="ConfigCloudSyncDialog_Analysis_Importable" xml:space="preserve">
     <value>Entries ready to import: {0}</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Analysis_Unmapped" xml:space="preserve">
-    <value>Skipped because no local folder matched: {0}</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Analysis_Ambiguous" xml:space="preserve">
-    <value>Skipped because multiple local folders matched: {0}</value>
   </data>
   <data name="CloudSync_ConfigSync_AnalysisSummary" xml:space="preserve">
     <value>The analysis matched {0} remote history entries. {1} can be imported, {2} were unmapped, and {3} were skipped because of ambiguous folder names.</value>
@@ -4677,15 +4665,6 @@ Pull request: {1}</value>
   </data>
   <data name="FolderRenameDialog_ImpactSummaryFormat" xml:space="preserve">
     <value>Updates {0} config reference(s) and {1} history item(s).</value>
-  </data>
-  <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
-    <value>Choose a folder to back up</value>
-  </data>
-  <data name="FolderManager_AddSubFoldersPickerTitle" xml:space="preserve">
-    <value>Choose the root folder to scan for subfolders</value>
-  </data>
-  <data name="FolderManager_PluginDiscoverPickerTitle" xml:space="preserve">
-    <value>Choose the root folder for plugin discovery</value>
   </data>
   <data name="FolderManager_AddSubFoldersFailed" xml:space="preserve">
     <value>Failed to add subfolders.</value>

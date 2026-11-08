@@ -236,7 +236,7 @@ public sealed partial class LudusaviManifestCacheService
             await foreach (var _ in reader.ReadAsync(gzip, token).ConfigureAwait(false)) { }
             return true;
         }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { return false; }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or UnauthorizedAccessException) { return false; }
     }
 
     private sealed record StagedInput(string? Path, string Hash);

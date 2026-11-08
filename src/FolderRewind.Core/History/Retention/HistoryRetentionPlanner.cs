@@ -199,10 +199,7 @@ public sealed class HistoryRetentionPlanner
         {
             if (!InScope(checkpoint.SourceId)) return;
             checkpointReasons[checkpoint.CheckpointId] = checkpointReasons.GetValueOrDefault(checkpoint.CheckpointId) | reason;
-            foreach (var source in checkpoint.Sources)
-            {
-                if (source.VersionId is { } versionId) ProtectVersion(versionId, reason, requiredFidelity);
-            }
+            ProtectVersion(checkpoint.VersionId, reason, requiredFidelity);
         }
 
         var validBackupRuns = runs
@@ -221,17 +218,7 @@ public sealed class HistoryRetentionPlanner
             if (retainedCheckpointCounts.GetValueOrDefault(checkpoint.SourceId) >= request.KeepCount) continue;
             var vector = StateVector(checkpoint);
             if (vectors.Contains(vector)) continue;
-            bool restorable = true;
-            foreach (var source in checkpoint.Sources)
-            {
-                if (source.VersionId is not { } versionId
-                    || await SelectVersionAsync(versionId, MaterializationFidelity.Exact).ConfigureAwait(false) is null)
-                {
-                    restorable = false;
-                    break;
-                }
-            }
-            if (!restorable) continue;
+            if (await SelectVersionAsync(checkpoint.VersionId, MaterializationFidelity.Exact).ConfigureAwait(false) is null) continue;
             vectors.Add(vector);
             ProtectCheckpoint(checkpoint, HistoryProtectionReason.KeepCount, MaterializationFidelity.Exact);
             retainedCheckpointCounts[checkpoint.SourceId] = retainedCheckpointCounts.GetValueOrDefault(checkpoint.SourceId) + 1;
@@ -460,11 +447,7 @@ public sealed class HistoryRetentionPlanner
     }
 
     private static string StateVector(SourceCheckpoint checkpoint)
-        => string.Join(
-            "|",
-            checkpoint.Sources
-                .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
-                .Select(item => $"{item.SourceId}:{item.VersionId?.ToString() ?? "missing"}"));
+        => $"{checkpoint.SourceId}:{checkpoint.VersionId}";
 
     private static bool Satisfies(MaterializationFidelity actual, MaterializationFidelity required)
         => required == MaterializationFidelity.Exact

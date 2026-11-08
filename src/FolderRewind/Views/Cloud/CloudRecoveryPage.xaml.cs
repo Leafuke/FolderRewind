@@ -89,7 +89,7 @@ public sealed partial class CloudRecoveryPage : Page
             if (!_active || confirmation is null) return;
             var preview = CloudSetupViewModel.DescribeRecovery(confirmation.Preview);
             if (!confirmation.Preview.CanPrepare) { await AppDialogService.Default.ShowMessageAsync(I18n.GetString("Export_Title"), preview, XamlRoot); return; }
-            var parent = await MainWindowService.PickFolderPathAsync(I18n.GetString("Export_Title"), "FolderRewind.CloudRecovery.Target", MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            var parent = await MainWindowService.PickFolderPathAsync("FolderRewind.CloudRecovery.Target", MainWindowService.SuggestedPickerLocation.ComputerFolder);
             if (!_active || string.IsNullOrEmpty(parent)) return;
             var target = Path.Combine(parent, "FolderRewind-restored-" + Guid.NewGuid().ToString("N"));
             if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("Export_Title"), preview + "\n\n" + I18n.Format("CloudRecovery_DestinationConfirm", target), I18n.GetString("Common_Confirm"), XamlRoot)) return;

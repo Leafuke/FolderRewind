@@ -10,18 +10,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FolderRewind.History.Application;
+using FolderRewind.History.Application;
 
-public sealed record HistoryTransferManifest(
-    string Magic,
-    int FormatVersion,
-    HistoryConfigId ConfigId,
-    bool IncludesPayloads,
-    ImmutableSortedDictionary<string, string> PackSha256)
-{
-    public const string CurrentMagic = "FolderRewindHistoryTransfer";
-    public const int CurrentFormatVersion = 1;
-}
+namespace FolderRewind.Tests;
 
 public sealed record HistoryTransferImportResult(
     HistoryConfigId ConfigId,
@@ -29,13 +20,13 @@ public sealed record HistoryTransferImportResult(
     int DuplicatePacks,
     bool ImportedAsOrphanRepository);
 
-public sealed class HistoryRepositoryTransferService
+public sealed class LegacyHistoryTransferFixture
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly HistoryPackCodec _codec = new();
     private readonly Func<HistoryConfigId, HistoryRuntime?>? _runtimeResolver;
 
-    public HistoryRepositoryTransferService(Func<HistoryConfigId, HistoryRuntime?>? runtimeResolver = null)
+    public LegacyHistoryTransferFixture(Func<HistoryConfigId, HistoryRuntime?>? runtimeResolver = null)
         => _runtimeResolver = runtimeResolver;
 
     public async Task ExportAsync(

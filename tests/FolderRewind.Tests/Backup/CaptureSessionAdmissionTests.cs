@@ -25,11 +25,10 @@ public sealed class CaptureSessionAdmissionTests
         var owner = new PluginV3CaptureLeaseOwner();
         var diagnostics = new List<PluginDiagnostic>();
         async Task Acquire() => await owner.AcquireAsync(runtime, id, config, folder, prefer ? ConsistencyIntent.Prefer : ConsistencyIntent.Require, diagnostics,
-            sourceViewLimits: new(1024, 10), operation: operation);
+            operation: operation);
         if (supported)
         {
             await Acquire();
-            Assert.IsNull(owner.StableSourcePath);
             Assert.AreEqual(folder.Path, owner.SourcePath);
             Assert.AreEqual(1, plugin.Calls);
             Assert.IsTrue(plugin.Request!.CoordinationOnly);

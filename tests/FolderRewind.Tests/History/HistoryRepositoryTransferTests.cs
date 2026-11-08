@@ -42,7 +42,7 @@ public sealed class HistoryRepositoryTransferTests
             [codec.CreateObject(version)]));
         var transferPath = Path.Combine(_root, "history.frhistory");
         var configDirectory = Path.Combine(_root, "target-config");
-        var transfer = new HistoryRepositoryTransferService();
+        var transfer = new LegacyHistoryTransferFixture();
 
         await transfer.ExportAsync(source, transferPath);
         var first = await transfer.ImportAsync(transferPath, configDirectory);
@@ -181,7 +181,7 @@ public sealed class HistoryRepositoryTransferTests
         await target.WorkspaceStore.SaveAsync(workspace, -1);
         await target.LocalReplicaCatalogStore.SaveAsync(new(id, 0, []), -1);
         var path = Path.Combine(_root, "preserve.frhistory");
-        await new HistoryRepositoryTransferService().ExportAsync(source, path);
+        await new LegacyHistoryTransferFixture().ExportAsync(source, path);
         var service = new HistoryRepositoryBatchTransferService(_ => target, _ => true);
         var first = (await service.ImportAsync(path, directory)).Projects.Single();
         Assert.AreEqual(HistoryTransferLocalStateStatus.Ready, first.LocalStateStatus);

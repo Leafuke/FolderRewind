@@ -320,6 +320,44 @@ public sealed class ArtifactTransformStagingArea : IArtifactTransformStaging, IA
         }
     }
 
+    // Trusted Host transports write directly into an allocated path. Reserve both quotas before I/O;
+    // the common import transaction verifies ciphertext and decoded contents before publication.
+    internal async Task WriteExternalFileAsync(ArtifactStagingHandle staging, string relativePath, long length,
+        Func<string, CancellationToken, Task> write, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        string path;
+        lock (_allocations)
+        {
+            ThrowIfSealed();
+            if (!_allocations.TryGetValue(staging, out var allocation)) throw new InvalidOperationException("Unknown staging handle.");
+            var normalized = ArtifactPathRules.NormalizeRelativePath(relativePath);
+            if (length < 0 || length > _maximumBytes - _reservedBytes || _reservedFiles >= _maximumFiles)
+                throw new IOException("Artifact staging quota exceeded.");
+            if (!allocation.Paths.Add(normalized)) throw new InvalidDataException("Duplicate staging path.");
+            path = ArtifactPathRules.ResolveUnderRoot(allocation.Path, normalized);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            HostArtifactReadService.EnsureNoReparsePoints(allocation.Path, path);
+            if (Interlocked.Add(ref _reservedBytes, length) > _maximumBytes)
+            {
+                Interlocked.Add(ref _reservedBytes, -length);
+                allocation.Paths.Remove(normalized);
+                throw new IOException("Artifact staging byte quota exceeded.");
+            }
+            _reservedFiles++;
+            _openStreams++;
+        }
+        try
+        {
+            using var reservation = ArtifactSpaceBudget.Shared.Reserve(new ArtifactSpaceRequest(path, length));
+            await write(path, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            HostArtifactReadService.EnsureNoReparsePoints(_root, path);
+            if (new FileInfo(path).Length != length) throw new InvalidDataException("Downloaded object length mismatch.");
+        }
+        finally { StreamClosed(); }
+    }
+
     public async ValueTask<IReadOnlyDictionary<ArtifactStagingHandle, StagedArtifactFacts>> SealAsync(
         string contentPathPrefix,
         CancellationToken cancellationToken = default,

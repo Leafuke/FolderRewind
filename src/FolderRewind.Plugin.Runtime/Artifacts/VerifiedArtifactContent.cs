@@ -108,7 +108,11 @@ internal sealed class VerifiedArtifactContent : IDisposable
     private static SafeFileHandle Open(string path, bool directory)
     {
         // OPEN_REPARSE_POINT ensures attributes are checked on the opened object, not a followed link.
-        var handle = CreateFileW(path, directory ? 0x81u : 0x80000000u, 1, IntPtr.Zero, 3,
+        // The Host can run without process-wide long-path opt-in. Keep the same
+        // extended-path spelling as DirectoryPathLease for decoded trees as well.
+        var extended = path.StartsWith(@"\\?\", StringComparison.Ordinal) ? path
+            : path.StartsWith(@"\\", StringComparison.Ordinal) ? @"\\?\UNC\" + path[2..] : @"\\?\" + path;
+        var handle = CreateFileW(extended, directory ? 0x81u : 0x80000000u, 1, IntPtr.Zero, 3,
             0x00200000u | (directory ? 0x02000000u : 0x48000000u), IntPtr.Zero);
         if (handle.IsInvalid)
         { var error = Marshal.GetLastWin32Error(); handle.Dispose(); throw new IOException("Cannot protect decoded Artifact content.", new Win32Exception(error)); }

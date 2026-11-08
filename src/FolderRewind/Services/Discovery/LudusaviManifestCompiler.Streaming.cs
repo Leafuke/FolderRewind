@@ -19,6 +19,13 @@ public sealed partial class LudusaviManifestCompiler
     internal void CompileToIndex(string primaryPath, string? secondaryPath, string? overridePath,
         string destination, string sourceHash, string stagingDirectory, CancellationToken token)
     {
+        try { CompileIndex(primaryPath, secondaryPath, overridePath, destination, sourceHash, stagingDirectory, token); }
+        catch (YamlException ex) { throw new InvalidDataException("The manifest is not valid YAML.", ex); }
+    }
+
+    private void CompileIndex(string primaryPath, string? secondaryPath, string? overridePath,
+        string destination, string sourceHash, string stagingDirectory, CancellationToken token)
+    {
         using var store = new EntryStore(Path.Combine(stagingDirectory, "entries.spool"));
         var entries = new Dictionary<string, EntryHeader>(StringComparer.Ordinal);
         ReadEntries(primaryPath, false, entries, store, token);

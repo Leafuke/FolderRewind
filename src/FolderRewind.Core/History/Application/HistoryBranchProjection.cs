@@ -180,16 +180,9 @@ public static class HistoryBranchMembershipProjection
         foreach (var checkpoint in allCheckpoints)
         {
             if (!checkpointBranches.TryGetValue(checkpoint.CheckpointId, out var branchIds)) continue;
-            foreach (var source in checkpoint.Sources.Where(source => source.VersionId is not null))
-            {
-                var versionId = source.VersionId!.Value;
-                if (!versionBranches.TryGetValue(versionId, out var memberships))
-                {
-                    memberships = [];
-                    versionBranches[versionId] = memberships;
-                }
-                memberships.UnionWith(branchIds);
-            }
+            if (!versionBranches.TryGetValue(checkpoint.VersionId, out var memberships))
+                versionBranches[checkpoint.VersionId] = memberships = [];
+            memberships.UnionWith(branchIds);
         }
 
         return new HistoryBranchMembershipProjectionResult(

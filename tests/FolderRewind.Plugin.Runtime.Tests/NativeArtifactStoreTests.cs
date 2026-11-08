@@ -265,6 +265,13 @@ public sealed partial class NativeArtifactStoreTests
         var imported = new NativeArtifactStore(Path.Combine(fixture.Root, "objects-import"), new ZipCodec());
         await imported.ImportObjectsAsync(descriptor, root, node.StorageSha256, "config", fixture.Folder.FolderId, transport, default);
         await using (var read = await imported.OpenAsync(root, default)) Assert.HasCount(2, read.Artifacts);
+        var downloads = transport.Downloads;
+        await imported.ImportObjectsAsync(descriptor, root, node.StorageSha256, "config", fixture.Folder.FolderId, transport, default);
+        Assert.AreEqual(downloads, transport.Downloads, "Healthy local objects must not be downloaded on retry.");
+        await File.WriteAllTextAsync(imported.PayloadPath(node), "damaged");
+        await imported.ImportObjectsAsync(descriptor, root, node.StorageSha256, "config", fixture.Folder.FolderId, transport, default);
+        Assert.AreEqual(downloads + 1, transport.Downloads, "Only the damaged realization should be repaired.");
+        await using (await imported.OpenAsync(root, default)) { }
         var key = transport.Bytes.Keys.First(); transport.Bytes[key][0] ^= 0x40;
         var rejected = new NativeArtifactStore(Path.Combine(fixture.Root, "rejected"), new ZipCodec());
         await Assert.ThrowsExactlyAsync<InvalidDataException>(() => rejected.ImportObjectsAsync(descriptor, root,
@@ -284,10 +291,51 @@ public sealed partial class NativeArtifactStoreTests
         Assert.IsFalse(File.Exists(descriptor));
     }
 
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ImportAndVerifiedReadSupportDecodedTreesBeyondWindowsLegacyPathLimit(bool objects)
+    {
+        using var fixture = new Fixture(); var (store, root) = await fixture.CaptureAsync();
+        var node = (await store.Ledger.LoadAsync()).Artifacts.Single(n => n.ArtifactId == root);
+        var descriptor = Path.Combine(fixture.Root, "long-objects.json"); var transport = new ObjectTransport();
+        var bundle = Path.Combine(fixture.Root, "long-transfer.zip");
+        if (objects) await store.ExportObjectsAsync(root, descriptor, transport, default);
+        else await store.ExportAsync(root, bundle, default);
+        var directory = Path.Combine(fixture.Root, "long-import");
+        while (directory.Length < 245) directory = Path.Combine(directory, new string('p', 24));
+        var imported = new NativeArtifactStore(directory, new ZipCodec());
+        if (objects) await imported.ImportObjectsAsync(descriptor, root, node.StorageSha256,
+            "config", fixture.Folder.FolderId, transport, default);
+        else await imported.ImportAsync(bundle, root, node.StorageSha256, "config", fixture.Folder.FolderId, default);
+        await using var read = await imported.OpenAsync(root, default);
+        Assert.HasCount(2, read.Artifacts);
+        var content = read.Artifacts.Single(a => a.ArtifactId == root).Content;
+        Assert.AreEqual("root.txt", (await read.Read.ListFilesAsync(content, default)).Single().RelativePath);
+    }
+
+    [TestMethod]
+    public async Task CanceledDirectObjectImportCannotPublishAPartialClosure()
+    {
+        using var fixture = new Fixture(); var (store, root) = await fixture.CaptureAsync();
+        var descriptor = Path.Combine(fixture.Root, "objects.json");
+        var transport = new ObjectTransport { CancelAtDownload = 2 };
+        await store.ExportObjectsAsync(root, descriptor, transport, default);
+        var node = (await store.Ledger.LoadAsync()).Artifacts.Single(n => n.ArtifactId == root);
+        var imported = new NativeArtifactStore(Path.Combine(fixture.Root, "import"), new ZipCodec());
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => imported.ImportObjectsAsync(descriptor, root,
+            node.StorageSha256, "config", fixture.Folder.FolderId, transport, default));
+        Assert.IsEmpty((await imported.Ledger.LoadAsync()).Artifacts);
+        await imported.ImportObjectsAsync(descriptor, root, node.StorageSha256, "config", fixture.Folder.FolderId, transport, default);
+        await using (var read = await imported.OpenAsync(root, default)) Assert.HasCount(2, read.Artifacts);
+    }
+
     private sealed class ObjectTransport : INativeArtifactObjectTransport
     {
         public Dictionary<string, byte[]> Bytes { get; } = [];
         public int Uploads { get; private set; }
+        public int Downloads { get; private set; }
+        public int CancelAtDownload { get; init; }
         public bool CancelUpload { get; init; }
         public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token)
             => Task.FromResult(Bytes.TryGetValue(key, out var bytes) && bytes.LongLength == size
@@ -297,6 +345,7 @@ public sealed partial class NativeArtifactStoreTests
         public async Task DownloadObjectAsync(string key, string path, long expectedLength, ArtifactTransferBudget budget, CancellationToken token)
         {
             await using var target = File.Create(path);
+            if (++Downloads == CancelAtDownload) throw new OperationCanceledException();
             await budget.CopyAsync(new MemoryStream(Bytes[key], false), target, expectedLength, token);
         }
     }
@@ -353,20 +402,26 @@ public sealed partial class NativeArtifactStoreTests
     }
 
     [TestMethod]
-    [DataRow("RepairPrepared:after")]
-    [DataRow("RepairOldMoved:after")]
-    [DataRow("RepairInstalled:after")]
-    public async Task ImportRepairsSurviveDirectorySwapInterruptionAndRepeatedRecovery(string fault)
+    [DataRow("RepairPrepared:after", false)]
+    [DataRow("RepairOldMoved:after", false)]
+    [DataRow("RepairInstalled:after", false)]
+    [DataRow("RepairPrepared:after", true)]
+    [DataRow("RepairOldMoved:after", true)]
+    [DataRow("RepairInstalled:after", true)]
+    public async Task ImportRepairsSurviveDirectorySwapInterruptionAndRepeatedRecovery(string fault, bool objects)
     {
         using var fixture = new Fixture();
         var (store, root) = await fixture.CaptureAsync();
         var node = (await store.Ledger.LoadAsync()).Artifacts.Single(n => n.ArtifactId == root);
         var bundle = Path.Combine(fixture.Root, "repair.zip"); await store.ExportAsync(root, bundle, default);
+        var descriptor = Path.Combine(fixture.Root, "repair.json"); var transport = new ObjectTransport();
+        if (objects) await store.ExportObjectsAsync(root, descriptor, transport, default);
         await File.WriteAllTextAsync(store.PayloadPath(node), "damaged");
         var failed = new NativeArtifactStore(store.Root, new ZipCodec(), stage =>
         { if (stage == fault) throw new IOException("injected repair interruption"); });
-        await Assert.ThrowsExactlyAsync<IOException>(() => failed.ImportAsync(bundle, root, node.StorageSha256,
-            "config", fixture.Folder.FolderId, default));
+        await Assert.ThrowsExactlyAsync<IOException>(() => objects
+            ? failed.ImportObjectsAsync(descriptor, root, node.StorageSha256, "config", fixture.Folder.FolderId, transport, default)
+            : failed.ImportAsync(bundle, root, node.StorageSha256, "config", fixture.Folder.FolderId, default));
         await store.RecoverAsync((_, _) => Task.FromResult(false), default);
         await store.RecoverAsync((_, _) => Task.FromResult(false), default);
         await using (await store.OpenAsync(root, default)) { }

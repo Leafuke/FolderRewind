@@ -172,7 +172,7 @@ namespace FolderRewind.Services
 
             var originalLanguage = config.GlobalSettings.Language;
             NormalizeConfig(config);
-            PrepareSchemaOnePersistence(config);
+            PrepareCurrentSchemaPersistence(config);
             var languageNormalized = !string.Equals(
                 originalLanguage,
                 config.GlobalSettings.Language,
@@ -211,7 +211,7 @@ namespace FolderRewind.Services
             {
                 var config = DeserializeConfig(utf8Json);
                 NormalizeConfig(config);
-                PrepareSchemaOnePersistence(config);
+                PrepareCurrentSchemaPersistence(config);
                 return null;
             }
             catch (Exception ex)
@@ -354,7 +354,7 @@ namespace FolderRewind.Services
         /// SchemaExtensions 键、给缺失 ConfigKind 的配置/预设补核心默认 Kind、
         /// 重新生成重复或非法的文件夹 ID、补配置修订号与提供者状态字典。
         /// </summary>
-        private static void PrepareSchemaOnePersistence(AppConfig config, bool repairSourceIdentities = true)
+        private static void PrepareCurrentSchemaPersistence(AppConfig config, bool repairSourceIdentities = true)
         {
             // Loading/import may migrate old identities. Ordinary saves must never rename a Source.
             ConfigPersistencePolicy.PrepareSourceIdentities(config, repairSourceIdentities);
@@ -627,7 +627,7 @@ namespace FolderRewind.Services
 #if PERFORMANCE_UI_PROFILING
             using (Development.PerformanceUiProfiling.Measure("Config.PrepareSchemaOne"))
 #endif
-            PrepareSchemaOnePersistence(CurrentConfig, repairSourceIdentities: false);
+            PrepareCurrentSchemaPersistence(CurrentConfig, repairSourceIdentities: false);
 #if PERFORMANCE_UI_PROFILING
             using (Development.PerformanceUiProfiling.Measure("Config.Copy"))
 #endif
@@ -747,7 +747,7 @@ namespace FolderRewind.Services
                 var portable = JsonCloneService.Clone(CurrentConfig, AppJsonContext.Default.AppConfig, I18n.GetString("Common_Failed"));
                 RemoveOnboardingMachineBindings(portable);
                 NormalizeConfig(portable);
-                PrepareSchemaOnePersistence(portable);
+                PrepareCurrentSchemaPersistence(portable);
                 AtomicFileService.Write(
                     destPath,
                     stream => JsonSerializer.Serialize(
@@ -821,7 +821,7 @@ namespace FolderRewind.Services
             }
             RemoveOnboardingMachineBindings(imported);
             NormalizeConfig(imported);
-            PrepareSchemaOnePersistence(imported);
+            PrepareCurrentSchemaPersistence(imported);
             if (mode == ConfigImportMode.LocalRestore)
             {
                 var target = targetSnapshot ?? throw new InvalidOperationException("Local restore requires a detached target configuration snapshot.");
@@ -831,9 +831,21 @@ namespace FolderRewind.Services
                 {
                     // A cleared invalid migration binding must not be resurrected from local defaults.
                     if (migrationProjects is not null && string.IsNullOrWhiteSpace(project.Cloud.ConnectionProfileId)) continue;
+                    var importedRemoteRoot = CloudConnectionCatalog.RemoteRoot(imported, project);
+                    if (project.Cloud.CommandMode == CloudCommandMode.Rclone && string.IsNullOrWhiteSpace(project.Cloud.ConnectionProfileId))
+                    {
+                        // Scrubbing machine credentials leaves old inline imports without a profile.
+                        // Interpret only their remote identity here; credentials must come from the target.
+                        try
+                        {
+                            var (remote, suffix) = CloudRemotePath.Split(project.Cloud.RemoteBasePath);
+                            importedRemoteRoot = remote + ":" + suffix;
+                        }
+                        catch (InvalidDataException) { continue; }
+                    }
                     var existing = target.BackupConfigs.FirstOrDefault(c => new History.Domain.HistoryConfigId(c.Id).Matches(project.Id));
-                    if (existing is null || existing.Cloud.CommandMode != project.Cloud.CommandMode
-                        || existing.Cloud.RemoteBasePath != project.Cloud.RemoteBasePath) continue;
+                    if (string.IsNullOrEmpty(importedRemoteRoot) || existing is null || existing.Cloud.CommandMode != project.Cloud.CommandMode
+                        || CloudConnectionCatalog.RemoteRoot(target, existing) != importedRemoteRoot) continue;
                     if (migrationProjects is not null)
                     {
                         var importedProfile = imported.CloudConnections.SingleOrDefault(p => p.Id == project.Cloud.ConnectionProfileId);
@@ -846,12 +858,8 @@ namespace FolderRewind.Services
                         if (!SameMigrationCloudProfile(portableImported, portableTarget)) continue;
                     }
                     // Machine bindings come exclusively from the target installation.
-                    project.Cloud.RcloneConfigPath = existing.Cloud.RcloneConfigPath;
-                    project.Cloud.LocalOpenListServiceUri = existing.Cloud.LocalOpenListServiceUri;
-                    project.Cloud.ExecutablePath = existing.Cloud.ExecutablePath;
-                    project.Cloud.WorkingDirectory = existing.Cloud.WorkingDirectory;
                     if (target.CloudConnections.SingleOrDefault(p => p.Id == existing.Cloud.ConnectionProfileId) is { } localProfile
-                        && localProfile.RemoteName + ":" + existing.Cloud.RemotePathSuffix == project.Cloud.RemoteBasePath)
+                        && localProfile.RemoteName + ":" + existing.Cloud.RemotePathSuffix == importedRemoteRoot)
                     {
                         var placeholder = imported.CloudConnections.SingleOrDefault(p => p.Id == localProfile.Id);
                         if (placeholder is not null) imported.CloudConnections.Remove(placeholder);
@@ -859,6 +867,7 @@ namespace FolderRewind.Services
                         project.Cloud.ConnectionProfileId = localProfile.Id;
                         project.Cloud.RemotePathSuffix = existing.Cloud.RemotePathSuffix;
                         project.Cloud.BindingRevision = existing.Cloud.BindingRevision;
+                        CloudConnectionCatalog.ClearInlineConnection(project.Cloud);
                     }
                 }
             }
@@ -927,7 +936,7 @@ namespace FolderRewind.Services
                 // 恢复应用配置也不能恢复另一台机器的程序执行资格或凭据路径。
                 RemoveOnboardingMachineBindings(restored);
                 NormalizeConfig(restored);
-                PrepareSchemaOnePersistence(restored);
+                PrepareCurrentSchemaPersistence(restored);
                 return ReplaceFromRecoveryAction(SerializeConfig(restored), "before-restore-copy");
             }
             catch (Exception ex)
@@ -944,7 +953,7 @@ namespace FolderRewind.Services
             {
                 var replacement = CreateDefaultConfig();
                 NormalizeConfig(replacement);
-                PrepareSchemaOnePersistence(replacement);
+                PrepareCurrentSchemaPersistence(replacement);
                 return ReplaceFromRecoveryAction(SerializeConfig(replacement), "before-reset");
             }
             catch (Exception ex)

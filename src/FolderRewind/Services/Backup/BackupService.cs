@@ -465,7 +465,7 @@ namespace FolderRewind.Services
                     || !StringComparer.OrdinalIgnoreCase.Equals(HistoryRestoreWorkspacePlanner.ResolvePath(runtimeFolder.Path), physicalSource.PhysicalPath))
                     throw new IOException("Safety snapshot Source binding changed during restore preparation.");
                 // 插件提供的稳定视图仍由其租约负责；直接读取目标时使用同一实际卷及目录。
-                if (!v3Session.HasStableSourceView) sourcePath = physicalSource.PhysicalPath;
+                sourcePath = physicalSource.PhysicalPath;
             }
             if (!string.Equals(sourcePath, folder.Path, StringComparison.OrdinalIgnoreCase))
             {

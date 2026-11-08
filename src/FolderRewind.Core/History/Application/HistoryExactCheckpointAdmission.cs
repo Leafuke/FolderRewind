@@ -102,31 +102,28 @@ public sealed class HistoryExactCheckpointAdmission
         {
             if (!checkpoint.IsStructurallyComplete)
                 return Blocked(HistoryExactCheckpointAdmissionStatus.StructurallyIncomplete,
-                    checkpoint.Sources.Where(item => item.VersionId is null).Select(item => item.SourceId),
-                    "Checkpoint Source roster contains a non-deletion entry without a Version.");
+                    [checkpoint.SourceId],
+                    "Checkpoint requires a valid SourceVersion identity.");
 
-            foreach (var source in checkpoint.Sources)
-            {
-                token.ThrowIfCancellationRequested();
-                if (!_versions.TryGetValue(source.VersionId!.Value, out var version))
-                    return Blocked(HistoryExactCheckpointAdmissionStatus.VersionMissing, [source.SourceId],
-                        "Checkpoint references a missing SourceVersion.");
-                if (version.ConfigId != checkpoint.ConfigId || version.SourceId != source.SourceId)
-                    return Blocked(HistoryExactCheckpointAdmissionStatus.VersionIdentityMismatch, [source.SourceId],
-                        "Checkpoint SourceVersion belongs to another Config or Source.");
-                if (version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)
-                    return Blocked(HistoryExactCheckpointAdmissionStatus.HistoricalBoundaryUnknown,
-                        [source.SourceId], LegacyRecoveryPolicy.BoundaryDiagnostic);
-                if (!StringComparer.Ordinal.Equals(Boundary(source.EffectiveSourceBoundary), Boundary(version.EffectiveSourceBoundary)))
-                    return Blocked(HistoryExactCheckpointAdmissionStatus.BoundaryMismatch, [source.SourceId],
-                        "Checkpoint and SourceVersion Effective Source Boundaries differ.");
-                if (version.CaptureScope == CaptureScope.PartialSource && !HasReliableLogicalParent(version, token))
-                    return Blocked(HistoryExactCheckpointAdmissionStatus.ExactLogicalParentMissing, [source.SourceId],
-                        "PartialSource artifact has no reliable Exact logical parent.");
-                if (!HasExactVersion(version.VersionId, token))
-                    return Blocked(HistoryExactCheckpointAdmissionStatus.ExactRepresentationUnavailable, [source.SourceId],
-                        "SourceVersion has no declared Exact representation closure.");
-            }
+            token.ThrowIfCancellationRequested();
+            if (!_versions.TryGetValue(checkpoint.VersionId, out var version))
+                return Blocked(HistoryExactCheckpointAdmissionStatus.VersionMissing, [checkpoint.SourceId],
+                    "Checkpoint references a missing SourceVersion.");
+            if (version.ConfigId != checkpoint.ConfigId || version.SourceId != checkpoint.SourceId)
+                return Blocked(HistoryExactCheckpointAdmissionStatus.VersionIdentityMismatch, [checkpoint.SourceId],
+                    "Checkpoint SourceVersion belongs to another Config or Source.");
+            if (version.BoundaryConfidence == HistoricalBoundaryConfidence.Unknown)
+                return Blocked(HistoryExactCheckpointAdmissionStatus.HistoricalBoundaryUnknown,
+                    [checkpoint.SourceId], LegacyRecoveryPolicy.BoundaryDiagnostic);
+            if (!StringComparer.Ordinal.Equals(Boundary(checkpoint.EffectiveSourceBoundary), Boundary(version.EffectiveSourceBoundary)))
+                return Blocked(HistoryExactCheckpointAdmissionStatus.BoundaryMismatch, [checkpoint.SourceId],
+                    "Checkpoint and SourceVersion Effective Source Boundaries differ.");
+            if (version.CaptureScope == CaptureScope.PartialSource && !HasReliableLogicalParent(version, token))
+                return Blocked(HistoryExactCheckpointAdmissionStatus.ExactLogicalParentMissing, [checkpoint.SourceId],
+                    "PartialSource artifact has no reliable Exact logical parent.");
+            if (!HasExactVersion(version.VersionId, token))
+                return Blocked(HistoryExactCheckpointAdmissionStatus.ExactRepresentationUnavailable, [checkpoint.SourceId],
+                    "SourceVersion has no declared Exact representation closure.");
             return new(HistoryExactCheckpointAdmissionStatus.Ready, [], string.Empty);
         }
 

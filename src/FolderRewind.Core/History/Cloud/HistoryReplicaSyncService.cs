@@ -16,6 +16,9 @@ namespace FolderRewind.History.Cloud;
 
 public sealed class HistoryReplicaSyncService
 {
+#if FOLDERREWIND_PROTOCOL_TESTS
+    internal static Action<string>? TestFault;
+#endif
     private readonly HistoryRuntime _history;
     private readonly IHistoryReplicaTransport _transport;
     public FolderRewind.Plugin.Runtime.Artifacts.INativeArtifactObjectTransport? ArtifactObjects
@@ -143,7 +146,13 @@ public sealed class HistoryReplicaSyncService
         await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
         var objects = facts.Select(fact => _codec.CreateObject(fact)).ToArray();
         var pack = new HistoryCommitPack(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow, objects);
+#if FOLDERREWIND_PROTOCOL_TESTS
+        TestFault?.Invoke("CloudFacts:before");
+#endif
         await _history.Repository.CommitAsync(pack, cancellationToken: cancellationToken).ConfigureAwait(false);
+#if FOLDERREWIND_PROTOCOL_TESTS
+        TestFault?.Invoke("CloudFacts:after");
+#endif
         await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.TransactionCommitted, objects.Select(item => item.Id));
     }

@@ -16,12 +16,9 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
 {
     public const string ProviderId = "ludusavi";
 
-    private readonly Func<CancellationToken, Task<(
-        LudusaviManifestCacheMetadata Metadata,
-        LudusaviCompiledIndex Index)?>> _indexLoader;
     private readonly ILauncherInstallationDiscoveryService _installationDiscovery;
     private readonly LudusaviPathExpressionResolver _resolver;
-    private readonly LudusaviManifestCacheService? _cacheService;
+    private readonly LudusaviManifestCacheService _cacheService;
     private readonly LudusaviGeneration? _generation;
 
     public LudusaviDiscoveryProvider(
@@ -29,25 +26,11 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         ILauncherInstallationDiscoveryService? installationDiscovery = null,
         LudusaviPathExpressionResolver? resolver = null,
         LudusaviGeneration? generation = null)
-        : this(
-            cacheService.LoadCurrentAsync,
-            installationDiscovery,
-            resolver)
     {
-        _cacheService = cacheService;
-        _generation = generation;
-    }
-
-    public LudusaviDiscoveryProvider(
-        Func<CancellationToken, Task<(
-            LudusaviManifestCacheMetadata Metadata,
-            LudusaviCompiledIndex Index)?>> indexLoader,
-        ILauncherInstallationDiscoveryService? installationDiscovery = null,
-        LudusaviPathExpressionResolver? resolver = null)
-    {
-        _indexLoader = indexLoader ?? throw new ArgumentNullException(nameof(indexLoader));
+        _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
         _installationDiscovery = installationDiscovery ?? new LauncherInstallationDiscoveryService();
         _resolver = resolver ?? new LudusaviPathExpressionResolver();
+        _generation = generation;
     }
 
     public DiscoveryProviderDescriptor Descriptor { get; } = new()
@@ -58,90 +41,11 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         IsSpecialized = false
     };
 
-    public async Task<DiscoveryProviderResult> DiscoverAsync(
-        DiscoveryRequest request,
-        IProgress<DiscoveryProgress>? progress,
-        CancellationToken cancellationToken)
+    public Task<DiscoveryProviderResult> DiscoverAsync(DiscoveryRequest request,
+        IProgress<DiscoveryProgress>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (_cacheService is not null)
-            return await Task.Run(() => DiscoverStreamingAsync(request, progress, cancellationToken), cancellationToken).ConfigureAwait(false);
-        var stopwatch = Stopwatch.StartNew();
-        var current = await _indexLoader(cancellationToken).ConfigureAwait(false);
-        if (current == null)
-        {
-            return new DiscoveryProviderResult
-            {
-                ProviderId = ProviderId,
-                Diagnostics = new[]
-                {
-                    Diagnostic(
-                        DiscoveryDiagnosticSeverity.Information,
-                        "manifest-unavailable",
-                        I18n.GetString("GameDiscovery_Diagnostic_NoManifest"))
-                },
-                Statistics = new DiscoveryScanStatistics { Duration = stopwatch.Elapsed }
-            };
-        }
-
-        progress?.Report(new DiscoveryProgress
-        {
-            ProviderId = ProviderId,
-            Phase = "installations",
-            Message = I18n.GetString("GameDiscovery_Status_ScanningInstallations")
-        });
-        var installationScan = _installationDiscovery.Scan(
-            request.StoreRoots,
-            request.DisabledAutoRoots,
-            cancellationToken);
-
-        var definitions = SelectDefinitions(current.Value.Index.Games, request);
-        var matchedDefinitions = MatchInstallationsToDefinitions(
-            definitions,
-            installationScan.Installations,
-            cancellationToken);
-        var candidates = new List<DiscoveredGameCandidate>();
-        var diagnostics = current.Value.Index.Diagnostics
-            .Select(item => Diagnostic(
-                DiscoveryDiagnosticSeverity.Warning,
-                item.Code,
-                $"{item.EntryName}: {item.Message}"))
-            .ToList();
-        diagnostics.AddRange(installationScan.Diagnostics);
-        for (var definitionIndex = 0; definitionIndex < matchedDefinitions.Count; definitionIndex++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var matchedDefinition = matchedDefinitions[definitionIndex];
-            progress?.Report(new DiscoveryProgress
-            {
-                ProviderId = ProviderId,
-                Phase = "resources",
-                Message = matchedDefinition.Definition.DisplayName,
-                Completed = definitionIndex,
-                Total = matchedDefinitions.Count
-            });
-            candidates.Add(CreateCandidate(
-                matchedDefinition.Definition,
-                matchedDefinition.Matches,
-                diagnostics,
-                current.Value.Metadata.SourceSha256,
-                cancellationToken));
-        }
-
-        stopwatch.Stop();
-        return new DiscoveryProviderResult
-        {
-            ProviderId = ProviderId,
-            Candidates = candidates,
-            Diagnostics = diagnostics,
-            Statistics = new DiscoveryScanStatistics
-            {
-                DefinitionsConsidered = matchedDefinitions.Count,
-                InstallationsFound = candidates.Sum(candidate => candidate.Installations.Count),
-                ResourcesFound = candidates.Sum(candidate => candidate.BackupSets.Sum(set => set.Resources.Count)),
-                Duration = stopwatch.Elapsed
-            }
-        };
+        return Task.Run(() => DiscoverStreamingAsync(request, progress, cancellationToken), cancellationToken);
     }
 
     private DiscoveredGameCandidate CreateCandidate(
@@ -390,146 +294,8 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         };
     }
 
-    private static IReadOnlyList<LudusaviCompiledGame> SelectDefinitions(
-        IReadOnlyList<LudusaviCompiledGame> definitions,
-        DiscoveryRequest request)
-    {
-        if (request.Mode != DiscoveryRequestMode.PresetTargeted)
-        {
-            return definitions;
-        }
 
-        var requested = request.Definitions
-            .Where(reference => string.Equals(reference.ProviderId, ProviderId, StringComparison.OrdinalIgnoreCase))
-            .Select(reference => reference.DefinitionId)
-            .ToHashSet(StringComparer.Ordinal);
-        return definitions.Where(definition => requested.Contains(definition.DefinitionId)).ToList();
-    }
 
-    private static IReadOnlyList<DefinitionInstallationMatches> MatchInstallationsToDefinitions(
-        IReadOnlyList<LudusaviCompiledGame> definitions,
-        IReadOnlyList<DetectedGameInstallation> installations,
-        CancellationToken cancellationToken)
-    {
-        if (installations.Count == 0 || definitions.Count == 0)
-        {
-            return Array.Empty<DefinitionInstallationMatches>();
-        }
-
-        var matchesByDefinition = new Dictionary<LudusaviCompiledGame, List<InstallationMatch>>();
-        var strongIdIndex = new Dictionary<string, List<LudusaviCompiledGame>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var definition in definitions)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            foreach (var store in new[] { GameStore.Steam, GameStore.Gog })
-            {
-                var storeKey = StoreKey(store);
-                foreach (var externalIdKey in new[] { storeKey, $"{storeKey}Extra" })
-                {
-                    if (!definition.ExternalIds.TryGetValue(externalIdKey, out var ids))
-                    {
-                        continue;
-                    }
-                    foreach (var id in SplitIds(ids))
-                    {
-                        AddLookup(strongIdIndex, StrongIdKey(store, id), definition);
-                    }
-                }
-            }
-        }
-
-        var needsNameMatch = new List<DetectedGameInstallation>();
-        foreach (var installation in installations)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (installation.Store is GameStore.Steam or GameStore.Gog
-                && !string.IsNullOrWhiteSpace(installation.StoreGameId)
-                && strongIdIndex.TryGetValue(
-                    StrongIdKey(installation.Store, installation.StoreGameId),
-                    out var strongDefinitions))
-            {
-                foreach (var definition in strongDefinitions)
-                {
-                    AddMatch(matchesByDefinition, definition, new InstallationMatch(
-                        installation,
-                        DiscoveryConfidence.High,
-                        "store-id",
-                        string.Format(I18n.GetString("GameDiscovery_Evidence_StoreIdMatched"), installation.Store, installation.StoreGameId)));
-                }
-            }
-            else
-            {
-                needsNameMatch.Add(installation);
-            }
-        }
-
-        if (needsNameMatch.Count > 0)
-        {
-            var nameIndex = BuildNameIndex(definitions, cancellationToken);
-            foreach (var installation in needsNameMatch)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var installationNames = InstallationNames(installation);
-                var nameDefinitions = installationNames
-                    .Where(nameIndex.ContainsKey)
-                    .SelectMany(name => nameIndex[name])
-                    .Distinct()
-                    .ToList();
-                if (nameDefinitions.Count == 0)
-                {
-                    continue;
-                }
-                var installationAmbiguous = installations.Count(other =>
-                    other.Store == installation.Store
-                    && string.Equals(
-                        NormalizeName(other.DisplayName),
-                        NormalizeName(installation.DisplayName),
-                        StringComparison.OrdinalIgnoreCase)) > 1;
-                var ambiguous = installationAmbiguous || nameDefinitions.Count > 1;
-                foreach (var definition in nameDefinitions)
-                {
-                    AddMatch(matchesByDefinition, definition, new InstallationMatch(
-                        installation,
-                        ambiguous ? DiscoveryConfidence.Low : DiscoveryConfidence.Medium,
-                        ambiguous ? "ambiguous-name" : "name-and-install-dir",
-                        ambiguous
-                            ? I18n.GetString("GameDiscovery_Evidence_AmbiguousName")
-                            : I18n.GetString("GameDiscovery_Evidence_NameMatched")));
-                }
-            }
-        }
-
-        return definitions
-            .Where(matchesByDefinition.ContainsKey)
-            .Select(definition => new DefinitionInstallationMatches(
-                definition,
-                matchesByDefinition[definition]
-                    .GroupBy(match => InstallationKey(match.Installation), StringComparer.OrdinalIgnoreCase)
-                    .Select(group => group.OrderByDescending(match => match.Confidence).First())
-                    .ToList()))
-            .ToList();
-    }
-
-    private static Dictionary<string, List<LudusaviCompiledGame>> BuildNameIndex(
-        IReadOnlyList<LudusaviCompiledGame> definitions,
-        CancellationToken cancellationToken)
-    {
-        var index = new Dictionary<string, List<LudusaviCompiledGame>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var definition in definitions)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            foreach (var name in new[] { definition.DisplayName }
-                         .Concat(definition.Aliases)
-                         .Concat(definition.InstallDirectoryHints)
-                         .Select(NormalizeName)
-                         .Where(value => value.Length > 0)
-                         .Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                AddLookup(index, name, definition);
-            }
-        }
-        return index;
-    }
 
     private static IReadOnlyList<string> InstallationNames(DetectedGameInstallation installation) =>
         new[]
@@ -543,18 +309,6 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToList();
 
-    private static void AddLookup(
-        IDictionary<string, List<LudusaviCompiledGame>> lookup,
-        string key,
-        LudusaviCompiledGame definition)
-    {
-        if (!lookup.TryGetValue(key, out var values))
-        {
-            values = new List<LudusaviCompiledGame>();
-            lookup[key] = values;
-        }
-        values.Add(definition);
-    }
 
     private static void AddMatch(
         IDictionary<LudusaviCompiledGame, List<InstallationMatch>> matches,
@@ -569,7 +323,6 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         values.Add(match);
     }
 
-    private static string StrongIdKey(GameStore store, string id) => $"{store}:{id.Trim()}";
 
     private static bool MatchesConstraint(
         LudusaviCompiledResource resource,
@@ -742,7 +495,4 @@ public sealed partial class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         string EvidenceKind,
         string EvidenceDescription);
 
-    private sealed record DefinitionInstallationMatches(
-        LudusaviCompiledGame Definition,
-        IReadOnlyList<InstallationMatch> Matches);
 }

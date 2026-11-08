@@ -207,9 +207,6 @@
 
 为避免不同目录共用同一个备份槽位，同一备份项目中不能存在同名文件夹。</value>
   </data>
-  <data name="ShellPage_Header.Header" xml:space="preserve">
-    <value>FolderRewind</value>
-  </data>
   <data name="ShellPage_FolderConflict_Title" xml:space="preserve">
     <value>检测到备份槽位冲突风险</value>
   </data>
@@ -4330,9 +4327,6 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
     <value>将当前备份项目在云端保存的备份文件和元数据拉回本地备份库，并尝试恢复历史记录。</value>
   </data>
-  <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
-    <value>当前使用：{0}。留空使用软件的默认路径。</value>
-  </data>
   <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
     <value>rclone 路径</value>
   </data>
@@ -4500,12 +4494,6 @@ Pull Request：{1}</value>
   </data>
   <data name="ConfigCloudSyncDialog_Analysis_Importable" xml:space="preserve">
     <value>可直接导入的记录：{0}</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Analysis_Unmapped" xml:space="preserve">
-    <value>未映射到本地文件夹：{0}</value>
-  </data>
-  <data name="ConfigCloudSyncDialog_Analysis_Ambiguous" xml:space="preserve">
-    <value>命中多个本地文件夹而跳过：{0}</value>
   </data>
   <data name="CloudSync_ConfigSync_AnalysisSummary" xml:space="preserve">
     <value>本次分析命中了 {0} 条远端历史，其中 {1} 条可导入，{2} 条未映射，{3} 条因文件夹重名而跳过。</value>
@@ -4677,15 +4665,6 @@ Pull Request：{1}</value>
   </data>
   <data name="FolderRenameDialog_ImpactSummaryFormat" xml:space="preserve">
     <value>将更新 {0} 个配置引用和 {1} 条历史记录。</value>
-  </data>
-  <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
-    <value>选择要加入备份的文件夹</value>
-  </data>
-  <data name="FolderManager_AddSubFoldersPickerTitle" xml:space="preserve">
-    <value>选择要扫描子文件夹的根目录</value>
-  </data>
-  <data name="FolderManager_PluginDiscoverPickerTitle" xml:space="preserve">
-    <value>选择插件要扫描的根目录</value>
   </data>
   <data name="FolderManager_AddSubFoldersFailed" xml:space="preserve">
     <value>添加子文件夹失败。</value>

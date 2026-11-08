@@ -218,10 +218,8 @@ namespace FolderRewind.Services
         }
 
         public static Task<string?> PickFolderPathAsync(
-            string title,
             string settingsIdentifier,
-            SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.ComputerFolder,
-            string? suggestedStartFolder = null)
+            SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.ComputerFolder)
         {
             return RunClassicPickerAsync(async () =>
             {
@@ -233,9 +231,6 @@ namespace FolderRewind.Services
                 picker.FileTypeFilter.Add("*");
                 InitializePicker(picker);
 
-                // 经典 FolderPicker 不支持 Title / SuggestedStartFolder，这里保留参数仅为兼容统一接口。
-                _ = title;
-                _ = suggestedStartFolder;
 
                 var result = await picker.PickSingleFolderAsync();
                 return result?.Path;
@@ -273,11 +268,9 @@ namespace FolderRewind.Services
         }
 
         public static Task<string?> PickFilePathAsync(
-            string title,
             string settingsIdentifier,
             IReadOnlyList<string> fileTypeFilters,
             SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.DocumentsLibrary,
-            string? suggestedStartFolder = null,
             PickerViewMode viewMode = PickerViewMode.List)
         {
             return RunClassicPickerAsync(async () =>
@@ -299,9 +292,6 @@ namespace FolderRewind.Services
 
                 InitializePicker(picker);
 
-                // 经典 FileOpenPicker 不支持 Title / SuggestedStartFolder，这里保留参数仅为兼容统一接口。
-                _ = title;
-                _ = suggestedStartFolder;
 
                 var result = await picker.PickSingleFileAsync();
                 return result?.Path;
@@ -309,12 +299,10 @@ namespace FolderRewind.Services
         }
 
         public static Task<string?> PickSaveFilePathAsync(
-            string title,
             string settingsIdentifier,
             IReadOnlyDictionary<string, IReadOnlyList<string>> fileTypeChoices,
             string suggestedFileName,
-            SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.DocumentsLibrary,
-            string? suggestedStartFolder = null)
+            SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.DocumentsLibrary)
         {
             return RunClassicPickerAsync(async () =>
             {
@@ -332,9 +320,6 @@ namespace FolderRewind.Services
 
                 InitializePicker(picker);
 
-                // 经典 FileSavePicker 不支持 Title / SuggestedStartFolder，这里保留参数仅为兼容统一接口。
-                _ = title;
-                _ = suggestedStartFolder;
 
                 var result = await picker.PickSaveFileAsync();
                 return result?.Path;

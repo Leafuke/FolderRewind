@@ -63,7 +63,7 @@ public sealed class HistoryQuickRestoreResolver
         if (tip.IsDeleted || tip.TargetCheckpointId is not { } checkpointId)
             return Missing("Active Branch tip has no checkpoint.", anchorId);
         var checkpoint = await _history.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false);
-        var versionId = checkpoint?.Sources.SingleOrDefault(item => item.SourceId == sourceId)?.VersionId;
+        VersionId? versionId = checkpoint is not null && checkpoint.SourceId == sourceId ? checkpoint.VersionId : null;
         if (versionId is null)
             return Missing("Active Branch checkpoint has no Version for this Source.", anchorId);
         var version = await _history.Query.GetVersionAsync(versionId.Value, cancellationToken).ConfigureAwait(false);
@@ -127,7 +127,7 @@ public sealed class HistoryQuickRestoreResolver
             || tips[0].IsDeleted || tips[0].TargetCheckpointId is not { } checkpointId)
             throw new InvalidOperationException("Active Branch is multi-tip or its selected restore anchor is stale.");
         var checkpoint = await _history.Query.GetCheckpointAsync(checkpointId, token).ConfigureAwait(false);
-        if (checkpoint?.Sources.SingleOrDefault(s => s.SourceId == sourceId)?.VersionId != selection.VersionId)
+        if (checkpoint is null || checkpoint.SourceId != sourceId || checkpoint.VersionId != selection.VersionId)
             throw new InvalidOperationException("Active Branch restore target changed after selection.");
     }
 

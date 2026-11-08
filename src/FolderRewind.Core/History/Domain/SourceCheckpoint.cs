@@ -77,6 +77,4 @@ public sealed record SourceCheckpoint
     public CheckpointCreationKind CreationKind { get; }
     [JsonIgnore] public string EffectiveSourceBoundaryFingerprint => EffectiveSourceBoundary.Fingerprint;
     [JsonIgnore] public bool IsStructurallyComplete => VersionId.Value != Guid.Empty;
-    [JsonIgnore] public ImmutableArray<CheckpointSource> Sources =>
-        [new(SourceId, SourceDescriptorSnapshot, VersionId, CheckpointSourceDisposition.CarriedForward, EffectiveSourceBoundary)];
 }

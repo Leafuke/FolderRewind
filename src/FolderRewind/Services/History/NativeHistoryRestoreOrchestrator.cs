@@ -90,6 +90,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
         {
             var result = await ExecuteCoreAsync(config, affectedFolders, targetIdentity, hostMutation,
                 cancellationToken, operationKind).ConfigureAwait(false);
+            HistoryRestoreOutcomePolicy.ThrowIfCanceledBeforeMutation(result, cancellationToken);
             var canceled = cancellationToken.IsCancellationRequested || Current?.CoordinatorOutcome == OperationOutcome.Canceled;
             var level = canceled ? LogLevel.Info : result.Succeeded
                 ? result.PostActionDiagnostic is null ? LogLevel.Info : LogLevel.Warning

@@ -156,22 +156,8 @@ public sealed class LegacyConfigMigrator
             config["HostOrigin"] = hostOrigin;
         }
 
-        var providerData = new JsonObject();
-        CopyStringIfPresent(extended, "MinecraftVersion", providerData);
-        CopyStringIfPresent(extended, "MinecraftInstancePath", providerData);
-        if (providerData.Count > 0)
-        {
-            var states = EnsureObject(config, "ProviderStates");
-            states[ConfigSchema.MineRewindPluginId] = new JsonObject
-            {
-                ["SchemaVersion"] = 0,
-                ["Data"] = providerData
-            };
-        }
-        else
-        {
-            EnsureObject(config, "ProviderStates");
-        }
+        // Historical hints remain in LegacyPreservation; new migrations create no unused provider state.
+        EnsureObject(config, "ProviderStates");
 
         var scope = EnsureObject(config, "BackupScope");
         var legacyScopeId = ConfigDocumentValidator.GetString(scope, "PluginScopeId")?.Trim() ?? string.Empty;

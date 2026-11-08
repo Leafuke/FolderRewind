@@ -168,7 +168,6 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
     {
         cancellationToken.ThrowIfCancellationRequested();
         var path = await MainWindowService.PickFolderPathAsync(
-            string.Empty,
             "FolderRewind.History.ScanRecover",
             MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
         cancellationToken.ThrowIfCancellationRequested();

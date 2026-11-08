@@ -65,8 +65,6 @@
                     <TextBlock Text="{x:Bind ViewModel.AnalysisSummary, Mode=OneWay}" TextWrapping="Wrap"/>
                     <TextBlock Text="{x:Bind ViewModel.AnalysisMatchedText, Mode=OneWay}" />
                     <TextBlock Text="{x:Bind ViewModel.AnalysisImportableText, Mode=OneWay}" />
-                    <TextBlock Text="{x:Bind ViewModel.AnalysisUnmappedText, Mode=OneWay}" />
-                    <TextBlock Text="{x:Bind ViewModel.AnalysisAmbiguousText, Mode=OneWay}" />
                 </StackPanel>
             </Border>
         </StackPanel>

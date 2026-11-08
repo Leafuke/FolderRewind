@@ -133,7 +133,7 @@ public sealed class HistoryCheckoutServiceTests
         await source.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
             new object[] { version, Representation(version.VersionId), checkpoint, branch }.Select(f => codec.CreateObject(f))));
         var file = Path.Combine(_root, "restore-migration.frhistory");
-        await new HistoryRepositoryTransferService().ExportAsync(source, file);
+        await new LegacyHistoryTransferFixture().ExportAsync(source, file);
         var configDirectory = Path.Combine(_root, "migration-target");
         await new HistoryRepositoryBatchTransferService(configExists: _ => true).ImportAsync(file, configDirectory);
         await using var target = new HistoryRuntime(new FileHistoryRepository(id, HistoryRepositoryPaths.ForConfigDirectory(configDirectory, id)));

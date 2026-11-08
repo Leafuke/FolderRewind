@@ -28,21 +28,35 @@ public sealed class HistoryIndexSchemaUpgradeTests
     }
 
     [TestMethod]
-    [DataRow("initialize")]
-    [DataRow("commit")]
-    [DataRow("query")]
-    public async Task Schema3UpgradePreservesObservationsAndFactsAtEveryRuntimeEntry(string entry)
+    public async Task RebuildAtLongDirectoryDoesNotExhaustSqliteJournalPathBudget()
+    {
+        var directory = Path.Combine(_root, new string('x', Math.Max(1, 201 - _root.Length - 1)));
+        using var index = new HistoryIndex(Path.Combine(directory, "history-index.db"));
+        await index.RebuildAsync([]);
+        Assert.AreEqual(5, await index.GetSchemaVersionAsync());
+        Assert.AreEqual(0, await index.GetIndexedPackCountAsync());
+        CollectionAssert.AreEqual(new[] { "history-index.db" }, Directory.GetFiles(directory).Select(Path.GetFileName).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("initialize", 3)]
+    [DataRow("commit", 3)]
+    [DataRow("query", 3)]
+    [DataRow("initialize", 4)]
+    [DataRow("commit", 4)]
+    [DataRow("query", 4)]
+    public async Task SchemaUpgradePreservesObservationsAndFactsAtEveryRuntimeEntry(string entry, int version)
     {
         await SeedAsync();
         await using var runtime = Runtime();
         if (entry != "initialize") await runtime.InitializeReadableAsync();
-        DowngradeTo3();
+        DowngradeTo(version);
 
         if (entry == "initialize") await runtime.InitializeReadableAsync();
         else if (entry == "commit") await runtime.Repository.CommitAsync(Pack());
         else await runtime.EnsureIndexCurrentAsync();
 
-        Assert.AreEqual(4, await runtime.Index.GetSchemaVersionAsync());
+        Assert.AreEqual(5, await runtime.Index.GetSchemaVersionAsync());
         Assert.AreEqual(entry == "commit" ? 2 : 1, await runtime.Index.GetIndexedPackCountAsync());
         Assert.AreEqual(1L, Scalar("SELECT COUNT(*) FROM ReplicaObservations WHERE ReplicaKey='upgrade-witness'"),
             "An in-place upgrade must retain observations that a rebuild would discard.");
@@ -66,7 +80,7 @@ public sealed class HistoryIndexSchemaUpgradeTests
         if (incomplete) Execute("DROP TABLE CheckpointParents");
         await using var runtime = Runtime();
         await runtime.InitializeReadableAsync();
-        Assert.AreEqual(4, await runtime.Index.GetSchemaVersionAsync());
+        Assert.AreEqual(5, await runtime.Index.GetSchemaVersionAsync());
         Assert.AreEqual(1, await runtime.Index.GetObjectCountAsync());
         Assert.AreEqual(0L, Scalar("SELECT COUNT(*) FROM ReplicaObservations"));
     }
@@ -78,7 +92,7 @@ public sealed class HistoryIndexSchemaUpgradeTests
         File.WriteAllText(IndexPath, "not a SQLite database");
         await using var runtime = Runtime();
         await runtime.InitializeReadableAsync();
-        Assert.AreEqual(4, await runtime.Index.GetSchemaVersionAsync());
+        Assert.AreEqual(5, await runtime.Index.GetSchemaVersionAsync());
         Assert.AreEqual(1, await runtime.Index.GetObjectCountAsync());
     }
 
@@ -112,7 +126,7 @@ public sealed class HistoryIndexSchemaUpgradeTests
         Assert.AreEqual(1L, Scalar("SELECT COUNT(*) FROM ReplicaObservations"));
         if (entry == "commit") await runtime.Repository.CommitAsync(Pack());
         else await runtime.InitializeReadableAsync();
-        Assert.AreEqual(4, await runtime.Index.GetSchemaVersionAsync());
+        Assert.AreEqual(5, await runtime.Index.GetSchemaVersionAsync());
         Assert.AreEqual(entry == "commit" ? 2 : 1, await runtime.Index.GetObjectCountAsync());
         Assert.AreEqual(0L, Scalar("SELECT COUNT(*) FROM ReplicaObservations"));
     }
@@ -167,7 +181,24 @@ public sealed class HistoryIndexSchemaUpgradeTests
         return new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow, [_codec.CreateObject(version)]);
     }
 
-    private void DowngradeTo3() => Execute("DROP INDEX IX_BranchUpdateParents_Parent; PRAGMA user_version=3");
+    private void DowngradeTo3() => DowngradeTo(3);
+    private void DowngradeTo(int version)
+    {
+        Execute("""
+            ALTER TABLE Objects RENAME TO Objects5;
+            CREATE TABLE Objects(Kind TEXT NOT NULL, ObjectId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, PayloadHash TEXT NOT NULL, PackId TEXT NOT NULL, IsSupported INTEGER NOT NULL, PayloadJson TEXT NOT NULL, PRIMARY KEY(Kind, ObjectId));
+            INSERT INTO Objects SELECT Kind,ObjectId,SchemaVersion,PayloadHash,'legacy-fixture',1,'{}' FROM Objects5;
+            DROP TABLE Objects5;
+            CREATE TABLE VersionParents(VersionId TEXT NOT NULL, ParentVersionId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(VersionId, Ordinal));
+            CREATE TABLE CheckpointParents(CheckpointId TEXT NOT NULL, ParentCheckpointId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, Ordinal));
+            CREATE TABLE CheckpointSources(CheckpointId TEXT NOT NULL, SourceId TEXT NOT NULL, VersionId TEXT NULL, Disposition INTEGER NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, SourceId));
+            CREATE TABLE AnnotationParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
+            CREATE TABLE ReplicaLifecycleParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
+            CREATE TABLE MaterializationPolicyParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
+            """);
+        if (version == 3) Execute("DROP INDEX IX_BranchUpdateParents_Parent");
+        Execute($"PRAGMA user_version={version}");
+    }
     private SqliteConnection Open()
     {
         var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = IndexPath, Pooling = false }.ToString());

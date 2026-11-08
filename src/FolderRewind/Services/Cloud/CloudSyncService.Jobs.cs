@@ -31,14 +31,12 @@ public static partial class CloudSyncService
 
     internal static CloudJobTarget FreezeTarget(BackupConfig config)
     {
-        var settings = config.Cloud;
-        var profile = ConfigService.CurrentConfig.CloudConnections.FirstOrDefault(p => p.Id == settings.ConnectionProfileId);
-        var credential = profile?.CredentialReference ?? settings.RcloneConfigPath;
-        var root = profile is null ? settings.RemoteBasePath : profile.RemoteName + ":" + settings.RemotePathSuffix;
-        var runtimeSettings = ConfigSnapshotMapper.Copy(settings);
-        if (profile is not null) { runtimeSettings.ExecutablePath = profile.ExecutablePath; runtimeSettings.WorkingDirectory = profile.WorkingDirectory; }
-        var working = runtimeSettings.WorkingDirectory;
-        if (TryResolveSharedRcloneRuntime(runtimeSettings, out _, out var effectiveWorking, out _)) working = effectiveWorking;
+        var settings = CloudConnectionCatalog.Resolve(config);
+        var profile = ConfigService.CurrentConfig.CloudConnections.Single(p => p.Id == settings.ConnectionProfileId);
+        var credential = settings.RcloneConfigPath;
+        var root = settings.RemoteBasePath;
+        var working = settings.WorkingDirectory;
+        if (TryResolveRcloneRuntime(settings, out _, out var effectiveWorking, out _)) working = effectiveWorking;
         var revision = "";
         var credentialRevision = "";
         try
@@ -52,7 +50,7 @@ public static partial class CloudSyncService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         { /* 缺凭据也先保留接纳证据；不把本地成功变成没有 Job。解析/认证失败由执行阶段明确暂停。 */ }
-        return new(settings.ConnectionProfileId ?? "legacy", profile?.ProfileRevision ?? revision,
+        return new(profile.Id, profile.ProfileRevision,
             settings.BindingRevision, root, new HistoryConfigId(config.Id).Value, revision,
             Convert.ToHexString(SHA256.HashData(HistoryRepositoryDescriptor.Create(new(config.Id)).ToCanonicalBytes())), credentialRevision, working);
     }

@@ -12,137 +12,6 @@ namespace FolderRewind.Services.Discovery;
 
 public sealed partial class LudusaviManifestCompiler
 {
-    public LudusaviCompiledIndex Compile(
-        Stream primaryManifest,
-        Stream? secondaryManifest,
-        FolderRewindGameOverrideDocument? overrides,
-        string sourceSha256,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(primaryManifest);
-
-        var root = LoadRoot(primaryManifest);
-        if (secondaryManifest != null)
-        {
-            MergeMappings(root, LoadRoot(secondaryManifest));
-        }
-
-        var entries = root.Children
-            .Where(pair => pair.Key is YamlScalarNode { Value: not null } && pair.Value is YamlMappingNode)
-            .ToDictionary(
-                pair => ((YamlScalarNode)pair.Key).Value!.Trim(),
-                pair => (YamlMappingNode)pair.Value,
-                StringComparer.Ordinal);
-        var diagnostics = new List<LudusaviCompilerDiagnostic>();
-        var aliasesByCanonical = ResolveAliases(entries, diagnostics, cancellationToken);
-        var games = new List<LudusaviCompiledGame>();
-        foreach (var pair in root.Children)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (pair.Key is not YamlScalarNode gameNameNode
-                || string.IsNullOrWhiteSpace(gameNameNode.Value)
-                || pair.Value is not YamlMappingNode gameNode)
-            {
-                continue;
-            }
-
-            var gameName = gameNameNode.Value.Trim();
-            if (GetNode(gameNode, "alias") != null)
-            {
-                continue;
-            }
-
-            aliasesByCanonical.TryGetValue(gameName, out var aliases);
-            games.Add(CompileGame(gameName, gameNode, aliases ?? Array.Empty<string>()));
-        }
-
-        var compiled = new LudusaviCompiledIndex
-        {
-            SourceSha256 = sourceSha256,
-            CompiledAtUtc = DateTime.UtcNow,
-            Diagnostics = diagnostics,
-            Games = games
-                .OrderBy(game => game.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .ToList()
-        };
-        return ApplyOverrides(compiled, overrides);
-    }
-
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> ResolveAliases(
-        IReadOnlyDictionary<string, YamlMappingNode> entries,
-        ICollection<LudusaviCompilerDiagnostic> diagnostics,
-        CancellationToken cancellationToken)
-    {
-        var output = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (var (aliasName, aliasEntry) in entries)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var aliasNode = GetNode(aliasEntry, "alias");
-            if (aliasNode == null)
-            {
-                continue;
-            }
-
-            var targetName = ScalarValue(aliasNode).Trim();
-            if (string.IsNullOrWhiteSpace(targetName))
-            {
-                AddAliasDiagnostic(diagnostics, "alias-empty-target", aliasName, "Alias target is empty.");
-                continue;
-            }
-
-            var visited = new HashSet<string>(StringComparer.Ordinal) { aliasName };
-            while (true)
-            {
-                if (!entries.TryGetValue(targetName, out var targetEntry))
-                {
-                    AddAliasDiagnostic(
-                        diagnostics,
-                        "alias-missing-target",
-                        aliasName,
-                        $"Alias target '{targetName}' does not exist.");
-                    break;
-                }
-                if (!visited.Add(targetName))
-                {
-                    AddAliasDiagnostic(
-                        diagnostics,
-                        "alias-cycle",
-                        aliasName,
-                        $"Alias chain contains a cycle at '{targetName}'.");
-                    break;
-                }
-
-                var nextAliasNode = GetNode(targetEntry, "alias");
-                if (nextAliasNode == null)
-                {
-                    if (!output.TryGetValue(targetName, out var aliases))
-                    {
-                        aliases = new List<string>();
-                        output[targetName] = aliases;
-                    }
-                    if (!aliases.Contains(aliasName, StringComparer.Ordinal))
-                    {
-                        aliases.Add(aliasName);
-                    }
-                    break;
-                }
-
-                targetName = ScalarValue(nextAliasNode).Trim();
-                if (string.IsNullOrWhiteSpace(targetName))
-                {
-                    AddAliasDiagnostic(diagnostics, "alias-empty-target", aliasName, "Alias chain contains an empty target.");
-                    break;
-                }
-            }
-        }
-
-        return output.ToDictionary(
-            pair => pair.Key,
-            pair => (IReadOnlyList<string>)pair.Value
-                .OrderBy(value => value, StringComparer.Ordinal)
-                .ToList(),
-            StringComparer.Ordinal);
-    }
 
     private static void AddAliasDiagnostic(
         ICollection<LudusaviCompilerDiagnostic> diagnostics,
@@ -155,28 +24,6 @@ public sealed partial class LudusaviManifestCompiler
             Message = message
         });
 
-    private static YamlMappingNode LoadRoot(Stream stream)
-    {
-        if (stream.CanSeek)
-        {
-            stream.Position = 0;
-        }
-
-        using var reader = new StreamReader(
-            stream,
-            Encoding.UTF8,
-            detectEncodingFromByteOrderMarks: true,
-            bufferSize: 64 * 1024,
-            leaveOpen: true);
-        var yaml = new YamlStream();
-        yaml.Load(reader);
-        if (yaml.Documents.Count != 1 || yaml.Documents[0].RootNode is not YamlMappingNode root)
-        {
-            throw new InvalidDataException("The Ludusavi manifest must contain one mapping document.");
-        }
-
-        return root;
-    }
 
     private static void MergeMappings(YamlMappingNode target, YamlMappingNode overlay)
     {
@@ -422,36 +269,6 @@ public sealed partial class LudusaviManifestCompiler
         }
     }
 
-    private static LudusaviCompiledIndex ApplyOverrides(
-        LudusaviCompiledIndex index,
-        FolderRewindGameOverrideDocument? overrides)
-    {
-        if (overrides == null)
-        {
-            return index;
-        }
-
-        if (!string.Equals(overrides.Magic, FolderRewindGameOverrideDocument.CurrentMagic, StringComparison.Ordinal)
-            || !string.Equals(overrides.SchemaVersion, FolderRewindGameOverrideDocument.CurrentSchemaVersion, StringComparison.Ordinal))
-        {
-            throw new InvalidDataException("Unsupported FolderRewind game override format.");
-        }
-
-        if (overrides.Entries.Count == 0)
-        {
-            return index;
-        }
-
-        var games = index.Games.Select(game => ApplyGameOverrides(game, overrides.Entries)).ToList();
-        return new LudusaviCompiledIndex
-        {
-            SchemaVersion = index.SchemaVersion,
-            SourceSha256 = index.SourceSha256,
-            CompiledAtUtc = index.CompiledAtUtc,
-            Diagnostics = index.Diagnostics,
-            Games = games
-        };
-    }
 
     private static LudusaviCompiledGame ApplyGameOverrides(
         LudusaviCompiledGame game,

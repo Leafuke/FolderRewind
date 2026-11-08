@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -57,7 +57,9 @@ namespace FolderRewind.Services
 
         public static string GetEffectiveExecutablePath(BackupConfig? config)
         {
-            return ResolveRcloneExecutable(config?.Cloud);
+            return ResolveRcloneExecutable(config?.Cloud.ConnectionProfileId is { } id
+                && ConfigService.CurrentConfig.CloudConnections.SingleOrDefault(p => p.Id == id) is { } profile
+                    ? new CloudSettings { ExecutablePath = profile.ExecutablePath } : null);
         }
 
 

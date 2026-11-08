@@ -17,7 +17,7 @@ namespace FolderRewind.Services.Plugins.V3;
 
 /// <summary>
 /// 负责单个备份源的捕获会话生命周期：一致性租约（Consistency Lease）获取、
-/// 稳定读取视图（Stable SourcePath）、版本元数据捕获及会话完成清理。
+/// Host 读取视图上的版本元数据捕获及会话完成清理。
 /// 消费已经冻结的 <see cref="PluginV3BackupSourceResolution"/>，不再重复解析策略或有效边界。
 /// </summary>
 internal sealed class PluginV3BackupSession : IAsyncDisposable
@@ -44,7 +44,6 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public IReadOnlyList<PluginDiagnostic> Diagnostics => _diagnostics;
     public bool IsBlocked => _resolution.IsBlocked;
     public string SourcePath => _runSourceLease?.SourcePath ?? _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
-    public bool HasStableSourceView => _captureLeaseOwner.StableSourcePath is not null;
     internal CancellationToken SourceCaptureCancellation => _runSourceLease?.CaptureCancellation ?? CancellationToken.None;
     public IReadOnlyList<string> MetadataPaths => _metadataPaths;
 
@@ -111,9 +110,6 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             _resolution.Intent,
             _diagnostics,
             cancellationToken,
-            NativeHistoryArtifactTransformPolicy.IsExperimentalEnabled(EffectiveConfig.ArtifactTransformPolicy)
-                ? new BackupSourceViewLimits(Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumBytes,
-                    Plugin.Runtime.Artifacts.ArtifactTransformLimits.Default.MaximumFiles) : null,
             EffectiveConfig.ArtifactTransformPolicy?.Transformer.PluginId == _resolution.PluginId.Value.Value ? _artifactOperation : null).ConfigureAwait(false);
     }
 
@@ -129,7 +125,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         var capability = operation?.Find<IVersionMetadataProviderCapability>(c => c.Kind == _resolution.ConfigSnapshot.Kind) ?? lease?.Capability;
         var context = operation?.Context ?? lease?.Context;
         if (capability is null || context is null) return PluginV3VersionMetadataCaptureResult.Empty;
-        var stableSourcePath = stagedSourcePath ?? _captureLeaseOwner.StableSourcePath;
+        var stableSourcePath = stagedSourcePath;
         if (stableSourcePath is null && sourceView is null)
         {
             // A successful ordinary source lease intentionally has no stable metadata view.

@@ -76,7 +76,6 @@ namespace FolderRewind.Views.Settings
         {
             var generation = _presentation.Generation;
             var filePath = await MainWindowService.PickFilePathAsync(
-                string.Empty,
                 "FolderRewind.Settings.RuntimeEnv.SevenZip",
                 new[] { ".exe" },
                 MainWindowService.SuggestedPickerLocation.ComputerFolder,
@@ -92,7 +91,6 @@ namespace FolderRewind.Views.Settings
         {
             var generation = _presentation.Generation;
             var filePath = await MainWindowService.PickFilePathAsync(
-                string.Empty,
                 "FolderRewind.Settings.RuntimeEnv.Rclone",
                 new[] { ".exe", ".cmd", ".bat", ".ps1" },
                 MainWindowService.SuggestedPickerLocation.ComputerFolder,
@@ -117,7 +115,6 @@ namespace FolderRewind.Views.Settings
         {
             var generation = _presentation.Generation;
             var folderPath = await MainWindowService.PickFolderPathAsync(
-                string.Empty,
                 "FolderRewind.Settings.RuntimeEnv.DefaultBackupRoot",
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
             if (!_presentation.IsCurrent(generation)) return;

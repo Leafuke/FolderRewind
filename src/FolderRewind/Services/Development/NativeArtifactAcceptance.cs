@@ -158,6 +158,8 @@ internal static partial class NativeArtifactAcceptance
             if (request.Benchmark) return await RunBenchmarkAsync(request, config, root);
             if (request.Phase is "cloud" or "cloud-recover") return await RunCloudIntegrationAsync(request, config, root);
             if (request.Phase == "app-services") return await RunApplicationServicesAsync(config, root);
+            if (request.Phase == "redundancy-data") return await RunRedundancyDataAsync(config, root);
+            if (request.Phase == "redundancy-cloud") return await RunRedundancyCloudAsync(request, config, root);
             if (request.Phase == "migration-export") return await RunMigrationExportAsync(config, root);
             if (request.Phase is "migration-import" or "migration-restart") return await RunMigrationRecoveryAsync(config, root, request.Phase == "migration-restart");
             return await RunIncrementalAsync(request, config, root, started);

@@ -186,7 +186,13 @@ internal static class DataMigrationService
         if (IsAwaitingHistory(snapshot)) throw new InvalidOperationException(I18n.GetString("Migration_AwaitingHistory"));
         var id = new HistoryConfigId(snapshot.Id);
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(snapshot.Id, token).ConfigureAwait(false);
-        if (runtime.Health == HistoryRuntimeHealth.LocalStateInitializationRequired)
+        // An empty repository is readable before local state exists. Continuation still
+        // requires a Workspace, including for a configuration-only import before startup
+        // takeover has run. Never infer replacement state from a non-empty repository.
+        var emptyRepositoryNeedsLocalState = runtime.Repository.GetPackFiles().Count == 0
+            && ((await runtime.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Status == DeviceLocalStateStatus.Missing
+                || (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Status == DeviceLocalStateStatus.Missing);
+        if ((runtime.Health & HistoryRuntimeHealth.LocalStateInitializationRequired) != 0 || emptyRepositoryNeedsLocalState)
         {
             runtime.MigrationState.MarkImported();
             await new HistoryMigrationInitializationService(runtime).InitializeAsync(snapshot.SourceFolders.Select(f => new SourceId(Guid.Parse(f.Id))), token).ConfigureAwait(false);

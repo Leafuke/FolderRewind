@@ -301,7 +301,8 @@ public sealed class HistoryPresentationQueryService
             var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpoint.CheckpointId.Value);
             var projection = HistoryAnnotationProjection.Project(target, annotationGroups.GetValueOrDefault(target) ?? []);
             checkpointSummaries.Add(new(checkpoint.CheckpointId, checkpoint.CreatedAtUtc, checkpoint.IsStructurallyComplete,
-                projection.IsPinned, checkpoint.Sources));
+                projection.IsPinned, [new(checkpoint.SourceId, checkpoint.SourceDescriptorSnapshot, checkpoint.VersionId,
+                    CheckpointSourceDisposition.CarriedForward, checkpoint.EffectiveSourceBoundary)]));
         }
         var historicalBranchNames = branchUpdates.ToDictionary(u => u.UpdateId, u => u.Name);
         var branchableIds = byRun == false ? new HashSet<CheckpointId>()

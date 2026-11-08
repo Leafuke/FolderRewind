@@ -46,6 +46,12 @@ internal static partial class NativeArtifactAcceptance
 
     private static async Task<int> RunCloudIntegrationAsync(Request request, BackupConfig config, string root)
     {
+        // The production Core has no fault field. Opted-in fault builds expose it without
+        // introducing a Core -> Host dependency or shipping the observer with normal builds.
+        var factsFault = typeof(HistoryReplicaSyncService).GetField("TestFault", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        if (request.CrashAt?.StartsWith("CloudFacts:", StringComparison.Ordinal) == true && factsFault is null)
+            throw new IOException("Cloud facts acceptance requires the isolated fault-injection Core.");
+        factsFault?.SetValue(null, (Action<string>)Observe);
         var history = await NativeHistoryCoreGateway.EnsureReadyAsync(config);
         var folder = config.SourceFolders.Single();
         var current = (await history.WorkspaceStore.LoadAsync()).Value!.SourceBaselines.Single().BaseVersionId!.Value;

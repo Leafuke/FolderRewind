@@ -58,7 +58,9 @@ internal sealed class NativeMigrationConsumerSession : IAsyncDisposable
             {
                 if (!inspected.Add(id)) continue;
                 var path = Path.Combine(Path.GetDirectoryName(store.PayloadPath(nodes[id]))!, "envelope.json");
-                HistoryReplicaRecoveryService.RequireRegularPath(root, path);
+                // Store paths are bound to their physical volume spelling. Compare
+                // against that same authority rather than the user's drive-letter alias.
+                HistoryReplicaRecoveryService.RequireRegularPath(store.Root, path);
                 if (ArtifactMetadataFile.ReadJson<NativeEnvelope>(path, 4096)?.Encrypted == true) return true;
             }
         return false;

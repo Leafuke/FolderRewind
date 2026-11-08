@@ -165,7 +165,6 @@ namespace FolderRewind.Views.Settings
             try
             {
                 var filePath = await MainWindowService.PickFilePathAsync(
-                    string.Empty,
                     "FolderRewind.Settings.Appearance.SponsorBackground",
                     new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" },
                     MainWindowService.SuggestedPickerLocation.PicturesLibrary);
@@ -230,7 +229,6 @@ namespace FolderRewind.Views.Settings
             try
             {
                 var filePath = await MainWindowService.PickFilePathAsync(
-                    string.Empty,
                     "FolderRewind.Settings.Appearance.CompletionSound",
                     new[] { ".wav", ".mp3", ".m4a", ".aac", ".wma", ".flac" },
                     MainWindowService.SuggestedPickerLocation.MusicLibrary);

@@ -61,13 +61,13 @@ public sealed partial class BackupSetupPage : Page
     }
     private async void OnAddFolder(object sender, RoutedEventArgs e) => await RunAsync(async () =>
     {
-        var path = await MainWindowService.PickFolderPathAsync(I18n.GetString("Setup_SourcePickerTitle"), "FolderRewind.Setup.Source", MainWindowService.SuggestedPickerLocation.ComputerFolder);
+        var path = await MainWindowService.PickFolderPathAsync("FolderRewind.Setup.Source", MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (_active && !string.IsNullOrWhiteSpace(path)) ViewModel.AddSource(path);
     });
     private void OnRemove(object sender, RoutedEventArgs e) { if (sender is Button { Tag: string path }) ViewModel.RemoveSource(path); }
     private async void OnDestination(object sender, RoutedEventArgs e) => await RunAsync(async () =>
     {
-        var path = await MainWindowService.PickFolderPathAsync(I18n.GetString("Setup_DestinationPickerTitle"), "FolderRewind.Setup.Destination", MainWindowService.SuggestedPickerLocation.ComputerFolder);
+        var path = await MainWindowService.PickFolderPathAsync("FolderRewind.Setup.Destination", MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (_active && !string.IsNullOrWhiteSpace(path)) ViewModel.Destination = path;
     });
     private void OnNext(object sender, RoutedEventArgs e) => ViewModel.Next();

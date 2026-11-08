@@ -21,7 +21,7 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     internal Func<CloudJobPhase, CancellationToken, Task>? ObserveJobPhase { get; set; }
     private string Append(params string[] parts) => CloudRemotePath.Append(context.RemoteRoot, parts);
     private RcloneArtifactObjectTransport Objects => new(key => Append("_folderrewind", "artifact-objects", key),
-        CopyPayloadAsync, CheckPayloadAsync, DownloadBoundedAsync);
+        CopyPayloadAsync, CheckPayloadAsync, DownloadReservedObjectAsync);
     public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, CancellationToken token) => Objects.HasVerifiedObjectAsync(key, size, sha256, token);
     public Task<bool> HasVerifiedObjectAsync(string key, long size, string sha256, string? localPath, CancellationToken token) => Objects.HasVerifiedObjectAsync(key, size, sha256, localPath, token);
     public Task UploadObjectAsync(string key, string path, long size, string sha256, FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token) => Objects.UploadObjectAsync(key, Path.GetFullPath(path), size, sha256, budget, token);
@@ -53,8 +53,16 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     }
     public Task<byte[]> DownloadPackAsync(HistoryConfigId id, PackId pack, CancellationToken token) => ReadBytesAsync(PackPath(id, pack), token);
     public Task UploadPackOnceAsync(HistoryConfigId id, PackId pack, byte[] bytes, CancellationToken token) => WriteOnceAsync(PackPath(id, pack), bytes, token);
-    public Task UploadAsync(ReplicaId id, string localPath, CancellationToken token)
-        => CopyPayloadAsync(Path.GetFullPath(localPath), ReplicaRoot(id) + "/payload", true, token);
+    public async Task UploadAsync(ReplicaId id, string localPath, CancellationToken token)
+    {
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        Development.NativeArtifactAcceptance.Observe("CloudDescriptor:before");
+#endif
+        await CopyPayloadAsync(Path.GetFullPath(localPath), ReplicaRoot(id) + "/payload", true, token).ConfigureAwait(false);
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        Development.NativeArtifactAcceptance.Observe("CloudDescriptor:after");
+#endif
+    }
     private async Task CopyPayloadAsync(string source, string destination, bool immutable, CancellationToken token)
     {
         if (ObserveJobPhase is not null) await ObserveJobPhase(CloudJobPhase.Uploading, token).ConfigureAwait(false);
@@ -69,8 +77,16 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
         return await new RcloneRemotePayloadVerifier(RunAsync, verifyAfterUpload)
             .VerifyAsync(remote, size, sha256, localPath, token).ConfigureAwait(false);
     }
-    public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token)
-        => WriteOnceAsync(ReplicaRoot(manifest.ReplicaId) + "/manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest, RcloneTransportJsonContext.Default.HistoryReplicaManifest), token);
+    public async Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token)
+    {
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        Development.NativeArtifactAcceptance.Observe("CloudManifest:before");
+#endif
+        await WriteOnceAsync(ReplicaRoot(manifest.ReplicaId) + "/manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest, RcloneTransportJsonContext.Default.HistoryReplicaManifest), token).ConfigureAwait(false);
+#if NATIVE_ARTIFACT_ACCEPTANCE
+        Development.NativeArtifactAcceptance.Observe("CloudManifest:after");
+#endif
+    }
     public async Task<HistoryReplicaManifest?> ReadManifestAsync(ReplicaId replicaId, CancellationToken token)
     {
         try
@@ -119,6 +135,9 @@ public sealed class RcloneNativeHistoryTransport(RcloneExecutionContext context,
     private Task DownloadBoundedAsync(string remote, string path, long expectedLength,
         FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token)
         => RcloneConnectionService.RunToFileAsync(context.CreateStartInfo(["cat", remote]), _timeout, token, path, expectedLength, budget);
+    private Task DownloadReservedObjectAsync(string remote, string path, long expectedLength,
+        FolderRewind.Plugin.Runtime.Artifacts.ArtifactTransferBudget budget, CancellationToken token)
+        => RcloneConnectionService.RunToReservedFileAsync(context.CreateStartInfo(["cat", remote]), _timeout, token, path, expectedLength, budget);
     private async Task WriteOnceAsync(string remote, byte[] bytes, CancellationToken token)
     {
         await using var work = await OwnedArtifactTemporaryWorkspace.CreateAsync(TemporaryRoot, token);
