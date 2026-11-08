@@ -24,6 +24,7 @@ public static partial class BackupService
         public bool CreatedNewArchive { get; init; }
         public IReadOnlyList<BackupSourceExecutionOutcome> SourceOutcomes { get; init; } = Array.Empty<BackupSourceExecutionOutcome>();
         public HistoryCommitBatch? CommittedBatch { get; init; }
+        public IReadOnlyDictionary<SourceId, string> FileReferences { get; init; } = new Dictionary<SourceId, string>();
         public SafetySnapshot? SafetySnapshot => CommittedBatch?.NewSafetySnapshot;
         public bool HistoryRecoveryRequired { get; init; }
         public string? RecoveryMessage { get; init; }
@@ -569,6 +570,7 @@ public static partial class BackupService
                 terminalLifecycle.Set(CreateFailedTerminal("protection_unconfirmed", ex.Message));
                 return new BackupTransactionExecutionResult { Outcome = OperationOutcome.SuccessWithWarnings,
                     SourceOutcomes = sourceOutcomes, CommittedBatch = committedBatch,
+                    FileReferences = fileReferences,
                     HistoryRecoveryRequired = true, RecoveryMessage = ex.Message };
             }
         }
@@ -578,7 +580,8 @@ public static partial class BackupService
             Outcome = durableOutcome,
             CreatedNewArchive = sourceOutcomes.Any(item => item.CreatedNewArchive),
             SourceOutcomes = sourceOutcomes,
-            CommittedBatch = committedBatch
+            CommittedBatch = committedBatch,
+            FileReferences = fileReferences
         };
     }
 

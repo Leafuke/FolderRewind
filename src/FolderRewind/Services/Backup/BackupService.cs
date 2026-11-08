@@ -104,7 +104,7 @@ namespace FolderRewind.Services
             IReadOnlyDictionary<string, string?>? fields = null)
         {
             if (NativeRestoreSafetyCaptureContext.Current is not null) return;
-            // Run coordination emits one authoritative game terminal after the entire History batch decides.
+            // Run coordination emits authoritative source terminals after the entire History batch decides.
             if (PluginV3BackupRunOwner.Current is not null && eventName is "backup_success" or "backup_failed") return;
             var context = KnotLinkService.CurrentCommandContext;
             var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)

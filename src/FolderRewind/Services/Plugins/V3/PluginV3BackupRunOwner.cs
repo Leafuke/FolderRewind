@@ -26,6 +26,7 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
     private readonly Dictionary<Guid, BackupCoordinationSource> _sources;
     private readonly Dictionary<Guid, (string Path, string Boundary)> _logicalBindings;
     private readonly CancellationTokenSource _lifetimeCapture;
+    private readonly KnotLinkCommandContext? _commandContext;
     private readonly HashSet<Guid> _sealedSources = [];
     private readonly object _sourceState = new();
     private CoordinationSignalGate.Admission? _channel;
@@ -50,6 +51,7 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
     {
         ConfigId = configId; _lease = lease; Session = session; _sources = sources; OperationId = id;
         SignalOwner = KnotLinkCoordinationChannel.Owner ?? id;
+        _commandContext = KnotLinkService.CurrentCommandContext;
         _logicalBindings = logicalBindings;
         _lifetimeCapture = CancellationTokenSource.CreateLinkedTokenSource(lease.Context.PluginLifetime, CancellationToken.None);
         Interlocked.Increment(ref _activeOwners);
@@ -144,11 +146,26 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
         var finalOutcome = result.ToPluginResult().Outcome;
         if (SignalOwner == OperationId)
         {
-            var success = result.Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings or OperationOutcome.NoChanges
-                && !result.HistoryRecoveryRequired;
-            var fields = new BackupOperationResult(finalOutcome, result.CreatedNewArchive, result.HistoryRecoveryRequired).ToProtocolFields();
-            fields["config"] = ConfigId; fields["operation_id"] = OperationId.ToString("D");
-            var queued = await KnotLinkService.TryBroadcastEventAsync(null, success ? "backup_success" : "backup_failed", fields, cleanup.Token).ConfigureAwait(false);
+            // Preserve the source-level wire fields, but release no game terminal before the whole batch decides.
+            var queued = true;
+            foreach (var source in _sources.Values)
+            {
+                var outcome = result.SourceOutcomes.SingleOrDefault(o => o.FolderId == source.Folder.FolderId);
+                var sourceOutcome = ResolveSourceOutcome(outcome);
+                var fields = new BackupOperationResult(sourceOutcome,
+                    result.CreatedNewArchive && outcome?.CreatedNewArchive == true, result.HistoryRecoveryRequired).ToProtocolFields();
+                fields["config"] = ConfigId; fields["operation_id"] = OperationId.ToString("D");
+                fields["folder"] = source.Folder.DisplayName;
+                fields["world"] = source.Folder.DisplayName;
+                fields["folder_id"] = source.Folder.FolderId.ToString("D");
+                if (result.FileReferences.TryGetValue(new SourceId(source.Folder.FolderId), out var file)) fields["file"] = file;
+                var success = !result.HistoryRecoveryRequired
+                    && sourceOutcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings or OperationOutcome.NoChanges;
+                if (!success) fields["error"] = result.Diagnostic ?? result.RecoveryMessage
+                    ?? (string.IsNullOrWhiteSpace(outcome?.ErrorMessage) ? sourceOutcome.ToString() : outcome.ErrorMessage);
+                queued = await KnotLinkService.TryBroadcastEventAsync(_commandContext,
+                    success ? "backup_success" : "backup_failed", fields, cleanup.Token).ConfigureAwait(false) && queued;
+            }
             if (_channel?.OwnsChannel == true)
                 dispatch = queued && await KnotLinkCoordinationChannel.Gate.FlushOwnerAsync(SignalOwner, cleanup.Token).ConfigureAwait(false)
                     ? BackupTerminalDispatch.Submitted : BackupTerminalDispatch.Failed;
@@ -162,10 +179,7 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
                 _sources.Keys.Select(id =>
                 {
                     var source = result.SourceOutcomes.SingleOrDefault(o => o.FolderId == id);
-                    var outcome = source?.OperationOutcome ?? finalOutcome;
-                    if (result.CommittedBatch is null && !result.HistoryRecoveryRequired
-                        && finalOutcome is OperationOutcome.Failed or OperationOutcome.Canceled or OperationOutcome.Blocked) outcome = finalOutcome;
-                    return new BackupSourceCoordinationCompletion(id, outcome, result.CreatedNewArchive && source?.CreatedNewArchive == true);
+                    return new BackupSourceCoordinationCompletion(id, ResolveSourceOutcome(source), result.CreatedNewArchive && source?.CreatedNewArchive == true);
                 }).ToArray(), dispatch), cleanup.Token);
             OperationDiagnosticFormatter.Log(diagnostics, "Backup run coordination " + OperationId, "Backup");
             result.CompletionDiagnostics = OperationDiagnosticFormatter.Snapshot(diagnostics.Where(d => !captured.Contains(OperationDiagnosticFormatter.Identity(d))));
@@ -177,6 +191,11 @@ internal sealed class PluginV3BackupRunOwner : IAsyncDisposable
             if (_channel is not null) released = await _channel.CompleteAsync(cleanup.Token).ConfigureAwait(false);
         }
         return dispatch != BackupTerminalDispatch.Failed && released;
+
+        OperationOutcome ResolveSourceOutcome(BackupService.BackupSourceExecutionOutcome? source)
+            => result.CommittedBatch is null && !result.HistoryRecoveryRequired
+                && finalOutcome is OperationOutcome.Failed or OperationOutcome.Canceled or OperationOutcome.Blocked
+                ? finalOutcome : source?.OperationOutcome ?? finalOutcome;
     }
 
     public async ValueTask DisposeAsync()

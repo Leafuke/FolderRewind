@@ -114,7 +114,7 @@ public sealed partial class HistoryRestoreService
         using var ownedPreparation = PreparationSession is null ? TryCreatePreparationSession(mappedSources, expectedWorkspace, out preparationError) : null;
         if (preparationError is not null) return Blocked(preparationError);
         var session = PreparationSession ?? ownedPreparation;
-        using var currentInputs = RequiresCurrentInput ? EnterCurrentInputScope(mappedSources) : null;
+        using var currentInputs = RequiresCurrentInput ? EnterCurrentInputScope() : null;
         try
         {
             var chosen = new List<(SourceVersion Version, HistoryRestoreSourceBinding Binding, HistoryRestoreApplyMode Mode)>();
@@ -127,6 +127,8 @@ public sealed partial class HistoryRestoreService
                 var effectiveMode = version.CaptureScope == CaptureScope.PartialSource ? HistoryRestoreApplyMode.Overwrite : requestedMode;
                 chosen.Add((version, binding, effectiveMode));
             }
+            foreach (var (version, binding, _) in chosen)
+                currentInputs?.Protect(BindRestoreSource(version, binding, session));
             await ReservePreparationSpaceAsync(chosen.Select(s => (s.Version, s.Binding, RequiredFidelity(s.Mode))), session, cancellationToken).ConfigureAwait(false);
             foreach (var (version, binding, effectiveMode) in chosen)
             {
@@ -201,9 +203,10 @@ public sealed partial class HistoryRestoreService
         using var ownedPreparation = PreparationSession is null ? TryCreatePreparationSession([source], expectedWorkspace, out preparationError) : null;
         if (preparationError is not null) return Blocked(preparationError);
         var session = PreparationSession ?? ownedPreparation;
-        using var currentInputs = RequiresCurrentInput && ReusablePreparation is null ? EnterCurrentInputScope([source]) : null;
+        using var currentInputs = RequiresCurrentInput && ReusablePreparation is null ? EnterCurrentInputScope() : null;
         try
         {
+            currentInputs?.Protect(BindRestoreSource(version, source, session));
             var effectiveMode = version.CaptureScope == CaptureScope.PartialSource
                 ? HistoryRestoreApplyMode.Overwrite : requestedMode;
             var boundSource = session?.BindSource(source) ?? source;
@@ -278,6 +281,11 @@ public sealed partial class HistoryRestoreService
         }
     }
 
+    private static HistoryRestoreSourceBinding BindRestoreSource(SourceVersion version,
+        HistoryRestoreSourceBinding source, HistoryRestorePreparationSession? session)
+        // Current-input protection and plugin preparation must use the same historical boundary and physical target.
+        => (session?.BindSource(source) ?? source) with { EffectiveSourceBoundary = version.EffectiveSourceBoundary };
+
     internal async Task<PreparedRestoreSource> PrepareSourceAsync(
         SourceVersion version,
         HistoryRestoreSourceBinding source,
@@ -287,7 +295,7 @@ public sealed partial class HistoryRestoreService
         HistoryRestorePreparationSession? session = null)
     {
         using var phase = Services.HistoryOperationDiagnostics.Current?.Measure("prepare-source");
-        source = session?.BindSource(source) ?? source;
+        source = BindRestoreSource(version, source, session);
         if (applyMode == HistoryRestoreApplyMode.Clean)
             LegacyRecoveryPolicy.RequireKnownBoundary(version);
         var (allRepresentations, environment) = await GetPreparationInputsAsync(cancellationToken).ConfigureAwait(false);
@@ -333,7 +341,7 @@ public sealed partial class HistoryRestoreService
                 completeDirectories = true;
             }
             return new PreparedRestoreSource(
-                source with { EffectiveSourceBoundary = version.EffectiveSourceBoundary },
+                source,
                 version,
                 assessment.Selected.Fidelity,
                 applyMode,
